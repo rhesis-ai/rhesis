@@ -1,0 +1,382 @@
+---
+description: These rules MUST be applied whenever creating, modifying, or generating any documentation in the docs/ directory
+alwaysApply: false
+---
+# Rhesis Documentation Rules
+
+**IMPORTANT**: These rules MUST be applied whenever creating, modifying, or generating any documentation in the `docs/` directory.
+
+## Quick Checklist for Documentation
+
+When generating or editing documentation, always:
+- ✅ Escape ALL curly braces in text: `\{id\}`, `\{value\}`, `\{placeholder\}`
+- ✅ Remove decorative emojis (use "Note:", "Warning:", "Tip:" instead)
+- ✅ Follow existing documentation style and structure
+- ✅ Include code examples with language tags (```python, ```typescript, ```bash)
+- ✅ Test that the documentation builds without errors
+- ✅ Link to related documentation pages
+
+## Documentation Framework and Standards
+
+**Framework**: We use Nextra for documentation, which processes MDX (Markdown + JSX) files.
+
+### Key MDX Syntax Rules
+
+#### Escaping Curly Braces
+**Critical**: MDX interprets anything inside curly braces `{...}` as a JSX expression. Always escape curly braces when you want to display them as literal text:
+
+```mdx
+✅ GOOD: API PUT /test_results/\{id\}
+❌ BAD:  API PUT /test_results/{id}  ← This causes "ReferenceError: id is not defined"
+```
+
+**Rule**: Any placeholder, variable, or example value in curly braces must be escaped: `\{value\}`
+
+**Common scenarios requiring escaping**:
+- API endpoint paths: `/api/users/\{userId\}/profile`, `/posts/\{postId\}/comments/\{commentId\}`
+- Template strings: `"Hello \{name\}"`, `"User \{username\} logged in"`
+- Code examples in headings: `### Using \{variable\} in templates`
+- JSON examples: `\{"key": "value"\}`, `\{"status": "success"\}`
+- Path parameters: `/files/\{filename\}`, `/images/\{imageId\}.jpg`
+- Variable placeholders: `\{count\} items`, `\{total\} users`
+
+**When NOT to escape**:
+- Inside code blocks (fenced with ``` or ~~~) - these are already literal
+- Inside inline code: `` `{id}` `` - backticks make it literal
+
+#### Documentation Style Guidelines
+
+1. **Accessibility and Consistency**:
+   - Remove decorative emojis (🎉, ✨, 🚀, etc.) from documentation
+   - Use text-based indicators instead: "Note:", "Warning:", "Tip:"
+   - Emojis reduce accessibility for screen readers and appear inconsistent across platforms
+
+2. **Follow Existing Style**:
+   - Match the tone, structure, and formatting of existing documentation
+   - Use consistent heading levels and hierarchy
+   - Follow established patterns for code examples, tables, and callouts
+
+3. **Code Examples**:
+   - Always specify language for syntax highlighting: ````python`, ````typescript`, ````bash`
+   - Include file paths in comments when helpful: `# apps/backend/src/...`
+   - Keep examples concise but complete enough to be useful
+
+4. **Structure**:
+   - Start with clear overview/introduction
+   - Use descriptive headings that answer "what", "why", "how"
+   - Include practical examples and common scenarios
+   - Link to related documentation
+
+## Material-UI Icons in MDX Files
+
+**Problem**: MDX files cannot directly import Material-UI icons due to module resolution issues.
+
+**Solution**: Always create a separate JSX component to handle icon imports, then use that component in MDX files.
+
+### Pattern to Follow:
+
+1. **Create a JSX component** in `/docs/src/components/` that imports the MUI icons:
+   ```jsx
+   'use client'
+
+   import React from 'react'
+   import IconName from '@mui/icons-material/IconName'
+   import { InfoCardHorizontal } from './InfoCardHorizontal'
+
+   export const MyComponent = () => {
+     return (
+       <InfoCardHorizontal icon={IconName} title="..." description="..." />
+     )
+   }
+   ```
+
+2. **Register the component** in `/docs/src/mdx-components.js`:
+   ```js
+   import { MyComponent } from './components/MyComponent'
+
+   export function useMDXComponents(components) {
+     return {
+       ...themeComponents,
+       ...components,
+       MyComponent,
+     }
+   }
+   ```
+
+3. **Use in MDX files** without any imports:
+   ```mdx
+   <MyComponent />
+   ```
+
+### Examples:
+- `FeatureOverview.jsx` - Imports MUI icons, exports component
+- `ArchitectureOverview.jsx` - Imports MUI icons, exports component
+- `PlatformFeatures.jsx` - Imports MUI icons, exports component
+
+**Never** try to import `@mui/icons-material/*` directly in `.mdx` files.
+
+## Documentation Directory Structure
+
+```
+docs/
+├── src/                           # Documentation site source
+│   ├── components/               # Reusable JSX components for MDX
+│   ├── app/                      # Next.js app directory
+│   └── mdx-components.js         # MDX component registry
+├── content/                      # All documentation content (MDX files)
+│   ├── _meta.tsx                # Root navigation config
+│   ├── index.mdx                # Home page
+│   ├── getting-started/         # Getting started guides
+│   ├── platform/                # Platform feature documentation
+│   ├── development/             # Development guides
+│   │   ├── backend/            # Backend development
+│   │   ├── frontend/           # Frontend development
+│   │   └── worker/             # Worker service
+│   └── sdk/                     # SDK documentation
+└── README.md                     # Documentation overview
+```
+
+## Navigation Configuration
+
+Each directory should have a `_meta.tsx` file to configure navigation:
+
+```typescript
+import type { MetaRecord } from 'nextra'
+
+const meta: MetaRecord = {
+  index: 'Overview',
+  'getting-started': 'Getting Started',
+  'api-reference': 'API Reference',
+}
+
+export default meta
+```
+
+Or for more complex configurations:
+
+```typescript
+export default {
+  index: {
+    title: "Overview",
+    theme: {
+      layout: "full",
+    },
+  },
+  "feature-name": {
+    title: "Feature Name",
+  },
+}
+```
+
+## Best Practices
+
+### Writing Documentation
+
+1. **Be Clear and Concise**: Write for developers of all skill levels
+2. **Use Examples**: Show, don't just tell - include code examples
+3. **Keep It Updated**: Documentation should match the current codebase
+4. **Link Related Topics**: Help users discover related information
+5. **Test Your Examples**: Ensure all code examples actually work
+
+### Organizing Content
+
+1. **Logical Hierarchy**: Organize by feature/topic, not by file type
+2. **Progressive Disclosure**: Start simple, add complexity gradually
+3. **Consistent Naming**: Use kebab-case for file names: `test-result-status.mdx`
+4. **Clear Titles**: Make titles descriptive and searchable
+
+### Maintaining Quality
+
+1. **Review Changes**: Always build locally before committing
+2. **Check Links**: Verify internal and external links work
+3. **Validate Syntax**: Watch for MDX syntax errors (especially curly braces!)
+4. **Test Readability**: Have someone else review for clarity
+# Rhesis Documentation Rules
+
+**IMPORTANT**: These rules MUST be applied whenever creating, modifying, or generating any documentation in the `docs/` directory.
+
+## Quick Checklist for Documentation
+
+When generating or editing documentation, always:
+- ✅ Escape ALL curly braces in text: `\{id\}`, `\{value\}`, `\{placeholder\}`
+- ✅ Remove decorative emojis (use "Note:", "Warning:", "Tip:" instead)
+- ✅ Follow existing documentation style and structure
+- ✅ Include code examples with language tags (```python, ```typescript, ```bash)
+- ✅ Test that the documentation builds without errors
+- ✅ Link to related documentation pages
+
+## Documentation Framework and Standards
+
+**Framework**: We use Nextra for documentation, which processes MDX (Markdown + JSX) files.
+
+### Key MDX Syntax Rules
+
+#### Escaping Curly Braces
+**Critical**: MDX interprets anything inside curly braces `{...}` as a JSX expression. Always escape curly braces when you want to display them as literal text:
+
+```mdx
+✅ GOOD: API PUT /test_results/\{id\}
+❌ BAD:  API PUT /test_results/{id}  ← This causes "ReferenceError: id is not defined"
+```
+
+**Rule**: Any placeholder, variable, or example value in curly braces must be escaped: `\{value\}`
+
+**Common scenarios requiring escaping**:
+- API endpoint paths: `/api/users/\{userId\}/profile`, `/posts/\{postId\}/comments/\{commentId\}`
+- Template strings: `"Hello \{name\}"`, `"User \{username\} logged in"`
+- Code examples in headings: `### Using \{variable\} in templates`
+- JSON examples: `\{"key": "value"\}`, `\{"status": "success"\}`
+- Path parameters: `/files/\{filename\}`, `/images/\{imageId\}.jpg`
+- Variable placeholders: `\{count\} items`, `\{total\} users`
+
+**When NOT to escape**:
+- Inside code blocks (fenced with ``` or ~~~) - these are already literal
+- Inside inline code: `` `{id}` `` - backticks make it literal
+
+#### Documentation Style Guidelines
+
+1. **Accessibility and Consistency**:
+   - Remove decorative emojis (🎉, ✨, 🚀, etc.) from documentation
+   - Use text-based indicators instead: "Note:", "Warning:", "Tip:"
+   - Emojis reduce accessibility for screen readers and appear inconsistent across platforms
+
+2. **Follow Existing Style**:
+   - Match the tone, structure, and formatting of existing documentation
+   - Use consistent heading levels and hierarchy
+   - Follow established patterns for code examples, tables, and callouts
+
+3. **Code Examples**:
+   - Always specify language for syntax highlighting: ````python`, ````typescript`, ````bash`
+   - Include file paths in comments when helpful: `# apps/backend/src/...`
+   - Keep examples concise but complete enough to be useful
+
+4. **Structure**:
+   - Start with clear overview/introduction
+   - Use descriptive headings that answer "what", "why", "how"
+   - Include practical examples and common scenarios
+   - Link to related documentation
+
+## Material-UI Icons in MDX Files
+
+**Problem**: MDX files cannot directly import Material-UI icons due to module resolution issues.
+
+**Solution**: Always create a separate JSX component to handle icon imports, then use that component in MDX files.
+
+### Pattern to Follow:
+
+1. **Create a JSX component** in `/docs/src/components/` that imports the MUI icons:
+   ```jsx
+   'use client'
+
+   import React from 'react'
+   import IconName from '@mui/icons-material/IconName'
+   import { InfoCardHorizontal } from './InfoCardHorizontal'
+
+   export const MyComponent = () => {
+     return (
+       <InfoCardHorizontal icon={IconName} title="..." description="..." />
+     )
+   }
+   ```
+
+2. **Register the component** in `/docs/src/mdx-components.js`:
+   ```js
+   import { MyComponent } from './components/MyComponent'
+
+   export function useMDXComponents(components) {
+     return {
+       ...themeComponents,
+       ...components,
+       MyComponent,
+     }
+   }
+   ```
+
+3. **Use in MDX files** without any imports:
+   ```mdx
+   <MyComponent />
+   ```
+
+### Examples:
+- `FeatureOverview.jsx` - Imports MUI icons, exports component
+- `ArchitectureOverview.jsx` - Imports MUI icons, exports component
+- `PlatformFeatures.jsx` - Imports MUI icons, exports component
+
+**Never** try to import `@mui/icons-material/*` directly in `.mdx` files.
+
+## Documentation Directory Structure
+
+```
+docs/
+├── src/                           # Documentation site source
+│   ├── components/               # Reusable JSX components for MDX
+│   ├── app/                      # Next.js app directory
+│   └── mdx-components.js         # MDX component registry
+├── content/                      # All documentation content (MDX files)
+│   ├── _meta.tsx                # Root navigation config
+│   ├── index.mdx                # Home page
+│   ├── getting-started/         # Getting started guides
+│   ├── platform/                # Platform feature documentation
+│   ├── development/             # Development guides
+│   │   ├── backend/            # Backend development
+│   │   ├── frontend/           # Frontend development
+│   │   └── worker/             # Worker service
+│   └── sdk/                     # SDK documentation
+└── README.md                     # Documentation overview
+```
+
+## Navigation Configuration
+
+Each directory should have a `_meta.tsx` file to configure navigation:
+
+```typescript
+import type { MetaRecord } from 'nextra'
+
+const meta: MetaRecord = {
+  index: 'Overview',
+  'getting-started': 'Getting Started',
+  'api-reference': 'API Reference',
+}
+
+export default meta
+```
+
+Or for more complex configurations:
+
+```typescript
+export default {
+  index: {
+    title: "Overview",
+    theme: {
+      layout: "full",
+    },
+  },
+  "feature-name": {
+    title: "Feature Name",
+  },
+}
+```
+
+## Best Practices
+
+### Writing Documentation
+
+1. **Be Clear and Concise**: Write for developers of all skill levels
+2. **Use Examples**: Show, don't just tell - include code examples
+3. **Keep It Updated**: Documentation should match the current codebase
+4. **Link Related Topics**: Help users discover related information
+5. **Test Your Examples**: Ensure all code examples actually work
+
+### Organizing Content
+
+1. **Logical Hierarchy**: Organize by feature/topic, not by file type
+2. **Progressive Disclosure**: Start simple, add complexity gradually
+3. **Consistent Naming**: Use kebab-case for file names: `test-result-status.mdx`
+4. **Clear Titles**: Make titles descriptive and searchable
+
+### Maintaining Quality
+
+1. **Review Changes**: Always build locally before committing
+2. **Check Links**: Verify internal and external links work
+3. **Validate Syntax**: Watch for MDX syntax errors (especially curly braces!)
+4. **Test Readability**: Have someone else review for clarity

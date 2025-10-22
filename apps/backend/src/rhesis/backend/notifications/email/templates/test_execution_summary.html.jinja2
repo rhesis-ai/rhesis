@@ -73,6 +73,12 @@
                 <td style="padding: 8px 0; font-weight: bold;">Tests Failed:</td>
                 <td style="padding: 8px 0; color: #dc3545; font-weight: bold;">{{ tests_failed }}</td>
             </tr>
+            {%- if execution_errors is defined and execution_errors > 0 %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Execution Errors:</td>
+                <td style="padding: 8px 0; color: #ff8c00; font-weight: bold;">{{ execution_errors }}</td>
+            </tr>
+            {%- endif %}
             <tr>
                 <td style="padding: 8px 0; font-weight: bold;">Execution Time:</td>
                 <td style="padding: 8px 0;">{{ execution_time or "N/A" }}</td>
