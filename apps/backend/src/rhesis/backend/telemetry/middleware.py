@@ -31,10 +31,25 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
         # Start timing
         start_time = time.time()
 
-        # Process the request first (this runs dependencies and sets request.state.user)
+        # Try to get user from an earlier middleware/dependency if it's already set
+        user = getattr(request.state, "user", None)
+        if user and hasattr(user, "telemetry_enabled"):
+            telemetry_enabled = user.telemetry_enabled or False
+            user_id = getattr(user, "id", None)
+            org_id = getattr(user, "organization_id", None)
+
+            # Set telemetry context BEFORE processing the request
+            # This allows track_feature_usage() calls in route handlers to work
+            set_telemetry_enabled(
+                enabled=telemetry_enabled,
+                user_id=str(user_id) if user_id else None,
+                org_id=str(org_id) if org_id else None,
+            )
+
+        # Process the request (this runs route handlers where track_feature_usage() is called)
         response = await call_next(request)
 
-        # NOW check if user has telemetry enabled (after dependencies have run)
+        # Check again if user was set during request processing
         user = getattr(request.state, "user", None)
 
         if user and hasattr(user, "telemetry_enabled"):
@@ -46,7 +61,7 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
                 f"TelemetryMiddleware: user={user_id}, telemetry_enabled={telemetry_enabled}"
             )
 
-            # Set telemetry context for any spans created during this request
+            # Set/update telemetry context after request (for endpoint tracking)
             set_telemetry_enabled(
                 enabled=telemetry_enabled,
                 user_id=str(user_id) if user_id else None,
