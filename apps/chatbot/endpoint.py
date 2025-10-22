@@ -6,7 +6,6 @@ import random
 import logging
 from typing import List, Dict, Any, Generator, Optional, Callable
 from google import genai
-from google.genai import errors
 from dotenv import load_dotenv
 
 # Configure logging
@@ -45,7 +44,7 @@ class GeminiClient:
         while retries <= MAX_RETRIES:
             try:
                 return func(*args, **kwargs)
-            except (errors.GoogleGenerativeAIError) as e:
+            except Exception as e:
                 retries += 1
                 if retries > MAX_RETRIES:
                     logger.error(f"Failed after {MAX_RETRIES} retries: {str(e)}")
@@ -113,7 +112,7 @@ class ResponseGenerator:
                 if chunk.text:
                     yield chunk.text
                     
-        except errors.GoogleGenerativeAIError as e:
+        except Exception as e:
             logger.error(f"API error in stream_assistant_response: {str(e)}")
             yield f"I apologize, but I couldn't process your request at this time due to a service issue."
             
@@ -154,7 +153,7 @@ class ResponseGenerator:
             # Parse the response
             return self._parse_context_response(response.text, prompt)
             
-        except errors.GoogleGenerativeAIError as e:
+        except Exception as e:
             logger.error(f"API error in generate_context: {str(e)}")
             return self._get_default_fragments(prompt)
             

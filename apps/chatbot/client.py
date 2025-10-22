@@ -29,6 +29,22 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Store chat sessions
 sessions: Dict[str, List[dict]] = {}
 
+def get_available_use_cases() -> List[str]:
+    """Get list of available use cases from use_cases directory."""
+    try:
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        use_cases_dir = os.path.join(current_dir, "use_cases")
+        
+        use_cases = []
+        for filename in os.listdir(use_cases_dir):
+            if filename.endswith('.md'):
+                use_case_name = filename[:-3]  # Remove .md extension
+                use_cases.append(use_case_name)
+        return sorted(use_cases)
+    except Exception:
+        return ["insurance"]  # Default fallback
+
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
@@ -69,13 +85,21 @@ async def root():
 
 @app.post("/chat", response_model=ChatResponse)
 @limiter.limit(RATE_LIMIT)
-async def chat(request: Request, chat_request: ChatRequest):
+async def chat(
+    request: Request, 
+    chat_request: ChatRequest
+):
     try:
         # Get or create session_id
         session_id = chat_request.session_id or str(uuid.uuid4())
         
         # Use the provided use_case or default to insurance
         use_case = chat_request.use_case or "insurance"
+        
+        # Validate use case exists, default to insurance if not
+        available_use_cases = get_available_use_cases()
+        if use_case not in available_use_cases:
+            use_case = "insurance"
         
         # Initialize session if it doesn't exist
         if session_id not in sessions:
@@ -123,18 +147,10 @@ async def delete_session(session_id: str):
     return {"message": "Session deleted"}
 
 @app.get("/use-cases")
-async def get_available_use_cases():
+async def list_use_cases():
     """Get list of available use cases"""
-    import os
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    use_cases_dir = os.path.join(current_dir, "use_cases")
-    
     try:
-        use_cases = []
-        for filename in os.listdir(use_cases_dir):
-            if filename.endswith('.md'):
-                use_case_name = filename[:-3]  # Remove .md extension
-                use_cases.append(use_case_name)
-        return {"use_cases": sorted(use_cases)}
+        use_cases = get_available_use_cases()
+        return {"use_cases": use_cases}
     except Exception as e:
         return {"use_cases": ["insurance"], "error": str(e)}
