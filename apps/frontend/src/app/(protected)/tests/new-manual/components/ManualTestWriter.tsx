@@ -424,11 +424,9 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                           {index + 1}
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ p: 1 }}>
                         <TextField
                           fullWidth
-                          multiline
-                          minRows={2}
                           value={testCase.prompt}
                           onChange={e =>
                             updateTestCase(
@@ -442,7 +440,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                           disabled={loading}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ p: 1 }}>
                         <Autocomplete
                           freeSolo
                           options={categoryOptions}
@@ -482,7 +480,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                           disabled={loading}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ p: 1 }}>
                         <Autocomplete
                           freeSolo
                           options={topicOptions}
@@ -518,7 +516,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                           disabled={loading}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ p: 1 }}>
                         <Autocomplete
                           freeSolo
                           options={behaviorOptions}
@@ -558,11 +556,9 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                           disabled={loading}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ p: 1 }}>
                         <TextField
                           fullWidth
-                          multiline
-                          minRows={2}
                           value={testCase.expectedOutput}
                           onChange={e =>
                             updateTestCase(
