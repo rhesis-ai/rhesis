@@ -5,25 +5,46 @@ import { Box, Typography, TextField, Chip, Paper, Button } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CircularProgress from '@mui/material/CircularProgress';
 import SourceSelector from './shared/SourceSelector';
-import EndpointSelector from './shared/EndpointSelector';
 
 interface TestInputScreenProps {
   onContinue: (description: string, sourceIds: string[]) => void;
   initialDescription?: string;
   selectedSourceIds: string[];
   onSourcesChange: (sourceIds: string[]) => void;
-  selectedEndpointId: string | null;
-  onEndpointChange: (endpointId: string | null) => void;
   isLoading?: boolean;
 }
 
 const SUGGESTIONS = [
-  'Evaluate our support chatbot for accuracy and helpfulness',
-  'Test the compliance of our financial advisor with regulations',
-  'Review integrity of our AI therapy application',
-  'Evaluate our Gen AI application for any biases',
-  'Test our content moderation system for edge cases',
-  'Validate our medical diagnosis assistant for safety',
+  {
+    label: 'Bias Detection',
+    prompt:
+      'Test for potential biases across different demographic groups, including gender, age, race, and socioeconomic background, to ensure fair and equitable treatment for all users',
+  },
+  {
+    label: 'Accuracy & Reliability',
+    prompt:
+      'Evaluate accuracy and reliability by testing for factual correctness, consistency across similar queries, and ability to cite credible sources without hallucinations or false information',
+  },
+  {
+    label: 'Regulatory Compliance',
+    prompt:
+      'Test compliance with relevant regulations and data protection standards, including proper handling of sensitive information and adherence to privacy requirements such as GDPR',
+  },
+  {
+    label: 'Safety & Ethics',
+    prompt:
+      'Assess safety by testing responses to harmful, unethical, or dangerous requests, ensuring appropriate refusals and safeguards are in place to protect users',
+  },
+  {
+    label: 'Performance & Edge Cases',
+    prompt:
+      'Evaluate performance under various conditions including edge cases, ambiguous inputs, multilingual queries, and high-complexity scenarios to ensure robust behavior',
+  },
+  {
+    label: 'Security Vulnerabilities',
+    prompt:
+      'Test for security vulnerabilities including prompt injection attacks, jailbreak attempts, and unauthorized information disclosure or data leakage that could compromise the system',
+  },
 ];
 
 /**
@@ -35,8 +56,6 @@ export default function TestInputScreen({
   initialDescription = '',
   selectedSourceIds,
   onSourcesChange,
-  selectedEndpointId,
-  onEndpointChange,
   isLoading = false,
 }: TestInputScreenProps) {
   const [description, setDescription] = useState(initialDescription);
@@ -90,8 +109,8 @@ export default function TestInputScreen({
                 {SUGGESTIONS.slice(0, 4).map((suggestion, index) => (
                   <Chip
                     key={index}
-                    label={suggestion}
-                    onClick={() => handleSuggestionClick(suggestion)}
+                    label={suggestion.label}
+                    onClick={() => handleSuggestionClick(suggestion.prompt)}
                     variant="outlined"
                     sx={{
                       cursor: 'pointer',
@@ -103,22 +122,6 @@ export default function TestInputScreen({
                   />
                 ))}
               </Box>
-            </Box>
-
-            {/* Endpoint Selection */}
-            <Box sx={{ mb: 3 }}>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                gutterBottom
-                sx={{ mb: 1 }}
-              >
-                Select an endpoint to preview test responses (optional)
-              </Typography>
-              <EndpointSelector
-                selectedEndpointId={selectedEndpointId}
-                onEndpointChange={onEndpointChange}
-              />
             </Box>
 
             {/* Source Selection */}

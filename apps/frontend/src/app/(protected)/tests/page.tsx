@@ -46,8 +46,8 @@ export default function TestsPage() {
 
   const handleSelectTemplate = React.useCallback(
     (template: TestTemplate) => {
-      // Pass template data via URL state or sessionStorage
-      sessionStorage.setItem('selectedTemplate', JSON.stringify(template));
+      // Store only template ID (icon component can't be serialized)
+      sessionStorage.setItem('selectedTemplateId', template.id);
       // Keep modal open during navigation
       router.push('/tests/new-generated');
     },
