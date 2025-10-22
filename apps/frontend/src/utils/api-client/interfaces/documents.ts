@@ -11,7 +11,8 @@ export interface ProcessedDocument {
 export interface Document {
   name: string;
   description: string;
-  content: string;
+  path?: string;
+  content?: string;
 }
 
 // For upload response
