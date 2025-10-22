@@ -37,7 +37,7 @@ import {
 } from './shared/types';
 import ChipGroup from './shared/ChipGroup';
 import TestSampleCard from './shared/TestSampleCard';
-import ActionBar from './shared/ActionBar';
+import ActionBar from '@/components/common/ActionBar';
 import EndpointSelector from './shared/EndpointSelector';
 import UploadSourceDialog from '../../../knowledge/components/UploadSourceDialog';
 import { useSession } from 'next-auth/react';

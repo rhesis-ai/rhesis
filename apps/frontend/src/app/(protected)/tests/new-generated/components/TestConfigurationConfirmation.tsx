@@ -22,7 +22,7 @@ import {
   ChipConfig,
 } from './shared/types';
 import TestSetSizeSelector from './shared/TestSetSizeSelector';
-import ActionBar from './shared/ActionBar';
+import ActionBar from '@/components/common/ActionBar';
 
 interface TestConfigurationConfirmationProps {
   configChips: ConfigChips;
