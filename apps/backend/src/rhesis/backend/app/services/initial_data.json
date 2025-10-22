@@ -761,11 +761,9 @@
             "environment": "production",
             "config_source": "manual",
             "response_format": "json",
+            "auth_type": "bearer_token",
             "request_headers": {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer {{ chatbot_api_key }}",
-                "X-Organization-ID": "{{ organization_id }}",
-                "X-User-ID": "{{ user_id }}"
+                "Content-Type": "application/json"
             },
             "request_body_template": {
                 "message": "{{ input }}",
