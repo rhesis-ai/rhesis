@@ -20,6 +20,9 @@ export default {
   "soft-deletion": {
     title: "Soft Deletion",
   },
+  "cascade-operations": {
+    title: "Cascade Operations",
+  },
   authentication: {
     title: "Authentication",
   },

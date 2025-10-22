@@ -16,14 +16,13 @@ from sqlalchemy.inspection import inspect
 
 from rhesis.backend.app import models
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context
+from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.utils.crud_utils import (
     get_deleted_items,
-    restore_item,
     hard_delete_item,
 )
+from rhesis.backend.app.services import recycle as recycle_service
 from rhesis.backend.logging import logger
 
 router = APIRouter(prefix="/recycle", tags=["recycle"])
@@ -86,7 +85,7 @@ def get_model_by_name(model_name: str) -> type:
 @router.get("/models")
 def list_available_models(
     current_user: models.User = Depends(require_current_user_or_token),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
 ):
     """
     List all available models that can be managed (admin only).
@@ -121,12 +120,14 @@ def get_recycled_records(
     model_name: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
     """
-    Get soft-deleted records in the recycle bin for a specific model (admin only).
+    Get soft-deleted records in the recycle bin for a specific model.
+    
+    Users can view deleted records from their organization.
     
     Args:
         model_name: Name of the model (e.g., 'user', 'test', 'project')
@@ -136,7 +137,6 @@ def get_recycled_records(
     Returns:
         List of soft-deleted records
     """
-    require_superuser(current_user)
     model = get_model_by_name(model_name)
     organization_id, user_id = tenant_context
     
@@ -165,21 +165,25 @@ def get_recycled_records(
 def restore_from_recycle_bin(
     model_name: str,
     item_id: UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
     """
-    Restore a soft-deleted record from the recycle bin (admin only).
+    Restore a soft-deleted record from the recycle bin.
+    
+    This endpoint uses cascade-aware restoration. For example, restoring a
+    test_run will automatically restore all its associated test_results.
+    
+    Users can restore deleted records from their organization.
     
     Args:
         model_name: Name of the model
         item_id: ID of the record to restore
     
     Returns:
-        Restored record
+        Restored record with cascade information
     """
-    require_superuser(current_user)
     model = get_model_by_name(model_name)
     organization_id, user_id = tenant_context
     
@@ -187,7 +191,10 @@ def restore_from_recycle_bin(
     if hasattr(model, 'organization_id'):
         org_id = organization_id
     
-    restored_item = restore_item(db, model, item_id, organization_id=org_id)
+    # Use cascade-aware restoration from service layer
+    restored_item = recycle_service.restore_item_with_cascade(
+        db, model, item_id, organization_id=org_id
+    )
     
     if not restored_item:
         raise HTTPException(
@@ -209,7 +216,7 @@ def restore_from_recycle_bin(
 def empty_recycle_bin_for_model(
     model_name: str,
     confirm: bool = Query(False, description="Must be true to confirm"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
@@ -282,7 +289,7 @@ def permanently_delete_record(
     model_name: str,
     item_id: UUID,
     confirm: bool = Query(False, description="Must be true to confirm deletion"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
@@ -336,19 +343,19 @@ def permanently_delete_record(
 
 @router.get("/stats/counts")
 def get_recycle_bin_counts(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
     """
-    Get counts of soft-deleted records in the recycle bin for all models (admin only).
+    Get counts of soft-deleted records in the recycle bin for all models.
     
+    Users can see counts for deleted records in their organization.
     This can take a while for large databases as it queries every table.
     
     Returns:
         Dictionary with counts per model
     """
-    require_superuser(current_user)
     model_map = get_all_models()
     counts = {}
     organization_id, user_id = tenant_context
@@ -393,12 +400,16 @@ def get_recycle_bin_counts(
 def bulk_restore_from_recycle_bin(
     model_name: str,
     item_ids: List[UUID],
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
     """
-    Restore multiple soft-deleted records from the recycle bin at once (admin only).
+    Restore multiple soft-deleted records from the recycle bin at once.
+    
+    Uses cascade-aware restoration - each item and its related entities are restored.
+    
+    Users can restore deleted records from their organization.
     
     Args:
         model_name: Name of the model
@@ -407,7 +418,6 @@ def bulk_restore_from_recycle_bin(
     Returns:
         Summary of restoration results
     """
-    require_superuser(current_user)
     
     if not item_ids:
         raise HTTPException(
@@ -428,25 +438,10 @@ def bulk_restore_from_recycle_bin(
     if hasattr(model, 'organization_id'):
         org_id = organization_id
     
-    results = {
-        "restored": [],
-        "failed": [],
-        "not_found": []
-    }
-    
-    for item_id in item_ids:
-        try:
-            restored_item = restore_item(db, model, item_id, organization_id=org_id)
-            if restored_item:
-                results["restored"].append(str(item_id))
-            else:
-                results["not_found"].append(str(item_id))
-        except Exception as e:
-            logger.error(f"Error restoring {model_name} {item_id}: {e}")
-            results["failed"].append({
-                "id": str(item_id),
-                "error": str(e)
-            })
+    # Use cascade-aware bulk restoration from service layer
+    results = recycle_service.bulk_restore_with_cascade(
+        db, model, item_ids, organization_id=org_id
+    )
     
     logger.info(
         f"Bulk restore {model_name} from recycle bin: {len(results['restored'])} restored, "
