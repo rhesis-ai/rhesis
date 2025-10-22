@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -772,6 +772,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/90/f9/090957836bd7e9ab0dd5052c3802041cd4868dc26cb58955c6d83597e166/deepeval-3.6.7.tar.gz", hash = "sha256:4bb2266c35d7b2521a1f9def4562236728c9bbbaf373d956fba2e69eb8061f31", size = 447687, upload-time = "2025-10-15T18:44:23.903Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/63/e04cb87aa45c903be71706d9378954a6607a8240a693fb5a5f436ab5eb3f/deepeval-3.6.7-py3-none-any.whl", hash = "sha256:46fe72869359a7afb7baa34880300ed3660e9b387dfd3341a461e1d96bc5f021", size = 645173, upload-time = "2025-10-15T18:44:21.029Z" },
+]
+
+[[package]]
+name = "deepteam"
+version = "0.2.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "deepeval" },
+    { name = "grpcio" },
+    { name = "openai" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "tabulate" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bd/89/c17eb95ac4288e7075cf673e37ccff0b9999f07b3afb11ee56b2fe4934ec/deepteam-0.2.5.tar.gz", hash = "sha256:e382495df62b96aed1bae1e8e02bd9fb1bd878f9b2dd0c4659be80b85ab606f2", size = 245345, upload-time = "2025-08-29T13:59:58.429Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/43/04/9da271ab905878b9d6ff57c1cab968644fe01005da16295634af8b423172/deepteam-0.2.5-py3-none-any.whl", hash = "sha256:59999faeaee11a86d1bacfe363858f2c1876facfb8b1c13864c2622a7bcf855e", size = 422985, upload-time = "2025-08-29T13:59:56.75Z" },
 ]
 
 [[package]]
@@ -4645,6 +4664,7 @@ version = "0.3.1.post1"
 source = { editable = "." }
 dependencies = [
     { name = "deepeval" },
+    { name = "deepteam" },
     { name = "hatch" },
     { name = "ipykernel" },
     { name = "jinja2" },
@@ -4697,6 +4717,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "deepeval", specifier = "==3.6.7" },
+    { name = "deepteam", specifier = ">=0.2.5" },
     { name = "hatch", specifier = ">=1.14.1" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "jinja2", specifier = ">=3.1.6" },

@@ -46,6 +46,7 @@ dependencies = [
     "transformers>=4.56.0",
     "ragas>=0.3.7",
     "langchain-google-genai>=2.1.12",
+    "deepteam>=0.2.5",
 ]
 
 [project.license]
