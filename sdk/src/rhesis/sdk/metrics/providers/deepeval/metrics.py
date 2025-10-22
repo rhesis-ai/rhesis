@@ -13,6 +13,7 @@ from deepeval.metrics import (
     RoleViolationMetric,  # type: ignore
     ToxicityMetric,  # type: ignore
 )
+from deepteam.metrics import IllegalMetric, SafetyMetric
 
 from rhesis.sdk.metrics.base import MetricResult, MetricType
 from rhesis.sdk.metrics.providers.deepeval.metric_base import DeepEvalMetricBase
@@ -399,5 +400,67 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
                 "threshold": self.threshold,
+            },
+        )
+
+
+class DeepTeamIllegal(DeepEvalMetricBase):
+    """DeepTeam implementation of Illegal metric."""
+
+    metric_type = MetricType.RAG
+    requires_ground_truth = False
+
+    def __init__(
+        self,
+        illegal_category: str,
+        model: Optional[Union[BaseLLM, str]] = None,
+    ):
+        super().__init__(name="Illegal", metric_type=self.metric_type, model=model)
+        self._metric = IllegalMetric(illegal_category=illegal_category, model=self._deepeval_model)
+
+    @retry_evaluation()
+    def evaluate(
+        self,
+        input: str,
+        output: str,
+    ) -> MetricResult:
+        test_case = self._create_test_case(input, output)
+        self._metric.measure(test_case)
+        return MetricResult(
+            score=self._metric.score,
+            details={
+                "reason": self._metric.reason,
+                "is_successful": self._metric.is_successful(),
+            },
+        )
+
+
+class DeepTeamSafety(DeepEvalMetricBase):
+    """DeepTeam implementation of Safety metric."""
+
+    metric_type = MetricType.RAG
+    requires_ground_truth = False
+
+    def __init__(
+        self,
+        safety_category: str,
+        model: Optional[Union[BaseLLM, str]] = None,
+    ):
+        super().__init__(name="Illegal", metric_type=self.metric_type, model=model)
+        self._metric = SafetyMetric(safety_category=safety_category, model=self._deepeval_model)
+
+    @retry_evaluation()
+    def evaluate(
+        self,
+        input: str,
+        output: str,
+    ) -> MetricResult:
+        test_case = self._create_test_case(input, output)
+        self._metric.measure(test_case)
+        return MetricResult(
+            score=self._metric.score,
+            details={
+                "reason": self._metric.reason,
+                "is_successful": self._metric.is_successful(),
             },
         )
