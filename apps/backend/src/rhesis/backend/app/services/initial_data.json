@@ -754,15 +754,18 @@
     "endpoint": [
         {
             "name": "Insurance Chatbot",
-            "description": "This is the default chatbot endpoint",
+            "description": "Default chatbot endpoint with user-based rate limiting (1000/day per user when authenticated, 100/day per IP for public access)",
             "protocol": "REST",
             "url": "https://chatbot.rhesis.ai/chat",
             "method": "POST",
-            "environment": "development",
+            "environment": "production",
             "config_source": "manual",
             "response_format": "json",
             "request_headers": {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {{ chatbot_api_key }}",
+                "X-Organization-ID": "{{ organization_id }}",
+                "X-User-ID": "{{ user_id }}"
             },
             "request_body_template": {
                 "message": "{{ input }}",
@@ -774,7 +777,7 @@
                 "metadata": "$.metadata",
                 "context": "$.context"
             },
-            "project": "Example Project (Insurance Chatbot)",
+            "project": "Example Project",
             "status": "Active"
         }
     ],
