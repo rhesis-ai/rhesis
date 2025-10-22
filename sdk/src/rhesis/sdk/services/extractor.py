@@ -100,10 +100,16 @@ class DocumentExtractor:
         # Create a BytesIO object from the binary content
         file_like_object = BytesIO(file_content)
 
-        # Use MarkItDown's convert method (it will dispatch to convert_stream for BytesIO)
-        result = self.converter.convert(file_like_object)
+        # Always use UTF-8 encoding to prevent ASCII decoding errors
+        from markitdown._stream_info import StreamInfo
 
-        # Extract text from result
+        stream_info = StreamInfo(
+            filename=filename,
+            extension=file_extension,
+            charset="utf-8",  # Default to UTF-8 for all text files
+        )
+
+        result = self.converter.convert(file_like_object, stream_info=stream_info)
         return self._extract_text_from_result(result)
 
     def _extract_text_from_result(self, result) -> str:
@@ -163,8 +169,18 @@ class DocumentExtractor:
         file_extension = Path(file_path).suffix.lower()
         self._validate_file_extension(file_extension)
 
+        # Always use UTF-8 encoding to prevent ASCII decoding errors
+        from markitdown._stream_info import StreamInfo
+
+        stream_info = StreamInfo(
+            local_path=file_path,
+            filename=Path(file_path).name,
+            extension=file_extension,
+            charset="utf-8",  # Default to UTF-8 for all text files
+        )
+
         try:
-            result = self.converter.convert(file_path)
+            result = self.converter.convert(file_path, stream_info=stream_info)
             return self._extract_text_from_result(result)
         except Exception as e:
             raise ValueError(f"Failed to extract text from {file_path}: {str(e)}")
