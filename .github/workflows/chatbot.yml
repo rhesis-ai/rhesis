@@ -172,6 +172,7 @@ jobs:
           ENV_VARS="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
           ENV_VARS="$ENV_VARS,GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME || 'gemini-2.0-flash-001' }}"
           ENV_VARS="$ENV_VARS,CHATBOT_RATE_LIMIT=${{ secrets.CHATBOT_RATE_LIMIT || '1000' }}"
+          ENV_VARS="$ENV_VARS,WORKERS=${{ vars.CHATBOT_WORKERS || '4' }}"
           ENV_VARS="$ENV_VARS,ENVIRONMENT=${{ env.ENVIRONMENT }}"
           
           # Add SMTP configuration for rate limit notifications
