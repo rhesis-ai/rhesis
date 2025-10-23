@@ -18,7 +18,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { DeleteButton } from '@/components/common/DeleteButton';
 import UploadSourceDialog from './UploadSourceDialog';
-import styles from '@/styles/SourcesGrid.module.css';
+import styles from '@/styles/Knowledge.module.css';
 import { convertGridFilterModelToOData } from '@/utils/odata-filter';
 import {
   FILE_SIZE_CONSTANTS,
