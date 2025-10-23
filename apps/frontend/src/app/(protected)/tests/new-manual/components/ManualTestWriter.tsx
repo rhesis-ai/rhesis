@@ -229,7 +229,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
       // First, create test set if name is provided
       let testSetId: string | undefined;
       if (testSetName.trim()) {
-        const testSetsClient = apiFactory.getTestSetClient();
+        const testSetsClient = apiFactory.getTestSetsClient();
         const newTestSet = await testSetsClient.createTestSet({
           name: testSetName.trim(),
         });
@@ -250,7 +250,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
       const testsClient = apiFactory.getTestsClient();
       await testsClient.createTestsBulk({
         tests: testsToCreate,
-        test_set_id: testSetId,
+        test_set_id: testSetId as any,
       });
 
       notifications.show(
