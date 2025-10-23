@@ -49,14 +49,13 @@ const transformTestRunsData = (testRunSummary?: Array<TestRunSummaryItem>) => {
   // Create a copy of the array to avoid mutating the original
   const runs = [...testRunSummary];
 
-  // Sort by started_at (most recent first) and take last 10
+  // Sort by started_at (most recent first)
   const sortedRuns = runs
     .sort((a, b) => {
       const dateA = a.started_at ? new Date(a.started_at).getTime() : 0;
       const dateB = b.started_at ? new Date(b.started_at).getTime() : 0;
       return dateB - dateA; // Most recent first
     })
-    .slice(0, 5) // Take the 5 most recent
     .reverse(); // Reverse to show chronologically (oldest to newest for chart)
 
   return sortedRuns.map(item => {
@@ -145,7 +144,10 @@ export default function LatestTestRunsChart({
   }, [stats?.test_run_summary]);
 
   const getContextInfo = () => {
-    return 'Pass rates from the 5 most recent test executions';
+    const count = stats?.test_run_summary?.length || 0;
+    return count > 0
+      ? `Pass rates from ${count} test execution${count !== 1 ? 's' : ''} based on current filters`
+      : 'Pass rates from filtered test executions';
   };
 
   if (isLoading) {
@@ -167,7 +169,7 @@ export default function LatestTestRunsChart({
           color="text.secondary"
           sx={{ mb: theme.customSpacing.section.small }}
         >
-          Pass rates from the 5 most recent test executions
+          Pass rates from filtered test executions
         </Typography>
         <Box
           sx={{
@@ -238,7 +240,7 @@ export default function LatestTestRunsChart({
           alignItems: 'flex-start',
         }}
       >
-        Pass rates from the 5 most recent test executions
+        {getContextInfo()}
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <ResponsiveContainer width="100%" height={300}>
