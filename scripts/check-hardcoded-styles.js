@@ -148,6 +148,9 @@ const IGNORE_PATTERNS = [
   /style=\{\{[^}]*\}\}/, // Inline styles in React components (often necessary in docs)
   /className=["'][^"']*["']/, // CSS class names
   /--[a-zA-Z-]+:/, // CSS custom properties definitions
+
+  // Intentional overrides (marked with comments)
+  /\/\/\s*Intentional:/i, // Lines marked as intentional (e.g., borderRadius: 0, // Intentional: flush edges)
 ];
 
 class StyleChecker {
