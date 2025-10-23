@@ -9,6 +9,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from endpoint import stream_assistant_response, generate_context
+from notifications import send_rate_limit_alert
 
 # Get rate limit from environment variable, default to 1000 requests/day
 RATE_LIMIT_PER_DAY = os.getenv("CHATBOT_RATE_LIMIT", "1000")
@@ -89,9 +90,32 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Custom rate limit exceeded handler with email notifications
+async def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    """
+    Custom handler for rate limit exceeded that sends email notifications.
+    """
+    # Get the rate limit identifier
+    identifier = get_rate_limit_identifier(request)
+    
+    # Determine rate limit type and value
+    is_authenticated = identifier.startswith("authenticated:")
+    rate_limit_type = "Authenticated" if is_authenticated else "Public"
+    rate_limit_value = RATE_LIMIT_AUTHENTICATED if is_authenticated else RATE_LIMIT_PUBLIC
+    
+    # Send email notification (async, non-blocking)
+    try:
+        send_rate_limit_alert(request, identifier, rate_limit_type, rate_limit_value)
+    except Exception as e:
+        # Log but don't fail the response
+        print(f"⚠️ Error sending rate limit alert: {e}")
+    
+    # Return the standard rate limit exceeded response
+    return await _rate_limit_exceeded_handler(request, exc)
+
 # Add rate limiter to app state
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
 
 # Store chat sessions
 sessions: Dict[str, List[dict]] = {}

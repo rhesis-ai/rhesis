@@ -172,15 +172,25 @@ jobs:
           ENV_VARS="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
           ENV_VARS="$ENV_VARS,GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME || 'gemini-2.0-flash-001' }}"
           ENV_VARS="$ENV_VARS,CHATBOT_RATE_LIMIT=${{ secrets.CHATBOT_RATE_LIMIT || '1000' }}"
+          ENV_VARS="$ENV_VARS,ENVIRONMENT=${{ env.ENVIRONMENT }}"
+          
+          # Add SMTP configuration for rate limit notifications
+          ENV_VARS="$ENV_VARS,SMTP_HOST=${{ secrets.SMTP_HOST }}"
+          ENV_VARS="$ENV_VARS,SMTP_PORT=${{ secrets.SMTP_PORT }}"
+          ENV_VARS="$ENV_VARS,SMTP_USER=${{ secrets.SMTP_USER }}"
+          ENV_VARS="$ENV_VARS,SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}"
+          ENV_VARS="$ENV_VARS,FROM_EMAIL=${{ secrets.FROM_EMAIL }}"
           
           # Add CHATBOT_API_KEY for backend authentication (if configured)
           if [ -n "${{ secrets.CHATBOT_API_KEY }}" ]; then
             ENV_VARS="$ENV_VARS,CHATBOT_API_KEY=${{ secrets.CHATBOT_API_KEY }}"
             echo "🔐 Backend authentication enabled (API key configured)"
             echo "📊 Rate limits: 1000/day per user (authenticated), 100/day per IP (public)"
+            echo "📧 Rate limit notifications enabled (hello@rhesis.ai)"
           else
             echo "🌐 Public access only (no API key configured)"
             echo "📊 Rate limit: 100/day per IP"
+            echo "📧 Rate limit notifications enabled (hello@rhesis.ai)"
           fi
 
           gcloud run deploy ${{ env.SERVICE_NAME }} \
