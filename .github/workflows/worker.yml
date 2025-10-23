@@ -279,6 +279,10 @@ jobs:
             --from-literal=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
             --from-literal=GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}" \
             --from-literal=GEMINI_MODEL_NAME="${{ secrets.GEMINI_MODEL_NAME }}" \
+            --from-literal=DEFAULT_GENERATION_MODEL="${{ secrets.DEFAULT_GENERATION_MODEL }}" \
+            --from-literal=DEFAULT_MODEL_NAME="${{ secrets.DEFAULT_MODEL_NAME }}" \
+            --from-literal=VERTEX_AI_CREDENTIALS="${{ secrets.VERTEX_AI_CREDENTIALS }}" \
+            --from-literal=VERTEX_AI_ENDPOINT="${{ secrets.VERTEX_AI_ENDPOINT }}" \
             --from-literal=AZURE_OPENAI_ENDPOINT="${{ secrets.AZURE_OPENAI_ENDPOINT }}" \
             --from-literal=AZURE_OPENAI_API_KEY="${{ secrets.AZURE_OPENAI_API_KEY }}" \
             --from-literal=AZURE_OPENAI_DEPLOYMENT_NAME="${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}" \
