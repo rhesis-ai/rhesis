@@ -707,7 +707,7 @@ export default function TestGenerationInterface({
                 >
                   {endpointInfo
                     ? `${endpointInfo.projectName} › ${endpointInfo.name}`
-                    : 'Select Preview Endpoint'}
+                    : 'Show Live Responses'}
                 </Button>
               }
             />
