@@ -18,6 +18,9 @@ from rhesis.backend.logging.rhesis_logger import logger
 # Context variable to track if telemetry is enabled for current request
 _telemetry_enabled: ContextVar[bool] = ContextVar("telemetry_enabled", default=False)
 
+# Cache the telemetry enabled status (checked once at startup)
+_TELEMETRY_GLOBALLY_ENABLED: Optional[bool] = None
+
 # Context variable to store current user/org IDs for telemetry
 _telemetry_user_id: ContextVar[Optional[str]] = ContextVar("telemetry_user_id", default=None)
 _telemetry_org_id: ContextVar[Optional[str]] = ContextVar("telemetry_org_id", default=None)
@@ -58,12 +61,25 @@ def initialize_telemetry():
     Initialize OpenTelemetry with conditional export.
 
     This should be called once during application startup.
-    If OTEL_EXPORTER_OTLP_ENDPOINT is not set, telemetry is disabled entirely.
+    Telemetry is controlled by deployment type and environment variables:
+    - Cloud: Always enabled
+    - Self-hosted: Controlled by TELEMETRY_ENABLED env var
     """
+    global _TELEMETRY_GLOBALLY_ENABLED
+    
+    # Check if telemetry is enabled based on deployment type
+    _TELEMETRY_GLOBALLY_ENABLED = is_telemetry_enabled()
+    
+    if not _TELEMETRY_GLOBALLY_ENABLED:
+        deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+        logger.info(f"Telemetry disabled for deployment_type={deployment_type}")
+        return
+    
     otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 
     if not otel_endpoint:
         logger.info("Telemetry disabled: OTEL_EXPORTER_OTLP_ENDPOINT not set")
+        _TELEMETRY_GLOBALLY_ENABLED = False
         return
 
     # Determine deployment type
@@ -106,6 +122,30 @@ def initialize_telemetry():
 
     except Exception as e:
         logger.error(f"Failed to initialize telemetry: {e}")
+
+
+def is_telemetry_enabled() -> bool:
+    """
+    Check if telemetry is enabled based on deployment type and environment variable.
+    
+    - Cloud deployment: Always enabled (implicit user consent)
+    - Self-hosted deployment: Controlled by TELEMETRY_ENABLED environment variable
+    
+    Returns:
+        bool: True if telemetry should be collected
+    """
+    deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+    
+    # Cloud users: Always collect telemetry (implicit consent)
+    if deployment_type == "cloud":
+        return True
+    
+    # Self-hosted users: Check environment variable (default: disabled)
+    if deployment_type == "self_hosted":
+        return os.getenv("TELEMETRY_ENABLED", "false").lower() in ("true", "1", "yes")
+    
+    # Unknown deployment type: Disable telemetry
+    return False
 
 
 def set_telemetry_enabled(

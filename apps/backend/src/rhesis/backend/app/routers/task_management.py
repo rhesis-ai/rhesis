@@ -17,7 +17,11 @@ from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Use rhesis logger
 from rhesis.backend.logging import logger
-from rhesis.backend.telemetry import set_telemetry_enabled, track_feature_usage
+from rhesis.backend.telemetry import (
+    is_telemetry_enabled,
+    set_telemetry_enabled,
+    track_feature_usage,
+)
 
 # Create the detailed schema for Task
 TaskDetailSchema = create_detailed_schema(schemas.Task, models.Task)
@@ -39,10 +43,10 @@ def create_task(
 ):
     """Create a new task"""
     try:
-        # Set telemetry context for this request
-        if current_user and hasattr(current_user, "telemetry_enabled"):
+        # Set telemetry context for this request (if telemetry is enabled)
+        if is_telemetry_enabled() and current_user:
             set_telemetry_enabled(
-                enabled=current_user.telemetry_enabled or False,
+                enabled=True,
                 user_id=str(current_user.id) if current_user.id else None,
                 org_id=str(current_user.organization_id) if current_user.organization_id else None,
             )
@@ -178,10 +182,10 @@ def update_task(
 ):
     """Update a task"""
     try:
-        # Set telemetry context for this request
-        if current_user and hasattr(current_user, "telemetry_enabled"):
+        # Set telemetry context for this request (if telemetry is enabled)
+        if is_telemetry_enabled() and current_user:
             set_telemetry_enabled(
-                enabled=current_user.telemetry_enabled or False,
+                enabled=True,
                 user_id=str(current_user.id) if current_user.id else None,
                 org_id=str(current_user.organization_id) if current_user.organization_id else None,
             )

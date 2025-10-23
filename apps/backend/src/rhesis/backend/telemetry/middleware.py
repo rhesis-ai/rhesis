@@ -13,6 +13,7 @@ from rhesis.backend.telemetry.instrumentation import (
     _telemetry_org_id,
     _telemetry_user_id,
     get_tracer,
+    is_telemetry_enabled,
     set_telemetry_enabled,
 )
 
@@ -28,20 +29,26 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request and track telemetry if enabled"""
 
+        # Check if telemetry is globally enabled (based on deployment type + env var)
+        telemetry_enabled = is_telemetry_enabled()
+        
+        if not telemetry_enabled:
+            # Telemetry disabled, just process request normally
+            return await call_next(request)
+
         # Start timing
         start_time = time.time()
 
         # Try to get user from an earlier middleware/dependency if it's already set
         user = getattr(request.state, "user", None)
-        if user and hasattr(user, "telemetry_enabled"):
-            telemetry_enabled = user.telemetry_enabled or False
+        if user:
             user_id = getattr(user, "id", None)
             org_id = getattr(user, "organization_id", None)
 
             # Set telemetry context BEFORE processing the request
             # This allows track_feature_usage() calls in route handlers to work
             set_telemetry_enabled(
-                enabled=telemetry_enabled,
+                enabled=True,
                 user_id=str(user_id) if user_id else None,
                 org_id=str(org_id) if org_id else None,
             )
@@ -52,8 +59,7 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
         # Check again if user was set during request processing
         user = getattr(request.state, "user", None)
 
-        if user and hasattr(user, "telemetry_enabled"):
-            telemetry_enabled = user.telemetry_enabled or False
+        if user:
             user_id = getattr(user, "id", None)
             org_id = getattr(user, "organization_id", None)
 
@@ -63,14 +69,13 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
 
             # Set/update telemetry context after request (for endpoint tracking)
             set_telemetry_enabled(
-                enabled=telemetry_enabled,
+                enabled=True,
                 user_id=str(user_id) if user_id else None,
                 org_id=str(org_id) if org_id else None,
             )
 
-            # Track endpoint usage if telemetry is enabled
-            if telemetry_enabled:
-                await self._track_endpoint(request, response, start_time, user_id, org_id)
+            # Track endpoint usage
+            await self._track_endpoint(request, response, start_time, user_id, org_id)
 
         return response
 
