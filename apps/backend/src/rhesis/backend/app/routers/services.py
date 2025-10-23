@@ -152,12 +152,17 @@ async def generate_content_endpoint(request: GenerateContentRequest):
         str or dict: Raw text if no schema, validated dict if schema provided
     """
     try:
-        from rhesis.sdk.models.providers.gemini import GeminiLLM
+        import os
+
+        from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
 
         prompt = request.prompt
         schema = request.schema_
 
-        model = GeminiLLM()
+        # Get model name from environment or use default
+        model_name = os.getenv("VERTEX_AI_MODEL_NAME", "gemini-2.5-flash")
+
+        model = VertexAILLM(model_name=model_name)
         response = model.generate(prompt, schema=schema)
 
         return response
