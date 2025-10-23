@@ -66,7 +66,8 @@ def read_sources(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all sources with their related objects"""
+    """Get all sources with their related objects.
+    Content field is deferred for performance - only loaded when accessed."""
     organization_id, user_id = tenant_context
     return crud.get_sources(
         db=db,
@@ -89,12 +90,14 @@ def read_source(
 ):
     """
     Get source with optimized approach - no session variables needed.
+    Content field is deferred for performance - only loaded when accessed.
 
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
     - No SHOW queries during retrieval
     - Direct tenant context injection
+    - Content field deferred for performance
     """
     organization_id, user_id = tenant_context
     db_source = crud.get_source(

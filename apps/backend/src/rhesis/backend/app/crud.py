@@ -1121,7 +1121,7 @@ def delete_user(
 
     The user account remains active but loses organization access.
     This preserves the user account and all their data while removing
-    organizational context. On next login, the user will go through 
+    organizational context. On next login, the user will go through
     the onboarding flow again.
 
     Args:
@@ -1161,6 +1161,7 @@ def get_user_by_auth0_id(db: Session, auth0_id: str) -> Optional[models.User]:
 
 def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
     from sqlalchemy import func
+
     return db.query(models.User).filter(func.lower(models.User.email) == email.lower()).first()
 
 
@@ -1959,22 +1960,22 @@ def delete_test_run(
 ) -> Optional[models.TestRun]:
     """
     Soft delete a test run.
-    
+
     Automatically cascades to all associated test results based on configuration
     in config/cascade_config.py. Uses efficient bulk UPDATE for cascade operations.
-    
+
     This operation is fully transactional - either all entities are soft deleted
     or none are (in case of error, changes are rolled back).
-    
+
     Args:
         db: Database session
         test_run_id: ID of the test run to delete
         organization_id: Organization ID for tenant context
         user_id: User ID for tenant context
-    
+
     Returns:
         The soft-deleted test run or None if not found
-        
+
     Raises:
         Exception: If any error occurs during deletion (triggers rollback)
     """
