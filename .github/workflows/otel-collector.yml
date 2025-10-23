@@ -1,0 +1,308 @@
+name: "[Deploy] OTel Collector"
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/otel-collector/**'
+      - '.github/workflows/otel-collector.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/otel-collector/**'
+      - '.github/workflows/otel-collector.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        type: string
+        default: 'Manual deployment'
+
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        type: string
+        default: 'Manual deployment'
+
+env:
+  SA_KEY_PATH: 'gcp-sa-key.json'
+
+jobs:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate environment parameter
+        uses: ./.github/actions/validate-environment
+        with:
+          environment: ${{ github.event.inputs.environment }}
+
+  build:
+    needs: validate-inputs
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+
+    env:
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      SERVICE: otel-collector
+
+    outputs:
+      image_name: ${{ steps.set_env.outputs.image_name }}
+      service_name: ${{ steps.set_env.outputs.service_name }}
+      environment: ${{ env.ENVIRONMENT }}
+      commit_sha: ${{ steps.set_env.outputs.commit_sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        id: set_env
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+
+          # Get commit SHA (short version for URLs)
+          COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Setup service environment
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: otel-collector
+          project-id: ${{ secrets.PROJECT_ID }}
+
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker
+
+      - name: Build Container
+        run: |
+          # Build with context in apps/otel-collector
+          docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:latest -f apps/otel-collector/Dockerfile apps/otel-collector/
+          echo "Built image: ${{ env.IMAGE_NAME }}:latest"
+
+      - name: Push Container
+        run: |
+          docker push ${{ env.IMAGE_NAME }}:latest
+          echo "Pushed image: ${{ env.IMAGE_NAME }}:latest"
+
+  deploy:
+    needs: [validate-inputs, build]
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+
+    env:
+      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+      COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          REGION="${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}"
+          echo "REGION=$REGION" >> $GITHUB_ENV
+
+      - name: Setup service environment
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: otel-collector
+          project-id: ${{ secrets.PROJECT_ID }}
+
+      - name: Get Telemetry Processor URL
+        id: get_processor_url
+        run: |
+          # Determine telemetry processor service name based on environment
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            PROCESSOR_SERVICE_NAME="${{ vars.APP_NAME }}-telemetry-processor"
+          else
+            PROCESSOR_SERVICE_NAME="${{ vars.APP_NAME }}-telemetry-processor-${{ env.ENVIRONMENT }}"
+          fi
+          
+          echo "🔍 Looking for telemetry processor service: $PROCESSOR_SERVICE_NAME"
+          
+          # Try to get the processor URL (it might not exist yet on first deploy)
+          PROCESSOR_URL=$(gcloud run services describe $PROCESSOR_SERVICE_NAME \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --format="value(status.url)" 2>/dev/null || echo "")
+          
+          if [ -z "$PROCESSOR_URL" ]; then
+            echo "⚠️ Warning: Telemetry processor service not found. Using placeholder."
+            PROCESSOR_URL="https://telemetry-processor-not-deployed.placeholder"
+          else
+            echo "✅ Found telemetry processor URL: $PROCESSOR_URL"
+          fi
+          
+          echo "PROCESSOR_URL=$PROCESSOR_URL" >> $GITHUB_ENV
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        run: |
+          echo "🚀 Deploying OTel Collector"
+          echo "Image: ${{ env.IMAGE_NAME }}:latest"
+          echo "Processor endpoint: ${{ env.PROCESSOR_URL }}"
+
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.IMAGE_NAME }}:latest \
+            --project=${{ env.PROJECT_ID }} \
+            --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
+            --vpc-egress=private-ranges-only \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=4318 \
+            --memory=512Mi \
+            --cpu=1 \
+            --concurrency=100 \
+            --timeout=300s \
+            --max-instances=3 \
+            --min-instances=1 \
+            --set-env-vars="$(cat <<EOF
+          TELEMETRY_PROCESSOR_ENDPOINT=${{ env.PROCESSOR_URL }}
+          EOF
+          )"
+
+          echo "✅ Deployment completed successfully"
+
+          # Ensure the new revision gets 100% traffic
+          echo "🚦 Setting new revision to receive 100% traffic..."
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --to-latest \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }}
+
+          echo "✅ Traffic successfully routed to new revision"
+
+      - name: Output deployed service URL
+        id: output_service_url
+        run: |
+          DEPLOYED_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --format="value(status.url)")
+          
+          echo "📍 OTel Collector URL: $DEPLOYED_URL"
+          echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
+          echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
+
+      - name: Set actual service name
+        id: set_service_name
+        run: |
+          # Use repository variable to construct service name (avoids obfuscation)
+          SERVICE_TYPE="otel-collector"
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            ACTUAL_SERVICE_NAME="${{ vars.APP_NAME }}-${SERVICE_TYPE}"
+          else
+            ACTUAL_SERVICE_NAME="${{ vars.APP_NAME }}-${SERVICE_TYPE}-${{ env.ENVIRONMENT }}"
+          fi
+
+          echo "✅ Service name: $ACTUAL_SERVICE_NAME"
+          echo "ACTUAL_SERVICE_NAME=$ACTUAL_SERVICE_NAME" >> $GITHUB_ENV
+
+      - name: Generate deployment summary
+        uses: ./.github/actions/generate-deployment-summary
+        with:
+          service-type: OTel Collector
+          is-preview: false
+          environment: ${{ env.ENVIRONMENT }}
+          env-display: ${{ env.ENV_DISPLAY }}
+          service-url: ''
+          actual-service-name: ${{ env.ACTUAL_SERVICE_NAME }}
+
+      - name: Display important endpoints
+        run: |
+          echo "## 📡 OTel Collector Endpoints" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **OTLP/HTTP:** ${{ env.DEPLOYED_URL }}:4318" >> $GITHUB_STEP_SUMMARY
+          echo "- **OTLP/gRPC:** ${{ env.DEPLOYED_URL }}:4317" >> $GITHUB_STEP_SUMMARY
+          echo "- **Health Check:** ${{ env.DEPLOYED_URL }}:13133/health" >> $GITHUB_STEP_SUMMARY
+          echo "- **Prometheus Metrics:** ${{ env.DEPLOYED_URL }}:8889/metrics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Note:** Update backend/frontend \`OTEL_EXPORTER_OTLP_ENDPOINT\` to point to this collector" >> $GITHUB_STEP_SUMMARY
+
