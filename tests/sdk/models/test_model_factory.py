@@ -175,6 +175,41 @@ class TestGetModel:
         )
         assert result == mock_instance
 
+    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
+    def test_get_model_vertex_ai(self, mock_vertex_ai_class):
+        """Test get_model with vertex_ai provider."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_vertex_ai_class.return_value = mock_instance
+
+        result = get_model("vertex_ai", "gemini-2.5-flash")
+
+        mock_vertex_ai_class.assert_called_once_with(model_name="gemini-2.5-flash")
+        assert result == mock_instance
+
+    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
+    def test_get_model_vertex_ai_with_default(self, mock_vertex_ai_class):
+        """Test get_model with vertex_ai provider using default model."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_vertex_ai_class.return_value = mock_instance
+
+        result = get_model("vertex_ai")
+
+        mock_vertex_ai_class.assert_called_once_with(
+            model_name=DEFAULT_MODELS["vertex_ai"]
+        )
+        assert result == mock_instance
+
+    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
+    def test_get_model_vertex_ai_shorthand(self, mock_vertex_ai_class):
+        """Test get_model with vertex_ai shorthand syntax."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_vertex_ai_class.return_value = mock_instance
+
+        result = get_model("vertex_ai/gemini-2.0-flash")
+
+        mock_vertex_ai_class.assert_called_once_with(model_name="gemini-2.0-flash")
+        assert result == mock_instance
+
     def test_get_model_unsupported_provider(self):
         """Test get_model with unsupported provider raises ValueError."""
         with pytest.raises(
@@ -293,6 +328,25 @@ class TestModelFactoryIntegration:
 
         assert all(isinstance(model, Mock) for model in models)
         assert mock_gemini_class.call_count == 4
+
+    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
+    def test_vertex_ai_integration(self, mock_vertex_ai_class):
+        """Test full integration with vertex_ai provider."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_vertex_ai_class.return_value = mock_instance
+
+        # Test all creation methods for vertex_ai
+        models = [
+            get_model("vertex_ai"),  # provider only
+            get_model("vertex_ai", "custom-model"),  # provider + model
+            get_model("vertex_ai/custom-model"),  # shorthand
+            get_model(
+                config=ModelConfig(provider="vertex_ai", model_name="custom-model")
+            ),  # config
+        ]
+
+        assert all(isinstance(model, Mock) for model in models)
+        assert mock_vertex_ai_class.call_count == 4
 
 
 class TestModelFactoryEdgeCases:
