@@ -162,10 +162,9 @@ async def root(request: Request, auth: dict = Depends(verify_api_key)):
             "sessions": "/sessions/{session_id} (GET, DELETE)"
         },
         "rate_limits": {
-            "authenticated": "~500 requests/day per user (125/worker × 4 workers)",
-            "public": "~50 requests/day per IP (12/worker × 4 workers)",
-            "current_tier": auth["tier"],
-            "note": "Authenticate with Bearer token to get higher limits and per-user rate limiting. Effective limits are approximate due to multi-worker architecture."
+            "authenticated": "500 requests per day per user",
+            "public": "50 requests per day per IP address",
+            "current_tier": auth["tier"]
         }
     }
 
