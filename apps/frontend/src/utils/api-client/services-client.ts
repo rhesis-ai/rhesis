@@ -5,6 +5,9 @@ import { API_ENDPOINTS, API_CONFIG } from './config';
 interface TestPrompt {
   content: string;
   language_code: string;
+  demographic?: string;
+  dimension?: string;
+  expected_response?: string;
 }
 
 interface TestMetadata {

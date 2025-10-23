@@ -109,7 +109,7 @@ export default function TestGenerationFlow({
             // Create chips directly from template values (no API call needed)
             const createChipsFromArray = (
               items: string[],
-              colorVariant: string
+              colorVariant: 'blue' | 'purple' | 'orange' | 'green'
             ): ChipConfig[] => {
               return items.map(item => ({
                 id: item.toLowerCase().replace(/\s+/g, '-'),
@@ -230,7 +230,7 @@ export default function TestGenerationFlow({
         // Step 2: Create chips from config response (5 active, 5 inactive)
         const createChipsFromArray = (
           items: Array<{ name: string; description: string }>,
-          colorVariant: string
+          colorVariant: 'blue' | 'purple' | 'orange' | 'green'
         ): ChipConfig[] => {
           return items.map((item, index) => {
             return {
@@ -592,25 +592,25 @@ export default function TestGenerationFlow({
         }> = [
           ...configChips.behavior.map(chip => ({
             label: chip.label,
-            description: chip.description,
+            description: chip.description || '',
             active: chip.active,
             category: 'behavior' as const,
           })),
           ...configChips.topics.map(chip => ({
             label: chip.label,
-            description: chip.description,
+            description: chip.description || '',
             active: chip.active,
             category: 'topic' as const,
           })),
           ...configChips.category.map(chip => ({
             label: chip.label,
-            description: chip.description,
+            description: chip.description || '',
             active: chip.active,
             category: 'category' as const,
           })),
           ...configChips.scenarios.map(chip => ({
             label: chip.label,
-            description: chip.description,
+            description: chip.description || '',
             active: chip.active,
             category: 'scenario' as const,
           })),
@@ -621,7 +621,7 @@ export default function TestGenerationFlow({
           .filter(sample => sample.rating !== null)
           .map(sample => ({
             prompt: sample.prompt,
-            response: sample.response,
+            response: sample.response || '',
             rating: sample.rating as number,
             feedback:
               sample.feedback && sample.feedback.trim()
@@ -669,7 +669,7 @@ export default function TestGenerationFlow({
         // Step 2: Create chips from config response (5 active, 5 inactive)
         const createChipsFromArray = (
           items: Array<{ name: string; description: string }>,
-          colorVariant: string
+          colorVariant: 'blue' | 'purple' | 'orange' | 'green'
         ): ChipConfig[] => {
           return items.map((item, index) => {
             return {
@@ -843,25 +843,25 @@ export default function TestGenerationFlow({
       const chipStates = [
         ...configChips.behavior.map(chip => ({
           label: chip.label,
-          description: chip.description,
+          description: chip.description || '',
           active: chip.active,
           category: 'behavior' as const,
         })),
         ...configChips.topics.map(chip => ({
           label: chip.label,
-          description: chip.description,
+          description: chip.description || '',
           active: chip.active,
           category: 'topic' as const,
         })),
         ...configChips.category.map(chip => ({
           label: chip.label,
-          description: chip.description,
+          description: chip.description || '',
           active: chip.active,
           category: 'category' as const,
         })),
         ...configChips.scenarios.map(chip => ({
           label: chip.label,
-          description: chip.description,
+          description: chip.description || '',
           active: chip.active,
           category: 'scenario' as const,
         })),
@@ -871,7 +871,7 @@ export default function TestGenerationFlow({
         .filter(sample => sample.rating !== null)
         .map(sample => ({
           prompt: sample.prompt,
-          response: sample.response,
+          response: sample.response || '',
           rating: sample.rating as number,
           feedback: sample.feedback || undefined,
         }));
