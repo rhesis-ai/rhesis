@@ -7,4 +7,3 @@ Added
 
 - Added support for Parquet files
 - Added more entities and functionality
-

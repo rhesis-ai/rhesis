@@ -6,4 +6,3 @@ Added
 -----
 
 - Added ParaphrasingSynthesizer for generating paraphrases of test cases
-

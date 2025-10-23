@@ -41,4 +41,4 @@ test:
 	pytest
 
 docs:
-	cd ../docs/sdk && make clean && make html
+	cd ../docs/sphinx && make clean && make html

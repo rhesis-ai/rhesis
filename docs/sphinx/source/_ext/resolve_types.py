@@ -13,7 +13,7 @@ def setup(app):
     """
     app.connect('autodoc-process-docstring', process_docstring)
     app.connect('build-finished', report_stats)
-    
+
     app.fixed_refs = 0
     return {
         'version': '0.1',
@@ -31,13 +31,13 @@ def process_docstring(app, what, name, obj, options, lines):
             lines[i] = line.replace(' Any', ' typing.Any')
             if line != lines[i]:
                 app.fixed_refs += 1
-                
+
         # Fix other standard lib references
         if 'Path' in line:
             lines[i] = line.replace(' Path', ' pathlib.Path')
             if line != lines[i]:
                 app.fixed_refs += 1
-                
+
         if 'Template' in line:
             lines[i] = line.replace(' Template', ' jinja2.Template')
             if line != lines[i]:
@@ -48,4 +48,4 @@ def report_stats(app, exception):
     Report how many references were fixed.
     """
     if app.fixed_refs > 0:
-        logger.info(f"Fixed {app.fixed_refs} ambiguous type references") 
+        logger.info(f"Fixed {app.fixed_refs} ambiguous type references")

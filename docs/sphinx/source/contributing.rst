@@ -93,4 +93,4 @@ Please be respectful and inclusive when contributing to this project. We follow 
 License
 ------
 
-By contributing to the Rhesis SDK, you agree that your contributions will be licensed under the project's license. 
+By contributing to the Rhesis SDK, you agree that your contributions will be licensed under the project's license.

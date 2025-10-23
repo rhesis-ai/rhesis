@@ -16,4 +16,3 @@ Fixed
 -----
 
 - Fixed method naming issues
-
