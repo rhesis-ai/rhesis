@@ -8,6 +8,7 @@ x-common-database: &common-database
   SQLALCHEMY_DB_PASS: ${SQLALCHEMY_DB_PASS}
   SQLALCHEMY_DB_HOST: ${SQLALCHEMY_DB_HOST:-postgres}
   SQLALCHEMY_DB_NAME: ${SQLALCHEMY_DB_NAME}
+  DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY}
 
 x-common-redis: &common-redis
   REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-rhesis-redis-pass}@redis:6379/0}
