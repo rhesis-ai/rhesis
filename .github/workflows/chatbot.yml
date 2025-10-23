@@ -105,7 +105,7 @@ jobs:
 
       - name: Build Container
         run: |
-          docker build -t ${{ env.IMAGE_NAME }}:latest -f apps/chatbot/Dockerfile apps/chatbot
+          docker build -t ${{ env.IMAGE_NAME }}:latest -f apps/chatbot/Dockerfile .
 
       - name: Push Container
         run: |
