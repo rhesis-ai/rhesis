@@ -7,7 +7,7 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useNotifications } from '@/components/common/NotificationContext';
 import SourcesGrid from './SourcesGrid';
-import styles from '@/styles/KnowledgeClientWrapper.module.css';
+import styles from '@/styles/Knowledge.module.css';
 
 /** Type for alert/snackbar severity */
 type AlertSeverity = 'success' | 'error' | 'info' | 'warning';
@@ -35,11 +35,11 @@ function EmptyStateMessage({
         </Box>
       )}
 
-      <Typography variant="h5" className={styles.title}>
+      <Typography variant="h5" className={styles.emptyStateTitle}>
         {title}
       </Typography>
 
-      <Typography variant="body1" className={styles.description}>
+      <Typography variant="body1" className={styles.emptyStateDescription}>
         {description}
       </Typography>
     </Paper>

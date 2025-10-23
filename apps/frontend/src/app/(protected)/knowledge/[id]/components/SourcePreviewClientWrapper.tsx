@@ -22,7 +22,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
-import styles from '@/styles/SourcePreview.module.css';
+import styles from '@/styles/Knowledge.module.css';
 import { FILE_SIZE_CONSTANTS, TEXT_CONSTANTS } from '@/constants/knowledge';
 
 interface SourcePreviewClientWrapperProps {

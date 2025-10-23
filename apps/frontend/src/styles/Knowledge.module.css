@@ -1,0 +1,337 @@
+/**
+ * Consolidated CSS for Knowledge section
+ * Combines styles from KnowledgePage, KnowledgeClientWrapper, SourcesGrid, and SourcePreview
+ */
+
+/* ===== COMMON UTILITIES ===== */
+.errorContainer {
+  padding: 24px;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+/* ===== SPACING UTILITIES ===== */
+.padding3 {
+  padding: 24px;
+}
+
+.padding2 {
+  padding: 16px;
+}
+
+.marginBottom3 {
+  margin-bottom: 24px;
+}
+
+.marginBottom2 {
+  margin-bottom: 16px;
+}
+
+.marginTop4 {
+  margin-top: 32px;
+}
+
+/* ===== EMPTY STATE ===== */
+.emptyState {
+  width: 100%;
+  text-align: center;
+  padding: 64px 24px;
+  border-radius: 8px;
+  background-color: var(--mui-palette-background-paper);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.iconContainer {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.primaryIcon {
+  font-size: 60px;
+  color: var(--mui-palette-primary-main);
+  opacity: 0.7;
+  margin-right: 8px;
+}
+
+.secondaryIcon {
+  font-size: 30px;
+  color: var(--mui-palette-secondary-main);
+  margin-left: -24px;
+  margin-top: -8px;
+}
+
+.emptyStateTitle {
+  color: var(--mui-palette-text-primary);
+  font-weight: 500;
+}
+
+.emptyStateDescription {
+  color: var(--mui-palette-text-secondary);
+  max-width: 550px;
+  margin: 0 auto;
+}
+
+/* ===== SELECTION INFO ===== */
+.selectionInfo {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.selectionText {
+  color: var(--mui-palette-primary-main);
+}
+
+/* ===== GRID LAYOUT ===== */
+.gridContainer {
+  width: 100%;
+  margin-bottom: 16px;
+  margin-top: 32px;
+}
+
+.gridContent {
+  padding: 16px;
+}
+
+/* ===== DATA GRID STYLES ===== */
+.dataGrid {
+  border: none;
+}
+
+.dataGrid :global(.MuiDataGrid-columnHeaders) {
+  background-color: rgba(0, 0, 0, 0.04);
+  font-weight: bold;
+}
+
+.dataGrid :global(.MuiDataGrid-columnHeaderTitle) {
+  font-weight: 800;
+}
+
+.dataGrid :global(.MuiDataGrid-columnHeader) {
+  font-weight: bold;
+}
+
+.dataGrid :global(.MuiDataGrid-cell:focus) {
+  outline: none;
+}
+
+.dataGrid :global(.MuiDataGrid-row:hover) {
+  cursor: pointer;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.dataGrid :global(.MuiDataGrid-cell) {
+  display: flex;
+  align-items: center;
+}
+
+/* ===== SOURCE CONTENT ===== */
+.sourceTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  margin: 0;
+  word-break: break-word;
+}
+
+.sourceIcon {
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+}
+
+.sourceContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.sourceDescription {
+  color: var(--mui-palette-text-secondary);
+  font-size: 0.875rem;
+}
+
+/* ===== CHIPS ===== */
+.chipContainer {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  width: 100%;
+  overflow: hidden;
+}
+
+.fileTypeChip {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.tagChip {
+  font-size: 0.75rem;
+  height: 24px;
+}
+
+.overflowChip {
+  font-size: 0.75rem;
+  height: 24px;
+}
+
+/* ===== SOURCE PREVIEW HEADER ===== */
+.headerContainer {
+  margin-bottom: 24px;
+  padding: 24px;
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.sourceInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.description {
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.metadataRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.tagsContainer,
+.ownerContainer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===== LOADING AND ERROR STATES ===== */
+.loadingContainer,
+.emptyContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.errorAlert {
+  margin-bottom: 16px;
+}
+
+/* ===== CONTENT BLOCK ===== */
+.contentBlock {
+  border: 1px solid var(--mui-palette-divider);
+  border-radius: 8px;
+  background-color: var(--mui-palette-background-paper);
+  overflow: hidden;
+}
+
+.contentBlockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background-color: var(--mui-palette-grey-100);
+  border-bottom: 1px solid var(--mui-palette-divider);
+}
+
+.contentBlockTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.documentIcon {
+  font-size: 18px;
+  color: var(--mui-palette-text-secondary);
+}
+
+.contentBlockActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copyButton,
+.expandButton {
+  color: var(--mui-palette-text-secondary);
+  transition: color 0.2s ease;
+}
+
+.copyButton:hover,
+.expandButton:hover {
+  color: var(--mui-palette-primary-main);
+}
+
+.contentBlockBody {
+  padding: 16px;
+  background-color: var(--mui-palette-background-default);
+  border-top: 1px solid var(--mui-palette-divider);
+  max-height: 400px;
+  overflow: auto;
+}
+
+.contentText {
+  margin: 0;
+  padding: 16px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--mui-palette-text-primary);
+  background-color: transparent;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+  .headerContent {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actionButtons {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .metadataRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .titleRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
