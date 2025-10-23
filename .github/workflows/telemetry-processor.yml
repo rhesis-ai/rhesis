@@ -1,0 +1,334 @@
+name: "[Deploy] Telemetry Processor"
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/telemetry-processor/**'
+      - '.github/workflows/telemetry-processor.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/telemetry-processor/**'
+      - '.github/workflows/telemetry-processor.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        type: string
+        default: 'Manual deployment'
+
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        type: string
+        default: 'Manual deployment'
+
+env:
+  SA_KEY_PATH: 'gcp-sa-key.json'
+
+jobs:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate environment parameter
+        uses: ./.github/actions/validate-environment
+        with:
+          environment: ${{ github.event.inputs.environment }}
+
+  build:
+    needs: validate-inputs
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+
+    env:
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      SERVICE: telemetry-processor
+
+    outputs:
+      image_name: ${{ steps.set_env.outputs.image_name }}
+      service_name: ${{ steps.set_env.outputs.service_name }}
+      environment: ${{ env.ENVIRONMENT }}
+      commit_sha: ${{ steps.set_env.outputs.commit_sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        id: set_env
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+
+          # Get commit SHA (short version for URLs)
+          COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Setup service environment
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: telemetry-processor
+          project-id: ${{ secrets.PROJECT_ID }}
+
+      - name: Set additional environment variables
+        run: |
+          echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
+
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker
+
+      - name: Build Container
+        run: |
+          docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:latest -f apps/telemetry-processor/Dockerfile apps/telemetry-processor/
+          echo "Built image: ${{ env.IMAGE_NAME }}:latest"
+
+      - name: Push Container
+        run: |
+          docker push ${{ env.IMAGE_NAME }}:latest
+          echo "Pushed image: ${{ env.IMAGE_NAME }}:latest"
+
+  deploy:
+    needs: [validate-inputs, build]
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+
+    env:
+      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+      COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          REGION="${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}"
+          echo "REGION=$REGION" >> $GITHUB_ENV
+
+      - name: Setup service environment
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: telemetry-processor
+          project-id: ${{ secrets.PROJECT_ID }}
+
+      - name: Set additional environment variables
+        run: |
+          echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        run: |
+          echo "🚀 Deploying Telemetry Processor"
+          echo "Image: ${{ env.IMAGE_NAME }}:latest"
+          echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
+
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.IMAGE_NAME }}:latest \
+            --project=${{ env.PROJECT_ID }} \
+            --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
+            --vpc-egress=private-ranges-only \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --no-allow-unauthenticated \
+            --port=4317 \
+            --memory=512Mi \
+            --cpu=1 \
+            --concurrency=80 \
+            --timeout=600s \
+            --max-instances=5 \
+            --min-instances=1 \
+            --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
+            --set-env-vars="$(cat <<EOF
+          SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
+          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
+          SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
+          SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
+          SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
+          SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
+          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }},
+          LOG_LEVEL=${{ secrets.LOG_LEVEL }},
+          DEPLOYMENT_TYPE=cloud,
+          ENVIRONMENT=${{ env.ENVIRONMENT }}
+          EOF
+          )"
+
+          echo "✅ Deployment completed successfully"
+
+          # Ensure the new revision gets 100% traffic
+          echo "🚦 Setting new revision to receive 100% traffic..."
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --to-latest \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }}
+
+          echo "✅ Traffic successfully routed to new revision"
+
+      - name: Allow OTel Collector to invoke Telemetry Processor
+        run: |
+          echo "🔐 Configuring IAM permissions for OTel Collector to invoke Telemetry Processor..."
+          
+          # Determine otel-collector service name
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            COLLECTOR_SERVICE_NAME="${{ vars.APP_NAME }}-otel-collector"
+          else
+            COLLECTOR_SERVICE_NAME="${{ vars.APP_NAME }}-otel-collector-${{ env.ENVIRONMENT }}"
+          fi
+          
+          # Get the collector's service account (it should exist if collector is already deployed)
+          COLLECTOR_SA=$(gcloud run services describe $COLLECTOR_SERVICE_NAME \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --format="value(spec.template.spec.serviceAccountName)" 2>/dev/null || echo "")
+          
+          if [ -z "$COLLECTOR_SA" ]; then
+            echo "⚠️ Warning: OTel Collector service not found. Skipping IAM binding."
+            echo "ℹ️ You'll need to deploy the collector first, then redeploy this processor."
+          else
+            echo "✅ Found OTel Collector service account: $COLLECTOR_SA"
+            
+            # Grant the collector permission to invoke this processor
+            gcloud run services add-iam-policy-binding ${{ env.SERVICE_NAME }} \
+              --member="serviceAccount:$COLLECTOR_SA" \
+              --role="roles/run.invoker" \
+              --project=${{ env.PROJECT_ID }} \
+              --region=${{ env.REGION }}
+            
+            echo "✅ OTel Collector can now invoke Telemetry Processor"
+          fi
+
+      - name: Output deployed service URL
+        id: output_service_url
+        run: |
+          DEPLOYED_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --format="value(status.url)")
+          
+          echo "📍 Telemetry Processor URL: $DEPLOYED_URL"
+          echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
+          echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
+
+      - name: Set actual service name
+        id: set_service_name
+        run: |
+          # Use repository variable to construct service name (avoids obfuscation)
+          SERVICE_TYPE="telemetry-processor"
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            ACTUAL_SERVICE_NAME="${{ vars.APP_NAME }}-${SERVICE_TYPE}"
+          else
+            ACTUAL_SERVICE_NAME="${{ vars.APP_NAME }}-${SERVICE_TYPE}-${{ env.ENVIRONMENT }}"
+          fi
+
+          echo "✅ Service name: $ACTUAL_SERVICE_NAME"
+          echo "ACTUAL_SERVICE_NAME=$ACTUAL_SERVICE_NAME" >> $GITHUB_ENV
+
+      - name: Generate deployment summary
+        uses: ./.github/actions/generate-deployment-summary
+        with:
+          service-type: Telemetry Processor
+          is-preview: false
+          environment: ${{ env.ENVIRONMENT }}
+          env-display: ${{ env.ENV_DISPLAY }}
+          service-url: ''
+          actual-service-name: ${{ env.ACTUAL_SERVICE_NAME }}
+
+      - name: Next steps reminder
+        run: |
+          echo "## 🔄 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Deploy/Redeploy OTel Collector** to use this processor URL:" >> $GITHUB_STEP_SUMMARY
+          echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "   TELEMETRY_PROCESSOR_ENDPOINT=${{ env.DEPLOYED_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Update Backend/Frontend** to use the collector URL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Security Note:** This service is NOT publicly accessible (no-allow-unauthenticated)" >> $GITHUB_STEP_SUMMARY
+          echo "It can only be called from within the VPC or by authorized service accounts." >> $GITHUB_STEP_SUMMARY
+
