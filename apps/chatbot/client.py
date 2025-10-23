@@ -47,7 +47,11 @@ def get_rate_limit_identifier(request: Request) -> str:
     return f"public:{get_remote_address(request)}"
 
 # Initialize rate limiter with custom key function
-limiter = Limiter(key_func=get_rate_limit_identifier)
+# Set headers_enabled=True to include rate limit headers in responses
+limiter = Limiter(
+    key_func=get_rate_limit_identifier,
+    headers_enabled=True
+)
 
 def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> dict:
     """
