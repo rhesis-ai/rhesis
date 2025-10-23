@@ -1121,7 +1121,7 @@ def delete_user(
 
     The user account remains active but loses organization access.
     This preserves the user account and all their data while removing
-    organizational context. On next login, the user will go through 
+    organizational context. On next login, the user will go through
     the onboarding flow again.
 
     Args:
@@ -1959,22 +1959,22 @@ def delete_test_run(
 ) -> Optional[models.TestRun]:
     """
     Soft delete a test run.
-    
+
     Automatically cascades to all associated test results based on configuration
     in config/cascade_config.py. Uses efficient bulk UPDATE for cascade operations.
-    
+
     This operation is fully transactional - either all entities are soft deleted
     or none are (in case of error, changes are rolled back).
-    
+
     Args:
         db: Database session
         test_run_id: ID of the test run to delete
         organization_id: Organization ID for tenant context
         user_id: User ID for tenant context
-    
+
     Returns:
         The soft-deleted test run or None if not found
-        
+
     Raises:
         Exception: If any error occurs during deletion (triggers rollback)
     """
@@ -2590,7 +2590,37 @@ def update_comment(
 def delete_comment(
     db: Session, comment_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Comment]:
-    """Delete a comment with optimized tenant context"""
+    """Delete a comment with optimized tenant context and clear task references"""
+    from sqlalchemy import text as sql_text
+    from uuid import UUID as UUIDType
+
+    # First, clear the comment_id from all tasks that reference this comment
+    # This prevents orphaned references in task_metadata
+    try:
+        # Query to find and update tasks that have this comment_id in task_metadata
+        update_query = sql_text("""
+            UPDATE task
+            SET task_metadata = task_metadata - 'comment_id',
+                updated_at = NOW()
+            WHERE task_metadata->>'comment_id' = :comment_id
+            AND organization_id = :organization_id
+        """)
+
+        db.execute(update_query, {
+            "comment_id": str(comment_id),
+            "organization_id": UUIDType(organization_id)
+        })
+
+        # Commit the task metadata updates before deleting the comment
+        db.commit()
+    except Exception as e:
+        # Log the error but continue with comment deletion
+        # This ensures the comment can still be deleted even if task cleanup fails
+        import logging
+        logging.error(f"Error clearing task references for comment {comment_id}: {e}")
+        db.rollback()
+
+    # Now proceed with normal comment deletion
     return delete_item(db, models.Comment, comment_id, organization_id, user_id)
 
 
