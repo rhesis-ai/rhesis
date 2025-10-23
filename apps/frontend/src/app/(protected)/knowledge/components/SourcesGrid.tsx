@@ -20,6 +20,11 @@ import { DeleteButton } from '@/components/common/DeleteButton';
 import UploadSourceDialog from './UploadSourceDialog';
 import styles from '@/styles/SourcesGrid.module.css';
 import { convertGridFilterModelToOData } from '@/utils/odata-filter';
+import {
+  FILE_SIZE_CONSTANTS,
+  FILE_TYPE_CONSTANTS,
+  TEXT_CONSTANTS,
+} from '@/constants/knowledge';
 
 interface SourcesGridProps {
   sessionToken: string;
@@ -30,9 +35,11 @@ interface SourcesGridProps {
 const formatFileSize = (bytes?: number) => {
   if (!bytes) return 'Unknown';
 
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
+  const sizes = FILE_TYPE_CONSTANTS.SIZE_UNITS;
+  const i = Math.floor(
+    Math.log(bytes) / Math.log(FILE_SIZE_CONSTANTS.BYTES_PER_KB)
+  );
+  return `${Math.round((bytes / Math.pow(FILE_SIZE_CONSTANTS.BYTES_PER_KB, i)) * 100) / 100} ${sizes[i]}`;
 };
 
 export default function SourcesGrid({
@@ -230,8 +237,9 @@ export default function SourcesGrid({
                   variant="caption"
                   className={styles.sourceDescription}
                 >
-                  {source.description.length > 50
-                    ? `${source.description.substring(0, 50)}...`
+                  {source.description.length >
+                  TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH
+                    ? `${source.description.substring(0, TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH)}...`
                     : source.description}
                 </Typography>
               )}

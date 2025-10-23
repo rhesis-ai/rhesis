@@ -19,6 +19,10 @@ import UploadIcon from '@mui/icons-material/Upload';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DragAndDropUpload from '@/components/common/DragAndDropUpload';
+import {
+  FILE_SIZE_CONSTANTS,
+  FILE_TYPE_CONSTANTS,
+} from '@/constants/knowledge';
 
 interface UploadSourceDialogProps {
   open: boolean;
@@ -155,8 +159,8 @@ export default function UploadSourceDialog({
               onFileSelect={handleFileSelect}
               onFileRemove={handleFileRemove}
               selectedFile={file}
-              accept=".txt,.md,.pdf,.doc,.docx,.json,.csv,.xml,.epub,.pptx,.xlsx,.html,.htm,.zip"
-              maxSize={5 * 1024 * 1024} // 5MB
+              accept={FILE_TYPE_CONSTANTS.ACCEPTED_EXTENSIONS}
+              maxSize={FILE_SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
               disabled={uploading}
             />
           </Box>
