@@ -181,7 +181,7 @@ async def root(request: Request, auth: dict = Depends(verify_api_key)):
     }
 
 @app.post("/chat", response_model=ChatResponse)
-@limiter.limit(lambda request: get_rate_limit_for_request(request))
+@limiter.limit(get_rate_limit_for_request)
 async def chat(
     request: Request, 
     chat_request: ChatRequest,
@@ -232,14 +232,14 @@ async def chat(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/sessions/{session_id}")
-@limiter.limit(lambda request: get_rate_limit_for_request(request))
+@limiter.limit(get_rate_limit_for_request)
 async def get_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"messages": sessions[session_id]}
 
 @app.delete("/sessions/{session_id}")
-@limiter.limit(lambda request: get_rate_limit_for_request(request))
+@limiter.limit(get_rate_limit_for_request)
 async def delete_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -247,7 +247,7 @@ async def delete_session(request: Request, session_id: str, auth: dict = Depends
     return {"message": "Session deleted"}
 
 @app.get("/use-cases")
-@limiter.limit(lambda request: get_rate_limit_for_request(request))
+@limiter.limit(get_rate_limit_for_request)
 async def list_use_cases(request: Request, auth: dict = Depends(verify_api_key)):
     """Get list of available use cases"""
     try:
