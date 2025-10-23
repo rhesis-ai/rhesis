@@ -235,7 +235,7 @@ async def delete_session(request: Request, session_id: str, auth: dict = Depends
     return {"message": "Session deleted"}
 
 @app.get("/use-cases")
-@limiter.limit("5/minute")  # Testing: Lower limit to verify rate limiting works
+@limiter.limit("100/day")
 async def list_use_cases(request: Request, auth: dict = Depends(verify_api_key)):
     """Get list of available use cases"""
     try:
