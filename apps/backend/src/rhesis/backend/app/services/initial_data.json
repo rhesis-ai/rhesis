@@ -504,8 +504,8 @@
     ],
     "project": [
         {
-            "name": "Example Project",
-            "description": "Example project description",
+            "name": "Example Project (Insurance Chatbot)",
+            "description": "Example project description for the insurance chatbot. This chatbot supports answering questions about insurance in different types of areas, such as health, life, auto, home, and more.",
             "is_active": true,
             "status": "Active",
             "icon": "Science"
@@ -751,6 +751,35 @@
           }
         }
       ],
+    "endpoint": [
+        {
+            "name": "Insurance Chatbot",
+            "description": "Default chatbot endpoint with user-based rate limiting (1000/day per user when authenticated, 100/day per IP for public access)",
+            "protocol": "REST",
+            "url": "https://chatbot.rhesis.ai/chat",
+            "method": "POST",
+            "environment": "production",
+            "config_source": "manual",
+            "response_format": "json",
+            "auth_type": "bearer_token",
+            "auth_token": "${CHATBOT_API_KEY}",
+            "request_headers": {
+                "Content-Type": "application/json"
+            },
+            "request_body_template": {
+                "message": "{{ input }}",
+                "session_id": "{{ session_id }}"
+            },
+            "response_mappings": {
+                "output": "$.message",
+                "session_id": "$.session_id",
+                "metadata": "$.metadata",
+                "context": "$.context"
+            },
+            "project": "Example Project (Insurance Chatbot)",
+            "status": "Active"
+        }
+    ],
     "metric": [
         {
             "name": "Contextual Relevancy",

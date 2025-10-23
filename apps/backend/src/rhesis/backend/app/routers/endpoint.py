@@ -154,7 +154,7 @@ def invoke_endpoint(
                 })
 
         organization_id, user_id = tenant_context
-        result = endpoint_service.invoke_endpoint(db, str(endpoint_id), input_data, organization_id=organization_id)
+        result = endpoint_service.invoke_endpoint(db, str(endpoint_id), input_data, organization_id=organization_id, user_id=str(user_id))
         logger.info(f"API invoke successful for endpoint {endpoint_id}")
         return result
     except HTTPException as e:
