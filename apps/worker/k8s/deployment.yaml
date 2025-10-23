@@ -109,6 +109,26 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: GEMINI_MODEL_NAME
+        - name: DEFAULT_GENERATION_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: DEFAULT_GENERATION_MODEL
+        - name: DEFAULT_MODEL_NAME
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: DEFAULT_MODEL_NAME
+        - name: VERTEX_AI_CREDENTIALS
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: VERTEX_AI_CREDENTIALS
+        - name: VERTEX_AI_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: VERTEX_AI_ENDPOINT
         - name: AZURE_OPENAI_ENDPOINT
           valueFrom:
             secretKeyRef:
