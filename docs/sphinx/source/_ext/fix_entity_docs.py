@@ -26,4 +26,4 @@ def fix_client_ref(app, what, name, obj, options, lines):
             # Replace Client with fully qualified rhesis.client.Client
             if 'client' in line.lower() and 'Client' in line:
                 lines[i] = line.replace('Client', ':class:`rhesis.client.Client`')
-                logger.info(f"Fixed Client reference in {name}") 
+                logger.info(f"Fixed Client reference in {name}")

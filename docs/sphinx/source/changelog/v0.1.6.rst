@@ -29,4 +29,3 @@ Fixed
 
 - Fixed synthesizer response parsing to handle new test structure
 - Fixed test set property extraction to work with nested test objects
-
