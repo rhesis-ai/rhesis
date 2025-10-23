@@ -23,6 +23,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import styles from '@/styles/SourcePreview.module.css';
+import { FILE_SIZE_CONSTANTS, TEXT_CONSTANTS } from '@/constants/knowledge';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
@@ -119,9 +120,11 @@ export default function SourcePreviewClientWrapper({
 
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return 'Unknown';
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
+    const sizes = FILE_TYPE_CONSTANTS.SIZE_UNITS;
+    const i = Math.floor(
+      Math.log(bytes) / Math.log(FILE_SIZE_CONSTANTS.BYTES_PER_KB)
+    );
+    return `${Math.round((bytes / Math.pow(FILE_SIZE_CONSTANTS.BYTES_PER_KB, i)) * 100) / 100} ${sizes[i]}`;
   };
 
   const getFileExtension = (filename?: string) => {
@@ -129,7 +132,10 @@ export default function SourcePreviewClientWrapper({
     const ext = filename.split('.').pop()?.toLowerCase();
     return ext || 'unknown';
   };
-  const truncateFilename = (filename: string, maxLength: number = 50) => {
+  const truncateFilename = (
+    filename: string,
+    maxLength: number = TEXT_CONSTANTS.FILENAME_TRUNCATE_LENGTH
+  ) => {
     if (filename.length <= maxLength) return filename;
 
     // Try to preserve the file extension
@@ -137,7 +143,8 @@ export default function SourcePreviewClientWrapper({
     if (lastDotIndex > 0) {
       const extension = filename.substring(lastDotIndex);
       const nameWithoutExt = filename.substring(0, lastDotIndex);
-      const availableLength = maxLength - extension.length - 3; // 3 for "..."
+      const availableLength =
+        maxLength - extension.length - TEXT_CONSTANTS.ELLIPSIS_LENGTH;
 
       if (availableLength > 0) {
         return `${nameWithoutExt.substring(0, availableLength)}...${extension}`;
@@ -145,7 +152,7 @@ export default function SourcePreviewClientWrapper({
     }
 
     // Fallback: just truncate and add ellipsis
-    return `${filename.substring(0, maxLength - 3)}...`;
+    return `${filename.substring(0, maxLength - TEXT_CONSTANTS.ELLIPSIS_LENGTH)}...`;
   };
 
   const fileExtension = getFileExtension(
