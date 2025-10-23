@@ -154,16 +154,50 @@ async def generate_content_endpoint(request: GenerateContentRequest):
     try:
         import os
 
+        from pydantic import create_model
         from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
 
         prompt = request.prompt
-        schema = request.schema_
+        schema_dict = request.schema_
 
         # Get model name from environment or use default
         model_name = os.getenv("VERTEX_AI_MODEL_NAME", "gemini-2.5-flash")
 
+        # Convert JSON schema dict to Pydantic model if provided
+        pydantic_schema = None
+        if schema_dict:
+            # Extract properties from JSON schema
+            properties = schema_dict.get("properties", {})
+            required_fields = schema_dict.get("required", [])
+
+            # Build field definitions for Pydantic model
+            field_definitions = {}
+            for field_name, field_info in properties.items():
+                field_type = field_info.get("type")
+
+                # Map JSON schema types to Python types
+                type_mapping = {
+                    "string": str,
+                    "integer": int,
+                    "number": float,
+                    "boolean": bool,
+                    "array": list,
+                    "object": dict,
+                }
+
+                python_type = type_mapping.get(field_type, str)
+
+                # Mark as optional if not in required fields
+                if field_name in required_fields:
+                    field_definitions[field_name] = (python_type, ...)
+                else:
+                    field_definitions[field_name] = (python_type, None)
+
+            # Dynamically create Pydantic model
+            pydantic_schema = create_model("DynamicSchema", **field_definitions)
+
         model = VertexAILLM(model_name=model_name)
-        response = model.generate(prompt, schema=schema)
+        response = model.generate(prompt, schema=pydantic_schema)
 
         return response
     except Exception as e:
