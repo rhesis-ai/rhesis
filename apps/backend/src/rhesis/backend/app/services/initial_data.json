@@ -776,7 +776,7 @@
                 "metadata": "$.metadata",
                 "context": "$.context"
             },
-            "project": "Example Project",
+            "project": "Example Project (Insurance Chatbot)",
             "status": "Active"
         }
     ],
