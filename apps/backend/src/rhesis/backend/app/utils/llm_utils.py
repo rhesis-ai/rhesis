@@ -127,3 +127,70 @@ def _get_user_model(
     logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
     return default_model
 
+
+def json_schema_to_pydantic(schema_dict: dict):
+    """
+    Convert a JSON schema dictionary to a Pydantic BaseModel class.
+    
+    This enables dynamic structured output by converting OpenAPI/JSON schema
+    definitions into Pydantic models that can be used with LLM providers.
+    
+    Args:
+        schema_dict: JSON schema dictionary with 'properties' and optional 'required' fields
+        
+    Returns:
+        A dynamically created Pydantic BaseModel class
+        
+    Example:
+        >>> schema = {
+        ...     "type": "object",
+        ...     "properties": {
+        ...         "name": {"type": "string"},
+        ...         "age": {"type": "integer"}
+        ...     },
+        ...     "required": ["name"]
+        ... }
+        >>> PersonModel = json_schema_to_pydantic(schema)
+        >>> # Now use PersonModel as a Pydantic schema with LLM
+        
+    Supported JSON Schema Types:
+        - string -> str
+        - integer -> int
+        - number -> float
+        - boolean -> bool
+        - array -> list
+        - object -> dict
+    """
+    from pydantic import create_model
+    
+    # Extract properties from JSON schema
+    properties = schema_dict.get("properties", {})
+    required_fields = schema_dict.get("required", [])
+    
+    # Build field definitions for Pydantic model
+    field_definitions = {}
+    for field_name, field_info in properties.items():
+        field_type = field_info.get("type")
+        
+        # Map JSON schema types to Python types
+        type_mapping = {
+            "string": str,
+            "integer": int,
+            "number": float,
+            "boolean": bool,
+            "array": list,
+            "object": dict,
+        }
+        
+        python_type = type_mapping.get(field_type, str)
+        
+        # Mark as optional if not in required fields
+        # ... means required (no default), None means optional (default=None)
+        if field_name in required_fields:
+            field_definitions[field_name] = (python_type, ...)
+        else:
+            field_definitions[field_name] = (python_type, None)
+    
+    # Dynamically create and return Pydantic model
+    return create_model("DynamicSchema", **field_definitions)
+
