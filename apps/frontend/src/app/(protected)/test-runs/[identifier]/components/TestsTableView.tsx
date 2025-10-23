@@ -337,7 +337,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '28%',
+                  width: '25%',
                 }}
               >
                 Prompt
@@ -346,7 +346,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '38%',
+                  width: '35%',
                 }}
               >
                 Response
@@ -355,7 +355,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '12%',
+                  width: '15%',
                   textAlign: 'center',
                 }}
               >
@@ -391,7 +391,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '10%',
+                  width: '12%',
                   textAlign: 'center',
                 }}
               >
@@ -401,7 +401,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '12%',
+                  width: '13%',
                   textAlign: 'center',
                 }}
               >
