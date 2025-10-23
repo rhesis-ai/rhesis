@@ -11,11 +11,18 @@ from slowapi.errors import RateLimitExceeded
 from endpoint import stream_assistant_response, generate_context
 from notifications import send_rate_limit_alert
 
-# Get rate limit from environment variable, default to 125 requests/day
-# Note: With 4 Gunicorn workers, effective limit is ~4x (each worker tracks independently)
-RATE_LIMIT_PER_DAY = os.getenv("CHATBOT_RATE_LIMIT", "125")
-RATE_LIMIT_AUTHENTICATED = f"{RATE_LIMIT_PER_DAY}/day"  # For authenticated users (~500/day effective)
-RATE_LIMIT_PUBLIC = "12/day"  # Stricter limit for unauthenticated/public access (~50/day effective)
+# Get rate limit from environment variable (total desired limit across all workers)
+# This will be automatically divided by the number of workers
+WORKERS = int(os.getenv("WORKERS", "4"))  # Number of Gunicorn workers
+TOTAL_RATE_LIMIT_AUTHENTICATED = int(os.getenv("CHATBOT_RATE_LIMIT", "1000"))
+TOTAL_RATE_LIMIT_PUBLIC = 100  # Public users get lower limit
+
+# Calculate per-worker limits (each worker tracks independently with in-memory storage)
+RATE_LIMIT_PER_WORKER_AUTHENTICATED = TOTAL_RATE_LIMIT_AUTHENTICATED // WORKERS
+RATE_LIMIT_PER_WORKER_PUBLIC = TOTAL_RATE_LIMIT_PUBLIC // WORKERS
+
+RATE_LIMIT_AUTHENTICATED = f"{RATE_LIMIT_PER_WORKER_AUTHENTICATED}/day"
+RATE_LIMIT_PUBLIC = f"{RATE_LIMIT_PER_WORKER_PUBLIC}/day"
 
 # API Key for backend authentication (optional)
 CHATBOT_API_KEY = os.getenv("CHATBOT_API_KEY")
@@ -162,14 +169,14 @@ async def root(request: Request, auth: dict = Depends(verify_api_key)):
             "sessions": "/sessions/{session_id} (GET, DELETE)"
         },
         "rate_limits": {
-            "authenticated": "500 requests per day per user",
-            "public": "50 requests per day per IP address",
+            "authenticated": f"{TOTAL_RATE_LIMIT_AUTHENTICATED} requests per day per user",
+            "public": f"{TOTAL_RATE_LIMIT_PUBLIC} requests per day per IP address",
             "current_tier": auth["tier"]
         }
     }
 
 @app.post("/chat", response_model=ChatResponse)
-@limiter.limit("12/day")  # 12/day per worker = ~50/day effective with 4 workers
+@limiter.limit(RATE_LIMIT_PUBLIC)
 async def chat(
     request: Request, 
     chat_request: ChatRequest,
@@ -220,14 +227,14 @@ async def chat(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/sessions/{session_id}")
-@limiter.limit("12/day")  # 12/day per worker = ~50/day effective with 4 workers
+@limiter.limit(RATE_LIMIT_PUBLIC)
 async def get_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"messages": sessions[session_id]}
 
 @app.delete("/sessions/{session_id}")
-@limiter.limit("12/day")  # 12/day per worker = ~50/day effective with 4 workers
+@limiter.limit(RATE_LIMIT_PUBLIC)
 async def delete_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -235,7 +242,7 @@ async def delete_session(request: Request, session_id: str, auth: dict = Depends
     return {"message": "Session deleted"}
 
 @app.get("/use-cases")
-@limiter.limit("12/day")  # 12/day per worker = ~50/day effective with 4 workers
+@limiter.limit(RATE_LIMIT_PUBLIC)
 async def list_use_cases(request: Request, auth: dict = Depends(verify_api_key)):
     """Get list of available use cases"""
     try:
