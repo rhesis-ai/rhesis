@@ -59,7 +59,8 @@ class VertexAILLM(LiteLLM):
         """
         VertexAILLM: Google Vertex AI LLM Provider
 
-        This class provides an interface to Vertex AI models via LiteLLM with regional deployment support.
+        This class provides an interface to Vertex AI models via LiteLLM
+        with regional deployment support.
 
         Args:
             model_name (str): The name of the Vertex AI model to use (default: "gemini-2.5-flash").
