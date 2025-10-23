@@ -56,7 +56,10 @@ export default function SourceSelector({
       const sourcesClient = apiFactory.getSourcesClient();
 
       // Fetch all sources
-      const sourcesResponse = await sourcesClient.getSources({ limit: 100 });
+      const sourcesResponse = await sourcesClient.getSources({
+        limit: 100,
+        skip: 0,
+      });
 
       // Handle both array and paginated response formats
       const sourcesData = Array.isArray(sourcesResponse)

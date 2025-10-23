@@ -70,7 +70,7 @@ export default function ChipGroup({
       return {
         ...baseSx,
         '& .MuiChip-label': {
-          fontSize: theme => theme.typography.caption.fontSize,
+          fontSize: (theme: any) => theme.typography.caption.fontSize,
         },
         height: '24px',
       };
