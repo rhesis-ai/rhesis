@@ -127,10 +127,8 @@ export default function SourcePreviewClientWrapper({
   const getFileExtension = (filename?: string) => {
     if (!filename) return 'unknown';
     const ext = filename.split('.').pop()?.toLowerCase();
-    if (!ext) return 'unknown';
-    return ext === 'htm' ? 'html' : ext === 'jpeg' ? 'jpg' : ext;
+    return ext || 'unknown';
   };
-
   const truncateFilename = (filename: string, maxLength: number = 50) => {
     if (filename.length <= maxLength) return filename;
 

@@ -250,15 +250,8 @@ export default function SourcesGrid({
           // Extract file extension from original filename
           const getFileExtension = (filename?: string) => {
             if (!filename) return 'unknown';
-
             const ext = filename.split('.').pop()?.toLowerCase();
-            if (!ext) return 'unknown';
-
-            // Handle special cases where we want to normalize extensions
-            const normalizedExt =
-              ext === 'htm' ? 'html' : ext === 'jpeg' ? 'jpg' : ext;
-
-            return normalizedExt;
+            return ext || 'unknown';
           };
 
           const fileExtension = getFileExtension(metadata.original_filename);
