@@ -98,8 +98,8 @@ async def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExc
         # Log but don't fail the response
         print(f"⚠️ Error sending rate limit alert: {e}")
     
-    # Return the standard rate limit exceeded response
-    return await _rate_limit_exceeded_handler(request, exc)
+    # Return the standard rate limit exceeded response (not awaited - it returns a Response object)
+    return _rate_limit_exceeded_handler(request, exc)
 
 # Add rate limiter to app state
 app.state.limiter = limiter
@@ -235,7 +235,7 @@ async def delete_session(request: Request, session_id: str, auth: dict = Depends
     return {"message": "Session deleted"}
 
 @app.get("/use-cases")
-@limiter.limit("100/day")
+@limiter.limit("5/minute")  # Testing: Lower limit to verify rate limiting works
 async def list_use_cases(request: Request, auth: dict = Depends(verify_api_key)):
     """Get list of available use cases"""
     try:
