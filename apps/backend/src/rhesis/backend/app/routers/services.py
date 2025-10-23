@@ -152,23 +152,21 @@ async def generate_content_endpoint(request: GenerateContentRequest):
         str or dict: Raw text if no schema, validated dict if schema provided
     """
     try:
-        import os
-
+        from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, DEFAULT_MODEL_NAME
         from rhesis.backend.app.utils.llm_utils import json_schema_to_pydantic
-        from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
+        from rhesis.sdk.models.factory import get_model
 
         prompt = request.prompt
         schema_dict = request.schema_
-
-        # Get model name from environment or use default
-        model_name = os.getenv("VERTEX_AI_MODEL_NAME", "gemini-2.5-flash")
 
         # Convert JSON schema dict to Pydantic model if provided
         pydantic_schema = None
         if schema_dict:
             pydantic_schema = json_schema_to_pydantic(schema_dict)
 
-        model = VertexAILLM(model_name=model_name)
+        # Use the default generation model from constants
+        # This respects the global configuration (currently vertex_ai)
+        model = get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
         response = model.generate(prompt, schema=pydantic_schema)
 
         return response
