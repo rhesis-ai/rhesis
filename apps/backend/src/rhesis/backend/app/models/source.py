@@ -1,6 +1,6 @@
 from sqlalchemy import Column, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import deferred, relationship
 
 from .base import Base
 from .guid import GUID
@@ -13,7 +13,9 @@ class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMix
     # Basic information
     title = Column(String, nullable=False)  # Source name or title, required
     description = Column(Text)
-    content = Column(Text)  # Raw text content from source, extracted
+    content = deferred(
+        Column(Text)
+    )  # Raw text content from source, extracted - deferred for performance
     source_type_id = Column(
         GUID(), ForeignKey("type_lookup.id")
     )  # Type of source (e.g., 'website', 'document')
