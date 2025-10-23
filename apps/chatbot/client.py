@@ -46,18 +46,6 @@ def get_rate_limit_identifier(request: Request) -> str:
     # Unauthenticated - use IP address for stricter rate limiting
     return f"public:{get_remote_address(request)}"
 
-def get_rate_limit_for_request(request: Request) -> str:
-    """
-    Return appropriate rate limit based on authentication.
-    
-    - Authenticated: 1000/day per user
-    - Public: 100/day per IP
-    """
-    identifier = get_rate_limit_identifier(request)
-    if identifier.startswith("authenticated:"):
-        return RATE_LIMIT_AUTHENTICATED
-    return RATE_LIMIT_PUBLIC
-
 # Initialize rate limiter with custom key function
 limiter = Limiter(key_func=get_rate_limit_identifier)
 
@@ -180,8 +168,19 @@ async def root(request: Request, auth: dict = Depends(verify_api_key)):
         }
     }
 
+def is_authenticated(request: Request) -> bool:
+    """Check if request is authenticated for rate limit exemption."""
+    identifier = get_rate_limit_identifier(request)
+    return identifier.startswith("authenticated:")
+
+def is_public(request: Request) -> bool:
+    """Check if request is public for rate limit exemption."""
+    identifier = get_rate_limit_identifier(request)
+    return identifier.startswith("public:")
+
 @app.post("/chat", response_model=ChatResponse)
-@limiter.limit(get_rate_limit_for_request)
+@limiter.limit(RATE_LIMIT_AUTHENTICATED, exempt_when=is_public)
+@limiter.limit(RATE_LIMIT_PUBLIC, exempt_when=is_authenticated)
 async def chat(
     request: Request, 
     chat_request: ChatRequest,
@@ -232,14 +231,16 @@ async def chat(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/sessions/{session_id}")
-@limiter.limit(get_rate_limit_for_request)
+@limiter.limit(RATE_LIMIT_AUTHENTICATED, exempt_when=is_public)
+@limiter.limit(RATE_LIMIT_PUBLIC, exempt_when=is_authenticated)
 async def get_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"messages": sessions[session_id]}
 
 @app.delete("/sessions/{session_id}")
-@limiter.limit(get_rate_limit_for_request)
+@limiter.limit(RATE_LIMIT_AUTHENTICATED, exempt_when=is_public)
+@limiter.limit(RATE_LIMIT_PUBLIC, exempt_when=is_authenticated)
 async def delete_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -247,7 +248,8 @@ async def delete_session(request: Request, session_id: str, auth: dict = Depends
     return {"message": "Session deleted"}
 
 @app.get("/use-cases")
-@limiter.limit(get_rate_limit_for_request)
+@limiter.limit(RATE_LIMIT_AUTHENTICATED, exempt_when=is_public)
+@limiter.limit(RATE_LIMIT_PUBLIC, exempt_when=is_authenticated)
 async def list_use_cases(request: Request, auth: dict = Depends(verify_api_key)):
     """Get list of available use cases"""
     try:
