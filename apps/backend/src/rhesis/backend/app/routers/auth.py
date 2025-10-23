@@ -17,7 +17,11 @@ from rhesis.backend.app.dependencies import (
     get_db_session,
 )
 from rhesis.backend.logging import logger
-from rhesis.backend.telemetry import set_telemetry_enabled, track_user_activity
+from rhesis.backend.telemetry import (
+    is_telemetry_enabled,
+    set_telemetry_enabled,
+    track_user_activity,
+)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -103,7 +107,8 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         session_token = create_session_token(user)
 
         # Step 5: Track login activity (only if user has telemetry enabled)
-        if user.telemetry_enabled:
+        # Track login activity if telemetry is enabled
+        if is_telemetry_enabled():
             # Set telemetry context first
             set_telemetry_enabled(
                 enabled=True,
@@ -148,16 +153,18 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
             if user_id:
                 logger.info(f"Logout called for user {user_id} via JWT token")
 
-                # Set telemetry context before tracking (user already authenticated via token)
-                org_id = user_info.get("organization_id")
-                set_telemetry_enabled(
-                    enabled=True,  # We're in logout, so telemetry was already enabled
-                    user_id=str(user_id),
-                    org_id=str(org_id) if org_id else None,
-                )
+                # Track logout activity if telemetry is enabled
+                if is_telemetry_enabled():
+                    # Set telemetry context before tracking (user already authenticated via token)
+                    org_id = user_info.get("organization_id")
+                    set_telemetry_enabled(
+                        enabled=True,
+                        user_id=str(user_id),
+                        org_id=str(org_id) if org_id else None,
+                    )
 
-                # Track logout activity
-                track_user_activity(event_type="logout", session_id=request.session.get("_id"))
+                    # Track logout activity
+                    track_user_activity(event_type="logout", session_id=request.session.get("_id"))
 
                 # Here you could add additional cleanup if needed
                 # For example, invalidating refresh tokens, clearing user-specific cache, etc.
