@@ -74,7 +74,7 @@ class SourceUpdate(SourceBase):
     title: Optional[str] = None  # Make title optional for updates
 
 
-# Schema for returning a Source (includes related objects)
+# Schema for returning a Source (content field is deferred in the model for performance)
 class Source(SourceBase):
     id: UUID4
     created_at: Union[datetime, str]

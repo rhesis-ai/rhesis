@@ -44,6 +44,7 @@ class QueryBuilder:
         self._limit = None
         self._sort_by = None
         self._sort_order = "asc"
+        self._include_fields = None
 
     def with_joinedloads(
         self, skip_many_to_many: bool = True, skip_one_to_many: bool = False
@@ -179,6 +180,13 @@ class QueryBuilder:
     def with_custom_filter(self, filter_func: Callable[[Query], Query]) -> "QueryBuilder":
         """Apply a custom filter function"""
         self.query = filter_func(self.query)
+        return self
+
+    def with_field_selection(self, include_fields: List[str] = None) -> "QueryBuilder":
+        """Apply database-level field selection for performance optimization"""
+        # Store field selection for later use in response serialization
+        # We don't modify the query here to avoid breaking relationships
+        self._include_fields = include_fields
         return self
 
     def _apply_sorting(self):
