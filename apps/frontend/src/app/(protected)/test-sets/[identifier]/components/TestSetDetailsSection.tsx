@@ -201,19 +201,30 @@ export default function TestSetDetailsSection({
   const categories = testSet.attributes?.metadata?.categories || [];
   const topics = testSet.attributes?.metadata?.topics || [];
   const sources = testSet.attributes?.metadata?.sources || [];
+  const totalTests = testSet.attributes?.metadata?.total_tests || 0;
 
   return (
     <>
       {/* Action Buttons */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }} suppressHydrationWarning>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<PlayArrowIcon />}
-          onClick={() => setTestRunDrawerOpen(true)}
+        <Tooltip
+          title={
+            totalTests === 0 ? 'Cannot execute a test set with 0 tests' : ''
+          }
+          arrow
         >
-          Execute Test Set
-        </Button>
+          <span>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<PlayArrowIcon />}
+              onClick={() => setTestRunDrawerOpen(true)}
+              disabled={totalTests === 0}
+            >
+              Execute Test Set
+            </Button>
+          </span>
+        </Tooltip>
         <Button
           variant="outlined"
           startIcon={<DownloadIcon />}
