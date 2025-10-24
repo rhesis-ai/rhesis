@@ -9,9 +9,6 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import SourcesGrid from './SourcesGrid';
 import styles from '@/styles/Knowledge.module.css';
 
-/** Type for alert/snackbar severity */
-type AlertSeverity = 'success' | 'error' | 'info' | 'warning';
-
 /** Props for the EmptyStateMessage component */
 interface EmptyStateMessageProps {
   title: string;
@@ -60,7 +57,6 @@ export default function KnowledgeClientWrapper({
   initialSources = [],
   sessionToken,
 }: KnowledgeClientWrapperProps) {
-  const [sources, setSources] = useState<Source[]>(initialSources || []);
   const [refreshKey, setRefreshKey] = useState(0);
   const notifications = useNotifications();
 
