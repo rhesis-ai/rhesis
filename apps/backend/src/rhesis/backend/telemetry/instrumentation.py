@@ -66,15 +66,15 @@ def initialize_telemetry():
     - Self-hosted: Controlled by TELEMETRY_ENABLED env var
     """
     global _TELEMETRY_GLOBALLY_ENABLED
-    
+
     # Check if telemetry is enabled based on deployment type
     _TELEMETRY_GLOBALLY_ENABLED = is_telemetry_enabled()
-    
+
     if not _TELEMETRY_GLOBALLY_ENABLED:
         deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
         logger.info(f"Telemetry disabled for deployment_type={deployment_type}")
         return
-    
+
     otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 
     if not otel_endpoint:
@@ -127,23 +127,23 @@ def initialize_telemetry():
 def is_telemetry_enabled() -> bool:
     """
     Check if telemetry is enabled based on deployment type and environment variable.
-    
+
     - Cloud deployment: Always enabled (implicit user consent)
     - Self-hosted deployment: Controlled by TELEMETRY_ENABLED environment variable
-    
+
     Returns:
         bool: True if telemetry should be collected
     """
     deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
-    
+
     # Cloud users: Always collect telemetry (implicit consent)
     if deployment_type == "cloud":
         return True
-    
+
     # Self-hosted users: Check environment variable (default: disabled)
-    if deployment_type == "self_hosted":
+    if deployment_type == "self-hosted":
         return os.getenv("TELEMETRY_ENABLED", "false").lower() in ("true", "1", "yes")
-    
+
     # Unknown deployment type: Disable telemetry
     return False
 
