@@ -49,7 +49,7 @@ Module Structure
 
 .. toctree::
    :maxdepth: 2
-   
+
    rhesis.entities
    rhesis.services
    rhesis.synthesizers
