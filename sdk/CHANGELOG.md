@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-10-24
+
+### Added
+- Added Vertex AI provider with hybrid authentication support.
+- Added `synthesizers_v2` baseline, copying existing synthesizer implementations.
+
+### Changed
+- Refactored Vertex AI provider credential handling and configuration for improved simplicity.
+
+### Fixed
+- Fixed line length linting error in Vertex AI provider.
+
+### Documentation
+- Removed duplicate content from Vertex AI provider docstrings.
+
+
 ## [0.3.1] - 2025-10-16
 
 ### Added

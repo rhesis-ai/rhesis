@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-10-24
+
+### Added
+
+- Added AI-powered test generation feature.
+- Added quick search with OData filtering to the test runs grid.
+- Added partial status and execution error indicators to test runs.
+- Added manual table-based creation mode for tests.
+- Added source field to the TestDetail interface.
+- Implemented global 404 and 410 error handling with restore functionality.
+
+### Changed
+
+- Improved test template usage and flows between screens.
+- Allowed upload of files via modal.
+- Allowed selection of preview endpoint.
+- Improved BaseDataGrid quick filter using an uncontrolled input.
+- Refactored restore operations to use RecycleClient.
+- Updated source model.
+
+### Fixed
+
+- Fixed issue #597: Email test results inconsistency.
+- Fixed soft deletion behavior.
+- Fixed issue #594: Feedback button in navbar.
+- Fixed TypeScript error with Chip icon prop in TestRunsGrid.
+- Fixed incorrect status color for completed test runs.
+- Fixed display of execution time for failed and partial test runs.
+- Fixed error breadcrumbs to be reactive to navigation changes.
+- Fixed issue #531: Organisation name overlaps. Added ellipsis text overflow and a tooltip for long organisation names.
+- Fixed Navbar Feedback Bug: Only Display Icon when collapsed.
+- Fixed page reload after successful restore.
+
+### Removed
+
+- Removed page-level error handling for global consistency.
+
+
 ## [0.4.0] - 2025-10-16
 
 ### Added
