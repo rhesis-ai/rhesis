@@ -81,13 +81,6 @@ class TestConfigItem(BaseModel):
     description: str
 
 
-class TestConfigLLMResponse(BaseModel):
-    """Response from LLM containing only topics and categories (behaviors come from DB)"""
-
-    topics: List[TestConfigItem]
-    categories: List[TestConfigItem]
-
-
 class TestConfigResponse(BaseModel):
     behaviors: List[TestConfigItem]
     topics: List[TestConfigItem]
