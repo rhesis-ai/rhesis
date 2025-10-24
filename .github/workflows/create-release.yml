@@ -152,6 +152,6 @@ jobs:
     needs: release
     uses: ./.github/workflows/worker.yml
     with:
-      environment: dev
+      environment: stg
       reason: "Release deployment to dev"
     secrets: inherit
