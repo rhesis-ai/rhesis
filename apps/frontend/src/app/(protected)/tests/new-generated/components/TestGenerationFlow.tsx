@@ -15,7 +15,6 @@ import {
   TestTemplate,
   ChipConfig,
 } from './shared/types';
-import { ProcessedDocument } from '@/utils/api-client/interfaces/documents';
 import { Project } from '@/utils/api-client/interfaces/project';
 import {
   TestSetGenerationRequest,
@@ -67,7 +66,6 @@ export default function TestGenerationFlow({
   // Data State
   const [description, setDescription] = useState('');
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
-  const [documents, setDocuments] = useState<ProcessedDocument[]>([]);
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(
     null
   );
@@ -146,7 +144,7 @@ export default function TestGenerationFlow({
             const response = await servicesClient.generateTests({
               prompt,
               num_tests: 5,
-              documents: [],
+              source_ids: selectedSourceIds,
             });
 
             if (response.tests?.length) {
@@ -270,18 +268,10 @@ export default function TestGenerationFlow({
           output_format: 'Generate only user inputs',
         };
 
-        const documentPayload = fetchedDocuments
-          .filter(doc => doc.description && doc.description.trim())
-          .map(doc => ({
-            name: doc.name,
-            description: doc.description,
-            content: doc.content,
-          }));
-
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 5,
-          documents: documentPayload,
+          source_ids: selectedSourceIds,
         });
 
         if (response.tests?.length) {
@@ -312,95 +302,6 @@ export default function TestGenerationFlow({
     [sessionToken, project, show]
   );
 
-  // Document processing
-  const processDocument = useCallback(
-    async (file: File) => {
-      const documentId = Math.random().toString(36).substr(2, 9);
-
-      const initialDoc: ProcessedDocument = {
-        id: documentId,
-        name: '',
-        description: '',
-        path: '',
-        content: '',
-        originalName: file.name,
-        status: 'uploading',
-      };
-
-      setDocuments(prev => [...prev, initialDoc]);
-
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const servicesClient = apiFactory.getServicesClient();
-
-        // Upload document
-        const uploadResponse = await servicesClient.uploadDocument(file);
-
-        setDocuments(prev =>
-          prev.map(doc =>
-            doc.id === documentId
-              ? {
-                  ...doc,
-                  path: uploadResponse.path,
-                  status: 'extracting' as const,
-                }
-              : doc
-          )
-        );
-
-        // Extract content
-        const extractResponse = await servicesClient.extractDocument(
-          uploadResponse.path
-        );
-
-        setDocuments(prev =>
-          prev.map(doc =>
-            doc.id === documentId
-              ? {
-                  ...doc,
-                  content: extractResponse.content,
-                  status: 'generating' as const,
-                }
-              : doc
-          )
-        );
-
-        // Generate metadata
-        const metadata = await servicesClient.generateDocumentMetadata(
-          extractResponse.content
-        );
-
-        setDocuments(prev =>
-          prev.map(doc =>
-            doc.id === documentId
-              ? {
-                  ...doc,
-                  name: metadata.name,
-                  description: metadata.description,
-                  status: 'completed' as const,
-                }
-              : doc
-          )
-        );
-
-        show(`Document "${file.name}" processed successfully`, {
-          severity: 'success',
-        });
-      } catch (error) {
-        console.error('Error processing document:', error);
-        setDocuments(prev =>
-          prev.map(doc =>
-            doc.id === documentId ? { ...doc, status: 'error' as const } : doc
-          )
-        );
-        show(`Failed to process document "${file.name}"`, {
-          severity: 'error',
-        });
-      }
-    },
-    [sessionToken, show]
-  );
-
   // Generate test samples
   const generateSamples = useCallback(async () => {
     setIsGenerating(true);
@@ -426,23 +327,10 @@ export default function TestGenerationFlow({
         output_format: 'Generate only user inputs',
       };
 
-      const documentPayload = documents
-        .filter(
-          doc =>
-            doc.status === 'completed' &&
-            doc.description &&
-            doc.description.trim()
-        )
-        .map(doc => ({
-          name: doc.name,
-          description: doc.description,
-          content: doc.content,
-        }));
-
       const response = await servicesClient.generateTests({
         prompt,
         num_tests: 5,
-        documents: documentPayload,
+        source_ids: selectedSourceIds,
       });
 
       if (response.tests?.length) {
@@ -465,7 +353,14 @@ export default function TestGenerationFlow({
     } finally {
       setIsGenerating(false);
     }
-  }, [sessionToken, description, configChips, documents, project, show]);
+  }, [
+    sessionToken,
+    description,
+    configChips,
+    selectedSourceIds,
+    project,
+    show,
+  ]);
 
   // Regenerate sample with feedback
   const handleRegenerateSample = useCallback(
@@ -498,23 +393,10 @@ export default function TestGenerationFlow({
           output_format: 'Generate only user inputs',
         };
 
-        const documentPayload = documents
-          .filter(
-            doc =>
-              doc.status === 'completed' &&
-              doc.description &&
-              doc.description.trim()
-          )
-          .map(doc => ({
-            name: doc.name,
-            description: doc.description,
-            content: doc.content,
-          }));
-
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 1,
-          documents: documentPayload,
+          source_ids: selectedSourceIds,
         });
 
         if (response.tests?.length) {
@@ -710,23 +592,10 @@ export default function TestGenerationFlow({
           output_format: 'Generate only user inputs',
         };
 
-        const documentPayload = documents
-          .filter(
-            doc =>
-              doc.status === 'completed' &&
-              doc.description &&
-              doc.description.trim()
-          )
-          .map(doc => ({
-            name: doc.name,
-            description: doc.description,
-            content: doc.content,
-          }));
-
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 5,
-          documents: documentPayload,
+          source_ids: selectedSourceIds,
           chip_states: chipStates,
           rated_samples: ratedSamples,
           previous_messages: [
@@ -826,19 +695,6 @@ export default function TestGenerationFlow({
         output_format: 'Generate only user inputs',
       };
 
-      const documentPayload = documents
-        .filter(
-          doc =>
-            doc.status === 'completed' &&
-            doc.description &&
-            doc.description.trim()
-        )
-        .map(doc => ({
-          name: doc.name,
-          description: doc.description,
-          content: doc.content,
-        }));
-
       // Collect iteration context for "Load More"
       const chipStates = [
         ...configChips.behavior.map(chip => ({
@@ -886,7 +742,7 @@ export default function TestGenerationFlow({
       const response = await servicesClient.generateTests({
         prompt,
         num_tests: 5,
-        documents: documentPayload,
+        source_ids: selectedSourceIds,
         chip_states: chipStates,
         rated_samples: ratedSamples,
         previous_messages: previousMessages,
@@ -911,7 +767,14 @@ export default function TestGenerationFlow({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [sessionToken, description, configChips, documents, project, show]);
+  }, [
+    sessionToken,
+    description,
+    configChips,
+    selectedSourceIds,
+    project,
+    show,
+  ]);
 
   // Final generation
   const handleGenerate = useCallback(async () => {
@@ -992,15 +855,6 @@ export default function TestGenerationFlow({
     show,
   ]);
 
-  // Document handlers
-  const handleDocumentRemove = useCallback((documentId: string) => {
-    setDocuments(prev => prev.filter(doc => doc.id !== documentId));
-  }, []);
-
-  const handleDocumentAdd = useCallback((document: ProcessedDocument) => {
-    setDocuments(prev => [...prev, document]);
-  }, []);
-
   // Navigation handlers
   const handleBackToInput = useCallback(() => {
     // If user came from template selection, go back to landing screen
@@ -1058,7 +912,6 @@ export default function TestGenerationFlow({
             configChips={configChips}
             testSamples={testSamples}
             chatMessages={chatMessages}
-            documents={documents}
             description={description}
             selectedEndpointId={selectedEndpointId}
             onChipToggle={handleChipToggle}
@@ -1070,8 +923,6 @@ export default function TestGenerationFlow({
             onBack={handleBackToInput}
             onNext={handleNextToConfirmation}
             onEndpointChange={setSelectedEndpointId}
-            onDocumentRemove={handleDocumentRemove}
-            onDocumentAdd={handleDocumentAdd}
             isGenerating={isGenerating}
             isLoadingMore={isLoadingMore}
             regeneratingSampleId={regeneratingSampleId}
@@ -1082,7 +933,6 @@ export default function TestGenerationFlow({
         return (
           <TestConfigurationConfirmation
             configChips={configChips}
-            documents={documents}
             testSetSize={testSetSize}
             testSetName={testSetName}
             onBack={handleBackToInterface}
