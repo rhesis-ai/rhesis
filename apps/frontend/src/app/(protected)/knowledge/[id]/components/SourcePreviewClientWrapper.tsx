@@ -234,9 +234,9 @@ export default function SourcePreviewClientWrapper({
           </Button>
         </Box>
 
-        {/* Name Field */}
+        {/* Title Field */}
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
-          Name
+          Title
         </Typography>
         {isEditingName ? (
           <TextField
