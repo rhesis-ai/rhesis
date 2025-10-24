@@ -119,16 +119,21 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: DEFAULT_MODEL_NAME
-        - name: VERTEX_AI_CREDENTIALS
+        - name: GOOGLE_APPLICATION_CREDENTIALS
           valueFrom:
             secretKeyRef:
               name: rhesis-worker-secrets
-              key: VERTEX_AI_CREDENTIALS
-        - name: VERTEX_AI_ENDPOINT
+              key: GOOGLE_APPLICATION_CREDENTIALS
+        - name: VERTEX_AI_LOCATION
           valueFrom:
             secretKeyRef:
               name: rhesis-worker-secrets
-              key: VERTEX_AI_ENDPOINT
+              key: VERTEX_AI_LOCATION
+        - name: VERTEX_AI_PROJECT
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: VERTEX_AI_PROJECT
         - name: AZURE_OPENAI_ENDPOINT
           valueFrom:
             secretKeyRef:
