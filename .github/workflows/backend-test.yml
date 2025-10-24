@@ -14,12 +14,14 @@ on:
     branches: [ main ]
     paths:
       - 'apps/backend/**'
+      - 'sdk/**'
       - '.github/workflows/backend.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'apps/backend/**'
       - '.github/workflows/backend.yml'
+      - 'sdk/**'
   workflow_dispatch:
     inputs:
       test_markers:
