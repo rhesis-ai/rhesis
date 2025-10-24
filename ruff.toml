@@ -1,0 +1,26 @@
+
+line-length = 100
+
+[lint]
+select = [
+    "I",
+    "E",
+    "F",
+]
+
+[lint.per-file-ignores]
+"__init__.py" = [
+    "F401",
+]
+
+[lint.isort]
+known-first-party = [
+    "rhesis.sdk",
+    "rhesis.backend",
+]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
