@@ -34,13 +34,13 @@ class TestVertexAILLMInitialization:
         encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
         
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
-            "VERTEX_AI_ENDPOINT": "https://europe-west3-aiplatform.googleapis.com"
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
+            "VERTEX_AI_LOCATION": "europe-west3"
         }, clear=True):
             llm = VertexAILLM()
             assert llm.model_name == f"{PROVIDER}/{DEFAULT_MODEL_NAME}"
-            assert llm._vertex_config['project'] == "test-project"
-            assert llm._vertex_config['location'] == "europe-west3"
+            assert llm.model['project'] == "test-project"
+            assert llm.model['location'] == "europe-west3"
 
     def test_init_with_custom_model(self):
         """Test initialization with custom model name."""
@@ -54,16 +54,37 @@ class TestVertexAILLMInitialization:
         custom_model = "gemini-2.0-flash"
         
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
-            "VERTEX_AI_ENDPOINT": "https://us-central1-aiplatform.googleapis.com"
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
+            "VERTEX_AI_LOCATION": "us-central1"
         }, clear=True):
             llm = VertexAILLM(model_name=custom_model)
             assert llm.model_name == f"{PROVIDER}/{custom_model}"
 
+    def test_init_with_parameters(self):
+        """Test initialization with direct parameters."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+        
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+        
+        llm = VertexAILLM(
+            model_name="gemini-2.0-flash",
+            credentials=encoded_creds,
+            location="europe-west3",
+            project="custom-project"
+        )
+        
+        assert llm.model_name == f"{PROVIDER}/gemini-2.0-flash"
+        assert llm.model['project'] == "custom-project"  # Should use init parameter
+        assert llm.model['location'] == "europe-west3"
+
     def test_init_without_credentials_raises_error(self):
         """Test initialization without credentials raises ValueError."""
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="Vertex AI credentials not found"):
+            with pytest.raises(ValueError, match="GOOGLE_APPLICATION_CREDENTIALS not found"):
                 VertexAILLM()
 
     def test_init_without_location_raises_error(self):
@@ -77,7 +98,7 @@ class TestVertexAILLMInitialization:
         encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
         
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds
         }, clear=True):
             with pytest.raises(ValueError, match="Vertex AI location not specified"):
                 VertexAILLM()
@@ -86,8 +107,8 @@ class TestVertexAILLMInitialization:
 class TestVertexAIConfigLoading:
     """Test credential and configuration loading methods."""
 
-    def test_load_config_method1_base64_credentials(self):
-        """Test Method 1: Base64-encoded credentials with endpoint."""
+    def test_load_config_base64_credentials(self):
+        """Test base64-encoded credentials with location."""
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project-123",
@@ -98,18 +119,18 @@ class TestVertexAIConfigLoading:
         encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
         
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
-            "VERTEX_AI_ENDPOINT": "https://europe-west3-aiplatform.googleapis.com"
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
+            "VERTEX_AI_LOCATION": "europe-west3"
         }, clear=True):
             llm = VertexAILLM()
             
-            assert llm._vertex_config['project'] == "test-project-123"
-            assert llm._vertex_config['location'] == "europe-west3"
-            assert llm._vertex_config['credentials_path'] is not None
-            assert '_temp_file' in llm._vertex_config  # Temp file created
+            assert llm.model['project'] == "test-project-123"
+            assert llm.model['location'] == "europe-west3"
+            assert llm.model['credentials_path'] is not None
+            assert '_temp_file' in llm.model  # Temp file created
 
-    def test_load_config_method2_file_with_endpoint(self):
-        """Test Method 2: File path with endpoint URL."""
+    def test_load_config_file_credentials(self):
+        """Test file path credentials with location."""
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project-456",
@@ -123,19 +144,19 @@ class TestVertexAIConfigLoading:
         try:
             with patch.dict(os.environ, {
                 "GOOGLE_APPLICATION_CREDENTIALS": temp_path,
-                "VERTEX_AI_ENDPOINT": "https://us-central1-aiplatform.googleapis.com"
+                "VERTEX_AI_LOCATION": "us-central1"
             }, clear=True):
                 llm = VertexAILLM()
                 
-                assert llm._vertex_config['project'] == "test-project-456"
-                assert llm._vertex_config['location'] == "us-central1"
-                assert llm._vertex_config['credentials_path'] == temp_path
-                assert '_temp_file' not in llm._vertex_config  # No temp file
+                assert llm.model['project'] == "test-project-456"
+                assert llm.model['location'] == "us-central1"
+                assert llm.model['credentials_path'] == temp_path
+                assert '_temp_file' not in llm.model  # No temp file
         finally:
             os.unlink(temp_path)
 
-    def test_load_config_method3_file_with_location(self):
-        """Test Method 3: File path with explicit location."""
+    def test_load_config_file_with_location(self):
+        """Test file path with explicit location."""
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project-789",
@@ -153,9 +174,9 @@ class TestVertexAIConfigLoading:
             }, clear=True):
                 llm = VertexAILLM()
                 
-                assert llm._vertex_config['project'] == "test-project-789"
-                assert llm._vertex_config['location'] == "asia-northeast1"
-                assert llm._vertex_config['credentials_path'] == temp_path
+                assert llm.model['project'] == "test-project-789"
+                assert llm.model['location'] == "asia-northeast1"
+                assert llm.model['credentials_path'] == temp_path
         finally:
             os.unlink(temp_path)
 
@@ -170,37 +191,20 @@ class TestVertexAIConfigLoading:
         encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
         
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
-            "VERTEX_AI_ENDPOINT": "https://europe-west3-aiplatform.googleapis.com",
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
+            "VERTEX_AI_LOCATION": "europe-west3",
             "VERTEX_AI_PROJECT": "override-project"
         }, clear=True):
             llm = VertexAILLM()
-            assert llm._vertex_config['project'] == "override-project"
+            assert llm.model['project'] == "override-project"
 
     def test_load_config_invalid_base64(self):
         """Test that invalid base64 credentials raise error."""
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": "not-valid-base64!@#$",
-            "VERTEX_AI_ENDPOINT": "https://europe-west3-aiplatform.googleapis.com"
+            "GOOGLE_APPLICATION_CREDENTIALS": "not-valid-base64!@#$",
+            "VERTEX_AI_LOCATION": "europe-west3"
         }, clear=True):
-            with pytest.raises(ValueError, match="Failed to decode VERTEX_AI_CREDENTIALS"):
-                VertexAILLM()
-
-    def test_load_config_invalid_endpoint_format(self):
-        """Test that invalid endpoint format raises error."""
-        mock_creds = {
-            "type": "service_account",
-            "project_id": "test-project",
-            "client_email": "test@test.iam.gserviceaccount.com",
-        }
-        
-        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
-        
-        with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
-            "VERTEX_AI_ENDPOINT": "https://invalid-format.com"
-        }, clear=True):
-            with pytest.raises(ValueError, match="Could not extract region from VERTEX_AI_ENDPOINT"):
+            with pytest.raises(ValueError, match="is neither valid base64 nor an existing file path"):
                 VertexAILLM()
 
     def test_load_config_file_not_found(self):
@@ -209,7 +213,7 @@ class TestVertexAIConfigLoading:
             "GOOGLE_APPLICATION_CREDENTIALS": "/non/existent/path.json",
             "VERTEX_AI_LOCATION": "europe-west3"
         }, clear=True):
-            with pytest.raises(ValueError, match="GOOGLE_APPLICATION_CREDENTIALS file not found"):
+            with pytest.raises(ValueError, match="is neither valid base64 nor an existing file path"):
                 VertexAILLM()
 
     def test_load_config_missing_project(self):
@@ -223,8 +227,8 @@ class TestVertexAIConfigLoading:
         encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
         
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
-            "VERTEX_AI_ENDPOINT": "https://europe-west3-aiplatform.googleapis.com"
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
+            "VERTEX_AI_LOCATION": "europe-west3"
         }, clear=True):
             with pytest.raises(ValueError, match="Could not determine VERTEX_AI_PROJECT"):
                 VertexAILLM()
@@ -252,8 +256,8 @@ class TestVertexAIGenerate:
         mock_completion.return_value = mock_response
 
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
-            "VERTEX_AI_ENDPOINT": "https://europe-west3-aiplatform.googleapis.com"
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
+            "VERTEX_AI_LOCATION": "europe-west3"
         }, clear=True):
             llm = VertexAILLM()
             prompt = "Hello, how are you?"
@@ -292,7 +296,7 @@ class TestVertexAIGenerate:
         mock_completion.return_value = mock_response
 
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
             "VERTEX_AI_LOCATION": "us-central1"
         }, clear=True):
             llm = VertexAILLM()
@@ -322,7 +326,7 @@ class TestVertexAIGenerate:
         mock_completion.return_value = mock_response
 
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
             "VERTEX_AI_LOCATION": "europe-west3"
         }, clear=True):
             llm = VertexAILLM()
@@ -354,7 +358,7 @@ class TestVertexAIGenerate:
         mock_completion.return_value = mock_response
 
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
             "VERTEX_AI_LOCATION": "europe-west1"
         }, clear=True):
             llm = VertexAILLM()
@@ -369,8 +373,8 @@ class TestVertexAIGenerate:
             assert call_kwargs['vertex_ai_location'] == "europe-west1"
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
-    def test_generate_with_constructor_kwargs(self, mock_completion):
-        """Test that kwargs from constructor are merged."""
+    def test_generate_restores_credentials_env_var(self, mock_completion):
+        """Test that generate properly restores the original GOOGLE_APPLICATION_CREDENTIALS."""
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project",
@@ -384,17 +388,22 @@ class TestVertexAIGenerate:
         mock_response.choices[0].message.content = "Test response"
         mock_completion.return_value = mock_response
 
+        # Set an original value
+        original_value = "/path/to/original/credentials.json"
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
             "VERTEX_AI_LOCATION": "asia-northeast1"
         }, clear=True):
-            llm = VertexAILLM(temperature=0.5)
+            # Set a different value before calling generate
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
+            
+            llm = VertexAILLM(credentials=encoded_creds, location="asia-northeast1")
             prompt = "Test prompt"
             
             llm.generate(prompt)
             
-            call_kwargs = mock_completion.call_args[1]
-            assert call_kwargs['temperature'] == 0.5
+            # Verify it was restored
+            assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == original_value
 
 
 class TestVertexAIUtilityMethods:
@@ -411,8 +420,8 @@ class TestVertexAIUtilityMethods:
         encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
 
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
-            "VERTEX_AI_ENDPOINT": "https://europe-west3-aiplatform.googleapis.com"
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
+            "VERTEX_AI_LOCATION": "europe-west3"
         }, clear=True):
             llm = VertexAILLM(model_name="gemini-2.0-flash")
             config = llm.get_config_info()
@@ -450,20 +459,20 @@ class TestVertexAIUtilityMethods:
             os.unlink(temp_path)
 
 
-class TestVertexAIRegionalEndpoints:
-    """Test different regional endpoints."""
+class TestVertexAIRegionalLocations:
+    """Test different regional locations."""
 
-    @pytest.mark.parametrize("endpoint,expected_location", [
-        ("https://europe-west1-aiplatform.googleapis.com", "europe-west1"),
-        ("https://europe-west3-aiplatform.googleapis.com", "europe-west3"),
-        ("https://europe-west4-aiplatform.googleapis.com", "europe-west4"),
-        ("https://us-central1-aiplatform.googleapis.com", "us-central1"),
-        ("https://us-east4-aiplatform.googleapis.com", "us-east4"),
-        ("https://asia-northeast1-aiplatform.googleapis.com", "asia-northeast1"),
-        ("https://asia-southeast1-aiplatform.googleapis.com", "asia-southeast1"),
+    @pytest.mark.parametrize("location", [
+        "europe-west1",
+        "europe-west3",
+        "europe-west4",
+        "us-central1",
+        "us-east4",
+        "asia-northeast1",
+        "asia-southeast1",
     ])
-    def test_regional_endpoints(self, endpoint, expected_location):
-        """Test that various regional endpoints are parsed correctly."""
+    def test_regional_locations(self, location):
+        """Test that various regional locations are set correctly."""
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project",
@@ -473,11 +482,11 @@ class TestVertexAIRegionalEndpoints:
         encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
 
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
-            "VERTEX_AI_ENDPOINT": endpoint
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
+            "VERTEX_AI_LOCATION": location
         }, clear=True):
             llm = VertexAILLM()
-            assert llm._vertex_config['location'] == expected_location
+            assert llm.model['location'] == location
 
 
 class TestVertexAICleanup:
@@ -494,11 +503,11 @@ class TestVertexAICleanup:
         encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
 
         with patch.dict(os.environ, {
-            "VERTEX_AI_CREDENTIALS": encoded_creds,
-            "VERTEX_AI_ENDPOINT": "https://europe-west3-aiplatform.googleapis.com"
+            "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
+            "VERTEX_AI_LOCATION": "europe-west3"
         }, clear=True):
             llm = VertexAILLM()
-            temp_file = llm._vertex_config.get('_temp_file')
+            temp_file = llm.model.get('_temp_file')
             
             # Temp file should exist
             assert temp_file is not None
