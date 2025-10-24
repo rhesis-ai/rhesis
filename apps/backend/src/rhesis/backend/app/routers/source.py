@@ -62,12 +62,16 @@ def read_sources(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    include: str | None = Query(
+        None, description="Comma-separated fields to include (e.g., 'content')"
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all sources with their related objects.
-    Content field is deferred for performance - only loaded when accessed."""
+    Content field is deferred for performance - only loaded when accessed.
+    Use include=content to force load content field."""
     organization_id, user_id = tenant_context
     return crud.get_sources(
         db=db,
@@ -76,6 +80,7 @@ def read_sources(
         sort_by=sort_by,
         sort_order=sort_order,
         filter=filter,
+        include=include,
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -84,6 +89,9 @@ def read_sources(
 @router.get("/{source_id}")
 def read_source(
     source_id: uuid.UUID,
+    include: str | None = Query(
+        None, description="Comma-separated fields to include (e.g., 'content')"
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -91,6 +99,7 @@ def read_source(
     """
     Get source with optimized approach - no session variables needed.
     Content field is deferred for performance - only loaded when accessed.
+    Use include=content to force load content field.
 
     Performance improvements:
     - Completely bypasses database session variables
@@ -101,7 +110,7 @@ def read_source(
     """
     organization_id, user_id = tenant_context
     db_source = crud.get_source(
-        db, source_id=source_id, organization_id=organization_id, user_id=user_id
+        db, source_id=source_id, include=include, organization_id=organization_id, user_id=user_id
     )
     if db_source is None:
         raise HTTPException(status_code=404, detail="Source not found")

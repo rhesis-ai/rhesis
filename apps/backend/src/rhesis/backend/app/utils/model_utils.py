@@ -44,7 +44,6 @@ class QueryBuilder:
         self._limit = None
         self._sort_by = None
         self._sort_order = "asc"
-        self._include_fields = None
 
     def with_joinedloads(
         self, skip_many_to_many: bool = True, skip_one_to_many: bool = False
@@ -59,7 +58,9 @@ class QueryBuilder:
         skip_one_to_many: bool = False,
         nested_relationships: dict = None,
     ) -> "QueryBuilder":
-        """Apply optimized loading strategy (selectinload for many-to-many, joinedload for others)"""
+        """Apply optimized loading strategy.
+
+        Uses selectinload for many-to-many, joinedload for others."""
         self.query = apply_optimized_loads(
             self.query, self.model, skip_many_to_many, skip_one_to_many, nested_relationships
         )
@@ -140,8 +141,9 @@ class QueryBuilder:
                 else:
                     # SECURITY: organization_id must be provided for models that have it
                     raise ValueError(
-                        f"organization_id is required for {self.model.__name__} but was not provided. "
-                        "This is a security requirement to prevent data leakage across organizations."
+                        f"organization_id is required for {self.model.__name__} "
+                        "but was not provided. This is a security requirement to "
+                        "prevent data leakage across organizations."
                     )
         return self
 
@@ -182,11 +184,22 @@ class QueryBuilder:
         self.query = filter_func(self.query)
         return self
 
-    def with_field_selection(self, include_fields: List[str] = None) -> "QueryBuilder":
-        """Apply database-level field selection for performance optimization"""
-        # Store field selection for later use in response serialization
-        # We don't modify the query here to avoid breaking relationships
-        self._include_fields = include_fields
+    def with_field_inclusion(self, include_fields: str) -> "QueryBuilder":
+        """Apply field inclusion using SQLAlchemy undefer for deferred fields"""
+        if not include_fields:
+            return self
+
+        # Parse comma-separated fields
+        fields = [field.strip() for field in include_fields.split(",") if field.strip()]
+
+        # Apply undefer for each field that exists on the model
+        for field in fields:
+            if hasattr(self.model, field):
+                # Use SQLAlchemy's undefer to force load deferred fields
+                from sqlalchemy.orm import undefer
+
+                self.query = self.query.options(undefer(field))
+
         return self
 
     def _apply_sorting(self):
