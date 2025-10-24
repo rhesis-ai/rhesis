@@ -143,31 +143,49 @@ async def create_chat_completion_endpoint(request: dict):
 @router.post("/generate/content")
 async def generate_content_endpoint(request: GenerateContentRequest):
     """
-    Generate text using LLM with optional OpenAI schema validation.
+    Generate text using LLM with optional OpenAI JSON schema for structured output.
+
+    The schema parameter should follow the OpenAI structured output format. This format
+    is compatible with multiple LLM providers (OpenAI, Vertex AI, etc.) and enables 
+    type-safe structured generation without requiring Pydantic model definitions.
 
     Args:
-        request: Contains prompt and optional OpenAI schema for structured output
+        request: Contains prompt and optional OpenAI JSON schema for structured output.
+                The schema should follow the format defined in OpenAI's structured outputs
+                documentation: a JSON Schema object that describes the expected response format.
 
     Returns:
-        str or dict: Raw text if no schema, validated dict if schema provided
+        str or dict: Raw text if no schema provided, validated dict if schema is provided
+
+    Example:
+        ```python
+        {
+            "prompt": "Generate a person's info",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "age": {"type": "number"}
+                },
+                "required": ["name", "age"],
+                "additionalProperties": False
+            }
+        }
+        ```
     """
     try:
         from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, DEFAULT_MODEL_NAME
-        from rhesis.backend.app.utils.llm_utils import json_schema_to_pydantic
         from rhesis.sdk.models.factory import get_model
 
         prompt = request.prompt
-        schema_dict = request.schema_
-
-        # Convert JSON schema dict to Pydantic model if provided
-        pydantic_schema = None
-        if schema_dict:
-            pydantic_schema = json_schema_to_pydantic(schema_dict)
+        schema = request.schema_
 
         # Use the default generation model from constants
         # This respects the global configuration (currently vertex_ai)
         model = get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
-        response = model.generate(prompt, schema=pydantic_schema)
+        
+        # Pass schema directly to the model - SDK handles provider-specific conversion
+        response = model.generate(prompt, schema=schema)
 
         return response
     except Exception as e:
