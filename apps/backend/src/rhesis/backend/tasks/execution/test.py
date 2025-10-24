@@ -51,21 +51,33 @@ def execute_single_test(
                     # Get model settings to log the model name
                     model_settings = user.settings.models.evaluation
                     model_id = model_settings.model_id
-                    
+
                     # Fetch the actual model
                     model = get_user_evaluation_model(db, user)
-                    
+
                     # Log detailed model selection information
                     if isinstance(model, str):
-                        logger.info(f"[MODEL_SELECTION] Using default provider '{model}' for test {test_id}")
+                        logger.info(
+                            f"[MODEL_SELECTION] Using default provider '{model}' for test {test_id}"
+                        )
                     else:
                         # It's a BaseLLM instance - log detailed info
-                        provider = model.model_name.split('/')[0] if '/' in model.model_name else 'unknown'
-                        model_name = model.model_name.split('/')[1] if '/' in model.model_name else model.model_name
-                        
+                        provider = (
+                            model.model_name.split("/")[0] if "/" in model.model_name else "unknown"
+                        )
+                        model_name = (
+                            model.model_name.split("/")[1]
+                            if "/" in model.model_name
+                            else model.model_name
+                        )
+
                         # Try to get the user-friendly name from database
                         if model_id:
-                            db_model = crud.get_model(db, model_id=str(model_id), organization_id=str(user.organization_id))
+                            db_model = crud.get_model(
+                                db,
+                                model_id=str(model_id),
+                                organization_id=str(user.organization_id),
+                            )
                             if db_model:
                                 logger.info(
                                     f"[MODEL_SELECTION] Using user-configured model for test {test_id}: "
@@ -82,11 +94,15 @@ def execute_single_test(
                                 f"provider={provider}, model={model_name}"
                             )
                 else:
-                    logger.warning(f"[MODEL_SELECTION] User {user_id} not found, will use default model")
+                    logger.warning(
+                        f"[MODEL_SELECTION] User {user_id} not found, will use default model"
+                    )
             except Exception as e:
-                logger.warning(f"[MODEL_SELECTION] Error fetching user model for test {test_id}: {str(e)}, will use default")
+                logger.warning(
+                    f"[MODEL_SELECTION] Error fetching user model for test {test_id}: {str(e)}, will use default"
+                )
                 model = None
-            
+
             # Call the main execution function from the dedicated module
             result = execute_test(
                 db=db,

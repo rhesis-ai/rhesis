@@ -30,5 +30,4 @@ class TestContext(TestContextBase):
     created_at: str
     updated_at: str
 
-    model_config = ConfigDict(
-from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)

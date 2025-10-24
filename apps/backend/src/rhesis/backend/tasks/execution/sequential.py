@@ -53,7 +53,16 @@ def execute_tests_sequentially(
             results.append(result)
 
             # Store the test result in the database (updates test run progress)
-            store_test_result(session, str(test_run.id), str(test.id), result, organization_id=str(test_config.organization_id) if test_config.organization_id else None, user_id=str(test_config.user_id) if test_config.user_id else None)
+            store_test_result(
+                session,
+                str(test_run.id),
+                str(test.id),
+                result,
+                organization_id=str(test_config.organization_id)
+                if test_config.organization_id
+                else None,
+                user_id=str(test_config.user_id) if test_config.user_id else None,
+            )
 
             logger.info(f"Test {i}/{len(tests)} completed successfully")
 
@@ -64,7 +73,16 @@ def execute_tests_sequentially(
             results.append(failure_result)
 
             # Store the failure result in the database
-            store_test_result(session, str(test_run.id), str(test.id), failure_result, organization_id=str(test_config.organization_id) if test_config.organization_id else None, user_id=str(test_config.user_id) if test_config.user_id else None)
+            store_test_result(
+                session,
+                str(test_run.id),
+                str(test.id),
+                failure_result,
+                organization_id=str(test_config.organization_id)
+                if test_config.organization_id
+                else None,
+                user_id=str(test_config.user_id) if test_config.user_id else None,
+            )
 
     end_time = datetime.utcnow()
     execution_time = (end_time - start_time).total_seconds()

@@ -17,14 +17,14 @@ class MetricEvaluator:
     """Evaluator class that handles metric computation using configured backends."""
 
     def __init__(
-        self, 
+        self,
         model: Optional[Any] = None,
         db: Optional[Session] = None,
-        organization_id: Optional[str] = None
+        organization_id: Optional[str] = None,
     ):
         """
         Initialize evaluator with factory and score evaluator.
-        
+
         Args:
             model: Optional default model for metrics evaluation. Can be:
                    - None: Use default model from constants
@@ -219,30 +219,32 @@ class MetricEvaluator:
 
                 # Prepare parameters for the metric
                 metric_params = {"threshold": metric_config.threshold, **metric_config.parameters}
-                
+
                 # Determine which model to use for this metric
                 # Priority: metric-specific model > user's default model > system default
                 metric_model = None
-                
+
                 # 1. Check if metric has a specific model configured
                 if metric_config.model_id and self.db:
                     try:
                         from rhesis.backend.app import crud
                         from rhesis.sdk.models.factory import get_model
-                        
+
                         # Fetch metric's preferred model from database
                         model_record = crud.get_model(
-                            self.db, 
-                            UUID(metric_config.model_id) if isinstance(metric_config.model_id, str) else metric_config.model_id, 
-                            self.organization_id
+                            self.db,
+                            UUID(metric_config.model_id)
+                            if isinstance(metric_config.model_id, str)
+                            else metric_config.model_id,
+                            self.organization_id,
                         )
-                        
+
                         if model_record and model_record.provider_type:
                             # Create BaseLLM instance for this specific metric
                             metric_model = get_model(
                                 provider=model_record.provider_type.type_value,
                                 model_name=model_record.model_name,
-                                api_key=model_record.key
+                                api_key=model_record.key,
                             )
                             logger.info(
                                 f"[METRIC_MODEL] Using metric-specific model for '{metric_config.name or class_name}': "
@@ -257,14 +259,14 @@ class MetricEvaluator:
                         logger.warning(
                             f"[METRIC_MODEL] Error fetching metric-specific model for '{metric_config.name or class_name}': {e}"
                         )
-                
+
                 # 2. Fall back to user's default evaluation model if no metric-specific model
                 if metric_model is None and self.model is not None:
                     metric_model = self.model
                     logger.debug(
                         f"[METRIC_MODEL] Using user's default model for '{metric_config.name or class_name}'"
                     )
-                
+
                 # 3. Pass model to metric if available (will fall back to system default if None)
                 if metric_model is not None:
                     metric_params["model"] = metric_model

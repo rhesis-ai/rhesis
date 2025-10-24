@@ -5,9 +5,9 @@ This module provides centralized handling for database constraint violations
 and other common database errors to avoid repetition across router files.
 """
 
-import functools
 import asyncio
-from typing import Any, Callable, Dict, Optional
+import functools
+from typing import Callable, Dict, Optional
 
 from fastapi import HTTPException
 
@@ -15,7 +15,7 @@ from fastapi import HTTPException
 class DatabaseExceptionHandler:
     """
     Centralized handler for database constraint violations and errors.
-    
+
     This class provides methods to handle common database errors in a consistent
     way across all routers, reducing code duplication and improving maintainability.
     """
@@ -29,7 +29,7 @@ class DatabaseExceptionHandler:
     FOREIGN_KEY_FIELD_MESSAGES = {
         "dimension_id": "Invalid dimension reference",
         "parent_id": "Invalid parent reference",
-        "status_id": "Invalid status reference", 
+        "status_id": "Invalid status reference",
         "entity_type_id": "Invalid entity type reference",
         "organization_id": "Invalid organization reference",
         "user_id": "Invalid user reference",
@@ -55,41 +55,41 @@ class DatabaseExceptionHandler:
     ) -> None:
         """
         Handle database constraint violations and other database errors.
-        
+
         Args:
             error: The exception that was raised
             entity_name: Name of the entity being operated on (e.g., "demographic", "category")
             custom_field_messages: Custom field-specific error messages
             custom_unique_message: Custom message for unique constraint violations
-            
+
         Raises:
             HTTPException: With appropriate status code and error message
         """
         error_msg = str(error).lower()
-        
+
         # Handle foreign key constraint violations
-        if ("foreign key constraint" in error_msg or "violates foreign key" in error_msg):
+        if "foreign key constraint" in error_msg or "violates foreign key" in error_msg:
             # Merge custom field messages with defaults
             field_messages = {**self.FOREIGN_KEY_FIELD_MESSAGES}
             if custom_field_messages:
                 field_messages.update(custom_field_messages)
-            
+
             # Check for specific field references in the error message
             for field, message in field_messages.items():
                 if field in error_msg:
                     raise HTTPException(status_code=400, detail=message)
-            
+
             # Generic foreign key error if no specific field found
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Invalid reference in {entity_name} data"
-            )
-        
+            raise HTTPException(status_code=400, detail=f"Invalid reference in {entity_name} data")
+
         # Handle unique constraint violations
-        if ("unique constraint" in error_msg or "already exists" in error_msg):
-            message = custom_unique_message or f"{entity_name.capitalize()} with this identifier already exists"
+        if "unique constraint" in error_msg or "already exists" in error_msg:
+            message = (
+                custom_unique_message
+                or f"{entity_name.capitalize()} with this identifier already exists"
+            )
             raise HTTPException(status_code=400, detail=message)
-        
+
         # Handle other database errors as internal server errors
         raise HTTPException(status_code=500, detail=self.DEFAULT_INTERNAL_ERROR_MESSAGE)
 
@@ -104,17 +104,18 @@ class DatabaseExceptionHandler:
     ) -> Callable:
         """
         Decorator to wrap CRUD operations with standardized error handling.
-        
+
         Args:
             operation: The CRUD operation function to wrap
             entity_name: Name of the entity being operated on
             custom_field_messages: Custom field-specific error messages
             custom_unique_message: Custom message for unique constraint violations
             handle_value_error: Whether to handle ValueError exceptions
-            
+
         Returns:
             The wrapped operation with error handling
         """
+
         def wrapper(*args, **kwargs):
             try:
                 return operation(*args, **kwargs)
@@ -127,12 +128,12 @@ class DatabaseExceptionHandler:
                 raise
             except Exception as e:
                 self.handle_database_error(
-                    e, 
+                    e,
                     entity_name=entity_name,
                     custom_field_messages=custom_field_messages,
-                    custom_unique_message=custom_unique_message
+                    custom_unique_message=custom_unique_message,
                 )
-        
+
         return wrapper
 
 
@@ -144,28 +145,30 @@ def handle_database_exceptions(
 ):
     """
     Decorator for handling database exceptions in router endpoints.
-    
+
     This decorator wraps router endpoint functions to automatically handle
     common database constraint violations and errors. It supports both
     synchronous and asynchronous functions.
-    
+
     Args:
         entity_name: Name of the entity being operated on (e.g., "demographic")
-        custom_field_messages: Custom field-specific error messages  
+        custom_field_messages: Custom field-specific error messages
         custom_unique_message: Custom message for unique constraint violations
         handle_value_error: Whether to handle ValueError exceptions
-        
+
     Usage:
         @handle_database_exceptions(entity_name="demographic")
         def create_demographic(...):
             return crud.create_demographic(...)
-            
+
         @handle_database_exceptions(entity_name="organization")
         async def create_organization(...):
             return crud.create_organization(...)
     """
+
     def decorator(func: Callable) -> Callable:
         if asyncio.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
                 try:
@@ -182,10 +185,12 @@ def handle_database_exceptions(
                         e,
                         entity_name=entity_name,
                         custom_field_messages=custom_field_messages,
-                        custom_unique_message=custom_unique_message
+                        custom_unique_message=custom_unique_message,
                     )
+
             return async_wrapper
         else:
+
             @functools.wraps(func)
             def sync_wrapper(*args, **kwargs):
                 try:
@@ -202,9 +207,11 @@ def handle_database_exceptions(
                         e,
                         entity_name=entity_name,
                         custom_field_messages=custom_field_messages,
-                        custom_unique_message=custom_unique_message
+                        custom_unique_message=custom_unique_message,
                     )
+
             return sync_wrapper
+
     return decorator
 
 
@@ -215,27 +222,28 @@ def with_database_error_handling(
 ):
     """
     Context manager for handling database exceptions.
-    
+
     This can be used as a context manager within router functions for
     more granular control over error handling.
-    
+
     Args:
         entity_name: Name of the entity being operated on
         custom_field_messages: Custom field-specific error messages
         custom_unique_message: Custom message for unique constraint violations
-        
+
     Usage:
         with with_database_error_handling(entity_name="demographic"):
             return crud.create_demographic(...)
     """
+
     class DatabaseErrorContext:
         def __enter__(self):
             return self
-            
+
         def __exit__(self, exc_type, exc_val, exc_tb):
             if exc_type is None:
                 return False
-                
+
             if issubclass(exc_type, ValueError):
                 raise HTTPException(status_code=400, detail=str(exc_val))
             elif issubclass(exc_type, HTTPException):
@@ -246,17 +254,20 @@ def with_database_error_handling(
                     exc_val,
                     entity_name=entity_name,
                     custom_field_messages=custom_field_messages,
-                    custom_unique_message=custom_unique_message
+                    custom_unique_message=custom_unique_message,
                 )
-            
+
             return False
-    
+
     return DatabaseErrorContext()
 
 
 class ItemDeletedException(Exception):
     """Raised when trying to access a soft-deleted item."""
-    def __init__(self, model_name: str, item_id: str, table_name: str = None, item_name: str = None):
+
+    def __init__(
+        self, model_name: str, item_id: str, table_name: str = None, item_name: str = None
+    ):
         self.model_name = model_name
         self.item_id = item_id
         self.table_name = table_name or model_name.lower()
@@ -266,6 +277,7 @@ class ItemDeletedException(Exception):
 
 class ItemNotFoundException(Exception):
     """Raised when trying to access an item that doesn't exist."""
+
     def __init__(self, model_name: str, item_id: str, table_name: str = None):
         self.model_name = model_name
         self.item_id = item_id

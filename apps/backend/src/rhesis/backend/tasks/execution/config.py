@@ -23,7 +23,9 @@ class TestConfigurationError(Exception):
     pass
 
 
-def get_test_configuration(session: Session, test_configuration_id: str, organization_id: str = None) -> TestConfiguration:
+def get_test_configuration(
+    session: Session, test_configuration_id: str, organization_id: str = None
+) -> TestConfiguration:
     """Retrieve and validate test configuration."""
     # Use the crud utility directly
     test_config = crud.get_test_configuration(
