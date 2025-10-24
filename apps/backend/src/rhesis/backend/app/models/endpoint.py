@@ -2,6 +2,8 @@ from sqlalchemy import Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSON
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.utils.encryption import EncryptedString
+
 from .base import Base
 from .enums import (
     EndpointConfigSource,
@@ -10,7 +12,6 @@ from .enums import (
 )
 from .guid import GUID
 from .mixins import TagsMixin
-from rhesis.backend.app.utils.encryption import EncryptedString
 
 
 class Endpoint(Base, TagsMixin):

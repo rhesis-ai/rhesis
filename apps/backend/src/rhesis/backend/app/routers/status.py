@@ -1,4 +1,3 @@
-from rhesis.backend.app.models.user import User
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -6,10 +5,13 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
-from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.dependencies import (
+    get_tenant_context,
+    get_tenant_db_session,
+)
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
+from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import combine_entity_type_filter
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -20,7 +22,8 @@ router = APIRouter(
     prefix="/statuses",
     tags=["statuses"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)])
+    dependencies=[Depends(require_current_user_or_token)],
+)
 
 
 @router.post("/", response_model=StatusDetailSchema)
@@ -31,7 +34,8 @@ def create_status(
     status: schemas.StatusCreate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Create status with optimized approach - no session variables needed.
 
@@ -59,13 +63,21 @@ def read_statuses(
     entity_type: str | None = Query(None, description="Filter statuses by entity type"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Get all statuses with their related objects"""
     organization_id, user_id = tenant_context
     filter = combine_entity_type_filter(filter, entity_type)
 
     return crud.get_statuses(
-        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
+        db=db,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        filter=filter,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
 
@@ -74,7 +86,8 @@ def read_status(
     status_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Get status with optimized approach - no session variables needed.
 
@@ -85,7 +98,9 @@ def read_status(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_status = crud.get_status(db, status_id=status_id, organization_id=organization_id, user_id=user_id)
+    db_status = crud.get_status(
+        db, status_id=status_id, organization_id=organization_id, user_id=user_id
+    )
     if db_status is None:
         raise HTTPException(status_code=404, detail="Status not found")
     return db_status
@@ -96,7 +111,8 @@ def delete_status(
     status_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Delete status with optimized approach - no session variables needed.
 
@@ -107,7 +123,9 @@ def delete_status(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_status = crud.delete_status(db, status_id=status_id, organization_id=organization_id, user_id=user_id)
+    db_status = crud.delete_status(
+        db, status_id=status_id, organization_id=organization_id, user_id=user_id
+    )
     if db_status is None:
         raise HTTPException(status_code=404, detail="Status not found")
     return db_status
@@ -119,7 +137,8 @@ def update_status(
     status: schemas.StatusUpdate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Update status with optimized approach - no session variables needed.
 
@@ -130,7 +149,9 @@ def update_status(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_status = crud.update_status(db, status_id=status_id, status=status, organization_id=organization_id, user_id=user_id)
+    db_status = crud.update_status(
+        db, status_id=status_id, status=status, organization_id=organization_id, user_id=user_id
+    )
     if db_status is None:
         raise HTTPException(status_code=404, detail="Status not found")
     return db_status

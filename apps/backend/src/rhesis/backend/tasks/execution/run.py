@@ -16,14 +16,21 @@ class TestExecutionError(Exception):
     pass
 
 
-def create_test_run(session: Session, test_config: TestConfiguration, task_info: Dict, current_user_id: str = None) -> TestRun:
+def create_test_run(
+    session: Session, test_config: TestConfiguration, task_info: Dict, current_user_id: str = None
+) -> TestRun:
     """Create a new test run with initial status and metadata."""
-    initial_status = get_or_create_status(session, RunStatus.PROGRESS.value, "TestRun", organization_id=str(test_config.organization_id))
+    initial_status = get_or_create_status(
+        session,
+        RunStatus.PROGRESS.value,
+        "TestRun",
+        organization_id=str(test_config.organization_id),
+    )
 
     # Create the run with proper tenant context via the crud utility
     # Use current_user_id if provided (for re-runs), otherwise fall back to test_config.user_id
     executor_user_id = current_user_id if current_user_id else test_config.user_id
-    
+
     test_run_data = {
         "test_configuration_id": test_config.id,
         "user_id": executor_user_id,
@@ -38,10 +45,10 @@ def create_test_run(session: Session, test_config: TestConfiguration, task_info:
     }
 
     test_run = crud.create_test_run(
-        session, 
-        crud.schemas.TestRunCreate(**test_run_data), 
+        session,
+        crud.schemas.TestRunCreate(**test_run_data),
         organization_id=str(test_config.organization_id) if test_config.organization_id else None,
-        user_id=str(executor_user_id) if executor_user_id else None
+        user_id=str(executor_user_id) if executor_user_id else None,
     )
     return test_run
 
@@ -59,7 +66,9 @@ def update_test_run_status(
         error: Optional error message if the run failed
     """
     # Get the appropriate status record
-    new_status = get_or_create_status(session, status_name, "TestRun", organization_id=str(test_run.organization_id))
+    new_status = get_or_create_status(
+        session, status_name, "TestRun", organization_id=str(test_run.organization_id)
+    )
 
     # Build update data
     update_data = {"status_id": new_status.id}
@@ -96,9 +105,9 @@ def update_test_run_status(
 
     # Use crud update operation
     crud.update_test_run(
-        session, 
-        test_run.id, 
+        session,
+        test_run.id,
         crud.schemas.TestRunUpdate(**update_data),
         organization_id=str(test_run.organization_id) if test_run.organization_id else None,
-        user_id=str(test_run.user_id) if test_run.user_id else None
+        user_id=str(test_run.user_id) if test_run.user_id else None,
     )

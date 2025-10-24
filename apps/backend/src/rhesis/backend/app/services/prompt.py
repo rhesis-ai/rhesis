@@ -9,13 +9,16 @@ from rhesis.backend.app.models import Prompt, Test, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
 
 
-def get_prompts_for_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None) -> List[dict]:
+def get_prompts_for_test_set(
+    db: Session, test_set_id: uuid.UUID, organization_id: str = None
+) -> List[dict]:
     # First check if test set exists AND belongs to organization (SECURITY CRITICAL)
     query = db.query(TestSet).filter(TestSet.id == test_set_id)
     if organization_id:
         from uuid import UUID
+
         query = query.filter(TestSet.organization_id == UUID(organization_id))
-    
+
     test_set_exists = query.first()
     if not test_set_exists:
         raise ValueError("Test Set not found or not accessible")
@@ -27,19 +30,18 @@ def get_prompts_for_test_set(db: Session, test_set_id: uuid.UUID, organization_i
         .join(test_test_set_association, test_test_set_association.c.test_id == Test.id)
         .filter(test_test_set_association.c.test_set_id == test_set_id)
     )
-    
+
     # Apply organization filtering to ensure data isolation (SECURITY CRITICAL)
     if organization_id:
         from uuid import UUID
+
         org_uuid = UUID(organization_id)
         results_query = results_query.filter(
-            Test.organization_id == org_uuid,
-            Prompt.organization_id == org_uuid
+            Test.organization_id == org_uuid, Prompt.organization_id == org_uuid
         )
-    
+
     results = (
-        results_query
-        .options(
+        results_query.options(
             # Load Prompt relationships
             joinedload(Prompt.demographic),
             joinedload(Prompt.attack_category),
