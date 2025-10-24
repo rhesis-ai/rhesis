@@ -27,27 +27,39 @@ def validate_task_organization_constraints(
 
     # Validate assignee is in the same organization (SECURITY CRITICAL)
     if task.assignee_id:
-        assignee = db.query(models.User).filter(
-            models.User.id == task.assignee_id,
-            models.User.organization_id == user_organization_id
-        ).first()
+        assignee = (
+            db.query(models.User)
+            .filter(
+                models.User.id == task.assignee_id,
+                models.User.organization_id == user_organization_id,
+            )
+            .first()
+        )
         if not assignee:
             raise ValueError("Assignee not found or not in same organization")
 
     # Validate status is in the same organization (SECURITY CRITICAL)
     if task.status_id:
-        status = db.query(models.Status).filter(
-            models.Status.id == task.status_id,
-            models.Status.organization_id == user_organization_id
-        ).first()
+        status = (
+            db.query(models.Status)
+            .filter(
+                models.Status.id == task.status_id,
+                models.Status.organization_id == user_organization_id,
+            )
+            .first()
+        )
         if not status:
             raise ValueError("Status not found or not in same organization")
 
     # Validate priority is in the same organization (SECURITY CRITICAL)
     if task.priority_id:
-        priority = db.query(models.TypeLookup).filter(
-            models.TypeLookup.id == task.priority_id,
-            models.TypeLookup.organization_id == user_organization_id
-        ).first()
+        priority = (
+            db.query(models.TypeLookup)
+            .filter(
+                models.TypeLookup.id == task.priority_id,
+                models.TypeLookup.organization_id == user_organization_id,
+            )
+            .first()
+        )
         if not priority:
             raise ValueError("Priority not found or not in same organization")

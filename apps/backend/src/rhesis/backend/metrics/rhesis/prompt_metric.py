@@ -43,31 +43,42 @@ class RhesisPromptMetric(RhesisMetricBase):
         **kwargs,
     ):
         from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, DEFAULT_MODEL_NAME
-        from rhesis.sdk.models.base import BaseLLM
-        
+
         # Store the model instance if it's a BaseLLM
         self.model_instance = None
-        
+
         # Handle model parameter - can be BaseLLM instance, string, or None
         if model and not isinstance(model, str):
             # It's a BaseLLM instance - store it and extract configuration
             logger.debug(f"[METRIC_INIT] Using BaseLLM instance for metric '{name}'")
             self.model_instance = model
             # Extract provider from model_name (format: "provider/model-name")
-            if hasattr(model, 'model_name') and '/' in model.model_name:
-                self.provider = model.model_name.split('/')[0]
-                self.model = model.model_name.split('/')[1]
+            if hasattr(model, "model_name") and "/" in model.model_name:
+                self.provider = model.model_name.split("/")[0]
+                self.model = model.model_name.split("/")[1]
             else:
                 self.provider = provider
-                self.model = getattr(model, 'model_name', None) or DEFAULT_MODEL_NAME
-            self.api_key = getattr(model, 'api_key', None) or api_key or os.environ.get("GEMINI_API_KEY")
-            logger.debug(f"[METRIC_INIT] Extracted from BaseLLM: provider={self.provider}, model={self.model}")
+                self.model = getattr(model, "model_name", None) or DEFAULT_MODEL_NAME
+            self.api_key = (
+                getattr(model, "api_key", None) or api_key or os.environ.get("GEMINI_API_KEY")
+            )
+            logger.debug(
+                f"[METRIC_INIT] Extracted from BaseLLM: provider={self.provider}, model={self.model}"
+            )
         elif isinstance(model, str):
             # It's a provider name string - will use SDK to create model
             logger.debug(f"[METRIC_INIT] Using provider string '{model}' for metric '{name}'")
             self.provider = model
-            self.api_key = api_key or os.environ.get(f"{model.upper()}_API_KEY") or os.environ.get("GEMINI_API_KEY")
-            self.model = os.environ.get(f"{model.upper()}_MODEL_NAME") or os.environ.get("GEMINI_MODEL_NAME") or DEFAULT_MODEL_NAME
+            self.api_key = (
+                api_key
+                or os.environ.get(f"{model.upper()}_API_KEY")
+                or os.environ.get("GEMINI_API_KEY")
+            )
+            self.model = (
+                os.environ.get(f"{model.upper()}_MODEL_NAME")
+                or os.environ.get("GEMINI_MODEL_NAME")
+                or DEFAULT_MODEL_NAME
+            )
         else:
             # Use defaults from constants
             logger.debug(f"[METRIC_INIT] Using default model for metric '{name}'")
@@ -209,17 +220,18 @@ class RhesisPromptMetric(RhesisMetricBase):
         # Use the BaseLLM instance if available, otherwise create one from SDK
         if self.model_instance:
             model_to_use = self.model_instance
-            logger.debug(f"[METRIC_EVAL] Using stored BaseLLM instance")
+            logger.debug("[METRIC_EVAL] Using stored BaseLLM instance")
         else:
             # Create model instance from SDK
             from rhesis.sdk.models.factory import get_model
-            logger.debug(f"[METRIC_EVAL] Creating model from SDK: provider={self.provider}, model={self.model}")
-            model_to_use = get_model(
-                provider=self.provider,
-                model_name=self.model,
-                api_key=self.api_key
+
+            logger.debug(
+                f"[METRIC_EVAL] Creating model from SDK: provider={self.provider}, model={self.model}"
             )
-        
+            model_to_use = get_model(
+                provider=self.provider, model_name=self.model, api_key=self.api_key
+            )
+
         # Add JSON formatting instruction to the prompt
         json_prompt = f"""{prompt}
 
@@ -230,15 +242,15 @@ IMPORTANT: You must respond with ONLY a valid JSON object in this exact format:
 }}
 
 Do not include any other text before or after the JSON object."""
-        
+
         # Call the model directly
         response_text = model_to_use.generate(json_prompt)
-        
+
         # Parse the JSON response
         try:
             # Try to extract JSON from the response (handle cases where model adds extra text)
-            json_start = response_text.find('{')
-            json_end = response_text.rfind('}') + 1
+            json_start = response_text.find("{")
+            json_end = response_text.rfind("}") + 1
             if json_start >= 0 and json_end > json_start:
                 json_text = response_text[json_start:json_end]
                 response_dict = json.loads(json_text)
@@ -249,10 +261,7 @@ Do not include any other text before or after the JSON object."""
             logger.error(f"[METRIC_EVAL] Failed to parse JSON response: {e}")
             logger.error(f"[METRIC_EVAL] Raw response: {response_text}")
             # Return a fallback response
-            return ScoreResponse(
-                score=0.0,
-                reason=f"Failed to parse model response: {str(e)}"
-            )
+            return ScoreResponse(score=0.0, reason=f"Failed to parse model response: {str(e)}")
 
     def _process_score(self, raw_score: Union[float, str, int]) -> Union[float, str]:
         """

@@ -1,10 +1,11 @@
 from sqlalchemy import JSON, Column, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.utils.encryption import EncryptedString
+
 from .base import Base
 from .guid import GUID
 from .mixins import CommentsMixin, CountsMixin, OrganizationAndUserMixin, TagsMixin, TasksMixin
-from rhesis.backend.app.utils.encryption import EncryptedString
 
 
 class Model(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
@@ -16,7 +17,9 @@ class Model(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, TasksMixin
     icon = Column(String)
     model_name = Column(String, nullable=False)
     endpoint = Column(String, nullable=True)  # Optional for cloud providers (OpenAI, Gemini, etc.)
-    key = Column(EncryptedString(), nullable=False)  # Encrypted for security (LLM provider API keys)
+    key = Column(
+        EncryptedString(), nullable=False
+    )  # Encrypted for security (LLM provider API keys)
     request_headers = Column(JSON)
 
     # Provider type relationship

@@ -3,8 +3,6 @@ This module contains the main entry point for test configuration execution,
 with detailed implementation in the execution/ directory modules.
 """
 
-
-
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.execution.config import get_test_configuration
@@ -56,7 +54,7 @@ def execute_test_configuration(self, test_configuration_id: str):
 
     try:
         # Use tenant-aware database session with explicit organization_id and user_id
-        with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
+        with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
             # Get test configuration with tenant context
             test_config = get_test_configuration(db, test_configuration_id, org_id)
 
@@ -81,8 +79,10 @@ def execute_test_configuration(self, test_configuration_id: str):
                     f"Creating new test run for task {self.request.id}",
                     test_configuration_id=test_configuration_id,
                 )
-                test_run = create_test_run(db, test_config, {"id": self.request.id}, current_user_id=user_id)
-                
+                test_run = create_test_run(
+                    db, test_config, {"id": self.request.id}, current_user_id=user_id
+                )
+
                 # CRITICAL: Explicitly commit the test run creation before launching parallel tasks
                 # This ensures the test run exists in the database before async tasks try to reference it
                 db.commit()
@@ -124,7 +124,7 @@ def execute_test_configuration(self, test_configuration_id: str):
 
         # Attempt to update test run status to failed using utility
         # Use task ID to find the specific test run created by this task
-        with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
+        with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
             test_run = get_test_run_by_task_id(db, self.request.id, org_id)
             if test_run:
                 success = update_test_run_with_error(db, test_run, str(e))

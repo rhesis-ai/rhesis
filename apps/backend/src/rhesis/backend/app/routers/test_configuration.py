@@ -84,7 +84,14 @@ def read_test_configurations(
     """Get all test configurations with their related objects"""
     organization_id, user_id = tenant_context
     test_configurations = crud.get_test_configurations(
-        db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
+        db,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        filter=filter,
+        organization_id=organization_id,
+        user_id=user_id,
     )
     return test_configurations
 

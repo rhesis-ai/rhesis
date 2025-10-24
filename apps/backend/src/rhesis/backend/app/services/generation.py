@@ -46,7 +46,7 @@ async def generate_tests(
 
     # Get user's configured model or fallback to default
     model = get_user_generation_model(db, user)
-    
+
     # Choose synthesizer based on whether documents are provided
     config = GenerationConfig(**prompt)
     if documents:

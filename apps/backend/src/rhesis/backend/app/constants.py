@@ -52,43 +52,44 @@ DEFAULT_MODEL_NAME = "gemini-2.0-flash-001"  # Default specific model name for G
 # These define how test result status names map to passed/failed/error categories
 # All status names are lowercase for case-insensitive matching
 # Note: These align with the keyword matching used in services/stats/common.py
-TEST_RESULT_STATUS_PASSED = frozenset([
-    'pass', 'passed', 
-    'completed', 'complete',
-    'success', 'successful',
-    'finished', 'done'
-])
-TEST_RESULT_STATUS_FAILED = frozenset([
-    'fail', 'failed'
-])
-TEST_RESULT_STATUS_ERROR = frozenset([
-    'error',  # Execution error
-    'abort', 'aborted',  # Execution aborted
-    'cancel', 'cancelled', 'canceled',  # Execution cancelled
-    'review', 'pending'  # Awaiting review or execution
-])
+TEST_RESULT_STATUS_PASSED = frozenset(
+    ["pass", "passed", "completed", "complete", "success", "successful", "finished", "done"]
+)
+TEST_RESULT_STATUS_FAILED = frozenset(["fail", "failed"])
+TEST_RESULT_STATUS_ERROR = frozenset(
+    [
+        "error",  # Execution error
+        "abort",
+        "aborted",  # Execution aborted
+        "cancel",
+        "cancelled",
+        "canceled",  # Execution cancelled
+        "review",
+        "pending",  # Awaiting review or execution
+    ]
+)
 
 # Status Category Constants
 # Use these constants instead of magic strings when checking status categories
-STATUS_CATEGORY_PASSED = 'passed'
-STATUS_CATEGORY_FAILED = 'failed'
-STATUS_CATEGORY_ERROR = 'error'
+STATUS_CATEGORY_PASSED = "passed"
+STATUS_CATEGORY_FAILED = "failed"
+STATUS_CATEGORY_ERROR = "error"
 
 
 def categorize_test_result_status(status_name: str) -> str:
     """
     Categorize a test result status name into passed/failed/error.
-    
+
     This function provides a centralized way to categorize test result statuses
     across the application, ensuring consistency in how test results are counted
     and reported.
-    
+
     Args:
         status_name: The status name (case-insensitive)
-        
+
     Returns:
         'passed', 'failed', or 'error'
-        
+
     Examples:
         >>> categorize_test_result_status('Pass')
         'passed'
@@ -101,9 +102,9 @@ def categorize_test_result_status(status_name: str) -> str:
     """
     if not status_name:
         return STATUS_CATEGORY_ERROR
-    
+
     status_lower = status_name.lower()
-    
+
     if status_lower in TEST_RESULT_STATUS_PASSED:
         return STATUS_CATEGORY_PASSED
     elif status_lower in TEST_RESULT_STATUS_FAILED:
