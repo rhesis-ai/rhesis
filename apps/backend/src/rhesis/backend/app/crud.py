@@ -2591,7 +2591,37 @@ def update_comment(
 def delete_comment(
     db: Session, comment_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Comment]:
-    """Delete a comment with optimized tenant context"""
+    """Delete a comment with optimized tenant context and clear task references"""
+    from sqlalchemy import text as sql_text
+    from uuid import UUID as UUIDType
+
+    # First, clear the comment_id from all tasks that reference this comment
+    # This prevents orphaned references in task_metadata
+    try:
+        # Query to find and update tasks that have this comment_id in task_metadata
+        update_query = sql_text("""
+            UPDATE task
+            SET task_metadata = task_metadata - 'comment_id',
+                updated_at = NOW()
+            WHERE task_metadata->>'comment_id' = :comment_id
+            AND organization_id = :organization_id
+        """)
+
+        db.execute(update_query, {
+            "comment_id": str(comment_id),
+            "organization_id": UUIDType(organization_id)
+        })
+
+        # Commit the task metadata updates before deleting the comment
+        db.commit()
+    except Exception as e:
+        # Log the error but continue with comment deletion
+        # This ensures the comment can still be deleted even if task cleanup fails
+        import logging
+        logging.error(f"Error clearing task references for comment {comment_id}: {e}")
+        db.rollback()
+
+    # Now proceed with normal comment deletion
     return delete_item(db, models.Comment, comment_id, organization_id, user_id)
 
 
