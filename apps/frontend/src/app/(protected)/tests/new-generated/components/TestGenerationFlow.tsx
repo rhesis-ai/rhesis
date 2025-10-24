@@ -194,28 +194,6 @@ export default function TestGenerationFlow({
       try {
         const apiFactory = new ApiClientFactory(sessionToken);
         const servicesClient = apiFactory.getServicesClient();
-        const sourcesClient = apiFactory.getSourcesClient();
-
-        // Fetch source content for selected sources
-        const fetchedDocuments: ProcessedDocument[] = [];
-        for (const sourceId of sourceIds) {
-          try {
-            const source = await sourcesClient.getSource(sourceId as any);
-            fetchedDocuments.push({
-              id: source.id,
-              name: source.title,
-              description: source.description || '',
-              path: '',
-              content: source.content || '',
-              originalName: source.title,
-              status: 'completed',
-            });
-          } catch (error) {
-            console.error(`Failed to fetch source ${sourceId}:`, error);
-            show(`Failed to load source: ${sourceId}`, { severity: 'warning' });
-          }
-        }
-        setDocuments(fetchedDocuments);
 
         // Step 1: Generate test configuration based on description
         const configResponse = await servicesClient.generateTestConfig({
@@ -227,9 +205,12 @@ export default function TestGenerationFlow({
 
         // Step 2: Create chips from config response (5 active, 5 inactive)
         const createChipsFromArray = (
-          items: Array<{ name: string; description: string }>,
+          items: Array<{ name: string; description: string }> | undefined,
           colorVariant: 'blue' | 'purple' | 'orange' | 'green'
         ): ChipConfig[] => {
+          if (!items || !Array.isArray(items)) {
+            return [];
+          }
           return items.map((item, index) => {
             return {
               id: item.name.toLowerCase().replace(/\s+/g, '-'),
@@ -242,10 +223,10 @@ export default function TestGenerationFlow({
         };
 
         const newConfigChips: ConfigChips = {
-          behavior: createChipsFromArray(configResponse.behaviors, 'blue'),
-          topics: createChipsFromArray(configResponse.topics, 'purple'),
-          category: createChipsFromArray(configResponse.categories, 'orange'),
-          scenarios: createChipsFromArray(configResponse.scenarios, 'green'),
+          behavior: createChipsFromArray(configResponse?.behaviors, 'blue'),
+          topics: createChipsFromArray(configResponse?.topics, 'purple'),
+          category: createChipsFromArray(configResponse?.categories, 'orange'),
+          scenarios: createChipsFromArray(configResponse?.scenarios, 'green'),
         };
 
         setConfigChips(newConfigChips);
