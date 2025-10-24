@@ -227,28 +227,6 @@ export default function TestGenerationFlow({
       try {
         const apiFactory = new ApiClientFactory(sessionToken);
         const servicesClient = apiFactory.getServicesClient();
-        const sourcesClient = apiFactory.getSourcesClient();
-
-        // Fetch source content for selected sources
-        const fetchedDocuments: ProcessedDocument[] = [];
-        for (const sourceId of sourceIds) {
-          try {
-            const source = await sourcesClient.getSource(sourceId as any);
-            fetchedDocuments.push({
-              id: source.id,
-              name: source.title,
-              description: source.description || '',
-              path: '',
-              content: source.content || '',
-              originalName: source.title,
-              status: 'completed',
-            });
-          } catch (error) {
-            console.error(`Failed to fetch source ${sourceId}:`, error);
-            show(`Failed to load source: ${sourceId}`, { severity: 'warning' });
-          }
-        }
-        setDocuments(fetchedDocuments);
 
         // Fetch project if selected
         if (projectId) {

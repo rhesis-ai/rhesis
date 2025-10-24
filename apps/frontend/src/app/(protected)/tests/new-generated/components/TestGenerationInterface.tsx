@@ -330,37 +330,6 @@ export default function TestGenerationInterface({
     [handleSendMessage]
   );
 
-  const handleUploadSuccess = useCallback(async () => {
-    if (!session?.session_token) return;
-
-    try {
-      // Fetch the newly uploaded source
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const sourcesClient = apiFactory.getSourcesClient();
-
-      // Get all sources and find the most recent one (sorted by created_at desc by default)
-      const response = await sourcesClient.getSources({ skip: 0, limit: 1 });
-      if (response.data.length > 0) {
-        // Get the most recent source (assuming it's the one just uploaded)
-        const mostRecentSource = response.data[0];
-
-        const newDocument: ProcessedDocument = {
-          id: mostRecentSource.id,
-          name: mostRecentSource.title,
-          description: mostRecentSource.description || '',
-          path: '',
-          content: mostRecentSource.content || '',
-          originalName: mostRecentSource.title,
-          status: 'completed',
-        };
-
-        onDocumentAdd(newDocument);
-      }
-    } catch (error) {
-      console.error('Error loading uploaded source:', error);
-    }
-  }, [session?.session_token, onDocumentAdd]);
-
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default' }}>
       {/* Main Content */}
@@ -837,7 +806,6 @@ export default function TestGenerationInterface({
         <UploadSourceDialog
           open={showUploadDialog}
           onClose={() => setShowUploadDialog(false)}
-          onSuccess={handleUploadSuccess}
           sessionToken={session.session_token}
         />
       )}
