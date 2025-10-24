@@ -6,6 +6,7 @@ on:
     paths:
       - 'apps/backend/**'
       - '.github/workflows/backend.yml'
+      - 'sdk/**'
   workflow_dispatch:
     inputs:
       environment:
