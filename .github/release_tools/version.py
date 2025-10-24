@@ -175,7 +175,7 @@ def _update_package_version(config_path: Path, new_version: str, repo_root: Path
         data['version'] = new_version
         
         with open(config_path, 'w') as f:
-            json.dump(data, f, indent=4)
+            json.dump(data, f, indent=2)
         
         success(f"Updated {config_path.relative_to(repo_root)} version to: {new_version}")
         return True
