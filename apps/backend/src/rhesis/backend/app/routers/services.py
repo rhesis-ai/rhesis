@@ -218,6 +218,7 @@ async def generate_tests_endpoint(
             - sources contains SourceData with id
             (name, description, content will be fetched from DB)
         db: Database session
+        tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
 
     Returns:
