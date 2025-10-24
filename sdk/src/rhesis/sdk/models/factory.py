@@ -16,6 +16,7 @@ DEFAULT_PROVIDER = "rhesis"
 DEFAULT_MODELS = {
     "rhesis": "rhesis-default",
     "gemini": "gemini-2.0-flash-lite-preview-02-05",
+    "vertex_ai": "gemini-2.5-flash",
     "ollama": "llama3.1",
     "openai": "gpt-4o",
 }
@@ -53,10 +54,19 @@ def _create_openai_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
     return OpenAILLM(model_name=model_name, api_key=api_key)
 
 
+def _create_vertex_ai_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for VertexAILLM."""
+    from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
+
+    # Note: api_key is ignored for Vertex AI as it uses service account credentials
+    return VertexAILLM(model_name=model_name)
+
+
 # Provider registry mapping provider names to their factory functions
 PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
     "rhesis": _create_rhesis_llm,
     "gemini": _create_gemini_llm,
+    "vertex_ai": _create_vertex_ai_llm,
     "ollama": _create_ollama_llm,
     "openai": _create_openai_llm,
 }

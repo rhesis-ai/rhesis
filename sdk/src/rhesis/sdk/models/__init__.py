@@ -5,6 +5,7 @@ from rhesis.sdk.models.providers.huggingface import HuggingFaceLLM
 from rhesis.sdk.models.providers.litellm import LiteLLM
 from rhesis.sdk.models.providers.native import RhesisLLM
 from rhesis.sdk.models.providers.openai import OpenAILLM
+from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
 
 __all__ = [
     "BaseLLM",
@@ -12,6 +13,7 @@ __all__ = [
     "HuggingFaceLLM",
     "LiteLLM",
     "GeminiLLM",
+    "VertexAILLM",
     "OpenAILLM",
     "get_model",
 ]
