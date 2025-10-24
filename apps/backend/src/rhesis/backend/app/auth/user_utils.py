@@ -93,7 +93,6 @@ async def get_current_user(request: Request) -> Optional[User]:
     user_id = request.session.get("user_id")
 
     # Get the user with a basic session - no organization context needed for user lookup
-
     with get_db() as db:
         user = crud.get_user_by_id(db, user_id)
 
@@ -154,6 +153,8 @@ async def get_authenticated_user_with_context(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User is not associated with an organization",
             )
+        # Set user on request state for middleware access (e.g., telemetry)
+        request.state.user = user
         return user
 
     # If session_only or no credentials, return None
@@ -183,6 +184,7 @@ async def get_authenticated_user_with_context(
 
                         if without_context:
                             # without_context allows users without organization
+                            request.state.user = user
                             return user
                         else:
                             # Require organization_id when not without_context
@@ -192,6 +194,7 @@ async def get_authenticated_user_with_context(
                                     detail="User is not associated with an organization",
                                 )
                             # Return user - tenant context should be passed directly to CRUD operations when needed
+                            request.state.user = user
                             return user
 
     # Try JWT token if secret_key is provided
@@ -203,6 +206,7 @@ async def get_authenticated_user_with_context(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="User is not associated with an organization",
                 )
+            request.state.user = jwt_user
             return jwt_user
 
     return None

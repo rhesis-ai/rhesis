@@ -46,6 +46,12 @@ x-rhesis-config: &rhesis-config
   RHESIS_API_KEY: ${RHESIS_API_KEY}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
   BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
+
+x-telemetry-config: &telemetry-config
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-rhesis}
+  DEPLOYMENT_TYPE: ${DEPLOYMENT_TYPE:-self-hosted}
+  TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-false}  # Self-hosted: opt-in via env var
   
 x-gemini-google: &gemini-google
   GEMINI_API_KEY: ${GEMINI_API_KEY}
@@ -113,7 +119,7 @@ services:
       dockerfile: apps/backend/Dockerfile
     container_name: rhesis-backend
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *gemini-google]
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *gemini-google, *telemetry-config]
       LOG_LEVEL: DEBUG
     ports:
       - "8080:8080"
@@ -185,6 +191,8 @@ services:
     environment:
       <<: [*common-auth0, *nextjs-frontend, *google-client, *common-environment, *rhesis-config]
       PORT: 3000
+      NEXT_PUBLIC_OTEL_ENDPOINT: ${NEXT_PUBLIC_OTEL_ENDPOINT:-}
+      NEXT_PUBLIC_DEPLOYMENT_TYPE: ${DEPLOYMENT_TYPE:-self-hosted}
     ports:
       - "3000:3000"
     depends_on:
