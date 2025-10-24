@@ -1,3 +1,4 @@
 {
-  "sdk": "major"
+  "frontend": "minor",
+  "sdk": "minor"
 }
