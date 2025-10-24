@@ -1,102 +1,33 @@
-from typing import List, Optional, Union
+from dataclasses import dataclass, fields
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
+    PromptMetricConfig,
     RhesisPromptMetricBase,
 )
+from rhesis.sdk.models import BaseLLM
 
-METRIC_TYPE = MetricType.RAG
 SCORE_TYPE = ScoreType.NUMERIC
-GROUND_TRUTH_REQUIRED = True
-CONTEXT_REQUIRED = False
 
 
-class NumericScoreResponse(BaseModel):
-    """Model for structured numeric response from LLM evaluation."""
+@dataclass
+class PromptMetricNumericConfig(PromptMetricConfig):
+    min_score: Optional[float] = None
+    max_score: Optional[float] = None
+    threshold: Optional[float] = None
+    threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL
 
-    score: float = Field(description="Evaluation score")
-    reason: str = Field(description="Explanation for the score", default="")
-
-
-class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
-    """
-    A numeric metric that evaluates outputs based on a custom prompt template.
-    Uses LLM to perform evaluation based on provided evaluation criteria.
-    """
-
-    def __init__(
-        self,
-        evaluation_prompt: str,
-        evaluation_steps: Optional[str] = None,
-        reasoning: Optional[str] = None,
-        evaluation_examples: Optional[str] = None,
-        min_score: Optional[float] = None,
-        max_score: Optional[float] = None,
-        threshold: Optional[float] = None,
-        threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        model: Optional[str] = None,
-        **kwargs,
-    ):
-        """
-        Initialize the numeric prompt metric.
-
-        Args:
-            name (str): Unique name for this metric instance
-            evaluation_prompt (str): The main evaluation criteria and instructions for the LLM
-            evaluation_steps (str): Step-by-step process the LLM should follow for evaluation
-            reasoning (str): Guidelines for the LLM's reasoning process during evaluation
-            evaluation_examples (str, optional): Examples to guide the LLM's evaluation.
-                Defaults to empty string.
-            min_score (Optional[float], optional): Minimum possible score for evaluation.
-                If provided, max_score must also be provided. Defaults to None (uses 0.0).
-            max_score (Optional[float], optional): Maximum possible score for evaluation.
-                If provided, min_score must also be provided. Defaults to None (uses 1.0).
-            threshold (Optional[float], optional): Score threshold for determining success.
-                If None, defaults to midpoint between min_score and max_score. Defaults to None.
-            threshold_operator (Union[ThresholdOperator, str], optional): Operator for comparing
-                score to threshold. Can be a ThresholdOperator enum or string. Defaults to None.
-            model (Optional[str], optional): The LLM model to use for evaluation.
-                If None, uses the default model. Defaults to None.
-            **kwargs: Additional keyword arguments passed to the base class
-
-        Raises:
-            ValueError: If only min_score or only max_score is provided (both required together)
-            ValueError: If threshold is outside the [min_score, max_score] range
-            ValueError: If threshold_operator string is invalid
-        """
-        super().__init__(
-            name=name,
-            description=description,
-            metric_type=METRIC_TYPE,
-            score_type=SCORE_TYPE,
-            model=model,
-            **kwargs,
-        )
+    def __post_init__(self):
         # Convert string to enum if needed
-        if isinstance(threshold_operator, str):
-            threshold_operator = ThresholdOperator(threshold_operator)
-        self.threshold_operator = threshold_operator
-
-        # Validate and set up numeric score parameters
-        self._validate_score_range(min_score, max_score)
-        self._set_score_parameters(min_score, max_score, threshold)
-
-        # Store other parameters
-        self.evaluation_prompt = evaluation_prompt
-        self.evaluation_steps = evaluation_steps
-        self.reasoning = reasoning
-        self.evaluation_examples = evaluation_examples
-
-        self.ground_truth_required = GROUND_TRUTH_REQUIRED
-        self.context_required = CONTEXT_REQUIRED
-
-        # Set up Jinja environment
-        self._setup_jinja_environment()
+        if isinstance(self.threshold_operator, str):
+            self.threshold_operator = ThresholdOperator(self.threshold_operator)
+        self._validate_score_range(self.min_score, self.max_score)
+        self._set_score_parameters(self.min_score, self.max_score, self.threshold)
+        super().__post_init__()
 
     def _validate_score_range(self, min_score: Optional[float], max_score: Optional[float]) -> None:
         """
@@ -152,8 +83,95 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         if not (self.min_score <= self.threshold <= self.max_score):
             raise ValueError(f"Threshold must be between {self.min_score} and {self.max_score}")
 
+
+class NumericScoreResponse(BaseModel):
+    """Model for structured numeric response from LLM evaluation."""
+
+    score: float = Field(description="Evaluation score")
+    reason: str = Field(description="Explanation for the score", default="")
+
+
+class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
+    """
+    A numeric metric that evaluates outputs based on a custom prompt template.
+    Uses LLM to perform evaluation based on provided evaluation criteria.
+    """
+
+    def __init__(
+        self,
+        evaluation_prompt: str,
+        evaluation_steps: Optional[str] = None,
+        reasoning: Optional[str] = None,
+        evaluation_examples: Optional[str] = None,
+        min_score: Optional[float] = None,
+        max_score: Optional[float] = None,
+        threshold: Optional[float] = None,
+        threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        metric_type: Optional[Union[str, MetricType]] = None,
+        model: Optional[Union[str, BaseLLM]] = None,
+        **kwargs,
+    ):
+        """
+        Initialize the numeric prompt metric.
+
+        Args:
+            name (str): Unique name for this metric instance
+            evaluation_prompt (str): The main evaluation criteria and instructions for the LLM
+            evaluation_steps (str): Step-by-step process the LLM should follow for evaluation
+            reasoning (str): Guidelines for the LLM's reasoning process during evaluation
+            evaluation_examples (str, optional): Examples to guide the LLM's evaluation.
+                Defaults to empty string.
+            min_score (Optional[float], optional): Minimum possible score for evaluation.
+                If provided, max_score must also be provided. Defaults to None (uses 0.0).
+            max_score (Optional[float], optional): Maximum possible score for evaluation.
+                If provided, min_score must also be provided. Defaults to None (uses 1.0).
+            threshold (Optional[float], optional): Score threshold for determining success.
+                If None, defaults to midpoint between min_score and max_score. Defaults to None.
+            threshold_operator (Union[ThresholdOperator, str], optional): Operator for comparing
+                score to threshold. Can be a ThresholdOperator enum or string. Defaults to None.
+            model (Optional[str], optional): The LLM model to use for evaluation.
+                If None, uses the default model. Defaults to None.
+            **kwargs: Additional keyword arguments passed to the base class
+
+        Raises:
+            ValueError: If only min_score or only max_score is provided (both required together)
+            ValueError: If threshold is outside the [min_score, max_score] range
+            ValueError: If threshold_operator string is invalid
+        """
+        self.config = PromptMetricNumericConfig(
+            evaluation_prompt=evaluation_prompt,
+            evaluation_steps=evaluation_steps,
+            reasoning=reasoning,
+            evaluation_examples=evaluation_examples,
+            min_score=min_score,
+            max_score=max_score,
+            threshold=threshold,
+            threshold_operator=threshold_operator,
+            name=name,
+            description=description,
+            metric_type=metric_type,
+            score_type=SCORE_TYPE,
+            class_name=self.__class__.__name__,
+        )
+        super().__init__(config=self.config, model=model)
+
+        self.min_score = self.config.min_score
+        self.max_score = self.config.max_score
+        self.threshold = self.config.threshold
+        self.threshold_operator = self.config.threshold_operator
+
+        # Set up Jinja environment
+        self._setup_jinja_environment()
+
     def _get_prompt_template(
-        self, input: str, output: str, expected_output: str, context: List[str] = None
+        self,
+        input: str,
+        output: str,
+        expected_output: str,
+        context: Optional[List[str]] = None,
+        **additional_template_vars,
     ) -> str:
         """
         Generate the prompt to be sent to the LLM using a Jinja template.
@@ -180,7 +198,11 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         )
 
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str] = None
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str],
+        context: Optional[List[str]] = None,
     ) -> MetricResult:
         """
         Evaluate the output using the LLM with the custom prompt template.
@@ -245,7 +267,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         try:
             # Run the evaluation with structured response model
             response = self.model.generate(prompt, schema=NumericScoreResponse)
-            response = NumericScoreResponse(**response)
+            response = NumericScoreResponse(**response)  # type: ignore
 
             # Get the score directly from the response
             score = response.score
@@ -286,31 +308,26 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         result = threshold_operator(score, self.threshold)
         return result
 
-    def to_config(self) -> MetricConfig:
-        """Convert the metric to a dictionary."""
-        config = super().to_config()
-        config.parameters = {
-            "min_score": self.min_score,
-            "max_score": self.max_score,
-            "threshold": self.threshold,
-            "threshold_operator": self.threshold_operator,
-        }
-        return config
-
     @classmethod
-    def from_config(cls, config: MetricConfig) -> "RhesisPromptMetricNumeric":
+    def from_dict(cls, config: Dict[str, Any]) -> "RhesisPromptMetricNumeric":
         """Create a metric from a dictionary."""
-        return cls(
-            # Backend required items
-            name=config.name,
-            description=config.description,
-            # Custom items
-            evaluation_prompt=config.evaluation_prompt,
-            evaluation_steps=config.evaluation_steps,
-            reasoning=config.reasoning,
-            evaluation_examples=config.evaluation_examples,
-            min_score=config.parameters.get("min_score"),
-            max_score=config.parameters.get("max_score"),
-            threshold=config.parameters.get("threshold"),
-            threshold_operator=config.parameters.get("threshold_operator"),
-        )
+        # Get all field names from the dataclass
+        valid_fields = {field.name for field in fields(PromptMetricNumericConfig)}
+
+        # Filter config to only include keys that exist in the dataclass
+        filtered_config = {k: v for k, v in config.items() if k in valid_fields}
+
+        return cls.from_config(PromptMetricNumericConfig(**filtered_config))
+
+
+if __name__ == "__main__":
+
+    class TestSchema(BaseModel):
+        score: float
+        reason: str
+
+    output = {
+        "score": 0.5,
+        "reason": "This is a test reason",
+    }
+    response = TestSchema(**output)

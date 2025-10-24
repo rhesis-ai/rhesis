@@ -26,10 +26,15 @@ jobs:
       with:
         version: latest
         enable-cache: true
+
+    # - name: Type check SDK
+    #   run: |
+    #     cd sdk
+    #     uv run pyright
+    #   continue-on-error: false
       
     - name: Test SDK
       run: |
-        uv run --project sdk pytest tests/sdk/models
-        uv run --project sdk pytest tests/sdk/metrics
-        uv run --project sdk pytest tests/sdk/test_client.py
+        cd sdk
+        uv run pytest
       continue-on-error: false
