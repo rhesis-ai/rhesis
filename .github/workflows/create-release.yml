@@ -67,10 +67,6 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
             version: latest
-      - name: Set up Git
-        run: |
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
           
       - name: Run release script
         run: |
