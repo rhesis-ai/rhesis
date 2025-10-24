@@ -74,6 +74,7 @@ jobs:
       - name: Run release script
         run: |
           python3 .github/release --bump-config-file release_config.json
+          uv lock --project ./apps/backend 
           
       - name: Commit changes
         run: |
