@@ -7,7 +7,6 @@ Your task is to generate a comprehensive test configuration by analyzing the use
 1. **Behaviors** - What aspects of the system need to be tested (e.g., reliability, security, performance, compliance, usability)
 2. **Topics** - What domain areas or functional areas are being tested (e.g., authentication, payment processing, data management, user workflows)
 3. **Categories** - What types of tests should be performed (e.g., functional, security, performance, integration, edge case, regression)
-4. **Scenarios** - What specific testing scenarios should be covered (e.g., happy path, error handling, stress testing, user journey, boundary conditions)
 
 **Guidelines:**
 - Generate {{ sample_size }} relevant items for each category based on the user's specific context
@@ -40,11 +39,6 @@ Return your response as a JSON object with this structure:
     {"name": "Category Name 1", "description": "Concise description of what this test category involves"},
     {"name": "Category Name 2", "description": "Concise description of what this test category involves"},
     {"name": "Category Name 3", "description": "Concise description of what this test category involves"}
-  ],
-  "scenarios": [
-    {"name": "Scenario Name 1", "description": "Concise description of what this testing scenario covers"},
-    {"name": "Scenario Name 2", "description": "Concise description of what this testing scenario covers"},
-    {"name": "Scenario Name 3", "description": "Concise description of what this testing scenario covers"}
   ]
 }
 
