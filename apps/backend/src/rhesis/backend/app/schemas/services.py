@@ -1,8 +1,7 @@
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from pydantic import UUID4, BaseModel, Field
-
-from rhesis.backend.app.schemas.documents import Document
 
 
 class PromptRequest(BaseModel):
@@ -28,7 +27,7 @@ class ChatRequest(BaseModel):
 class GenerateTestsRequest(BaseModel):
     prompt: dict
     num_tests: int = 5
-    documents: Optional[List[Document]] = None
+    source_ids: Optional[List[UUID]] = None
 
 
 class TestPrompt(BaseModel):

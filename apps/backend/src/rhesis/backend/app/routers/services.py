@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app import crud
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
@@ -205,21 +206,17 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Generate test cases using the prompt synthesizer.
 
     Args:
-        request: The request containing the prompt, number of tests, and optional documents
-            - Each document may contain:
-                - `name` (str): Identifier for the document.
-                - `description` (str): Short description of its purpose.
-                - `path` (str): Path to the uploaded document file.
-                - `content` (str, optional): Raw content of the document.
-                ⚠️ If both `path` and `content` are provided in a document, `content` will override
-                 `path`: the file at `path` will not be read or used.
+        request: The request containing the prompt, number of tests, and optional source_ids
+            - Each source_id references a source in the database that will be used for generation
         db: Database session
+        tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
 
     Returns:
@@ -228,15 +225,34 @@ async def generate_tests_endpoint(
     try:
         prompt = request.prompt
         num_tests = request.num_tests
-        documents = request.documents
+        source_ids = request.source_ids
 
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
 
-        # Convert Pydantic models to Document objects
-        documents_sdk = [Document(**doc.dict()) for doc in documents] if documents else None
+        # Fetch sources from database if source_ids are provided
+        sources_sdk = []
+        if source_ids:
+            organization_id, user_id = tenant_context
+            for source_id in source_ids:
+                db_source = crud.get_source(
+                    db, source_id=source_id, organization_id=organization_id, user_id=user_id
+                )
+                if not db_source:
+                    raise HTTPException(
+                        status_code=404, detail=f"Source with id {source_id} not found"
+                    )
 
-        test_cases = await generate_tests(db, current_user, prompt, num_tests, documents_sdk)
+                # Create Document object for the synthesizer
+                document_sdk = Document(
+                    name=db_source.title or f"Source {db_source.id}",
+                    description=db_source.description or "",
+                    content=db_source.content or "",
+                    path=None,  # Sources don't have file paths
+                )
+                sources_sdk.append(document_sdk)
+
+        test_cases = await generate_tests(db, current_user, prompt, num_tests, sources_sdk)
         return {"tests": test_cases}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

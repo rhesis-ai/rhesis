@@ -34,8 +34,7 @@ async def generate_tests(
             Each document should contain:
             - name (str): Unique identifier or label for the document
             - description (str): Short description of the document's purpose or content
-            - path (str): Local file path from upload endpoint
-            - content (str): Pre-provided document content (optional)
+            - content (str): The document content
 
     Returns:
         Dict: The generated test set as a dictionary
