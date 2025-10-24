@@ -28,7 +28,7 @@ Configure directly in your Python code:
 .. code-block:: python
 
    import rhesis
-   
+
    rhesis.api_key = "your-api-key"
    rhesis.base_url = "https://api.rhesis.ai"  # optional, defaults to this value
 
@@ -74,9 +74,9 @@ The Rhesis SDK uses Python's standard logging module. You can configure it like 
 .. code-block:: python
 
    import logging
-   
+
    # Configure logging
    logging.basicConfig(level=logging.INFO)
-   
+
    # Or for more detailed logging
-   logging.getLogger("rhesis").setLevel(logging.DEBUG) 
+   logging.getLogger("rhesis").setLevel(logging.DEBUG)
