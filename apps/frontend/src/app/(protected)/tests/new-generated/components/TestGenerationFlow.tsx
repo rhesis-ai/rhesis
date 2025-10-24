@@ -493,7 +493,7 @@ export default function TestGenerationFlow({
       sessionToken,
       description,
       configChips,
-      documents,
+      selectedSourceIds,
       project,
       testSamples,
       show,
@@ -717,7 +717,7 @@ export default function TestGenerationFlow({
     [
       sessionToken,
       description,
-      documents,
+      selectedSourceIds,
       project,
       show,
       configChips,

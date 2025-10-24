@@ -14,18 +14,12 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BoltIcon from '@mui/icons-material/Bolt';
-import {
-  ConfigChips,
-  TestSetSize,
-  ProcessedDocument,
-  ChipConfig,
-} from './shared/types';
+import { ConfigChips, TestSetSize, ChipConfig } from './shared/types';
 import TestSetSizeSelector from './shared/TestSetSizeSelector';
 import ActionBar from '@/components/common/ActionBar';
 
 interface TestConfigurationConfirmationProps {
   configChips: ConfigChips;
-  documents: ProcessedDocument[];
   testSetSize: TestSetSize;
   testSetName: string;
   onBack: () => void;
@@ -41,7 +35,6 @@ interface TestConfigurationConfirmationProps {
  */
 export default function TestConfigurationConfirmation({
   configChips,
-  documents,
   testSetSize,
   testSetName,
   onBack,
