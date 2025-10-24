@@ -85,4 +85,3 @@ class TestConfigResponse(BaseModel):
     behaviors: List[TestConfigItem]
     topics: List[TestConfigItem]
     categories: List[TestConfigItem]
-    scenarios: List[TestConfigItem]

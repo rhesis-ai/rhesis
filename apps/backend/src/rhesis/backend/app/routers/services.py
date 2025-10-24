@@ -344,29 +344,44 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)
-async def generate_test_config(request: TestConfigRequest):
+async def generate_test_config(
+    request: TestConfigRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Generate test configuration JSON based on user description.
 
-    This endpoint analyzes a user-provided description and generates a configuration
-    JSON containing relevant behaviors, topics, test categories, and test scenarios
-    from predefined lists.
+    This endpoint:
+    1. Fetches all behaviors from the database (filtered by organization)
+    2. Sends the behaviors to the LLM and asks it to select relevant ones based on the prompt
+    3. LLM generates topics and test categories
 
     Args:
         request: Contains prompt (description) for test configuration generation and
             optional sample_size (default: 5, max: 20) for number of items per category
+        db: Database session (injected)
+        tenant_context: Organization and user context (injected)
+        current_user: Current authenticated user (injected)
 
     Returns:
-        TestConfigResponse: JSON containing selected behaviors, topics, test categories,
-            and scenarios, each with name and description fields
+        TestConfigResponse: JSON containing LLM-selected behaviors (from database), and
+            LLM-generated topics and test categories, each with name and description fields
     """
     try:
+        organization_id, user_id = tenant_context
+
         logger.info(
             f"Test config generation request for prompt: {request.prompt[:100]}... "
-            f"with sample_size: {request.sample_size}"
+            f"with sample_size: {request.sample_size} for organization: {organization_id}"
         )
+
         service = TestConfigGeneratorService()
-        result = service.generate_config(request.prompt, request.sample_size)
+        result = service.generate_config(
+            request.prompt, request.sample_size, db=db, organization_id=organization_id
+        )
+
         logger.info("Test config generation successful")
         return result
     except ValueError as e:
