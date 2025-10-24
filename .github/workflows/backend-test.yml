@@ -10,6 +10,16 @@ name: "[Test] Backend"
 # For local testing: gh act -W .github/workflows/backend-test.yml --secret-file apps/backend/.env.test
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/backend/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/backend/**'
+      - '.github/workflows/backend.yml'
   workflow_dispatch:
     inputs:
       test_markers:
