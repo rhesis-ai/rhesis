@@ -5,8 +5,8 @@ import re
 import random
 import logging
 from typing import List, Dict, Any, Generator, Optional, Callable
-from google import genai
 from dotenv import load_dotenv
+from rhesis.sdk.models.factory import get_model
 
 # Configure logging
 logging.basicConfig(
@@ -23,57 +23,25 @@ MAX_RETRIES = 3
 INITIAL_RETRY_DELAY = 1  # seconds
 MAX_RETRY_DELAY = 10  # seconds
 
-# Model configuration
-DEFAULT_MODEL = "gemini-2.0-flash-001"
+# Model configuration - uses SDK providers approach
+DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "vertex_ai")
+DEFAULT_MODEL_NAME = os.getenv("DEFAULT_MODEL_NAME", "gemini-2.5-flash")
 
-class GeminiClient:
-    """Wrapper class for Google Gemini API client with retry functionality."""
-    
-    def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL):
-        """Initialize the Gemini client with API key and default model."""
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        if not self.api_key:
-            raise ValueError("Gemini API key is required")
-        
-        self.client = genai.Client(api_key=self.api_key)
-        self.model = model
-    
-    def with_retries(self, func: Callable, *args, **kwargs) -> Any:
-        """Execute a function with retry logic for API errors."""
-        retries = 0
-        while retries <= MAX_RETRIES:
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                retries += 1
-                if retries > MAX_RETRIES:
-                    logger.error(f"Failed after {MAX_RETRIES} retries: {str(e)}")
-                    raise
-                
-                # Calculate exponential backoff with jitter
-                delay = min(INITIAL_RETRY_DELAY * (2 ** (retries - 1)) + random.uniform(0, 1), MAX_RETRY_DELAY)
-                logger.warning(f"API error: {str(e)}. Retrying in {delay:.2f} seconds (attempt {retries}/{MAX_RETRIES})...")
-                time.sleep(delay)
-    
-    def create_chat_session(self) -> Any:
-        """Create a new chat session with the model."""
-        return self.with_retries(self.client.chats.create, model=self.model)
-    
-    def send_message(self, chat, message: str) -> Any:
-        """Send a message to the chat session."""
-        return self.with_retries(chat.send_message, message)
-    
-    def send_message_stream(self, chat, message: str) -> Generator:
-        """Send a message to the chat session and stream the response."""
-        return self.with_retries(chat.send_message_stream, message)
+def get_llm_model():
+    """Get the configured LLM model using SDK factory."""
+    try:
+        return get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
+    except Exception as e:
+        logger.error(f"Failed to initialize LLM model: {str(e)}")
+        raise ValueError(f"Could not initialize LLM model: {str(e)}")
 
 
 class ResponseGenerator:
-    """Class to generate responses from the Gemini model."""
+    """Class to generate responses using SDK model providers."""
     
-    def __init__(self, client: GeminiClient, use_case: str = "insurance"):
-        """Initialize with a GeminiClient instance and use case."""
-        self.client = client
+    def __init__(self, use_case: str = "insurance"):
+        """Initialize with SDK model and use case."""
+        self.model = get_llm_model()
         self.use_case = use_case
         self.use_case_system_prompt = self._load_system_prompt()
     
@@ -99,23 +67,24 @@ class ResponseGenerator:
         return "".join(self.stream_assistant_response(prompt))
     
     def stream_assistant_response(self, prompt: str) -> Generator[str, None, None]:
-        """Stream the assistant's response."""
+        """Stream the assistant's response using SDK model."""
         try:
-            # Create a chat session with the Gemini model
-            chat = self.client.create_chat_session()
+            # Combine system prompt with user prompt
+            full_prompt = f"{self.use_case_system_prompt}\n\nUser: {prompt}\n\nAssistant:"
             
-            # Send the system instruction as the first message
-            self.client.send_message(chat, self.use_case_system_prompt)
+            # Use SDK model's generate method with streaming
+            # Note: SDK models handle streaming internally
+            response = self.model.generate(full_prompt, stream=True)
             
-            # Use send_message_stream for streaming responses
-            for chunk in self.client.send_message_stream(chat, prompt):
-                if chunk.text:
-                    yield chunk.text
+            # Stream the response
+            if hasattr(response, '__iter__'):
+                for chunk in response:
+                    if chunk:
+                        yield chunk
+            else:
+                # If streaming is not supported, yield the entire response
+                yield response
                     
-        except Exception as e:
-            logger.error(f"API error in stream_assistant_response: {str(e)}")
-            yield f"I apologize, but I couldn't process your request at this time due to a service issue."
-            
         except Exception as e:
             logger.error(f"Error in stream_assistant_response: {str(e)}")
             yield "I apologize, but I couldn't process your request at this time due to an unexpected error."
@@ -141,21 +110,15 @@ class ResponseGenerator:
                 Do not include any explanations, markdown formatting, or additional text outside of the JSON object.
                 """
             
-            # Create a chat session with the Gemini model
-            chat = self.client.create_chat_session()
+            # Combine system prompt with user question
+            full_prompt = f"{context_system_prompt}\n\nGenerate context fragments for this insurance question: {prompt}"
             
-            # Send the system instruction as the first message
-            self.client.send_message(chat, context_system_prompt)
-            
-            # Send the user's question and get the response
-            response = self.client.send_message(chat, f"Generate context fragments for this insurance question: {prompt}")
+            # Get response from SDK model
+            response = self.model.generate(full_prompt)
             
             # Parse the response
-            return self._parse_context_response(response.text, prompt)
-            
-        except Exception as e:
-            logger.error(f"API error in generate_context: {str(e)}")
-            return self._get_default_fragments(prompt)
+            response_text = response if isinstance(response, str) else str(response)
+            return self._parse_context_response(response_text, prompt)
             
         except Exception as e:
             logger.error(f"Error in generate_context: {str(e)}")
@@ -235,12 +198,9 @@ class ResponseGenerator:
         ]
 
 
-# Create singleton instances for use in the API
-gemini_client = GeminiClient()
-
 def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
     """Get a ResponseGenerator instance for the specified use case."""
-    return ResponseGenerator(gemini_client, use_case)
+    return ResponseGenerator(use_case)
 
 # Public API functions that maintain backward compatibility
 def get_assistant_response(prompt: str, use_case: str = "insurance") -> str:

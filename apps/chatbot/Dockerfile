@@ -26,8 +26,14 @@ ENV UV_NO_MANAGED_PYTHON=1
 # call python from the command line.
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Install chatbot dependencies (--no-install-project to skip installing the local package)
-RUN uv sync --no-install-project
+# Copy the SDK directory (required dependency)
+COPY sdk /app/sdk/
+
+# Add SDK to the project dependencies
+RUN uv add /app/sdk
+
+# Install chatbot dependencies (which includes the SDK)
+RUN uv sync
 
 # Now copy the rest of your source (scripts, modules, etc.)
 COPY apps/chatbot /app/
