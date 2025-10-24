@@ -18,12 +18,18 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DownloadIcon from '@mui/icons-material/Download';
-import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import styles from '@/styles/Knowledge.module.css';
-import { FILE_SIZE_CONSTANTS, TEXT_CONSTANTS } from '@/constants/knowledge';
+import {
+  FILE_SIZE_CONSTANTS,
+  TEXT_CONSTANTS,
+  formatFileSize,
+  formatDate,
+  getFileExtension,
+  truncateFilename,
+} from '@/constants/knowledge';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
@@ -99,60 +105,6 @@ export default function SourcePreviewClientWrapper({
         autoHideDuration: 2000,
       });
     }
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return 'Unknown';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Invalid date';
-
-      // Use consistent DD/MM/YYYY formatting
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-
-      return `${day}/${month}/${year}`;
-    } catch {
-      return 'Invalid date';
-    }
-  };
-
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'Unknown';
-    const sizes = FILE_TYPE_CONSTANTS.SIZE_UNITS;
-    const i = Math.floor(
-      Math.log(bytes) / Math.log(FILE_SIZE_CONSTANTS.BYTES_PER_KB)
-    );
-    return `${Math.round((bytes / Math.pow(FILE_SIZE_CONSTANTS.BYTES_PER_KB, i)) * 100) / 100} ${sizes[i]}`;
-  };
-
-  const getFileExtension = (filename?: string) => {
-    if (!filename) return 'unknown';
-    const ext = filename.split('.').pop()?.toLowerCase();
-    return ext || 'unknown';
-  };
-  const truncateFilename = (
-    filename: string,
-    maxLength: number = TEXT_CONSTANTS.FILENAME_TRUNCATE_LENGTH
-  ) => {
-    if (filename.length <= maxLength) return filename;
-
-    // Try to preserve the file extension
-    const lastDotIndex = filename.lastIndexOf('.');
-    if (lastDotIndex > 0) {
-      const extension = filename.substring(lastDotIndex);
-      const nameWithoutExt = filename.substring(0, lastDotIndex);
-      const availableLength =
-        maxLength - extension.length - TEXT_CONSTANTS.ELLIPSIS_LENGTH;
-
-      if (availableLength > 0) {
-        return `${nameWithoutExt.substring(0, availableLength)}...${extension}`;
-      }
-    }
-
-    // Fallback: just truncate and add ellipsis
-    return `${filename.substring(0, maxLength - TEXT_CONSTANTS.ELLIPSIS_LENGTH)}...`;
   };
 
   const fileExtension = getFileExtension(
