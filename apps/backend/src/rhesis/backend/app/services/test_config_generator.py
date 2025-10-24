@@ -9,8 +9,9 @@ from pathlib import Path
 
 import jinja2
 
+from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, DEFAULT_MODEL_NAME
 from rhesis.backend.app.schemas.services import TestConfigResponse
-from rhesis.sdk.models.providers.gemini import GeminiLLM
+from rhesis.sdk.models.factory import get_model
 
 
 class TestConfigGeneratorService:
@@ -29,7 +30,9 @@ class TestConfigGeneratorService:
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        self.llm = GeminiLLM()
+        # Use the default generation model from constants
+        # This respects the global configuration (currently vertex_ai)
+        self.llm = get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
         self.max_sample_size = max_sample_size
 
     def generate_config(self, prompt: str, sample_size: int = 5) -> TestConfigResponse:
