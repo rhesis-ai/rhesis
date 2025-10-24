@@ -349,16 +349,15 @@ async def generate_test_config(request: TestConfigRequest):
     Generate test configuration JSON based on user description.
 
     This endpoint analyzes a user-provided description and generates a configuration
-    JSON containing relevant behaviors, topics, test categories, and test scenarios
-    from predefined lists.
+    JSON containing relevant behaviors, topics, and test categories from predefined lists.
 
     Args:
         request: Contains prompt (description) for test configuration generation and
             optional sample_size (default: 5, max: 20) for number of items per category
 
     Returns:
-        TestConfigResponse: JSON containing selected behaviors, topics, test categories,
-            and scenarios, each with name and description fields
+        TestConfigResponse: JSON containing selected behaviors, topics, and test categories,
+            each with name and description fields
     """
     try:
         logger.info(
