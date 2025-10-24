@@ -26,7 +26,12 @@ class EndpointService:
         )
 
     def invoke_endpoint(
-        self, db: Session, endpoint_id: str, input_data: Dict[str, Any], organization_id: str = None, user_id: str = None
+        self,
+        db: Session,
+        endpoint_id: str,
+        input_data: Dict[str, Any],
+        organization_id: str = None,
+        user_id: str = None,
     ) -> Dict[str, Any]:
         """
         Invoke an endpoint with the given input data.
@@ -82,12 +87,13 @@ class EndpointService:
             HTTPException: If endpoint is not found or not accessible
         """
         query = db.query(Endpoint).filter(Endpoint.id == endpoint_id)
-        
+
         # Apply organization filtering if provided (SECURITY CRITICAL)
         if organization_id:
             from uuid import UUID
+
             query = query.filter(Endpoint.organization_id == UUID(organization_id))
-        
+
         endpoint = query.first()
         if not endpoint:
             raise HTTPException(status_code=404, detail="Endpoint not found or not accessible")
@@ -163,7 +169,7 @@ if __name__ == "__main__":
             result = invoke(db, args.endpoint_id, input_data)
             # print("\nResponse:")
             # print(json.dumps(result, indent=2))
-            
+
             print(result.get("response", result))
     except Exception as e:
         print(f"\nError: {str(e)}")

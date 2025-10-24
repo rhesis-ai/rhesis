@@ -53,9 +53,12 @@ def upgrade() -> None:
         "endpoint",
         sa.Column("validation_rules", postgresql.JSON(astext_type=sa.Text()), nullable=True),
     )
-    op.add_column("endpoint", sa.Column("user_id", rhesis.backend.app.models.guid.GUID(), nullable=True))
     op.add_column(
-        "endpoint", sa.Column("organization_id", rhesis.backend.app.models.guid.GUID(), nullable=True)
+        "endpoint", sa.Column("user_id", rhesis.backend.app.models.guid.GUID(), nullable=True)
+    )
+    op.add_column(
+        "endpoint",
+        sa.Column("organization_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
     )
     op.alter_column("endpoint", "url", existing_type=sa.VARCHAR(), nullable=False)
     op.create_foreign_key(None, "endpoint", "user", ["user_id"], ["id"])

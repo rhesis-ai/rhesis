@@ -1,19 +1,15 @@
 import os
 from contextlib import contextmanager
 from datetime import datetime
-from functools import wraps
 from typing import Optional, Tuple
 
 from celery import Task
 
 from rhesis.backend.app.database import (
-    SessionLocal,
-    get_db,
     get_db_with_tenant_variables,
 )
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
-
 
 # Task database sessions automatically set PostgreSQL session variables for RLS
 # Use self.get_db_session() for tenant-aware database operations
@@ -124,13 +120,13 @@ class BaseTask(Task):
     def get_db_session(self):
         """
         Get a database session with tenant context automatically set.
-        
+
         Automatically sets PostgreSQL session variables for RLS using the same
         centralized logic as the router dependencies.
         """
         organization_id, user_id = self.get_tenant_context()
-        
-        with get_db_with_tenant_variables(organization_id or '', user_id or '') as db:
+
+        with get_db_with_tenant_variables(organization_id or "", user_id or "") as db:
             yield db
 
     def validate_params(self, args, kwargs):
@@ -252,7 +248,9 @@ class BaseTask(Task):
 
         return super().before_start(task_id, args, kwargs)
 
-    def _get_user_info(self, user_id: str, organization_id: str = None) -> Tuple[Optional[str], Optional[str]]:
+    def _get_user_info(
+        self, user_id: str, organization_id: str = None
+    ) -> Tuple[Optional[str], Optional[str]]:
         """
         Get user email and name for notifications.
 

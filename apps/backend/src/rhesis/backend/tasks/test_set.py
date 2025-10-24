@@ -137,7 +137,13 @@ def _process_synthesizer_parameters(
     return synthesizer_kwargs
 
 
-def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, model: Union[str, BaseLLM], processed_kwargs: dict):
+def _create_synthesizer(
+    self,
+    synth_type: SynthesizerType,
+    batch_size: int,
+    model: Union[str, BaseLLM],
+    processed_kwargs: dict,
+):
     """Create and initialize the synthesizer."""
     synthesizer = SynthesizerFactory.create_synthesizer(
         synthesizer_type=synth_type, batch_size=batch_size, model=model, **processed_kwargs
@@ -145,7 +151,7 @@ def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, mode
 
     # Determine model info for logging
     model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
-    
+
     self.log_with_context(
         "info",
         "Synthesizer initialized",
@@ -196,11 +202,11 @@ def _save_test_set_to_database(self, test_set, org_id: str, user_id: str):
 def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, BaseLLM]:
     """
     Fetch user's configured generation model from database.
-    
+
     Args:
         org_id: Organization ID
         user_id: User ID
-        
+
     Returns:
         Either the user's configured BaseLLM instance or DEFAULT_GENERATION_MODEL string
     """
@@ -211,14 +217,16 @@ def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, BaseLLM]:
         if user:
             model = get_user_generation_model(db, user)
             self.log_with_context(
-                "info", 
+                "info",
                 "Using user's configured model",
-                model_type=type(model).__name__ if not isinstance(model, str) else "string"
+                model_type=type(model).__name__ if not isinstance(model, str) else "string",
             )
             return model
         else:
             # Fallback to default if user not found
-            self.log_with_context("warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL)
+            self.log_with_context(
+                "warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL
+            )
             return DEFAULT_GENERATION_MODEL
 
 
@@ -333,14 +341,14 @@ def generate_and_save_test_set(
 
     # Log the parameters (safely, without exposing sensitive data)
     log_kwargs = {k: v for k, v in synthesizer_kwargs.items() if not k.lower().endswith("_key")}
-    
+
     # If no model specified, fetch user's configured model
     if model is None:
         model = _get_model_for_user(self, org_id, user_id)
-    
+
     # Determine model info for logging
     model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
-    
+
     self.log_with_context(
         "info",
         "Starting generate_and_save_test_set task",

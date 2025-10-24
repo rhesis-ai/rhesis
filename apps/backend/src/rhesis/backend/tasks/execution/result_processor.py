@@ -17,7 +17,7 @@ from rhesis.backend.tasks.utils import format_execution_time, format_execution_t
 def get_test_statistics(test_run: TestRun, db) -> Tuple[int, int, int, int]:
     """
     Calculate test statistics from test run data using efficient SQL aggregation.
-    
+
     The test status is determined once during execution based on whether all metrics
     passed. This stored status is then the source of truth for all statistics.
     Uses database-level aggregation for optimal performance.
@@ -29,40 +29,38 @@ def get_test_statistics(test_run: TestRun, db) -> Tuple[int, int, int, int]:
     Returns:
         Tuple of (total_tests, tests_passed, tests_failed, execution_errors)
     """
-    from sqlalchemy import func, case
+    from sqlalchemy import func
+
     from rhesis.backend.app import models
     from rhesis.backend.app.constants import (
-        TEST_RESULT_STATUS_PASSED,
-        TEST_RESULT_STATUS_FAILED,
         TEST_RESULT_STATUS_ERROR,
-        STATUS_CATEGORY_PASSED,
-        STATUS_CATEGORY_FAILED,
-        STATUS_CATEGORY_ERROR,
+        TEST_RESULT_STATUS_FAILED,
+        TEST_RESULT_STATUS_PASSED,
     )
-    
+
     # Build base filter conditions
     base_filters = [models.TestResult.test_run_id == test_run.id]
     if test_run.organization_id:
         base_filters.append(models.TestResult.organization_id == test_run.organization_id)
-    
+
     # Use SQL aggregation to count tests by status category
     # This is much more efficient than loading all results into memory
     status_counts = (
         db.query(
-            func.lower(models.Status.name).label('status_name'),
-            func.count(models.TestResult.id).label('count')
+            func.lower(models.Status.name).label("status_name"),
+            func.count(models.TestResult.id).label("count"),
         )
         .join(models.Status, models.TestResult.status_id == models.Status.id)
         .filter(*base_filters)
         .group_by(func.lower(models.Status.name))
         .all()
     )
-    
+
     # Categorize status counts using centralized mappings
     tests_passed = 0
     tests_failed = 0
     execution_errors = 0
-    
+
     for status_name, count in status_counts:
         if status_name in TEST_RESULT_STATUS_PASSED:
             tests_passed += count
@@ -73,14 +71,10 @@ def get_test_statistics(test_run: TestRun, db) -> Tuple[int, int, int, int]:
         else:
             # Unknown status - treat as execution error
             execution_errors += count
-    
+
     # Get total count efficiently
-    total_tests = (
-        db.query(func.count(models.TestResult.id))
-        .filter(*base_filters)
-        .scalar()
-    ) or 0
-    
+    total_tests = (db.query(func.count(models.TestResult.id)).filter(*base_filters).scalar()) or 0
+
     return total_tests, tests_passed, tests_failed, execution_errors
 
 
@@ -99,7 +93,7 @@ def determine_overall_status(
 
     Returns:
         Tuple of (overall_status, email_status)
-        
+
     Status Logic:
         - FAILED: No tests in the run OR all tests had execution errors
         - COMPLETED: All tests executed successfully (regardless of pass/fail)
@@ -115,19 +109,21 @@ def determine_overall_status(
     if total_tests == 0:
         overall_status, email_status = RunStatus.FAILED.value, "failed"
         logger_func("debug", "Status logic: No tests in run -> FAILED")
-    
+
     # All tests executed successfully (even if some assertions failed)
     elif execution_errors == 0:
         overall_status = RunStatus.COMPLETED.value
         # Email status reflects test results
         email_status = "success" if tests_failed == 0 else "failed"
-        logger_func("debug", f"Status logic: All tests executed -> COMPLETED (email: {email_status})")
-    
+        logger_func(
+            "debug", f"Status logic: All tests executed -> COMPLETED (email: {email_status})"
+        )
+
     # All tests had execution errors (none could execute)
     elif execution_errors == total_tests:
         overall_status, email_status = RunStatus.FAILED.value, "failed"
         logger_func("debug", "Status logic: All tests had execution errors -> FAILED")
-    
+
     # Mixed: some executed, some didn't (incomplete execution)
     else:
         overall_status, email_status = RunStatus.PARTIAL.value, "partial"
@@ -258,7 +254,9 @@ def update_test_run_status(
         "info", f"Current test run status: {current_status_name}, updating to: {overall_status}"
     )
 
-    new_status = get_or_create_status(db, overall_status, "TestRun", organization_id=str(test_run.organization_id))
+    new_status = get_or_create_status(
+        db, overall_status, "TestRun", organization_id=str(test_run.organization_id)
+    )
     logger_func("debug", f"Got status object: {new_status.name} (id: {new_status.id})")
 
     # Update attributes to mark completion
@@ -295,8 +293,11 @@ def update_test_run_status(
 
     logger_func("debug", f"Updating test run with status_id: {new_status.id}")
     updated_test_run = crud.update_test_run(
-        db, test_run.id, crud.schemas.TestRunUpdate(**update_data),
-        organization_id=str(test_run.organization_id), user_id=str(test_run.user_id)
+        db,
+        test_run.id,
+        crud.schemas.TestRunUpdate(**update_data),
+        organization_id=str(test_run.organization_id),
+        user_id=str(test_run.user_id),
     )
 
     # Verify the update worked
@@ -328,7 +329,9 @@ def format_status_details(tests_passed: int, tests_failed: int, execution_errors
     if tests_failed > 0:
         status_details.append(f"{tests_failed} test{'s' if tests_failed != 1 else ''} failed")
     if execution_errors > 0:
-        status_details.append(f"{execution_errors} test{'s' if execution_errors != 1 else ''} had execution errors")
+        status_details.append(
+            f"{execution_errors} test{'s' if execution_errors != 1 else ''} had execution errors"
+        )
 
     return ", ".join(status_details) if status_details else "No tests executed"
 
@@ -417,7 +420,9 @@ class TestRunProcessor:
             Dictionary containing test execution summary
         """
         # Calculate test statistics using SQL aggregation
-        total_tests, tests_passed, tests_failed, execution_errors = get_test_statistics(test_run, db)
+        total_tests, tests_passed, tests_failed, execution_errors = get_test_statistics(
+            test_run, db
+        )
         self.logger_func(
             "debug",
             f"Test statistics: total={total_tests}, passed={tests_passed}, "

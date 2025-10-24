@@ -1,4 +1,3 @@
-from rhesis.backend.app.models.user import User
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -6,10 +5,13 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session, get_tenant_db_session
-from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.dependencies import (
+    get_tenant_context,
+    get_tenant_db_session,
+)
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
+from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import combine_entity_type_filter
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -20,19 +22,24 @@ router = APIRouter(
     prefix="/categories",
     tags=["categories"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)])
+    dependencies=[Depends(require_current_user_or_token)],
+)
 
 
 @router.post("/", response_model=schemas.Category)
 @handle_database_exceptions(
     entity_name="category",
     custom_field_messages={"parent_id": "Invalid parent category reference"},
-    custom_unique_message="Category with this name already exists")
+    custom_unique_message="Category with this name already exists",
+)
 def create_category(
     category: schemas.CategoryCreate,
-    db: Session = Depends(get_tenant_db_session),  # ← ONLY CHANGE: get_tenant_db_session instead of get_db_session
+    db: Session = Depends(
+        get_tenant_db_session
+    ),  # ← ONLY CHANGE: get_tenant_db_session instead of get_db_session
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Create category with optimized approach supporting both RLS and explicit parameters.
 
@@ -60,13 +67,21 @@ def read_categories(
     entity_type: str | None = Query(None, description="Filter categories by entity type"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Get all categories with their related objects"""
     organization_id, user_id = tenant_context
     filter = combine_entity_type_filter(filter, entity_type)
 
     return crud.get_categories(
-        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
+        db=db,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        filter=filter,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
 
@@ -75,7 +90,8 @@ def read_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Get category with optimized approach - no session variables needed.
 
@@ -98,13 +114,15 @@ def read_category(
 @handle_database_exceptions(
     entity_name="category",
     custom_field_messages={"parent_id": "Invalid parent category reference"},
-    custom_unique_message="Category with this name already exists")
+    custom_unique_message="Category with this name already exists",
+)
 def update_category(
     category_id: uuid.UUID,
     category: schemas.CategoryUpdate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Update category with optimized approach - no session variables needed.
 
@@ -120,7 +138,8 @@ def update_category(
         category_id=category_id,
         category=category,
         organization_id=organization_id,
-        user_id=user_id)
+        user_id=user_id,
+    )
     if db_category is None:
         raise HTTPException(status_code=404, detail="Category not found")
     return db_category
@@ -131,7 +150,8 @@ def delete_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Delete category with optimized approach - no session variables needed.
 
@@ -142,7 +162,9 @@ def delete_category(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_category = crud.delete_category(db, category_id=category_id, organization_id=organization_id, user_id=user_id)
+    db_category = crud.delete_category(
+        db, category_id=category_id, organization_id=organization_id, user_id=user_id
+    )
     if db_category is None:
         raise HTTPException(status_code=404, detail="Category not found")
     return db_category

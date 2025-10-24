@@ -111,4 +111,5 @@ routers = sorted(
         task_management_router,
         recycle_router,
     ],
-    key=lambda x: x.tags[0].lower() if x.tags else "")
+    key=lambda x: x.tags[0].lower() if x.tags else "",
+)

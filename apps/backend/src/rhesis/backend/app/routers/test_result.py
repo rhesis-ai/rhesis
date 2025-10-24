@@ -1,4 +1,3 @@
-from rhesis.backend.app.models.user import User
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
@@ -10,19 +9,20 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
+from rhesis.backend.app.dependencies import (
+    get_tenant_context,
+    get_tenant_db_session,
+)
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.stats import get_test_result_stats
-from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
+from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 TestResultDetailSchema = create_detailed_schema(
     schemas.TestResult,
     models.TestResult,
-    include_nested_relationships={
-        "test": ["prompt", "behavior"]
-    }
+    include_nested_relationships={"test": ["prompt", "behavior"]},
 )
 
 
@@ -39,9 +39,8 @@ class TestResultStatsMode(str, Enum):
 
 
 router = APIRouter(
-    prefix="/test_results",
-    tags=["test_results"],
-    responses={404: {"description": "Not found"}})
+    prefix="/test_results", tags=["test_results"], responses={404: {"description": "Not found"}}
+)
 
 
 @router.post("/", response_model=schemas.TestResult)
@@ -52,7 +51,8 @@ def create_test_result(
     test_result: schemas.TestResultCreate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Create test result with optimized approach - no session variables needed.
 
@@ -66,7 +66,7 @@ def create_test_result(
     - test_metrics: Automated metric evaluations
     - test_reviews: Human feedback with created_at/updated_at timestamps
     - test_output: The actual test execution output
-    
+
     Note: If test_metrics are provided but status_id is not, the status will be
     automatically set based on whether all metrics passed.
     """
@@ -75,23 +75,27 @@ def create_test_result(
     # Set the user_id to the current user if not provided
     if not test_result.user_id:
         test_result.user_id = current_user.id
-    
+
     # Auto-set status based on test_metrics if not provided
     if not test_result.status_id and test_result.test_metrics:
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
         from rhesis.backend.tasks.enums import ResultStatus
-        
-        metrics = test_result.test_metrics.get('metrics', {})
+
+        metrics = test_result.test_metrics.get("metrics", {})
         if metrics:
             # Check if all metrics passed
             all_metrics_passed = all(
-                metric_data.get('is_successful', False)
+                metric_data.get("is_successful", False)
                 for metric_data in metrics.values()
                 if isinstance(metric_data, dict)
             )
-            
-            status_value = ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
-            status = get_or_create_status(db, status_value, "TestResult", organization_id=organization_id)
+
+            status_value = (
+                ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+            )
+            status = get_or_create_status(
+                db, status_value, "TestResult", organization_id=organization_id
+            )
             test_result.status_id = status.id
 
     return crud.create_test_result(
@@ -110,11 +114,19 @@ def read_test_results(
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Get all test results"""
     organization_id, user_id = tenant_context
     test_results = crud.get_test_results(
-        db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
+        db,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        filter=filter,
+        organization_id=organization_id,
+        user_id=user_id,
     )
     return test_results
 
@@ -125,7 +137,8 @@ def generate_test_result_stats(
         TestResultStatsMode.ALL,
         description="Data mode: 'summary' (lightweight), 'metrics' (individual metrics), "
         "'behavior/category/topic' (dimensional), 'timeline' (trends), "
-        "'test_runs' (by run), 'overall' (aggregate), 'all' (complete)"),
+        "'test_runs' (by run), 'overall' (aggregate), 'all' (complete)",
+    ),
     top: Optional[int] = Query(
         None, description="Max items per dimension (e.g., top 10 behaviors)"
     ),
@@ -163,7 +176,8 @@ def generate_test_result_stats(
         None, description="End date (ISO format, overrides months parameter)"
     ),
     db: Session = Depends(get_tenant_db_session),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Get test result statistics with configurable data modes for optimal performance
 
     ## Available Modes
@@ -370,7 +384,8 @@ def generate_test_result_stats(
         tags=tags,
         # Date range filters
         start_date=start_date,
-        end_date=end_date)
+        end_date=end_date,
+    )
 
 
 @router.get("/{test_result_id}", response_model=TestResultDetailSchema)
@@ -378,10 +393,13 @@ def read_test_result(
     test_result_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Get a specific test result by ID"""
     organization_id, user_id = tenant_context
-    db_test_result = crud.get_test_result(db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id)
+    db_test_result = crud.get_test_result(
+        db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
     return db_test_result
@@ -393,7 +411,8 @@ def update_test_result(
     test_result: schemas.TestResultUpdate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Update test_result with optimized approach - no session variables needed.
 
@@ -407,7 +426,7 @@ def update_test_result(
     - test_metrics: Automated evaluations
     - test_reviews: Human feedback (add new reviews or edit existing ones with updated_at)
     - status_id: Overall status of the test result
-    
+
     Note: If test_metrics are updated but status_id is not provided, the status will be
     automatically updated based on whether all metrics passed.
     """
@@ -421,23 +440,27 @@ def update_test_result(
     # Check if the user has permission to update this test result
     if db_test_result.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to update this test result")
-    
+
     # Auto-update status based on test_metrics if status_id is not explicitly provided
     if test_result.test_metrics and not test_result.status_id:
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
         from rhesis.backend.tasks.enums import ResultStatus
-        
-        metrics = test_result.test_metrics.get('metrics', {})
+
+        metrics = test_result.test_metrics.get("metrics", {})
         if metrics:
             # Check if all metrics passed
             all_metrics_passed = all(
-                metric_data.get('is_successful', False)
+                metric_data.get("is_successful", False)
                 for metric_data in metrics.values()
                 if isinstance(metric_data, dict)
             )
-            
-            status_value = ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
-            status = get_or_create_status(db, status_value, "TestResult", organization_id=organization_id)
+
+            status_value = (
+                ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+            )
+            status = get_or_create_status(
+                db, status_value, "TestResult", organization_id=organization_id
+            )
             test_result.status_id = status.id
 
     return crud.update_test_result(
@@ -445,7 +468,8 @@ def update_test_result(
         test_result_id=test_result_id,
         test_result=test_result,
         organization_id=organization_id,
-        user_id=user_id)
+        user_id=user_id,
+    )
 
 
 @router.delete("/{test_result_id}", response_model=schemas.TestResult)
@@ -453,10 +477,13 @@ def delete_test_result(
     test_result_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Delete a test result"""
     organization_id, user_id = tenant_context
-    db_test_result = crud.get_test_result(db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id)
+    db_test_result = crud.get_test_result(
+        db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
 
@@ -464,7 +491,9 @@ def delete_test_result(
     if db_test_result.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to delete this test result")
 
-    return crud.delete_test_result(db=db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id)
+    return crud.delete_test_result(
+        db=db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
+    )
 
 
 # ============================================================================
@@ -474,10 +503,11 @@ def delete_test_result(
 
 def _get_status_details(db: Session, status_id: UUID, organization_id: str) -> dict:
     """Helper to fetch status details for review"""
-    status = db.query(models.Status).filter(
-        models.Status.id == status_id,
-        models.Status.organization_id == organization_id
-    ).first()
+    status = (
+        db.query(models.Status)
+        .filter(models.Status.id == status_id, models.Status.organization_id == organization_id)
+        .first()
+    )
     if not status:
         raise HTTPException(status_code=404, detail="Status not found")
     return {"status_id": str(status.id), "name": status.name}
@@ -490,11 +520,11 @@ def _update_review_metadata(reviews_data: dict, current_user: User, latest_statu
         "last_updated_at": now,
         "last_updated_by": {
             "user_id": str(current_user.id),
-            "name": current_user.name or current_user.email
+            "name": current_user.name or current_user.email,
         },
         "total_reviews": len(reviews_data.get("reviews", [])),
         "latest_status": latest_status,
-        "summary": f"Last updated by {current_user.name or current_user.email}"
+        "summary": f"Last updated by {current_user.name or current_user.email}",
     }
 
 
@@ -504,7 +534,8 @@ def add_review(
     review: schemas.ReviewCreate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Add a new review to a test result.
 
@@ -532,7 +563,7 @@ def add_review(
         db_test_result.test_reviews = {"metadata": {}, "reviews": []}
     elif not isinstance(db_test_result.test_reviews, dict):
         db_test_result.test_reviews = {"metadata": {}, "reviews": []}
-    
+
     if "reviews" not in db_test_result.test_reviews:
         db_test_result.test_reviews["reviews"] = []
 
@@ -541,17 +572,11 @@ def add_review(
     new_review = {
         "review_id": str(uuid4()),
         "status": status_details,
-        "user": {
-            "user_id": str(current_user.id),
-            "name": current_user.name or current_user.email
-        },
+        "user": {"user_id": str(current_user.id), "name": current_user.name or current_user.email},
         "comments": review.comments,
         "created_at": now,
         "updated_at": now,
-        "target": {
-            "type": review.target.type,
-            "reference": review.target.reference
-        }
+        "target": {"type": review.target.type, "reference": review.target.reference},
     }
 
     # Add the review
@@ -577,7 +602,8 @@ def update_review(
     review: schemas.ReviewUpdate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Update an existing review.
 
@@ -605,7 +631,7 @@ def update_review(
     reviews = db_test_result.test_reviews["reviews"]
     review_to_update = None
     review_index = None
-    
+
     for idx, rev in enumerate(reviews):
         if rev.get("review_id") == review_id:
             review_to_update = rev
@@ -619,14 +645,14 @@ def update_review(
     if review.status_id is not None:
         status_details = _get_status_details(db, review.status_id, organization_id)
         review_to_update["status"] = status_details
-    
+
     if review.comments is not None:
         review_to_update["comments"] = review.comments
-    
+
     if review.target is not None:
         review_to_update["target"] = {
             "type": review.target.type,
-            "reference": review.target.reference
+            "reference": review.target.reference,
         }
 
     # Update timestamp
@@ -652,7 +678,8 @@ def delete_review(
     review_id: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Delete a review from a test result.
 
@@ -675,7 +702,7 @@ def delete_review(
     # Find and remove the review
     reviews = db_test_result.test_reviews["reviews"]
     review_index = None
-    
+
     for idx, rev in enumerate(reviews):
         if rev.get("review_id") == review_id:
             review_index = idx
@@ -699,11 +726,11 @@ def delete_review(
             "last_updated_at": datetime.utcnow().isoformat(),
             "last_updated_by": {
                 "user_id": str(current_user.id),
-                "name": current_user.name or current_user.email
+                "name": current_user.name or current_user.email,
             },
             "total_reviews": 0,
             "latest_status": None,
-            "summary": "All reviews removed"
+            "summary": "All reviews removed",
         }
 
     # Mark as modified for SQLAlchemy
@@ -715,5 +742,5 @@ def delete_review(
     return {
         "message": "Review deleted successfully",
         "review_id": review_id,
-        "deleted_review": deleted_review
+        "deleted_review": deleted_review,
     }
