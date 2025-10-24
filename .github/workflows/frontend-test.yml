@@ -1,0 +1,42 @@
+name: "[Test] Frontend"
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/frontend/**'
+      - '.github/workflows/frontend.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd apps/frontend
+          npm ci --legacy-peer-deps
+
+      - name: Run tests
+        run: |
+          cd apps/frontend
+          npm test -- --passWithNoTests --ci --coverage --watchAll=false
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: apps/frontend/coverage/lcov.info
+          directory: apps/frontend/
+          token: ${{secrets.CODECOV_TOKEN}}
+          flags: frontend
+          name: frontend-coverage
