@@ -11,27 +11,7 @@ Available models:
     • gemini-1.5-pro-latest
     • gemini-pro
 
-Environment Variables:
-    GOOGLE_APPLICATION_CREDENTIALS: Service account credentials (auto-detected format)
-        - Can be base64-encoded JSON (recommended for K8s/production)
-        - Or a file path to service account JSON (standard for local development)
-        Note: This is the standard Google Cloud credential variable used by LiteLLM
-
-    VERTEX_AI_LOCATION: GCP region (e.g., europe-west3, us-central1)
-
-    VERTEX_AI_PROJECT: (Optional) GCP project ID override
-        - If not provided, automatically extracted from credentials file
-
-Usage:
-    >>> # Using factory
-    >>> from rhesis.sdk.models import get_model
-    >>> model = get_model("vertex_ai")
-    >>> result = model.generate("Hello from Vertex AI!")
-
-    >>> # Direct instantiation
-    >>> from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
-    >>> model = VertexAILLM(model_name="gemini-2.5-flash")
-    >>> result = model.generate("Hello!", temperature=0.7)
+For detailed usage and configuration options, see VertexAILLM class documentation.
 """
 
 import base64
