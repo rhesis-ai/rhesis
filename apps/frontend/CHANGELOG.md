@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-10-24
+
+### Added
+- **AI-Powered Generation:** Introduced AI-powered features for enhanced content generation capabilities.
+- **Test Runs Grid Quick Search:** Implemented quick search functionality with OData filtering in the Test Runs Grid.
+- **Partial Test Run Status:** Added visual indicators for partial test run statuses.
+- **Execution Error Indicators:** Added visual indicators for execution errors in test runs.
+- **Manual Table Based Creation Mode:** Added a manual table-based creation mode for tests.
+- **Source Field to TestDetail Interface:** Added a `source` field to the `TestDetail` interface.
+- **Global Error Handling:** Implemented global 404 and 410 error handling with restore functionality.
+
+### Changed
+- **Improved Test Template Usage:** Enhanced test template usage and improved flows between screens.
+- **File Upload via Modal:** Enabled file uploads via a modal window.
+- **Preview Endpoint Selection:** Allowed selection of a preview endpoint.
+- **BaseDataGrid Quick Filter:** Improved the BaseDataGrid quick filter using an uncontrolled input.
+- **Recycle Client for Restore:** Refactored restore operations to use the RecycleClient.
+- **Error Metadata Encoding:** Encoded error metadata to survive serialization.
+- **Feedback Button Styling:** Improved the styling and behavior of the feedback button in the navbar.
+
+### Fixed
+- **Email Test Results Inconsistency:** Resolved an inconsistency in email test results (Issue #597).
+- **Soft Deletion Behavior:** Fixed issues related to soft deletion behavior.
+- **Chip Icon Prop TypeScript Error:** Resolved a TypeScript error with the Chip icon prop in TestRunsGrid.
+- **Completed Test Run Status Color:** Fixed the display of the correct status color for completed test runs.
+- **Execution Time Display:** Fixed the display of execution time for failed and partial test runs.
+- **Error Breadcrumbs Reactivity:** Made error breadcrumbs reactive to navigation changes.
+- **Page Reload After Restore:** Ensured the page reloads after a successful restore operation.
+- **Navbar Feedback Button Display:** Fixed an issue where the feedback button icon was incorrectly displayed in the navbar when collapsed (Issue #594).
+- **Organisation Name Overlap:** Fixed an issue where long organisation names overlapped in the UI (Issue #531).
+
+
 ## [0.4.0] - 2025-10-16
 
 ### Added
