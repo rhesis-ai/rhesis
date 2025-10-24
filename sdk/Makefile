@@ -9,7 +9,7 @@ DIFF_FILES := $(shell git diff --relative=sdk --name-only --diff-filter=d main..
 
 lint:
 	uvx ruff check $(ALL_FILES)
-	uvx ruff format $(ALL_FILES) --diff
+	uvx ruff format $(ALL_FILES) --check
 
 format:
 	uvx ruff format $(ALL_FILES)
@@ -19,7 +19,7 @@ format:
 lint_diff:
 	@if [ -n "$(DIFF_FILES)" ]; then \
 		uvx ruff check $(DIFF_FILES); \
-		uvx ruff format $(DIFF_FILES) --diff; \
+		uvx ruff format $(DIFF_FILES) --check; \
 	else \
 		echo "No Python file changes detected in git diff with the main branch."; \
 	fi
