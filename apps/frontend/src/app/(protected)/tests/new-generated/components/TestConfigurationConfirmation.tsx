@@ -15,18 +15,12 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BoltIcon from '@mui/icons-material/Bolt';
-import {
-  ConfigChips,
-  TestSetSize,
-  ProcessedDocument,
-  ChipConfig,
-} from './shared/types';
+import { ConfigChips, TestSetSize, ChipConfig } from './shared/types';
 import TestSetSizeSelector from './shared/TestSetSizeSelector';
 import ActionBar from '@/components/common/ActionBar';
 
 interface TestConfigurationConfirmationProps {
   configChips: ConfigChips;
-  documents: ProcessedDocument[];
   testSetSize: TestSetSize;
   testSetName: string;
   onBack: () => void;
@@ -42,7 +36,6 @@ interface TestConfigurationConfirmationProps {
  */
 export default function TestConfigurationConfirmation({
   configChips,
-  documents,
   testSetSize,
   testSetName,
   onBack,
@@ -214,34 +207,6 @@ export default function TestConfigurationConfirmation({
                           }}
                         />
                       ))}
-                  </Stack>
-                </Box>
-              )}
-
-              {/* Documents */}
-              {documents.length > 0 && (
-                <Box>
-                  <Typography
-                    variant="subtitle2"
-                    color="text.secondary"
-                    gutterBottom
-                  >
-                    Context Documents
-                  </Typography>
-                  <Stack
-                    direction="row"
-                    spacing={0.5}
-                    flexWrap="wrap"
-                    useFlexGap
-                  >
-                    {documents.map(doc => (
-                      <Chip
-                        key={doc.id}
-                        label={doc.name || doc.originalName}
-                        size="small"
-                        variant="outlined"
-                      />
-                    ))}
                   </Stack>
                 </Box>
               )}
