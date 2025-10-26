@@ -134,7 +134,7 @@ export function ConnectedModelCard({
         </Box>
 
         <Box sx={{ mt: 2 }}>
-          {/* Model name */}
+          {/* Model name and default indicator */}
           <Typography
             variant="caption"
             color="text.secondary"
@@ -145,61 +145,44 @@ export function ConnectedModelCard({
             }}
           >
             Model: {model.model_name}
+            {isAnyDefault && (
+              <Box
+                component="span"
+                sx={{
+                  ml: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                }}
+              >
+                <StarIcon sx={{ fontSize: '0.875rem', color: 'primary.main' }} />
+                <Box component="span" sx={{ fontWeight: 500, color: 'primary.main' }}>
+                  Default: {isGenerationDefault && isEvaluationDefault
+                    ? 'Generation & Evaluation'
+                    : isGenerationDefault
+                    ? 'Generation'
+                    : 'Evaluation'}
+                </Box>
+              </Box>
+            )}
           </Typography>
 
-          <Stack spacing={0.75}>
-            {/* Connected status or System badge */}
-            <Chip
-              icon={<CheckCircleIcon />}
-              label={model.is_protected ? "Rhesis Managed" : "Connected"}
-              size="small"
-              variant="outlined"
-              sx={{
-                width: '100%',
-                color: 'text.secondary',
-                borderColor: model.is_protected ? 'info.main' : 'divider',
-                '& .MuiChip-icon': {
-                  color: model.is_protected ? 'info.main' : 'primary.main',
-                  opacity: 0.7,
-                },
-              }}
-            />
-
-            {/* Default indicators */}
-            {isGenerationDefault && (
-              <Chip
-                icon={<StarIcon />}
-                label="Default for Generation"
-                size="small"
-                variant="filled"
-                sx={{
-                  width: '100%',
-                  bgcolor: 'success.main',
-                  color: 'success.contrastText',
-                  '& .MuiChip-icon': {
-                    color: 'success.contrastText',
-                  },
-                }}
-              />
-            )}
-
-            {isEvaluationDefault && (
-              <Chip
-                icon={<StarIcon />}
-                label="Default for Evaluation"
-                size="small"
-                variant="filled"
-                sx={{
-                  width: '100%',
-                  bgcolor: 'warning.main',
-                  color: 'warning.contrastText',
-                  '& .MuiChip-icon': {
-                    color: 'warning.contrastText',
-                  },
-                }}
-              />
-            )}
-          </Stack>
+          {/* Connected status or System badge */}
+          <Chip
+            icon={<CheckCircleIcon />}
+            label={model.is_protected ? "Rhesis Managed" : "Connected"}
+            size="small"
+            variant="outlined"
+            sx={{
+              width: '100%',
+              color: 'text.secondary',
+              borderColor: model.is_protected ? 'info.main' : 'divider',
+              '& .MuiChip-icon': {
+                color: model.is_protected ? 'info.main' : 'primary.main',
+                opacity: 0.7,
+              },
+            }}
+          />
         </Box>
       </CardContent>
     </Card>
