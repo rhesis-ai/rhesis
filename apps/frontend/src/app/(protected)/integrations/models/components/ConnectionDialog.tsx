@@ -592,7 +592,8 @@ export function ConnectionDialog({
                         ) : null,
                     }}
                   />
-                  {(!isEditMode || (isEditMode && apiKey !== '************')) && (
+                  {(!isEditMode ||
+                    (isEditMode && apiKey !== '************')) && (
                     <Button
                       onClick={handleTestConnection}
                       variant="outlined"
