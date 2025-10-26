@@ -355,7 +355,7 @@
         {
             "type_name": "ProviderType",
             "type_value": "rhesis",
-            "description": "Rhesis hosted model infrastructure"
+            "description": "Rhesis-managed model"
         },
         {
             "type_name": "MetricType",
