@@ -13,6 +13,7 @@ export interface Model {
   endpoint: string;
   key: string;
   request_headers?: Record<string, any>;
+  is_protected?: boolean;
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -33,6 +34,7 @@ export interface ModelCreate {
   endpoint?: string;
   key: string;
   request_headers?: Record<string, any>;
+  is_protected?: boolean;
   tags: string[];
   provider_type_id?: UUID;
   status_id?: UUID;
@@ -48,6 +50,7 @@ export interface ModelUpdate {
   endpoint?: string;
   key?: string;
   request_headers?: Record<string, any>;
+  is_protected?: boolean;
   tags?: string[];
   provider_type_id?: UUID;
   status_id?: UUID;
