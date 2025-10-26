@@ -2469,7 +2469,12 @@ def update_model(
 def delete_model(
     db: Session, model_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Model]:
-    """Delete a model"""
+    """Delete a model (protected models cannot be deleted)"""
+    # First check if the model is protected
+    model = get_model(db, model_id, organization_id)
+    if model and getattr(model, 'is_protected', False):
+        raise ValueError("Cannot delete protected system model")
+    
     return delete_item(db, models.Model, model_id, organization_id=organization_id, user_id=user_id)
 
 
