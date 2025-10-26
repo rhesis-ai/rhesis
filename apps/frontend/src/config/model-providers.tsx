@@ -10,6 +10,7 @@ import AnthropicIcon from '@mui/icons-material/Psychology';
 import CohereLogo from '@mui/icons-material/AutoFixHigh';
 import MistralIcon from '@mui/icons-material/AcUnit';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import Image from 'next/image';
 
 /**
  * Model Provider Configuration
@@ -50,6 +51,15 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
   ),
   replicate: <SiReplicate className="h-8 w-8" />,
+  rhesis: (
+    <Image
+      src="/logos/rhesis-logo-favicon.svg"
+      alt="Rhesis"
+      width={32}
+      height={32}
+      style={{ width: '32px', height: '32px' }}
+    />
+  ),
   together: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   vllm: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
 };
