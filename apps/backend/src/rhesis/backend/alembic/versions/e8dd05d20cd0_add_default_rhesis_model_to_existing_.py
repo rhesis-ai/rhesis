@@ -176,6 +176,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     """
     Remove the default Rhesis models that were created by this migration.
+    Also clean up user settings that reference these models.
     
     WARNING: This will only remove protected Rhesis models, not any user-created Rhesis models.
     """
@@ -196,13 +197,48 @@ def downgrade() -> None:
         )
         
         deleted_count = len(models_to_delete)
+        users_updated = 0
+        
+        # Clean up user settings that reference these models
+        for model in models_to_delete:
+            model_id_str = str(model.id)
+            
+            # Find all users in this model's organization
+            users_in_org = session.query(models.User).filter(
+                models.User.organization_id == model.organization_id
+            ).all()
+            
+            for user in users_in_org:
+                needs_update = False
+                updates = {}
+                
+                # Check if generation model points to this Rhesis model
+                if user.settings.models.generation.model_id and str(user.settings.models.generation.model_id) == model_id_str:
+                    if 'models' not in updates:
+                        updates['models'] = {}
+                    updates['models']['generation'] = {'model_id': None}
+                    needs_update = True
+                
+                # Check if evaluation model points to this Rhesis model
+                if user.settings.models.evaluation.model_id and str(user.settings.models.evaluation.model_id) == model_id_str:
+                    if 'models' not in updates:
+                        updates['models'] = {}
+                    updates['models']['evaluation'] = {'model_id': None}
+                    needs_update = True
+                
+                # Apply updates using UserSettingsManager
+                if needs_update:
+                    user.settings.update(updates)
+                    user.user_settings = user.settings.raw
+                    session.flush()
+                    users_updated += 1
         
         # Delete each model individually
         for model in models_to_delete:
             session.delete(model)
         
         session.commit()
-        print(f"\n🗑 Removed {deleted_count} default Rhesis model(s)\n")
+        print(f"\n🗑 Removed {deleted_count} default Rhesis model(s) and cleared settings for {users_updated} user(s)\n")
         
     except Exception as e:
         session.rollback()
