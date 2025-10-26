@@ -2463,13 +2463,56 @@ def update_model(
     user_id: str = None,
 ) -> Optional[models.Model]:
     """Update a model with optimized approach - no session variables needed."""
+    # First check if the model is protected
+    existing_model = get_model(db, model_id, organization_id)
+    if existing_model and getattr(existing_model, "is_protected", False):
+        # For protected models, only allow updating certain fields (tags, comments, status, owner, assignee)
+        # Block updates to core model configuration properties
+        protected_fields = {
+            "name",
+            "model_name",
+            "provider_type_id",
+            "key",
+            "endpoint",
+            "is_protected",
+            "icon",
+        }
+
+        # Convert model to dict and check if any protected fields are being updated
+        update_data = (
+            model.model_dump(exclude_unset=True)
+            if hasattr(model, "model_dump")
+            else model.dict(exclude_unset=True)
+        )
+
+        # Check if user is trying to change any protected fields to a different value
+        attempted_protected_updates = []
+        for field in protected_fields:
+            if field in update_data:
+                existing_value = getattr(existing_model, field)
+                new_value = update_data[field]
+                # Only flag as error if the value is actually changing
+                if existing_value != new_value:
+                    attempted_protected_updates.append(field)
+
+        if attempted_protected_updates:
+            raise ValueError(
+                f"Cannot update protected fields ({', '.join(attempted_protected_updates)}) on system model. "
+                "Only tags, status, owner, and assignee can be modified."
+            )
+
     return update_item(db, models.Model, model_id, model, organization_id, user_id)
 
 
 def delete_model(
     db: Session, model_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Model]:
-    """Delete a model"""
+    """Delete a model (protected models cannot be deleted)"""
+    # First check if the model is protected
+    model = get_model(db, model_id, organization_id)
+    if model and getattr(model, "is_protected", False):
+        raise ValueError("Cannot delete protected system model")
+
     return delete_item(db, models.Model, model_id, organization_id=organization_id, user_id=user_id)
 
 

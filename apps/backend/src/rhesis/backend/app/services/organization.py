@@ -565,8 +565,64 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     db.execute(behavior_metric_association.insert().values(**association_values))
                     db.flush()
 
+        # Process default Rhesis model
+        print("Processing default Rhesis model...")
+        # Get the Rhesis provider type
+        rhesis_provider_type = get_or_create_type_lookup(
+            db=db,
+            type_name="ProviderType",
+            type_value="rhesis",
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=False,
+        )
+
+        # Get Available status for the model
+        available_status = get_or_create_status(
+            db=db,
+            name="Available",
+            entity_type="Model",
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=False,
+        )
+
+        # Get the backend-configured model name (e.g., gemini-2.0-flash)
+        from rhesis.backend.app.constants import DEFAULT_MODEL_NAME
+
+        default_model_name = DEFAULT_MODEL_NAME
+
+        # Create the default Rhesis model
+        default_model_data = {
+            "name": "Rhesis Default",
+            "model_name": default_model_name,
+            "description": "Default Rhesis-hosted model. No API key required.",
+            "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
+            "provider_type_id": rhesis_provider_type.id,
+            "status_id": available_status.id,
+            "key": "",  # Empty string for system model - backend uses its own key
+            "endpoint": None,  # Uses internal infrastructure
+            "is_protected": True,  # System model - cannot be deleted
+            "user_id": uuid.UUID(user_id),
+            "owner_id": uuid.UUID(user_id),
+        }
+
+        default_model = get_or_create_entity(
+            db=db,
+            model=models.Model,
+            entity_data=default_model_data,
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=False,
+        )
+
+        print(f"Created default Rhesis model with ID: {default_model.id}")
+
         # Flush all changes to ensure they're persisted
         db.flush()
+
+        # Return the default model ID so it can be set in user settings
+        return str(default_model.id)
 
     except Exception:
         # Let the calling code handle transaction rollback
