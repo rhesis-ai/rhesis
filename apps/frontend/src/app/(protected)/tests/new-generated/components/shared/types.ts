@@ -26,7 +26,6 @@ export interface ConfigChips {
   behavior: ChipConfig[];
   topics: ChipConfig[];
   category: ChipConfig[];
-  scenarios: ChipConfig[];
 }
 
 /**
@@ -108,7 +107,6 @@ export interface TestTemplate {
   behaviors: string[];
   topics: string[];
   category: string[];
-  scenarios: string[];
   popularity?: 'high' | 'medium' | 'low';
 }
 
