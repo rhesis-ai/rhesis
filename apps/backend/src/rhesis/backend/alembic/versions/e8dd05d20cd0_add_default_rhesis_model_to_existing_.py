@@ -30,6 +30,54 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _update_user_model_settings(
+    session: Session,
+    organization_id: str,
+    model_type: str,
+    condition_fn,
+    new_model_id: Optional[str]
+) -> int:
+    """
+    Helper function to update user model settings for generation/evaluation.
+    
+    Args:
+        session: SQLAlchemy session
+        organization_id: Organization ID to filter users
+        model_type: 'generation' or 'evaluation'
+        condition_fn: Function that takes current_model_id and returns True if update needed
+        new_model_id: The new model_id to set (or None to clear)
+    
+    Returns:
+        Number of users updated
+    """
+    users_in_org = session.query(models.User).filter(
+        models.User.organization_id == organization_id
+    ).all()
+    
+    users_updated = 0
+    for user in users_in_org:
+        updates = {}
+        
+        # Check both generation and evaluation models
+        for mtype in ['generation', 'evaluation']:
+            model_setting = getattr(user.settings.models, mtype)
+            current_model_id = str(model_setting.model_id) if model_setting.model_id else None
+            
+            if condition_fn(current_model_id):
+                if 'models' not in updates:
+                    updates['models'] = {}
+                updates['models'][mtype] = {'model_id': new_model_id}
+        
+        # Apply updates using UserSettingsManager if needed
+        if updates:
+            user.settings.update(updates)
+            user.user_settings = user.settings.raw
+            session.flush()
+            users_updated += 1
+    
+    return users_updated
+
+
 def upgrade() -> None:
     """
     Add the default Rhesis model to all existing organizations.
@@ -122,36 +170,13 @@ def upgrade() -> None:
                 )
                 
                 # Set this model as default for users in this organization who don't have defaults set
-                users_in_org = session.query(models.User).filter(
-                    models.User.organization_id == org.id
-                ).all()
-                
-                users_updated = 0
-                for user in users_in_org:
-                    # Check if user has default models set using UserSettingsManager
-                    needs_update = False
-                    updates = {}
-                    
-                    # Check generation model
-                    if not user.settings.models.generation.model_id:
-                        if 'models' not in updates:
-                            updates['models'] = {}
-                        updates['models']['generation'] = {'model_id': str(default_model.id)}
-                        needs_update = True
-                    
-                    # Check evaluation model
-                    if not user.settings.models.evaluation.model_id:
-                        if 'models' not in updates:
-                            updates['models'] = {}
-                        updates['models']['evaluation'] = {'model_id': str(default_model.id)}
-                        needs_update = True
-                    
-                    # Apply updates using UserSettingsManager
-                    if needs_update:
-                        user.settings.update(updates)
-                        user.user_settings = user.settings.raw
-                        session.flush()
-                        users_updated += 1
+                users_updated = _update_user_model_settings(
+                    session=session,
+                    organization_id=org.id,
+                    model_type='both',  # Check both generation and evaluation
+                    condition_fn=lambda model_id: model_id is None,  # Update if not set
+                    new_model_id=str(default_model.id)
+                )
                 
                 created_count += 1
                 print(f"  ✓ Created Rhesis model for org {organization_id} (set as default for {users_updated} user(s))")
@@ -203,28 +228,14 @@ def downgrade() -> None:
         for model in models_to_delete:
             model_id_str = str(model.id)
             
-            # Find all users in this model's organization
-            users_in_org = session.query(models.User).filter(
-                models.User.organization_id == model.organization_id
-            ).all()
-            
-            for user in users_in_org:
-                updates = {}
-                
-                # Check both generation and evaluation models
-                for model_type in ['generation', 'evaluation']:
-                    model_setting = getattr(user.settings.models, model_type)
-                    if model_setting.model_id and str(model_setting.model_id) == model_id_str:
-                        if 'models' not in updates:
-                            updates['models'] = {}
-                        updates['models'][model_type] = {'model_id': None}
-                
-                # Apply updates using UserSettingsManager if needed
-                if updates:
-                    user.settings.update(updates)
-                    user.user_settings = user.settings.raw
-                    session.flush()
-                    users_updated += 1
+            # Clear settings for users pointing to this model
+            users_updated += _update_user_model_settings(
+                session=session,
+                organization_id=model.organization_id,
+                model_type='both',  # Check both generation and evaluation
+                condition_fn=lambda mid, target=model_id_str: mid == target,  # Update if matches
+                new_model_id=None  # Clear the setting
+            )
         
         # Delete each model individually
         for model in models_to_delete:
