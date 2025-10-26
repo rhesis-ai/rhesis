@@ -15,8 +15,8 @@ from rhesis.sdk.models.base import BaseLLM
 DEFAULT_PROVIDER = "rhesis"
 DEFAULT_MODELS = {
     "rhesis": "rhesis-default",
-    "gemini": "gemini-2.0-flash-lite-preview-02-05",
-    "vertex_ai": "gemini-2.5-flash",
+    "gemini": "gemini-2.0-flash",
+    "vertex_ai": "gemini-2.0-flash",  # Best performance - avoid 2.5-flash
     "ollama": "llama3.1",
     "openai": "gpt-4o",
 }

@@ -10,6 +10,6 @@ dependencies = [
     "slowapi>=0.1.9",
     "pydantic>=2.11.7",
     "python-dotenv>=1.1.1",
-    "google-genai==1.13.0",
+    "streamlit>=1.41.1",
 ]
 
