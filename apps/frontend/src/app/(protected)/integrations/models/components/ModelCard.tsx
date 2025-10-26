@@ -11,7 +11,7 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import EditIcon from '@mui/icons-material/Edit';
-import StarIcon from '@mui/icons-material/Star';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import { DeleteIcon, AddIcon } from '@/components/icons';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
@@ -147,7 +147,7 @@ export function ConnectedModelCard({
                 color: 'primary.main',
               }}
             >
-              <StarIcon sx={{ fontSize: '0.875rem' }} />
+              <BookmarkBorderIcon sx={{ fontSize: '0.875rem' }} />
               <Box component="span">
                 Default: {isGenerationDefault && isEvaluationDefault
                   ? 'Generation & Evaluation'
