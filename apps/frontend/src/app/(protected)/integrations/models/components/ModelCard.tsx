@@ -6,25 +6,35 @@ import {
   Typography,
   IconButton,
   Chip,
+  Stack,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import EditIcon from '@mui/icons-material/Edit';
+import StarIcon from '@mui/icons-material/Star';
 import { DeleteIcon, AddIcon } from '@/components/icons';
 import { Model } from '@/utils/api-client/interfaces/model';
+import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { PROVIDER_ICONS } from '@/config/model-providers';
 
 interface ConnectedModelCardProps {
   model: Model;
+  userSettings?: UserSettings | null;
   onEdit: (model: Model, e: React.MouseEvent) => void;
   onDelete: (model: Model, e: React.MouseEvent) => void;
 }
 
 export function ConnectedModelCard({
   model,
+  userSettings,
   onEdit,
   onDelete,
 }: ConnectedModelCardProps) {
+  // Check if this model is set as default for generation or evaluation
+  const isGenerationDefault = userSettings?.models?.generation?.model_id === model.id;
+  const isEvaluationDefault = userSettings?.models?.evaluation?.model_id === model.id;
+  const isAnyDefault = isGenerationDefault || isEvaluationDefault;
+
   return (
     <Card
       sx={{
@@ -137,22 +147,59 @@ export function ConnectedModelCard({
             Model: {model.model_name}
           </Typography>
 
-          {/* Connected status or System badge */}
-          <Chip
-            icon={<CheckCircleIcon />}
-            label={model.is_protected ? "Rhesis Managed" : "Connected"}
-            size="small"
-            variant="outlined"
-            sx={{
-              width: '100%',
-              color: 'text.secondary',
-              borderColor: model.is_protected ? 'info.main' : 'divider',
-              '& .MuiChip-icon': {
-                color: model.is_protected ? 'info.main' : 'primary.main',
-                opacity: 0.7,
-              },
-            }}
-          />
+          <Stack spacing={0.75}>
+            {/* Connected status or System badge */}
+            <Chip
+              icon={<CheckCircleIcon />}
+              label={model.is_protected ? "Rhesis Managed" : "Connected"}
+              size="small"
+              variant="outlined"
+              sx={{
+                width: '100%',
+                color: 'text.secondary',
+                borderColor: model.is_protected ? 'info.main' : 'divider',
+                '& .MuiChip-icon': {
+                  color: model.is_protected ? 'info.main' : 'primary.main',
+                  opacity: 0.7,
+                },
+              }}
+            />
+
+            {/* Default indicators */}
+            {isGenerationDefault && (
+              <Chip
+                icon={<StarIcon />}
+                label="Default for Generation"
+                size="small"
+                variant="filled"
+                sx={{
+                  width: '100%',
+                  bgcolor: 'success.main',
+                  color: 'success.contrastText',
+                  '& .MuiChip-icon': {
+                    color: 'success.contrastText',
+                  },
+                }}
+              />
+            )}
+
+            {isEvaluationDefault && (
+              <Chip
+                icon={<StarIcon />}
+                label="Default for Evaluation"
+                size="small"
+                variant="filled"
+                sx={{
+                  width: '100%',
+                  bgcolor: 'warning.main',
+                  color: 'warning.contrastText',
+                  '& .MuiChip-icon': {
+                    color: 'warning.contrastText',
+                  },
+                }}
+              />
+            )}
+          </Stack>
         </Box>
       </CardContent>
     </Card>
