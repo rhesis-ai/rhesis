@@ -7,7 +7,8 @@ from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.services.test_set import bulk_create_test_set
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
-from rhesis.backend.tasks.base import BaseTask
+from rhesis.backend.notifications.email.template_service import EmailTemplate
+from rhesis.backend.tasks.base import BaseTask, email_notification
 from rhesis.backend.worker import app
 
 # Import SDK components for test generation
@@ -260,6 +261,10 @@ def _build_task_result(
     }
 
 
+@email_notification(
+    template=EmailTemplate.TASK_COMPLETION,
+    subject_template="Test Set Generation Complete: {task_name} - {status}",
+)
 @app.task(
     base=BaseTask,
     name="rhesis.backend.tasks.generate_and_save_test_set",
