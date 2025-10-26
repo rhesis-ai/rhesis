@@ -298,11 +298,11 @@ class TestTypeLookupRoutes(TypeLookupTestMixin, BaseEntityRouteTests):
         deleted_type_lookup = response.json()
         assert deleted_type_lookup["id"] == type_lookup_id
         
-        # Verify type lookup is deleted
+        # Verify type lookup is deleted (soft delete returns 410 GONE)
         get_response = authenticated_client.get(
             self.endpoints.format_path(self.endpoints.get_by_id, type_lookup_id=type_lookup_id),
         )
-        assert get_response.status_code == status.HTTP_404_NOT_FOUND
+        assert get_response.status_code == status.HTTP_410_GONE
     
     def test_list_type_lookups_with_pagination(self, authenticated_client):
         """Test listing type lookups with pagination"""

@@ -61,61 +61,56 @@ class TestEndpointService:
         assert exc_info.value.status_code == 404
         assert "Endpoint not found" in str(exc_info.value.detail)
     
-    def test_invoke_endpoint_success(self):
+    def test_invoke_endpoint_success(self, test_db: Session, db_endpoint_minimal: Endpoint):
         """Test successful endpoint invocation"""
         service = EndpointService()
-        
-        mock_endpoint = Mock(spec=Endpoint)
-        mock_endpoint.id = "endpoint123"
         
         mock_invoker = Mock()
         mock_invoker.invoke.return_value = {"response": "success"}
         
-        mock_db = Mock(spec=Session)
         input_data = {"input": "test"}
         
-        with patch.object(service, '_get_endpoint', return_value=mock_endpoint):
-            with patch('rhesis.backend.app.services.endpoint.create_invoker', return_value=mock_invoker):
-                result = service.invoke_endpoint(mock_db, "endpoint123", input_data)
-                
-                assert result == {"response": "success"}
-                mock_invoker.invoke.assert_called_once_with(mock_db, mock_endpoint, input_data)
+        # Mock only the invoker creation, use real endpoint from fixture
+        with patch('rhesis.backend.app.services.endpoint.create_invoker', return_value=mock_invoker):
+            result = service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), input_data)
+            
+            assert result == {"response": "success"}
+            # Verify invoker was called with real endpoint
+            mock_invoker.invoke.assert_called_once()
+            call_args = mock_invoker.invoke.call_args[0]
+            assert call_args[0] == test_db  # First arg is db
+            assert call_args[1].id == db_endpoint_minimal.id  # Second arg is endpoint
+            assert call_args[2] == input_data  # Third arg is input_data
     
-    def test_invoke_endpoint_value_error(self):
+    def test_invoke_endpoint_value_error(self, test_db: Session, db_endpoint_minimal: Endpoint):
         """Test endpoint invocation with ValueError"""
         service = EndpointService()
         
-        mock_endpoint = Mock(spec=Endpoint)
         mock_invoker = Mock()
         mock_invoker.invoke.side_effect = ValueError("Invalid input")
         
-        mock_db = Mock(spec=Session)
-        
-        with patch.object(service, '_get_endpoint', return_value=mock_endpoint):
-            with patch('rhesis.backend.app.services.endpoint.create_invoker', return_value=mock_invoker):
-                with pytest.raises(HTTPException) as exc_info:
-                    service.invoke_endpoint(mock_db, "endpoint123", {})
-                
-                assert exc_info.value.status_code == 400
-                assert "Invalid input" in str(exc_info.value.detail)
+        # Mock only the invoker creation, use real endpoint from fixture
+        with patch('rhesis.backend.app.services.endpoint.create_invoker', return_value=mock_invoker):
+            with pytest.raises(HTTPException) as exc_info:
+                service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), {})
+            
+            assert exc_info.value.status_code == 400
+            assert "Invalid input" in str(exc_info.value.detail)
     
-    def test_invoke_endpoint_general_exception(self):
+    def test_invoke_endpoint_general_exception(self, test_db: Session, db_endpoint_minimal: Endpoint):
         """Test endpoint invocation with general exception"""
         service = EndpointService()
         
-        mock_endpoint = Mock(spec=Endpoint)
         mock_invoker = Mock()
         mock_invoker.invoke.side_effect = Exception("Internal error")
         
-        mock_db = Mock(spec=Session)
-        
-        with patch.object(service, '_get_endpoint', return_value=mock_endpoint):
-            with patch('rhesis.backend.app.services.endpoint.create_invoker', return_value=mock_invoker):
-                with pytest.raises(HTTPException) as exc_info:
-                    service.invoke_endpoint(mock_db, "endpoint123", {})
-                
-                assert exc_info.value.status_code == 500
-                assert "Internal error" in str(exc_info.value.detail)
+        # Mock only the invoker creation, use real endpoint from fixture
+        with patch('rhesis.backend.app.services.endpoint.create_invoker', return_value=mock_invoker):
+            with pytest.raises(HTTPException) as exc_info:
+                service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), {})
+            
+            assert exc_info.value.status_code == 500
+            assert "Internal error" in str(exc_info.value.detail)
     
     def test_get_schema_success(self):
         """Test successful schema retrieval"""
@@ -142,19 +137,19 @@ class TestEndpointService:
 class TestConvenienceFunctions:
     """Test convenience functions"""
     
-    def test_invoke_function(self):
+    def test_invoke_function(self, test_db: Session, db_endpoint_minimal: Endpoint):
         """Test invoke convenience function"""
-        mock_db = Mock(spec=Session)
         input_data = {"input": "test"}
         expected_result = {"response": "success"}
         
+        # Mock the endpoint service singleton
         with patch('rhesis.backend.app.services.endpoint.endpoint_service') as mock_service:
             mock_service.invoke_endpoint.return_value = expected_result
             
-            result = invoke(mock_db, "endpoint123", input_data)
+            result = invoke(test_db, str(db_endpoint_minimal.id), input_data)
             
             assert result == expected_result
-            mock_service.invoke_endpoint.assert_called_once_with(mock_db, "endpoint123", input_data)
+            mock_service.invoke_endpoint.assert_called_once_with(test_db, str(db_endpoint_minimal.id), input_data)
     
     def test_get_schema_function(self):
         """Test get_schema convenience function"""

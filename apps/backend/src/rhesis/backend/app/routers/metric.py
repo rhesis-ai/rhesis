@@ -93,7 +93,9 @@ def read_metric(
 ):
     """Get a specific metric by ID with its related objects"""
     organization_id, user_id = tenant_context
-    db_metric = crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
+    # Use get_item_detail which properly handles soft-deleted items (raises ItemDeletedException)
+    from rhesis.backend.app.utils.crud_utils import get_item_detail
+    db_metric = get_item_detail(db, models.Metric, metric_id, organization_id, user_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
     return db_metric
