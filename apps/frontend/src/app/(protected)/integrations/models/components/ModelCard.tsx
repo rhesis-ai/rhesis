@@ -31,8 +31,10 @@ export function ConnectedModelCard({
   onDelete,
 }: ConnectedModelCardProps) {
   // Check if this model is set as default for generation or evaluation
-  const isGenerationDefault = userSettings?.models?.generation?.model_id === model.id;
-  const isEvaluationDefault = userSettings?.models?.evaluation?.model_id === model.id;
+  const isGenerationDefault =
+    userSettings?.models?.generation?.model_id === model.id;
+  const isEvaluationDefault =
+    userSettings?.models?.evaluation?.model_id === model.id;
   const isAnyDefault = isGenerationDefault || isEvaluationDefault;
 
   return (
@@ -149,15 +151,16 @@ export function ConnectedModelCard({
             >
               <BookmarkBorderIcon sx={{ fontSize: '0.875rem' }} />
               <Box component="span">
-                Default: {isGenerationDefault && isEvaluationDefault
+                Default:{' '}
+                {isGenerationDefault && isEvaluationDefault
                   ? 'Generation & Evaluation'
                   : isGenerationDefault
-                  ? 'Generation'
-                  : 'Evaluation'}
+                    ? 'Generation'
+                    : 'Evaluation'}
               </Box>
             </Typography>
           )}
-          
+
           {/* Model name */}
           <Typography
             variant="caption"
@@ -174,7 +177,7 @@ export function ConnectedModelCard({
           {/* Connected status or System badge */}
           <Chip
             icon={<CheckCircleIcon />}
-            label={model.is_protected ? "Rhesis Managed" : "Connected"}
+            label={model.is_protected ? 'Rhesis Managed' : 'Connected'}
             size="small"
             variant="outlined"
             sx={{
