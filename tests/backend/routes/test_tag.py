@@ -289,11 +289,11 @@ class TestTagRoutes(TagTestMixin, BaseEntityRouteTests):
         deleted_tag = response.json()
         assert deleted_tag["id"] == tag_id
         
-        # Verify tag is deleted
+        # Verify tag is deleted (soft delete returns 410 GONE)
         get_response = authenticated_client.get(
             self.endpoints.format_path(self.endpoints.get_by_id, tag_id=tag_id),
         )
-        assert get_response.status_code == status.HTTP_404_NOT_FOUND
+        assert get_response.status_code == status.HTTP_410_GONE
     
     def test_list_tags_with_pagination(self, authenticated_client):
         """Test listing tags with pagination"""

@@ -353,11 +353,11 @@ class TestResponsePatternRoutes(ResponsePatternTestMixin, BaseEntityRouteTests):
         deleted_pattern = response.json()
         assert deleted_pattern["id"] == pattern_id
         
-        # Verify pattern is deleted
+        # Verify pattern is deleted (soft delete returns 410 GONE)
         get_response = authenticated_client.get(
             self.endpoints.format_path(self.endpoints.get_by_id, response_pattern_id=pattern_id),
         )
-        assert get_response.status_code == status.HTTP_404_NOT_FOUND
+        assert get_response.status_code == status.HTTP_410_GONE
     
     def test_list_response_patterns_with_pagination(self, authenticated_client):
         """Test listing response patterns with pagination"""

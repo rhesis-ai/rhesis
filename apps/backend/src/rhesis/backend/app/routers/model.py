@@ -122,7 +122,9 @@ def read_model(
 ):
     """Get a specific model by ID"""
     organization_id, user_id = tenant_context
-    db_model = crud.get_model(db, model_id=model_id, organization_id=organization_id)
+    # Use get_item_detail which properly handles soft-deleted items (raises ItemDeletedException)
+    from rhesis.backend.app.utils.crud_utils import get_item_detail
+    db_model = get_item_detail(db, models.Model, model_id, organization_id, user_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
     return db_model

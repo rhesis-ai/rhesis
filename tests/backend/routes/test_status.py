@@ -253,11 +253,11 @@ class TestStatusRoutes(StatusTestMixin, BaseEntityRouteTests):
         deleted_status = response.json()
         assert deleted_status["id"] == status_id
         
-        # Verify status is deleted
+        # Verify status is deleted (soft delete returns 410 GONE)
         get_response = authenticated_client.get(
             self.endpoints.format_path(self.endpoints.get_by_id, status_id=status_id),
         )
-        assert get_response.status_code == status.HTTP_404_NOT_FOUND
+        assert get_response.status_code == status.HTTP_410_GONE
     
     def test_list_statuses_with_pagination(self, authenticated_client):
         """Test listing statuses with pagination"""
