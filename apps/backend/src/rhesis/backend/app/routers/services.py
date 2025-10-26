@@ -146,7 +146,7 @@ async def generate_content_endpoint(request: GenerateContentRequest):
     Generate text using LLM with optional OpenAI JSON schema for structured output.
 
     The schema parameter should follow the OpenAI structured output format. This format
-    is compatible with multiple LLM providers (OpenAI, Vertex AI, etc.) and enables 
+    is compatible with multiple LLM providers (OpenAI, Vertex AI, etc.) and enables
     type-safe structured generation without requiring Pydantic model definitions.
 
     Args:
@@ -183,7 +183,7 @@ async def generate_content_endpoint(request: GenerateContentRequest):
         # Use the default generation model from constants
         # This respects the global configuration (currently vertex_ai)
         model = get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
-        
+
         # Pass schema directly to the model - SDK handles provider-specific conversion
         response = model.generate(prompt, schema=schema)
 
