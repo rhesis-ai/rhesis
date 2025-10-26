@@ -112,7 +112,7 @@ def upgrade() -> None:
                     "owner_id": uuid.UUID(user_id),
                 }
                 
-                get_or_create_entity(
+                default_model = get_or_create_entity(
                     db=session,
                     model=models.Model,
                     entity_data=default_model_data,
@@ -121,8 +121,50 @@ def upgrade() -> None:
                     commit=False
                 )
                 
+                # Set this model as default for users in this organization who don't have defaults set
+                users_in_org = session.query(models.User).filter(
+                    models.User.organization_id == org.id
+                ).all()
+                
+                users_updated = 0
+                for user in users_in_org:
+                    # Check if user has default models set
+                    user_settings = user.settings if hasattr(user, 'settings') else None
+                    
+                    if user_settings:
+                        needs_update = False
+                        settings_dict = user_settings if isinstance(user_settings, dict) else {}
+                        
+                        # Initialize models section if it doesn't exist
+                        if 'models' not in settings_dict:
+                            settings_dict['models'] = {
+                                'generation': {'model_id': str(default_model.id)},
+                                'evaluation': {'model_id': str(default_model.id)}
+                            }
+                            needs_update = True
+                        else:
+                            models_settings = settings_dict['models']
+                            # Set generation default if not set
+                            if 'generation' not in models_settings or not models_settings['generation'].get('model_id'):
+                                if 'generation' not in models_settings:
+                                    models_settings['generation'] = {}
+                                models_settings['generation']['model_id'] = str(default_model.id)
+                                needs_update = True
+                            
+                            # Set evaluation default if not set
+                            if 'evaluation' not in models_settings or not models_settings['evaluation'].get('model_id'):
+                                if 'evaluation' not in models_settings:
+                                    models_settings['evaluation'] = {}
+                                models_settings['evaluation']['model_id'] = str(default_model.id)
+                                needs_update = True
+                        
+                        if needs_update:
+                            user.user_settings = settings_dict
+                            session.flush()
+                            users_updated += 1
+                
                 created_count += 1
-                print(f"  ✓ Created Rhesis model for org {organization_id}")
+                print(f"  ✓ Created Rhesis model for org {organization_id} (set as default for {users_updated} user(s))")
                 
             except Exception as e:
                 print(f"  ✗ Error creating model for org {organization_id}: {e}")
