@@ -228,7 +228,7 @@ class BaseTask(Task):
         """Add organization_id and user_id to task request context."""
         # Store task start time for execution time calculation
         self.request.custom_start_time = datetime.utcnow()
-        
+
         # Get tenant context from headers (preferred) or kwargs (fallback)
         headers = getattr(self.request, "headers", {}) or {}
 
@@ -331,7 +331,7 @@ class BaseTask(Task):
 
             # Calculate execution time using our custom start time or Celery's time_start
             execution_time = None
-            
+
             # Try our custom start time first (most reliable)
             if hasattr(self.request, "custom_start_time") and self.request.custom_start_time:
                 try:
