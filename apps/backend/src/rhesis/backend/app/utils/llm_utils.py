@@ -64,13 +64,13 @@ def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
 def _is_rhesis_system_model(provider: str, api_key: str) -> bool:
     """
     Check if a model is a Rhesis system model.
-    
+
     Rhesis system models use the backend's infrastructure and have no user-provided API key.
-    
+
     Args:
         provider: The provider type value (e.g., "rhesis", "openai", "gemini")
         api_key: The API key stored for the model
-        
+
     Returns:
         True if this is a Rhesis system model, False otherwise
     """
@@ -82,35 +82,35 @@ def _fetch_and_configure_model(
 ) -> Union[str, BaseLLM]:
     """
     Fetch a model from the database and configure it for use.
-    
+
     Args:
         db: Database session
         model_id: ID of the model to fetch
         organization_id: Organization ID for security filtering
         default_model: Default model to fall back to
-        
+
     Returns:
         Either a string (provider name) or a configured BaseLLM instance,
         or default_model if the configured model cannot be loaded
     """
     # SECURITY: Always use organization_id for filtering
     model = crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
-    
+
     if not model or not model.provider_type:
         logger.warning(f"[LLM_UTILS] Model with id={model_id} not found or has no provider_type")
         return default_model
-    
+
     # Get provider configuration
     provider = model.provider_type.type_value
     model_name = model.model_name
     api_key = model.key
     api_key_preview = f"{model.key[:8]}..." if model.key else "None"
-    
+
     logger.info(
         f"[LLM_UTILS] Found configured model: name={model.name}, provider={provider}, "
         f"model_name={model_name}, api_key={api_key_preview}"
     )
-    
+
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
         logger.info(
@@ -118,7 +118,7 @@ def _fetch_and_configure_model(
         )
         logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
         return default_model
-    
+
     # Use SDK's get_model to create configured instance
     configured_model = get_model(provider=provider, model_name=model_name, api_key=api_key)
     logger.info(
@@ -167,12 +167,12 @@ def _get_user_model(
         logger.info("[LLM_UTILS] No configured model found in user settings")
         logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
         return default_model
-    
+
     # Fetch and configure the user's model
     logger.info("[LLM_UTILS] User has configured model, fetching from database...")
     return _fetch_and_configure_model(
         db=db,
         model_id=str(model_id),
         organization_id=str(user.organization_id),
-        default_model=default_model
+        default_model=default_model,
     )

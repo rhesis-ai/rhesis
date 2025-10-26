@@ -8,6 +8,7 @@ Revises: fe5d9ca98fca
 Create Date: 2025-10-26 18:29:27.481341
 
 """
+
 from alembic import op
 from typing import Union, Sequence
 
@@ -19,8 +20,8 @@ from rhesis.backend.alembic.utils.template_loader import (
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'd99dc2079c4d'
-down_revision: Union[str, None] = 'fe5d9ca98fca'
+revision: str = "d99dc2079c4d"
+down_revision: Union[str, None] = "fe5d9ca98fca"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
