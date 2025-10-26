@@ -4,12 +4,17 @@ Vertex AI Provider for Rhesis SDK
 This provider enables access to Google's Vertex AI models (including Gemini) via LiteLLM.
 It supports regional deployment and automatic credential detection (base64 or file path).
 
-Available models:
-    • gemini-2.5-flash
-    • gemini-2.0-flash
-    • gemini-2.0-flash-exp
+Available models (ordered by performance):
+    • gemini-2.0-flash (RECOMMENDED - fastest, best for production)
+    • gemini-2.0-flash-exp (experimental features)
+    • gemini-2.5-flash (slower than 2.0, not recommended)
     • gemini-1.5-pro-latest
     • gemini-pro
+
+Regional availability:
+    • gemini-2.0-flash: Available in us-central1, us-east4, us-west1,
+      europe-west1, europe-west4 (NOT in europe-west3)
+    • gemini-2.5-flash: Available in all regions
 
 For detailed usage and configuration options, see VertexAILLM class documentation.
 """
@@ -25,7 +30,7 @@ from pydantic import BaseModel
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
 PROVIDER = "vertex_ai"
-DEFAULT_MODEL_NAME = "gemini-2.5-flash"
+DEFAULT_MODEL_NAME = "gemini-2.0-flash"
 
 
 class VertexAILLM(LiteLLM):
@@ -43,12 +48,12 @@ class VertexAILLM(LiteLLM):
         with regional deployment support and automatic credential detection.
 
         Args:
-            model_name (str): The name of the Vertex AI model to use (default: "gemini-2.5-flash").
+            model_name (str): The name of the Vertex AI model to use (default: "gemini-2.0-flash").
             credentials (Optional[str]): Service account credentials (auto-detected format)
                 - Base64-encoded JSON string (for K8s/production)
                 - Or file path to JSON file (standard for local development)
                 - If not provided, uses GOOGLE_APPLICATION_CREDENTIALS environment variable
-            location (Optional[str]): GCP region (e.g., "europe-west3")
+            location (Optional[str]): GCP region (e.g., "europe-west4" for Berlin)
                 - If not provided, uses VERTEX_AI_LOCATION environment variable
             project (Optional[str]): GCP project ID (usually auto-extracted from credentials)
                 - Priority: init parameter > VERTEX_AI_PROJECT env var > credentials file
@@ -63,15 +68,15 @@ class VertexAILLM(LiteLLM):
             ValueError: If credentials or configuration are not properly set.
 
         Examples:
-            >>> # Using environment variables
-            >>> llm = VertexAILLM(model_name="gemini-2.5-flash")
+            >>> # Using environment variables (recommended)
+            >>> llm = VertexAILLM(model_name="gemini-2.0-flash")
             >>> result = llm.generate("Tell me a joke.")
 
-            >>> # Passing credentials directly
+            >>> # Passing credentials directly (for Berlin/Europe)
             >>> llm = VertexAILLM(
-            ...     model_name="gemini-2.5-flash",
+            ...     model_name="gemini-2.0-flash",
             ...     credentials="/path/to/service-account.json",
-            ...     location="europe-west3",
+            ...     location="europe-west4",  # Netherlands - best for Europe
             ...     project="my-gcp-project"
             ... )
             >>> result = llm.generate("Tell me a joke.")
@@ -159,7 +164,7 @@ class VertexAILLM(LiteLLM):
         raise ValueError(
             "Vertex AI location not specified. Provide either:\n"
             "  - location parameter in __init__, or\n"
-            "  - VERTEX_AI_LOCATION environment variable (e.g., 'europe-west3', 'us-central1')"
+            "  - VERTEX_AI_LOCATION environment variable (e.g., 'europe-west4', 'us-central1')"
         )
 
     def _load_credentials(self, credentials: str) -> dict:

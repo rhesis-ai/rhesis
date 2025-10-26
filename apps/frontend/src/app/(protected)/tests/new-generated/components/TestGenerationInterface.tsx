@@ -528,29 +528,6 @@ export default function TestGenerationInterface({
                   onToggle={chipId => onChipToggle('category', chipId)}
                 />
               </Box>
-
-              {/* Scenarios */}
-              <Box sx={{ mb: 4 }}>
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}
-                >
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: theme => theme.shape.circular,
-                      bgcolor: 'success.main',
-                    }}
-                  />
-                  <Typography variant="subtitle2" fontWeight="bold">
-                    Scenarios
-                  </Typography>
-                </Box>
-                <ChipGroup
-                  chips={configChips.scenarios}
-                  onToggle={chipId => onChipToggle('scenarios', chipId)}
-                />
-              </Box>
             </Box>
 
             {/* Uploaded Files Section */}
