@@ -152,13 +152,30 @@ async def initialize_organization_data(
         if org.is_onboarding_complete:
             raise HTTPException(status_code=400, detail="Organization already initialized")
 
-        load_initial_data(db, str(organization_id), str(current_user.id))
+        # Load initial data and get the default model ID
+        default_model_id = load_initial_data(db, str(organization_id), str(current_user.id))
+
+        # Update user settings with the default model for both generation and evaluation
+        if default_model_id:
+            # Get the user to update settings
+            user = db.query(models.User).filter(models.User.id == current_user.id).first()
+            if user:
+                # Use the UserSettingsManager to properly update settings
+                user.settings.update({
+                    "models": {
+                        "generation": {"model_id": default_model_id},
+                        "evaluation": {"model_id": default_model_id}
+                    }
+                })
+                # Persist the updated settings back to the database
+                user.user_settings = user.settings.raw
+                db.flush()
 
         # Mark onboarding as completed
         org.is_onboarding_complete = True
         # Transaction commit is handled by the session context manager
 
-        return {"status": "success", "message": "Initial data loaded successfully"}
+        return {"status": "success", "message": "Initial data loaded successfully", "default_model_id": default_model_id}
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
