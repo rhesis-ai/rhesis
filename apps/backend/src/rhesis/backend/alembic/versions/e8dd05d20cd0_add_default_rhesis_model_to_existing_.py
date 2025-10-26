@@ -128,40 +128,30 @@ def upgrade() -> None:
                 
                 users_updated = 0
                 for user in users_in_org:
-                    # Check if user has default models set
-                    user_settings = user.settings if hasattr(user, 'settings') else None
+                    # Check if user has default models set using UserSettingsManager
+                    needs_update = False
+                    updates = {}
                     
-                    if user_settings:
-                        needs_update = False
-                        settings_dict = user_settings if isinstance(user_settings, dict) else {}
-                        
-                        # Initialize models section if it doesn't exist
-                        if 'models' not in settings_dict:
-                            settings_dict['models'] = {
-                                'generation': {'model_id': str(default_model.id)},
-                                'evaluation': {'model_id': str(default_model.id)}
-                            }
-                            needs_update = True
-                        else:
-                            models_settings = settings_dict['models']
-                            # Set generation default if not set
-                            if 'generation' not in models_settings or not models_settings['generation'].get('model_id'):
-                                if 'generation' not in models_settings:
-                                    models_settings['generation'] = {}
-                                models_settings['generation']['model_id'] = str(default_model.id)
-                                needs_update = True
-                            
-                            # Set evaluation default if not set
-                            if 'evaluation' not in models_settings or not models_settings['evaluation'].get('model_id'):
-                                if 'evaluation' not in models_settings:
-                                    models_settings['evaluation'] = {}
-                                models_settings['evaluation']['model_id'] = str(default_model.id)
-                                needs_update = True
-                        
-                        if needs_update:
-                            user.user_settings = settings_dict
-                            session.flush()
-                            users_updated += 1
+                    # Check generation model
+                    if not user.settings.models.generation.model_id:
+                        if 'models' not in updates:
+                            updates['models'] = {}
+                        updates['models']['generation'] = {'model_id': str(default_model.id)}
+                        needs_update = True
+                    
+                    # Check evaluation model
+                    if not user.settings.models.evaluation.model_id:
+                        if 'models' not in updates:
+                            updates['models'] = {}
+                        updates['models']['evaluation'] = {'model_id': str(default_model.id)}
+                        needs_update = True
+                    
+                    # Apply updates using UserSettingsManager
+                    if needs_update:
+                        user.settings.update(updates)
+                        user.user_settings = user.settings.raw
+                        session.flush()
+                        users_updated += 1
                 
                 created_count += 1
                 print(f"  ✓ Created Rhesis model for org {organization_id} (set as default for {users_updated} user(s))")
