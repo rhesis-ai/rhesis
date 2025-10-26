@@ -55,23 +55,21 @@ export function ConnectedModelCard({
             zIndex: 1,
           }}
         >
-          {/* Don't show edit/delete buttons for protected system models */}
-          {!model.is_protected && (
-            <IconButton
-              size="small"
-              onClick={e => onEdit(model, e)}
-              sx={{
-                padding: '2px',
-                '& .MuiSvgIcon-root': {
-                  fontSize: theme =>
-                    theme?.typography?.helperText?.fontSize || '0.75rem',
-                  color: 'currentColor',
-                },
-              }}
-            >
-              <EditIcon fontSize="inherit" />
-            </IconButton>
-          )}
+          {/* Allow editing settings for all models, but only show delete for non-protected */}
+          <IconButton
+            size="small"
+            onClick={e => onEdit(model, e)}
+            sx={{
+              padding: '2px',
+              '& .MuiSvgIcon-root': {
+                fontSize: theme =>
+                  theme?.typography?.helperText?.fontSize || '0.75rem',
+                color: 'currentColor',
+              },
+            }}
+          >
+            <EditIcon fontSize="inherit" />
+          </IconButton>
           {!model.is_protected && (
             <IconButton
               size="small"
