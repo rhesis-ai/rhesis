@@ -147,13 +147,12 @@ export function ConnectedModelCard({
             variant="outlined"
             sx={{
               width: '100%',
+              color: 'text.secondary',
+              borderColor: model.is_protected ? 'info.main' : 'divider',
               '& .MuiChip-icon': {
-                color: 'primary.main',
+                color: model.is_protected ? 'info.main' : 'primary.main',
                 opacity: 0.7,
               },
-              borderColor: model.is_protected ? 'primary.dark' : 'divider',
-              borderWidth: model.is_protected ? 2 : 1,
-              color: 'text.secondary',
             }}
           />
         </Box>
