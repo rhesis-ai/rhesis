@@ -69,20 +69,23 @@ export function ConnectedModelCard({
           >
             <EditIcon fontSize="inherit" />
           </IconButton>
-          <IconButton
-            size="small"
-            onClick={e => onDelete(model, e)}
-            sx={{
-              padding: '2px',
-              '& .MuiSvgIcon-root': {
-                fontSize: theme =>
-                  theme?.typography?.helperText?.fontSize || '0.75rem',
-                color: 'currentColor',
-              },
-            }}
-          >
-            <DeleteIcon fontSize="inherit" />
-          </IconButton>
+          {/* Don't show delete button for protected system models */}
+          {!model.is_protected && (
+            <IconButton
+              size="small"
+              onClick={e => onDelete(model, e)}
+              sx={{
+                padding: '2px',
+                '& .MuiSvgIcon-root': {
+                  fontSize: theme =>
+                    theme?.typography?.helperText?.fontSize || '0.75rem',
+                  color: 'currentColor',
+                },
+              }}
+            >
+              <DeleteIcon fontSize="inherit" />
+            </IconButton>
+          )}
         </Box>
 
         <Box>
@@ -134,20 +137,28 @@ export function ConnectedModelCard({
             Model: {model.model_name}
           </Typography>
 
-          {/* Connected status */}
+          {/* Connected status or System badge */}
           <Chip
             icon={<CheckCircleIcon />}
-            label="Connected"
+            label={model.is_protected ? "Rhesis Managed" : "Connected"}
             size="small"
             variant="outlined"
             sx={{
               width: '100%',
               '& .MuiChip-icon': {
-                color: 'primary.main',
+                color: model.is_protected ? 'info.main' : 'primary.main',
                 opacity: 0.7,
               },
-              borderColor: 'divider',
-              color: 'text.secondary',
+              borderColor: model.is_protected ? 'info.main' : 'divider',
+              color: model.is_protected ? 'info.main' : 'text.secondary',
+              ...(model.is_protected && {
+                bgcolor: 'info.main',
+                color: 'info.contrastText',
+                opacity: 0.9,
+                '& .MuiChip-icon': {
+                  color: 'info.contrastText',
+                },
+              }),
             }}
           />
         </Box>
