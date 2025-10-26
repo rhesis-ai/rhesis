@@ -209,25 +209,18 @@ def downgrade() -> None:
             ).all()
             
             for user in users_in_org:
-                needs_update = False
                 updates = {}
                 
-                # Check if generation model points to this Rhesis model
-                if user.settings.models.generation.model_id and str(user.settings.models.generation.model_id) == model_id_str:
-                    if 'models' not in updates:
-                        updates['models'] = {}
-                    updates['models']['generation'] = {'model_id': None}
-                    needs_update = True
+                # Check both generation and evaluation models
+                for model_type in ['generation', 'evaluation']:
+                    model_setting = getattr(user.settings.models, model_type)
+                    if model_setting.model_id and str(model_setting.model_id) == model_id_str:
+                        if 'models' not in updates:
+                            updates['models'] = {}
+                        updates['models'][model_type] = {'model_id': None}
                 
-                # Check if evaluation model points to this Rhesis model
-                if user.settings.models.evaluation.model_id and str(user.settings.models.evaluation.model_id) == model_id_str:
-                    if 'models' not in updates:
-                        updates['models'] = {}
-                    updates['models']['evaluation'] = {'model_id': None}
-                    needs_update = True
-                
-                # Apply updates using UserSettingsManager
-                if needs_update:
+                # Apply updates using UserSettingsManager if needed
+                if updates:
                     user.settings.update(updates)
                     user.user_settings = user.settings.raw
                     session.flush()
