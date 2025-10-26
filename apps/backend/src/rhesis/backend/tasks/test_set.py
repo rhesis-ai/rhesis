@@ -164,13 +164,20 @@ def _create_synthesizer(
     return synthesizer
 
 
-def _save_test_set_to_database(self, test_set, org_id: str, user_id: str):
-    """Save the generated test set directly to the database."""
+def _save_test_set_to_database(self, test_set, org_id: str, user_id: str, custom_name: str = None):
+    """Save the generated test set directly to the database.
+
+    Args:
+        test_set: The SDK TestSet with generated tests
+        org_id: Organization ID
+        user_id: User ID
+        custom_name: Optional custom name to use instead of auto-generated name
+    """
     if not test_set.tests:
         raise ValueError("No tests to save. Please add tests to the test set first.")
 
     test_set_data = {
-        "name": test_set.name,
+        "name": custom_name if custom_name else test_set.name,
         "description": test_set.description,
         "short_description": test_set.short_description,
         "metadata": test_set.metadata,
@@ -277,6 +284,7 @@ def generate_and_save_test_set(
     num_tests: int = 5,
     batch_size: int = 20,
     model: Union[str, BaseLLM, None] = None,
+    name: str = None,
     **synthesizer_kwargs,
 ):
     """
@@ -295,6 +303,8 @@ def generate_and_save_test_set(
                - None: Fetch user's configured model or use DEFAULT_GENERATION_MODEL
                - A string provider name (e.g., "gemini", "openai")
                - A configured BaseLLM instance with API key and settings
+        name: Optional custom name for the test set. If not provided, a name will be
+              auto-generated based on the test set content.
         **synthesizer_kwargs: Additional parameters specific to the synthesizer type
             For PromptSynthesizer:
                 - prompt (str, required): The generation prompt
@@ -387,7 +397,7 @@ def generate_and_save_test_set(
 
         # Step 5: Save to database
         self.update_state(state="PROGRESS", meta={"status": "Saving test set to database"})
-        db_test_set = _save_test_set_to_database(self, test_set, org_id, user_id)
+        db_test_set = _save_test_set_to_database(self, test_set, org_id, user_id, custom_name=name)
 
         # Step 6: Build and return result
         result = _build_task_result(
