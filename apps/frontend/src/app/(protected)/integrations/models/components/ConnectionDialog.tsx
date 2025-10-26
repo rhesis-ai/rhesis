@@ -331,23 +331,27 @@ export function ConnectionDialog({
       setLoading(true);
       setError(null);
       try {
-        const updates: Partial<ModelCreate> = {
-          name,
-          model_name: modelName,
-        };
+        const updates: Partial<ModelCreate> = {};
 
-        // Only include endpoint if it's required and has a value
-        if (requiresEndpoint && endpoint && endpoint.trim()) {
-          updates.endpoint = endpoint.trim();
+        // For protected models, only send non-core fields (status, owner, assignee, tags)
+        // For regular models, include all editable fields
+        if (!model.is_protected) {
+          updates.name = name;
+          updates.model_name = modelName;
+
+          // Only include endpoint if it's required and has a value
+          if (requiresEndpoint && endpoint && endpoint.trim()) {
+            updates.endpoint = endpoint.trim();
+          }
+
+          // Only include API key if it was changed (not the placeholder)
+          if (apiKey && apiKey.trim() && apiKey !== '************') {
+            updates.key = apiKey.trim();
+          }
+
+          // Always update custom headers to allow removal (Authorization and Content-Type are handled automatically)
+          updates.request_headers = customHeaders;
         }
-
-        // Only include API key if it was changed (not the placeholder)
-        if (apiKey && apiKey.trim() && apiKey !== '************') {
-          updates.key = apiKey.trim();
-        }
-
-        // Always update custom headers to allow removal (Authorization and Content-Type are handled automatically)
-        updates.request_headers = customHeaders;
 
         await onUpdate(model.id, updates);
         // Update user settings for default models
