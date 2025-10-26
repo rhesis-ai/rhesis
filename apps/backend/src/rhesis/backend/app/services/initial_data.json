@@ -353,6 +353,11 @@
             "description": "Perplexity Labs model API"
         },
         {
+            "type_name": "ProviderType",
+            "type_value": "rhesis",
+            "description": "Rhesis-managed model"
+        },
+        {
             "type_name": "MetricType",
             "type_value": "grading",
             "description": "LLM-based grading using rubrics or classification prompts"
