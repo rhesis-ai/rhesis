@@ -134,40 +134,41 @@ export function ConnectedModelCard({
         </Box>
 
         <Box sx={{ mt: 2 }}>
-          {/* Model name and default indicator */}
+          {/* Default indicator */}
+          {isAnyDefault && (
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                mb: 0.5,
+                fontWeight: 500,
+                color: 'primary.main',
+              }}
+            >
+              <StarIcon sx={{ fontSize: '0.875rem' }} />
+              <Box component="span">
+                Default: {isGenerationDefault && isEvaluationDefault
+                  ? 'Generation & Evaluation'
+                  : isGenerationDefault
+                  ? 'Generation'
+                  : 'Evaluation'}
+              </Box>
+            </Typography>
+          )}
+          
+          {/* Model name */}
           <Typography
             variant="caption"
             color="text.secondary"
             sx={{
-              display: 'flex',
-              alignItems: 'center',
+              display: 'block',
               mb: 1.5,
               minHeight: '1.5em',
             }}
           >
-            <Box component="span">
-              Model: {model.model_name}
-            </Box>
-            {isAnyDefault && (
-              <Box
-                component="span"
-                sx={{
-                  ml: 1,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                }}
-              >
-                <StarIcon sx={{ fontSize: '0.875rem', color: 'primary.main' }} />
-                <Box component="span" sx={{ fontWeight: 500, color: 'primary.main' }}>
-                  Default: {isGenerationDefault && isEvaluationDefault
-                    ? 'Generation & Evaluation'
-                    : isGenerationDefault
-                    ? 'Generation'
-                    : 'Evaluation'}
-                </Box>
-              </Box>
-            )}
+            Model: {model.model_name}
           </Typography>
 
           {/* Connected status or System badge */}
