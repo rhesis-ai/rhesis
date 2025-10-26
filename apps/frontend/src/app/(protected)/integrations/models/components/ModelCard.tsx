@@ -149,7 +149,11 @@ export function ConnectedModelCard({
                 color: 'primary.main',
               }}
             >
-              <BookmarkBorderIcon sx={{ fontSize: '0.875rem' }} />
+              <BookmarkBorderIcon
+                sx={{
+                  fontSize: theme => theme?.typography?.caption?.fontSize,
+                }}
+              />
               <Box component="span">
                 Default:{' '}
                 {isGenerationDefault && isEvaluationDefault
