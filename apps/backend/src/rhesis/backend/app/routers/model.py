@@ -146,12 +146,17 @@ def update_model(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_model = crud.update_model(
-        db, model_id=model_id, model=model, organization_id=organization_id, user_id=user_id
-    )
-    if db_model is None:
-        raise HTTPException(status_code=404, detail="Model not found")
-    return db_model
+    try:
+        db_model = crud.update_model(
+            db, model_id=model_id, model=model, organization_id=organization_id, user_id=user_id
+        )
+        if db_model is None:
+            raise HTTPException(status_code=404, detail="Model not found")
+        return db_model
+    except ValueError as e:
+        if "protected" in str(e).lower():
+            raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.delete("/{model_id}", response_model=schemas.Model)

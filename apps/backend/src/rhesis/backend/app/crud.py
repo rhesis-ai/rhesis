@@ -2463,6 +2463,10 @@ def update_model(
     user_id: str = None,
 ) -> Optional[models.Model]:
     """Update a model with optimized approach - no session variables needed."""
+    # First check if the model is protected
+    existing_model = get_model(db, model_id, organization_id)
+    if existing_model and getattr(existing_model, 'is_protected', False):
+        raise ValueError("Cannot update protected system model")
     return update_item(db, models.Model, model_id, model, organization_id, user_id)
 
 
