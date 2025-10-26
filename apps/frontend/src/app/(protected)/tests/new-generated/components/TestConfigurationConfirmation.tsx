@@ -185,39 +185,6 @@ export default function TestConfigurationConfirmation({
                 </Box>
               )}
 
-              {/* Scenario Chips */}
-              {configChips.scenarios.some(chip => chip.active) && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography
-                    variant="subtitle2"
-                    color="text.secondary"
-                    gutterBottom
-                  >
-                    Scenarios
-                  </Typography>
-                  <Stack
-                    direction="row"
-                    spacing={0.5}
-                    flexWrap="wrap"
-                    useFlexGap
-                  >
-                    {configChips.scenarios
-                      .filter(chip => chip.active)
-                      .map(chip => (
-                        <Chip
-                          key={chip.id}
-                          label={chip.label}
-                          size="small"
-                          sx={{
-                            bgcolor: 'success.light',
-                            color: 'success.contrastText',
-                          }}
-                        />
-                      ))}
-                  </Stack>
-                </Box>
-              )}
-
               {/* Documents */}
               {documents.length > 0 && (
                 <Box>
