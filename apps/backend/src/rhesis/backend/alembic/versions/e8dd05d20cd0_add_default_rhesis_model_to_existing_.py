@@ -11,7 +11,7 @@ Create Date: 2025-10-26 18:58:31
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
-from typing import Union, Sequence
+from typing import Union, Sequence, Optional
 import uuid
 
 # Import models and utilities
