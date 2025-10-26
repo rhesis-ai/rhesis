@@ -958,6 +958,7 @@ export default function TestGenerationFlow({
         synthesizer_type: 'prompt',
         batch_size: 20,
         num_tests: numTests,
+        name: testSetName.trim() || undefined,
       };
 
       const response = await testSetsClient.generateTestSet(request);
@@ -983,6 +984,7 @@ export default function TestGenerationFlow({
     description,
     testSamples,
     testSetSize,
+    testSetName,
     project,
     router,
     show,
