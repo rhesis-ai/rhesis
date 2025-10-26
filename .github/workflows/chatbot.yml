@@ -171,7 +171,7 @@ jobs:
           # Build environment variables string
           # Model configuration (SDK providers)
           ENV_VARS="DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai' }}"
-          ENV_VARS="$ENV_VARS,DEFAULT_MODEL_NAME=${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.5-flash' }}"
+          ENV_VARS="$ENV_VARS,DEFAULT_MODEL_NAME=${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.0-flash' }}"
           
           # Vertex AI configuration (for vertex_ai provider)
           ENV_VARS="$ENV_VARS,GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}"
@@ -212,7 +212,7 @@ jobs:
             echo "📧 Rate limit notifications enabled (hello@rhesis.ai)"
           fi
           
-          echo "🤖 Model configuration: ${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai' }} / ${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.5-flash' }}"
+          echo "🤖 Model configuration: ${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai' }} / ${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.0-flash' }}"
 
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:latest \

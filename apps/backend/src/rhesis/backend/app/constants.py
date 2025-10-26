@@ -51,8 +51,8 @@ DEFAULT_GENERATION_MODEL = os.getenv(
     "DEFAULT_GENERATION_MODEL", "vertex_ai"
 )  # Default provider for test generation
 DEFAULT_MODEL_NAME = os.getenv(
-    "DEFAULT_MODEL_NAME", "gemini-2.5-flash"
-)  # Default model name
+    "DEFAULT_MODEL_NAME", "gemini-2.0-flash"
+)  # Default model name (gemini-2.0-flash recommended, avoid 2.5-flash)
 
 # Test Result Status Mappings
 # These define how test result status names map to passed/failed/error categories
