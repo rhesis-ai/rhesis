@@ -21,6 +21,9 @@ class ModelBase(Base):
     )
     key: str
     request_headers: Optional[Dict] = None
+    is_protected: Optional[bool] = Field(
+        default=False, description="System models are protected and cannot be deleted"
+    )
     organization_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
 
@@ -63,6 +66,7 @@ class Model(ModelBase):
     status_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
+    is_protected: bool = False
     provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
     owner: Optional[User] = None
