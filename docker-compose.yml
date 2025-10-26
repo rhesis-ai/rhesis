@@ -54,10 +54,10 @@ x-llm-config: &llm-config
   GOOGLE_API_KEY: ${GOOGLE_API_KEY}
   # Default LLM Provider Configuration
   DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-vertex_ai}
-  DEFAULT_MODEL_NAME: ${DEFAULT_MODEL_NAME:-gemini-2.5-flash}
+  DEFAULT_MODEL_NAME: ${DEFAULT_MODEL_NAME:-gemini-2.0-flash}
   # Vertex AI Configuration
   GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
-  VERTEX_AI_LOCATION: ${VERTEX_AI_LOCATION:-europe-west3}
+  VERTEX_AI_LOCATION: ${VERTEX_AI_LOCATION:-europe-west4}  # Netherlands - best for Europe
   VERTEX_AI_PROJECT: ${VERTEX_AI_PROJECT:-}
 
 x-nextjs-frontend: &nextjs-frontend

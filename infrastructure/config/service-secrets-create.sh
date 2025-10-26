@@ -57,7 +57,7 @@ function show_usage() {
   echo "  DEFAULT_GENERATION_MODEL      Default LLM provider (e.g., vertex_ai, gemini, openai)"
   echo "  DEFAULT_MODEL_NAME            Default model name for the provider"
   echo "  GOOGLE_APPLICATION_CREDENTIALS Base64-encoded Google Cloud service account JSON"
-  echo "  VERTEX_AI_LOCATION            GCP region for Vertex AI (e.g., europe-west3, us-central1)"
+  echo "  VERTEX_AI_LOCATION            GCP region for Vertex AI (e.g., europe-west4, us-central1)"
   echo "  VERTEX_AI_PROJECT             (Optional) GCP project ID override for Vertex AI"
   echo "  CHATBOT_API_KEY               Chatbot API key for authentication"
   echo "  CHATBOT_RATE_LIMIT            Chatbot rate limit per day (default: 1000)"

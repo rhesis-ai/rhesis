@@ -37,11 +37,11 @@ uv sync
 ```bash
 # Model Configuration (uses SDK providers)
 export DEFAULT_GENERATION_MODEL="vertex_ai"  # Or "gemini", "openai", etc.
-export DEFAULT_MODEL_NAME="gemini-2.5-flash"
+export DEFAULT_MODEL_NAME="gemini-2.0-flash"  # Recommended - faster than 2.5
 
 # Vertex AI Configuration (if using vertex_ai provider)
 export GOOGLE_APPLICATION_CREDENTIALS="base64-encoded-json-or-file-path"
-export VERTEX_AI_LOCATION="europe-west3"  # Or your preferred location
+export VERTEX_AI_LOCATION="europe-west4"  # Netherlands (best for Europe - has gemini-2.0-flash)
 export VERTEX_AI_PROJECT=""  # Optional: auto-extracted from credentials
 
 # Alternative: Gemini API (if using gemini provider)
@@ -89,9 +89,9 @@ docker build -t rhesis-chatbot -f apps/chatbot/Dockerfile .
 # Run the container with Vertex AI (recommended)
 docker run -p 8080:8080 \
   -e DEFAULT_GENERATION_MODEL="vertex_ai" \
-  -e DEFAULT_MODEL_NAME="gemini-2.5-flash" \
+  -e DEFAULT_MODEL_NAME="gemini-2.0-flash" \
   -e GOOGLE_APPLICATION_CREDENTIALS="base64-encoded-credentials" \
-  -e VERTEX_AI_LOCATION="europe-west3" \
+  -e VERTEX_AI_LOCATION="europe-west4" \
   -e CHATBOT_RATE_LIMIT="1000" \
   rhesis-chatbot
 
