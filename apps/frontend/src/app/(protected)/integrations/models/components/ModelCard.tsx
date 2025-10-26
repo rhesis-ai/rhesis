@@ -139,12 +139,15 @@ export function ConnectedModelCard({
             variant="caption"
             color="text.secondary"
             sx={{
-              display: 'block',
+              display: 'flex',
+              alignItems: 'center',
               mb: 1.5,
               minHeight: '1.5em',
             }}
           >
-            Model: {model.model_name}
+            <Box component="span">
+              Model: {model.model_name}
+            </Box>
             {isAnyDefault && (
               <Box
                 component="span"
