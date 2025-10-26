@@ -12,7 +12,7 @@ Available models (ordered by performance):
     • gemini-pro
 
 Regional availability:
-    • gemini-2.0-flash: Available in us-central1, us-east4, us-west1, 
+    • gemini-2.0-flash: Available in us-central1, us-east4, us-west1,
       europe-west1, europe-west4 (NOT in europe-west3)
     • gemini-2.5-flash: Available in all regions
 
