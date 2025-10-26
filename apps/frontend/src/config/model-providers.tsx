@@ -53,7 +53,7 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   replicate: <SiReplicate className="h-8 w-8" />,
   rhesis: (
     <Image
-      src="/logos/rhesis-logo-favicon.svg"
+      src="/logos/rhesis-logo-favicon-transparent.svg"
       alt="Rhesis"
       width={32}
       height={32}
