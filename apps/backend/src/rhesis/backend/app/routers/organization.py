@@ -161,12 +161,14 @@ async def initialize_organization_data(
             user = db.query(models.User).filter(models.User.id == current_user.id).first()
             if user:
                 # Use the UserSettingsManager to properly update settings
-                user.settings.update({
-                    "models": {
-                        "generation": {"model_id": default_model_id},
-                        "evaluation": {"model_id": default_model_id}
+                user.settings.update(
+                    {
+                        "models": {
+                            "generation": {"model_id": default_model_id},
+                            "evaluation": {"model_id": default_model_id},
+                        }
                     }
-                })
+                )
                 # Persist the updated settings back to the database
                 user.user_settings = user.settings.raw
                 db.flush()
@@ -175,7 +177,11 @@ async def initialize_organization_data(
         org.is_onboarding_complete = True
         # Transaction commit is handled by the session context manager
 
-        return {"status": "success", "message": "Initial data loaded successfully", "default_model_id": default_model_id}
+        return {
+            "status": "success",
+            "message": "Initial data loaded successfully",
+            "default_model_id": default_model_id,
+        }
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
