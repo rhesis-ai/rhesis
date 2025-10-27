@@ -10,11 +10,13 @@ import {
   Paper,
   Skeleton,
   useTheme,
+  Tooltip,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import ChatIcon from '@mui/icons-material/Chat';
 import TaskIcon from '@mui/icons-material/Task';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 
 interface TestsListProps {
@@ -81,6 +83,9 @@ function TestListItem({
   totalMetrics,
 }: TestListItemProps) {
   const theme = useTheme();
+
+  // Check if there's a conflicting review
+  const hasConflictingReview = test.last_review && !test.matches_review;
 
   // Truncate prompt content for display
   const truncatedPrompt =
@@ -169,15 +174,32 @@ function TestListItem({
               flexWrap: 'wrap',
             }}
           >
-            <Typography
-              variant="caption"
-              sx={{
-                color: isPassed ? 'success.main' : 'error.main',
-                fontWeight: 500,
-              }}
-            >
-              {passedMetrics}/{totalMetrics} metrics
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: isPassed ? 'success.main' : 'error.main',
+                  fontWeight: 500,
+                }}
+              >
+                {passedMetrics}/{totalMetrics} metrics
+              </Typography>
+
+              {/* Conflicting Review Indicator */}
+              {hasConflictingReview && (
+                <Tooltip
+                  title="Human review conflicts with automated result"
+                  arrow
+                >
+                  <WarningAmberIcon
+                    sx={{
+                      fontSize: 14,
+                      color: 'warning.main',
+                    }}
+                  />
+                </Tooltip>
+              )}
+            </Box>
 
             {/* Comments Count */}
             {test.counts && test.counts.comments > 0 && (
