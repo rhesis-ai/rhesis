@@ -20,6 +20,7 @@ from rhesis.backend.app.utils.crud_utils import (
     delete_item,
     get_item,
     get_item_detail,
+    get_item_with_deferred,
     get_items,
     get_items_detail,
     update_item,
@@ -844,8 +845,6 @@ def get_source_with_content(
 
     This uses get_item_with_deferred from crud_utils to load the deferred content field.
     """
-    from rhesis.backend.app.utils.crud_utils import get_item_with_deferred
-
     return get_item_with_deferred(
         db=db,
         model=models.Source,

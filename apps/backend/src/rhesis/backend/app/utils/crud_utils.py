@@ -389,9 +389,11 @@ def get_item_with_deferred(
     )
 
     # Add undefer options for deferred fields BEFORE query execution
-    for field in deferred_fields:
-        if hasattr(model, field):
-            item.query = item.query.options(undefer(field))
+    for field_name in deferred_fields:
+        if hasattr(model, field_name):
+            # Get the actual column attribute (not string)
+            column_attr = getattr(model, field_name)
+            item.query = item.query.options(undefer(column_attr))
 
     # Execute the query with deferred fields included
     item = item.filter_by_id(item_id)
