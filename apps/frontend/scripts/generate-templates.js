@@ -82,9 +82,9 @@ try {
   );
 
   fs.writeFileSync(outputPath, generatedContent, 'utf8');
-  console.log('✅ Successfully generated test-templates.generated.ts');
-  console.log(`📊 Generated ${config.templates.length} templates`);
+  console.log('Successfully generated test-templates.generated.ts');
+  console.log(`Generated ${config.templates.length} templates`);
 } catch (error) {
-  console.error('❌ Error generating templates:', error);
+  console.error('Error generating templates:', error);
   process.exit(1);
 }
