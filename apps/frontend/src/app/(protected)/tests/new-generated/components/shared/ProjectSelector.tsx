@@ -140,7 +140,9 @@ export default function ProjectSelector({
                   <Typography variant="body2">{project.name}</Typography>
                   {project.description && (
                     <Typography variant="caption" color="text.secondary">
-                      {project.description}
+                      {project.description.length > 20
+                        ? `${project.description.substring(0, 20)}...`
+                        : project.description}
                     </Typography>
                   )}
                 </Box>
