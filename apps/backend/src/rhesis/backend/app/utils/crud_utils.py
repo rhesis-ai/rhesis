@@ -263,7 +263,6 @@ def get_item(
     organization_id: str = None,
     user_id: str = None,
     include_deleted: bool = False,
-    include: str = None,
 ) -> Optional[T]:
     """
     Get a single item by ID with optimized approach - no session variables needed.
@@ -281,7 +280,6 @@ def get_item(
         organization_id: Organization ID for filtering
         user_id: User ID for filtering
         include_deleted: If True, include soft-deleted records (default: False)
-        include: Comma-separated fields to include (e.g., 'content')
 
     Returns:
         Item or None if not found
@@ -290,18 +288,13 @@ def get_item(
         ItemDeletedException: If item is soft-deleted and include_deleted is False
     """
     # Always check with deleted items first to differentiate not-found vs deleted
-    query_builder = (
+    item = (
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
         .with_organization_filter(organization_id)
         .with_visibility_filter()
+        .filter_by_id(item_id)
     )
-
-    # Apply field inclusion if specified
-    if include:
-        query_builder = query_builder.with_field_inclusion(include)
-
-    item = query_builder.filter_by_id(item_id)
 
     # Use helper to check deletion status and raise exception if needed
     return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
@@ -355,6 +348,58 @@ def get_item_detail(
     return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
 
 
+def get_item_with_deferred(
+    db: Session,
+    model: Type[T],
+    item_id: uuid.UUID,
+    deferred_fields: List[str],
+    organization_id: str = None,
+    user_id: str = None,
+    include_deleted: bool = False,
+) -> Optional[T]:
+    """
+    Get a single item with all relationships loaded AND specific deferred fields.
+
+    This is similar to get_item_detail but also explicitly loads deferred columns.
+
+    Args:
+        db: Database session
+        model: SQLAlchemy model class
+        item_id: ID of the item to retrieve
+        deferred_fields: List of deferred field names to explicitly load
+        organization_id: Organization ID for filtering
+        user_id: User ID for filtering
+        include_deleted: If True, include soft-deleted records (default: False)
+
+    Returns:
+        Item with relationships and deferred fields loaded or None if not found
+
+    Raises:
+        ItemDeletedException: If item is soft-deleted and include_deleted is False
+    """
+    from sqlalchemy.orm import undefer
+
+    # Build query with relationships loaded (same as get_item_detail)
+    item = (
+        QueryBuilder(db, model)
+        .with_deleted()  # Always include deleted to check status
+        .with_optimized_loads()
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
+    )
+
+    # Add undefer options for deferred fields BEFORE query execution
+    for field in deferred_fields:
+        if hasattr(model, field):
+            item.query = item.query.options(undefer(field))
+
+    # Execute the query with deferred fields included
+    item = item.filter_by_id(item_id)
+
+    # Use helper to check deletion status and raise exception if needed
+    return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
+
+
 def get_items(
     db: Session,
     model: Type[T],
@@ -365,7 +410,6 @@ def get_items(
     filter: str = None,
     organization_id: str = None,
     user_id: str = None,
-    include: str = None,
 ) -> List[T]:
     """
     Get multiple items with pagination, sorting, and filtering using optimized approach.
@@ -378,20 +422,15 @@ def get_items(
     - No SHOW queries during retrieval
     - Direct tenant context injection
     """
-    query_builder = (
+    return (
         QueryBuilder(db, model)
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
+        .all()
     )
-
-    # Apply field inclusion if specified
-    if include:
-        query_builder = query_builder.with_field_inclusion(include)
-
-    return query_builder.all()
 
 
 def get_items_detail(

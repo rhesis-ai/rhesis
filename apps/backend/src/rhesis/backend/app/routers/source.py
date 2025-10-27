@@ -62,16 +62,14 @@ def read_sources(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    include: str | None = Query(
-        None, description="Comma-separated fields to include (e.g., 'content')"
-    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all sources with their related objects.
-    Content field is deferred for performance - only loaded when accessed.
-    Use include=content to force load content field."""
+
+    Note: Content field is excluded for performance. Use /sources/{id}/content to get content.
+    """
     organization_id, user_id = tenant_context
     return crud.get_sources(
         db=db,
@@ -80,26 +78,22 @@ def read_sources(
         sort_by=sort_by,
         sort_order=sort_order,
         filter=filter,
-        include=include,
         organization_id=organization_id,
         user_id=user_id,
     )
 
 
-@router.get("/{source_id}")
+@router.get("/{source_id}", response_model=schemas.Source)
 def read_source(
     source_id: uuid.UUID,
-    include: str | None = Query(
-        None, description="Comma-separated fields to include (e.g., 'content')"
-    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get source with optimized approach - no session variables needed.
-    Content field is deferred for performance - only loaded when accessed.
-    Use include=content to force load content field.
+
+    Note: Content field is excluded for performance. Use /sources/{id}/content to get content.
 
     Performance improvements:
     - Completely bypasses database session variables
@@ -110,7 +104,7 @@ def read_source(
     """
     organization_id, user_id = tenant_context
     db_source = crud.get_source(
-        db, source_id=source_id, include=include, organization_id=organization_id, user_id=user_id
+        db, source_id=source_id, organization_id=organization_id, user_id=user_id
     )
     if db_source is None:
         raise HTTPException(status_code=404, detail="Source not found")
@@ -268,8 +262,33 @@ async def extract_source_content_endpoint(
         raise HTTPException(status_code=500, detail=f"Failed to extract content: {str(e)}")
 
 
-@router.get("/{source_id}/content")
-async def get_source_content(
+@router.get("/{source_id}/content", response_model=schemas.SourceWithContent)
+def read_source_with_content(
+    source_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Get source with content field included.
+
+    This endpoint explicitly loads the content field which is deferred by default
+    for performance reasons.
+
+    Use this endpoint when you need the source content. For most use cases,
+    use GET /sources/{id} instead to avoid loading large content fields.
+    """
+    organization_id, user_id = tenant_context
+    db_source = crud.get_source_with_content(
+        db, source_id=source_id, organization_id=organization_id, user_id=user_id
+    )
+    if db_source is None:
+        raise HTTPException(status_code=404, detail="Source not found")
+    return db_source
+
+
+@router.get("/{source_id}/file")
+async def get_source_file(
     source_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
