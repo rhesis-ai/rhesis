@@ -26,7 +26,16 @@ export interface ConfigChips {
   behavior: ChipConfig[];
   topics: ChipConfig[];
   category: ChipConfig[];
-  scenarios: ChipConfig[];
+}
+
+/**
+ * Chip state for API communication
+ */
+export interface ChipState {
+  label: string;
+  description: string;
+  active: boolean;
+  category: 'behavior' | 'topic' | 'category' | 'scenario';
 }
 
 /**
@@ -53,6 +62,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   files?: ProcessedDocument[];
+  chip_states?: ChipState[];
 }
 
 /**
@@ -105,10 +115,9 @@ export interface TestTemplate {
   description: string;
   icon: React.ComponentType<any>;
   color: string;
-  behaviors: string[];
+  prompt: string;
   topics: string[];
   category: string[];
-  scenarios: string[];
   popularity?: 'high' | 'medium' | 'low';
 }
 

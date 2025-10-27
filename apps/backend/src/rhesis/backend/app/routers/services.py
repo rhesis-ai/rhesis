@@ -366,7 +366,13 @@ async def generate_test_config(request: TestConfigRequest):
             f"with sample_size: {request.sample_size}"
         )
         service = TestConfigGeneratorService()
-        result = service.generate_config(request.prompt, request.sample_size)
+        result = service.generate_config(
+            request.prompt,
+            request.sample_size,
+            request.chip_states,
+            request.rated_samples,
+            request.previous_messages
+        )
         logger.info("Test config generation successful")
         return result
     except ValueError as e:
