@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Type, Union
 
 from pydantic import UUID4, BaseModel, create_model
@@ -57,8 +56,6 @@ def create_detailed_schema(
     common_fields = [
         ("id", UUID4, ...),  # Always include ID
         ("nano_id", Optional[str], ...),  # Always include ID
-        ("created_at", Union[datetime, str, None], None),  # Timestamp fields
-        ("updated_at", Union[datetime, str, None], None),
         ("name", Optional[str], None),
         ("title", Optional[str], None),
         ("description", Optional[str], None),
