@@ -42,13 +42,8 @@ class TestCurrentEvaluatorBehavior:
         """Test evaluating single metric."""
         # Mock the metric evaluation
         mock_evaluate.return_value = MetricResult(
-            name="Numeric Quality Metric",
             score=8.0,
-            passed=True,
-            reason="Good quality response",
-            threshold=7.0,
-            threshold_operator=">=",
-            verdict="pass"
+            details={"reason": "Good quality response"}
         )
         
         evaluator = Evaluator()
@@ -70,20 +65,12 @@ class TestCurrentEvaluatorBehavior:
         # Mock different results for different metrics
         mock_evaluate.side_effect = [
             MetricResult(
-                name="Numeric Quality Metric",
                 score=8.0,
-                passed=True,
-                reason="Good quality",
-                threshold=7.0,
-                threshold_operator=">=",
-                verdict="pass"
+                details={"reason": "Good quality"}
             ),
             MetricResult(
-                name="Sentiment Metric",
                 score="positive",
-                passed=True,
-                reason="Positive sentiment",
-                verdict="pass"
+                details={"reason": "Positive sentiment"}
             )
         ]
         
@@ -127,11 +114,8 @@ class TestCurrentEvaluatorBehavior:
         mock_evaluate.side_effect = [
             Exception("Metric evaluation failed"),
             MetricResult(
-                name="Sentiment Metric",
                 score="positive",
-                passed=True,
-                reason="Positive sentiment",
-                verdict="pass"
+                details={"reason": "Positive sentiment"}
             )
         ]
         
@@ -171,13 +155,8 @@ class TestCurrentEvaluatorBehavior:
     def test_evaluator_with_context(self, mock_evaluate, numeric_metric_config):
         """Test evaluator with context provided."""
         mock_evaluate.return_value = MetricResult(
-            name="Numeric Quality Metric",
             score=9.0,
-            passed=True,
-            reason="High quality with context",
-            threshold=7.0,
-            threshold_operator=">=",
-            verdict="pass"
+            details={"reason": "High quality with context"}
         )
         
         context = ["Context 1", "Context 2"]
@@ -228,13 +207,8 @@ class TestCurrentEvaluatorBehavior:
     def test_evaluator_result_structure(self, mock_evaluate, numeric_metric_config):
         """Test that evaluator returns results in expected structure."""
         mock_evaluate.return_value = MetricResult(
-            name="Numeric Quality Metric",
             score=8.0,
-            passed=True,
-            reason="Good quality",
-            threshold=7.0,
-            threshold_operator=">=",
-            verdict="pass"
+            details={"reason": "Good quality"}
         )
         
         evaluator = Evaluator()
