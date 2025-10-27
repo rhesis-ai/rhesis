@@ -78,7 +78,8 @@ export default function SourceSelector({
   const handleChange = (event: SelectChangeEvent<string>) => {
     const value = event.target.value;
     if (value && !selectedSourceIds.includes(value)) {
-      onSourcesChange([...selectedSourceIds, value]);
+      const newSourceIds = [...selectedSourceIds, value];
+      onSourcesChange(newSourceIds);
     }
   };
 

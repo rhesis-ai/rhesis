@@ -35,9 +35,17 @@ class TestPrompt(BaseModel):
     language_code: str = "en"
 
 
+class SourceInfo(BaseModel):
+    source: str
+    name: str
+    description: Optional[str] = None
+    content: Optional[str] = None
+
+
 class TestMetadata(BaseModel):
     generated_by: str
     additional_info: Optional[Dict[str, Any]] = None
+    sources: Optional[List[SourceInfo]] = None
 
 
 class Test(BaseModel):
