@@ -163,13 +163,8 @@ class TestCurrentTaskExecution:
     def test_evaluate_prompt_response(self, mock_evaluate):
         """Test evaluate_prompt_response() orchestration."""
         mock_evaluate.return_value = MetricResult(
-            name="Test Metric",
             score=8.0,
-            passed=True,
-            reason="Good quality",
-            threshold=7.0,
-            threshold_operator=">=",
-            verdict="pass"
+            details={"reason": "Good quality"}
         )
         
         evaluator = Evaluator()
@@ -183,10 +178,14 @@ class TestCurrentTaskExecution:
                 "name": "Test Metric",
                 "class_name": "RhesisPromptMetric",
                 "backend": "rhesis",
+                "threshold": 7,
                 "parameters": {
                     "evaluation_prompt": "Test",
+                    "evaluation_steps": "Step 1",
+                    "reasoning": "Test reasoning",
                     "score_type": "numeric",
-                    "threshold": 7
+                    "min_score": 0,
+                    "max_score": 10
                 }
             }]
         )
@@ -198,13 +197,8 @@ class TestCurrentTaskExecution:
     def test_evaluate_prompt_response_with_context(self, mock_evaluate):
         """Test evaluate_prompt_response with context."""
         mock_evaluate.return_value = MetricResult(
-            name="Test Metric",
             score=9.0,
-            passed=True,
-            reason="High quality with context",
-            threshold=7.0,
-            threshold_operator=">=",
-            verdict="pass"
+            details={"reason": "High quality with context"}
         )
         
         evaluator = Evaluator()
@@ -252,20 +246,12 @@ class TestCurrentTaskExecution:
         """Test evaluate_prompt_response with multiple metrics."""
         mock_evaluate.side_effect = [
             MetricResult(
-                name="Metric 1",
                 score=8.0,
-                passed=True,
-                reason="Good",
-                threshold=7.0,
-                threshold_operator=">=",
-                verdict="pass"
+                details={"reason": "Good"}
             ),
             MetricResult(
-                name="Metric 2",
                 score="positive",
-                passed=True,
-                reason="Positive sentiment",
-                verdict="pass"
+                details={"reason": "Positive sentiment"}
             )
         ]
         
@@ -275,19 +261,27 @@ class TestCurrentTaskExecution:
                 "name": "Metric 1",
                 "class_name": "RhesisPromptMetric",
                 "backend": "rhesis",
+                "threshold": 7,
                 "parameters": {
                     "evaluation_prompt": "Test 1",
+                    "evaluation_steps": "Step 1",
+                    "reasoning": "Test reasoning",
                     "score_type": "numeric",
-                    "threshold": 7
+                    "min_score": 0,
+                    "max_score": 10
                 }
             },
             {
                 "name": "Metric 2",
                 "class_name": "RhesisPromptMetric",
                 "backend": "rhesis",
+                "reference_score": "positive",
                 "parameters": {
                     "evaluation_prompt": "Test 2",
-                    "score_type": "categorical"
+                    "evaluation_steps": "Step 1",
+                    "reasoning": "Test reasoning",
+                    "score_type": "categorical",
+                    "reference_score": "positive"
                 }
             }
         ]
