@@ -2,16 +2,16 @@
 
 from .factory import RhesisMetricFactory
 from .prompt_metric_categorical import (
-    RhesisPromptMetricCategorical,
+    CategoricalJudge,
 )
 from .prompt_metric_numeric import (
     NumericScoreResponse,
-    RhesisPromptMetricNumeric,
+    NumericJudge,
 )
 
 __all__ = [
     "RhesisMetricFactory",
-    "RhesisPromptMetricNumeric",
+    "NumericJudge",
     "NumericScoreResponse",
-    "RhesisPromptMetricCategorical",
+    "CategoricalJudge",
 ]

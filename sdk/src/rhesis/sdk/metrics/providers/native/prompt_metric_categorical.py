@@ -6,7 +6,7 @@ from pydantic import create_model
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     PromptMetricConfig,
-    RhesisPromptMetricBase,
+    JudgeBase,
 )
 from rhesis.sdk.models.base import BaseLLM
 
@@ -83,7 +83,7 @@ class PromptMetricCategoricalConfig(PromptMetricConfig):
             )
 
 
-class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
+class CategoricalJudge(JudgeBase):
     """
     A generic metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
@@ -305,7 +305,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         return result
 
     @classmethod
-    def from_dict(cls, config: Dict[str, Any]) -> "RhesisPromptMetricCategorical":
+    def from_dict(cls, config: Dict[str, Any]) -> "CategoricalJudge":
         """Create a metric from a dictionary."""
         # Get all field names from the dataclass
         valid_fields = {field.name for field in fields(PromptMetricCategoricalConfig)}

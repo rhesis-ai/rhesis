@@ -2,9 +2,9 @@ from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
 from rhesis.sdk.metrics.providers.native.prompt_metric_categorical import (
-    RhesisPromptMetricCategorical,
+    CategoricalJudge,
 )
-from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import RhesisPromptMetricNumeric
+from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import NumericJudge
 
 
 class RhesisMetricFactory(BaseMetricFactory):
@@ -14,8 +14,8 @@ class RhesisMetricFactory(BaseMetricFactory):
     _metrics = {
         # Add metrics as they're implemented, e.g.:
         # "RhesisCustomMetric": RhesisCustomMetric,
-        "RhesisPromptMetricCategorical": RhesisPromptMetricCategorical,
-        "RhesisPromptMetricNumeric": RhesisPromptMetricNumeric,
+        "RhesisPromptMetricCategorical": CategoricalJudge,
+        "RhesisPromptMetricNumeric": NumericJudge,
     }
 
     # Define which parameters each metric class accepts
