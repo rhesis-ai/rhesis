@@ -1,6 +1,7 @@
 import { UUID } from 'crypto';
 import { Prompt } from './prompt';
 import { Tag } from './tag';
+import { Source } from './source';
 
 // Priority level enum
 export type PriorityLevel = 'Low' | 'Medium' | 'High' | 'Urgent';
@@ -101,6 +102,7 @@ export interface TestDetail extends Test {
   behavior?: Behavior;
   category?: Category;
   status?: Status;
+  source?: Source;
   organization?: Organization;
   priorityLevel?: PriorityLevel;
   counts?: {

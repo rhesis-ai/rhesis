@@ -397,9 +397,9 @@ class TestDemographicDimensionIntegration(DemographicTestMixin, BaseEntityTests)
         # This is expected behavior since soft delete preserves referential integrity
         assert demo_check.json()["dimension_id"] == dimension["id"]
         
-        # Verify the dimension is soft-deleted by trying to fetch it (should return 404)
+        # Verify the dimension is soft-deleted by trying to fetch it (should return 410 GONE)
         dimension_check = authenticated_client.get(APIEndpoints.DIMENSIONS.get(dimension["id"]))
-        assert dimension_check.status_code == status.HTTP_404_NOT_FOUND
+        assert dimension_check.status_code == status.HTTP_410_GONE
 
 
 @pytest.mark.slow
@@ -483,9 +483,9 @@ class TestDemographicHealthChecks(DemographicTestMixin, BaseEntityTests):
         delete_response = authenticated_client.delete(self.endpoints.remove(created["id"]))
         assert delete_response.status_code == status.HTTP_200_OK
         
-        # Verify deletion
+        # Verify deletion (soft delete returns 410 GONE)
         verify_response = authenticated_client.get(self.endpoints.get(created["id"]))
-        assert verify_response.status_code == status.HTTP_404_NOT_FOUND
+        assert verify_response.status_code == status.HTTP_410_GONE
     
     def test_demographic_dimension_relationship_health(self, authenticated_client: TestClient):
         """✅ Test demographic-dimension relationship health"""

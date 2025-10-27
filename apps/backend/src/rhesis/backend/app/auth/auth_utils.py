@@ -40,7 +40,7 @@ def get_secret_key() -> str:
 async def get_current_user(request: Request) -> Optional[User]:
     """
     Get current user from session using org-aware database session.
-    
+
     Uses a simple session to get user and organization_id, then returns the user
     only if they have an organization_id. The actual database operations that
     need tenant context should pass organization_id and user_id directly to CRUD operations.
@@ -49,16 +49,17 @@ async def get_current_user(request: Request) -> Optional[User]:
         return None
 
     user_id = request.session.get("user_id")
-    
+
     # Get the user with a basic session - no organization context needed for user lookup
     from rhesis.backend.app.database import get_db
+
     with get_db() as db:
         user = get_user_by_id(db, user_id)
-        
+
     # User must have an organization_id to proceed
     if not user or not user.organization_id:
         return None
-        
+
     return user
 
 
@@ -173,7 +174,7 @@ def validate_token(
 async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
     """
     Get user from JWT token using simple database session.
-    
+
     Uses a simple session to get user and organization_id, then returns the user
     only if they have an organization_id. The actual database operations that
     need tenant context should pass organization_id and user_id directly to CRUD operations.
@@ -186,13 +187,14 @@ async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
         if user_id:
             # Get the user with a basic session - no organization context needed for user lookup
             from rhesis.backend.app.database import get_db
+
             with get_db() as db:
                 user = get_user_by_id(db, user_id)
-                
+
             # User must have an organization_id to proceed
             if not user or not user.organization_id:
                 return None
-                
+
             return user
 
     except Exception:
@@ -210,7 +212,7 @@ async def get_authenticated_user_with_context(
 ) -> Optional[User]:
     """
     Get authenticated user without database session dependency.
-    
+
     No longer sets tenant context - pass organization_id and user_id directly to CRUD operations.
     """
     # Try session auth first
@@ -230,17 +232,18 @@ async def get_authenticated_user_with_context(
     # Try bearer token
     if credentials.credentials.startswith("rh-"):
         token_value = credentials.credentials
-        
+
         # Use basic session for token validation and user lookup - no organization context needed
-        from rhesis.backend.app.database import get_db
         from rhesis.backend.app.auth.token_validation import validate_token
+        from rhesis.backend.app.database import get_db
+
         with get_db() as db:
             is_valid, _ = validate_token(token_value, db=db)
-            
+
             if is_valid:
                 token = get_token_by_value(db, token_value)
                 user = get_user_by_id(db, token.user_id)
-                
+
         # Handle user based on organization requirement
         if user:
             if without_context:

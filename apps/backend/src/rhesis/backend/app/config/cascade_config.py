@@ -25,7 +25,7 @@ without requiring any code changes in CRUD or service layers.
 """
 
 from dataclasses import dataclass
-from typing import Type, Dict, List
+from typing import Dict, List, Type
 
 from rhesis.backend.app import models
 
@@ -34,7 +34,7 @@ from rhesis.backend.app import models
 class CascadeRelationship:
     """
     Defines a parent-child cascade relationship for soft delete/restore operations.
-    
+
     Attributes:
         child_model: The SQLAlchemy model class for the child entity
         foreign_key: The column name in the child table that references the parent
@@ -42,6 +42,7 @@ class CascadeRelationship:
         cascade_restore: Whether to cascade restorations (default: True)
         description: Optional human-readable description of the relationship
     """
+
     child_model: Type
     foreign_key: str
     cascade_delete: bool = True
@@ -57,13 +58,12 @@ CASCADE_RELATIONSHIPS: Dict[Type, List[CascadeRelationship]] = {
     models.TestRun: [
         CascadeRelationship(
             child_model=models.TestResult,
-            foreign_key='test_run_id',
+            foreign_key="test_run_id",
             cascade_delete=True,
             cascade_restore=True,
-            description="Test results belong to a test run and should cascade with it"
+            description="Test results belong to a test run and should cascade with it",
         )
     ],
-    
     # Add more cascade relationships here as needed:
     # models.Project: [
     #     CascadeRelationship(
@@ -79,12 +79,11 @@ CASCADE_RELATIONSHIPS: Dict[Type, List[CascadeRelationship]] = {
 def get_cascade_relationships(parent_model: Type) -> List[CascadeRelationship]:
     """
     Get all cascade relationships for a given parent model.
-    
+
     Args:
         parent_model: The parent model class
-        
+
     Returns:
         List of CascadeRelationship objects, or empty list if none configured
     """
     return CASCADE_RELATIONSHIPS.get(parent_model, [])
-

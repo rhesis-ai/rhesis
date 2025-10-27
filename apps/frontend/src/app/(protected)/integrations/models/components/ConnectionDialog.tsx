@@ -331,23 +331,27 @@ export function ConnectionDialog({
       setLoading(true);
       setError(null);
       try {
-        const updates: Partial<ModelCreate> = {
-          name,
-          model_name: modelName,
-        };
+        const updates: Partial<ModelCreate> = {};
 
-        // Only include endpoint if it's required and has a value
-        if (requiresEndpoint && endpoint && endpoint.trim()) {
-          updates.endpoint = endpoint.trim();
+        // For protected models, only send non-core fields (status, owner, assignee, tags)
+        // For regular models, include all editable fields
+        if (!model.is_protected) {
+          updates.name = name;
+          updates.model_name = modelName;
+
+          // Only include endpoint if it's required and has a value
+          if (requiresEndpoint && endpoint && endpoint.trim()) {
+            updates.endpoint = endpoint.trim();
+          }
+
+          // Only include API key if it was changed (not the placeholder)
+          if (apiKey && apiKey.trim() && apiKey !== '************') {
+            updates.key = apiKey.trim();
+          }
+
+          // Always update custom headers to allow removal (Authorization and Content-Type are handled automatically)
+          updates.request_headers = customHeaders;
         }
-
-        // Only include API key if it was changed (not the placeholder)
-        if (apiKey && apiKey.trim() && apiKey !== '************') {
-          updates.key = apiKey.trim();
-        }
-
-        // Always update custom headers to allow removal (Authorization and Content-Type are handled automatically)
-        updates.request_headers = customHeaders;
 
         await onUpdate(model.id, updates);
         // Update user settings for default models
@@ -463,154 +467,163 @@ export function ConnectionDialog({
           )}
 
           <Stack spacing={2}>
-            {/* Basic Configuration */}
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600, mb: 1, color: 'primary.main' }}
-            >
-              Basic Configuration
-            </Typography>
-
-            {isCustomProvider && (
-              <TextField
-                label="Provider Name"
-                fullWidth
-                required
-                value={providerName}
-                onChange={e => setProviderName(e.target.value)}
-                helperText="A descriptive name for your custom LLM provider or deployment"
-              />
-            )}
-
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                label="Connection Name"
-                fullWidth
-                variant="outlined"
-                required
-                value={name}
-                onChange={e => setName(e.target.value)}
-                helperText="A unique name to identify this connection"
-              />
-
-              <TextField
-                label="Model Name"
-                fullWidth
-                required
-                value={modelName}
-                onChange={e => setModelName(e.target.value)}
-                helperText={
-                  isCustomProvider
-                    ? 'The model identifier for your deployment'
-                    : 'The specific model to use from this provider'
-                }
-              />
-            </Stack>
-
-            {/* Connection Details */}
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 1 }}
-            >
-              Connection Details
-            </Typography>
-
-            {/* Endpoint URL (for self-hosted/local providers) */}
-            {requiresEndpoint && (
-              <TextField
-                label="API Endpoint"
-                fullWidth
-                required
-                value={endpoint}
-                onChange={e => setEndpoint(e.target.value)}
-                placeholder={DEFAULT_ENDPOINTS[provider?.type_value || '']}
-                helperText={
-                  provider?.type_value === 'ollama'
-                    ? 'The URL where Ollama is running (default: http://localhost:11434)'
-                    : 'The base URL for your self-hosted model endpoint'
-                }
-              />
-            )}
-
-            {/* API Key with Test Connection Button */}
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-              <TextField
-                label="API Key"
-                fullWidth
-                required={!isEditMode}
-                type={showApiKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                onFocus={e => {
-                  // Clear placeholder when user clicks on field in edit mode
-                  if (isEditMode && apiKey === '************') {
-                    setApiKey('');
-                  }
-                }}
-                onBlur={e => {
-                  // Restore placeholder if field is empty in edit mode
-                  if (isEditMode && !e.target.value) {
-                    setApiKey('************');
-                  }
-                }}
-                helperText={
-                  isEditMode
-                    ? apiKey !== '************' && apiKey !== ''
-                      ? 'New API key will replace the current one'
-                      : 'Click to update the API key'
-                    : isCustomProvider
-                      ? 'Authentication key for your deployment (if required)'
-                      : "Your API key from the model provider's dashboard"
-                }
-                InputProps={{
-                  endAdornment:
-                    apiKey && apiKey !== '************' ? (
-                      <IconButton
-                        size="small"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        edge="end"
-                        aria-label={
-                          showApiKey ? 'Hide API key' : 'Show API key'
-                        }
-                      >
-                        {showApiKey ? (
-                          <VisibilityOffIcon fontSize="small" />
-                        ) : (
-                          <VisibilityIcon fontSize="small" />
-                        )}
-                      </IconButton>
-                    ) : null,
-                }}
-              />
-              {(!isEditMode || (isEditMode && apiKey !== '************')) && (
-                <Button
-                  onClick={handleTestConnection}
-                  variant="outlined"
-                  disabled={
-                    !modelName ||
-                    !apiKey ||
-                    apiKey === '************' ||
-                    (requiresEndpoint && !endpoint) ||
-                    testingConnection ||
-                    loading
-                  }
-                  startIcon={
-                    testingConnection ? (
-                      <CircularProgress size={16} />
-                    ) : (
-                      <CheckCircleIcon />
-                    )
-                  }
-                  sx={{
-                    minWidth: '120px',
-                    height: '56px',
-                    mt: 0,
-                  }}
+            {/* Basic Configuration - Hidden for protected models */}
+            {!model?.is_protected && (
+              <>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: 600, mb: 1, color: 'primary.main' }}
                 >
-                  {testingConnection ? 'Testing...' : 'Test'}
-                </Button>
-              )}
-            </Box>
+                  Basic Configuration
+                </Typography>
+
+                {isCustomProvider && (
+                  <TextField
+                    label="Provider Name"
+                    fullWidth
+                    required
+                    value={providerName}
+                    onChange={e => setProviderName(e.target.value)}
+                    helperText="A descriptive name for your custom LLM provider or deployment"
+                  />
+                )}
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                    label="Connection Name"
+                    fullWidth
+                    variant="outlined"
+                    required
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    helperText="A unique name to identify this connection"
+                  />
+
+                  <TextField
+                    label="Model Name"
+                    fullWidth
+                    required
+                    value={modelName}
+                    onChange={e => setModelName(e.target.value)}
+                    helperText={
+                      isCustomProvider
+                        ? 'The model identifier for your deployment'
+                        : 'The specific model to use from this provider'
+                    }
+                  />
+                </Stack>
+              </>
+            )}
+
+            {/* Connection Details - Hidden for protected models */}
+            {!model?.is_protected && (
+              <>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 1 }}
+                >
+                  Connection Details
+                </Typography>
+
+                {/* Endpoint URL (for self-hosted/local providers) */}
+                {requiresEndpoint && (
+                  <TextField
+                    label="API Endpoint"
+                    fullWidth
+                    required
+                    value={endpoint}
+                    onChange={e => setEndpoint(e.target.value)}
+                    placeholder={DEFAULT_ENDPOINTS[provider?.type_value || '']}
+                    helperText={
+                      provider?.type_value === 'ollama'
+                        ? 'The URL where Ollama is running (default: http://localhost:11434)'
+                        : 'The base URL for your self-hosted model endpoint'
+                    }
+                  />
+                )}
+
+                {/* API Key with Test Connection Button */}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                  <TextField
+                    label="API Key"
+                    fullWidth
+                    required={!isEditMode}
+                    type={showApiKey ? 'text' : 'password'}
+                    value={apiKey}
+                    onChange={e => setApiKey(e.target.value)}
+                    onFocus={e => {
+                      // Clear placeholder when user clicks on field in edit mode
+                      if (isEditMode && apiKey === '************') {
+                        setApiKey('');
+                      }
+                    }}
+                    onBlur={e => {
+                      // Restore placeholder if field is empty in edit mode
+                      if (isEditMode && !e.target.value) {
+                        setApiKey('************');
+                      }
+                    }}
+                    helperText={
+                      isEditMode
+                        ? apiKey !== '************' && apiKey !== ''
+                          ? 'New API key will replace the current one'
+                          : 'Click to update the API key'
+                        : isCustomProvider
+                          ? 'Authentication key for your deployment (if required)'
+                          : "Your API key from the model provider's dashboard"
+                    }
+                    InputProps={{
+                      endAdornment:
+                        apiKey && apiKey !== '************' ? (
+                          <IconButton
+                            size="small"
+                            onClick={() => setShowApiKey(!showApiKey)}
+                            edge="end"
+                            aria-label={
+                              showApiKey ? 'Hide API key' : 'Show API key'
+                            }
+                          >
+                            {showApiKey ? (
+                              <VisibilityOffIcon fontSize="small" />
+                            ) : (
+                              <VisibilityIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        ) : null,
+                    }}
+                  />
+                  {(!isEditMode ||
+                    (isEditMode && apiKey !== '************')) && (
+                    <Button
+                      onClick={handleTestConnection}
+                      variant="outlined"
+                      disabled={
+                        !modelName ||
+                        !apiKey ||
+                        apiKey === '************' ||
+                        (requiresEndpoint && !endpoint) ||
+                        testingConnection ||
+                        loading
+                      }
+                      startIcon={
+                        testingConnection ? (
+                          <CircularProgress size={16} />
+                        ) : (
+                          <CheckCircleIcon />
+                        )
+                      }
+                      sx={{
+                        minWidth: '120px',
+                        height: '56px',
+                        mt: 0,
+                      }}
+                    >
+                      {testingConnection ? 'Testing...' : 'Test'}
+                    </Button>
+                  )}
+                </Box>
+              </>
+            )}
 
             {/* Test Connection Result */}
             {testResult && (
@@ -684,89 +697,91 @@ export function ConnectionDialog({
                 </Alert>
               )}
 
-            {/* Custom Headers */}
-            <Stack spacing={1}>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 600, color: 'primary.main', mt: 1 }}
-              >
-                Custom Headers (Optional)
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Add any additional HTTP headers required for your API calls.
-                Authorization and Content-Type headers are handled
-                automatically.
-              </Typography>
-
-              {/* Existing Headers */}
-              {Object.entries(customHeaders).length > 0 && (
-                <Stack spacing={1}>
-                  {Object.entries(customHeaders).map(([key, value]) => (
-                    <Paper
-                      key={key}
-                      variant="outlined"
-                      sx={{
-                        p: 2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        bgcolor: 'grey.50',
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', gap: 2, flex: 1 }}>
-                        <Typography
-                          variant="body2"
-                          sx={{ fontWeight: 500, minWidth: 120 }}
-                        >
-                          {key}:
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {value}
-                        </Typography>
-                      </Box>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveHeader(key)}
-                        color="error"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Paper>
-                  ))}
-                </Stack>
-              )}
-
-              {/* Add New Header */}
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Stack
-                  direction={{ xs: 'column', sm: 'row' }}
-                  spacing={2}
-                  alignItems="flex-end"
+            {/* Custom Headers - Hidden for protected models */}
+            {!model?.is_protected && (
+              <Stack spacing={1}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: 600, color: 'primary.main', mt: 1 }}
                 >
-                  <TextField
-                    label="Header Name"
-                    fullWidth
-                    value={newHeaderKey}
-                    onChange={e => setNewHeaderKey(e.target.value)}
-                  />
-                  <TextField
-                    label="Header Value"
-                    fullWidth
-                    value={newHeaderValue}
-                    onChange={e => setNewHeaderValue(e.target.value)}
-                  />
-                  <Button
-                    variant="outlined"
-                    onClick={handleAddHeader}
-                    disabled={!newHeaderKey.trim() || !newHeaderValue.trim()}
-                    sx={{ minWidth: { xs: '100%', sm: 'auto' } }}
-                    startIcon={<AddIcon />}
+                  Custom Headers (Optional)
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Add any additional HTTP headers required for your API calls.
+                  Authorization and Content-Type headers are handled
+                  automatically.
+                </Typography>
+
+                {/* Existing Headers */}
+                {Object.entries(customHeaders).length > 0 && (
+                  <Stack spacing={1}>
+                    {Object.entries(customHeaders).map(([key, value]) => (
+                      <Paper
+                        key={key}
+                        variant="outlined"
+                        sx={{
+                          p: 2,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          bgcolor: 'grey.50',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', gap: 2, flex: 1 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ fontWeight: 500, minWidth: 120 }}
+                          >
+                            {key}:
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {value}
+                          </Typography>
+                        </Box>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveHeader(key)}
+                          color="error"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Paper>
+                    ))}
+                  </Stack>
+                )}
+
+                {/* Add New Header */}
+                <Paper variant="outlined" sx={{ p: 2 }}>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    alignItems="flex-end"
                   >
-                    Add
-                  </Button>
-                </Stack>
-              </Paper>
-            </Stack>
+                    <TextField
+                      label="Header Name"
+                      fullWidth
+                      value={newHeaderKey}
+                      onChange={e => setNewHeaderKey(e.target.value)}
+                    />
+                    <TextField
+                      label="Header Value"
+                      fullWidth
+                      value={newHeaderValue}
+                      onChange={e => setNewHeaderValue(e.target.value)}
+                    />
+                    <Button
+                      variant="outlined"
+                      onClick={handleAddHeader}
+                      disabled={!newHeaderKey.trim() || !newHeaderValue.trim()}
+                      sx={{ minWidth: { xs: '100%', sm: 'auto' } }}
+                      startIcon={<AddIcon />}
+                    >
+                      Add
+                    </Button>
+                  </Stack>
+                </Paper>
+              </Stack>
+            )}
 
             {/* Default Model Settings */}
             <Box sx={{ mt: 3 }}>

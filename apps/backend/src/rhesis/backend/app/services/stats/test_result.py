@@ -355,13 +355,14 @@ def get_test_result_stats(
 
         # Use stored test status as source of truth for overall pass/fail
         from rhesis.backend.app.constants import (
-            categorize_test_result_status,
             STATUS_CATEGORY_PASSED,
+            categorize_test_result_status,
         )
+
         status_name = result.status.name if result.status else None
         status_category = categorize_test_result_status(status_name)
         test_passed_overall = status_category == STATUS_CATEGORY_PASSED
-        
+
         # Still track individual metric results for per-metric statistics
         test_metric_results = {}
 

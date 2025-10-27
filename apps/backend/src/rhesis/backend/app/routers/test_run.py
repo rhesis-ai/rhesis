@@ -1,4 +1,3 @@
-from rhesis.backend.app.models.user import User
 from enum import Enum
 from typing import List, Optional
 from uuid import UUID
@@ -9,21 +8,26 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
+from rhesis.backend.app.dependencies import (
+    get_tenant_context,
+    get_tenant_db_session,
+)
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.stats.test_run import get_test_run_stats
 from rhesis.backend.app.services.test_run import (
     get_test_results_for_test_run,
-    test_run_results_to_csv)
-from rhesis.backend.app.utils.decorators import with_count_header
+    test_run_results_to_csv,
+)
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
+from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Create the detailed schema for TestRun
 TestRunDetailSchema = create_detailed_schema(
     schemas.TestRun,
     models.TestRun,
-    include_nested_relationships={"test_configuration": {"endpoint": ["project"], "test_set": []}})
+    include_nested_relationships={"test_configuration": {"endpoint": ["project"], "test_set": []}},
+)
 
 
 class TestRunStatsMode(str, Enum):
@@ -37,9 +41,8 @@ class TestRunStatsMode(str, Enum):
 
 
 router = APIRouter(
-    prefix="/test_runs",
-    tags=["test_runs"],
-    responses={404: {"description": "Not found"}})
+    prefix="/test_runs", tags=["test_runs"], responses={404: {"description": "Not found"}}
+)
 
 
 @router.post("/", response_model=schemas.TestRun)
@@ -50,7 +53,8 @@ def create_test_run(
     test_run: schemas.TestRunCreate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Create test run with optimized approach - no session variables needed.
 
@@ -85,11 +89,18 @@ def read_test_runs(
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Get all test runs with their related objects"""
     test_runs = crud.get_test_runs(
-        db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter,
-        organization_id=str(current_user.organization_id), user_id=str(current_user.id)
+        db,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        filter=filter,
+        organization_id=str(current_user.organization_id),
+        user_id=str(current_user.id),
     )
     return test_runs
 
@@ -100,7 +111,8 @@ def generate_test_run_stats(
         TestRunStatsMode.ALL,
         description="Data mode: 'summary' (lightweight), 'status' (status distribution), "
         "'results' (result distribution), 'test_sets' (most run test sets), "
-        "'executors' (top executors), 'timeline' (trends), 'all' (complete)"),
+        "'executors' (top executors), 'timeline' (trends), 'all' (complete)",
+    ),
     top: Optional[int] = Query(
         None, description="Max items per dimension (e.g., top 10 executors)"
     ),
@@ -124,7 +136,8 @@ def generate_test_run_stats(
         None, description="End date (ISO format, overrides months parameter)"
     ),
     db: Session = Depends(get_tenant_db_session),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Get test run statistics with configurable data modes for optimal performance
 
     ## Available Modes
@@ -286,7 +299,8 @@ def generate_test_run_stats(
         status_list=status_list,
         # Date range filters
         start_date=start_date,
-        end_date=end_date)
+        end_date=end_date,
+    )
 
 
 @router.get("/{test_run_id}", response_model=TestRunDetailSchema)
@@ -294,10 +308,13 @@ def read_test_run(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Get a specific test run by ID with its related objects"""
     organization_id, user_id = tenant_context
-    db_test_run = crud.get_test_run(db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id)
+    db_test_run = crud.get_test_run(
+        db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
     return db_test_run
@@ -308,10 +325,13 @@ def get_test_run_behaviors(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Get behaviors that have test results for this test run with organization filtering"""
     organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-    behaviors = crud.get_test_run_behaviors(db, test_run_id=test_run_id, organization_id=organization_id)
+    behaviors = crud.get_test_run_behaviors(
+        db, test_run_id=test_run_id, organization_id=organization_id
+    )
     return behaviors
 
 
@@ -324,7 +344,8 @@ def update_test_run(
     test_run: schemas.TestRunUpdate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Update test_run with optimized approach - no session variables needed.
 
@@ -350,7 +371,8 @@ def update_test_run(
         test_run_id=test_run_id,
         test_run=test_run,
         organization_id=organization_id,
-        user_id=user_id)
+        user_id=user_id,
+    )
 
 
 @router.delete("/{test_run_id}", response_model=schemas.TestRun)
@@ -358,10 +380,13 @@ def delete_test_run(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Delete a test run"""
     organization_id, user_id = tenant_context
-    db_test_run = crud.get_test_run(db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id)
+    db_test_run = crud.get_test_run(
+        db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
 
@@ -369,7 +394,9 @@ def delete_test_run(
     if db_test_run.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to delete this test run")
 
-    return crud.delete_test_run(db=db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id)
+    return crud.delete_test_run(
+        db=db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.get("/{test_run_id}/download", response_class=StreamingResponse)
@@ -377,17 +404,22 @@ def download_test_run_results(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Download test run results as CSV"""
     try:
         organization_id, user_id = tenant_context
         # Check if test run exists and user has access
-        db_test_run = crud.get_test_run(db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id)
+        db_test_run = crud.get_test_run(
+            db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
+        )
         if db_test_run is None:
             raise HTTPException(status_code=404, detail="Test run not found")
 
         # Get test results data
-        test_results_data = get_test_results_for_test_run(db, test_run_id, organization_id=str(current_user.organization_id))
+        test_results_data = get_test_results_for_test_run(
+            db, test_run_id, organization_id=str(current_user.organization_id)
+        )
 
         # Convert to CSV
         csv_data = test_run_results_to_csv(test_results_data)
@@ -404,4 +436,5 @@ def download_test_run_results(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to download test run results for {test_run_id}: {str(e)}")
+            detail=f"Failed to download test run results for {test_run_id}: {str(e)}",
+        )

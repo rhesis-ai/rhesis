@@ -99,35 +99,6 @@ include = [
 [tool.hatch.metadata]
 allow-direct-references = true
 
-[tool.ruff]
-line-length = 100
-
-[tool.ruff.lint]
-select = [
-    "I",
-    "E",
-    "F",
-]
-
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = [
-    "F401",
-]
-"tests/*" = [
-    "S101",
-]
-
-[tool.ruff.lint.isort]
-known-first-party = [
-    "rhesis.sdk",
-]
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "auto"
-
 [tool.mypy]
 python_version = "0.2.0"
 warn_return_any = true

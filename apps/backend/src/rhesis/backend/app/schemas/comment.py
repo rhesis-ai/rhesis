@@ -44,10 +44,7 @@ class CommentCreate(BaseModel):
         ),
     )
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        use_enum_values=True
-    )
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
 
 class CommentUpdate(BaseModel):
@@ -55,8 +52,7 @@ class CommentUpdate(BaseModel):
 
     content: Optional[str] = None
 
-    model_config = ConfigDict(
-from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Comment(CommentBase):
@@ -68,5 +64,4 @@ class Comment(CommentBase):
     created_at: Union[datetime.datetime, str]
     updated_at: Union[datetime.datetime, str]
 
-    model_config = ConfigDict(
-from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)

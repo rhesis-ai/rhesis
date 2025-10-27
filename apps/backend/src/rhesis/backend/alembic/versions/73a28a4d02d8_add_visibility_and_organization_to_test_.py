@@ -42,7 +42,8 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_organization_id"), "organization", ["id"], unique=True)
     op.add_column(
-        "test_set", sa.Column("organization_id", rhesis.backend.app.models.guid.GUID(), nullable=True)
+        "test_set",
+        sa.Column("organization_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
     )
     op.add_column("test_set", sa.Column("visibility", sa.Text(), nullable=True))
     op.create_foreign_key(None, "test_set", "organization", ["organization_id"], ["id"])

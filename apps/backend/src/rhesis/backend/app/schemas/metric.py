@@ -70,8 +70,7 @@ class Metric(MetricBase):
     updated_at: Union[datetime, str]
     tags: Optional[List[Tag]] = []
 
-    model_config = ConfigDict(
-from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MetricDetail(Metric):

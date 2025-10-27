@@ -49,8 +49,8 @@ class TemplateService:
                 "completed_at",
                 "execution_time",
                 "error_message",
-                "test_run_id",
                 "frontend_url",
+                # Note: test_run_id and test_set_id are optional (task-specific)
             },
             EmailTemplate.TEST_EXECUTION_SUMMARY: {
                 "recipient_name",

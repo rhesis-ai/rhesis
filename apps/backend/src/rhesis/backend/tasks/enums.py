@@ -28,7 +28,7 @@ class ResultStatus(str, Enum):
 class RunStatus(str, Enum):
     """
     Enum for test run statuses.
-    
+
     Status reflects execution completion, not test assertion results:
     - COMPLETED: All tests executed (regardless of pass/fail results)
     - PARTIAL: Some tests executed, some couldn't (incomplete execution)

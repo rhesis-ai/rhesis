@@ -37,7 +37,7 @@ To verify that the Rhesis SDK has been installed correctly, run:
 .. code-block:: python
 
    import rhesis
-   
+
    print(rhesis.__version__)
 
-This should print the version number of the installed SDK. 
+This should print the version number of the installed SDK.
