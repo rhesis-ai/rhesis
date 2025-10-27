@@ -6,4 +6,3 @@ Added
 -----
 
 - Added CLI scaffolding for rhesis
-

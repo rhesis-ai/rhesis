@@ -37,7 +37,6 @@ const createEmptyChips = (): ConfigChips => {
     behavior: [],
     topics: [],
     category: [],
-    scenarios: [],
   };
 };
 
@@ -124,7 +123,6 @@ export default function TestGenerationFlow({
               behavior: createChipsFromArray(template.behaviors, 'blue'),
               topics: createChipsFromArray(template.topics, 'purple'),
               category: createChipsFromArray(template.category, 'orange'),
-              scenarios: createChipsFromArray(template.scenarios, 'green'),
             };
 
             setConfigChips(newConfigChips);
@@ -244,10 +242,15 @@ export default function TestGenerationFlow({
         };
 
         const newConfigChips: ConfigChips = {
-          behavior: createChipsFromArray(configResponse.behaviors, 'blue'),
-          topics: createChipsFromArray(configResponse.topics, 'purple'),
-          category: createChipsFromArray(configResponse.categories, 'orange'),
-          scenarios: createChipsFromArray(configResponse.scenarios, 'green'),
+          behavior: createChipsFromArray(
+            configResponse.behaviors || [],
+            'blue'
+          ),
+          topics: createChipsFromArray(configResponse.topics || [], 'purple'),
+          category: createChipsFromArray(
+            configResponse.categories || [],
+            'orange'
+          ),
         };
 
         setConfigChips(newConfigChips);
@@ -608,12 +611,6 @@ export default function TestGenerationFlow({
             active: chip.active,
             category: 'category' as const,
           })),
-          ...configChips.scenarios.map(chip => ({
-            label: chip.label,
-            description: chip.description || '',
-            active: chip.active,
-            category: 'scenario' as const,
-          })),
         ];
 
         // 2. Collect all rated samples with feedback
@@ -683,10 +680,15 @@ export default function TestGenerationFlow({
         };
 
         const newConfigChips: ConfigChips = {
-          behavior: createChipsFromArray(configResponse.behaviors, 'blue'),
-          topics: createChipsFromArray(configResponse.topics, 'purple'),
-          category: createChipsFromArray(configResponse.categories, 'orange'),
-          scenarios: createChipsFromArray(configResponse.scenarios, 'green'),
+          behavior: createChipsFromArray(
+            configResponse.behaviors || [],
+            'blue'
+          ),
+          topics: createChipsFromArray(configResponse.topics || [], 'purple'),
+          category: createChipsFromArray(
+            configResponse.categories || [],
+            'orange'
+          ),
         };
 
         setConfigChips(newConfigChips);
@@ -859,12 +861,6 @@ export default function TestGenerationFlow({
           active: chip.active,
           category: 'category' as const,
         })),
-        ...configChips.scenarios.map(chip => ({
-          label: chip.label,
-          description: chip.description || '',
-          active: chip.active,
-          category: 'scenario' as const,
-        })),
       ];
 
       const ratedSamples = testSamples
@@ -962,6 +958,7 @@ export default function TestGenerationFlow({
         synthesizer_type: 'prompt',
         batch_size: 20,
         num_tests: numTests,
+        name: testSetName.trim() || undefined,
       };
 
       const response = await testSetsClient.generateTestSet(request);
@@ -987,6 +984,7 @@ export default function TestGenerationFlow({
     description,
     testSamples,
     testSetSize,
+    testSetName,
     project,
     router,
     show,

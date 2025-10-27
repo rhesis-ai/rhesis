@@ -18,6 +18,9 @@ class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMix
         GUID(), ForeignKey("type_lookup.id")
     )  # Type of source (e.g., 'website', 'document')
 
+    # Status relationship
+    status_id = Column(GUID(), ForeignKey("status.id"))
+
     # Additional information
     url = Column(String)  # Optional, URL if the source is a website
     citation = Column(Text)  # Optional, citation details for papers or books
@@ -28,10 +31,21 @@ class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMix
     # File metadata as JSONB object
     source_metadata = Column(
         JSONB, default=dict
-    )  # Should contain file_path, file_type, file_size, file_hash, uploaded_at
+    )  # Should contain file_path, file_type, file_size, file_hash, original_filename
 
     # Relationships
     source_type = relationship("TypeLookup", back_populates="sources")
+    status = relationship("Status", back_populates="sources")
+    user = relationship("User", foreign_keys="[Source.user_id]", back_populates="created_sources")
     prompt_templates = relationship("PromptTemplate", back_populates="source")
     prompts = relationship("Prompt", back_populates="source")
     tests = relationship("Test", back_populates="source")
+    # Comment relationship (polymorphic)
+    comments = relationship(
+        "Comment",
+        primaryjoin=(
+            "and_(Comment.entity_id == foreign(Source.id), Comment.entity_type == 'Source')"
+        ),
+        viewonly=True,
+        uselist=True,
+    )

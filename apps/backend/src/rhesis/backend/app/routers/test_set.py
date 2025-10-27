@@ -78,6 +78,7 @@ class TestSetGenerationRequest(BaseModel):
     num_tests: Optional[int] = None
     batch_size: int = 20
     documents: Optional[List[Document]] = None
+    name: Optional[str] = None
 
 
 class TestSetGenerationResponse(BaseModel):
@@ -273,8 +274,9 @@ async def generate_test_set(
         test_count = determine_test_count(request.config, request.num_tests)
 
         # Launch the generation task
-        # Note: The task will fetch the user's configured model itself using get_user_generation_model
-        # This avoids trying to serialize BaseLLM objects which are not JSON serializable
+        # Note: The task will fetch the user's configured model itself
+        # using get_user_generation_model. This avoids trying to serialize
+        # BaseLLM objects which are not JSON serializable
         task_result = task_launcher(
             generate_and_save_test_set,
             request.synthesizer_type,  # First positional argument
@@ -283,6 +285,7 @@ async def generate_test_set(
             batch_size=request.batch_size,
             prompt=generation_prompt,
             documents=[doc.dict() for doc in request.documents] if request.documents else None,
+            name=request.name,  # Pass optional test set name
         )
 
         logger.info(

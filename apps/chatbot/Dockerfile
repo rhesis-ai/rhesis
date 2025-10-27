@@ -26,8 +26,14 @@ ENV UV_NO_MANAGED_PYTHON=1
 # call python from the command line.
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Install chatbot dependencies (--no-install-project to skip installing the local package)
-RUN uv sync --no-install-project
+# Copy the SDK directory (required dependency)
+COPY sdk /app/sdk/
+
+# Add SDK to the project dependencies
+RUN uv add /app/sdk
+
+# Install chatbot dependencies (which includes the SDK)
+RUN uv sync
 
 # Now copy the rest of your source (scripts, modules, etc.)
 COPY apps/chatbot /app/
@@ -49,7 +55,8 @@ USER rhesis-user
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
-    PORT=8080
+    PORT=8080 \
+    WORKERS=4
 
 # Expose port
 EXPOSE 8080
@@ -59,4 +66,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # Command to run the FastAPI application with Gunicorn
-CMD ["gunicorn", "--workers", "2", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8080", "--timeout", "120", "--graceful-timeout", "30", "client:app"]
+# Workers can be overridden via WORKERS environment variable
+CMD sh -c "gunicorn --workers ${WORKERS:-4} --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080 --timeout 120 --graceful-timeout 30 client:app"

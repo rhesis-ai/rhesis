@@ -29,12 +29,14 @@ class ResourcePermission:
     def can_access(self, resource_id: str, action: ResourceAction) -> bool:
         # Apply organization filtering if model supports it and user is not superuser (SECURITY CRITICAL)
         query = self.db.query(self.resource_model).filter_by(id=resource_id)
-        
-        if (not self.user.is_superuser and 
-            hasattr(self.resource_model, 'organization_id') and 
-            self.user.organization_id):
+
+        if (
+            not self.user.is_superuser
+            and hasattr(self.resource_model, "organization_id")
+            and self.user.organization_id
+        ):
             query = query.filter_by(organization_id=self.user.organization_id)
-        
+
         resource = query.first()
         if not resource:
             return False

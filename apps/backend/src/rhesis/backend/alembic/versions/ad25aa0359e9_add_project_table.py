@@ -46,7 +46,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_project_id"), "project", ["id"], unique=True)
-    op.add_column("endpoint", sa.Column("project_id", rhesis.backend.app.models.guid.GUID(), nullable=True))
+    op.add_column(
+        "endpoint", sa.Column("project_id", rhesis.backend.app.models.guid.GUID(), nullable=True)
+    )
     op.create_foreign_key(None, "endpoint", "project", ["project_id"], ["id"])
     # ### end Alembic commands ###
 

@@ -1,10 +1,8 @@
 import inspect
-from contextlib import contextmanager
 from functools import wraps
 from typing import Callable, Type, TypeVar
 
 from fastapi import Response
-from sqlalchemy.orm import Session
 
 from rhesis.backend.app.utils.crud_utils import count_items
 from rhesis.backend.logging import logger
@@ -20,11 +18,11 @@ def with_count_header(model: Type):
         async def wrapper(*args, **kwargs):
             response: Response = kwargs["response"]
             filter_expr = kwargs.get("filter")
-            
+
             # Get dependencies - all endpoints now use this pattern
             db = kwargs.get("db")
             tenant_context = kwargs.get("tenant_context")
-            
+
             if db and tenant_context:
                 # Standard pattern: db + tenant_context
                 organization_id, user_id = tenant_context

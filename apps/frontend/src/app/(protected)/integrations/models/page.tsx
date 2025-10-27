@@ -214,6 +214,7 @@ export default function ModelsPage() {
               <ConnectedModelCard
                 key={model.id}
                 model={model}
+                userSettings={userSettings}
                 onEdit={handleEditClick}
                 onDelete={handleDeleteClick}
               />

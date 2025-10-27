@@ -7,7 +7,8 @@ from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.services.test_set import bulk_create_test_set
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
-from rhesis.backend.tasks.base import BaseTask
+from rhesis.backend.notifications.email.template_service import EmailTemplate
+from rhesis.backend.tasks.base import BaseTask, email_notification
 from rhesis.backend.worker import app
 
 # Import SDK components for test generation
@@ -137,7 +138,13 @@ def _process_synthesizer_parameters(
     return synthesizer_kwargs
 
 
-def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, model: Union[str, BaseLLM], processed_kwargs: dict):
+def _create_synthesizer(
+    self,
+    synth_type: SynthesizerType,
+    batch_size: int,
+    model: Union[str, BaseLLM],
+    processed_kwargs: dict,
+):
     """Create and initialize the synthesizer."""
     synthesizer = SynthesizerFactory.create_synthesizer(
         synthesizer_type=synth_type, batch_size=batch_size, model=model, **processed_kwargs
@@ -145,7 +152,7 @@ def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, mode
 
     # Determine model info for logging
     model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
-    
+
     self.log_with_context(
         "info",
         "Synthesizer initialized",
@@ -157,13 +164,20 @@ def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, mode
     return synthesizer
 
 
-def _save_test_set_to_database(self, test_set, org_id: str, user_id: str):
-    """Save the generated test set directly to the database."""
+def _save_test_set_to_database(self, test_set, org_id: str, user_id: str, custom_name: str = None):
+    """Save the generated test set directly to the database.
+
+    Args:
+        test_set: The SDK TestSet with generated tests
+        org_id: Organization ID
+        user_id: User ID
+        custom_name: Optional custom name to use instead of auto-generated name
+    """
     if not test_set.tests:
         raise ValueError("No tests to save. Please add tests to the test set first.")
 
     test_set_data = {
-        "name": test_set.name,
+        "name": custom_name if custom_name else test_set.name,
         "description": test_set.description,
         "short_description": test_set.short_description,
         "metadata": test_set.metadata,
@@ -196,11 +210,11 @@ def _save_test_set_to_database(self, test_set, org_id: str, user_id: str):
 def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, BaseLLM]:
     """
     Fetch user's configured generation model from database.
-    
+
     Args:
         org_id: Organization ID
         user_id: User ID
-        
+
     Returns:
         Either the user's configured BaseLLM instance or DEFAULT_GENERATION_MODEL string
     """
@@ -211,14 +225,16 @@ def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, BaseLLM]:
         if user:
             model = get_user_generation_model(db, user)
             self.log_with_context(
-                "info", 
+                "info",
                 "Using user's configured model",
-                model_type=type(model).__name__ if not isinstance(model, str) else "string"
+                model_type=type(model).__name__ if not isinstance(model, str) else "string",
             )
             return model
         else:
             # Fallback to default if user not found
-            self.log_with_context("warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL)
+            self.log_with_context(
+                "warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL
+            )
             return DEFAULT_GENERATION_MODEL
 
 
@@ -252,6 +268,10 @@ def _build_task_result(
     }
 
 
+@email_notification(
+    template=EmailTemplate.TASK_COMPLETION,
+    subject_template="Test Set Generation Complete: {task_name} - {status}",
+)
 @app.task(
     base=BaseTask,
     name="rhesis.backend.tasks.generate_and_save_test_set",
@@ -264,6 +284,7 @@ def generate_and_save_test_set(
     num_tests: int = 5,
     batch_size: int = 20,
     model: Union[str, BaseLLM, None] = None,
+    name: str = None,
     **synthesizer_kwargs,
 ):
     """
@@ -282,6 +303,8 @@ def generate_and_save_test_set(
                - None: Fetch user's configured model or use DEFAULT_GENERATION_MODEL
                - A string provider name (e.g., "gemini", "openai")
                - A configured BaseLLM instance with API key and settings
+        name: Optional custom name for the test set. If not provided, a name will be
+              auto-generated based on the test set content.
         **synthesizer_kwargs: Additional parameters specific to the synthesizer type
             For PromptSynthesizer:
                 - prompt (str, required): The generation prompt
@@ -333,14 +356,14 @@ def generate_and_save_test_set(
 
     # Log the parameters (safely, without exposing sensitive data)
     log_kwargs = {k: v for k, v in synthesizer_kwargs.items() if not k.lower().endswith("_key")}
-    
+
     # If no model specified, fetch user's configured model
     if model is None:
         model = _get_model_for_user(self, org_id, user_id)
-    
+
     # Determine model info for logging
     model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
-    
+
     self.log_with_context(
         "info",
         "Starting generate_and_save_test_set task",
@@ -374,7 +397,7 @@ def generate_and_save_test_set(
 
         # Step 5: Save to database
         self.update_state(state="PROGRESS", meta={"status": "Saving test set to database"})
-        db_test_set = _save_test_set_to_database(self, test_set, org_id, user_id)
+        db_test_set = _save_test_set_to_database(self, test_set, org_id, user_id, custom_name=name)
 
         # Step 6: Build and return result
         result = _build_task_result(

@@ -143,21 +143,48 @@ async def create_chat_completion_endpoint(request: dict):
 @router.post("/generate/content")
 async def generate_content_endpoint(request: GenerateContentRequest):
     """
-    Generate text using LLM with optional OpenAI schema validation.
+    Generate text using LLM with optional OpenAI JSON schema for structured output.
+
+    The schema parameter should follow the OpenAI structured output format. This format
+    is compatible with multiple LLM providers (OpenAI, Vertex AI, etc.) and enables
+    type-safe structured generation without requiring Pydantic model definitions.
 
     Args:
-        request: Contains prompt and optional OpenAI schema for structured output
+        request: Contains prompt and optional OpenAI JSON schema for structured output.
+                The schema should follow the format defined in OpenAI's structured outputs
+                documentation: a JSON Schema object that describes the expected response format.
 
     Returns:
-        str or dict: Raw text if no schema, validated dict if schema provided
+        str or dict: Raw text if no schema provided, validated dict if schema is provided
+
+    Example:
+        ```python
+        {
+            "prompt": "Generate a person's info",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "age": {"type": "number"}
+                },
+                "required": ["name", "age"],
+                "additionalProperties": False
+            }
+        }
+        ```
     """
     try:
-        from rhesis.sdk.models.providers.gemini import GeminiLLM
+        from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, DEFAULT_MODEL_NAME
+        from rhesis.sdk.models.factory import get_model
 
         prompt = request.prompt
         schema = request.schema_
 
-        model = GeminiLLM()
+        # Use the default generation model from constants
+        # This respects the global configuration (currently vertex_ai)
+        model = get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
+
+        # Pass schema directly to the model - SDK handles provider-specific conversion
         response = model.generate(prompt, schema=schema)
 
         return response
@@ -344,29 +371,44 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)
-async def generate_test_config(request: TestConfigRequest):
+async def generate_test_config(
+    request: TestConfigRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Generate test configuration JSON based on user description.
 
-    This endpoint analyzes a user-provided description and generates a configuration
-    JSON containing relevant behaviors, topics, test categories, and test scenarios
-    from predefined lists.
+    This endpoint:
+    1. Fetches all behaviors from the database (filtered by organization)
+    2. Sends the behaviors to the LLM and asks it to select relevant ones based on the prompt
+    3. LLM generates topics and test categories
 
     Args:
         request: Contains prompt (description) for test configuration generation and
             optional sample_size (default: 5, max: 20) for number of items per category
+        db: Database session (injected)
+        tenant_context: Organization and user context (injected)
+        current_user: Current authenticated user (injected)
 
     Returns:
-        TestConfigResponse: JSON containing selected behaviors, topics, test categories,
-            and scenarios, each with name and description fields
+        TestConfigResponse: JSON containing LLM-selected behaviors (from database), and
+            LLM-generated topics and test categories, each with name and description fields
     """
     try:
+        organization_id, user_id = tenant_context
+
         logger.info(
             f"Test config generation request for prompt: {request.prompt[:100]}... "
-            f"with sample_size: {request.sample_size}"
+            f"with sample_size: {request.sample_size} for organization: {organization_id}"
         )
+
         service = TestConfigGeneratorService()
-        result = service.generate_config(request.prompt, request.sample_size)
+        result = service.generate_config(
+            request.prompt, request.sample_size, db=db, organization_id=organization_id
+        )
+
         logger.info("Test config generation successful")
         return result
     except ValueError as e:

@@ -34,7 +34,12 @@ export function ProviderSelectionDialog({
   onSelectProvider,
   providers,
 }: ProviderSelectionDialogProps) {
-  if (!providers || providers.length === 0) {
+  // Filter out system-managed providers (like 'rhesis') that users cannot create
+  const userSelectableProviders = providers.filter(
+    provider => provider.type_value !== 'rhesis'
+  );
+
+  if (!userSelectableProviders || userSelectableProviders.length === 0) {
     return (
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
         <DialogTitle>Select LLM Provider</DialogTitle>
@@ -53,7 +58,7 @@ export function ProviderSelectionDialog({
   }
 
   // Sort providers: enabled first (alphabetically), then coming soon (alphabetically)
-  const sortedProviders = [...providers].sort((a, b) => {
+  const sortedProviders = [...userSelectableProviders].sort((a, b) => {
     const aSupported = SUPPORTED_PROVIDERS.includes(a.type_value);
     const bSupported = SUPPORTED_PROVIDERS.includes(b.type_value);
 

@@ -14,8 +14,7 @@ class EmojiReaction(BaseModel):
     user_id: UUID = Field(..., description="User ID who reacted with this emoji")
     user_name: str = Field(..., description="User's display name")
 
-    model_config = ConfigDict(
-from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CommentEmojis(RootModel[Dict[str, List[EmojiReaction]]]):

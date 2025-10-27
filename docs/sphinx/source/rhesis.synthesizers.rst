@@ -28,4 +28,4 @@ Prompt Synthesizer
    :members:
    :undoc-members:
    :show-inheritance:
-   :exclude-members: Any, Path, Template, TestSet 
+   :exclude-members: Any, Path, Template, TestSet

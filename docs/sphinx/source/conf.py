@@ -246,7 +246,7 @@ html_context = {
     'github_user': 'rhesis-ai',
     'github_repo': 'rhesis',
     'github_version': 'main',
-    'conf_py_path': '/docs/sdk/source/',
+    'conf_py_path': '/docs/sphinx/source/',
 }
 
 # HTML title and short title

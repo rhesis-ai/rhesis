@@ -109,6 +109,31 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: GEMINI_MODEL_NAME
+        - name: DEFAULT_GENERATION_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: DEFAULT_GENERATION_MODEL
+        - name: DEFAULT_MODEL_NAME
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: DEFAULT_MODEL_NAME
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: GOOGLE_APPLICATION_CREDENTIALS
+        - name: VERTEX_AI_LOCATION
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: VERTEX_AI_LOCATION
+        - name: VERTEX_AI_PROJECT
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: VERTEX_AI_PROJECT
         - name: AZURE_OPENAI_ENDPOINT
           valueFrom:
             secretKeyRef:

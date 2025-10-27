@@ -1161,6 +1161,7 @@ def get_user_by_auth0_id(db: Session, auth0_id: str) -> Optional[models.User]:
 
 def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
     from sqlalchemy import func
+
     return db.query(models.User).filter(func.lower(models.User.email) == email.lower()).first()
 
 
@@ -2462,13 +2463,56 @@ def update_model(
     user_id: str = None,
 ) -> Optional[models.Model]:
     """Update a model with optimized approach - no session variables needed."""
+    # First check if the model is protected
+    existing_model = get_model(db, model_id, organization_id)
+    if existing_model and getattr(existing_model, "is_protected", False):
+        # For protected models, only allow updating certain fields (tags, comments, status, owner, assignee)
+        # Block updates to core model configuration properties
+        protected_fields = {
+            "name",
+            "model_name",
+            "provider_type_id",
+            "key",
+            "endpoint",
+            "is_protected",
+            "icon",
+        }
+
+        # Convert model to dict and check if any protected fields are being updated
+        update_data = (
+            model.model_dump(exclude_unset=True)
+            if hasattr(model, "model_dump")
+            else model.dict(exclude_unset=True)
+        )
+
+        # Check if user is trying to change any protected fields to a different value
+        attempted_protected_updates = []
+        for field in protected_fields:
+            if field in update_data:
+                existing_value = getattr(existing_model, field)
+                new_value = update_data[field]
+                # Only flag as error if the value is actually changing
+                if existing_value != new_value:
+                    attempted_protected_updates.append(field)
+
+        if attempted_protected_updates:
+            raise ValueError(
+                f"Cannot update protected fields ({', '.join(attempted_protected_updates)}) on system model. "
+                "Only tags, status, owner, and assignee can be modified."
+            )
+
     return update_item(db, models.Model, model_id, model, organization_id, user_id)
 
 
 def delete_model(
     db: Session, model_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Model]:
-    """Delete a model"""
+    """Delete a model (protected models cannot be deleted)"""
+    # First check if the model is protected
+    model = get_model(db, model_id, organization_id)
+    if model and getattr(model, "is_protected", False):
+        raise ValueError("Cannot delete protected system model")
+
     return delete_item(db, models.Model, model_id, organization_id=organization_id, user_id=user_id)
 
 
@@ -2591,33 +2635,29 @@ def delete_comment(
     db: Session, comment_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Comment]:
     """Delete a comment with optimized tenant context and clear task references"""
-    from sqlalchemy import text as sql_text
-    from uuid import UUID as UUIDType
+    from sqlalchemy import func
 
     # First, clear the comment_id from all tasks that reference this comment
     # This prevents orphaned references in task_metadata
     try:
-        # Query to find and update tasks that have this comment_id in task_metadata
-        update_query = sql_text("""
-            UPDATE task
-            SET task_metadata = task_metadata - 'comment_id',
-                updated_at = NOW()
-            WHERE task_metadata->>'comment_id' = :comment_id
-            AND organization_id = :organization_id
-        """)
-
-        db.execute(update_query, {
-            "comment_id": str(comment_id),
-            "organization_id": UUIDType(organization_id)
-        })
+        # Clear comment_id from task_metadata using SQLAlchemy JSONB operators
+        db.query(models.Task).filter(
+            models.Task.task_metadata['comment_id'].astext == str(comment_id),
+            models.Task.organization_id == organization_id
+        ).update(
+            {
+                models.Task.task_metadata: models.Task.task_metadata.op('-')('comment_id'),
+                models.Task.updated_at: func.now()
+            },
+            synchronize_session=False
+        )
 
         # Commit the task metadata updates before deleting the comment
         db.commit()
     except Exception as e:
         # Log the error but continue with comment deletion
         # This ensures the comment can still be deleted even if task cleanup fails
-        import logging
-        logging.error(f"Error clearing task references for comment {comment_id}: {e}")
+        logger.error(f"Error clearing task references for comment {comment_id}: {e}")
         db.rollback()
 
     # Now proceed with normal comment deletion

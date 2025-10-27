@@ -83,4 +83,5 @@ __all__ = [
 
 # Set up soft delete event listener
 from .soft_delete_events import setup_soft_delete_listener
+
 setup_soft_delete_listener()

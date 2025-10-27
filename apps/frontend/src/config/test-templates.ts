@@ -39,7 +39,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Compliance', 'Privacy'],
     topics: ['GDPR', 'Data Protection', 'User Rights'],
     category: ['Legal', 'Privacy'],
-    scenarios: ['Data Access Request', 'Right to be Forgotten'],
     popularity: 'high',
   },
   {
@@ -51,7 +50,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Fairness', 'Reliability'],
     topics: ['Bias', 'Fairness', 'Demographics'],
     category: ['Ethics', 'Quality'],
-    scenarios: ['Gender Bias', 'Racial Bias', 'Age Bias'],
     popularity: 'high',
   },
   {
@@ -63,7 +61,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Reliability', 'Performance'],
     topics: ['Speed', 'Quality', 'Consistency'],
     category: ['Performance', 'Quality'],
-    scenarios: ['High Load', 'Edge Cases', 'Error Handling'],
     popularity: 'high',
   },
   {
@@ -75,7 +72,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Reliability', 'Accuracy'],
     topics: ['Facts', 'Accuracy', 'Verification'],
     category: ['Quality', 'Reliability'],
-    scenarios: ['Fact Checking', 'Source Verification'],
     popularity: 'medium',
   },
   {
@@ -87,7 +83,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Safety', 'Compliance'],
     topics: ['Medical', 'Safety', 'HIPAA'],
     category: ['Healthcare', 'Safety'],
-    scenarios: ['Medical Advice', 'Patient Privacy'],
     popularity: 'medium',
   },
   {
@@ -99,7 +94,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Compliance', 'Security'],
     topics: ['Financial', 'Regulations', 'Security'],
     category: ['Finance', 'Legal'],
-    scenarios: ['KYC', 'AML', 'Transaction Security'],
     popularity: 'medium',
   },
   {
@@ -111,7 +105,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Security', 'Reliability'],
     topics: ['Security', 'Vulnerabilities', 'Attacks'],
     category: ['Security', 'Testing'],
-    scenarios: ['Prompt Injection', 'Data Leakage'],
     popularity: 'high',
   },
   {
@@ -123,7 +116,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Accessibility', 'Compliance'],
     topics: ['Accessibility', 'WCAG', 'Inclusivity'],
     category: ['Accessibility', 'Legal'],
-    scenarios: ['Screen Reader', 'Keyboard Navigation'],
     popularity: 'low',
   },
   {
@@ -135,7 +127,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Reliability', 'Quality'],
     topics: ['Languages', 'Translation', 'Localization'],
     category: ['Localization', 'Quality'],
-    scenarios: ['Translation Quality', 'Cultural Context'],
     popularity: 'medium',
   },
   {
@@ -147,7 +138,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Safety', 'Compliance'],
     topics: ['Content', 'Moderation', 'Safety'],
     category: ['Safety', 'Content'],
-    scenarios: ['Harmful Content', 'Policy Violations'],
     popularity: 'medium',
   },
   {
@@ -159,7 +149,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Compliance', 'Legal'],
     topics: ['Legal', 'Regulations', 'Policies'],
     category: ['Legal', 'Compliance'],
-    scenarios: ['Terms of Service', 'Copyright'],
     popularity: 'medium',
   },
   {
@@ -171,7 +160,6 @@ export const TEMPLATES: TestTemplate[] = [
     behaviors: ['Privacy', 'Security'],
     topics: ['Privacy', 'Data Protection', 'Encryption'],
     category: ['Privacy', 'Security'],
-    scenarios: ['Data Encryption', 'Access Controls'],
     popularity: 'high',
   },
 ];

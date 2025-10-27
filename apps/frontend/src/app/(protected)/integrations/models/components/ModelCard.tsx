@@ -6,25 +6,37 @@ import {
   Typography,
   IconButton,
   Chip,
+  Stack,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import EditIcon from '@mui/icons-material/Edit';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import { DeleteIcon, AddIcon } from '@/components/icons';
 import { Model } from '@/utils/api-client/interfaces/model';
+import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { PROVIDER_ICONS } from '@/config/model-providers';
 
 interface ConnectedModelCardProps {
   model: Model;
+  userSettings?: UserSettings | null;
   onEdit: (model: Model, e: React.MouseEvent) => void;
   onDelete: (model: Model, e: React.MouseEvent) => void;
 }
 
 export function ConnectedModelCard({
   model,
+  userSettings,
   onEdit,
   onDelete,
 }: ConnectedModelCardProps) {
+  // Check if this model is set as default for generation or evaluation
+  const isGenerationDefault =
+    userSettings?.models?.generation?.model_id === model.id;
+  const isEvaluationDefault =
+    userSettings?.models?.evaluation?.model_id === model.id;
+  const isAnyDefault = isGenerationDefault || isEvaluationDefault;
+
   return (
     <Card
       sx={{
@@ -55,6 +67,7 @@ export function ConnectedModelCard({
             zIndex: 1,
           }}
         >
+          {/* Allow editing settings for all models, but only show delete for non-protected */}
           <IconButton
             size="small"
             onClick={e => onEdit(model, e)}
@@ -69,20 +82,22 @@ export function ConnectedModelCard({
           >
             <EditIcon fontSize="inherit" />
           </IconButton>
-          <IconButton
-            size="small"
-            onClick={e => onDelete(model, e)}
-            sx={{
-              padding: '2px',
-              '& .MuiSvgIcon-root': {
-                fontSize: theme =>
-                  theme?.typography?.helperText?.fontSize || '0.75rem',
-                color: 'currentColor',
-              },
-            }}
-          >
-            <DeleteIcon fontSize="inherit" />
-          </IconButton>
+          {!model.is_protected && (
+            <IconButton
+              size="small"
+              onClick={e => onDelete(model, e)}
+              sx={{
+                padding: '2px',
+                '& .MuiSvgIcon-root': {
+                  fontSize: theme =>
+                    theme?.typography?.helperText?.fontSize || '0.75rem',
+                  color: 'currentColor',
+                },
+              }}
+            >
+              <DeleteIcon fontSize="inherit" />
+            </IconButton>
+          )}
         </Box>
 
         <Box>
@@ -121,6 +136,35 @@ export function ConnectedModelCard({
         </Box>
 
         <Box sx={{ mt: 2 }}>
+          {/* Default indicator */}
+          {isAnyDefault && (
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                mb: 0.5,
+                fontWeight: 500,
+                color: 'primary.main',
+              }}
+            >
+              <BookmarkBorderIcon
+                sx={{
+                  fontSize: theme => theme?.typography?.caption?.fontSize,
+                }}
+              />
+              <Box component="span">
+                Default:{' '}
+                {isGenerationDefault && isEvaluationDefault
+                  ? 'Generation & Evaluation'
+                  : isGenerationDefault
+                    ? 'Generation'
+                    : 'Evaluation'}
+              </Box>
+            </Typography>
+          )}
+
           {/* Model name */}
           <Typography
             variant="caption"
@@ -134,20 +178,20 @@ export function ConnectedModelCard({
             Model: {model.model_name}
           </Typography>
 
-          {/* Connected status */}
+          {/* Connected status or System badge */}
           <Chip
             icon={<CheckCircleIcon />}
-            label="Connected"
+            label={model.is_protected ? 'Rhesis Managed' : 'Connected'}
             size="small"
             variant="outlined"
             sx={{
               width: '100%',
+              color: 'text.secondary',
+              borderColor: model.is_protected ? 'info.main' : 'divider',
               '& .MuiChip-icon': {
-                color: 'primary.main',
+                color: model.is_protected ? 'info.main' : 'primary.main',
                 opacity: 0.7,
               },
-              borderColor: 'divider',
-              color: 'text.secondary',
             }}
           />
         </Box>

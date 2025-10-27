@@ -35,8 +35,20 @@ uv sync
 2. **Set environment variables:**
 
 ```bash
+# Model Configuration (uses SDK providers)
+export DEFAULT_GENERATION_MODEL="vertex_ai"  # Or "gemini", "openai", etc.
+export DEFAULT_MODEL_NAME="gemini-2.0-flash"  # Recommended - faster than 2.5
+
+# Vertex AI Configuration (if using vertex_ai provider)
+export GOOGLE_APPLICATION_CREDENTIALS="base64-encoded-json-or-file-path"
+export VERTEX_AI_LOCATION="europe-west4"  # Netherlands (best for Europe - has gemini-2.0-flash)
+export VERTEX_AI_PROJECT=""  # Optional: auto-extracted from credentials
+
+# Alternative: Gemini API (if using gemini provider)
 export GEMINI_API_KEY="your-gemini-api-key"
-export GEMINI_MODEL_NAME="gemini-2.0-flash-001"  # Optional, defaults to this
+export GEMINI_MODEL_NAME="gemini-2.0-flash-001"
+
+# Rate Limiting
 export CHATBOT_RATE_LIMIT="1000"  # Optional, defaults to 1000 requests/day for authenticated users
 export CHATBOT_API_KEY="your-secret-api-key"  # Optional, enables backend authentication
 ```
@@ -70,12 +82,23 @@ curl -X POST http://localhost:8080/chat \
 ### Docker Build
 
 ```bash
-# Build the image from repo root
+# Build the image from repo root (includes SDK dependency)
 cd /path/to/rhesis
 docker build -t rhesis-chatbot -f apps/chatbot/Dockerfile .
 
-# Run the container
+# Run the container with Vertex AI (recommended)
 docker run -p 8080:8080 \
+  -e DEFAULT_GENERATION_MODEL="vertex_ai" \
+  -e DEFAULT_MODEL_NAME="gemini-2.0-flash" \
+  -e GOOGLE_APPLICATION_CREDENTIALS="base64-encoded-credentials" \
+  -e VERTEX_AI_LOCATION="europe-west4" \
+  -e CHATBOT_RATE_LIMIT="1000" \
+  rhesis-chatbot
+
+# Or with Gemini API (alternative)
+docker run -p 8080:8080 \
+  -e DEFAULT_GENERATION_MODEL="gemini" \
+  -e DEFAULT_MODEL_NAME="gemini-2.0-flash-001" \
   -e GEMINI_API_KEY="your-api-key" \
   -e CHATBOT_RATE_LIMIT="1000" \
   rhesis-chatbot

@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 
 
-def get_test_results_for_test_run(db: Session, test_run_id: uuid.UUID, organization_id: str = None) -> List[Dict[str, Any]]:
+def get_test_results_for_test_run(
+    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+) -> List[Dict[str, Any]]:
     """
     Get all test results for a test run with related data for CSV export.
 
@@ -32,7 +34,9 @@ def get_test_results_for_test_run(db: Session, test_run_id: uuid.UUID, organizat
     limit = 100  # Use maximum allowed limit
 
     while True:
-        test_results_batch = crud.get_test_results(db, skip=skip, limit=limit, filter=filter_str, organization_id=organization_id)
+        test_results_batch = crud.get_test_results(
+            db, skip=skip, limit=limit, filter=filter_str, organization_id=organization_id
+        )
         if not test_results_batch:
             break
         all_test_results.extend(test_results_batch)
@@ -45,14 +49,18 @@ def get_test_results_for_test_run(db: Session, test_run_id: uuid.UUID, organizat
         raise ValueError("No test results found for this test run")
 
     # Get behaviors and metrics for this test run with organization filtering (SECURITY CRITICAL)
-    behaviors = crud.get_test_run_behaviors(db, test_run_id, organization_id=str(test_run.organization_id))
+    behaviors = crud.get_test_run_behaviors(
+        db, test_run_id, organization_id=str(test_run.organization_id)
+    )
 
     # Create a mapping of behavior_id to behavior with metrics
     behavior_map = {}
     for behavior in behaviors:
         # Get metrics for this behavior (use default limit to stay within bounds)
         # SECURITY: Pass organization_id from test_run to prevent cross-tenant access
-        metrics = crud.get_behavior_metrics(db, behavior.id, organization_id=str(test_run.organization_id))
+        metrics = crud.get_behavior_metrics(
+            db, behavior.id, organization_id=str(test_run.organization_id)
+        )
         behavior_map[behavior.id] = {"behavior": behavior, "metrics": metrics}
 
     # Process test results into CSV format
@@ -60,8 +68,16 @@ def get_test_results_for_test_run(db: Session, test_run_id: uuid.UUID, organizat
 
     for result in all_test_results:
         # Get related data with organization filtering
-        test = crud.get_test(db, result.test_id, organization_id=organization_id) if result.test_id else None
-        prompt = crud.get_prompt(db, result.prompt_id, organization_id=organization_id) if result.prompt_id else None
+        test = (
+            crud.get_test(db, result.test_id, organization_id=organization_id)
+            if result.test_id
+            else None
+        )
+        prompt = (
+            crud.get_prompt(db, result.prompt_id, organization_id=organization_id)
+            if result.prompt_id
+            else None
+        )
 
         # Base row data
         row = {

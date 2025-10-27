@@ -79,10 +79,10 @@ class TestCommentStandardRoutes(CommentTestMixin, BaseEntityRouteTests):
         data = response.json()
         # Comment delete now returns the deleted entity (consistent with other routes)
         assert data[self.id_field] == entity_id
-
-        # Verify entity is deleted by trying to get it
+        
+        # Verify entity is soft-deleted by trying to get it (should return 410 GONE)
         get_response = authenticated_client.get(self.endpoints.get(entity_id))
-        assert get_response.status_code == status.HTTP_404_NOT_FOUND
+        assert get_response.status_code == status.HTTP_410_GONE
 
     def test_entity_with_null_description(self, authenticated_client: TestClient):
         """🧩 Test entity with null description - skip for comments (no description field)"""

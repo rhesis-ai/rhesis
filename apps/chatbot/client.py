@@ -11,10 +11,18 @@ from slowapi.errors import RateLimitExceeded
 from endpoint import stream_assistant_response, generate_context
 from notifications import send_rate_limit_alert
 
-# Get rate limit from environment variable, default to 1000 requests/day
-RATE_LIMIT_PER_DAY = os.getenv("CHATBOT_RATE_LIMIT", "1000")
-RATE_LIMIT_AUTHENTICATED = f"{RATE_LIMIT_PER_DAY}/day"  # For authenticated users
-RATE_LIMIT_PUBLIC = "100/day"  # Stricter limit for unauthenticated/public access
+# Get rate limit from environment variable (total desired limit across all workers)
+# This will be automatically divided by the number of workers
+WORKERS = int(os.getenv("WORKERS", "4"))  # Number of Gunicorn workers
+TOTAL_RATE_LIMIT_AUTHENTICATED = int(os.getenv("CHATBOT_RATE_LIMIT", "1000"))
+TOTAL_RATE_LIMIT_PUBLIC = 100  # Public users get lower limit
+
+# Calculate per-worker limits (each worker tracks independently with in-memory storage)
+RATE_LIMIT_PER_WORKER_AUTHENTICATED = TOTAL_RATE_LIMIT_AUTHENTICATED // WORKERS
+RATE_LIMIT_PER_WORKER_PUBLIC = TOTAL_RATE_LIMIT_PUBLIC // WORKERS
+
+RATE_LIMIT_AUTHENTICATED = f"{RATE_LIMIT_PER_WORKER_AUTHENTICATED}/day"
+RATE_LIMIT_PUBLIC = f"{RATE_LIMIT_PER_WORKER_PUBLIC}/day"
 
 # API Key for backend authentication (optional)
 CHATBOT_API_KEY = os.getenv("CHATBOT_API_KEY")
@@ -45,18 +53,6 @@ def get_rate_limit_identifier(request: Request) -> str:
     
     # Unauthenticated - use IP address for stricter rate limiting
     return f"public:{get_remote_address(request)}"
-
-def get_rate_limit_for_request(request: Request) -> str:
-    """
-    Return appropriate rate limit based on authentication.
-    
-    - Authenticated: 1000/day per user
-    - Public: 100/day per IP
-    """
-    identifier = get_rate_limit_identifier(request)
-    if identifier.startswith("authenticated:"):
-        return RATE_LIMIT_AUTHENTICATED
-    return RATE_LIMIT_PUBLIC
 
 # Initialize rate limiter with custom key function
 limiter = Limiter(key_func=get_rate_limit_identifier)
@@ -110,8 +106,8 @@ async def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExc
         # Log but don't fail the response
         print(f"⚠️ Error sending rate limit alert: {e}")
     
-    # Return the standard rate limit exceeded response
-    return await _rate_limit_exceeded_handler(request, exc)
+    # Return the standard rate limit exceeded response (not awaited - it returns a Response object)
+    return _rate_limit_exceeded_handler(request, exc)
 
 # Add rate limiter to app state
 app.state.limiter = limiter
@@ -173,15 +169,14 @@ async def root(request: Request, auth: dict = Depends(verify_api_key)):
             "sessions": "/sessions/{session_id} (GET, DELETE)"
         },
         "rate_limits": {
-            "authenticated": f"{RATE_LIMIT_PER_DAY} requests/day per user",
-            "public": "100 requests/day per IP address",
-            "current_tier": auth["tier"],
-            "note": "Authenticate with Bearer token to get higher limits and per-user rate limiting"
+            "authenticated": f"{TOTAL_RATE_LIMIT_AUTHENTICATED} requests per day per user",
+            "public": f"{TOTAL_RATE_LIMIT_PUBLIC} requests per day per IP address",
+            "current_tier": auth["tier"]
         }
     }
 
 @app.post("/chat", response_model=ChatResponse)
-@limiter.limit(get_rate_limit_for_request)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 async def chat(
     request: Request, 
     chat_request: ChatRequest,
@@ -232,14 +227,14 @@ async def chat(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/sessions/{session_id}")
-@limiter.limit(get_rate_limit_for_request)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 async def get_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"messages": sessions[session_id]}
 
 @app.delete("/sessions/{session_id}")
-@limiter.limit(get_rate_limit_for_request)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 async def delete_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -247,7 +242,7 @@ async def delete_session(request: Request, session_id: str, auth: dict = Depends
     return {"message": "Session deleted"}
 
 @app.get("/use-cases")
-@limiter.limit(get_rate_limit_for_request)
+@limiter.limit(RATE_LIMIT_PUBLIC)
 async def list_use_cases(request: Request, auth: dict = Depends(verify_api_key)):
     """Get list of available use cases"""
     try:

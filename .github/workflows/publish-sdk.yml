@@ -1,6 +1,9 @@
 name: Publish SDK to PyPI
 
 on:
+  push:
+    tags:
+      - 'sdk-v*'  # Trigger on any tag that starts with 'sdk-v'
   workflow_dispatch:
   workflow_call:
 

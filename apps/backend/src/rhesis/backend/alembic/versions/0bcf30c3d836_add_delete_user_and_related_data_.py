@@ -1,11 +1,10 @@
-from alembic import op
-import sqlalchemy as sa
-from typing import Union, Sequence
+from typing import Sequence, Union
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '0bcf30c3d836'
-down_revision: Union[str, None] = 'bcf762626378'
+revision: str = "0bcf30c3d836"
+down_revision: Union[str, None] = "bcf762626378"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -13,20 +12,20 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """
     Create a PostgreSQL procedure to delete a user and their related data without deleting the organization.
-    
+
     This procedure removes:
     - The user record itself
     - User's tokens
     - User's personal test runs
-    
+
     But PRESERVES:
     - The organization structure
     - Organization-wide resources (projects, tests, etc.)
     - Resources created by the user (become "ghost" records)
-    
+
     This is useful when you need to remove a specific user but keep the organization intact.
     """
-    
+
     op.execute("""
         CREATE OR REPLACE PROCEDURE delete_user_and_related_data(target_email text)
         LANGUAGE 'plpgsql'
