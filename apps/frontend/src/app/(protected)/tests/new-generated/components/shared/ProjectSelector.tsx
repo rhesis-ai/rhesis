@@ -15,6 +15,50 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Project } from '@/utils/api-client/interfaces/project';
 import FolderIcon from '@mui/icons-material/Folder';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import ChatIcon from '@mui/icons-material/Chat';
+import WebIcon from '@mui/icons-material/Web';
+import DevicesIcon from '@mui/icons-material/Devices';
+import CodeIcon from '@mui/icons-material/Code';
+import TerminalIcon from '@mui/icons-material/Terminal';
+import StorageIcon from '@mui/icons-material/Storage';
+import DataObjectIcon from '@mui/icons-material/DataObject';
+import CloudIcon from '@mui/icons-material/Cloud';
+import AnalyticsIcon from '@mui/icons-material/Analytics';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import VideogameAssetIcon from '@mui/icons-material/VideogameAsset';
+import SearchIcon from '@mui/icons-material/Search';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
+import SchoolIcon from '@mui/icons-material/School';
+import ScienceIcon from '@mui/icons-material/Science';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+
+// Map of icon names to components
+const ICON_MAP: Record<string, React.ComponentType> = {
+  SmartToy: SmartToyIcon,
+  Psychology: PsychologyIcon,
+  Chat: ChatIcon,
+  Web: WebIcon,
+  Devices: DevicesIcon,
+  Code: CodeIcon,
+  Terminal: TerminalIcon,
+  Storage: StorageIcon,
+  DataObject: DataObjectIcon,
+  Cloud: CloudIcon,
+  Analytics: AnalyticsIcon,
+  Dashboard: DashboardIcon,
+  ShoppingCart: ShoppingCartIcon,
+  VideogameAsset: VideogameAssetIcon,
+  Search: SearchIcon,
+  AutoFixHigh: AutoFixHighIcon,
+  PhoneIphone: PhoneIphoneIcon,
+  School: SchoolIcon,
+  Science: ScienceIcon,
+  AccountTree: AccountTreeIcon,
+};
 
 interface ProjectSelectorProps {
   selectedProjectId: string | null;
@@ -126,13 +170,13 @@ export default function ProjectSelector({
               return <em>None</em>;
             }
             const project = getProjectById(selected);
+            const IconComponent =
+              project?.icon && ICON_MAP[project.icon]
+                ? ICON_MAP[project.icon]
+                : FolderIcon;
             return (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {project?.icon ? (
-                  <Typography variant="body2">{project.icon}</Typography>
-                ) : (
-                  <FolderIcon fontSize="small" color="action" />
-                )}
+                <IconComponent fontSize="small" color="action" />
                 <Typography variant="body2">{project?.name}</Typography>
               </Box>
             );
@@ -141,27 +185,29 @@ export default function ProjectSelector({
           <MenuItem value="">
             <em>None</em>
           </MenuItem>
-          {projects.map(project => (
-            <MenuItem key={project.id} value={project.id}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {project.icon ? (
-                  <Typography variant="body2">{project.icon}</Typography>
-                ) : (
-                  <FolderIcon fontSize="small" color="action" />
-                )}
-                <Box>
-                  <Typography variant="body2">{project.name}</Typography>
-                  {project.description && (
-                    <Typography variant="caption" color="text.secondary">
-                      {project.description.length > 80
-                        ? `${project.description.substring(0, 80)}...`
-                        : project.description}
-                    </Typography>
-                  )}
+          {projects.map(project => {
+            const IconComponent =
+              project.icon && ICON_MAP[project.icon]
+                ? ICON_MAP[project.icon]
+                : FolderIcon;
+            return (
+              <MenuItem key={project.id} value={project.id}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <IconComponent fontSize="small" color="action" />
+                  <Box>
+                    <Typography variant="body2">{project.name}</Typography>
+                    {project.description && (
+                      <Typography variant="caption" color="text.secondary">
+                        {project.description.length > 80
+                          ? `${project.description.substring(0, 80)}...`
+                          : project.description}
+                      </Typography>
+                    )}
+                  </Box>
                 </Box>
-              </Box>
-            </MenuItem>
-          ))}
+              </MenuItem>
+            );
+          })}
         </Select>
       </FormControl>
     </Box>
