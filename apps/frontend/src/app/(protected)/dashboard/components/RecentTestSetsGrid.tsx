@@ -76,27 +76,10 @@ export default function RecentTestSetsGrid({
     {
       field: 'description',
       headerName: 'Description',
-      width: 220,
+      flex: 1,
+      minWidth: 220,
       valueGetter: (_, row) =>
         row.short_description || row.description || 'No description',
-    },
-    {
-      field: 'visibility',
-      headerName: 'Visibility',
-      width: 100,
-      valueGetter: (_, row) => {
-        if (row.visibility) {
-          return (
-            row.visibility.charAt(0).toUpperCase() + row.visibility.slice(1)
-          );
-        }
-        return row.is_published ? 'Public' : 'Private';
-      },
-      renderCell: params => (
-        <Box sx={{ width: '100%', display: 'flex', alignItems: 'center' }}>
-          <Typography variant="body2">{params.value}</Typography>
-        </Box>
-      ),
     },
   ];
 
