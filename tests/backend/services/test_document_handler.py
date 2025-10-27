@@ -262,20 +262,19 @@ class TestDocumentHandlerMetadataExtraction(
             expected_metadata = {
                 "file_size": len(content),
                 "file_hash": "abc123hash",
-                "uploaded_at": metadata["uploaded_at"],  # Will be set to current time
                 "original_filename": filename,
                 "file_type": "text/plain",
+                "file_path": "test/path/file.txt",
             }
 
-            # Check all fields except uploaded_at (which is dynamic)
+            # Check all fields
             assert metadata["file_size"] == expected_metadata["file_size"]
             assert metadata["file_hash"] == expected_metadata["file_hash"]
             assert (
                 metadata["original_filename"] == expected_metadata["original_filename"]
             )
             assert metadata["file_type"] == expected_metadata["file_type"]
-            # uploaded_at is a string representation of datetime
-            assert "uploaded_at" in metadata
+            assert metadata["file_path"] == expected_metadata["file_path"]
 
             mock_hash.assert_called_once_with(content)
             mock_mime.assert_called_once_with(filename)
@@ -388,8 +387,6 @@ class TestDocumentHandlerIntegration(
                 assert metadata["file_size"] == len(content)
                 assert metadata["original_filename"] == filename
                 assert metadata["file_type"] == "text/plain"
-                # uploaded_at is a string representation of datetime
-                assert "uploaded_at" in metadata
                 assert len(metadata["file_hash"]) == 64
 
                 # Test retrieve document

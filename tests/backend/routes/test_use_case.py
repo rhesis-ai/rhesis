@@ -334,11 +334,11 @@ class TestUseCaseRoutes(UseCaseTestMixin, BaseEntityRouteTests):
         deleted_use_case = response.json()
         assert deleted_use_case["id"] == use_case_id
         
-        # Verify use case is deleted
+        # Verify use case is deleted (soft delete returns 410 GONE)
         get_response = authenticated_client.get(
             self.endpoints.format_path(self.endpoints.get_by_id, use_case_id=use_case_id),
         )
-        assert get_response.status_code == status.HTTP_404_NOT_FOUND
+        assert get_response.status_code == status.HTTP_410_GONE
     
     def test_list_use_cases_with_pagination(self, authenticated_client):
         """Test listing use cases with pagination"""
