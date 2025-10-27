@@ -66,6 +66,9 @@ export default function TestGenerationFlow({
   // Data State
   const [description, setDescription] = useState('');
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null
+  );
   const [documents, setDocuments] = useState<ProcessedDocument[]>([]);
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(
     null
@@ -214,9 +217,10 @@ export default function TestGenerationFlow({
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
-    async (desc: string, sourceIds: string[]) => {
+    async (desc: string, sourceIds: string[], projectId: string | null) => {
       setDescription(desc);
       setSelectedSourceIds(sourceIds);
+      setSelectedProjectId(projectId);
 
       // Generate test configuration and samples before navigating
       setIsGenerating(true);
@@ -245,6 +249,20 @@ export default function TestGenerationFlow({
           }
         }
         setDocuments(fetchedDocuments);
+
+        // Fetch project if selected
+        if (projectId) {
+          try {
+            const projectsClient = apiFactory.getProjectsClient();
+            const fetchedProject = await projectsClient.getProject(projectId);
+            setProject(fetchedProject);
+          } catch (error) {
+            console.error(`Failed to fetch project ${projectId}:`, error);
+            show(`Failed to load project`, { severity: 'warning' });
+          }
+        } else {
+          setProject(null);
+        }
 
         // Step 1: Generate test configuration based on description
         const configResponse = await servicesClient.generateTestConfig({
@@ -1052,6 +1070,10 @@ export default function TestGenerationFlow({
   }, []);
 
   // Navigation handlers
+  const handleBackToTests = useCallback(() => {
+    router.push('/tests');
+  }, [router]);
+
   const handleBackToInput = useCallback(() => {
     // If user came from template selection, go back to landing screen
     if (mode === 'template') {
@@ -1098,7 +1120,10 @@ export default function TestGenerationFlow({
             initialDescription={description}
             selectedSourceIds={selectedSourceIds}
             onSourcesChange={setSelectedSourceIds}
+            selectedProjectId={selectedProjectId}
+            onProjectChange={setSelectedProjectId}
             isLoading={isGenerating}
+            onBack={handleBackToTests}
           />
         );
 

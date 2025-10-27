@@ -142,7 +142,7 @@ export default function TestSampleCard({
                 elevation={0}
                 sx={{
                   maxWidth: '80%',
-                  bgcolor: 'primary.light',
+                  bgcolor: 'background.light2',
                   borderRadius: theme => theme.shape.borderRadius,
                   borderBottomLeftRadius: 0.5,
                   px: 1.5,
