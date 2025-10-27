@@ -7,7 +7,7 @@ from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     PromptMetricConfig,
-    RhesisPromptMetricBase,
+    JudgeBase,
 )
 from rhesis.sdk.models import BaseLLM
 
@@ -91,7 +91,7 @@ class NumericScoreResponse(BaseModel):
     reason: str = Field(description="Explanation for the score", default="")
 
 
-class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
+class NumericJudge(JudgeBase):
     """
     A numeric metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
@@ -309,7 +309,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         return result
 
     @classmethod
-    def from_dict(cls, config: Dict[str, Any]) -> "RhesisPromptMetricNumeric":
+    def from_dict(cls, config: Dict[str, Any]) -> "NumericJudge":
         """Create a metric from a dictionary."""
         # Get all field names from the dataclass
         valid_fields = {field.name for field in fields(PromptMetricNumericConfig)}

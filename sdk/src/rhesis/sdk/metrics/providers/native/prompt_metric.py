@@ -29,7 +29,7 @@ class PromptMetricConfig(MetricConfig):
         return super().__post_init__()
 
 
-class RhesisPromptMetricBase(BaseMetric):
+class JudgeBase(BaseMetric):
     """
     A generic metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
@@ -253,7 +253,7 @@ class RhesisPromptMetricBase(BaseMetric):
     @classmethod
     def pull(
         cls, name: Optional[str] = None, nano_id: Optional[str] = None
-    ) -> "RhesisPromptMetricBase":
+    ) -> "JudgeBase":
         """
         Pull the metric from the backend.
         # Either 'name' or 'nano_id' must be provided to pull a metric from the backend.

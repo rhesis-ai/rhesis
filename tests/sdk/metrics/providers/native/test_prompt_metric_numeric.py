@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+
 from rhesis.sdk.metrics.base import (
     MetricResult,
     MetricType,
@@ -8,8 +9,8 @@ from rhesis.sdk.metrics.base import (
     ThresholdOperator,
 )
 from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import (
+    NumericJudge,
     PromptMetricNumericConfig,
-    RhesisPromptMetricNumeric,
 )
 
 
@@ -17,7 +18,7 @@ from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import (
 def metric(monkeypatch):
     monkeypatch.setenv("RHESIS_API_KEY", "test_api_key")
     monkeypatch.setenv("GEMINI_API_KEY", "test_api_key")
-    return RhesisPromptMetricNumeric(
+    return NumericJudge(
         name="test_metric",
         description="test_description",
         evaluation_prompt="test_prompt",
@@ -31,7 +32,7 @@ def metric(monkeypatch):
     )
 
 
-def test_prompt_metric_numeric_base__init__(metric):
+def test_numeric_judge__init__(metric):
     assert metric.evaluation_prompt == "test_prompt"
     assert metric.evaluation_steps == "test_steps"
     assert metric.reasoning == "test_reasoning"
@@ -120,19 +121,13 @@ def test_evaluate_successful_evaluation(metric):
         assert isinstance(result, MetricResult)
         assert result.score == 7.5
         assert result.details["score"] == 7.5
-        assert (
-            result.details["reason"]
-            == "The output demonstrates good understanding and accuracy"
-        )
+        assert result.details["reason"] == "The output demonstrates good understanding and accuracy"
         assert result.details["is_successful"] is True
         assert result.details["score_type"] == "numeric"
         assert result.details["min_score"] == 0.0
         assert result.details["max_score"] == 10.0
         assert result.details["threshold"] == 5.0
-        assert (
-            result.details["threshold_operator"]
-            == ThresholdOperator.GREATER_THAN_OR_EQUAL.value
-        )
+        assert result.details["threshold_operator"] == ThresholdOperator.GREATER_THAN_OR_EQUAL.value
         assert "prompt" in result.details
 
         # Verify model was called with correct parameters
@@ -169,10 +164,7 @@ def test_evaluate_error_handling(metric):
         assert result.details["min_score"] == 0.0
         assert result.details["max_score"] == 10.0
         assert result.details["threshold"] == 5.0
-        assert (
-            result.details["threshold_operator"]
-            == ThresholdOperator.GREATER_THAN_OR_EQUAL.value
-        )
+        assert result.details["threshold_operator"] == ThresholdOperator.GREATER_THAN_OR_EQUAL.value
         assert "error" in result.details
         assert "exception_type" in result.details
         assert "exception_details" in result.details
@@ -181,6 +173,6 @@ def test_evaluate_error_handling(metric):
 
 def test_from_config_to_config(metric):
     config1 = metric.to_config()
-    metric2 = RhesisPromptMetricNumeric.from_config(config1)
+    metric2 = NumericJudge.from_config(config1)
     config2 = metric2.to_config()
     assert config1 == config2
