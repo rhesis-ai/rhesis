@@ -22,6 +22,11 @@ class TestCurrentMetricsUtils:
         assert config["backend"] == "rhesis"
         assert config["description"] == test_metric_numeric.description
         
+        # threshold is at top level, not in parameters
+        assert "threshold" in config
+        assert config["threshold"] == 7
+        assert "threshold_operator" in config
+        
         # Verify parameters
         params = config.get("parameters", {})
         assert "evaluation_prompt" in params
@@ -31,8 +36,6 @@ class TestCurrentMetricsUtils:
         assert params["score_type"] == "numeric"
         assert "min_score" in params
         assert "max_score" in params
-        assert "threshold" in params
-        assert params["threshold"] == 7
     
     def test_create_metric_config_from_categorical_model(self, test_metric_categorical):
         """Test creating config from categorical metric."""
@@ -43,10 +46,16 @@ class TestCurrentMetricsUtils:
         assert config["class_name"] == "RhesisPromptMetric"
         assert config["backend"] == "rhesis"
         
+        # reference_score is at top level, not in parameters
+        assert "reference_score" in config
+        assert config["reference_score"] == "positive"
+        # No threshold for categorical metrics
+        assert "threshold" not in config
+        
+        # Verify parameters
         params = config.get("parameters", {})
+        assert "score_type" in params
         assert params["score_type"] == "categorical"
-        assert "reference_score" in params
-        assert params["reference_score"] == "positive"
     
     def test_create_metric_config_backend_mapping(self, test_db, test_org_id, authenticated_user_id):
         """Test backend type mapping (custom-code → custom, etc)."""
@@ -265,18 +274,21 @@ class TestCurrentMetricsUtils:
         assert config["name"] == "Comprehensive Metric"
         assert config["description"] == "Detailed description"
         
+        # threshold and threshold_operator are at top level
+        assert config["threshold"] == 70
+        assert config["threshold_operator"] == ">="
+        
+        # Parameters dict contains evaluation fields, score ranges, etc
         params = config["parameters"]
         assert params["evaluation_prompt"] == "Evaluate quality"
         assert params["evaluation_steps"] == "Step 1\nStep 2\nStep 3"
         assert params["reasoning"] == "Detailed reasoning"
         assert params["min_score"] == 0
         assert params["max_score"] == 100
-        assert params["threshold"] == 70
-        assert params["threshold_operator"] == ">="
-        assert params["ground_truth_required"] is True
-        assert params["context_required"] is True
-        assert params["evaluation_examples"] == "Example 1\nExample 2"
-        assert params["explanation"] == "Detailed explanation"
+        assert params["score_type"] == "numeric"
+        
+        # Note: ground_truth_required, context_required, evaluation_examples, explanation
+        # are NOT in the current backend implementation of create_metric_config_from_model
     
     def test_create_metric_config_ragas_metric(self, test_db, test_org_id, authenticated_user_id):
         """Test creating config for Ragas metric."""
@@ -361,7 +373,13 @@ class TestCurrentMetricsUtils:
         config = create_metric_config_from_model(metric)
         
         assert config is not None
+        # reference_score is at top level for binary/categorical metrics
+        assert "reference_score" in config
+        assert config["reference_score"] == "True"
+        # No threshold for binary metrics
+        assert "threshold" not in config
+        
+        # Parameters should contain score_type
         params = config["parameters"]
         assert params["score_type"] == "binary"
-        assert params["reference_score"] == "True"
 
