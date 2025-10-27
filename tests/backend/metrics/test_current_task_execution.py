@@ -125,9 +125,9 @@ class TestCurrentTaskExecution:
         
         metrics = get_test_metrics(test)
         
-        # Should return default metrics when no behavior
+        # Should return empty list when no behavior (no defaults in SDK)
         assert isinstance(metrics, list)
-        assert len(metrics) > 0  # Should have default metrics
+        assert len(metrics) == 0  # No default metrics anymore
     
     def test_get_test_metrics_behavior_without_metrics(self, test_db, test_org_id, authenticated_user_id, test_prompt):
         """Test get_test_metrics when behavior has no metrics."""
@@ -155,17 +155,22 @@ class TestCurrentTaskExecution:
         
         metrics = get_test_metrics(test)
         
-        # Should return default metrics
+        # Should return empty list (no defaults in SDK)
         assert isinstance(metrics, list)
-        assert len(metrics) > 0
+        assert len(metrics) == 0  # No default metrics anymore
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluate_prompt_response(self, mock_evaluate):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluate_prompt_response(self, mock_create_metric):
         """Test evaluate_prompt_response() orchestration."""
-        mock_evaluate.return_value = MetricResult(
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = False
+        mock_metric.requires_context = False
+        mock_metric.name = "Test Metric"
+        mock_metric.evaluate.return_value = MetricResult(
             score=8.0,
             details={"reason": "Good quality"}
         )
+        mock_create_metric.return_value = mock_metric
         
         evaluator = Evaluator()
         result = evaluate_prompt_response(
@@ -193,13 +198,18 @@ class TestCurrentTaskExecution:
         assert isinstance(result, dict)
         assert len(result) > 0
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluate_prompt_response_with_context(self, mock_evaluate):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluate_prompt_response_with_context(self, mock_create_metric):
         """Test evaluate_prompt_response with context."""
-        mock_evaluate.return_value = MetricResult(
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = False
+        mock_metric.requires_context = False
+        mock_metric.name = "Context Metric"
+        mock_metric.evaluate.return_value = MetricResult(
             score=9.0,
             details={"reason": "High quality with context"}
         )
+        mock_create_metric.return_value = mock_metric
         
         evaluator = Evaluator()
         context = ["Context item 1", "Context item 2"]
@@ -224,8 +234,8 @@ class TestCurrentTaskExecution:
         
         assert isinstance(result, dict)
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluate_prompt_response_empty_metrics(self, mock_evaluate):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluate_prompt_response_empty_metrics(self, mock_create_metric):
         """Test evaluate_prompt_response with empty metrics list."""
         evaluator = Evaluator()
         
@@ -241,22 +251,30 @@ class TestCurrentTaskExecution:
         # Should return result even with no metrics
         assert isinstance(result, dict)
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluate_prompt_response_multiple_metrics(self, mock_evaluate):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluate_prompt_response_multiple_metrics(self, mock_create_metric):
         """Test evaluate_prompt_response with multiple metrics."""
-        mock_evaluate.side_effect = [
-            MetricResult(
-                score=8.0,
-                details={"reason": "Good"}
-            ),
-            MetricResult(
-                score="positive",
-                details={"reason": "Positive sentiment"}
-            )
-        ]
+        mock_metric1 = MagicMock()
+        mock_metric1.requires_ground_truth = False
+        mock_metric1.requires_context = False
+        mock_metric1.name = "Metric 1"
+        mock_metric1.evaluate.return_value = MetricResult(
+            score=8.0,
+            details={"reason": "Good"}
+        )
         
-        # Use legacy backend factory for this test
-        evaluator = Evaluator(use_sdk_metrics=False)
+        mock_metric2 = MagicMock()
+        mock_metric2.requires_ground_truth = False
+        mock_metric2.requires_context = False
+        mock_metric2.name = "Metric 2"
+        mock_metric2.evaluate.return_value = MetricResult(
+            score="positive",
+            details={"reason": "Positive sentiment"}
+        )
+        
+        mock_create_metric.side_effect = [mock_metric1, mock_metric2]
+        
+        evaluator = Evaluator()
         metrics = [
             {
                 "name": "Metric 1",

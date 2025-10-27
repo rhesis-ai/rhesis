@@ -58,26 +58,13 @@ def categorical_metric_config():
 
 
 class TestMetricEvaluatorSdkIntegration:
-    """Test MetricEvaluator with SDK adapter enabled."""
-
-    def test_evaluator_accepts_use_sdk_metrics_flag(self):
-        """Test that evaluator accepts use_sdk_metrics parameter."""
-        evaluator_sdk = MetricEvaluator(use_sdk_metrics=True)
-        evaluator_backend = MetricEvaluator(use_sdk_metrics=False)
-
-        assert evaluator_sdk.use_sdk_metrics is True
-        assert evaluator_backend.use_sdk_metrics is False
-
-    def test_evaluator_defaults_to_sdk_metrics(self):
-        """Test that evaluator defaults to using SDK metrics."""
-        evaluator = MetricEvaluator()
-        assert evaluator.use_sdk_metrics is True
+    """Test MetricEvaluator with SDK adapter."""
 
     @patch("rhesis.backend.metrics.adapters.create_metric_from_config")
-    def test_evaluator_uses_adapter_when_sdk_enabled(
+    def test_evaluator_uses_adapter(
         self, mock_create_metric, numeric_metric_config
     ):
-        """Test that evaluator calls adapter when use_sdk_metrics=True."""
+        """Test that evaluator calls adapter to create metrics."""
         # Setup mock
         mock_metric = Mock()
         mock_metric.requires_ground_truth = False
@@ -85,8 +72,8 @@ class TestMetricEvaluatorSdkIntegration:
         mock_metric.evaluate.return_value = Mock(score=4.0, passed=True)
         mock_create_metric.return_value = mock_metric
 
-        # Create evaluator with SDK enabled
-        evaluator = MetricEvaluator(use_sdk_metrics=True)
+        # Create evaluator
+        evaluator = MetricEvaluator()
 
         # Evaluate
         result = evaluator.evaluate(
@@ -100,41 +87,6 @@ class TestMetricEvaluatorSdkIntegration:
 
         # Verify adapter was called
         mock_create_metric.assert_called_once()
-        assert result is not None
-
-    @patch("rhesis.backend.metrics.factory.MetricFactory")
-    def test_evaluator_uses_backend_factory_when_sdk_disabled(
-        self, mock_factory_class, numeric_metric_config
-    ):
-        """Test that evaluator uses backend factory when use_sdk_metrics=False."""
-        # Setup mock
-        mock_metric = Mock()
-        mock_metric.requires_ground_truth = False
-        mock_metric.requires_context = False
-        mock_metric.evaluate.return_value = Mock(score=4.0, passed=True)
-
-        mock_backend_factory = Mock()
-        mock_backend_factory.create.return_value = mock_metric
-
-        mock_factory = Mock()
-        mock_factory.get_factory.return_value = mock_backend_factory
-        mock_factory_class.return_value = mock_factory
-
-        # Create evaluator with SDK disabled
-        evaluator = MetricEvaluator(use_sdk_metrics=False)
-
-        # Evaluate
-        result = evaluator.evaluate(
-            input_text="What is 2+2?",
-            output_text="4",
-            expected_output="4",
-            context=["Math question"],
-            metrics=[numeric_metric_config],
-            max_workers=1,
-        )
-
-        # Verify backend factory was used
-        mock_factory.get_factory.assert_called()
         assert result is not None
 
     @patch("rhesis.backend.metrics.adapters.create_metric_from_config")
@@ -155,7 +107,7 @@ class TestMetricEvaluatorSdkIntegration:
         mock_create_metric.return_value = mock_metric
 
         # Evaluate
-        evaluator = MetricEvaluator(use_sdk_metrics=True)
+        evaluator = MetricEvaluator()
         result = evaluator.evaluate(
             input_text="What is 2+2?",
             output_text="4",
@@ -188,7 +140,7 @@ class TestMetricEvaluatorSdkIntegration:
         mock_create_metric.return_value = mock_metric
 
         # Evaluate
-        evaluator = MetricEvaluator(use_sdk_metrics=True)
+        evaluator = MetricEvaluator()
         result = evaluator.evaluate(
             input_text="Write a good answer",
             output_text="Here's an excellent answer",
@@ -211,7 +163,7 @@ class TestMetricEvaluatorSdkIntegration:
         mock_create_metric.return_value = None
 
         # Evaluate should not crash
-        evaluator = MetricEvaluator(use_sdk_metrics=True)
+        evaluator = MetricEvaluator()
         result = evaluator.evaluate(
             input_text="Test",
             output_text="Test",
@@ -249,7 +201,7 @@ class TestMetricEvaluatorSdkIntegration:
         mock_create_metric.side_effect = [mock_metric1, mock_metric2]
 
         # Evaluate multiple metrics
-        evaluator = MetricEvaluator(use_sdk_metrics=True)
+        evaluator = MetricEvaluator()
         result = evaluator.evaluate(
             input_text="Test",
             output_text="Test response",
@@ -265,42 +217,6 @@ class TestMetricEvaluatorSdkIntegration:
         # Results should contain both metrics keyed by name
         assert "Accuracy" in result
         assert "Quality" in result
-
-
-class TestBackwardCompatibility:
-    """Test that legacy backend factory still works."""
-
-    @patch("rhesis.backend.metrics.factory.MetricFactory")
-    def test_legacy_path_still_works(self, mock_factory_class, numeric_metric_config):
-        """Test that disabling SDK metrics uses the legacy backend path."""
-        # Setup mock
-        mock_metric = Mock()
-        mock_metric.requires_ground_truth = False
-        mock_metric.requires_context = False
-        mock_metric.evaluate.return_value = Mock(score=4.0, passed=True)
-
-        mock_backend_factory = Mock()
-        mock_backend_factory.create.return_value = mock_metric
-
-        mock_factory = Mock()
-        mock_factory.get_factory.return_value = mock_backend_factory
-        mock_factory_class.return_value = mock_factory
-
-        # Use evaluator with SDK disabled
-        evaluator = MetricEvaluator(use_sdk_metrics=False)
-        result = evaluator.evaluate(
-            input_text="Test",
-            output_text="Test",
-            expected_output=None,
-            context=[],
-            metrics=[numeric_metric_config],
-            max_workers=1,
-        )
-
-        # Verify legacy factory was used
-        mock_factory.get_factory.assert_called_once_with("rhesis")
-        mock_backend_factory.create.assert_called_once()
-        assert result is not None
 
 
 class TestFutureSDKNaming:
@@ -324,7 +240,7 @@ class TestFutureSDKNaming:
         mock_create_metric.return_value = mock_metric
 
         # Evaluate - evaluator doesn't know about class names
-        evaluator = MetricEvaluator(use_sdk_metrics=True)
+        evaluator = MetricEvaluator()
         result = evaluator.evaluate(
             input_text="Test",
             output_text="Test",
