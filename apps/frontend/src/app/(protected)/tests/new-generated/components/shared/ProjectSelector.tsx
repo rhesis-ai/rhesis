@@ -140,8 +140,8 @@ export default function ProjectSelector({
                   <Typography variant="body2">{project.name}</Typography>
                   {project.description && (
                     <Typography variant="caption" color="text.secondary">
-                      {project.description.length > 20
-                        ? `${project.description.substring(0, 20)}...`
+                      {project.description.length > 80
+                        ? `${project.description.substring(0, 80)}...`
                         : project.description}
                     </Typography>
                   )}
@@ -151,16 +151,6 @@ export default function ProjectSelector({
           ))}
         </Select>
       </FormControl>
-
-      {selectedProject && (
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ mt: 1, display: 'block' }}
-        >
-          Selected: {selectedProject.name}
-        </Typography>
-      )}
     </Box>
   );
 }
