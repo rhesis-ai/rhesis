@@ -2,8 +2,10 @@ from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
 from rhesis.sdk.metrics.providers.ragas.metrics import (
-    RagasAnswerRelevancy,
-    RagasContextualPrecision,
+    RagasAnswerAccuracy,
+    RagasAspectCritic,
+    RagasContextRelevance,
+    RagasFaithfulness,
 )
 
 
@@ -11,14 +13,18 @@ class RagasMetricFactory(BaseMetricFactory):
     """Factory for creating Ragas metric instances."""
 
     _metrics = {
-        "RagasAnswerRelevancy": RagasAnswerRelevancy,
-        "RagasContextualPrecision": RagasContextualPrecision,
+        "RagasAnswerAccuracy": RagasAnswerAccuracy,
+        "RagasContextRelevance": RagasContextRelevance,
+        "RagasFaithfulness": RagasFaithfulness,
+        "RagasAspectCritic": RagasAspectCritic,
     }
 
     # Define which parameters each metric class accepts
     _supported_params = {
-        "RagasAnswerRelevancy": {"threshold"},
-        "RagasContextualPrecision": {"threshold"},
+        "RagasAnswerAccuracy": {"threshold"},
+        "RagasContextRelevance": {"threshold"},
+        "RagasFaithfulness": {"threshold"},
+        "RagasAspectCritic": {"threshold"},
     }
 
     def create(self, class_name: str, **kwargs) -> BaseMetric:

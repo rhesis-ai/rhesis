@@ -8,6 +8,7 @@ from rhesis.sdk.metrics.base import (
     ThresholdOperator,
 )
 from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import (
+    PromptMetricNumericConfig,
     RhesisPromptMetricNumeric,
 )
 
@@ -15,6 +16,7 @@ from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import (
 @pytest.fixture
 def metric(monkeypatch):
     monkeypatch.setenv("RHESIS_API_KEY", "test_api_key")
+    monkeypatch.setenv("GEMINI_API_KEY", "test_api_key")
     return RhesisPromptMetricNumeric(
         name="test_metric",
         description="test_description",
@@ -22,6 +24,10 @@ def metric(monkeypatch):
         evaluation_steps="test_steps",
         reasoning="test_reasoning",
         evaluation_examples="test_examples",
+        metric_type="rag",
+        min_score=1,
+        max_score=10,
+        threshold=5,
     )
 
 
@@ -36,33 +42,33 @@ def test_prompt_metric_numeric_base__init__(metric):
     assert metric.score_type == ScoreType.NUMERIC
 
 
-def test_validate_score_range(metric):
-    metric._validate_score_range(1, 10)
+def test_validate_score_range():
+    PromptMetricNumericConfig(min_score=1, max_score=10)
 
     with pytest.raises(ValueError):
-        metric._validate_score_range(1, None)
+        PromptMetricNumericConfig(min_score=1, max_score=None)
     with pytest.raises(ValueError):
-        metric._validate_score_range(None, 1)
+        PromptMetricNumericConfig(min_score=None, max_score=1)
     with pytest.raises(ValueError):
-        metric._validate_score_range(1, 1)
-
-    with pytest.raises(ValueError):
-        metric._validate_score_range(10, 1)
-
-
-def test_set_score_parameters(metric):
-    metric._set_score_parameters(1, 10, 5)
-    assert metric.min_score == 1
-    assert metric.max_score == 10
-    assert metric.threshold == 5
-
-    metric._set_score_parameters(1, 10, None)
-    assert metric.min_score == 1
-    assert metric.max_score == 10
-    assert metric.threshold == 5.5
+        PromptMetricNumericConfig(min_score=1, max_score=1)
 
     with pytest.raises(ValueError):
-        metric._set_score_parameters(1, 10, 11)
+        PromptMetricNumericConfig(min_score=10, max_score=1)
+
+
+def test_set_score_parameters():
+    config = PromptMetricNumericConfig(min_score=1, max_score=10, threshold=5)
+    assert config.min_score == 1
+    assert config.max_score == 10
+    assert config.threshold == 5
+
+    config = PromptMetricNumericConfig(min_score=1, max_score=10, threshold=None)
+    assert config.min_score == 1
+    assert config.max_score == 10
+    assert config.threshold == 5.5
+
+    with pytest.raises(ValueError):
+        PromptMetricNumericConfig(min_score=1, max_score=10, threshold=11)
 
 
 def test_evaluate_score(metric):
@@ -80,17 +86,12 @@ def test_evaluate_score(metric):
 
 
 def test_to_config(metric):
-    metric.min_score = 1
-    metric.max_score = 10
-    metric.threshold = 5
     metric.threshold_operator = ThresholdOperator.GREATER_THAN_OR_EQUAL
     config = metric.to_config()
-    assert config.parameters == {
-        "min_score": 1,
-        "max_score": 10,
-        "threshold": 5,
-        "threshold_operator": ThresholdOperator.GREATER_THAN_OR_EQUAL,
-    }
+    assert config.min_score == 1
+    assert config.max_score == 10
+    assert config.threshold == 5
+    assert config.threshold_operator == ThresholdOperator.GREATER_THAN_OR_EQUAL
 
 
 def test_evaluate_successful_evaluation(metric):
@@ -176,3 +177,10 @@ def test_evaluate_error_handling(metric):
         assert "exception_type" in result.details
         assert "exception_details" in result.details
         assert "prompt" in result.details
+
+
+def test_from_config_to_config(metric):
+    config1 = metric.to_config()
+    metric2 = RhesisPromptMetricNumeric.from_config(config1)
+    config2 = metric2.to_config()
+    assert config1 == config2

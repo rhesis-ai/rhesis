@@ -58,40 +58,68 @@ class MockUser:
         self.organization_id = organization_id
 
 
-def load_metric_from_db(db: Session, metric_id: str) -> Optional[Metric]:
-    """Load a metric from the database by ID."""
+def load_metric_from_db(db: Session, metric_id: str, organization_id: str) -> Optional[Metric]:
+    """
+    Load a metric from the database by ID with organization filtering.
+
+    SECURITY: This function requires organization_id to prevent data leakage across organizations.
+    """
     try:
         # Try as UUID first
         metric_uuid = UUID(metric_id)
-        metric = db.query(Metric).filter(Metric.id == metric_uuid).first()
+        metric = (
+            db.query(Metric)
+            .filter(Metric.id == metric_uuid, Metric.organization_id == organization_id)
+            .first()
+        )
         if metric:
             return metric
     except ValueError:
         pass
 
     # Try as nano_id
-    metric = db.query(Metric).filter(Metric.nano_id == metric_id).first()
+    metric = (
+        db.query(Metric)
+        .filter(Metric.nano_id == metric_id, Metric.organization_id == organization_id)
+        .first()
+    )
     if metric:
         return metric
 
     # Try as name
-    metric = db.query(Metric).filter(Metric.name == metric_id).first()
+    metric = (
+        db.query(Metric)
+        .filter(Metric.name == metric_id, Metric.organization_id == organization_id)
+        .first()
+    )
     return metric
 
 
-def load_test_from_db(db: Session, test_id: str) -> Optional[Test]:
-    """Load a test from the database by ID."""
+def load_test_from_db(db: Session, test_id: str, organization_id: str) -> Optional[Test]:
+    """
+    Load a test from the database by ID with organization filtering.
+
+    SECURITY: This function requires organization_id to prevent data leakage across organizations.
+    """
     try:
         # Try as UUID first
         test_uuid = UUID(test_id)
-        test = db.query(Test).filter(Test.id == test_uuid).first()
+        test = (
+            db.query(Test)
+            .filter(Test.id == test_uuid, Test.organization_id == organization_id)
+            .first()
+        )
         if test:
             return test
     except ValueError:
         pass
 
     # Try as nano_id
-    test = db.query(Test).filter(Test.nano_id == test_id).first()
+    test = (
+        db.query(Test)
+        .filter(Test.nano_id == test_id, Test.organization_id == organization_id)
+        .first()
+    )
     return test
 
 
@@ -180,7 +208,7 @@ def _execute_metric_test(
         # Load test data if test_id is provided
         if test_id:
             print(f"🧪 Loading test data: {test_id}")
-            test_model = load_test_from_db(db_session, test_id)
+            test_model = load_test_from_db(db_session, test_id, organization_id)
 
             if not test_model:
                 print(f"❌ Test not found: {test_id}")
@@ -211,7 +239,7 @@ def _execute_metric_test(
 
         # Load metric from database
         print(f"📊 Loading metric: {metric_id}")
-        metric_model = load_metric_from_db(db_session, metric_id)
+        metric_model = load_metric_from_db(db_session, metric_id, organization_id)
 
         if not metric_model:
             print(f"❌ Metric not found: {metric_id}")
