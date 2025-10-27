@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { Box, Grid, Paper, useTheme, TablePagination } from '@mui/material';
+import { useRouter } from 'next/navigation';
 import TestRunFilterBar, { FilterState } from './TestRunFilterBar';
 import TestsList from './TestsList';
 import TestDetailPanel from './TestDetailPanel';
@@ -54,8 +55,10 @@ export default function TestRunMainView({
 }: TestRunMainViewProps) {
   const theme = useTheme();
   const notifications = useNotifications();
+  const router = useRouter();
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isRerunning, setIsRerunning] = useState(false);
   const [isComparisonMode, setIsComparisonMode] = useState(false);
   const [viewMode, setViewMode] = useState<'split' | 'table'>('split');
   const [page, setPage] = useState(0);
@@ -289,6 +292,45 @@ export default function TestRunMainView({
     }
   }, [testRunId, sessionToken, notifications]);
 
+  // Handle re-run button click
+  const handleRerun = useCallback(async () => {
+    if (!testRun.test_configuration_id) {
+      notifications.show('Cannot re-run: No test configuration found', {
+        severity: 'error',
+      });
+      return;
+    }
+
+    try {
+      setIsRerunning(true);
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const testConfigurationsClient = apiFactory.getTestConfigurationsClient();
+
+      // Execute the test configuration (creates a new test run)
+      await testConfigurationsClient.executeTestConfiguration(
+        testRun.test_configuration_id
+      );
+
+      notifications.show(
+        'Test run started successfully. Redirecting to test runs page...',
+        {
+          severity: 'success',
+        }
+      );
+
+      // Navigate to the test runs page to see the new test run
+      // The test run is created asynchronously, so we can't navigate directly to it
+      router.push('/test-runs');
+    } catch (error) {
+      console.error('Error re-running test:', error);
+      notifications.show('Failed to start test run', {
+        severity: 'error',
+      });
+    } finally {
+      setIsRerunning(false);
+    }
+  }, [testRun.test_configuration_id, sessionToken, notifications, router]);
+
   // Fetch available test runs for comparison
   React.useEffect(() => {
     const fetchTestRuns = async () => {
@@ -469,6 +511,9 @@ export default function TestRunMainView({
             filteredTests={filteredTests.length}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            onRerun={handleRerun}
+            isRerunning={isRerunning}
+            canRerun={!!testRun.test_configuration_id}
           />
 
           {/* Conditional Layout based on viewMode */}
