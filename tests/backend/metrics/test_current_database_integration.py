@@ -63,9 +63,9 @@ class TestCurrentDatabaseIntegration:
         assert metric.score_type == "numeric"
         assert metric.threshold == 7
     
-    def test_get_metric_by_id(self, test_db, test_metric_numeric):
+    def test_get_metric_by_id(self, test_db, test_org_id, test_metric_numeric):
         """Test retrieving metric by ID."""
-        metric = crud.get_metric(test_db, test_metric_numeric.id)
+        metric = crud.get_metric(test_db, test_metric_numeric.id, test_org_id)
         
         assert metric is not None
         assert metric.id == test_metric_numeric.id
@@ -84,7 +84,7 @@ class TestCurrentDatabaseIntegration:
         assert test_metric_numeric.id in metric_ids
         assert test_metric_categorical.id in metric_ids
     
-    def test_update_metric(self, test_db, test_metric_numeric):
+    def test_update_metric(self, test_db, test_org_id, test_metric_numeric):
         """Test updating metric."""
         update_data = schemas.MetricUpdate(
             name="Updated Metric Name",
@@ -94,7 +94,8 @@ class TestCurrentDatabaseIntegration:
         updated_metric = crud.update_metric(
             test_db,
             test_metric_numeric.id,
-            update_data
+            update_data,
+            test_org_id
         )
         
         assert updated_metric.name == "Updated Metric Name"
@@ -140,10 +141,10 @@ class TestCurrentDatabaseIntegration:
         metric_id = metric.id
         
         # Delete the metric
-        crud.delete_metric(test_db, metric_id)
+        crud.delete_metric(test_db, metric_id, test_org_id)
         
         # Verify it's deleted
-        deleted_metric = crud.get_metric(test_db, metric_id)
+        deleted_metric = crud.get_metric(test_db, metric_id, test_org_id)
         assert deleted_metric is None
     
     def test_metric_with_model_relationship(self, test_db, test_model, test_org_id, authenticated_user_id):
