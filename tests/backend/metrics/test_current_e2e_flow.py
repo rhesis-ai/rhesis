@@ -33,7 +33,7 @@ class TestCurrentE2EFlow:
         return endpoint
     
     @pytest.fixture
-    def test_run(self, test_db, test_org_id, authenticated_user_id):
+    def test_run(self, test_db, test_org_id, authenticated_user_id, test_config):
         """Create a test run."""
         from rhesis.backend.app import models
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
@@ -48,6 +48,7 @@ class TestCurrentE2EFlow:
         
         test_run = models.TestRun(
             status_id=status.id,
+            test_configuration_id=test_config.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id
         )
@@ -57,14 +58,12 @@ class TestCurrentE2EFlow:
         return test_run
     
     @pytest.fixture
-    def test_config(self, test_db, test_org_id, authenticated_user_id, test_endpoint, test_behavior_with_metrics):
+    def test_config(self, test_db, test_org_id, authenticated_user_id, test_endpoint):
         """Create a test configuration."""
         from rhesis.backend.app import models
         
         test_config = models.TestConfiguration(
-            name="Test Config",
             endpoint_id=test_endpoint.id,
-            behavior_id=test_behavior_with_metrics.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id
         )
