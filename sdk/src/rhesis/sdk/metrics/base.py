@@ -18,7 +18,7 @@ Also, the method retry_evaluationmight be better placed in a utils type of modul
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
@@ -56,95 +56,40 @@ class ThresholdOperator(str, Enum):
 
 @dataclass
 class MetricConfig:
-    """Standard configuration for a metric instance
-
-    Backend required items:
-    - class_name
-    - backend
-    - name
-    - description
-    - score_type
-    - metric_type
-    """
-
     # Backend required items
-
     class_name: Optional[str] = None
-    """The class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')"""
-
     backend: Optional[Union[str, Backend]] = Backend.RHESIS
-    """The backend/framework to use for this metric (e.g., 'deepeval')"""
-
     name: Optional[str] = None
-    """Human-readable name of the metric"""
-
     description: Optional[str] = None
-    """Human-readable description of what the metric measures"""
-
     score_type: Optional[Union[str, ScoreType]] = None  # string or enum
-    """The score type of the metric eg. numeric, categorical, etc."""
-
     metric_type: Optional[Union[str, MetricType]] = None  # string or enum
-    """The type of the metric eg. rag, generation, classification"""
-
-    ground_truth_required: Optional[bool] = False
-    """Whether the metric requires a ground truth reference"""
-
-    context_required: Optional[bool] = False
-    """Whether the metric requires a context"""
-
-    # Custom parameters
-
-    evaluation_prompt: str = None
-    """The evaluation prompt for the metric"""
-
-    evaluation_steps: Optional[str] = None
-    """The evaluation steps for the metric"""
-
-    reasoning: Optional[str] = None
-    """The reasoning for the metric"""
-
-    evaluation_examples: Optional[str] = None
-    """The evaluation examples for the metric"""
-
-    parameters: Dict[str, Any] = field(default_factory=dict)
-    """Additional parameters specific to this metric implementation"""
+    requires_ground_truth: Optional[bool] = False
+    requires_context: Optional[bool] = False
 
     def __post_init__(self):
-        # The config accept both string and enum for score_type and metric_type. However, the object
-        # will keep it as a string for easier serialization
-
-        if self.backend is not None:
-            self.backend = self._validate_enum_value(self.backend, Backend, "backend")
-
-        if self.score_type is not None:
-            self.score_type = self._validate_enum_value(self.score_type, ScoreType, "score_type")
-
-        if self.metric_type is not None:
-            self.metric_type = self._validate_enum_value(
-                self.metric_type, MetricType, "metric_type"
-            )
-
-    def _validate_enum_value(
-        self, value: Union[str, Enum], enum_class: type, field_name: str
-    ) -> str:
-        if isinstance(value, str):
+        if isinstance(self.backend, str):
             try:
-                enum_instance = enum_class(value)
-                return enum_instance.value
+                self.backend = Backend(self.backend.lower())
             except ValueError:
-                allowed = [member.value for member in enum_class]
-                raise ValueError(f"Invalid {field_name} value: {value}. Allowed values: {allowed}")
-        elif isinstance(value, enum_class):
-            return value.value
-        else:
-            raise ValueError(f"Invalid {field_name} type: {type(value)}")
+                raise ValueError(f"Unknown backend: {self.backend}")
+
+        if isinstance(self.score_type, str):
+            try:
+                self.score_type = ScoreType(self.score_type.lower())
+            except ValueError:
+                raise ValueError(f"Unknown score type: {self.score_type}")
+
+        if isinstance(self.metric_type, str):
+            try:
+                self.metric_type = MetricType(self.metric_type.lower())
+            except ValueError:
+                raise ValueError(f"Unknown metric type: {self.metric_type}")
 
 
 class MetricResult:
     """Result of a metric evaluation."""
 
-    def __init__(self, score: float, details: Dict[str, Any] = None):
+    def __init__(self, score: float, details: Optional[Dict[str, Any]] = None):
         self.score = score
         self.details = details or {}
 
@@ -155,55 +100,28 @@ class MetricResult:
 class BaseMetric(ABC):
     """Base class for all evaluation metrics."""
 
-    def __init__(
-        self,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        score_type: Optional[Union[str, ScoreType]] = None,
-        metric_type: Optional[Union[str, MetricType]] = None,
-        model: Optional[Union[BaseLLM, str]] = None,
-        **kwargs,
-    ):
-        self.name = name
-        self.description = description
-
-        self.score_type = score_type
-        if isinstance(self.score_type, str):
-            try:
-                self.score_type = ScoreType(self.score_type)
-            except ValueError:
-                allowed = [member.value for member in ScoreType]
-                raise ValueError(
-                    f"Invalid score_type value: {self.score_type}. Allowed values: {allowed}"
-                )
-
-        self.metric_type = metric_type
-        if isinstance(self.metric_type, str):
-            try:
-                self.metric_type = MetricType(self.metric_type)
-            except ValueError:
-                allowed = [member.value for member in MetricType]
-                raise ValueError(
-                    f"Invalid metric_type value: {self.metric_type}. Allowed values: {allowed}"
-                )
+    def __init__(self, config: MetricConfig, model: Optional[Union[BaseLLM, str]] = None):
+        self.name = config.name
+        self.description = config.description
+        self.score_type = config.score_type
+        self.metric_type = config.metric_type
+        self.requires_ground_truth = config.requires_ground_truth
+        self.requires_context = config.requires_context
+        self.class_name = config.class_name
+        self.backend = config.backend
 
         self.model = self.set_model(model)
 
     def set_model(self, model: Optional[Union[BaseLLM, str]]) -> BaseLLM:
-        if model is None:
-            return get_model()  # Use default model
         if isinstance(model, BaseLLM):
             return model
-        elif isinstance(model, str) or model is None:
-            return get_model(model)
-        else:
-            raise ValueError(f"Invalid model type: {type(model)}")
+        return get_model(model)
 
     @abstractmethod
     def evaluate(
         self,
-        input: str,
-        output: str,
+        *args: Any,
+        **kwargs: Any,
     ) -> MetricResult:
         """
         Evaluate the metric on the given input, output, and context.
@@ -211,6 +129,8 @@ class BaseMetric(ABC):
         Args:
             input: The input query/question
             output: The system output/response
+            expected_output: Optional ground truth/reference output
+            context: Optional list of context strings
 
         Returns:
             MetricResult: The evaluation result

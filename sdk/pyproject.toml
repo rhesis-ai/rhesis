@@ -37,13 +37,16 @@ dependencies = [
     "markitdown[pdf,docx,pptx,xlsx]>=0.1.0",
     "tomli>=2.2.1",
     "tomli-w>=1.2.0",
-    "deepeval==3.0.0",
+    "deepeval==3.6.7",
     "tenacity>=8.2.3",
     "pyyaml>=6.0",
     "pydantic>=2.0.0",
     "litellm>=1.76.0",
     "torch>=2.8.0",
     "transformers>=4.56.0",
+    "ragas>=0.3.7",
+    "langchain-google-genai>=2.1.12",
+    "deepteam>=0.2.5",
 ]
 
 [project.license]
@@ -80,6 +83,7 @@ dev = [
     "sphinx-rtd-theme>=3.0.2",
     "myst-parser>=4.0.0",
     "ruff>=0.11.6",
+    "pyright>=1.1.406",
 ]
 
 [build-system]
@@ -99,28 +103,17 @@ include = [
 [tool.hatch.metadata]
 allow-direct-references = true
 
-[tool.mypy]
-python_version = "0.2.0"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-check_untyped_defs = true
-disallow_incomplete_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-packages = [
-    "rhesis.sdk",
-]
-overrides = []
+[tool.pyright]
+typeCheckingMode = "standard"
+include = [ "src/rhesis/sdk/metrics", ]
 
 [tool.pytest.ini_options]
 testpaths = [
     "../tests/sdk",
+
 ]
+addopts = "--ignore=../tests/sdk/synthesizers --ignore=../tests/sdk/tests --ignore=../tests/sdk/services --ignore=../tests/sdk/entities"
+
 pythonpath = [
     "src",
 ]

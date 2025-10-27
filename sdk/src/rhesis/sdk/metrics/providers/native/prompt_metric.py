@@ -1,15 +1,32 @@
+import inspect
 import logging
 import traceback
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from rhesis.sdk.client import Client, Endpoints, Methods
-from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to_backend_config
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models import BaseLLM
+
+# Type variable for generic return types
+T = TypeVar("T", bound="RhesisPromptMetricBase")
+
+# Custom parameters
+
+
+@dataclass
+class PromptMetricConfig(MetricConfig):
+    evaluation_prompt: Optional[str] = None
+    evaluation_steps: Optional[str] = None
+    reasoning: Optional[str] = None
+    evaluation_examples: Optional[str] = None
+
+    def __post_init__(self):
+        return super().__post_init__()
 
 
 class RhesisPromptMetricBase(BaseMetric):
@@ -18,38 +35,19 @@ class RhesisPromptMetricBase(BaseMetric):
     Uses LLM to perform evaluation based on provided evaluation criteria.
     """
 
-    def __init__(
-        self,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        score_type: Optional[Union[str, ScoreType]] = None,
-        metric_type: Optional[Union[str, MetricType]] = None,
-        evaluation_prompt: Optional[str] = None,
-        evaluation_steps: Optional[str] = None,
-        reasoning: Optional[str] = None,
-        evaluation_examples: Optional[List[str]] = None,
-        model: Optional[Union[BaseLLM, str]] = None,
-        **kwargs,
-    ):
-        super().__init__(
-            name=name,
-            description=description,
-            score_type=score_type,
-            metric_type=metric_type,
-            model=model,
-            **kwargs,
-        )
-
-        self.evaluation_prompt = evaluation_prompt
-        self.evaluation_steps = evaluation_steps
-        self.reasoning = reasoning
-        self.evaluation_examples = evaluation_examples
+    def __init__(self, config: PromptMetricConfig, model: Optional[Union[BaseLLM, str]] = None):
+        self.config = config
+        super().__init__(config=self.config, model=model)
+        self.evaluation_prompt = self.config.evaluation_prompt
+        self.evaluation_steps = self.config.evaluation_steps
+        self.reasoning = self.config.reasoning
+        self.evaluation_examples = self.config.evaluation_examples
 
     def __repr__(self) -> str:
         return str(self.to_config())
 
-    def evaluate(self):
-        pass
+    def evaluate(self, *args, **kwargs) -> MetricResult:
+        raise NotImplementedError("Subclasses should override this method")
 
     def _validate_evaluate_inputs(
         self,
@@ -76,7 +74,7 @@ class RhesisPromptMetricBase(BaseMetric):
         if not isinstance(output, str):
             raise ValueError("output must be a string")
 
-        if expected_output is None and self.requires_ground_truth:
+        if expected_output is None and self.requires_ground_truth is True:
             raise ValueError(f"{self.name} metric requires ground truth but none was provided")
 
         if context is not None and not isinstance(context, list):
@@ -92,6 +90,8 @@ class RhesisPromptMetricBase(BaseMetric):
         Returns:
             Dict[str, Any]: Base details dictionary
         """
+        if self.score_type is None:
+            raise ValueError("score_type must be set before calling _get_base_details")
         return {
             "score_type": self.score_type.value,
             "prompt": prompt,
@@ -189,6 +189,9 @@ class RhesisPromptMetricBase(BaseMetric):
         except Exception as e:
             raise ValueError(f"Failed to load template: {e}") from e
 
+        if self.score_type is None:
+            raise ValueError("score_type must be set before calling _get_prompt_template")
+
         # Prepare base template variables
         template_vars = {
             "evaluation_prompt": self.evaluation_prompt,
@@ -216,37 +219,28 @@ class RhesisPromptMetricBase(BaseMetric):
     def to_config(self) -> MetricConfig:
         """Convert the metric to a MetricConfig."""
         """Subclasses should override this method to add their own parameters."""
-        config = MetricConfig(
-            # Backend required items
-            class_name=self.__class__.__name__,
-            backend="rhesis",
-            name=self.name,
-            description=self.description,
-            score_type=self.score_type,
-            metric_type=self.metric_type,
-            ground_truth_required=self.ground_truth_required,
-            context_required=self.context_required,
-            # Custom parameters
-            evaluation_prompt=self.evaluation_prompt,
-            evaluation_steps=self.evaluation_steps,
-            reasoning=self.reasoning,
-            evaluation_examples=self.evaluation_examples,
-            parameters={},
-        )
+        return self.config
 
-        return config
+    @classmethod
+    def from_config(cls: type[T], config: MetricConfig) -> T:
+        """Create a metric from a config object."""
+        # Get __init__ parameter names automatically
+        init_params = inspect.signature(cls.__init__).parameters
+        config_dict = asdict(config)
 
-    def from_config(self):
-        raise NotImplementedError("Subclasses should override this method")
+        # Only pass parameters that __init__ accepts
+        filtered_params = {k: v for k, v in config_dict.items() if k in init_params}
+
+        return cls(**filtered_params)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the metric to a dictionary."""
         return asdict(self.to_config())
 
     @classmethod
-    def from_dict(cls, config: Dict[str, Any]) -> "RhesisPromptMetricBase":
+    def from_dict(cls: type[T], config: Dict[str, Any]) -> T:
         """Create a metric from a dictionary."""
-        return cls.from_config(MetricConfig(**config))
+        raise NotImplementedError("Subclasses should override this method")
 
     def push(self) -> None:
         """Push the metric to the backend."""
@@ -299,5 +293,4 @@ class RhesisPromptMetricBase(BaseMetric):
             raise ValueError(f"Metric {config.get('id')} is not a {cls.__name__}")
 
         config = backend_config_to_sdk_config(config)
-        config = MetricConfig(**config)
-        return cls.from_config(config)
+        return cls.from_dict(config)
