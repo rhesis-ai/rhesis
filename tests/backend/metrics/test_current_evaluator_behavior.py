@@ -73,8 +73,9 @@ class TestCurrentEvaluatorBehavior:
                 details={"reason": "Positive sentiment"}
             )
         ]
-        
-        evaluator = Evaluator()
+
+        # Use legacy backend factory for this test
+        evaluator = Evaluator(use_sdk_metrics=False)
         results = evaluator.evaluate(
             input_text="Test input",
             expected_output="Expected",
@@ -160,7 +161,8 @@ class TestCurrentEvaluatorBehavior:
         )
         
         context = ["Context 1", "Context 2"]
-        evaluator = Evaluator()
+        # Use legacy backend factory for this test
+        evaluator = Evaluator(use_sdk_metrics=False)
         results = evaluator.evaluate(
             input_text="Test input",
             expected_output="Expected",

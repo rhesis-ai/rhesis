@@ -164,10 +164,21 @@ def build_metric_params_from_model(
 
     elif score_type in ["categorical", "binary"]:
         # Categorical/binary scores
+        # SDK requires 'categories' list - create from reference_score if available
         if metric_model.reference_score:
-            # SDK expects categories list and passing_categories
-            # For now, use reference_score directly
-            params["reference_score"] = metric_model.reference_score
+            # Backend stores single reference score, SDK needs categories list
+            # Create a minimal categories list with the reference score
+            params["categories"] = [metric_model.reference_score, "other"]
+            params["passing_categories"] = [metric_model.reference_score]
+        else:
+            # Default categories for binary or when no reference_score
+            if score_type == "binary":
+                params["categories"] = ["pass", "fail"]
+                params["passing_categories"] = ["pass"]
+            else:
+                # Categorical without reference - use generic categories
+                params["categories"] = ["good", "bad"]
+                params["passing_categories"] = ["good"]
 
     # Add metadata flags
     if metric_model.ground_truth_required is not None:
@@ -226,8 +237,19 @@ def build_metric_params_from_config(metric_config: Dict[str, Any]) -> Dict[str, 
             params["threshold_operator"] = metric_config["threshold_operator"]
 
     elif score_type in ["categorical", "binary"]:
-        if "reference_score" in metric_config:
-            params["reference_score"] = metric_config["reference_score"]
+        # SDK requires 'categories' list
+        if "reference_score" in metric_config and metric_config["reference_score"]:
+            # Backend stores single reference score, SDK needs categories list
+            params["categories"] = [metric_config["reference_score"], "other"]
+            params["passing_categories"] = [metric_config["reference_score"]]
+        else:
+            # Default categories
+            if score_type == "binary":
+                params["categories"] = ["pass", "fail"]
+                params["passing_categories"] = ["pass"]
+            else:
+                params["categories"] = ["good", "bad"]
+                params["passing_categories"] = ["good"]
 
     # Add model info if available
     if "model_id" in metric_config and metric_config["model_id"]:
