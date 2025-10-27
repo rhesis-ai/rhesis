@@ -95,6 +95,7 @@ def read_metric(
     organization_id, user_id = tenant_context
     # Use get_item_detail which properly handles soft-deleted items (raises ItemDeletedException)
     from rhesis.backend.app.utils.crud_utils import get_item_detail
+
     db_metric = get_item_detail(db, models.Metric, metric_id, organization_id, user_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")

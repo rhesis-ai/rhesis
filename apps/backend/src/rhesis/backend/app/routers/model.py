@@ -124,6 +124,7 @@ def read_model(
     organization_id, user_id = tenant_context
     # Use get_item_detail which properly handles soft-deleted items (raises ItemDeletedException)
     from rhesis.backend.app.utils.crud_utils import get_item_detail
+
     db_model = get_item_detail(db, models.Model, model_id, organization_id, user_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
