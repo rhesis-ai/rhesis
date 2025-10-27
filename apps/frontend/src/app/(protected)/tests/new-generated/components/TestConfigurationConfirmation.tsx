@@ -59,182 +59,190 @@ export default function TestConfigurationConfirmation({
   );
 
   return (
-    <Box sx={{ flexGrow: 1, pt: 3, pb: 8 }}>
-      <Paper sx={{ p: 3, mb: 4 }}>
-        {/* Test Set Naming */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-            Name Your Test Set (Optional)
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Give your test set a descriptive name to make it easier to find and
-            reuse later.
-          </Typography>
-          <TextField
-            fullWidth
-            placeholder="e.g., 'Return policy validation'"
-            value={testSetName}
-            onChange={e => onTestSetNameChange(e.target.value)}
-            variant="outlined"
-          />
-        </Box>
+    <Box sx={{ flexGrow: 1, bgcolor: 'background.default' }}>
+      {/* Main Content */}
+      <Box
+        sx={{
+          pt: 3,
+          pb: 3,
+        }}
+      >
+        <Paper sx={{ p: 3, mb: 4 }}>
+          {/* Test Set Naming */}
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+              Name Your Test Set (Optional)
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Give your test set a descriptive name to make it easier to find
+              and reuse later.
+            </Typography>
+            <TextField
+              fullWidth
+              placeholder="e.g., 'Return policy validation'"
+              value={testSetName}
+              onChange={e => onTestSetNameChange(e.target.value)}
+              variant="outlined"
+            />
+          </Box>
 
-        {/* Main Content Grid */}
-        <Grid container spacing={4}>
-          {/* Left Column - Configuration Summary */}
-          <Grid item xs={12} lg={6}>
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                Configuration Summary
-              </Typography>
-              <Typography variant="body2" color="text.secondary" paragraph>
-                {activeChipsCount} active configuration
-                {activeChipsCount !== 1 ? 's' : ''}
-              </Typography>
+          {/* Main Content Grid */}
+          <Grid container spacing={4}>
+            {/* Left Column - Configuration Summary */}
+            <Grid item xs={12} lg={6}>
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  Configuration Summary
+                </Typography>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  {activeChipsCount} active configuration
+                  {activeChipsCount !== 1 ? 's' : ''}
+                </Typography>
 
-              {/* Behavior Chips */}
-              {configChips.behavior.some(chip => chip.active) && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography
-                    variant="subtitle2"
-                    color="text.secondary"
-                    gutterBottom
-                  >
-                    Behaviors
-                  </Typography>
-                  <Stack
-                    direction="row"
-                    spacing={0.5}
-                    flexWrap="wrap"
-                    useFlexGap
-                  >
-                    {configChips.behavior
-                      .filter(chip => chip.active)
-                      .map(chip => (
+                {/* Behavior Chips */}
+                {configChips.behavior.some(chip => chip.active) && (
+                  <Box sx={{ mb: 3 }}>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Behaviors
+                    </Typography>
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      flexWrap="wrap"
+                      useFlexGap
+                    >
+                      {configChips.behavior
+                        .filter(chip => chip.active)
+                        .map(chip => (
+                          <Chip
+                            key={chip.id}
+                            label={chip.label}
+                            size="small"
+                            color="primary"
+                          />
+                        ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* Topic Chips */}
+                {configChips.topics.some(chip => chip.active) && (
+                  <Box sx={{ mb: 3 }}>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Topics
+                    </Typography>
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      flexWrap="wrap"
+                      useFlexGap
+                    >
+                      {configChips.topics
+                        .filter(chip => chip.active)
+                        .map(chip => (
+                          <Chip
+                            key={chip.id}
+                            label={chip.label}
+                            size="small"
+                            color="secondary"
+                          />
+                        ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* Category Chips */}
+                {configChips.category.some(chip => chip.active) && (
+                  <Box sx={{ mb: 3 }}>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Categories
+                    </Typography>
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      flexWrap="wrap"
+                      useFlexGap
+                    >
+                      {configChips.category
+                        .filter(chip => chip.active)
+                        .map(chip => (
+                          <Chip
+                            key={chip.id}
+                            label={chip.label}
+                            size="small"
+                            sx={{
+                              bgcolor: 'warning.light',
+                              color: 'warning.contrastText',
+                            }}
+                          />
+                        ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* Documents */}
+                {documents.length > 0 && (
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Context Documents
+                    </Typography>
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      flexWrap="wrap"
+                      useFlexGap
+                    >
+                      {documents.map(doc => (
                         <Chip
-                          key={chip.id}
-                          label={chip.label}
+                          key={doc.id}
+                          label={doc.name || doc.originalName}
                           size="small"
-                          color="primary"
+                          variant="outlined"
                         />
                       ))}
-                  </Stack>
-                </Box>
-              )}
+                    </Stack>
+                  </Box>
+                )}
+              </Box>
+            </Grid>
 
-              {/* Topic Chips */}
-              {configChips.topics.some(chip => chip.active) && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography
-                    variant="subtitle2"
-                    color="text.secondary"
-                    gutterBottom
-                  >
-                    Topics
-                  </Typography>
-                  <Stack
-                    direction="row"
-                    spacing={0.5}
-                    flexWrap="wrap"
-                    useFlexGap
-                  >
-                    {configChips.topics
-                      .filter(chip => chip.active)
-                      .map(chip => (
-                        <Chip
-                          key={chip.id}
-                          label={chip.label}
-                          size="small"
-                          color="secondary"
-                        />
-                      ))}
-                  </Stack>
-                </Box>
-              )}
-
-              {/* Category Chips */}
-              {configChips.category.some(chip => chip.active) && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography
-                    variant="subtitle2"
-                    color="text.secondary"
-                    gutterBottom
-                  >
-                    Categories
-                  </Typography>
-                  <Stack
-                    direction="row"
-                    spacing={0.5}
-                    flexWrap="wrap"
-                    useFlexGap
-                  >
-                    {configChips.category
-                      .filter(chip => chip.active)
-                      .map(chip => (
-                        <Chip
-                          key={chip.id}
-                          label={chip.label}
-                          size="small"
-                          sx={{
-                            bgcolor: 'warning.light',
-                            color: 'warning.contrastText',
-                          }}
-                        />
-                      ))}
-                  </Stack>
-                </Box>
-              )}
-
-              {/* Documents */}
-              {documents.length > 0 && (
-                <Box>
-                  <Typography
-                    variant="subtitle2"
-                    color="text.secondary"
-                    gutterBottom
-                  >
-                    Context Documents
-                  </Typography>
-                  <Stack
-                    direction="row"
-                    spacing={0.5}
-                    flexWrap="wrap"
-                    useFlexGap
-                  >
-                    {documents.map(doc => (
-                      <Chip
-                        key={doc.id}
-                        label={doc.name || doc.originalName}
-                        size="small"
-                        variant="outlined"
-                      />
-                    ))}
-                  </Stack>
-                </Box>
-              )}
-            </Box>
+            {/* Right Column - Test Set Size Selection */}
+            <Grid item xs={12} lg={6}>
+              <Box>
+                <TestSetSizeSelector
+                  selectedSize={testSetSize}
+                  onSizeChange={onTestSetSizeChange}
+                />
+              </Box>
+            </Grid>
           </Grid>
 
-          {/* Right Column - Test Set Size Selection */}
-          <Grid item xs={12} lg={6}>
-            <Box>
-              <TestSetSizeSelector
-                selectedSize={testSetSize}
-                onSizeChange={onTestSetSizeChange}
-              />
-            </Box>
-          </Grid>
-        </Grid>
-
-        {/* Info Alert */}
-        <Alert severity="info" sx={{ mt: 4 }}>
-          <AlertTitle>What happens next?</AlertTitle>
-          When you click &quot;Generate Tests&quot;, we&apos;ll create your test
-          suite based on the configuration above. The generation process
-          typically takes 2-5 minutes depending on the test set size.
-          You&apos;ll be notified when it&apos;s ready.
-        </Alert>
-      </Paper>
+          {/* Info Alert */}
+          <Alert severity="info" sx={{ mt: 4 }}>
+            <AlertTitle>What happens next?</AlertTitle>
+            When you click &quot;Generate Tests&quot;, we&apos;ll create your
+            test suite based on the configuration above. The generation process
+            typically takes 2-5 minutes depending on the test set size.
+            You&apos;ll be notified when it&apos;s ready.
+          </Alert>
+        </Paper>
+      </Box>
 
       {/* Action Bar */}
       <ActionBar
