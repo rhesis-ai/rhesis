@@ -6,7 +6,7 @@ from pydantic import create_model
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.base import (
     JudgeBase,
-    PromptMetricConfig,
+    JudgeConfig,
 )
 from rhesis.sdk.models.base import BaseLLM
 
@@ -15,7 +15,7 @@ SCORE_TYPE = ScoreType.CATEGORICAL
 
 
 @dataclass
-class PromptMetricCategoricalConfig(PromptMetricConfig):
+class CategoricalJudgeConfig(JudgeConfig):
     categories: Optional[List[str]] = None
     passing_categories: Optional[Union[str, List[str]]] = None
 
@@ -128,7 +128,7 @@ class CategoricalJudge(JudgeBase):
             ValueError: If passing_categories contains values not in categories
             ValueError: If the number of passing_categories exceeds categories
         """
-        self.config = PromptMetricCategoricalConfig(
+        self.config = CategoricalJudgeConfig(
             categories=categories,
             passing_categories=passing_categories,
             evaluation_steps=evaluation_steps,
@@ -308,9 +308,9 @@ class CategoricalJudge(JudgeBase):
     def from_dict(cls, config: Dict[str, Any]) -> "CategoricalJudge":
         """Create a metric from a dictionary."""
         # Get all field names from the dataclass
-        valid_fields = {field.name for field in fields(PromptMetricCategoricalConfig)}
+        valid_fields = {field.name for field in fields(CategoricalJudgeConfig)}
 
         # Filter config to only include keys that exist in the dataclass
         filtered_config = {k: v for k, v in config.items() if k in valid_fields}
 
-        return cls.from_config(PromptMetricCategoricalConfig(**filtered_config))
+        return cls.from_config(CategoricalJudgeConfig(**filtered_config))

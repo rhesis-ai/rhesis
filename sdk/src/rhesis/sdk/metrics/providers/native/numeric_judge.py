@@ -7,7 +7,7 @@ from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.base import (
     JudgeBase,
-    PromptMetricConfig,
+    JudgeConfig,
 )
 from rhesis.sdk.models import BaseLLM
 
@@ -15,7 +15,7 @@ SCORE_TYPE = ScoreType.NUMERIC
 
 
 @dataclass
-class PromptMetricNumericConfig(PromptMetricConfig):
+class NumericJudgeConfig(JudgeConfig):
     min_score: Optional[float] = None
     max_score: Optional[float] = None
     threshold: Optional[float] = None
@@ -140,7 +140,7 @@ class NumericJudge(JudgeBase):
             ValueError: If threshold is outside the [min_score, max_score] range
             ValueError: If threshold_operator string is invalid
         """
-        self.config = PromptMetricNumericConfig(
+        self.config = NumericJudgeConfig(
             evaluation_prompt=evaluation_prompt,
             evaluation_steps=evaluation_steps,
             reasoning=reasoning,
@@ -312,12 +312,12 @@ class NumericJudge(JudgeBase):
     def from_dict(cls, config: Dict[str, Any]) -> "NumericJudge":
         """Create a metric from a dictionary."""
         # Get all field names from the dataclass
-        valid_fields = {field.name for field in fields(PromptMetricNumericConfig)}
+        valid_fields = {field.name for field in fields(NumericJudgeConfig)}
 
         # Filter config to only include keys that exist in the dataclass
         filtered_config = {k: v for k, v in config.items() if k in valid_fields}
 
-        return cls.from_config(PromptMetricNumericConfig(**filtered_config))
+        return cls.from_config(NumericJudgeConfig(**filtered_config))
 
 
 if __name__ == "__main__":

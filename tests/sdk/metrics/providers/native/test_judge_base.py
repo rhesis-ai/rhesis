@@ -1,15 +1,16 @@
 import pytest
+
 from rhesis.sdk.metrics.base import MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.base import (
-    PromptMetricConfig,
     JudgeBase,
+    JudgeConfig,
 )
 from rhesis.sdk.models.providers.gemini import GeminiLLM
 
 
 @pytest.fixture
 def config():
-    config = PromptMetricConfig(
+    config = JudgeConfig(
         name="test_metric",
         description="test_description",
         score_type="numeric",
