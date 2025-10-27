@@ -17,9 +17,7 @@ import {
 } from '@mui/material';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import EditNoteIcon from '@mui/icons-material/EditNote';
-import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import CloseIcon from '@mui/icons-material/Close';
-import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import { TestTemplate } from './shared/types';
 import { TEMPLATES } from '@/config/test-templates';
 
@@ -81,20 +79,11 @@ export default function LandingScreen({
           pb: 1,
         }}
       >
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-          }}
-        >
-          <PlaylistAddCheckIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-          <Box>
-            <Typography variant="h6">Create Test Suite</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Choose how you want to create your test suite
-            </Typography>
-          </Box>
+        <Box>
+          <Typography variant="h6">Create Test Suite</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Choose how you want to create your test suite
+          </Typography>
         </Box>
         <IconButton edge="end" onClick={onClose} size="small">
           <CloseIcon />
@@ -206,21 +195,11 @@ export default function LandingScreen({
 
         {/* Template Library Section */}
         <Box sx={{ mb: 4 }}>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              mb: 3,
-            }}
-          >
-            <LibraryBooksIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-            <Box>
-              <Typography variant="h6">Templates</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Start with pre-configured templates for common testing scenarios
-              </Typography>
-            </Box>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6">Templates</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Start with pre-configured templates for common testing scenarios
+            </Typography>
           </Box>
 
           <Grid container spacing={3}>
@@ -247,14 +226,6 @@ export default function LandingScreen({
                           mb: 2,
                         }}
                       >
-                        <Box
-                          sx={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: theme => theme.shape.circular,
-                            bgcolor: template.color,
-                          }}
-                        />
                         <IconComponent
                           sx={{ fontSize: 20, color: template.color }}
                         />
