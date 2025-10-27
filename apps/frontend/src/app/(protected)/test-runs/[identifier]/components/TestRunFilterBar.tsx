@@ -38,6 +38,8 @@ import RateReviewIcon from '@mui/icons-material/RateReview';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
+import ReplayIcon from '@mui/icons-material/Replay';
+import CircularProgress from '@mui/material/CircularProgress';
 
 export interface FilterState {
   searchQuery: string;
@@ -63,6 +65,9 @@ interface TestRunFilterBarProps {
   filteredTests: number;
   viewMode?: 'split' | 'table';
   onViewModeChange?: (mode: 'split' | 'table') => void;
+  onRerun?: () => void;
+  isRerunning?: boolean;
+  canRerun?: boolean;
 }
 
 export default function TestRunFilterBar({
@@ -77,6 +82,9 @@ export default function TestRunFilterBar({
   filteredTests,
   viewMode = 'split',
   onViewModeChange,
+  onRerun,
+  isRerunning = false,
+  canRerun = false,
 }: TestRunFilterBarProps) {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
@@ -350,6 +358,24 @@ export default function TestRunFilterBar({
         >
           {isDownloading ? 'Downloading...' : 'Download'}
         </Button>
+        {onRerun && (
+          <Button
+            size="small"
+            variant="contained"
+            color="primary"
+            startIcon={
+              isRerunning ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <ReplayIcon />
+              )
+            }
+            onClick={onRerun}
+            disabled={isRerunning || !canRerun}
+          >
+            {isRerunning ? 'Re-running...' : 'Re-run'}
+          </Button>
+        )}
       </Box>
 
       {/* Advanced Filter Popover */}
