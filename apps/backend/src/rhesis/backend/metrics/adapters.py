@@ -86,17 +86,13 @@ def get_sdk_class_name(backend_class_name: str, score_type: Optional[str] = None
     # Handle RhesisPromptMetric split
     if backend_class_name == "RhesisPromptMetric":
         if not score_type:
-            logger.warning(
-                f"RhesisPromptMetric requires score_type, defaulting to 'numeric'"
-            )
+            logger.warning(f"RhesisPromptMetric requires score_type, defaulting to 'numeric'")
             score_type = "numeric"
 
         sdk_class_name = CLASS_NAME_MAP["RhesisPromptMetric"].get(
             score_type, "RhesisPromptMetricNumeric"
         )
-        logger.debug(
-            f"Mapped {backend_class_name} (score_type={score_type}) → {sdk_class_name}"
-        )
+        logger.debug(f"Mapped {backend_class_name} (score_type={score_type}) → {sdk_class_name}")
         return sdk_class_name
 
     # All other metrics use their class name directly
@@ -300,18 +296,14 @@ def create_metric_from_db_model(
 
         # Get backend type
         backend_type = (
-            metric_model.backend_type.type_value
-            if metric_model.backend_type
-            else "rhesis"
+            metric_model.backend_type.type_value if metric_model.backend_type else "rhesis"
         )
 
         # Map to SDK framework
         framework = map_backend_type_to_framework(backend_type)
 
         # Map class name (handles RhesisPromptMetric split)
-        sdk_class_name = get_sdk_class_name(
-            metric_model.class_name, metric_model.score_type
-        )
+        sdk_class_name = get_sdk_class_name(metric_model.class_name, metric_model.score_type)
 
         # Build parameters
         params = build_metric_params_from_model(metric_model, organization_id)
@@ -428,8 +420,6 @@ def create_metric(
         return create_metric_from_config(metric_source, organization_id)
     else:
         logger.error(
-            f"Invalid metric_source type: {type(metric_source)}. "
-            f"Expected MetricModel or dict"
+            f"Invalid metric_source type: {type(metric_source)}. Expected MetricModel or dict"
         )
         return None
-
