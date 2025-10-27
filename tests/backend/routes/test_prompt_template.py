@@ -268,11 +268,11 @@ class TestPromptTemplateRoutes(PromptTemplateTestMixin, BaseEntityRouteTests):
         deleted_template = response.json()
         assert deleted_template["id"] == template_id
         
-        # Verify template is deleted
+        # Verify template is deleted (soft delete returns 410 GONE)
         get_response = authenticated_client.get(
             self.endpoints.format_path(self.endpoints.get_by_id, prompt_template_id=template_id),
         )
-        assert get_response.status_code == status.HTTP_404_NOT_FOUND
+        assert get_response.status_code == status.HTTP_410_GONE
     
     def test_list_prompt_templates_with_pagination(self, authenticated_client):
         """Test listing prompt templates with pagination"""

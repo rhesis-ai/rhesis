@@ -17,8 +17,9 @@ class TokenEncryptionDataFactory(BaseDataFactory):
     
     @classmethod
     def minimal_data(cls) -> dict:
+        import uuid
         return {
-            "name": fake.word() + " Token",
+            "name": f"{fake.word()} Token {uuid.uuid4().hex[:8]}",  # Ensure unique name
             "token": cls.generate_token(),
             "token_type": fake.random_element(["api_key", "access_token", "bearer"])
         }
