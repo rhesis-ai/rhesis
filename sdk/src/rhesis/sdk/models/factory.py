@@ -15,10 +15,18 @@ from rhesis.sdk.models.base import BaseLLM
 DEFAULT_PROVIDER = "rhesis"
 DEFAULT_MODELS = {
     "rhesis": "rhesis-default",
+    "anthropic": "claude-4",
     "gemini": "gemini-2.0-flash",
-    "vertex_ai": "gemini-2.0-flash",  # Best performance - avoid 2.5-flash
+    "groq": "llama3-8b-8192",
+    "huggingface": "meta-llama/Llama-2-7b-chat-hf",
+    "meta_llama": "Llama-3.3-70B-Instruct",
+    "mistral": "mistral-medium-latest",
     "ollama": "llama3.1",
     "openai": "gpt-4o",
+    "perplexity": "sonar-pro",
+    "replicate": "llama-2-70b-chat",
+    "together_ai": "togethercomputer/llama-2-70b-chat",
+    "vertex_ai": "gemini-2.0-flash",  # Best performance - avoid 2.5-flash
 }
 
 
@@ -62,13 +70,78 @@ def _create_vertex_ai_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
     return VertexAILLM(model_name=model_name)
 
 
+def _create_anthropic_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for AnthropicLLM."""
+    from rhesis.sdk.models.providers.anthropic import AnthropicLLM
+
+    return AnthropicLLM(model_name=model_name, api_key=api_key)
+
+
+def _create_groq_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for GroqLLM."""
+    from rhesis.sdk.models.providers.groq import GroqLLM
+
+    return GroqLLM(model_name=model_name, api_key=api_key)
+
+
+def _create_huggingface_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for HuggingFaceLLM."""
+    from rhesis.sdk.models.providers.huggingface import HuggingFaceLLM
+
+    # Note: api_key is ignored for HuggingFace as it uses local models
+    return HuggingFaceLLM(model_name=model_name)
+
+
+def _create_meta_llama_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for MetaLlamaLLM."""
+    from rhesis.sdk.models.providers.meta_llama import MetaLlamaLLM
+
+    return MetaLlamaLLM(model_name=model_name, api_key=api_key)
+
+
+def _create_mistral_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for MistralLLM."""
+    from rhesis.sdk.models.providers.mistral import MistralLLM
+
+    return MistralLLM(model_name=model_name, api_key=api_key)
+
+
+def _create_perplexity_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for PerplexityLLM."""
+    from rhesis.sdk.models.providers.perplexity import PerplexityLLM
+
+    return PerplexityLLM(model_name=model_name, api_key=api_key)
+
+
+def _create_replicate_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for ReplicateLLM."""
+    from rhesis.sdk.models.providers.replicate import ReplicateLLM
+
+    return ReplicateLLM(model_name=model_name, api_key=api_key)
+
+
+def _create_together_ai_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for TogetherAILLM."""
+    from rhesis.sdk.models.providers.together_ai import TogetherAILLM
+
+    return TogetherAILLM(model_name=model_name, api_key=api_key)
+
+
 # Provider registry mapping provider names to their factory functions
 PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
     "rhesis": _create_rhesis_llm,
+    "anthropic": _create_anthropic_llm,
     "gemini": _create_gemini_llm,
-    "vertex_ai": _create_vertex_ai_llm,
+    "groq": _create_groq_llm,
+    "huggingface": _create_huggingface_llm,
+    "meta_llama": _create_meta_llama_llm,
+    "mistral": _create_mistral_llm,
     "ollama": _create_ollama_llm,
     "openai": _create_openai_llm,
+    "perplexity": _create_perplexity_llm,
+    "replicate": _create_replicate_llm,
+    "together_ai": _create_together_ai_llm,
+    "vertex_ai": _create_vertex_ai_llm,
 }
 
 
@@ -77,8 +150,8 @@ class ModelConfig:
     """Configuration for a model instance.
 
     Args:
-        provider: The provider name (e.g., "rhesis", "gemini", "ollama")
-        model_name: Specific model name (E.g gpt-4o, gemini-2.0-flash, etc)
+        provider: The provider name (e.g., "rhesis", "anthropic", "gemini", "openai", "ollama")
+        model_name: Specific model name (E.g gpt-4o, gemini-2.0-flash, claude-4, etc)
         api_key: The API key to use for the model.
         extra_params: Extra parameters to pass to the model.
     """
@@ -107,7 +180,8 @@ def get_model(
     5. **Full config**: `get_model(config=ModelConfig(...))`
 
     Args:
-        provider: Provider name (e.g., "rhesis", "gemini", "ollama")
+        provider: Provider name (e.g., "rhesis", "anthropic", "gemini", "openai",
+            "mistral", "ollama")
         model_name: Specific model name
         api_key: API key for authentication
         config: Complete configuration object
@@ -129,6 +203,11 @@ def get_model(
 
         >>> # Use provider/model shorthand
         >>> model = get_model("rhesis/rhesis-llm-v1")
+
+        >>> # Use different providers
+        >>> model = get_model("anthropic", "claude-4")
+        >>> model = get_model("openai", "gpt-4o")
+        >>> model = get_model("mistral/mistral-medium-latest")
 
         >>> # With custom configuration
         >>> config = ModelConfig(
