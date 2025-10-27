@@ -114,7 +114,7 @@ class JudgeBase(BaseMetric):
         logger = logging.getLogger(__name__)
         error_msg = f"Error evaluating with {self.name}: {str(e)}"
 
-        logger.error(f"Exception in RhesisPromptMetric.evaluate: {error_msg}")
+        logger.error(f"Exception in JudgeBase.evaluate: {error_msg}")
         logger.error(f"Exception type: {type(e).__name__}")
         logger.error(f"Exception details: {str(e)}")
         logger.error(f"Full traceback:\n{traceback.format_exc()}")
