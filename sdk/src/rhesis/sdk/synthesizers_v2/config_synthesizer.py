@@ -25,9 +25,9 @@ class GenerationConfig:
     """Dataclass representing generation config information."""
 
     project_context: str  # Select project
-    behaviors: list[str]  # Behaviors
-    topics: list[str]  # Topics
-    categories: list[str]  # Categories
+    behaviors: List[str]  # Behaviors
+    topics: List[str]  # Topics
+    categories: List[str]  # Categories
     specific_requirements: str  # Describe what you want to test
     test_type: str
     output_format: str  # Generate prompts only
