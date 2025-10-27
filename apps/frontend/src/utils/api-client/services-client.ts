@@ -13,6 +13,11 @@ interface TestPrompt {
 interface TestMetadata {
   generated_by: string;
   additional_info?: Record<string, any>;
+  sources?: Array<{
+    source: string;
+    name: string;
+    description?: string;
+  }>;
 }
 
 interface Test {

@@ -244,10 +244,13 @@ async def generate_tests_endpoint(
                     )
 
                 # Create Document object for the synthesizer
+                # Ensure description and content are not empty to satisfy SDK validation
                 document_sdk = Document(
                     name=db_source.title or f"Source {db_source.id}",
-                    description=db_source.description or "",
-                    content=db_source.content or "",
+                    description=db_source.description
+                    or f"Source document: {db_source.title or f'Source {db_source.id}'}",
+                    content=db_source.content
+                    or f"No content available for source: {db_source.title or f'Source {db_source.id}'}",
                     path=None,  # Sources don't have file paths
                 )
                 sources_sdk.append(document_sdk)

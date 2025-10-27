@@ -189,6 +189,10 @@ export default function TestGenerationFlow({
                   topic: test.topic,
                   rating: null,
                   feedback: '',
+                  context: test.metadata?.sources?.map((source: any) => ({
+                    name: source.name || source.source,
+                    description: source.description,
+                  })),
                 })
               );
 
@@ -249,8 +253,6 @@ export default function TestGenerationFlow({
           project_id: projectId || undefined,
         });
 
-        console.log('Config response:', configResponse);
-
         // Step 2: Create chips from config response (5 active, 5 inactive)
         const createChipsFromArray = (
           items: Array<{ name: string; description: string }> | undefined,
@@ -308,7 +310,7 @@ export default function TestGenerationFlow({
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 5,
-          source_ids: selectedSourceIds,
+          source_ids: sourceIds, // Use the parameter directly, not the state
         });
 
         if (response.tests?.length) {
@@ -321,6 +323,11 @@ export default function TestGenerationFlow({
               topic: test.topic,
               rating: null,
               feedback: '',
+              context: test.metadata?.sources?.map((source: any) => ({
+                name: source.name || source.source || '',
+                description: source.description || '',
+                content: source.content || '',
+              })),
             })
           );
 

@@ -51,6 +51,7 @@ export interface TestSample {
   feedback: string;
   isLoadingResponse?: boolean;
   responseError?: string;
+  context?: Array<{ name: string; description?: string }>; // Sources/documents used
 }
 
 /**
