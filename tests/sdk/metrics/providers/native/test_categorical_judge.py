@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
-from rhesis.sdk.metrics.providers.native.prompt_metric_categorical import (
+from rhesis.sdk.metrics.providers.native.categorical_judge import (
     CategoricalJudge,
     PromptMetricCategoricalConfig,
 )

@@ -1,10 +1,10 @@
 from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
-from rhesis.sdk.metrics.providers.native.prompt_metric_categorical import (
+from rhesis.sdk.metrics.providers.native.categorical_judge import (
     CategoricalJudge,
 )
-from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import NumericJudge
+from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
 
 
 class RhesisMetricFactory(BaseMetricFactory):

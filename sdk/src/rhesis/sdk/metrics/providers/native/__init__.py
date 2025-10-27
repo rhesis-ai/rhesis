@@ -1,10 +1,10 @@
 """Rhesis custom metrics implementations."""
 
 from .factory import RhesisMetricFactory
-from .prompt_metric_categorical import (
+from .categorical_judge import (
     CategoricalJudge,
 )
-from .prompt_metric_numeric import (
+from .numeric_judge import (
     NumericScoreResponse,
     NumericJudge,
 )

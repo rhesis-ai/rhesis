@@ -8,7 +8,7 @@ from rhesis.sdk.metrics.base import (
     ScoreType,
     ThresholdOperator,
 )
-from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import (
+from rhesis.sdk.metrics.providers.native.numeric_judge import (
     NumericJudge,
     PromptMetricNumericConfig,
 )

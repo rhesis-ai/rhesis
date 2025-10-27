@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import create_model
 
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
-from rhesis.sdk.metrics.providers.native.prompt_metric import (
+from rhesis.sdk.metrics.providers.native.base import (
     PromptMetricConfig,
     JudgeBase,
 )

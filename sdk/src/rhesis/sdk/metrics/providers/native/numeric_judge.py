@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
-from rhesis.sdk.metrics.providers.native.prompt_metric import (
+from rhesis.sdk.metrics.providers.native.base import (
     PromptMetricConfig,
     JudgeBase,
 )
