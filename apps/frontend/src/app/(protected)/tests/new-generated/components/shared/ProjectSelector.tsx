@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
   Typography,
@@ -114,20 +113,26 @@ export default function ProjectSelector({
     );
   }
 
-  const selectedProject = selectedProjectId
-    ? getProjectById(selectedProjectId)
-    : null;
-
   return (
     <Box>
       <FormControl fullWidth>
-        <InputLabel id="project-selector-label">Select Project</InputLabel>
         <Select
-          labelId="project-selector-label"
           id="project-selector"
           value={selectedProjectId || ''}
-          label="Select Project"
           onChange={handleChange}
+          displayEmpty
+          renderValue={selected => {
+            if (!selected) {
+              return <em>None</em>;
+            }
+            const project = getProjectById(selected);
+            return (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FolderIcon fontSize="small" color="action" />
+                <Typography variant="body2">{project?.name}</Typography>
+              </Box>
+            );
+          }}
         >
           <MenuItem value="">
             <em>None</em>
