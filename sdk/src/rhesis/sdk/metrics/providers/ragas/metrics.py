@@ -13,6 +13,7 @@ class RagasContextRelevance(RagasMetricBase):
     """Ragas implementation of Context Relevance metric."""
 
     metric_type = MetricType.RAG
+    ground_truth_required = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(name="context_relevance", metric_type=self.metric_type, model=model)
@@ -35,15 +36,12 @@ class RagasContextRelevance(RagasMetricBase):
             },
         )
 
-    @property
-    def requires_ground_truth(self) -> bool:
-        return True
-
 
 class RagasAnswerAccuracy(RagasMetricBase):
     """Ragas implementation of Answer Accuracy metric."""
 
     metric_type = MetricType.RAG
+    ground_truth_required = True
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(name="answer_accuracy", metric_type=self.metric_type, model=model)
@@ -74,15 +72,12 @@ class RagasAnswerAccuracy(RagasMetricBase):
             },
         )
 
-    @property
-    def requires_ground_truth(self) -> bool:
-        return True
-
 
 class RagasFaithfulness(RagasMetricBase):
     """Ragas implementation of Faithfulness metric."""
 
     metric_type = MetricType.RAG
+    ground_truth_required = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(name="faithfulness", metric_type=self.metric_type, model=model)
@@ -113,15 +108,12 @@ class RagasFaithfulness(RagasMetricBase):
             },
         )
 
-    @property
-    def requires_ground_truth(self) -> bool:
-        return False
-
 
 class RagasAspectCritic(RagasMetricBase):
     """Ragas implementation of AspectCritic metric."""
 
     metric_type = MetricType.RAG
+    ground_truth_required = False
 
     def __init__(
         self,
