@@ -37,6 +37,10 @@ export class SourcesClient extends BaseApiClient {
     return this.fetch<Source>(`${API_ENDPOINTS.sources}/${id}`);
   }
 
+  async getSourceWithContent(id: UUID): Promise<Source> {
+    return this.fetch<Source>(`${API_ENDPOINTS.sources}/${id}/content`);
+  }
+
   async createSource(source: SourceCreate): Promise<Source> {
     return this.fetch<Source>(API_ENDPOINTS.sources, {
       method: 'POST',
@@ -135,11 +139,11 @@ export class SourcesClient extends BaseApiClient {
   }
 
   async getSourceContent(id: UUID): Promise<string> {
-    return this.fetchText(`${API_ENDPOINTS.sources}/${id}/content`);
+    return this.fetchText(`${API_ENDPOINTS.sources}/${id}/file`);
   }
 
   async getSourceContentBlob(id: UUID): Promise<Blob> {
-    return this.fetchBlob(`${API_ENDPOINTS.sources}/${id}/content`);
+    return this.fetchBlob(`${API_ENDPOINTS.sources}/${id}/file`);
   }
 
   protected async fetchText(
