@@ -292,7 +292,7 @@ class TestCurrentDatabaseIntegration:
         test_db.refresh(test_result)
         
         # Retrieve via CRUD
-        retrieved_result = crud.get_test_result(test_db, test_result.id)
+        retrieved_result = crud.get_test_result(test_db, test_result.id, test_org_id)
         
         assert retrieved_result is not None
         assert retrieved_result.test_metrics is not None
