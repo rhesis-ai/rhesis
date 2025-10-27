@@ -373,9 +373,9 @@ class TestPromptRoutes(PromptTestMixin, BaseEntityRouteTests):
         deleted_prompt = prompt_factory.delete(prompt_id)
         assert deleted_prompt["id"] == prompt_id
         
-        # Verify prompt is actually deleted
+        # Verify prompt is actually deleted (soft delete returns 410 GONE)
         response = prompt_factory.client.get(self.endpoints.get(prompt_id))
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.status_code == status.HTTP_410_GONE
     
     def test_prompt_deletion_with_children(self, prompt_factory):
         """Test deletion of parent prompt with child prompts"""

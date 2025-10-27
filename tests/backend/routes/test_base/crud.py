@@ -135,9 +135,9 @@ class BaseCRUDTests(BaseEntityTests):
         data = response.json()
         assert data[self.id_field] == entity_id
         
-        # Verify entity is deleted by trying to get it
+        # Verify entity is soft-deleted by trying to get it (should return 410 GONE)
         get_response = authenticated_client.get(self.endpoints.get(entity_id))
-        assert get_response.status_code == status.HTTP_404_NOT_FOUND
+        assert get_response.status_code == status.HTTP_410_GONE
 
     def test_delete_entity_not_found(self, authenticated_client: TestClient):
         """🧩 Test deleting non-existent entity"""
