@@ -1000,19 +1000,23 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
                 if entity.__class__.__name__ == "Status":
                     # Delete tasks that reference this status
                     # These are typically test-created tasks, not part of initial data
-                    tasks_with_status = db.query(models.Task).filter(
-                        models.Task.status_id == entity.id,
-                        models.Task.organization_id == organization_id
-                    ).all()
-                    
+                    tasks_with_status = (
+                        db.query(models.Task)
+                        .filter(
+                            models.Task.status_id == entity.id,
+                            models.Task.organization_id == organization_id,
+                        )
+                        .all()
+                    )
+
                     for task in tasks_with_status:
                         try:
                             db.delete(task)
                         except Exception as task_error:
                             print(f"Error deleting task {task.id}: {task_error}")
-                    
+
                     db.flush()
-                
+
                 _delete_entity_associations(db, entity)
                 db.delete(entity)
                 deleted_ids.add(entity.id)
