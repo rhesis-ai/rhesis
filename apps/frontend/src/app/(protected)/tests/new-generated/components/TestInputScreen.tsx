@@ -6,13 +6,20 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CircularProgress from '@mui/material/CircularProgress';
 import SourceSelector from './shared/SourceSelector';
+import ProjectSelector from './shared/ProjectSelector';
 import ActionBar from '@/components/common/ActionBar';
 
 interface TestInputScreenProps {
-  onContinue: (description: string, sourceIds: string[]) => void;
+  onContinue: (
+    description: string,
+    sourceIds: string[],
+    projectId: string | null
+  ) => void;
   initialDescription?: string;
   selectedSourceIds: string[];
   onSourcesChange: (sourceIds: string[]) => void;
+  selectedProjectId: string | null;
+  onProjectChange: (projectId: string | null) => void;
   isLoading?: boolean;
   onBack?: () => void;
 }
@@ -59,6 +66,8 @@ export default function TestInputScreen({
   initialDescription = '',
   selectedSourceIds,
   onSourcesChange,
+  selectedProjectId,
+  onProjectChange,
   isLoading = false,
   onBack,
 }: TestInputScreenProps) {
@@ -70,9 +79,9 @@ export default function TestInputScreen({
 
   const handleContinue = useCallback(() => {
     if (description.trim()) {
-      onContinue(description, selectedSourceIds);
+      onContinue(description, selectedSourceIds, selectedProjectId);
     }
-  }, [description, selectedSourceIds, onContinue]);
+  }, [description, selectedSourceIds, selectedProjectId, onContinue]);
 
   const canContinue = description.trim().length > 0;
 
@@ -87,8 +96,28 @@ export default function TestInputScreen({
       >
         <Box>
           <Paper sx={{ p: 3, mb: 4 }}>
+            {/* Project Selection */}
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ mb: 1 }}
+              >
+                Select project (optional)
+              </Typography>
+              <ProjectSelector
+                selectedProjectId={selectedProjectId}
+                onProjectChange={onProjectChange}
+              />
+            </Box>
+
             {/* Subtitle */}
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography
+              variant="subtitle2"
+              color="text.secondary"
+              sx={{ mb: 3 }}
+            >
               Describe what you want to test
             </Typography>
 
@@ -97,7 +126,7 @@ export default function TestInputScreen({
               fullWidth
               multiline
               rows={4}
-              placeholder="Describe what you want to test. Be as specific as possible. For example: 'I want to test our customer support chatbot for accuracy, helpfulness, and handling of edge cases like refunds and complaints.'"
+              placeholder="For example: 'I want to test our customer support chatbot for accuracy, helpfulness, and handling of edge cases like refunds and complaints.'"
               value={description}
               onChange={e => setDescription(e.target.value)}
               variant="outlined"
@@ -106,7 +135,11 @@ export default function TestInputScreen({
 
             {/* Suggestions */}
             <Box sx={{ mb: 4 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+              >
                 Or try one of these:
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -131,12 +164,12 @@ export default function TestInputScreen({
             {/* Source Selection */}
             <Box sx={{ mb: 3 }}>
               <Typography
-                variant="body2"
+                variant="subtitle2"
                 color="text.secondary"
                 gutterBottom
                 sx={{ mb: 1 }}
               >
-                Select sources (documents) to provide context (optional)
+                Select documents to provide context (optional)
               </Typography>
               <SourceSelector
                 selectedSourceIds={selectedSourceIds}
@@ -160,9 +193,7 @@ export default function TestInputScreen({
             : undefined
         }
         rightButton={{
-          label: isLoading
-            ? 'Loading configuration...'
-            : 'Continue to Configuration',
+          label: isLoading ? 'Loading configuration...' : 'Continue',
           onClick: handleContinue,
           disabled: !canContinue || isLoading,
           endIcon: isLoading ? (

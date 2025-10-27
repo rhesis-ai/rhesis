@@ -56,7 +56,14 @@ export default function ActionBar({ leftButton, rightButton }: ActionBarProps) {
           startIcon={leftButton.startIcon}
           endIcon={leftButton.endIcon}
           color={leftButton.color}
-          sx={leftButton.sx}
+          sx={{
+            ...leftButton.sx,
+            '&.Mui-disabled': {
+              opacity: 0.5,
+              cursor: 'not-allowed',
+              pointerEvents: 'auto',
+            },
+          }}
         >
           {leftButton.label}
         </Button>
@@ -71,7 +78,14 @@ export default function ActionBar({ leftButton, rightButton }: ActionBarProps) {
           startIcon={rightButton.startIcon}
           endIcon={rightButton.endIcon}
           color={rightButton.color}
-          sx={rightButton.sx}
+          sx={{
+            ...rightButton.sx,
+            '&.Mui-disabled': {
+              opacity: 0.5,
+              cursor: 'not-allowed',
+              pointerEvents: 'auto',
+            },
+          }}
         >
           {rightButton.label}
         </Button>
