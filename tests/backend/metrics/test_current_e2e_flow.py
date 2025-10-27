@@ -40,7 +40,8 @@ class TestCurrentE2EFlow:
         
         status = get_or_create_status(
             test_db,
-            status_name="running",
+            name="running",
+            entity_type="TestRun",
             organization_id=test_org_id,
             user_id=authenticated_user_id
         )
@@ -73,20 +74,20 @@ class TestCurrentE2EFlow:
         return test_config
     
     @pytest.fixture
-    def full_test_setup(self, test_db, test_with_prompt, test_endpoint, test_run, test_config):
+    def full_test_setup(self, test_db, db_test_with_prompt, test_endpoint, test_run, test_config):
         """Complete test setup with all components."""
         return {
             "db": test_db,
-            "test": test_with_prompt,
-            "test_id": str(test_with_prompt.id),
+            "test": db_test_with_prompt,
+            "test_id": str(db_test_with_prompt.id),
             "endpoint": test_endpoint,
             "endpoint_id": str(test_endpoint.id),
             "test_run": test_run,
             "test_run_id": str(test_run.id),
             "test_config": test_config,
             "test_config_id": str(test_config.id),
-            "organization_id": str(test_with_prompt.organization_id),
-            "user_id": str(test_with_prompt.user_id),
+            "organization_id": str(db_test_with_prompt.organization_id),
+            "user_id": str(db_test_with_prompt.user_id),
         }
     
     @patch('rhesis.backend.app.services.endpoint_service.EndpointService.invoke_endpoint')
@@ -243,7 +244,7 @@ class TestCurrentE2EFlow:
     
     @patch('rhesis.backend.app.services.endpoint_service.EndpointService.invoke_endpoint')
     @patch('rhesis.backend.metrics.ragas.metrics.RagasAnswerRelevancy.evaluate')
-    def test_e2e_with_ragas_metric(self, mock_ragas_evaluate, mock_invoke, test_db, test_org_id, authenticated_user_id, test_with_prompt, test_endpoint, test_run):
+    def test_e2e_with_ragas_metric(self, mock_ragas_evaluate, mock_invoke, test_db, test_org_id, authenticated_user_id, db_test_with_prompt, test_endpoint, test_run):
         """Test with Ragas metric."""
         from rhesis.backend.app import models
         from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
@@ -301,7 +302,7 @@ class TestCurrentE2EFlow:
         test_db.refresh(test_config)
         
         # Update test to use this behavior
-        test_with_prompt.behavior_id = behavior.id
+        db_test_with_prompt.behavior_id = behavior.id
         test_db.commit()
         
         mock_invoke.return_value = {
@@ -325,7 +326,7 @@ class TestCurrentE2EFlow:
             db=test_db,
             test_config_id=str(test_config.id),
             test_run_id=str(test_run.id),
-            test_id=str(test_with_prompt.id),
+            test_id=str(db_test_with_prompt.id),
             endpoint_id=str(test_endpoint.id),
             organization_id=test_org_id,
             user_id=authenticated_user_id

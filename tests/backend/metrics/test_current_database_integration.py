@@ -202,7 +202,7 @@ class TestCurrentDatabaseIntegration:
         # Some ORMs support querying behaviors that use a metric
         assert test_metric_numeric.id is not None
     
-    def test_test_result_test_metrics_storage(self, test_db, test_org_id, authenticated_user_id, test_with_prompt):
+    def test_test_result_test_metrics_storage(self, test_db, test_org_id, authenticated_user_id, db_test_with_prompt):
         """Test storing evaluation results in TestResult.test_metrics."""
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
         from uuid import uuid4
@@ -210,7 +210,8 @@ class TestCurrentDatabaseIntegration:
         # Get or create status
         status = get_or_create_status(
             test_db,
-            status_name="completed",
+            name="completed",
+            entity_type="TestResult",
             organization_id=test_org_id,
             user_id=authenticated_user_id
         )
@@ -235,11 +236,10 @@ class TestCurrentDatabaseIntegration:
         }
         
         test_result = models.TestResult(
-            test_id=test_with_prompt.id,
-            test_run_id=uuid4(),
-            test_config_id=uuid4(),
-            result="Test response",
-            execution_time=0.5,
+            test_id=db_test_with_prompt.id,
+            test_run_id=None,
+            test_configuration_id=None,
+            test_output={"result": "Test response", "execution_time": 0.5},
             test_metrics=metrics_results,  # This is the critical field
             status_id=status.id,
             organization_id=test_org_id,
@@ -258,14 +258,15 @@ class TestCurrentDatabaseIntegration:
         assert test_result.test_metrics["Test Metric 1"]["score"] == 8.0
         assert test_result.test_metrics["Test Metric 2"]["score"] == "positive"
     
-    def test_test_result_test_metrics_retrieval(self, test_db, test_org_id, authenticated_user_id, test_with_prompt):
+    def test_test_result_test_metrics_retrieval(self, test_db, test_org_id, authenticated_user_id, db_test_with_prompt):
         """Test retrieving test_metrics from TestResult."""
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
         from uuid import uuid4
         
         status = get_or_create_status(
             test_db,
-            status_name="completed",
+            name="completed",
+            entity_type="TestResult",
             organization_id=test_org_id,
             user_id=authenticated_user_id
         )
@@ -277,11 +278,10 @@ class TestCurrentDatabaseIntegration:
         }
         
         test_result = models.TestResult(
-            test_id=test_with_prompt.id,
-            test_run_id=uuid4(),
-            test_config_id=uuid4(),
-            result="Response",
-            execution_time=0.3,
+            test_id=db_test_with_prompt.id,
+            test_run_id=None,
+            test_configuration_id=None,
+            test_output={"result": "Response", "execution_time": 0.3},
             test_metrics=metrics_results,
             status_id=status.id,
             organization_id=test_org_id,
@@ -300,24 +300,24 @@ class TestCurrentDatabaseIntegration:
         assert retrieved_result.test_metrics["Metric A"]["score"] == 9.0
         assert retrieved_result.test_metrics["Metric B"]["score"] == "excellent"
     
-    def test_test_result_empty_test_metrics(self, test_db, test_org_id, authenticated_user_id, test_with_prompt):
+    def test_test_result_empty_test_metrics(self, test_db, test_org_id, authenticated_user_id, db_test_with_prompt):
         """Test TestResult with empty test_metrics."""
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
         from uuid import uuid4
         
         status = get_or_create_status(
             test_db,
-            status_name="completed",
+            name="completed",
+            entity_type="TestResult",
             organization_id=test_org_id,
             user_id=authenticated_user_id
         )
         
         test_result = models.TestResult(
-            test_id=test_with_prompt.id,
-            test_run_id=uuid4(),
-            test_config_id=uuid4(),
-            result="Response",
-            execution_time=0.2,
+            test_id=db_test_with_prompt.id,
+            test_run_id=None,
+            test_configuration_id=None,
+            test_output={"result": "Response", "execution_time": 0.2},
             test_metrics={},  # Empty metrics
             status_id=status.id,
             organization_id=test_org_id,
