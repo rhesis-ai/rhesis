@@ -21,6 +21,7 @@ class MetricEvaluator:
         model: Optional[Any] = None,
         db: Optional[Session] = None,
         organization_id: Optional[str] = None,
+        use_sdk_metrics: bool = True,
     ):
         """
         Initialize evaluator with factory and score evaluator.
@@ -32,6 +33,8 @@ class MetricEvaluator:
                    - BaseLLM instance: Fully configured model
             db: Optional database session for fetching metric-specific models
             organization_id: Optional organization ID for secure model lookups
+            use_sdk_metrics: If True, use SDK metrics via adapter (default: True).
+                           If False, use backend's local metric implementation (legacy).
         """
         # Lazy load factory to avoid circular imports
         self.factory = None
@@ -39,6 +42,7 @@ class MetricEvaluator:
         self.model = model  # Store default model for passing to metrics
         self.db = db  # Database session for fetching metric-specific models
         self.organization_id = organization_id  # For secure model lookups
+        self.use_sdk_metrics = use_sdk_metrics  # Use SDK metrics via adapter
 
     def _get_factory(self):
         """Lazy load the MetricFactory to avoid circular imports."""
@@ -271,9 +275,32 @@ class MetricEvaluator:
                 if metric_model is not None:
                     metric_params["model"] = metric_model
 
-                # Instantiate the metric using the class name and backend
-                backend_factory = self._get_factory().get_factory(backend)
-                metric = backend_factory.create(class_name, **metric_params)
+                # Instantiate the metric - use SDK adapter or legacy backend factory
+                if self.use_sdk_metrics:
+                    # NEW PATH: Use SDK metrics via adapter
+                    from rhesis.backend.metrics.adapters import create_metric_from_config
+
+                    logger.debug(
+                        f"[SDK_ADAPTER] Creating metric via SDK adapter: {metric_config.name or class_name}"
+                    )
+                    metric = create_metric_from_config(
+                        metric_config.to_dict()
+                        if hasattr(metric_config, "to_dict")
+                        else metric_config,
+                        self.organization_id,
+                    )
+                    if metric is None:
+                        logger.error(
+                            f"[SDK_ADAPTER] Failed to create metric '{metric_config.name or class_name}' via adapter"
+                        )
+                        continue
+                else:
+                    # LEGACY PATH: Use backend's local factory
+                    logger.debug(
+                        f"[BACKEND_FACTORY] Creating metric via backend factory: {metric_config.name or class_name}"
+                    )
+                    backend_factory = self._get_factory().get_factory(backend)
+                    metric = backend_factory.create(class_name, **metric_params)
 
                 # Skip metrics that require ground truth if it's not provided
                 if metric.requires_ground_truth and expected_output is None:
