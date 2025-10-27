@@ -25,7 +25,18 @@ class DeepEvalMetricBase(BaseMetric):
         )
         super().__init__(config=config, model=model)
         self._metric = None  # Will be set by child classes
-        self._deepeval_model = DeepEvalModelWrapper(self.model)
+        self._deepeval_model = DeepEvalModelWrapper(self._model)
+
+    @property
+    def model(self) -> Any:
+        """Get the current model."""
+        return self._model
+
+    @model.setter
+    def model(self, value: Any):
+        """Set the model and update the DeepEval wrapper."""
+        self._model = self.set_model(value)
+        self._deepeval_model = DeepEvalModelWrapper(self._model)
 
     @property
     def is_successful(self) -> bool:

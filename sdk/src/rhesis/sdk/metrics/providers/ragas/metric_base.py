@@ -24,4 +24,16 @@ class RagasMetricBase(BaseMetric):
             metric_type=metric_type,
         )
         super().__init__(config=config, model=model)
-        self.model = LangchainLLMWrapper(CustomLLM(rhesis_model=self.model))
+
+        self._ragas_model = LangchainLLMWrapper(CustomLLM(rhesis_model=self.model))
+
+    @property
+    def model(self) -> Any:
+        """Get the current model."""
+        return self._model
+
+    @model.setter
+    def model(self, value: Any):
+        """Set the model and update the Ragas wrapper."""
+        self._model = self.set_model(value)
+        self._ragas_model = LangchainLLMWrapper(CustomLLM(rhesis_model=self._model))
