@@ -19,7 +19,7 @@ export default function DragAndDropUpload({
   onFileSelect,
   onFileRemove,
   selectedFile,
-  accept = '.txt,.md,.pdf,.doc,.docx,.json,.csv,.xml,.epub,.pptx,.xlsx,.html,.htm,.zip',
+  accept = '.txt,.md,.pdf,.docx,.json,.csv,.xml,.epub,.pptx,.xlsx,.html,.htm,.zip',
   maxSize = 5 * 1024 * 1024,
   disabled = false,
 }: DragAndDropUploadProps) {

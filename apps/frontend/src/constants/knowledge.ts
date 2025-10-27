@@ -18,7 +18,7 @@ export const TEXT_CONSTANTS = {
 // File type constants
 export const FILE_TYPE_CONSTANTS = {
   ACCEPTED_EXTENSIONS:
-    '.txt,.md,.pdf,.doc,.docx,.json,.csv,.xml,.epub,.pptx,.xlsx,.html,.htm,.zip',
+    '.txt,.md,.pdf,.docx,.json,.csv,.xml,.epub,.pptx,.xlsx,.html,.htm,.zip',
   SIZE_UNITS: ['Bytes', 'KB', 'MB', 'GB'],
 } as const;
 
