@@ -183,35 +183,6 @@ export default function TestConfigurationConfirmation({
                     </Box>
                   </Box>
                 )}
-
-                {/* Documents */}
-                {documents.length > 0 && (
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      Context Documents
-                    </Typography>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: 1,
-                      }}
-                    >
-                      {documents.map(doc => (
-                        <Chip
-                          key={doc.id}
-                          label={doc.name || doc.originalName}
-                          size="small"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                  </Box>
-                )}
               </Box>
             </Grid>
 
