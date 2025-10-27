@@ -13,7 +13,7 @@ from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to
 from rhesis.sdk.models import BaseLLM
 
 # Type variable for generic return types
-T = TypeVar("T", bound="RhesisPromptMetricBase")
+T = TypeVar("T", bound="JudgeBase")
 
 # Custom parameters
 
@@ -251,9 +251,7 @@ class JudgeBase(BaseMetric):
         client.send_request(Endpoints.METRICS, Methods.POST, config)
 
     @classmethod
-    def pull(
-        cls, name: Optional[str] = None, nano_id: Optional[str] = None
-    ) -> "JudgeBase":
+    def pull(cls, name: Optional[str] = None, nano_id: Optional[str] = None) -> "JudgeBase":
         """
         Pull the metric from the backend.
         # Either 'name' or 'nano_id' must be provided to pull a metric from the backend.
@@ -265,7 +263,7 @@ class JudgeBase(BaseMetric):
             nano_id (Optional[str]): The nano_id of the metric
 
         Returns:
-            RhesisPromptMetricNumeric: The metric
+            JudgeBase: The metric
         """
         if not name and not nano_id:
             raise ValueError("Either name or nano_id must be provided")

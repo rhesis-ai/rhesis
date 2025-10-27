@@ -5,8 +5,8 @@ from pydantic import create_model
 
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.base import (
-    PromptMetricConfig,
     JudgeBase,
+    PromptMetricConfig,
 )
 from rhesis.sdk.models.base import BaseLLM
 
