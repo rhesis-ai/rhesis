@@ -255,7 +255,8 @@ class TestCurrentTaskExecution:
             )
         ]
         
-        evaluator = Evaluator()
+        # Use legacy backend factory for this test
+        evaluator = Evaluator(use_sdk_metrics=False)
         metrics = [
             {
                 "name": "Metric 1",

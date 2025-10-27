@@ -235,7 +235,9 @@ class TestBuildMetricParamsFromModel:
         params = build_metric_params_from_model(mock_metric_model_categorical)
 
         assert params["name"] == "Test Categorical Metric"
-        assert params["reference_score"] == "excellent"
+        # SDK uses categories list, not reference_score
+        assert params["categories"] == ["excellent", "other"]
+        assert params["passing_categories"] == ["excellent"]
         assert params["requires_ground_truth"] is True
         assert "min_score" not in params  # Categorical doesn't have numeric scores
         assert "max_score" not in params
@@ -287,7 +289,9 @@ class TestBuildMetricParamsFromConfig:
         params = build_metric_params_from_config(metric_config_categorical)
 
         assert params["name"] == "Test Categorical Config"
-        assert params["reference_score"] == "good"
+        # SDK uses categories list, not reference_score
+        assert params["categories"] == ["good", "other"]
+        assert params["passing_categories"] == ["good"]
         assert params["evaluation_prompt"] == "Rate as poor/good/excellent"
 
 
