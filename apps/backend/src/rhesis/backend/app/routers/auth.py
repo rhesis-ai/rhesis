@@ -57,15 +57,17 @@ def get_callback_url(request: Request) -> str:
     In production, use RHESIS_BASE_URL for proper domain handling.
     """
     rhesis_base_url = os.getenv("RHESIS_BASE_URL")
-    if rhesis_base_url and ("localhost" not in str(request.base_url) and "127.0.0.1" not in str(request.base_url)):
+    if rhesis_base_url and (
+        "localhost" not in str(request.base_url) and "127.0.0.1" not in str(request.base_url)
+    ):
         # Production: use RHESIS_BASE_URL
         base_url = rhesis_base_url.rstrip("/")
     else:
         # Local development: use the actual request host to ensure cookie domain matches
         base_url = str(request.base_url).rstrip("/")
-    
+
     callback_url = f"{base_url}/auth/callback"
-    
+
     # Only rewrite http to https if not localhost (including 127.0.0.1)
     if (
         callback_url.startswith("http://")
@@ -73,7 +75,7 @@ def get_callback_url(request: Request) -> str:
         and "127.0.0.1" not in callback_url
     ):
         callback_url = "https://" + callback_url[7:]
-    
+
     return callback_url
 
 
