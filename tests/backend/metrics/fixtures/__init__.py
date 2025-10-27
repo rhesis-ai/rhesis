@@ -13,14 +13,25 @@ __all__ = [
     "MetricConfigFactory",
     "RhesisMetricConfigFactory",
     "RagasMetricConfigFactory",
+    "DeepEvalMetricConfigFactory",
     
-    # Fixtures
+    # Fixtures - Config fixtures
     "numeric_metric_config",
     "categorical_metric_config",
     "binary_metric_config",
     "rhesis_metric_with_model",
     "ragas_metric_config",
     "metric_configs_batch",
+    
+    # Fixtures - Mock responses
     "mock_llm_response",
+    "mock_llm_categorical_response",
+    "mock_llm_binary_response",
+    
+    # Fixtures - Database entities
+    "test_model",
+    "test_metric_numeric",
+    "test_metric_categorical",
+    "test_behavior_with_metrics",
 ]
 

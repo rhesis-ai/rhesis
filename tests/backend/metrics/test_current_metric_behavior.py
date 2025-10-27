@@ -8,7 +8,7 @@ and will serve as regression guards during the migration to SDK metrics.
 import pytest
 from rhesis.backend.metrics import RhesisPromptMetric, RhesisMetricFactory
 from rhesis.backend.metrics import RagasAnswerRelevancy, RagasContextualPrecision
-from rhesis.backend.metrics.constants import ScoreType
+from rhesis.backend.metrics.constants import ScoreType, ThresholdOperator
 
 
 class TestCurrentMetricBehavior:
@@ -31,7 +31,9 @@ class TestCurrentMetricBehavior:
         assert metric.score_type == ScoreType.NUMERIC
         assert metric.min_score == 0
         assert metric.max_score == 10
-        assert metric.threshold == 7
+        # Threshold is normalized: (7-0)/(10-0) = 0.7
+        assert metric.threshold == 0.7
+        assert metric.raw_threshold == 7
         assert metric.evaluation_prompt == "Rate quality"
         assert metric.evaluation_steps == "Check accuracy"
         assert metric.reasoning == "Quality matters"
@@ -67,13 +69,8 @@ class TestCurrentMetricBehavior:
         assert metric.score_type == ScoreType.BINARY
         assert metric.reference_score == "True"
     
-    def test_rhesis_prompt_metric_with_model(self, test_model):
-        """Test creating metric with custom model."""
-        from rhesis.backend.app.services.llm import get_llm_from_model
-        
-        # Create LLM from model
-        llm = get_llm_from_model(test_model, organization_id=str(test_model.organization_id))
-        
+    def test_rhesis_prompt_metric_with_model_string(self):
+        """Test creating metric with custom model as string."""
         metric = RhesisPromptMetric(
             name="test_metric",
             evaluation_prompt="Rate quality",
@@ -82,15 +79,15 @@ class TestCurrentMetricBehavior:
             score_type="numeric",
             min_score=0,
             max_score=10,
-            model=llm
+            model="gemini"
         )
         
         assert metric.name == "test_metric"
-        assert metric.model is not None
+        assert metric.provider == "gemini"
         assert metric.score_type == ScoreType.NUMERIC
     
     def test_rhesis_prompt_metric_default_threshold_operator(self):
-        """Test default threshold_operator is '>='."""
+        """Test default threshold_operator is None."""
         metric = RhesisPromptMetric(
             name="test_metric",
             evaluation_prompt="Rate quality",
@@ -102,8 +99,8 @@ class TestCurrentMetricBehavior:
             threshold=7
         )
         
-        # Default threshold operator should be '>='
-        assert metric.threshold_operator == ">="
+        # Default threshold operator is None when not specified
+        assert metric.threshold_operator is None
     
     def test_rhesis_prompt_metric_custom_threshold_operator(self):
         """Test custom threshold_operator."""
@@ -119,10 +116,11 @@ class TestCurrentMetricBehavior:
             threshold_operator=">"
         )
         
-        assert metric.threshold_operator == ">"
+        # threshold_operator is stored as enum
+        assert metric.threshold_operator == ThresholdOperator.GREATER_THAN
     
     def test_rhesis_prompt_metric_ground_truth_required(self):
-        """Test ground_truth_required flag."""
+        """Test ground_truth requirement via property."""
         metric = RhesisPromptMetric(
             name="test_metric",
             evaluation_prompt="Compare with ground truth",
@@ -130,14 +128,14 @@ class TestCurrentMetricBehavior:
             reasoning="Accuracy check",
             score_type="numeric",
             min_score=0,
-            max_score=10,
-            ground_truth_required=True
+            max_score=10
         )
         
-        assert metric.ground_truth_required is True
+        # RhesisPromptMetric has a property requires_ground_truth
+        assert metric.requires_ground_truth is True
     
-    def test_rhesis_prompt_metric_context_required(self):
-        """Test context_required flag."""
+    def test_rhesis_prompt_metric_stores_evaluation_params(self):
+        """Test that evaluation parameters are stored."""
         metric = RhesisPromptMetric(
             name="test_metric",
             evaluation_prompt="Evaluate with context",
@@ -145,11 +143,13 @@ class TestCurrentMetricBehavior:
             reasoning="Context relevance",
             score_type="numeric",
             min_score=0,
-            max_score=10,
-            context_required=True
+            max_score=10
         )
         
-        assert metric.context_required is True
+        # Verify evaluation parameters are stored
+        assert metric.evaluation_prompt == "Evaluate with context"
+        assert metric.evaluation_steps == "Check relevance"
+        assert metric.reasoning == "Context relevance"
     
     def test_rhesis_metric_factory_create_numeric(self):
         """Test RhesisMetricFactory.create() for numeric metric."""
@@ -192,14 +192,16 @@ class TestCurrentMetricBehavior:
         metric = RagasAnswerRelevancy(threshold=0.7)
         
         assert metric.threshold == 0.7
-        assert metric.name == "RagasAnswerRelevancy"
+        # Ragas metrics use snake_case names
+        assert metric.name == "answer_relevancy"
     
     def test_ragas_contextual_precision_creation(self):
         """Test creating RagasContextualPrecision metric."""
         metric = RagasContextualPrecision(threshold=0.8)
         
         assert metric.threshold == 0.8
-        assert metric.name == "RagasContextualPrecision"
+        # Ragas metrics use snake_case names
+        assert metric.name == "contextual_precision"
     
     def test_rhesis_prompt_metric_evaluation_examples(self):
         """Test metric with evaluation_examples parameter."""
@@ -217,9 +219,8 @@ class TestCurrentMetricBehavior:
         
         assert metric.evaluation_examples == examples
     
-    def test_rhesis_prompt_metric_explanation(self):
-        """Test metric with explanation parameter."""
-        explanation = "This metric evaluates quality based on accuracy and completeness"
+    def test_rhesis_prompt_metric_additional_params(self):
+        """Test metric stores additional parameters in kwargs."""
         metric = RhesisPromptMetric(
             name="test_metric",
             evaluation_prompt="Rate quality",
@@ -228,10 +229,12 @@ class TestCurrentMetricBehavior:
             score_type="numeric",
             min_score=0,
             max_score=10,
-            explanation=explanation
+            custom_param="custom_value"
         )
         
-        assert metric.explanation == explanation
+        # Additional params are stored in additional_params dict
+        assert "custom_param" in metric.additional_params
+        assert metric.additional_params["custom_param"] == "custom_value"
     
     def test_rhesis_prompt_metric_all_parameters(self):
         """Test creating metric with all parameters specified."""
@@ -245,20 +248,17 @@ class TestCurrentMetricBehavior:
             max_score=100,
             threshold=70,
             threshold_operator=">=",
-            ground_truth_required=True,
-            context_required=True,
-            evaluation_examples="Example responses",
-            explanation="Detailed explanation"
+            evaluation_examples="Example responses"
         )
         
         assert metric.name == "comprehensive_metric"
         assert metric.score_type == ScoreType.NUMERIC
         assert metric.min_score == 0
         assert metric.max_score == 100
-        assert metric.threshold == 70
-        assert metric.threshold_operator == ">="
-        assert metric.ground_truth_required is True
-        assert metric.context_required is True
+        # Threshold is normalized: (70-0)/(100-0) = 0.7
+        assert metric.threshold == 0.7
+        assert metric.raw_threshold == 70
+        assert metric.threshold_operator == ThresholdOperator.GREATER_THAN_OR_EQUAL
+        assert metric.requires_ground_truth is True  # Property
         assert metric.evaluation_examples == "Example responses"
-        assert metric.explanation == "Detailed explanation"
 
