@@ -24,9 +24,9 @@ If you're building applications that integrate with Rhesis, check out the [SDK D
 
 ## Additional Resources
 
-- 📚 [Full Documentation](https://docs.rhesis.ai)
-- 🚀 [Getting Started](https://docs.rhesis.ai/getting-started)
-- 🛠️ [Platform Overview](https://docs.rhesis.ai/platform)
-- 💻 [Development Guide](https://docs.rhesis.ai/development)
+- [Full Documentation](https://docs.rhesis.ai)
+- [Getting Started](https://docs.rhesis.ai/getting-started)
+- [Platform Overview](https://docs.rhesis.ai/platform)
+- [Development Guide](https://docs.rhesis.ai/development)
 
 Please refer to [docs.rhesis.ai](https://docs.rhesis.ai) for the complete and up-to-date documentation. Each section has detailed information with guides, tutorials, and API references.

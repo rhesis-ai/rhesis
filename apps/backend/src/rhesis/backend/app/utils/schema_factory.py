@@ -186,8 +186,7 @@ def _handle_nested_relationships_simple(
 
             # Create a reference schema for the nested relationship
             nested_schema_fields = {}
-            # Get relationships for the nested target model to avoid treating
-            # relationships as regular fields
+            # Get relationships for the nested target model to avoid treating relationships as regular fields
             nested_target_relationships = get_model_relationships(
                 nested_target_model,
                 skip_many_to_many=not include_many_to_many,
@@ -234,8 +233,7 @@ def _handle_nested_relationships_deep(
 
             # Create schema fields for the nested relationship
             nested_schema_fields = {}
-            # Get relationships for the nested target model to avoid treating
-            # relationships as regular fields
+            # Get relationships for the nested target model to avoid treating relationships as regular fields
             nested_target_relationships = get_model_relationships(
                 nested_target_model,
                 skip_many_to_many=not include_many_to_many,
@@ -261,8 +259,7 @@ def _handle_nested_relationships_deep(
                     include_many_to_many,
                 )
             elif isinstance(deeper_spec, dict):
-                # deeper_spec is a dict like {"project": ["status"]} or
-                # {"project": {"status": ["..."]}}
+                # deeper_spec is a dict like {"project": ["status"]} or {"project": {"status": ["..."]}}
                 _handle_nested_relationships_deep(
                     nested_target_model,
                     deeper_spec,
