@@ -200,7 +200,9 @@ class MetricEvaluator:
                 class_name = metric_config.class_name
                 backend = metric_config.backend
                 threshold = metric_config.threshold
-                parameters = metric_config.parameters if hasattr(metric_config, "parameters") else {}
+                parameters = (
+                    metric_config.parameters if hasattr(metric_config, "parameters") else {}
+                )
                 model_id = metric_config.model_id if hasattr(metric_config, "model_id") else None
 
             try:
@@ -229,9 +231,7 @@ class MetricEvaluator:
                         # Fetch metric's preferred model from database
                         model_record = crud.get_model(
                             self.db,
-                            UUID(model_id)
-                            if isinstance(model_id, str)
-                            else model_id,
+                            UUID(model_id) if isinstance(model_id, str) else model_id,
                             self.organization_id,
                         )
 
@@ -270,18 +270,24 @@ class MetricEvaluator:
                 # Instantiate the metric using SDK via adapter
                 from rhesis.backend.metrics.adapters import create_metric_from_config
 
-                metric_name = metric_config.get("name") if isinstance(metric_config, dict) else getattr(metric_config, "name", class_name)
+                metric_name = (
+                    metric_config.get("name")
+                    if isinstance(metric_config, dict)
+                    else getattr(metric_config, "name", class_name)
+                )
                 logger.debug(
                     f"[SDK_ADAPTER] Creating metric via SDK adapter: {metric_name or class_name}"
                 )
                 metric = create_metric_from_config(
-                    metric_config.to_dict()
-                    if hasattr(metric_config, "to_dict")
-                    else metric_config,
+                    metric_config.to_dict() if hasattr(metric_config, "to_dict") else metric_config,
                     self.organization_id,
                 )
                 if metric is None:
-                    metric_name = metric_config.get("name") if isinstance(metric_config, dict) else getattr(metric_config, "name", class_name)
+                    metric_name = (
+                        metric_config.get("name")
+                        if isinstance(metric_config, dict)
+                        else getattr(metric_config, "name", class_name)
+                    )
                     logger.error(
                         f"[SDK_ADAPTER] Failed to create metric '{metric_name or class_name}' via adapter"
                     )
@@ -300,7 +306,11 @@ class MetricEvaluator:
 
             except Exception as e:
                 # Create a more informative error message that includes backend and metric name
-                metric_name = metric_config.get("name") if isinstance(metric_config, dict) else getattr(metric_config, "name", class_name)
+                metric_name = (
+                    metric_config.get("name")
+                    if isinstance(metric_config, dict)
+                    else getattr(metric_config, "name", class_name)
+                )
                 error_msg = (
                     f"Error preparing metric '{metric_name or class_name}' (class: '{class_name}', "
                     f"backend: '{backend}'): {str(e)}"
@@ -347,7 +357,11 @@ class MetricEvaluator:
 
         for class_name, metric, metric_config, backend in metric_tasks:
             # Start with the preferred key (name if available, otherwise class_name)
-            metric_name = metric_config.get("name") if isinstance(metric_config, dict) else getattr(metric_config, "name", None)
+            metric_name = (
+                metric_config.get("name")
+                if isinstance(metric_config, dict)
+                else getattr(metric_config, "name", None)
+            )
             if metric_name and metric_name.strip():
                 base_key = metric_name
             else:
@@ -433,14 +447,17 @@ class MetricEvaluator:
         try:
             result = future.result()
             # Get description from config or use a default
-            description = self._get_config_value(metric_config, 'description') or f"{class_name} evaluation metric"
+            description = (
+                self._get_config_value(metric_config, "description")
+                or f"{class_name} evaluation metric"
+            )
 
             # Calculate is_successful using the score evaluator
             is_successful = self.score_evaluator.evaluate_score(
                 score=result.score,
-                threshold=self._get_config_value(metric_config, 'threshold'),
-                threshold_operator=self._get_config_value(metric_config, 'threshold_operator'),
-                reference_score=self._get_config_value(metric_config, 'reference_score'),
+                threshold=self._get_config_value(metric_config, "threshold"),
+                threshold_operator=self._get_config_value(metric_config, "threshold_operator"),
+                reference_score=self._get_config_value(metric_config, "reference_score"),
             )
 
             # Store results - structure depends on metric type
@@ -449,14 +466,14 @@ class MetricEvaluator:
                 "reason": result.details.get("reason", f"Score: {result.score}"),
                 "is_successful": is_successful,
                 "backend": backend,
-                "name": self._get_config_value(metric_config, 'name'),
+                "name": self._get_config_value(metric_config, "name"),
                 "class_name": class_name,  # Include class_name for identification
                 "description": description,
             }
 
             # Add threshold or reference_score based on metric type
-            threshold = self._get_config_value(metric_config, 'threshold')
-            reference_score = self._get_config_value(metric_config, 'reference_score')
+            threshold = self._get_config_value(metric_config, "threshold")
+            reference_score = self._get_config_value(metric_config, "reference_score")
             if threshold is not None:
                 # Numeric metric - include threshold
                 processed_result["threshold"] = threshold
@@ -482,7 +499,7 @@ class MetricEvaluator:
                 "reason": f"Error: {str(exc)}",
                 "is_successful": False,
                 "backend": backend,
-                "name": self._get_config_value(metric_config, 'name'),
+                "name": self._get_config_value(metric_config, "name"),
                 "class_name": class_name,  # Include class_name for identification
                 "description": description
                 if "description" in locals()
@@ -492,8 +509,8 @@ class MetricEvaluator:
             }
 
             # Add threshold or reference_score for error results too
-            threshold = self._get_config_value(metric_config, 'threshold')
-            reference_score = self._get_config_value(metric_config, 'reference_score')
+            threshold = self._get_config_value(metric_config, "threshold")
+            reference_score = self._get_config_value(metric_config, "reference_score")
             if threshold is not None:
                 error_result["threshold"] = threshold
             elif reference_score is not None:

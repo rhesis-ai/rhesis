@@ -3,7 +3,7 @@ Backend metrics orchestration - uses SDK metrics via adapter layer.
 
 This module provides:
 - MetricEvaluator: Orchestrates batch evaluation with parallel execution
-- ScoreEvaluator: Evaluates scores against thresholds  
+- ScoreEvaluator: Evaluates scores against thresholds
 - Adapter: Bridges database models to SDK metrics
 - Re-exports: SDK metrics for convenience
 """
