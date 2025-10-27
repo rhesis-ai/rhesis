@@ -18,7 +18,7 @@ class RagasContextRelevance(RagasMetricBase):
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(name="context_relevance", metric_type=self.metric_type, model=model)
         self.threshold = threshold
-        self.scorer = ContextRelevance(llm=self.model)
+        self.scorer = ContextRelevance(llm=self._ragas_model)
 
     @retry_evaluation()
     def evaluate(self, input: str, context: List[str]) -> MetricResult:
@@ -45,7 +45,7 @@ class RagasAnswerAccuracy(RagasMetricBase):
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(name="answer_accuracy", metric_type=self.metric_type, model=model)
-        self.scorer = AnswerAccuracy(llm=self.model)
+        self.scorer = AnswerAccuracy(llm=self._ragas_model)
         self.threshold = threshold
         # Initialize Ragas specific implementation
 
@@ -81,7 +81,7 @@ class RagasFaithfulness(RagasMetricBase):
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(name="faithfulness", metric_type=self.metric_type, model=model)
-        self.scorer = Faithfulness(llm=self.model)
+        self.scorer = Faithfulness(llm=self._ragas_model)
         self.threshold = threshold
         # Initialize Ragas specific implementation
 
@@ -123,7 +123,7 @@ class RagasAspectCritic(RagasMetricBase):
         definition: str = "Is the submission intended to harm, deceive, or exploit users?",
     ):
         super().__init__(name=name, metric_type=self.metric_type, model=model)
-        self.scorer = AspectCritic(name=name, definition=definition, llm=self.model)
+        self.scorer = AspectCritic(name=name, definition=definition, llm=self._ragas_model)
         self.threshold = threshold
 
     @retry_evaluation()
