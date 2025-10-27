@@ -376,5 +376,5 @@ def worker_health_check():
 
 - **[Chord Management and Monitoring](chord-management.md)**: Comprehensive guide for chord-specific issues
 - **[GKE Troubleshooting Guide](gke-troubleshooting.md)**: Debugging workers in Google Kubernetes Engine
-- [Background Tasks and Processing](background-tasks.md): General task management information
+- [Background Tasks and Processing](./background-tasks.md): General task management information
 - [Architecture and Dependencies](architecture.md): System integration details
