@@ -37,14 +37,19 @@ class TestCurrentEvaluatorBehavior:
         assert evaluator.db is test_db
         assert evaluator.organization_id == test_org_id
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluator_evaluate_single_metric(self, mock_evaluate, numeric_metric_config):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluator_evaluate_single_metric(self, mock_create_metric, numeric_metric_config):
         """Test evaluating single metric."""
-        # Mock the metric evaluation
-        mock_evaluate.return_value = MetricResult(
+        # Mock the metric creation and evaluation
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = False
+        mock_metric.requires_context = False
+        mock_metric.name = "Numeric Quality Metric"
+        mock_metric.evaluate.return_value = MetricResult(
             score=8.0,
             details={"reason": "Good quality response"}
         )
+        mock_create_metric.return_value = mock_metric
         
         evaluator = Evaluator()
         results = evaluator.evaluate(
@@ -59,23 +64,31 @@ class TestCurrentEvaluatorBehavior:
         assert isinstance(results, dict)
         assert len(results) > 0
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluator_evaluate_multiple_metrics(self, mock_evaluate, numeric_metric_config, categorical_metric_config):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluator_evaluate_multiple_metrics(self, mock_create_metric, numeric_metric_config, categorical_metric_config):
         """Test evaluating multiple metrics."""
         # Mock different results for different metrics
-        mock_evaluate.side_effect = [
-            MetricResult(
-                score=8.0,
-                details={"reason": "Good quality"}
-            ),
-            MetricResult(
-                score="positive",
-                details={"reason": "Positive sentiment"}
-            )
-        ]
+        mock_metric1 = MagicMock()
+        mock_metric1.requires_ground_truth = False
+        mock_metric1.requires_context = False
+        mock_metric1.name = "Numeric Quality Metric"
+        mock_metric1.evaluate.return_value = MetricResult(
+            score=8.0,
+            details={"reason": "Good quality"}
+        )
+        
+        mock_metric2 = MagicMock()
+        mock_metric2.requires_ground_truth = False
+        mock_metric2.requires_context = False
+        mock_metric2.name = "Categorical Sentiment Metric"
+        mock_metric2.evaluate.return_value = MetricResult(
+            score="positive",
+            details={"reason": "Positive sentiment"}
+        )
+        
+        mock_create_metric.side_effect = [mock_metric1, mock_metric2]
 
-        # Use legacy backend factory for this test
-        evaluator = Evaluator(use_sdk_metrics=False)
+        evaluator = Evaluator()
         results = evaluator.evaluate(
             input_text="Test input",
             expected_output="Expected",
@@ -87,12 +100,19 @@ class TestCurrentEvaluatorBehavior:
         assert results is not None
         assert len(results) >= 2
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluator_skips_ground_truth_required(self, mock_evaluate, numeric_metric_config):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluator_skips_ground_truth_required(self, mock_create_metric, numeric_metric_config):
         """Test evaluator skips metrics requiring ground truth when not provided."""
         # Modify config to require ground truth
         config_with_gt = numeric_metric_config.copy()
         config_with_gt["parameters"]["ground_truth_required"] = True
+        
+        # Mock metric that requires ground truth
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = True
+        mock_metric.requires_context = False
+        mock_metric.name = "Ground Truth Metric"
+        mock_create_metric.return_value = mock_metric
         
         evaluator = Evaluator()
         results = evaluator.evaluate(
@@ -108,17 +128,26 @@ class TestCurrentEvaluatorBehavior:
         assert results is not None
         assert isinstance(results, dict)
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluator_handles_evaluation_error(self, mock_evaluate, numeric_metric_config, categorical_metric_config):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluator_handles_evaluation_error(self, mock_create_metric, numeric_metric_config, categorical_metric_config):
         """Test evaluator handles individual metric errors gracefully."""
         # First metric fails, second succeeds
-        mock_evaluate.side_effect = [
-            Exception("Metric evaluation failed"),
-            MetricResult(
-                score="positive",
-                details={"reason": "Positive sentiment"}
-            )
-        ]
+        mock_metric1 = MagicMock()
+        mock_metric1.requires_ground_truth = False
+        mock_metric1.requires_context = False
+        mock_metric1.name = "Failing Metric"
+        mock_metric1.evaluate.side_effect = Exception("Metric evaluation failed")
+        
+        mock_metric2 = MagicMock()
+        mock_metric2.requires_ground_truth = False
+        mock_metric2.requires_context = False
+        mock_metric2.name = "Working Metric"
+        mock_metric2.evaluate.return_value = MetricResult(
+            score="positive",
+            details={"reason": "Positive sentiment"}
+        )
+        
+        mock_create_metric.side_effect = [mock_metric1, mock_metric2]
         
         evaluator = Evaluator()
         results = evaluator.evaluate(
@@ -133,11 +162,16 @@ class TestCurrentEvaluatorBehavior:
         assert results is not None
         assert isinstance(results, dict)
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluator_returns_partial_results(self, mock_evaluate, numeric_metric_config):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluator_returns_partial_results(self, mock_create_metric, numeric_metric_config):
         """Test partial results when some metrics fail."""
         # Simulate partial failure
-        mock_evaluate.side_effect = Exception("Evaluation error")
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = False
+        mock_metric.requires_context = False
+        mock_metric.name = "Failing Metric"
+        mock_metric.evaluate.side_effect = Exception("Evaluation error")
+        mock_create_metric.return_value = mock_metric
         
         evaluator = Evaluator()
         results = evaluator.evaluate(
@@ -152,17 +186,21 @@ class TestCurrentEvaluatorBehavior:
         assert results is not None
         assert isinstance(results, dict)
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluator_with_context(self, mock_evaluate, numeric_metric_config):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluator_with_context(self, mock_create_metric, numeric_metric_config):
         """Test evaluator with context provided."""
-        mock_evaluate.return_value = MetricResult(
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = False
+        mock_metric.requires_context = False
+        mock_metric.name = "Context Metric"
+        mock_metric.evaluate.return_value = MetricResult(
             score=9.0,
             details={"reason": "High quality with context"}
         )
+        mock_create_metric.return_value = mock_metric
         
         context = ["Context 1", "Context 2"]
-        # Use legacy backend factory for this test
-        evaluator = Evaluator(use_sdk_metrics=False)
+        evaluator = Evaluator()
         results = evaluator.evaluate(
             input_text="Test input",
             expected_output="Expected",
@@ -173,24 +211,18 @@ class TestCurrentEvaluatorBehavior:
         
         assert results is not None
         # Verify context was passed (implicitly through mock being called)
-        mock_evaluate.assert_called_once()
+        mock_create_metric.assert_called_once()
     
-    def test_evaluator_lazy_loads_factory(self):
-        """Test that evaluator lazy loads MetricFactory."""
+    def test_evaluator_no_longer_uses_factory(self):
+        """Test that evaluator no longer has a factory (uses adapter instead)."""
         evaluator = Evaluator()
         
-        # Factory should not be initialized until needed
-        assert evaluator.factory is None
-        
-        # Access factory through private method
-        factory = evaluator._get_factory()
-        
-        # Now factory should be initialized
-        assert factory is not None
-        assert evaluator.factory is not None
+        # Factory should not exist anymore
+        assert not hasattr(evaluator, 'factory') or evaluator.factory is None
+        # Evaluator uses adapter pattern now, not factory
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluator_with_empty_metrics_list(self, mock_evaluate):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluator_with_empty_metrics_list(self, mock_create_metric):
         """Test evaluator with empty metrics list."""
         evaluator = Evaluator()
         results = evaluator.evaluate(
@@ -205,13 +237,18 @@ class TestCurrentEvaluatorBehavior:
         assert results is not None
         assert isinstance(results, dict)
     
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_evaluator_result_structure(self, mock_evaluate, numeric_metric_config):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_evaluator_result_structure(self, mock_create_metric, numeric_metric_config):
         """Test that evaluator returns results in expected structure."""
-        mock_evaluate.return_value = MetricResult(
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = False
+        mock_metric.requires_context = False
+        mock_metric.name = "Numeric Quality Metric"
+        mock_metric.evaluate.return_value = MetricResult(
             score=8.0,
             details={"reason": "Good quality"}
         )
+        mock_create_metric.return_value = mock_metric
         
         evaluator = Evaluator()
         results = evaluator.evaluate(

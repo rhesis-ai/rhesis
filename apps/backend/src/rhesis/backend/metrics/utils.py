@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
-from rhesis.backend.metrics.base import MetricConfig
+from rhesis.sdk.metrics import MetricConfig
 
 
 def run_evaluation(

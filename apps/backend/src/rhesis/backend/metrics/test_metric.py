@@ -263,7 +263,7 @@ def _execute_metric_test(
             return {"error": "Failed to create metric configuration"}
 
         # Import MetricConfig and create instance
-        from rhesis.backend.metrics.base import MetricConfig
+        from rhesis.sdk.metrics import MetricConfig
 
         metric_config = MetricConfig.from_dict(metric_config_dict)
 

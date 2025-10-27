@@ -21,8 +21,7 @@ from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.metrics.base import MetricConfig
-from rhesis.backend.metrics.config import load_default_metrics
+from rhesis.sdk.metrics import MetricConfig
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.enums import ResultStatus
 from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
@@ -93,10 +92,10 @@ def get_test_metrics(test: Test) -> List[Dict]:
         if invalid_count > 0:
             logger.warning(f"Filtered out {invalid_count} invalid metrics for test {test.id}")
 
-    # Use defaults if no valid metrics found
+    # Return empty list if no valid metrics found (no defaults in SDK)
     if not metrics:
-        logger.warning(f"No valid metrics found for test {test.id}, using defaults")
-        metrics = load_default_metrics()
+        logger.warning(f"No valid metrics found for test {test.id}, returning empty list")
+        return []
 
     return metrics
 
