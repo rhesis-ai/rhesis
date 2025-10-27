@@ -25,10 +25,10 @@ Your task is to generate a comprehensive test configuration by analyzing the use
 - Descriptions should be clear and actionable for testers
 
 **Examples:**
-- For "e-commerce checkout": 
+- For "e-commerce checkout":
   - Behaviors: Select from the available list (e.g., if "Security" and "Reliability" are in the list, select those)
   - Topics: "payment processing", "user authentication", "inventory management"
-- For "healthcare data system": 
+- For "healthcare data system":
   - Behaviors: Select from the available list (e.g., if "Compliance" and "Data Privacy" are in the list, select those)
   - Topics: "patient data", "HIPAA compliance", "audit trails"
 
@@ -51,7 +51,7 @@ Return your response as a JSON object with this structure:
   ]
 }
 
-**IMPORTANT**: 
+**IMPORTANT**:
 - For behaviors: Select up to {{ sample_size }} items from the available list above. Use exact names and descriptions.
 - For topics and categories: Generate exactly {{ sample_size }} new items for each.
 - Each item must have both "name" and "description" fields.

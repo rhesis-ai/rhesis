@@ -91,6 +91,9 @@
   .next
   out
 
+  # Auto-generated files
+  src/config/test-templates.generated.ts
+
   # Nuxt.js build / generate output
   .nuxt
   dist

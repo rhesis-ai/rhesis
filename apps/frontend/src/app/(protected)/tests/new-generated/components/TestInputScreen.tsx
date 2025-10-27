@@ -3,8 +3,10 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Typography, TextField, Chip, Paper, Button } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CircularProgress from '@mui/material/CircularProgress';
 import SourceSelector from './shared/SourceSelector';
+import ActionBar from '@/components/common/ActionBar';
 
 interface TestInputScreenProps {
   onContinue: (description: string, sourceIds: string[]) => void;
@@ -12,6 +14,7 @@ interface TestInputScreenProps {
   selectedSourceIds: string[];
   onSourcesChange: (sourceIds: string[]) => void;
   isLoading?: boolean;
+  onBack?: () => void;
 }
 
 const SUGGESTIONS = [
@@ -57,6 +60,7 @@ export default function TestInputScreen({
   selectedSourceIds,
   onSourcesChange,
   isLoading = false,
+  onBack,
 }: TestInputScreenProps) {
   const [description, setDescription] = useState(initialDescription);
 
@@ -139,39 +143,35 @@ export default function TestInputScreen({
                 onSourcesChange={onSourcesChange}
               />
             </Box>
-
-            {/* Action Bar */}
-            <Box
-              sx={{
-                mt: 4,
-                pt: 3,
-                borderTop: 1,
-                borderColor: 'divider',
-                display: 'flex',
-                justifyContent: 'flex-end',
-              }}
-            >
-              <Button
-                variant="contained"
-                size="large"
-                endIcon={
-                  isLoading ? (
-                    <CircularProgress size={20} color="inherit" />
-                  ) : (
-                    <ArrowForwardIcon />
-                  )
-                }
-                onClick={handleContinue}
-                disabled={!canContinue || isLoading}
-              >
-                {isLoading
-                  ? 'Loading configuration...'
-                  : 'Continue to Configuration'}
-              </Button>
-            </Box>
           </Paper>
         </Box>
       </Box>
+
+      {/* Action Bar */}
+      <ActionBar
+        leftButton={
+          onBack
+            ? {
+                label: 'Back',
+                onClick: onBack,
+                variant: 'outlined',
+                startIcon: <ArrowBackIcon />,
+              }
+            : undefined
+        }
+        rightButton={{
+          label: isLoading
+            ? 'Loading configuration...'
+            : 'Continue to Configuration',
+          onClick: handleContinue,
+          disabled: !canContinue || isLoading,
+          endIcon: isLoading ? (
+            <CircularProgress size={20} color="inherit" />
+          ) : (
+            <ArrowForwardIcon />
+          ),
+        }}
+      />
     </Box>
   );
 }

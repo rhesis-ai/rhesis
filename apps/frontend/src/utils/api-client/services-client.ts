@@ -60,6 +60,7 @@ interface RatedSample {
 interface IterationMessage {
   content: string;
   timestamp: string;
+  chip_states?: ChipState[];
 }
 
 interface GenerateTestConfigRequest {
