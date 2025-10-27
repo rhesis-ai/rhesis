@@ -3,8 +3,8 @@ import { Metadata } from 'next';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import TestRunMainView from './components/TestRunMainView';
 import { UUID } from 'crypto';
+import TestRunMainView from './components/TestRunMainViewClient';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -168,27 +168,25 @@ export default async function TestRunPage({
     <PageContainer title={title} breadcrumbs={breadcrumbs}>
       <Box sx={{ flexGrow: 1, pt: 3 }}>
         {/* Main Split View */}
-        <div suppressHydrationWarning>
-          <TestRunMainView
-            testRunId={identifier}
-            testRunData={{
-              id: testRun.id,
-              name: testRun.name,
-              created_at:
-                testRun.attributes?.started_at || testRun.created_at || '',
-              test_configuration_id: testRun.test_configuration_id,
-            }}
-            testRun={testRun}
-            sessionToken={session.session_token}
-            testResults={testResults}
-            prompts={promptsMap}
-            behaviors={behaviors}
-            currentUserId={session.user?.id || ''}
-            currentUserName={session.user?.name || ''}
-            currentUserPicture={session.user?.picture || undefined}
-            initialSelectedTestId={selectedResult}
-          />
-        </div>
+        <TestRunMainView
+          testRunId={identifier}
+          testRunData={{
+            id: testRun.id,
+            name: testRun.name,
+            created_at:
+              testRun.attributes?.started_at || testRun.created_at || '',
+            test_configuration_id: testRun.test_configuration_id,
+          }}
+          testRun={testRun}
+          sessionToken={session.session_token}
+          testResults={testResults}
+          prompts={promptsMap}
+          behaviors={behaviors}
+          currentUserId={session.user?.id || ''}
+          currentUserName={session.user?.name || ''}
+          currentUserPicture={session.user?.picture || undefined}
+          initialSelectedTestId={selectedResult}
+        />
       </Box>
     </PageContainer>
   );
