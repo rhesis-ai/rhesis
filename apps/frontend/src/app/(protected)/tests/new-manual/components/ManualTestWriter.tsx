@@ -384,15 +384,6 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
                     variant="outlined"
-                    startIcon={<UploadIcon />}
-                    onClick={handleImport}
-                    disabled={loading}
-                    size="small"
-                  >
-                    Import
-                  </Button>
-                  <Button
-                    variant="outlined"
                     startIcon={<DownloadIcon />}
                     onClick={handleExport}
                     disabled={loading || testCases.length === 0}
