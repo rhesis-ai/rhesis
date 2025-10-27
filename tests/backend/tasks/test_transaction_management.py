@@ -108,16 +108,21 @@ class TestTaskTransactionManagement:
     def test_result_processor_format_status_details(self):
         """Test that format_status_details works correctly"""
         # Test various combinations
-        result1 = result_processor.format_status_details(5, 0)
+        result1 = result_processor.format_status_details(5, 0, 0)
         assert "5 tests passed" in result1
         
-        result2 = result_processor.format_status_details(3, 2)
+        result2 = result_processor.format_status_details(3, 2, 0)
         assert "3 tests passed" in result2
         assert "2 tests failed" in result2
         
-        result3 = result_processor.format_status_details(0, 5)
+        result3 = result_processor.format_status_details(0, 5, 0)
         assert "5 tests failed" in result3
         assert "0 tests passed" not in result3  # Function doesn't include 0 counts
+        
+        result4 = result_processor.format_status_details(2, 1, 1)
+        assert "2 tests passed" in result4
+        assert "1 test failed" in result4
+        assert "1 test had execution errors" in result4
 
     def test_task_execution_error_handling_without_manual_rollback(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str

@@ -161,12 +161,14 @@ class TestLoadInitialData:
             # No need to verify get_db call since it never gets reached
 
     def test_load_initial_data_empty_data(self, test_db: Session, authenticated_user_id, test_org_id):
-        """Test load_initial_data with empty JSON data."""
+        """Test load_initial_data with empty JSON data still creates default Rhesis model."""
         # Mock empty initial data
         empty_data = {}
         
         with patch('builtins.open', mock_open(read_data=json.dumps(empty_data))), \
-             patch('rhesis.backend.app.services.organization.get_or_create_type_lookup') as mock_get_type:
+             patch('rhesis.backend.app.services.organization.get_or_create_type_lookup') as mock_get_type, \
+             patch('rhesis.backend.app.services.organization.get_or_create_status') as mock_get_status, \
+             patch('rhesis.backend.app.services.organization.get_or_create_entity') as mock_get_entity:
             
             # Call the function (now uses provided db parameter directly)
             organization_service.load_initial_data(
@@ -175,8 +177,16 @@ class TestLoadInitialData:
                 user_id=authenticated_user_id
             )
             
-            # Verify no type_lookup creation (empty data)
-            mock_get_type.assert_not_called()
+            # Verify that type_lookup creation WAS called for the default Rhesis model
+            # Even with empty data, the function creates a default Rhesis model
+            mock_get_type.assert_called_once_with(
+                db=test_db,
+                type_name="ProviderType",
+                type_value="rhesis",
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                commit=False
+            )
 
     def test_load_initial_data_integration(self, test_db: Session, authenticated_user_id, test_org_id):
         """Integration test that actually loads real initial data into the database."""
