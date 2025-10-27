@@ -234,40 +234,31 @@ export default function TestConfigurationConfirmation({
           typically takes 2-5 minutes depending on the test set size.
           You&apos;ll be notified when it&apos;s ready.
         </Alert>
-
-        {/* Action Bar */}
-        <Box
-          sx={{
-            mt: 4,
-            pt: 3,
-            borderTop: 1,
-            borderColor: 'divider',
-          }}
-        >
-          <ActionBar
-            leftButton={{
-              label: 'Back',
-              onClick: onBack,
-              variant: 'outlined',
-              disabled: isGenerating,
-              startIcon: <ArrowBackIcon />,
-            }}
-            rightButton={{
-              label: isGenerating ? 'Generating...' : 'Generate Tests',
-              onClick: onGenerate,
-              disabled: isGenerating || activeChipsCount === 0,
-              endIcon: <BoltIcon />,
-              color: 'warning',
-              sx: {
-                bgcolor: 'warning.main',
-                '&:hover': {
-                  bgcolor: 'warning.dark',
-                },
-              },
-            }}
-          />
-        </Box>
       </Paper>
+
+      {/* Action Bar */}
+      <ActionBar
+        leftButton={{
+          label: 'Back',
+          onClick: onBack,
+          variant: 'outlined',
+          disabled: isGenerating,
+          startIcon: <ArrowBackIcon />,
+        }}
+        rightButton={{
+          label: isGenerating ? 'Generating...' : 'Generate Tests',
+          onClick: onGenerate,
+          disabled: isGenerating || activeChipsCount === 0,
+          endIcon: <BoltIcon />,
+          color: 'warning',
+          sx: {
+            bgcolor: 'warning.main',
+            '&:hover': {
+              bgcolor: 'warning.dark',
+            },
+          },
+        }}
+      />
     </Box>
   );
 }
