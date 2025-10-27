@@ -78,31 +78,6 @@ export default function RecentTestsGrid({
       minWidth: 100,
       valueGetter: (_, row) => row.prompt?.content || 'No prompt',
     },
-    {
-      field: 'owner_email',
-      headerName: 'Owner',
-      width: 180,
-      valueGetter: (_, row) => {
-        const owner = row.owner;
-        if (!owner) return 'No owner';
-
-        // Use the name field if available
-        if (owner.name) {
-          return owner.name;
-        }
-
-        // If we have given_name or family_name, format the full name
-        if (owner.given_name || owner.family_name) {
-          const fullName = [owner.given_name, owner.family_name]
-            .filter(Boolean)
-            .join(' ');
-          return fullName;
-        }
-
-        // Fall back to email if no name is available
-        return owner.email || 'No contact info';
-      },
-    },
   ];
 
   if (loading && tests.length === 0) {
