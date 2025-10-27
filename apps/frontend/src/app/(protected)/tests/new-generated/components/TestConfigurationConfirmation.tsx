@@ -9,7 +9,6 @@ import {
   TextField,
   Paper,
   Chip,
-  Stack,
   Alert,
   AlertTitle,
 } from '@mui/material';
@@ -109,11 +108,12 @@ export default function TestConfigurationConfirmation({
                     >
                       Behaviors
                     </Typography>
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      flexWrap="wrap"
-                      useFlexGap
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 1,
+                      }}
                     >
                       {configChips.behavior
                         .filter(chip => chip.active)
@@ -121,11 +121,10 @@ export default function TestConfigurationConfirmation({
                           <Chip
                             key={chip.id}
                             label={chip.label}
-                            size="small"
                             color="primary"
                           />
                         ))}
-                    </Stack>
+                    </Box>
                   </Box>
                 )}
 
@@ -139,11 +138,12 @@ export default function TestConfigurationConfirmation({
                     >
                       Topics
                     </Typography>
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      flexWrap="wrap"
-                      useFlexGap
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 1,
+                      }}
                     >
                       {configChips.topics
                         .filter(chip => chip.active)
@@ -151,14 +151,13 @@ export default function TestConfigurationConfirmation({
                           <Chip
                             key={chip.id}
                             label={chip.label}
-                            size="small"
                             sx={{
                               bgcolor: 'success.main',
                               color: 'success.contrastText',
                             }}
                           />
                         ))}
-                    </Stack>
+                    </Box>
                   </Box>
                 )}
 
@@ -172,11 +171,12 @@ export default function TestConfigurationConfirmation({
                     >
                       Categories
                     </Typography>
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      flexWrap="wrap"
-                      useFlexGap
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 1,
+                      }}
                     >
                       {configChips.category
                         .filter(chip => chip.active)
@@ -184,11 +184,10 @@ export default function TestConfigurationConfirmation({
                           <Chip
                             key={chip.id}
                             label={chip.label}
-                            size="small"
                             color="secondary"
                           />
                         ))}
-                    </Stack>
+                    </Box>
                   </Box>
                 )}
 
@@ -202,11 +201,12 @@ export default function TestConfigurationConfirmation({
                     >
                       Context Documents
                     </Typography>
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      flexWrap="wrap"
-                      useFlexGap
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 1,
+                      }}
                     >
                       {documents.map(doc => (
                         <Chip
@@ -216,7 +216,7 @@ export default function TestConfigurationConfirmation({
                           variant="outlined"
                         />
                       ))}
-                    </Stack>
+                    </Box>
                   </Box>
                 )}
               </Box>
