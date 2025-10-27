@@ -42,6 +42,12 @@ export default async function TestRunPage({
   const identifier = resolvedParams.identifier;
   const selectedResult = resolvedSearchParams?.selectedresult;
 
+  console.log('[TestRunPage] URL params:', {
+    identifier,
+    selectedResult,
+    allSearchParams: resolvedSearchParams,
+  });
+
   const session = await auth();
 
   // If no session, throw error - will be caught by error boundary
