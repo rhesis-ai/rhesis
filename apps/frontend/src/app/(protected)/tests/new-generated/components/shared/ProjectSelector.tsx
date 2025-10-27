@@ -128,7 +128,11 @@ export default function ProjectSelector({
             const project = getProjectById(selected);
             return (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FolderIcon fontSize="small" color="action" />
+                {project?.icon ? (
+                  <Typography variant="body2">{project.icon}</Typography>
+                ) : (
+                  <FolderIcon fontSize="small" color="action" />
+                )}
                 <Typography variant="body2">{project?.name}</Typography>
               </Box>
             );
@@ -140,7 +144,11 @@ export default function ProjectSelector({
           {projects.map(project => (
             <MenuItem key={project.id} value={project.id}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FolderIcon fontSize="small" color="action" />
+                {project.icon ? (
+                  <Typography variant="body2">{project.icon}</Typography>
+                ) : (
+                  <FolderIcon fontSize="small" color="action" />
+                )}
                 <Box>
                   <Typography variant="body2">{project.name}</Typography>
                   {project.description && (
