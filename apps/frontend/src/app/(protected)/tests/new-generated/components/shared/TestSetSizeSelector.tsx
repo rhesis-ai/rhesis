@@ -52,7 +52,7 @@ export default function TestSetSizeSelector({
 }: TestSetSizeSelectorProps) {
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
+      <Typography variant="subtitle1" gutterBottom>
         Select Test Set Size
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>

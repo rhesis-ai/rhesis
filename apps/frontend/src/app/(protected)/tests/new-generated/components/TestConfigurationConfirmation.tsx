@@ -90,7 +90,7 @@ export default function TestConfigurationConfirmation({
             {/* Left Column - Configuration Summary */}
             <Grid item xs={12} lg={6}>
               <Box>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant="subtitle1">
                   Configuration Summary
                 </Typography>
                 <Typography variant="body2" color="text.secondary" paragraph>
