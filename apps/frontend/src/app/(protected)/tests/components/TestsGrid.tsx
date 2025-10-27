@@ -28,11 +28,13 @@ import { convertGridFilterModelToOData } from '@/utils/odata-filter';
 interface TestsTableProps {
   sessionToken: string;
   onRefresh?: () => void;
+  onNewTest?: () => void;
 }
 
 export default function TestsTable({
   sessionToken,
   onRefresh,
+  onNewTest,
 }: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -431,30 +433,19 @@ export default function TestsTable({
   }, [sessionToken, onRefresh, fetchTests, paginationModel.page]);
 
   const handleGenerateTests = useCallback(() => {
-    generateNewTests();
-  }, [generateNewTests]);
+    if (onNewTest) {
+      onNewTest();
+    } else {
+      generateNewTests();
+    }
+  }, [onNewTest, generateNewTests]);
 
   // Get action buttons based on selection
   const getActionButtons = useCallback(() => {
     const buttons = [];
 
     buttons.push({
-      label: 'Write Test',
-      icon: <AddIcon />,
-      variant: 'contained' as const,
-      onClick: handleNewTest,
-      splitButton: {
-        options: [
-          {
-            label: 'Write Multiple Tests',
-            onClick: () => router.push('/tests/new?multiple=true'),
-          },
-        ],
-      },
-    });
-
-    buttons.push({
-      label: 'Generate Tests',
+      label: 'Add Tests',
       icon: <AddIcon />,
       variant: 'contained' as const,
       onClick: handleGenerateTests,
@@ -480,10 +471,8 @@ export default function TestsTable({
     return buttons;
   }, [
     selectedRows.length,
-    handleNewTest,
     handleCreateTestSet,
     handleDeleteTests,
-    router,
     handleGenerateTests,
   ]);
 

@@ -53,11 +53,12 @@ class TestSoftDeletion:
         assert deleted.deleted_at is not None
         assert isinstance(deleted.deleted_at, datetime)
         
-        # Verify item is not returned in normal queries
-        found = crud_utils.get_item(
-            test_db, models.Behavior, behavior_id, organization_id=test_org_id
-        )
-        assert found is None
+        # Verify item raises ItemDeletedException in normal queries
+        from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+        with pytest.raises(ItemDeletedException):
+            crud_utils.get_item(
+                test_db, models.Behavior, behavior_id, organization_id=test_org_id
+            )
         
         # Verify item still exists in database with deleted_at set
         with without_soft_delete_filter():
@@ -80,7 +81,9 @@ class TestSoftDeletion:
         assert result is None
 
     def test_get_item_excludes_deleted_by_default(self, test_db: Session, test_org_id):
-        """Test that get_item excludes soft-deleted items by default."""
+        """Test that get_item raises exception for soft-deleted items by default."""
+        from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+        
         # Create and delete a behavior
         behavior_data = BehaviorDataFactory.sample_data()
         behavior = crud_utils.create_item(
@@ -92,12 +95,11 @@ class TestSoftDeletion:
             test_db, models.Behavior, behavior_id, organization_id=test_org_id
         )
         
-        # Try to get the deleted item
-        found = crud_utils.get_item(
-            test_db, models.Behavior, behavior_id, organization_id=test_org_id
-        )
-        
-        assert found is None
+        # Try to get the deleted item - should raise exception
+        with pytest.raises(ItemDeletedException):
+            crud_utils.get_item(
+                test_db, models.Behavior, behavior_id, organization_id=test_org_id
+            )
 
     def test_get_item_includes_deleted_when_requested(self, test_db: Session, test_org_id):
         """Test that get_item can include soft-deleted items when requested."""
@@ -391,11 +393,12 @@ class TestSoftDeleteContext:
                 assert found is not None
                 assert found.deleted_at is not None
         
-        # Outside context, should not find deleted item
-        not_found = crud_utils.get_item(
-            test_db, models.Behavior, behavior_id, organization_id=test_org_id
-        )
-        assert not_found is None
+        # Outside context, should raise exception for deleted item
+        from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+        with pytest.raises(ItemDeletedException):
+            crud_utils.get_item(
+                test_db, models.Behavior, behavior_id, organization_id=test_org_id
+            )
 
 
 @pytest.mark.unit

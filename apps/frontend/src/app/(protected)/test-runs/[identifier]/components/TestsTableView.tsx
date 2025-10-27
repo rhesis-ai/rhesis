@@ -207,13 +207,17 @@ export default function TestsTableView({
     const totalMetrics = metricValues.length;
     const passedMetrics = metricValues.filter(m => m.is_successful).length;
 
-    if (totalMetrics === 0) {
+    // Check for execution error (no metrics or empty metrics)
+    const hasExecutionError = !test.test_metrics || totalMetrics === 0;
+
+    if (hasExecutionError) {
       return {
         passed: false,
-        label: 'N/A',
+        label: 'Error',
         count: '0/0',
         isOverruled: false,
         hasConflict: false,
+        hasExecutionError: true,
       };
     }
 
@@ -235,6 +239,7 @@ export default function TestsTableView({
         isOverruled: true,
         hasConflict: !test.matches_review,
         automatedPassed: originalPassed, // Keep original automated result
+        hasExecutionError: false,
         reviewData: {
           reviewer: lastReview.user.name,
           comments: lastReview.comments,
@@ -251,6 +256,7 @@ export default function TestsTableView({
       isOverruled: false,
       hasConflict: false,
       automatedPassed: originalPassed, // Same as passed when no review
+      hasExecutionError: false,
     };
   };
 
@@ -331,7 +337,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '28%',
+                  width: '25%',
                 }}
               >
                 Prompt
@@ -340,7 +346,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '38%',
+                  width: '35%',
                 }}
               >
                 Response
@@ -349,7 +355,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '12%',
+                  width: '15%',
                   textAlign: 'center',
                 }}
               >
@@ -385,7 +391,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '10%',
+                  width: '12%',
                   textAlign: 'center',
                 }}
               >
@@ -395,7 +401,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '12%',
+                  width: '13%',
                   textAlign: 'center',
                 }}
               >
@@ -484,16 +490,27 @@ export default function TestsTableView({
                       >
                         {/* Machine Evaluation Icon */}
                         <Tooltip
-                          title={`Automated: ${
-                            status.automatedPassed ? 'Passed' : 'Failed'
-                          } (${status.count})${
-                            failedMetrics.length > 0
-                              ? ` - Failed: ${failedMetrics.join(', ')}`
-                              : ''
-                          }`}
+                          title={
+                            status.hasExecutionError
+                              ? 'Execution Error: Test could not be executed'
+                              : `Automated: ${
+                                  status.automatedPassed ? 'Passed' : 'Failed'
+                                } (${status.count})${
+                                  failedMetrics.length > 0
+                                    ? ` - Failed: ${failedMetrics.join(', ')}`
+                                    : ''
+                                }`
+                          }
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {status.automatedPassed ? (
+                            {status.hasExecutionError ? (
+                              <WarningAmberIcon
+                                sx={{
+                                  fontSize: 20,
+                                  color: 'warning.main',
+                                }}
+                              />
+                            ) : status.automatedPassed ? (
                               <CheckIcon
                                 sx={{
                                   fontSize: 20,

@@ -87,7 +87,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             raise HTTPException(status_code=400, detail=f"Unsupported HTTP method: {method}")
 
         # Prepare headers and body
-        headers = self._prepare_headers(db, endpoint)
+        headers = self._prepare_headers(db, endpoint, input_data)
         request_body = self.template_renderer.render(
             endpoint.request_body_template or {}, input_data
         )
@@ -176,21 +176,37 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 json_error=str(json_error),
             )
 
-    def _prepare_headers(self, db: Session, endpoint: Endpoint) -> Dict[str, str]:
-        """Prepare request headers with proper authentication."""
-        headers = endpoint.request_headers or {"Content-Type": "application/json"}
+    def _prepare_headers(
+        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any] = None
+    ) -> Dict[str, str]:
+        """Prepare request headers with proper authentication and context injection."""
+        headers = (endpoint.request_headers or {}).copy()
 
+        # Ensure Content-Type is set
+        if "Content-Type" not in headers:
+            headers["Content-Type"] = "application/json"
+
+        # Add auth_token if auth is configured (legacy auth_token placeholder support)
         if endpoint.auth_type:
-            # Get valid token based on auth type
             auth_token = self._get_valid_token(db, endpoint)
 
-            # Replace auth_token placeholder in headers
-            if headers:
-                context = {"auth_token": auth_token}
-                for key, value in headers.items():
-                    if isinstance(value, str) and "{{ auth_token }}" in value:
-                        template = Template(value)
-                        headers[key] = template.render(**context)
+            # Replace {{ auth_token }} placeholders in header values
+            for key, value in headers.items():
+                if isinstance(value, str) and "{{ auth_token }}" in value:
+                    template = Template(value)
+                    headers[key] = template.render(auth_token=auth_token)
+
+            # Automatically add Authorization header if not explicitly set
+            if "Authorization" not in headers and auth_token:
+                headers["Authorization"] = f"Bearer {auth_token}"
+
+            # Automatically inject context headers for authenticated endpoints
+            # These come from backend context, NOT user input (SECURITY CRITICAL)
+            if input_data:
+                if "organization_id" in input_data and "X-Organization-ID" not in headers:
+                    headers["X-Organization-ID"] = str(input_data["organization_id"])
+                if "user_id" in input_data and "X-User-ID" not in headers:
+                    headers["X-User-ID"] = str(input_data["user_id"])
 
         return headers
 

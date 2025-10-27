@@ -8,13 +8,6 @@ on:
       - 'apps/backend/**'
       - 'sdk/**'
       - '.github/workflows/worker.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'apps/worker/**'
-      - 'apps/backend/**'
-      - 'sdk/**'
-      - '.github/workflows/worker.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -286,6 +279,11 @@ jobs:
             --from-literal=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
             --from-literal=GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}" \
             --from-literal=GEMINI_MODEL_NAME="${{ secrets.GEMINI_MODEL_NAME }}" \
+            --from-literal=DEFAULT_GENERATION_MODEL="${{ secrets.DEFAULT_GENERATION_MODEL }}" \
+            --from-literal=DEFAULT_MODEL_NAME="${{ secrets.DEFAULT_MODEL_NAME }}" \
+            --from-literal=GOOGLE_APPLICATION_CREDENTIALS="${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}" \
+            --from-literal=VERTEX_AI_LOCATION="${{ secrets.VERTEX_AI_LOCATION }}" \
+            --from-literal=VERTEX_AI_PROJECT="${{ secrets.VERTEX_AI_PROJECT }}" \
             --from-literal=AZURE_OPENAI_ENDPOINT="${{ secrets.AZURE_OPENAI_ENDPOINT }}" \
             --from-literal=AZURE_OPENAI_API_KEY="${{ secrets.AZURE_OPENAI_API_KEY }}" \
             --from-literal=AZURE_OPENAI_DEPLOYMENT_NAME="${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}" \

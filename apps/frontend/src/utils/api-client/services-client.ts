@@ -5,6 +5,9 @@ import { API_ENDPOINTS, API_CONFIG } from './config';
 interface TestPrompt {
   content: string;
   language_code: string;
+  demographic?: string;
+  dimension?: string;
+  expected_response?: string;
 }
 
 interface TestMetadata {
@@ -30,10 +33,54 @@ interface GenerateTestsRequest {
   prompt: object;
   num_tests?: number;
   documents?: Document[];
+  // Iteration context - same as test config
+  chip_states?: ChipState[];
+  rated_samples?: RatedSample[];
+  previous_messages?: IterationMessage[];
 }
 
 interface GenerateTestsResponse {
   tests: Test[];
+}
+
+interface ChipState {
+  label: string;
+  description: string;
+  active: boolean;
+  category: 'behavior' | 'topic' | 'category' | 'scenario';
+}
+
+interface RatedSample {
+  prompt: string;
+  response: string;
+  rating: number;
+  feedback?: string;
+}
+
+interface IterationMessage {
+  content: string;
+  timestamp: string;
+}
+
+interface GenerateTestConfigRequest {
+  prompt: string;
+  sample_size: number;
+  // Iteration context
+  chip_states?: ChipState[];
+  rated_samples?: RatedSample[];
+  previous_messages?: IterationMessage[];
+}
+
+interface TestConfigItem {
+  name: string;
+  description: string;
+}
+
+interface GenerateTestConfigResponse {
+  behaviors: TestConfigItem[];
+  topics: TestConfigItem[];
+  categories: TestConfigItem[];
+  scenarios: TestConfigItem[];
 }
 
 interface TextResponse {
@@ -98,6 +145,21 @@ export class ServicesClient extends BaseApiClient {
   ): Promise<GenerateTestsResponse> {
     return this.fetch<GenerateTestsResponse>(
       `${API_ENDPOINTS.services}/generate/tests`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      }
+    );
+  }
+
+  async generateTestConfig(
+    request: GenerateTestConfigRequest
+  ): Promise<GenerateTestConfigResponse> {
+    return this.fetch<GenerateTestConfigResponse>(
+      `${API_ENDPOINTS.services}/generate/test_config`,
       {
         method: 'POST',
         headers: {

@@ -1,0 +1,15 @@
+[project]
+name = "rhesis-chatbot"
+version = "1.0.0"
+description = "Default insurance chatbot (Rosalind) for new user onboarding"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.116.1",
+    "uvicorn>=0.35.0",
+    "gunicorn>=21.2.0",
+    "slowapi>=0.1.9",
+    "pydantic>=2.11.7",
+    "python-dotenv>=1.1.1",
+    "streamlit>=1.41.1",
+]
+

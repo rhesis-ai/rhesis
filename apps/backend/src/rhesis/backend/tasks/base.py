@@ -1,19 +1,15 @@
 import os
 from contextlib import contextmanager
 from datetime import datetime
-from functools import wraps
 from typing import Optional, Tuple
 
 from celery import Task
 
 from rhesis.backend.app.database import (
-    SessionLocal,
-    get_db,
     get_db_with_tenant_variables,
 )
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
-
 
 # Task database sessions automatically set PostgreSQL session variables for RLS
 # Use self.get_db_session() for tenant-aware database operations
@@ -124,13 +120,13 @@ class BaseTask(Task):
     def get_db_session(self):
         """
         Get a database session with tenant context automatically set.
-        
+
         Automatically sets PostgreSQL session variables for RLS using the same
         centralized logic as the router dependencies.
         """
         organization_id, user_id = self.get_tenant_context()
-        
-        with get_db_with_tenant_variables(organization_id or '', user_id or '') as db:
+
+        with get_db_with_tenant_variables(organization_id or "", user_id or "") as db:
             yield db
 
     def validate_params(self, args, kwargs):
@@ -230,6 +226,9 @@ class BaseTask(Task):
 
     def before_start(self, task_id, args, kwargs):
         """Add organization_id and user_id to task request context."""
+        # Store task start time for execution time calculation
+        self.request.custom_start_time = datetime.utcnow()
+
         # Get tenant context from headers (preferred) or kwargs (fallback)
         headers = getattr(self.request, "headers", {}) or {}
 
@@ -252,7 +251,9 @@ class BaseTask(Task):
 
         return super().before_start(task_id, args, kwargs)
 
-    def _get_user_info(self, user_id: str, organization_id: str = None) -> Tuple[Optional[str], Optional[str]]:
+    def _get_user_info(
+        self, user_id: str, organization_id: str = None
+    ) -> Tuple[Optional[str], Optional[str]]:
         """
         Get user email and name for notifications.
 
@@ -328,30 +329,48 @@ class BaseTask(Task):
                 )
                 return
 
-            # Calculate execution time if possible
+            # Calculate execution time using our custom start time or Celery's time_start
             execution_time = None
-            if hasattr(self.request, "time_start") and self.request.time_start:
+
+            # Try our custom start time first (most reliable)
+            if hasattr(self.request, "custom_start_time") and self.request.custom_start_time:
+                try:
+                    duration = (datetime.utcnow() - self.request.custom_start_time).total_seconds()
+                    from rhesis.backend.tasks.utils import format_execution_time
+
+                    execution_time = format_execution_time(duration)
+                    self.log_with_context(
+                        "debug", f"Calculated execution time from custom timing: {execution_time}"
+                    )
+                except Exception as e:
+                    self.log_with_context(
+                        "warning",
+                        "Failed to calculate execution time from custom timing",
+                        error=str(e),
+                    )
+            # Fallback to Celery's time_start if available
+            elif hasattr(self.request, "time_start") and self.request.time_start:
                 try:
                     duration = datetime.utcnow().timestamp() - self.request.time_start
                     from rhesis.backend.tasks.utils import format_execution_time
 
                     execution_time = format_execution_time(duration)
                     self.log_with_context(
-                        "debug", f"Calculated execution time from task timing: {execution_time}"
+                        "debug", f"Calculated execution time from Celery timing: {execution_time}"
                     )
                 except Exception as e:
                     self.log_with_context(
                         "warning",
-                        "Failed to calculate execution time from task timing",
+                        "Failed to calculate execution time from Celery timing",
                         error=str(e),
                     )
             else:
                 self.log_with_context(
                     "debug",
-                    f"No task start time available - time_start: {getattr(self.request, 'time_start', 'not found')}",
+                    "No start time available for execution time calculation",
                 )
 
-            # If we still don't have execution time, ensure we don't override a good value with None
+            # Log final execution time
             self.log_with_context("debug", f"Final calculated execution time: {execution_time}")
 
             # Get frontend URL for links

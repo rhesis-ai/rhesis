@@ -38,10 +38,8 @@ def evaluate_prompt_response(
     """
     metrics_results = {}
 
-
     # Extract actual_response using the fallback hierarchy
     actual_response = extract_response_with_fallback(result)
-
 
     try:
         metrics_results = metrics_evaluator.evaluate(

@@ -1,4 +1,10 @@
-import React, { useState, useEffect, ReactNode, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+  useRef,
+} from 'react';
 import {
   Box,
   Typography,
@@ -18,7 +24,12 @@ import {
   ClickAwayListener,
   MenuList,
   CircularProgress,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
+import IconButton from '@mui/material/IconButton';
 import {
   DataGrid,
   GridPaginationModel,
@@ -102,6 +113,7 @@ interface BaseDataGridProps {
   customToolbarContent?: ReactNode;
   // Server-side filtering props
   serverSideFiltering?: boolean;
+  filterModel?: GridFilterModel;
   onFilterModelChange?: (model: GridFilterModel) => void;
   // Link related props
   linkPath?: string;
@@ -170,6 +182,7 @@ export default function BaseDataGrid({
   filterHandler,
   customToolbarContent,
   serverSideFiltering = false,
+  filterModel,
   onFilterModelChange,
   linkPath,
   linkField = 'id',
@@ -325,21 +338,150 @@ export default function BaseDataGrid({
     );
   };
 
-  const CustomToolbarWithFilters = () => {
-    return (
-      <Box
-        sx={{
-          p: 1,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <GridToolbar />
-        <GridToolbarQuickFilter debounceMs={300} />
-      </Box>
+  // Refs for server-side filtering with stable toolbar
+  // Using uncontrolled input to avoid re-render/focus issues
+  const quickFilterInputRef = useRef<HTMLInputElement | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const onFilterModelChangeRef = useRef(onFilterModelChange);
+  const filterModelRef = useRef(filterModel);
+
+  // Keep callback refs up to date without causing re-renders
+  useEffect(() => {
+    onFilterModelChangeRef.current = onFilterModelChange;
+    filterModelRef.current = filterModel;
+  });
+
+  // Sync input value with external filterModel changes (e.g., "Clear All Filters")
+  useEffect(() => {
+    if (!filterModel || !quickFilterInputRef.current) return;
+
+    const quickFilterItem = filterModel.items.find(
+      item => item.field === 'quickFilter' || item.field === '__quickFilter__'
     );
-  };
+    const newValue = quickFilterItem?.value || '';
+
+    // Only update if different and not during active typing (debounce in progress)
+    if (
+      quickFilterInputRef.current.value !== newValue &&
+      !debounceTimerRef.current
+    ) {
+      quickFilterInputRef.current.value = newValue;
+    }
+  }, [filterModel]);
+
+  /**
+   * Handles quick filter input changes with debouncing.
+   * Updates the filter model after 300ms of inactivity.
+   */
+  const handleQuickFilterChange = useCallback(() => {
+    const value = quickFilterInputRef.current?.value || '';
+
+    // Clear existing debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Debounced filter model update
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+
+      if (onFilterModelChangeRef.current && filterModelRef.current) {
+        const otherFilters = filterModelRef.current.items.filter(
+          item =>
+            item.field !== 'quickFilter' && item.field !== '__quickFilter__'
+        );
+
+        const newFilterModel = {
+          ...filterModelRef.current,
+          items: value
+            ? [
+                ...otherFilters,
+                { field: 'quickFilter', operator: 'contains', value },
+              ]
+            : otherFilters,
+        };
+
+        onFilterModelChangeRef.current(newFilterModel);
+      }
+    }, 300);
+  }, []);
+
+  /**
+   * Clears the quick filter input and updates the filter model immediately.
+   */
+  const handleQuickFilterClear = useCallback(() => {
+    if (quickFilterInputRef.current) {
+      quickFilterInputRef.current.value = '';
+    }
+
+    // Clear any pending debounce
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
+    // Immediately update filter model
+    if (onFilterModelChangeRef.current && filterModelRef.current) {
+      const otherFilters = filterModelRef.current.items.filter(
+        item => item.field !== 'quickFilter' && item.field !== '__quickFilter__'
+      );
+      onFilterModelChangeRef.current({
+        ...filterModelRef.current,
+        items: otherFilters,
+      });
+    }
+  }, []);
+
+  /**
+   * Stable toolbar component using uncontrolled input.
+   * Created once and stored in ref to prevent remounting and focus loss.
+   * The input manages its own value via DOM, avoiding React state/re-render complexity.
+   */
+  const CustomToolbarWithFiltersRef = useRef<React.ComponentType | null>(null);
+  if (!CustomToolbarWithFiltersRef.current) {
+    CustomToolbarWithFiltersRef.current = function CustomToolbar() {
+      return (
+        <Box
+          sx={{
+            p: 1,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <GridToolbar />
+          <TextField
+            inputRef={quickFilterInputRef}
+            size="small"
+            placeholder="Search..."
+            defaultValue=""
+            onChange={handleQuickFilterChange}
+            sx={{ minWidth: 200 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={handleQuickFilterClear}
+                    aria-label="Clear search"
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Box>
+      );
+    };
+  }
+  const CustomToolbarWithFilters = CustomToolbarWithFiltersRef.current;
 
   if (!isInitialized) {
     return (
@@ -531,6 +673,7 @@ export default function BaseDataGrid({
           {...(density && { density })}
           {...(serverSideFiltering && {
             filterMode: 'server',
+            filterModel,
             onFilterModelChange,
             slots: { toolbar: CustomToolbarWithFilters },
           })}
@@ -589,6 +732,7 @@ export default function BaseDataGrid({
             {...(density && { density })}
             {...(serverSideFiltering && {
               filterMode: 'server',
+              filterModel,
               onFilterModelChange,
               slots: { toolbar: CustomToolbarWithFilters },
             })}

@@ -1,50 +1,52 @@
-# Hint: Build this image with an expanded build context
-# `docker build -t rhesis-backend -f backend/Dockerfile .`
+# Hint: Build this image with an expanded build context from repo root
+# `docker build -t rhesis-chatbot -f apps/chatbot/Dockerfile .`
 
-# First stage: Build dependencies
-FROM mirror.gcr.io/library/python:3.9-slim AS builder
+# Single stage build for simplicity
+# IMPORTANT: The python version must match the version in the .python-version file.
+FROM mirror.gcr.io/library/python:3.10.17-slim
 
 WORKDIR /app
 
-# Install build dependencies including PostgreSQL development files
+# Install OS-level dependencies and uv
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libpq-dev \
+    curl \
+    && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements from the bot directory
-COPY bot/requirements.txt .
+# Copy only the dependency files for chatbot
+COPY apps/chatbot/pyproject.toml apps/chatbot/uv.lock ./
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Compile bytecode to improve performance   
+ENV UV_COMPILE_BYTECODE=1 
+# Use only system Python provided by the base image. It speeds up the build process and limit 
+# the size of the image.
+ENV UV_NO_MANAGED_PYTHON=1
+# Add the virtual environment to the PATH. It activates the virtual environment allowing to
+# call python from the command line.
+ENV PATH="/app/.venv/bin:$PATH"
 
-# Second stage: Run the application
-FROM mirror.gcr.io/library/python:3.9-slim
+# Copy the SDK directory (required dependency)
+COPY sdk /app/sdk/
 
-WORKDIR /app
+# Add SDK to the project dependencies
+RUN uv add /app/sdk
 
-# Install runtime dependencies first
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
+# Install chatbot dependencies (which includes the SDK)
+RUN uv sync
+
+# Now copy the rest of your source (scripts, modules, etc.)
+COPY apps/chatbot /app/
+
+# Remove build dependencies after installing Python packages
+RUN apt-get purge -y build-essential \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Install gunicorn
-RUN pip install --no-cache-dir gunicorn
-
-# Copy dependencies from builder (changes less frequently than app code)
-COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
-
-# Create a non-root user before copying app code
-RUN adduser --disabled-password --gecos '' rhesis-user
-
-# Copy the entire bot directory
-COPY bot /app/bot
-
-# Remove any existing .env files to prevent environment variable conflicts
-RUN find /app -name ".env" -type f -delete
-
-# Set ownership after copying app code
-RUN chown -R rhesis-user /app
+# Create non-root user and remove .env files
+RUN adduser --disabled-password --gecos '' rhesis-user \
+    && find /app -name ".env" -type f -delete \
+    && chown -R rhesis-user /app
 
 # Switch to the non-root user
 USER rhesis-user
@@ -52,10 +54,17 @@ USER rhesis-user
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    PORT=8080 \
+    WORKERS=4
 
 # Expose port
 EXPOSE 8080
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
 # Command to run the FastAPI application with Gunicorn
-CMD ["gunicorn", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8080", "bot.client:app"]
+# Workers can be overridden via WORKERS environment variable
+CMD sh -c "gunicorn --workers ${WORKERS:-4} --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080 --timeout 120 --graceful-timeout 30 client:app"

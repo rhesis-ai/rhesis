@@ -9,16 +9,45 @@ from rhesis.backend.app.auth.oauth import extract_user_data, get_auth0_user_info
 from rhesis.backend.app.auth.token_utils import (
     create_session_token,
     get_secret_key,
-    verify_jwt_token)
+    verify_jwt_token,
+)
 from rhesis.backend.app.auth.url_utils import build_redirect_url
 from rhesis.backend.app.auth.user_utils import find_or_create_user
-from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
+from rhesis.backend.app.dependencies import (
+    get_db_session,
+)
 from rhesis.backend.logging import logger
 
-router = APIRouter(
-    prefix="/auth",
-    tags=["authentication"])
+router = APIRouter(prefix="/auth", tags=["authentication"])
+
+
+def get_callback_url(request: Request) -> str:
+    """
+    Generate the OAuth callback URL.
+    In local development, use request.base_url to match the incoming host.
+    In production, use RHESIS_BASE_URL for proper domain handling.
+    """
+    rhesis_base_url = os.getenv("RHESIS_BASE_URL")
+    if rhesis_base_url and (
+        "localhost" not in str(request.base_url) and "127.0.0.1" not in str(request.base_url)
+    ):
+        # Production: use RHESIS_BASE_URL
+        base_url = rhesis_base_url.rstrip("/")
+    else:
+        # Local development: use the actual request host to ensure cookie domain matches
+        base_url = str(request.base_url).rstrip("/")
+
+    callback_url = f"{base_url}/auth/callback"
+
+    # Only rewrite http to https if not localhost (including 127.0.0.1)
+    if (
+        callback_url.startswith("http://")
+        and "localhost" not in callback_url
+        and "127.0.0.1" not in callback_url
+    ):
+        callback_url = "https://" + callback_url[7:]
+
+    return callback_url
 
 
 def get_callback_url(request: Request) -> str:
@@ -110,13 +139,10 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
 
 
 @router.get("/logout")
-async def logout(
-    request: Request,
-    post_logout: bool = False,
-    session_token: str = None):
+async def logout(request: Request, post_logout: bool = False, session_token: str = None):
     """Log out the user and clear their session"""
     from fastapi.responses import JSONResponse
-    
+
     # Clear session data
     request.session.clear()
 
@@ -144,17 +170,15 @@ async def logout(
     accept_header = request.headers.get("accept", "")
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
     frontend_env = os.getenv("FRONTEND_ENV", "development")
-    
+
     # Check if this is an API call (from frontend middleware)
     if "application/json" in accept_header or "api" in request.url.path:
-        response = JSONResponse(
-            content={"success": True, "message": "Logged out successfully"}
-        )
+        response = JSONResponse(content={"success": True, "message": "Logged out successfully"})
     else:
         # Redirect to frontend home page
         return_to_url = frontend_url + "/"
         response = RedirectResponse(url=return_to_url)
-    
+
     # Clear all authentication-related cookies on the server side
     # This ensures logout works even if client-side cookie clearing fails
     cookies_to_clear = [
@@ -168,23 +192,17 @@ async def logout(
         "__Secure-next-auth.session-token",
         "session",
     ]
-    
+
     for cookie_name in cookies_to_clear:
         # Clear cookie with default settings
         response.set_cookie(
-            key=cookie_name,
-            value="",
-            max_age=0,
-            expires=0,
-            path="/",
-            httponly=True,
-            samesite="lax"
+            key=cookie_name, value="", max_age=0, expires=0, path="/", httponly=True, samesite="lax"
         )
-        
+
         # For staging and production, also clear with domain settings
         if frontend_env in ["staging", "production"]:
             domain = "rhesis.ai" if frontend_env == "production" else "stg.rhesis.ai"
-            
+
             response.set_cookie(
                 key=cookie_name,
                 value="",
@@ -194,7 +212,7 @@ async def logout(
                 domain=domain,
                 httponly=True,
                 secure=True,
-                samesite="lax"
+                samesite="lax",
             )
             # Also clear with leading dot for broader coverage
             response.set_cookie(
@@ -206,9 +224,9 @@ async def logout(
                 domain=f".{domain}",
                 httponly=True,
                 secure=True,
-                samesite="lax"
+                samesite="lax",
             )
-    
+
     logger.info("Logout completed, cookies cleared")
     return response
 
@@ -218,7 +236,8 @@ async def verify_auth(
     request: Request,
     session_token: str,
     return_to: str = "/home",
-    secret_key: str = Depends(get_secret_key)):
+    secret_key: str = Depends(get_secret_key),
+):
     """Verify JWT session token and return user info"""
     logger.info(f"Verify request received. Token: {session_token[:8]}...")
 
@@ -248,23 +267,23 @@ async def demo_redirect(request: Request):
     """Redirect to Auth0 login with demo user pre-filled"""
     try:
         logger.info("Demo redirect requested")
-        
+
         # Demo user email
         DEMO_EMAIL = os.getenv("DEMO_USER_EMAIL", "demo@rhesis.ai")
-        
+
         # Store the origin in session for callback
         origin = request.headers.get("origin") or request.headers.get("referer")
         if origin:
             request.session["original_frontend"] = origin
-        
+
         callback_url = get_callback_url(request)
-        
+
         # Store return_to in session - demo users go to dashboard
         request.session["return_to"] = "/dashboard"
-        
+
         if not os.getenv("AUTH0_DOMAIN"):
             raise HTTPException(status_code=500, detail="AUTH0_DOMAIN not configured")
-        
+
         # Auth0 authorization parameters with login_hint for demo user
         auth_params = {
             "redirect_uri": callback_url,
@@ -272,13 +291,13 @@ async def demo_redirect(request: Request):
             "login_hint": DEMO_EMAIL,  # Pre-fills the email field
             "prompt": "login",  # Always show login screen
         }
-        
+
         # Use the existing OAuth redirect but with demo-specific parameters
         response = await oauth.auth0.authorize_redirect(request, **auth_params)
-        
+
         logger.info(f"Demo redirect created with login_hint: {DEMO_EMAIL}")
         return response
-        
+
     except Exception as e:
         logger.error(f"Demo redirect error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Demo redirect failed: {str(e)}")

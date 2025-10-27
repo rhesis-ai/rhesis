@@ -5,15 +5,12 @@ Revises: a1b2c3d4e5f6
 Create Date: 2025-10-13
 
 """
+
 from typing import Sequence, Union
 
-import sqlalchemy as sa
-from alembic import op
-
-
 # revision identifiers, used by Alembic.
-revision: str = 'b2c3d4e5f6a7'
-down_revision: Union[str, None] = 'a1b2c3d4e5f6'
+revision: str = "b2c3d4e5f6a7"
+down_revision: Union[str, None] = "a1b2c3d4e5f6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -28,4 +25,3 @@ def downgrade() -> None:
     # This is a placeholder migration to fix the revision chain
     # No actual database changes needed
     pass
-

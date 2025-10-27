@@ -479,3 +479,100 @@ export function convertTaskQuickFilterToOData(
   // Join multiple quick filter values with AND (all values must match)
   return `(${quickFilterExpressions.join(' and ')})`;
 }
+
+/**
+ * Handles quick filter (global search) conversion to OData for test runs
+ */
+export function convertTestRunQuickFilterToOData(
+  quickFilterValues: any[]
+): string {
+  if (!quickFilterValues || quickFilterValues.length === 0) {
+    return '';
+  }
+
+  // Define test run searchable fields
+  const searchFields = [
+    'name',
+    'test_configuration/test_set/name',
+    'user/name',
+    'status/name',
+  ];
+
+  const quickFilterExpressions = quickFilterValues
+    .map(value => {
+      if (!value || value === '') return '';
+
+      // Create a contains condition for each search field
+      const fieldConditions = searchFields.map(
+        field =>
+          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
+      );
+
+      // Join field conditions with OR (search in any field)
+      return `(${fieldConditions.join(' or ')})`;
+    })
+    .filter(expr => expr !== '');
+
+  if (quickFilterExpressions.length === 0) {
+    return '';
+  }
+
+  if (quickFilterExpressions.length === 1) {
+    return quickFilterExpressions[0];
+  }
+
+  // Join multiple quick filter values with AND (all values must match)
+  return `(${quickFilterExpressions.join(' and ')})`;
+}
+
+/**
+ * Combines regular filters and quick filters into a single OData expression for test runs
+ */
+export function combineTestRunFiltersToOData(
+  filterModel: GridFilterModel
+): string {
+  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
+    return '';
+  }
+
+  // Separate regular filters from quick filters
+  const regularFilters: GridFilterItem[] = [];
+  const quickFilterValues: any[] = [];
+
+  filterModel.items.forEach(item => {
+    if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
+      quickFilterValues.push(item.value);
+    } else {
+      regularFilters.push(item);
+    }
+  });
+
+  // Convert regular filters
+  const regularFilterExpressions = regularFilters
+    .map(item => convertFilterItemToOData(item))
+    .filter(expr => expr !== '');
+
+  // Convert quick filters
+  const quickFilterExpression =
+    quickFilterValues.length > 0
+      ? convertTestRunQuickFilterToOData(quickFilterValues)
+      : '';
+
+  // Combine both types of filters
+  const allExpressions = [...regularFilterExpressions];
+  if (quickFilterExpression) {
+    allExpressions.push(quickFilterExpression);
+  }
+
+  if (allExpressions.length === 0) {
+    return '';
+  }
+
+  if (allExpressions.length === 1) {
+    return allExpressions[0];
+  }
+
+  // Join multiple filters with the logic operator
+  const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
+  return `(${allExpressions.join(logicOperator)})`;
+}

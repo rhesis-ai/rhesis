@@ -1,0 +1,10 @@
+Version 0.1.2 - 2025-02-18
+===========================
+
+
+Added
+-----
+
+- Added new topic entity
+- Added base entity for CRUD testing
+- Added topic tests

@@ -290,6 +290,7 @@ def get_test_result_stats(
             joinedload(models.TestResult.test).joinedload(models.Test.category),
             joinedload(models.TestResult.test).joinedload(models.Test.topic),
             joinedload(models.TestResult.test_run),
+            joinedload(models.TestResult.status),  # Load status for statistics
         )
         .join(models.Test, models.TestResult.test_id == models.Test.id)
     )
@@ -352,8 +353,17 @@ def get_test_result_stats(
         if not isinstance(metrics, dict):
             continue
 
-        # Track metrics for this test result
-        test_passed_overall = True
+        # Use stored test status as source of truth for overall pass/fail
+        from rhesis.backend.app.constants import (
+            STATUS_CATEGORY_PASSED,
+            categorize_test_result_status,
+        )
+
+        status_name = result.status.name if result.status else None
+        status_category = categorize_test_result_status(status_name)
+        test_passed_overall = status_category == STATUS_CATEGORY_PASSED
+
+        # Still track individual metric results for per-metric statistics
         test_metric_results = {}
 
         for metric_name, metric_data in metrics.items():
@@ -366,16 +376,15 @@ def get_test_result_stats(
             if metric_name not in metric_stats:
                 metric_stats[metric_name] = {"passed": 0, "failed": 0}
 
-            # Update metric stats
+            # Update per-metric stats (still based on individual metric outcomes)
             if is_successful:
                 metric_stats[metric_name]["passed"] += 1
             else:
                 metric_stats[metric_name]["failed"] += 1
-                test_passed_overall = False
 
             test_metric_results[metric_name] = is_successful
 
-        # Update overall stats
+        # Update overall stats using stored status
         if test_passed_overall:
             overall_stats["passed"] += 1
         else:

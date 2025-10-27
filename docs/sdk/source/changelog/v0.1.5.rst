@@ -1,9 +1,0 @@
-Version 0.1.5 - 2025-02-21
-===========================
-
-
-Added
------
-
-- Added ParaphrasingSynthesizer for generating paraphrases of test cases
-

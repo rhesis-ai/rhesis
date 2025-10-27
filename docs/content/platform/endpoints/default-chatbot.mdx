@@ -1,0 +1,519 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Default Insurance Chatbot (Rosalind)
+
+Get started instantly with Rhesis AI by exploring our pre-configured insurance chatbot, Rosalind. Available to all new users during onboarding, this demo endpoint lets you experience the platform's capabilities without any setup.
+
+<Callout type="default">
+  **What is Rosalind?** Rosalind is a pre-configured insurance expert chatbot powered by Google's Gemini AI. She provides instant answers to insurance questions, demonstrating how Rhesis AI can power intelligent conversational applications.
+</Callout>
+
+## Why a Default Chatbot?
+
+The default insurance chatbot eliminates onboarding friction by providing:
+
+- **Instant Access**: Start exploring Rhesis capabilities immediately upon signup
+- **Zero Configuration**: No API keys, endpoints, or setup required
+- **Real-World Example**: See how Rhesis handles domain-specific AI interactions
+- **Quick Proof-of-Concept**: Test platform functionality before committing to custom configuration
+- **Learning Resource**: Understand best practices through a working implementation
+
+## API Endpoints
+
+The chatbot service provides several endpoints for interaction and monitoring:
+
+### Chat Endpoint
+
+**POST** `/chat`
+
+The primary interaction endpoint for conversing with Rosalind. Requires bearer token authentication if `CHATBOT_API_KEY` is configured.
+
+**Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer <your-api-key>  # Required if authentication is enabled
+```
+
+<CodeBlock
+  filename="chat-request.json"
+  language="json"
+>
+{`{
+  "message": "What is the difference between term life and whole life insurance?",
+  "session_id": "optional-session-id",
+  "use_case": "insurance"
+}`}
+</CodeBlock>
+
+**Response:**
+
+<CodeBlock
+  filename="chat-response.json"
+  language="json"
+>
+{`{
+  "message": "Great question! Term life insurance covers you for a specific period (like 10, 20, or 30 years) and pays out only if you pass away during that term. It's typically more affordable. Whole life insurance, on the other hand, covers you for your entire life and includes a savings component that builds cash value over time. It's more expensive but offers lifelong protection and a savings element.",
+  "session_id": "abc123-def456-ghi789",
+  "context": [
+    "Term life insurance provides coverage for a specific time period",
+    "Whole life insurance offers permanent coverage with cash value",
+    "Term policies are generally more affordable than whole life"
+  ],
+  "use_case": "insurance"
+}`}
+</CodeBlock>
+
+**Parameters:**
+
+- `message` (string, required): Your question or message to Rosalind
+- `session_id` (string, optional): UUID for conversation continuity. If omitted, a new session is created
+- `use_case` (string, optional): The domain context. Defaults to "insurance"
+
+### Health Check Endpoint
+
+**GET** `/health`
+
+Monitor service availability and status.
+
+<CodeBlock
+  filename="health-response.json"
+  language="json"
+>
+{`{
+  "status": "healthy",
+  "service": "rhesis-insurance-chatbot",
+  "version": "1.0.0"
+}`}
+</CodeBlock>
+
+### API Information Endpoint
+
+**GET** `/`
+
+Get information about available endpoints and rate limits.
+
+**Without authentication configured:**
+<CodeBlock
+  filename="api-info-response.json"
+  language="json"
+>
+{`{
+  "service": "Rhesis Insurance Chatbot API",
+  "description": "Chat with Rosalind, your insurance expert",
+  "endpoints": {
+    "chat": "/chat (POST)",
+    "health": "/health (GET)",
+    "use_cases": "/use-cases (GET)",
+    "sessions": "/sessions/{session_id} (GET, DELETE)"
+  },
+  "rate_limits": {
+    "requests_per_day": 1000,
+    "note": "Configurable via CHATBOT_RATE_LIMIT environment variable"
+  }
+}`}
+</CodeBlock>
+
+**With authentication configured:**
+<CodeBlock
+  filename="api-info-auth-response.json"
+  language="json"
+>
+{`{
+  "service": "Rhesis Insurance Chatbot API",
+  "description": "Chat with Rosalind, your insurance expert",
+  "endpoints": {
+    "chat": "/chat (POST)",
+    "health": "/health (GET)",
+    "use_cases": "/use-cases (GET)",
+    "sessions": "/sessions/{session_id} (GET, DELETE)"
+  },
+  "rate_limits": {
+    "requests_per_day": 1000,
+    "note": "Configurable via CHATBOT_RATE_LIMIT environment variable"
+  },
+  "authentication": {
+    "required": true,
+    "type": "Bearer token",
+    "note": "Include 'Authorization: Bearer <token>' header in requests"
+  }
+}`}
+</CodeBlock>
+
+### Session Management
+
+**GET** `/sessions/{session_id}`
+
+Retrieve conversation history for a specific session.
+
+<CodeBlock
+  filename="session-response.json"
+  language="json"
+>
+{`{
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is term life insurance?"
+    },
+    {
+      "role": "assistant",
+      "content": "Term life insurance is a type of life insurance..."
+    }
+  ]
+}`}
+</CodeBlock>
+
+**DELETE** `/sessions/{session_id}`
+
+Delete a conversation session and its history.
+
+## Authentication
+
+The chatbot supports bearer token authentication for secure access. The authentication mode is automatically configured based on environment settings (see [Deployment Modes](#deployment-modes) for details):
+
+### Authentication Requirements
+
+- **Optional by Default**: If `CHATBOT_API_KEY` is not configured, no authentication is required (Public Access mode)
+- **Bearer Token**: When `CHATBOT_API_KEY` is configured, all chat and session endpoints require a valid bearer token (Authenticated Access mode)
+- **Public Endpoints**: `/health`, `/`, and `/use-cases` are always accessible without authentication in both modes
+
+### Using Authentication
+
+Include the bearer token in the `Authorization` header:
+
+```
+Authorization: Bearer <your-api-key>
+```
+
+### Authentication Errors
+
+**401 Unauthorized** - Missing or invalid token:
+```json
+{
+  "detail": "Not authenticated. Bearer token required."
+}
+```
+
+## Deployment Modes
+
+The chatbot supports two deployment modes, automatically determined by environment configuration:
+
+### Mode 1: Public Access (No API Key)
+
+**When `CHATBOT_API_KEY` is not configured:**
+
+- ✅ **No authentication required** - Direct access for all users
+- 📊 **Rate limit**: 100 requests per day per IP address
+- 🎯 **Use case**: Public demos, evaluation, testing
+- 🔧 **Backend behavior**: Endpoint created without `auth_type`, no Authorization header sent
+
+```json
+// Endpoint configuration in backend
+{
+  "name": "Insurance Chatbot",
+  "url": "https://chatbot.rhesis.ai/chat",
+  "method": "POST",
+  // No auth_type or auth_token fields
+  "request_headers": {
+    "Content-Type": "application/json"
+  }
+}
+```
+
+### Mode 2: Authenticated Access (With API Key)
+
+**When `CHATBOT_API_KEY` is configured:**
+
+- 🔐 **Bearer token authentication** - Backend uses API key to authenticate
+- 📊 **Rate limit**: 1000 requests per day per user (tracked via X-User-ID)
+- 🎯 **Use case**: Production deployments, per-user quotas, secure access
+- 🔧 **Backend behavior**: Endpoint created with `auth_type="bearer_token"`, Authorization header automatically injected
+
+```json
+// Endpoint configuration in backend
+{
+  "name": "Insurance Chatbot",
+  "url": "https://chatbot.rhesis.ai/chat",
+  "method": "POST",
+  "auth_type": "bearer_token",
+  "auth_token": "<CHATBOT_API_KEY>",  // Loaded from environment
+  "request_headers": {
+    "Content-Type": "application/json"
+    // Authorization, X-User-ID, X-Organization-ID automatically injected by backend
+  }
+}
+```
+
+<Callout type="info">
+  **Automatic Configuration**: The backend automatically detects which mode to use during initial data load. If `CHATBOT_API_KEY` environment variable is present, authenticated mode is enabled. If missing, public access mode is used. Both modes work seamlessly—no endpoint failures!
+</Callout>
+
+## Rate Limiting
+
+The chatbot implements dual-tier rate limiting based on deployment mode:
+
+### Public Access Rate Limits
+
+- **100 requests per day** per IP address
+- Rate limit resets every day at midnight UTC
+- No authentication required
+- Tracked via `X-Forwarded-For` or client IP
+
+### Authenticated Access Rate Limits
+
+- **1000 requests per day** per user (identified by X-User-ID header)
+- Rate limit resets every day at midnight UTC
+- Bearer token authentication required
+- Fair usage across all users in organization
+- Rate limit is configurable by administrators via `CHATBOT_RATE_LIMIT` environment variable
+
+### Rate Limit Headers
+
+All responses include rate limit information in headers:
+
+- `X-RateLimit-Limit`: Maximum requests allowed in the time window
+- `X-RateLimit-Remaining`: Number of requests remaining
+- `X-RateLimit-Reset`: Timestamp when the rate limit resets
+
+When rate limits are exceeded, the API returns a `429 Too Many Requests` status code with a `Retry-After` header indicating when to retry.
+
+## Example Usage
+
+### Python Example
+
+<CodeBlock
+  filename="chatbot_example.py"
+  language="python"
+>
+{`import requests
+
+# Base URL for the chatbot service
+BASE_URL = "https://chatbot.rhesis.ai"  # Replace with actual URL
+
+def chat_with_rosalind(message, session_id=None, api_key=None):
+    """Send a message to Rosalind and get a response."""
+    
+    payload = {
+        "message": message,
+        "use_case": "insurance"
+    }
+    
+    if session_id:
+        payload["session_id"] = session_id
+    
+    headers = {"Content-Type": "application/json"}
+    
+    # Add authentication header if API key is provided
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    
+    response = requests.post(
+        f"{BASE_URL}/chat",
+        json=payload,
+        headers=headers
+    )
+    
+    if response.status_code == 200:
+        data = response.json()
+        print(f"Rosalind: {data['message']}")
+        print(f"Session ID: {data['session_id']}")
+        return data
+    elif response.status_code == 429:
+        print("Rate limit exceeded. Please wait before trying again.")
+        return None
+    else:
+        print(f"Error: {response.status_code} - {response.text}")
+        return None
+
+# Example conversation (with authentication)
+API_KEY = "your-secret-api-key"  # Replace with your actual API key
+
+response1 = chat_with_rosalind(
+    "What types of insurance do I need as a homeowner?",
+    api_key=API_KEY
+)
+
+if response1:
+    # Continue the conversation using the same session
+    response2 = chat_with_rosalind(
+        "How much coverage should I have?",
+        session_id=response1["session_id"],
+        api_key=API_KEY
+    )`}
+</CodeBlock>
+
+### JavaScript Example
+
+<CodeBlock
+  filename="chatbot_example.js"
+  language="javascript"
+>
+{`const BASE_URL = "https://chatbot.rhesis.ai";  // Replace with actual URL
+
+async function chatWithRosalind(message, sessionId = null, apiKey = null) {
+  const payload = {
+    message: message,
+    use_case: "insurance"
+  };
+  
+  if (sessionId) {
+    payload.session_id = sessionId;
+  }
+  
+  const headers = {
+    "Content-Type": "application/json"
+  };
+  
+  // Add authentication header if API key is provided
+  if (apiKey) {
+    headers["Authorization"] = \`Bearer \${apiKey}\`;
+  }
+  
+  try {
+    const response = await fetch(\`\${BASE_URL}/chat\`, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(payload)
+    });
+    
+    if (response.status === 200) {
+      const data = await response.json();
+      console.log(\`Rosalind: \${data.message}\`);
+      console.log(\`Session ID: \${data.session_id}\`);
+      return data;
+    } else if (response.status === 429) {
+      console.log("Rate limit exceeded. Please wait before trying again.");
+      return null;
+    } else {
+      console.error(\`Error: \${response.status}\`);
+      return null;
+    }
+  } catch (error) {
+    console.error("Request failed:", error);
+    return null;
+  }
+}
+
+// Example usage (with authentication)
+(async () => {
+  const API_KEY = "your-secret-api-key";  // Replace with your actual API key
+  
+  const response1 = await chatWithRosalind(
+    "What is the difference between HMO and PPO health insurance?",
+    null,
+    API_KEY
+  );
+  
+  if (response1) {
+    // Continue the conversation
+    const response2 = await chatWithRosalind(
+      "Which one is typically more expensive?",
+      response1.session_id,
+      API_KEY
+    );
+  }
+})();`}
+</CodeBlock>
+
+### cURL Example
+
+<CodeBlock
+  filename="chatbot_curl.sh"
+  language="bash"
+>
+{`# Send a single message (with authentication)
+curl -X POST https://chatbot.rhesis.ai/chat \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer your-secret-api-key" \\
+  -d '{
+    "message": "What is comprehensive auto insurance?",
+    "use_case": "insurance"
+  }'
+
+# Check health status (no auth required)
+curl https://chatbot.rhesis.ai/health
+
+# Get API information (no auth required)
+curl https://chatbot.rhesis.ai/`}
+</CodeBlock>
+
+## Best Practices
+
+### Session Management
+
+- **Reuse session IDs** for multi-turn conversations to maintain context
+- **Store session IDs** on the client side for conversation continuity
+- **Delete sessions** when conversations end to keep memory usage optimal
+
+### Error Handling
+
+- **Handle rate limits gracefully** by implementing exponential backoff
+- **Check response status codes** before parsing JSON
+- **Display user-friendly messages** when errors occur
+
+### Performance
+
+- **Keep messages concise** for faster responses (under 500 words recommended)
+- **Avoid rapid-fire requests** to prevent rate limiting
+- **Cache session IDs** instead of creating new sessions for each message
+
+## Limitations
+
+<Callout type="warning">
+  The default insurance chatbot is designed for evaluation and onboarding purposes. Please note the following limitations:
+</Callout>
+
+- **Domain-Specific**: Rosalind is trained for insurance questions only and may decline off-topic queries
+- **Rate Limited**: Usage is restricted to prevent abuse and ensure availability
+- **No Persistence**: Session data is stored in memory and may be cleared during deployments
+- **No SLA**: This is a demo service without uptime guarantees
+- **English Only**: Currently supports English language interactions only
+
+## Moving to Production
+
+Once you've explored Rosalind and understand the platform, you'll want to create your own custom endpoints:
+
+1. **Configure Your Own Endpoint**: Set up endpoints pointing to your AI services
+2. **Integrate Your API Keys**: Use your own LLM provider credentials
+3. **Customize System Prompts**: Tailor the AI behavior to your specific use case
+4. **Set Up Testing**: Create test sets to validate your endpoint performance
+5. **Monitor Metrics**: Track quality, latency, and other key performance indicators
+
+Learn more about creating custom endpoints in the [Endpoints documentation](/docs/platform/endpoints).
+
+## Troubleshooting
+
+### 429 Rate Limit Exceeded
+
+**Problem**: Receiving "429 Too Many Requests" responses.
+
+**Solution**: Wait for the rate limit window to reset (shown in `Retry-After` header) or sign in for higher limits.
+
+### Session Not Found
+
+**Problem**: GET `/sessions/{session_id}` returns 404.
+
+**Solution**: The session may have expired or been cleared. Start a new conversation without a session_id.
+
+### Slow Response Times
+
+**Problem**: Chat responses take longer than expected.
+
+**Solution**: This is a shared demo service. For production use cases with guaranteed performance, configure your own endpoints.
+
+### Off-Topic Responses
+
+**Problem**: Rosalind declines to answer your question.
+
+**Solution**: Ensure your question is related to insurance. For other domains, configure custom endpoints with appropriate system prompts.
+
+---
+
+<Callout type="default">
+  **Next Steps** 
+  - Try the [interactive demo](/demo) to chat with Rosalind in your browser
+  - Learn about [custom endpoints](/docs/platform/endpoints) for your own AI services  
+  - Explore [test generation](/docs/platform/tests-generation) to validate your AI applications
+  - Set up [metrics](/docs/platform/metrics) to measure response quality
+</Callout>
+

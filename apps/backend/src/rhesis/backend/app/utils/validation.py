@@ -2,7 +2,6 @@
 Validation utilities for the application.
 """
 
-
 from email_validator import EmailNotValidError, validate_email
 
 

@@ -3976,7 +3976,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.3.1"
+version = "0.3.1.post1"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "deepeval" },

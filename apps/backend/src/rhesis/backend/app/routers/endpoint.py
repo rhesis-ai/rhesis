@@ -6,12 +6,15 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session, get_endpoint_service
+from rhesis.backend.app.dependencies import (
+    get_endpoint_service,
+    get_tenant_context,
+    get_tenant_db_session,
+)
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.endpoint import EndpointService
-from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
+from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Use rhesis logger
@@ -25,7 +28,8 @@ router = APIRouter(
     prefix="/endpoints",
     tags=["endpoints"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)])
+    dependencies=[Depends(require_current_user_or_token)],
+)
 
 
 @router.post("/", response_model=schemas.Endpoint)
@@ -36,7 +40,8 @@ def create_endpoint(
     endpoint: schemas.EndpointCreate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Create endpoint with optimized approach - no session variables needed.
 
@@ -63,11 +68,19 @@ def read_endpoints(
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     """Get all endpoints with their related objects"""
     organization_id, user_id = tenant_context
     return crud.get_endpoints(
-        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
+        db=db,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        filter=filter,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
 
@@ -76,9 +89,12 @@ def read_endpoint(
     endpoint_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     organization_id, user_id = tenant_context
-    db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id)
+    db_endpoint = crud.get_endpoint(
+        db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
+    )
     if db_endpoint is None:
         raise HTTPException(status_code=404, detail="Endpoint not found")
     return db_endpoint
@@ -89,9 +105,12 @@ def delete_endpoint(
     endpoint_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     organization_id, user_id = tenant_context
-    db_endpoint = crud.delete_endpoint(db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id)
+    db_endpoint = crud.delete_endpoint(
+        db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
+    )
     if db_endpoint is None:
         raise HTTPException(status_code=404, detail="Endpoint not found")
     return db_endpoint
@@ -103,9 +122,16 @@ def update_endpoint(
     endpoint: schemas.EndpointUpdate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token)):
+    current_user: User = Depends(require_current_user_or_token),
+):
     organization_id, user_id = tenant_context
-    db_endpoint = crud.update_endpoint(db, endpoint_id=endpoint_id, endpoint=endpoint, organization_id=organization_id, user_id=user_id)
+    db_endpoint = crud.update_endpoint(
+        db,
+        endpoint_id=endpoint_id,
+        endpoint=endpoint,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
     if db_endpoint is None:
         raise HTTPException(status_code=404, detail="Endpoint not found")
     return db_endpoint
@@ -117,7 +143,8 @@ def invoke_endpoint(
     input_data: Dict[str, Any],
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    endpoint_service: EndpointService = Depends(get_endpoint_service)):
+    endpoint_service: EndpointService = Depends(get_endpoint_service),
+):
     """
     Invoke an endpoint with the given input data.
 
@@ -151,10 +178,13 @@ def invoke_endpoint(
                         "input": "Your query text here",
                         "session_id": "optional-session-id",
                     },
-                })
+                },
+            )
 
         organization_id, user_id = tenant_context
-        result = endpoint_service.invoke_endpoint(db, str(endpoint_id), input_data, organization_id=organization_id)
+        result = endpoint_service.invoke_endpoint(
+            db, str(endpoint_id), input_data, organization_id=organization_id, user_id=str(user_id)
+        )
         logger.info(f"API invoke successful for endpoint {endpoint_id}")
         return result
     except HTTPException as e:

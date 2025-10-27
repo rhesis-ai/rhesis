@@ -1,7 +1,7 @@
 from typing import Callable, Dict, List, Optional, Type, TypeVar
 from uuid import UUID
 
-from sqlalchemy import desc, inspect, or_
+from sqlalchemy import desc, inspect
 from sqlalchemy.orm import Query, RelationshipProperty, Session, joinedload, selectinload
 
 # Removed unused imports - legacy tenant functions no longer needed
@@ -28,7 +28,7 @@ class QueryBuilder:
         self.model = model
         self._include_deleted = False
         self._only_deleted = False
-        
+
         # Always create a fresh query to avoid leaking state between requests
         try:
             self.query = db.query(model)
@@ -67,13 +67,13 @@ class QueryBuilder:
     def with_deleted(self) -> "QueryBuilder":
         """
         Include soft-deleted records in the query results.
-        
+
         This disables the automatic soft delete filter for this query,
         allowing both active and deleted records to be returned.
-        
+
         Usage:
             QueryBuilder(db, User).with_deleted().all()
-            
+
         Returns:
             Self for method chaining
         """
@@ -81,51 +81,59 @@ class QueryBuilder:
         # Signal to event listener to NOT filter this query
         self.query._include_soft_deleted = True
         return self
-    
+
     def only_deleted(self) -> "QueryBuilder":
         """
         Only return soft-deleted records.
-        
+
         This explicitly filters for records where deleted_at IS NOT NULL,
         showing only items in the recycle bin.
-        
+
         Usage:
             QueryBuilder(db, User).only_deleted().all()
-            
+
         Returns:
             Self for method chaining
         """
         self._only_deleted = True
         # Signal to event listener to NOT filter this query
         self.query._include_soft_deleted = True
-        
+
         # Apply filter to only show deleted records
-        if hasattr(self.model, 'deleted_at'):
+        if hasattr(self.model, "deleted_at"):
             self.query = self.query.filter(self.model.deleted_at.isnot(None))
         return self
 
     def with_organization_filter(self, organization_id: str = None) -> "QueryBuilder":
         """
         Apply organization filter with optimized approach - no session variables needed.
-        
+
         Performance improvements:
         - Completely bypasses database session variables
         - No SHOW queries for organization context
         - Direct organization ID filtering
-        
+
         Raises:
             ValueError: If organization_id is required but not provided
         """
         if has_organization_id(self.model):
             # Check if model is exempt from organization filtering
-            exempt_models = ['User', 'Organization', 'Token']
+            exempt_models = ["User", "Organization", "Token"]
             if self.model.__name__ in exempt_models:
                 # For exempt models, apply organization filter if provided, but don't require it
-                if organization_id and (isinstance(organization_id, str) and organization_id.strip() or not isinstance(organization_id, str)):
+                if organization_id and (
+                    isinstance(organization_id, str)
+                    and organization_id.strip()
+                    or not isinstance(organization_id, str)
+                ):
                     self.query = self.query.filter(self.model.organization_id == organization_id)
             else:
                 # For non-exempt models, organization_id is required
-                if organization_id and (isinstance(organization_id, str) and organization_id.strip() or not isinstance(organization_id, str)):
+                if organization_id and (
+                    isinstance(organization_id, str)
+                    and organization_id.strip()
+                    or not isinstance(organization_id, str)
+                ):
                     # Use direct organization_id filtering (optimized)
                     self.query = self.query.filter(self.model.organization_id == organization_id)
                 else:
@@ -213,9 +221,9 @@ class QueryBuilder:
         # Apply soft delete filtering before adding ID filter
         if not self._include_deleted and not self._only_deleted:
             # Add soft delete filter if not already including deleted records
-            if hasattr(self.model, 'deleted_at'):
+            if hasattr(self.model, "deleted_at"):
                 self.query = self.query.filter(self.model.deleted_at.is_(None))
-        
+
         return self.query.filter(self.model.id == id).first()
 
 

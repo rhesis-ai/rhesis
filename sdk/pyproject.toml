@@ -103,35 +103,6 @@ include = [
 [tool.hatch.metadata]
 allow-direct-references = true
 
-[tool.ruff]
-line-length = 100
-
-[tool.ruff.lint]
-select = [
-    "I",
-    "E",
-    "F",
-]
-
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = [
-    "F401",
-]
-"tests/*" = [
-    "S101",
-]
-
-[tool.ruff.lint.isort]
-known-first-party = [
-    "rhesis.sdk",
-]
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "auto"
-
 [tool.pyright]
 typeCheckingMode = "standard"
 include = [ "src/rhesis/sdk/metrics", ]
@@ -142,6 +113,7 @@ testpaths = [
 
 ]
 addopts = "--ignore=../tests/sdk/synthesizers --ignore=../tests/sdk/tests --ignore=../tests/sdk/services --ignore=../tests/sdk/entities"
+
 pythonpath = [
     "src",
 ]
