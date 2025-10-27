@@ -152,7 +152,7 @@ export default function TestConfigurationConfirmation({
                             key={chip.id}
                             label={chip.label}
                             size="small"
-                            color="secondary"
+                            color="success"
                           />
                         ))}
                     </Stack>
@@ -182,10 +182,7 @@ export default function TestConfigurationConfirmation({
                             key={chip.id}
                             label={chip.label}
                             size="small"
-                            sx={{
-                              bgcolor: 'warning.light',
-                              color: 'warning.contrastText',
-                            }}
+                            color="secondary"
                           />
                         ))}
                     </Stack>
