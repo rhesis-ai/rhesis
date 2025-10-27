@@ -190,7 +190,7 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
 class DeepEvalBias(DeepEvalMetricBase):
     """DeepEval implementation of Bias metric."""
 
-    metric_type = MetricType.GENERATION
+    metric_type = MetricType.CLASSIFICATION
     requires_ground_truth = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
@@ -407,7 +407,7 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
 class DeepTeamIllegal(DeepEvalMetricBase):
     """DeepTeam implementation of Illegal metric."""
 
-    metric_type = MetricType.RAG
+    metric_type = MetricType.CLASSIFICATION
     requires_ground_truth = False
 
     def __init__(
@@ -438,7 +438,7 @@ class DeepTeamIllegal(DeepEvalMetricBase):
 class DeepTeamSafety(DeepEvalMetricBase):
     """DeepTeam implementation of Safety metric."""
 
-    metric_type = MetricType.RAG
+    metric_type = MetricType.CLASSIFICATION
     requires_ground_truth = False
 
     def __init__(
@@ -446,7 +446,7 @@ class DeepTeamSafety(DeepEvalMetricBase):
         safety_category: str,
         model: Optional[Union[BaseLLM, str]] = None,
     ):
-        super().__init__(name="Illegal", metric_type=self.metric_type, model=model)
+        super().__init__(name="Safety", metric_type=self.metric_type, model=model)
         self._metric = SafetyMetric(safety_category=safety_category, model=self._deepeval_model)
 
     @retry_evaluation()
