@@ -13,6 +13,7 @@ from rhesis.backend.metrics import (
     RhesisPromptMetric,
     RagasAnswerRelevancy,
 )
+from rhesis.backend.metrics.constants import ThresholdOperator
 from rhesis.backend.metrics.constants import ScoreType
 
 
@@ -155,9 +156,11 @@ class TestCurrentFactoryBehavior:
         )
         
         assert metric is not None
-        assert metric.threshold == 70
-        assert metric.ground_truth_required is True
-        assert metric.context_required is True
+        # Threshold is normalized: (70-0)/(100-0) = 0.7
+        assert metric.threshold == 0.7
+        assert metric.raw_threshold == 70
+        # RhesisPromptMetric has requires_ground_truth property
+        assert metric.requires_ground_truth is True
     
     def test_factory_preserves_metric_configuration(self):
         """Test that factory preserves all metric configuration."""
@@ -185,6 +188,8 @@ class TestCurrentFactoryBehavior:
         assert metric.reasoning == config["reasoning"]
         assert metric.min_score == config["min_score"]
         assert metric.max_score == config["max_score"]
-        assert metric.threshold == config["threshold"]
-        assert metric.threshold_operator == config["threshold_operator"]
+        # Threshold is normalized: (3-1)/(5-1) = 0.5
+        assert metric.threshold == 0.5
+        assert metric.raw_threshold == 3
+        assert metric.threshold_operator == ThresholdOperator.GREATER_THAN
 
