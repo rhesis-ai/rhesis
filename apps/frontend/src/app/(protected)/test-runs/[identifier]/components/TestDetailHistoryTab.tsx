@@ -238,10 +238,20 @@ export default function TestDetailHistoryTab({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       {item.testRunId !== 'unknown' ? (
                         <Link
-                          href={`/test-runs/${item.testRunId}`}
+                          href={`/test-runs/${item.testRunId}${test.test_id ? `?selectedresult=${test.test_id}` : ''}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{ textDecoration: 'none' }}
+                          onClick={() => {
+                            console.log(
+                              'Navigating with test_id:',
+                              test.test_id
+                            );
+                            console.log(
+                              'Full URL:',
+                              `/test-runs/${item.testRunId}${test.test_id ? `?selectedresult=${test.test_id}` : ''}`
+                            );
+                          }}
                         >
                           <Box
                             sx={{
