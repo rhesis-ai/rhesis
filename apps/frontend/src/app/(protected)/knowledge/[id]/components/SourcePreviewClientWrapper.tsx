@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
-  Alert,
   Paper,
   Button,
-  Chip,
   IconButton,
   Tooltip,
   Collapse,
@@ -47,9 +45,7 @@ export default function SourcePreviewClientWrapper({
   source,
   sessionToken,
 }: SourcePreviewClientWrapperProps) {
-  const [content, setContent] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [content] = useState<string>(source.content || '');
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const notifications = useNotifications();
   const theme = useTheme();
@@ -60,16 +56,6 @@ export default function SourcePreviewClientWrapper({
     source.description || ''
   );
   const [isUpdating, setIsUpdating] = useState(false);
-
-  useEffect(() => {
-    // Simply use the existing content from the source object
-    if (source.content && source.content.trim()) {
-      setContent(source.content);
-    } else {
-      setContent('');
-    }
-    setLoading(false);
-  }, [source.content]);
 
   const handleCopyContentBlock = async () => {
     try {
@@ -459,19 +445,7 @@ export default function SourcePreviewClientWrapper({
       </Paper>
 
       {/* Content preview */}
-      {loading && (
-        <Box className={styles.loadingContainer}>
-          <Typography color="text.secondary">Loading content...</Typography>
-        </Box>
-      )}
-
-      {error && (
-        <Alert severity="error" className={styles.errorAlert}>
-          {error}
-        </Alert>
-      )}
-
-      {!loading && !error && content && (
+      {content ? (
         <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
           <Box className={styles.contentBlock}>
             {/* Content Block Header */}
@@ -516,9 +490,7 @@ export default function SourcePreviewClientWrapper({
             </Collapse>
           </Box>
         </Paper>
-      )}
-
-      {!loading && !error && !content && (
+      ) : (
         <Box className={styles.emptyContainer}>
           <Typography color="text.secondary">No content available</Typography>
         </Box>
