@@ -300,11 +300,11 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
         deleted_source = response.json()
         assert deleted_source["id"] == source_id
         
-        # Verify source is deleted
+        # Verify source is deleted (soft delete returns 410 GONE)
         get_response = authenticated_client.get(
             self.endpoints.format_path(self.endpoints.get_by_id, source_id=source_id),
         )
-        assert get_response.status_code == status.HTTP_404_NOT_FOUND
+        assert get_response.status_code == status.HTTP_410_GONE
     
     def test_list_sources_with_pagination(self, authenticated_client):
         """Test listing sources with pagination"""

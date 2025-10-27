@@ -3,9 +3,10 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, DateTime, ForeignKey, String
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.utils.encryption import EncryptedString
+
 from .base import Base
 from .mixins import OrganizationMixin
-from rhesis.backend.app.utils.encryption import EncryptedString
 
 
 class Token(Base, OrganizationMixin):
@@ -14,8 +15,12 @@ class Token(Base, OrganizationMixin):
     name = Column(String)
 
     # Token-specific columns
-    token = Column(EncryptedString(), nullable=False)  # Encrypted for security (user-generated tokens)
-    token_hash = Column(String(64), index=True, unique=True, nullable=False)  # SHA-256 hash for lookups
+    token = Column(
+        EncryptedString(), nullable=False
+    )  # Encrypted for security (user-generated tokens)
+    token_hash = Column(
+        String(64), index=True, unique=True, nullable=False
+    )  # SHA-256 hash for lookups
     token_obfuscated = Column(String)
     token_type = Column(String, nullable=False)
     expires_at = Column(DateTime, nullable=True)

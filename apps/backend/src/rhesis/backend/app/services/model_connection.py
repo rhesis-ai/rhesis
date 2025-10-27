@@ -89,11 +89,11 @@ class ModelConnectionService:
             except Exception as e:
                 # API call failed - likely authentication or network issue
                 logger.warning(f"Model generation test failed: {str(e)}")
-                
+
                 # Return the original error message from the provider
                 # Different providers have different error formats, so we keep them as-is
                 error_message = str(e)
-                
+
                 return ModelConnectionTestResult(
                     success=False,
                     message=error_message,
@@ -109,4 +109,3 @@ class ModelConnectionService:
                 provider=provider,
                 model_name=model_name,
             )
-

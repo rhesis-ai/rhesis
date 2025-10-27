@@ -334,9 +334,9 @@ class TestProjectRoutes(ProjectTestMixin, BaseEntityRouteTests):
         deleted_project = project_factory.delete(project_id)
         assert deleted_project["id"] == project_id
         
-        # Verify project is actually deleted
+        # Verify project is actually deleted (soft delete returns 410 GONE)
         response = project_factory.client.get(self.endpoints.get(project_id))
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.status_code == status.HTTP_410_GONE
 
 
 class TestProjectPerformance(ProjectTestMixin, BaseEntityTests):

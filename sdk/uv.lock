@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -3898,7 +3898,7 @@ wheels = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.3.1"
+version = "0.3.1.post1"
 source = { editable = "." }
 dependencies = [
     { name = "deepeval" },

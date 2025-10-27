@@ -7,12 +7,24 @@ jobs:
     if: startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
     steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RHEO_APP_ID }}
+          private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
                  
         
+      - name: Set up Git
+        run: |
+            git config user.name "rheo-app[bot]"
+            git config user.email "237771051+rheo-app[bot]@users.noreply.github.com"
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -22,18 +34,20 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
             version: latest
-      - name: Set up Git
-        run: |
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
           
       - name: Run publish script
         run: |
           python3 .github/release --publish
 
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+
+      - name: Close release PR and merge to main
+        run: |
+          gh pr merge --auto --merge
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+
   backend-deploy:
     needs: publish
     uses: ./.github/workflows/backend.yml
@@ -57,8 +71,3 @@ jobs:
       environment: prd
       reason: "Release deployment to prd"
     secrets: inherit      
-
-  sdk-pypi-publish:
-    needs: publish
-    uses: ./.github/workflows/publish-sdk.yml
-    secrets: inherit

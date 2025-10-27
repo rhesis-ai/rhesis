@@ -176,10 +176,12 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 json_error=str(json_error),
             )
 
-    def _prepare_headers(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any] = None) -> Dict[str, str]:
+    def _prepare_headers(
+        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any] = None
+    ) -> Dict[str, str]:
         """Prepare request headers with proper authentication and context injection."""
         headers = (endpoint.request_headers or {}).copy()
-        
+
         # Ensure Content-Type is set
         if "Content-Type" not in headers:
             headers["Content-Type"] = "application/json"
@@ -187,17 +189,17 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         # Add auth_token if auth is configured (legacy auth_token placeholder support)
         if endpoint.auth_type:
             auth_token = self._get_valid_token(db, endpoint)
-            
+
             # Replace {{ auth_token }} placeholders in header values
             for key, value in headers.items():
                 if isinstance(value, str) and "{{ auth_token }}" in value:
                     template = Template(value)
                     headers[key] = template.render(auth_token=auth_token)
-            
+
             # Automatically add Authorization header if not explicitly set
             if "Authorization" not in headers and auth_token:
                 headers["Authorization"] = f"Bearer {auth_token}"
-            
+
             # Automatically inject context headers for authenticated endpoints
             # These come from backend context, NOT user input (SECURITY CRITICAL)
             if input_data:

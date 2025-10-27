@@ -2,7 +2,6 @@
 Validation utilities for the application.
 """
 
-
 from email_validator import EmailNotValidError, validate_email
 
 
@@ -25,7 +24,7 @@ def validate_and_normalize_email(email: str) -> str:
     try:
         # Validate and normalize the email (check_deliverability=False for more lenient validation)
         validated_email = validate_email(email.strip(), check_deliverability=False)
-        return validated_email.email
+        return validated_email.normalized
     except EmailNotValidError as e:
         raise ValueError(f"Invalid email address: {str(e)}")
 

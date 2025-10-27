@@ -17,10 +17,7 @@ from pydantic import UUID4, BaseModel, ConfigDict, field_serializer
 class Base(BaseModel):
     id: Optional[UUID4] = None
     nano_id: Optional[str] = None
-    model_config = ConfigDict(
-        from_attributes=True,
-        use_enum_values=True
-    )
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     @field_serializer("*")
     def serialize_datetime(self, value, _info):

@@ -274,9 +274,15 @@ export default function TestGenerationFlow({
         };
 
         const newConfigChips: ConfigChips = {
-          behavior: createChipsFromArray(configResponse.behaviors, 'blue'),
-          topics: createChipsFromArray(configResponse.topics, 'green'),
-          category: createChipsFromArray(configResponse.categories, 'purple'),
+          behavior: createChipsFromArray(
+            configResponse.behaviors || [],
+            'blue'
+          ),
+          topics: createChipsFromArray(configResponse.topics || [], 'green'),
+          category: createChipsFromArray(
+            configResponse.categories || [],
+            'purple'
+          ),
         };
 
         setConfigChips(newConfigChips);
@@ -720,9 +726,15 @@ export default function TestGenerationFlow({
         };
 
         const newConfigChips: ConfigChips = {
-          behavior: createChipsFromArray(configResponse.behaviors, 'blue'),
-          topics: createChipsFromArray(configResponse.topics, 'green'),
-          category: createChipsFromArray(configResponse.categories, 'purple'),
+          behavior: createChipsFromArray(
+            configResponse.behaviors || [],
+            'blue'
+          ),
+          topics: createChipsFromArray(configResponse.topics || [], 'green'),
+          category: createChipsFromArray(
+            configResponse.categories || [],
+            'purple'
+          ),
         };
 
         setConfigChips(newConfigChips);
@@ -998,6 +1010,7 @@ export default function TestGenerationFlow({
         synthesizer_type: 'prompt',
         batch_size: 20,
         num_tests: numTests,
+        name: testSetName.trim() || undefined,
       };
 
       const response = await testSetsClient.generateTestSet(request);
@@ -1023,6 +1036,7 @@ export default function TestGenerationFlow({
     description,
     testSamples,
     testSetSize,
+    testSetName,
     project,
     router,
     show,

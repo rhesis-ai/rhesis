@@ -5,7 +5,6 @@ This module provides helper functions for working with execution modes
 in test configurations.
 """
 
-
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
@@ -44,7 +43,13 @@ def get_execution_mode(test_config: TestConfiguration) -> ExecutionMode:
     return execution_mode if isinstance(execution_mode, ExecutionMode) else ExecutionMode.PARALLEL
 
 
-def set_execution_mode(db: Session, test_config_id: str, execution_mode: ExecutionMode, organization_id: str = None, user_id: str = None) -> bool:
+def set_execution_mode(
+    db: Session,
+    test_config_id: str,
+    execution_mode: ExecutionMode,
+    organization_id: str = None,
+    user_id: str = None,
+) -> bool:
     """
     Set the execution mode for a test configuration.
 
@@ -63,7 +68,9 @@ def set_execution_mode(db: Session, test_config_id: str, execution_mode: Executi
             logger.error(f"Invalid test configuration ID: {test_config_id}")
             return False
 
-        test_config = crud.get_test_configuration(db, test_config_uuid, organization_id=organization_id, user_id=user_id)
+        test_config = crud.get_test_configuration(
+            db, test_config_uuid, organization_id=organization_id, user_id=user_id
+        )
         if not test_config:
             logger.error(f"Test configuration not found: {test_config_id}")
             return False
@@ -75,7 +82,11 @@ def set_execution_mode(db: Session, test_config_id: str, execution_mode: Executi
         # Update the test configuration
         update_data = {"attributes": current_attributes}
         crud.update_test_configuration(
-            db, test_config.id, crud.schemas.TestConfigurationUpdate(**update_data), organization_id=organization_id, user_id=user_id
+            db,
+            test_config.id,
+            crud.schemas.TestConfigurationUpdate(**update_data),
+            organization_id=organization_id,
+            user_id=user_id,
         )
 
         logger.info(

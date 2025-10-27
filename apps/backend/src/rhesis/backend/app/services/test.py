@@ -11,7 +11,6 @@ from rhesis.backend.app.constants import (
     ERROR_BULK_CREATE_FAILED,
     EntityType,
 )
-from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_entity,
@@ -38,12 +37,13 @@ def _validate_test_set(
 ) -> tuple[models.TestSet | None, Dict[str, Any] | None]:
     """Validate test set exists and return it or error response."""
     query = db.query(models.TestSet).filter(models.TestSet.id == test_set_id)
-    
+
     # Apply organization filter if provided (SECURITY CRITICAL)
     if organization_id:
         from uuid import UUID
+
         query = query.filter(models.TestSet.organization_id == UUID(organization_id))
-    
+
     test_set = query.first()
     if not test_set:
         return None, {
@@ -66,10 +66,12 @@ def _categorize_test_ids(
 
     # Find existing tests AND ensure they belong to the organization (SECURITY CRITICAL)
     from uuid import UUID
-    existing_tests = db.query(models.Test).filter(
-        models.Test.id.in_(test_ids),
-        models.Test.organization_id == UUID(organization_id)
-    ).all()
+
+    existing_tests = (
+        db.query(models.Test)
+        .filter(models.Test.id.in_(test_ids), models.Test.organization_id == UUID(organization_id))
+        .all()
+    )
     existing_test_ids = {str(test.id).lower() for test in existing_tests}
     missing_test_ids = test_id_set - existing_test_ids
 
@@ -238,7 +240,8 @@ def create_entity_with_status(
             db=db,
             name=defaults[entity_type_str]["status"],
             entity_type=EntityType.GENERAL,
-            organization_id=organization_id, user_id=user_id,
+            organization_id=organization_id,
+            user_id=user_id,
         )
         entity_data["status_id"] = status.id
 
@@ -246,7 +249,8 @@ def create_entity_with_status(
         db=db,
         model=model,
         entity_data=entity_data,
-        organization_id=organization_id, user_id=user_id,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
 
@@ -321,13 +325,15 @@ def create_prompt(
                 db=db,
                 name=defaults["prompt"]["status"],
                 entity_type=EntityType.GENERAL,
-                organization_id=organization_id, user_id=user_id,
+                organization_id=organization_id,
+                user_id=user_id,
             ).id,
             "language_code": prompt_data.get("language_code", defaults["prompt"]["language_code"]),
             "demographic_id": demographic.id if demographic else None,
             "expected_response": prompt_data.get("expected_response"),
         },
-        organization_id=organization_id, user_id=user_id,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
 
@@ -445,7 +451,8 @@ def bulk_create_tests(
                     db=db,
                     name=test_data_dict.pop("status"),
                     entity_type=EntityType.TEST,
-                    organization_id=organization_id, user_id=user_id,
+                    organization_id=organization_id,
+                    user_id=user_id,
                 ).id,
                 "user_id": user_id,
                 "organization_id": organization_id,
@@ -459,8 +466,7 @@ def bulk_create_tests(
 
             # Clean any remaining UUID fields from the test data dict
             logger.debug(
-                f"bulk_create_tests - Remaining test_data_dict before cleaning: "
-                f"{test_data_dict}"
+                f"bulk_create_tests - Remaining test_data_dict before cleaning: {test_data_dict}"
             )
 
             for key, value in list(test_data_dict.items()):
@@ -559,10 +565,12 @@ def create_test_set_associations(
     try:
         # Verify test set exists AND belongs to organization (SECURITY CRITICAL)
         from uuid import UUID
-        test_set = db.query(TestSet).filter(
-            TestSet.id == test_set_id,
-            TestSet.organization_id == UUID(organization_id)
-        ).first()
+
+        test_set = (
+            db.query(TestSet)
+            .filter(TestSet.id == test_set_id, TestSet.organization_id == UUID(organization_id))
+            .first()
+        )
         if not test_set:
             return {
                 "success": False,
@@ -651,10 +659,12 @@ def remove_test_set_associations(
     try:
         # Verify test set exists AND belongs to organization (SECURITY CRITICAL)
         from uuid import UUID
-        test_set = db.query(TestSet).filter(
-            TestSet.id == test_set_id,
-            TestSet.organization_id == UUID(organization_id)
-        ).first()
+
+        test_set = (
+            db.query(TestSet)
+            .filter(TestSet.id == test_set_id, TestSet.organization_id == UUID(organization_id))
+            .first()
+        )
         if not test_set:
             return {
                 "success": False,

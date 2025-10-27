@@ -28,13 +28,13 @@ jobs:
 
     # SDK Linting
     - name: Set up Python for SDK
-      if: steps.filter.outputs.sdk == 'true' || github.event_name == 'workflow_dispatch'
+      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
     - name: Install uv for SDK
-      if: steps.filter.outputs.sdk == 'true' || github.event_name == 'workflow_dispatch'
+      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
       uses: astral-sh/setup-uv@v6
       with:
         version: latest
@@ -47,26 +47,13 @@ jobs:
         make lint
       continue-on-error: false
 
-    # Backend Linting (Disabled)
-    # - name: Set up Python for Backend
-    #   if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
-    #   uses: actions/setup-python@v5
-    #   with:
-    #     python-version: "3.10"
-    #
-    # - name: Install uv for Backend
-    #   if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
-    #   uses: astral-sh/setup-uv@v6
-    #   with:
-    #     version: latest
-    #     enable-cache: true
-    #
-    # - name: Run Backend linting
-    #   if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
-    #   run: |
-    #     cd apps/backend
-    #     make lint
-    #   continue-on-error: false
+    # Backend Linting
+    - name: Run Backend linting
+      if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+      run: |
+        cd apps/backend
+        make lint
+      continue-on-error: false
 
     # Frontend Linting
     - name: Set up Node.js for Frontend
