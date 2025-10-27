@@ -11,12 +11,13 @@ class ReplicateLLM(LiteLLM):
         """
         ReplicateLLM: Replicate LLM Provider
 
-        This class provides an interface to the Replicate family of large language models via LiteLLM.
+        This class provides an interface to the Replicate family of large language models
+        via LiteLLM.
 
         Args:
             model_name (str): The name of the Replicate model to use (default: "llama-2-70b-chat").
-            api_key (str, optional): API key for Replicate. If not provided, will use REPLICATE_API_KEY
-             from environment.
+            api_key (str, optional): API key for Replicate. If not provided, will use
+            REPLICATE_API_KEY from environment.
             **kwargs: Additional parameters passed to the underlying LiteLLM completion call.
 
         Usage:
@@ -34,5 +35,3 @@ class ReplicateLLM(LiteLLM):
         if api_key is None:
             raise ValueError("REPLICATE_API_KEY is not set")
         super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
-
-

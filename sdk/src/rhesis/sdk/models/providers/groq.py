@@ -34,5 +34,3 @@ class GroqLLM(LiteLLM):
         if api_key is None:
             raise ValueError("GROQ_API_KEY is not set")
         super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
-
-

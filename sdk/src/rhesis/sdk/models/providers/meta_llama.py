@@ -11,10 +11,12 @@ class MetaLlamaLLM(LiteLLM):
         """
         MetaLlamaLLM: Meta Llama LLM Provider
 
-        This class provides an interface to the Meta Llama family of large language models via LiteLLM.
+        This class provides an interface to the Meta Llama family of large language models via
+        LiteLLM.
 
         Args:
-            model_name (str): The name of the Meta Llama model to use (default: "Llama-3.3-70B-Instruct").
+            model_name (str): The name of the Meta Llama model to use
+            (default: "Llama-3.3-70B-Instruct").
             api_key (str, optional): API key for Meta Llama. If not provided, will use LLAMA_API_KEY
              from environment.
             **kwargs: Additional parameters passed to the underlying LiteLLM completion call.
@@ -34,5 +36,3 @@ class MetaLlamaLLM(LiteLLM):
         if api_key is None:
             raise ValueError("LLAMA_API_KEY is not set")
         super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
-
-

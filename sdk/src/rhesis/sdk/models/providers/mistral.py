@@ -14,7 +14,8 @@ class MistralLLM(LiteLLM):
         This class provides an interface to the Mistral family of large language models via LiteLLM.
 
         Args:
-            model_name (str): The name of the Mistral model to use (default: "mistral-medium-latest").
+            model_name (str): The name of the Mistral model to use
+            (default: "mistral-medium-latest").
             api_key (str, optional): API key for Mistral. If not provided, will use MISTRAL_API_KEY
              from environment.
             **kwargs: Additional parameters passed to the underlying LiteLLM completion call.
@@ -34,4 +35,3 @@ class MistralLLM(LiteLLM):
         if api_key is None:
             raise ValueError("MISTRAL_API_KEY is not set")
         super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
-
