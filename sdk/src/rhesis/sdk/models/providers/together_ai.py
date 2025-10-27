@@ -11,12 +11,14 @@ class TogetherAILLM(LiteLLM):
         """
         TogetherAILLM: Together AI LLM Provider
 
-        This class provides an interface to the Together AI family of large language models via LiteLLM.
+        This class provides an interface to the Together AI family of large language models via
+        LiteLLM.
 
         Args:
-            model_name (str): The name of the Together AI model to use (default: "togethercomputer/llama-2-70b-chat").
-            api_key (str, optional): API key for Together AI. If not provided, will use TOGETHERAI_API_KEY
-             from environment.
+            model_name (str): The name of the Together AI model to use
+            (default: "togethercomputer/llama-2-70b-chat").  api_key (str, optional): API key for
+            Together AI. If not provided, will use TOGETHERAI_API_KEY
+            from environment.
             **kwargs: Additional parameters passed to the underlying LiteLLM completion call.
 
         Usage:
@@ -34,5 +36,3 @@ class TogetherAILLM(LiteLLM):
         if api_key is None:
             raise ValueError("TOGETHERAI_API_KEY is not set")
         super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
-
-

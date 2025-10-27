@@ -11,12 +11,13 @@ class PerplexityLLM(LiteLLM):
         """
         PerplexityLLM: Perplexity AI LLM Provider
 
-        This class provides an interface to the Perplexity AI family of large language models via LiteLLM.
+        This class provides an interface to the Perplexity AI family of large language models via
+        LiteLLM.
 
         Args:
             model_name (str): The name of the Perplexity model to use (default: "sonar-pro").
-            api_key (str, optional): API key for Perplexity AI. If not provided, will use PERPLEXITYAI_API_KEY
-             from environment.
+            api_key (str, optional): API key for Perplexity AI. If not provided, will use
+            PERPLEXITYAI_API_KEY from environment.
             **kwargs: Additional parameters passed to the underlying LiteLLM completion call.
 
         Usage:
@@ -34,5 +35,3 @@ class PerplexityLLM(LiteLLM):
         if api_key is None:
             raise ValueError("PERPLEXITYAI_API_KEY is not set")
         super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
-
-

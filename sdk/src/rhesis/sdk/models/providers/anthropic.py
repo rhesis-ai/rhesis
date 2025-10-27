@@ -11,12 +11,13 @@ class AnthropicLLM(LiteLLM):
         """
         AnthropicLLM: Anthropic LLM Provider
 
-        This class provides an interface to the Anthropic family of large language models via LiteLLM.
+        This class provides an interface to the Anthropic family of large language models via
+        LiteLLM.
 
         Args:
             model_name (str): The name of the Anthropic model to use (default: "claude-4").
-            api_key (str, optional): API key for Anthropic. If not provided, will use ANTHROPIC_API_KEY
-             from environment.
+            api_key (str, optional): API key for Anthropic. If not provided,
+            will use ANTHROPIC_API_KEY from environment.
             **kwargs: Additional parameters passed to the underlying LiteLLM completion call.
 
         Usage:
