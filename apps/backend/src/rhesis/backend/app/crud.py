@@ -2644,14 +2644,16 @@ def delete_comment(
         # Clear comment_id from task_metadata using SQLAlchemy JSONB operators
         # Cast JSON to JSONB to use the '-' operator for key removal
         db.query(models.Task).filter(
-            models.Task.task_metadata['comment_id'].astext == str(comment_id),
-            models.Task.organization_id == organization_id
+            models.Task.task_metadata["comment_id"].astext == str(comment_id),
+            models.Task.organization_id == organization_id,
         ).update(
             {
-                models.Task.task_metadata: cast(models.Task.task_metadata, JSONB).op('-')('comment_id'),
-                models.Task.updated_at: func.now()
+                models.Task.task_metadata: cast(models.Task.task_metadata, JSONB).op("-")(
+                    "comment_id"
+                ),
+                models.Task.updated_at: func.now(),
             },
-            synchronize_session=False
+            synchronize_session=False,
         )
 
         # Commit the task metadata updates before deleting the comment
