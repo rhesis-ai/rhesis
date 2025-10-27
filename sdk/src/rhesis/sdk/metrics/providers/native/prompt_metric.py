@@ -286,7 +286,6 @@ class RhesisPromptMetricBase(BaseMetric):
             raise ValueError(f"No metric found with {filter_field} {filter_value}")
 
         if len(config) > 1:
-            print(config)
             raise ValueError(f"Multiple metrics found with name {name}, please use nano_id")
 
         config = config[0]
