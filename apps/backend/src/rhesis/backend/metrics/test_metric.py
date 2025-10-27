@@ -61,7 +61,7 @@ class MockUser:
 def load_metric_from_db(db: Session, metric_id: str, organization_id: str) -> Optional[Metric]:
     """
     Load a metric from the database by ID with organization filtering.
-    
+
     SECURITY: This function requires organization_id to prevent data leakage across organizations.
     """
     try:
@@ -98,7 +98,7 @@ def load_metric_from_db(db: Session, metric_id: str, organization_id: str) -> Op
 def load_test_from_db(db: Session, test_id: str, organization_id: str) -> Optional[Test]:
     """
     Load a test from the database by ID with organization filtering.
-    
+
     SECURITY: This function requires organization_id to prevent data leakage across organizations.
     """
     try:
