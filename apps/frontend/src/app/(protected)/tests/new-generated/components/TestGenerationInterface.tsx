@@ -374,9 +374,16 @@ export default function TestGenerationInterface({
   }, [session?.session_token, onDocumentAdd]);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <>
       {/* Main Content - 2 Panel Layout */}
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <Paper
+        elevation={2}
+        sx={{
+          display: 'flex',
+          height: 'calc(100vh - 200px)',
+          overflow: 'hidden',
+        }}
+      >
         {/* LEFT PANEL - Configuration */}
         <Box
           sx={{
@@ -388,6 +395,7 @@ export default function TestGenerationInterface({
           }}
         >
           <Card
+            elevation={0}
             sx={{
               height: '100%',
               borderRadius: 0, // Intentional: flush with panel edges
@@ -493,7 +501,7 @@ export default function TestGenerationInterface({
                       width: 8,
                       height: 8,
                       borderRadius: theme => theme.shape.circular,
-                      bgcolor: 'secondary.main',
+                      bgcolor: 'success.main',
                     }}
                   />
                   <Typography variant="subtitle2" fontWeight="bold">
@@ -516,7 +524,7 @@ export default function TestGenerationInterface({
                       width: 8,
                       height: 8,
                       borderRadius: theme => theme.shape.circular,
-                      bgcolor: 'warning.main',
+                      bgcolor: 'secondary.main',
                     }}
                   />
                   <Typography variant="subtitle2" fontWeight="bold">
@@ -637,6 +645,7 @@ export default function TestGenerationInterface({
           }}
         >
           <Card
+            elevation={0}
             sx={{
               height: '100%',
               borderRadius: 0, // Intentional: flush with panel edges
@@ -769,7 +778,7 @@ export default function TestGenerationInterface({
             </CardContent>
           </Card>
         </Box>
-      </Box>
+      </Paper>
 
       {/* Bottom Action Bar */}
       <ActionBar
@@ -819,6 +828,6 @@ export default function TestGenerationInterface({
           sessionToken={session.session_token}
         />
       )}
-    </Box>
+    </>
   );
 }

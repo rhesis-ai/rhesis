@@ -19,6 +19,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import CloseIcon from '@mui/icons-material/Close';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import { TestTemplate } from './shared/types';
 import { TEMPLATES } from '@/config/test-templates';
 
@@ -80,15 +81,29 @@ export default function LandingScreen({
           pb: 1,
         }}
       >
-        Create Test Suite
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <PlaylistAddCheckIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+          <Box>
+            <Typography variant="h6">Create Test Suite</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Choose how you want to create your test suite
+            </Typography>
+          </Box>
+        </Box>
         <IconButton edge="end" onClick={onClose} size="small">
           <CloseIcon />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: 3 }}>
+      <DialogContent sx={{ pt: 4, px: 3 }}>
         {/* Primary Action Cards */}
-        <Grid container spacing={3} sx={{ mb: 6 }}>
+        <Grid container spacing={3} sx={{ mb: 6, mt: 1 }}>
           {/* AI Generation Card */}
           <Grid item xs={12} md={6}>
             <Card
@@ -120,7 +135,7 @@ export default function LandingScreen({
                   }}
                 >
                   <AutoFixHighIcon
-                    sx={{ fontSize: 32, color: 'primary.main' }}
+                    sx={{ fontSize: 48, color: 'primary.main' }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -170,7 +185,7 @@ export default function LandingScreen({
                   }}
                 >
                   <EditNoteIcon
-                    sx={{ fontSize: 32, color: 'secondary.main' }}
+                    sx={{ fontSize: 48, color: 'secondary.main' }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -201,7 +216,7 @@ export default function LandingScreen({
           >
             <LibraryBooksIcon sx={{ fontSize: 32, color: 'primary.main' }} />
             <Box>
-              <Typography variant="h6">Test Templates</Typography>
+              <Typography variant="h6">Templates</Typography>
               <Typography variant="body2" color="text.secondary">
                 Start with pre-configured templates for common testing scenarios
               </Typography>
@@ -209,8 +224,11 @@ export default function LandingScreen({
           </Box>
 
           <Grid container spacing={3}>
-            {visibleTemplates.map(template => {
+            {visibleTemplates.map((template, index) => {
               const IconComponent = template.icon;
+              // Show "Popular" chip only for the first 3 templates
+              const isPopular = index < 3;
+
               return (
                 <Grid item xs={12} sm={6} md={3} key={template.id}>
                   <Card
@@ -255,7 +273,7 @@ export default function LandingScreen({
                       </Typography>
 
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {template.popularity === 'high' && (
+                        {isPopular && (
                           <Chip
                             label="Popular"
                             size="small"

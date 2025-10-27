@@ -342,9 +342,9 @@ class DocumentSynthesizer(TestSetSynthesizer):
 if __name__ == "__main__":
     config = GenerationConfig(
         project_context="Web application that allows users to search for and book flights.",
-        test_behaviors="Robustness",
-        test_purposes="To test the robustness of the LLM.",
-        key_topics="Flights, Booking, Search",
+        behaviors=["Robustness"],
+        topics=["Flights", "Booking", "Search"],
+        categories=["Security", "Performance"],
         specific_requirements="The LLM should be able to detect frauds",
         test_type="config",
         output_format="json",
