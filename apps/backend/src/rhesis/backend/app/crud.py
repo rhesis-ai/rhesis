@@ -2635,18 +2635,20 @@ def delete_comment(
     db: Session, comment_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Comment]:
     """Delete a comment with optimized tenant context and clear task references"""
-    from sqlalchemy import func
+    from sqlalchemy import cast, func
+    from sqlalchemy.dialects.postgresql import JSONB
 
     # First, clear the comment_id from all tasks that reference this comment
     # This prevents orphaned references in task_metadata
     try:
         # Clear comment_id from task_metadata using SQLAlchemy JSONB operators
+        # Cast JSON to JSONB to use the '-' operator for key removal
         db.query(models.Task).filter(
             models.Task.task_metadata['comment_id'].astext == str(comment_id),
             models.Task.organization_id == organization_id
         ).update(
             {
-                models.Task.task_metadata: models.Task.task_metadata.op('-')('comment_id'),
+                models.Task.task_metadata: cast(models.Task.task_metadata, JSONB).op('-')('comment_id'),
                 models.Task.updated_at: func.now()
             },
             synchronize_session=False
