@@ -50,6 +50,7 @@ class Test(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Counts
     behavior = relationship("Behavior", back_populates="tests")
     category = relationship("Category", back_populates="tests")
     status = relationship("Status", back_populates="tests")
+    source = relationship("Source", back_populates="tests")
     test_contexts = relationship("TestContext", back_populates="test")
     test_results = relationship("TestResult", back_populates="test")
     test_sets = relationship(
@@ -63,4 +64,3 @@ class Test(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Counts
         viewonly=True,
         uselist=True,
     )
-    source = relationship("Source", back_populates="tests")

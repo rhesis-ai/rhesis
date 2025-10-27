@@ -364,7 +364,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 logger.debug(f"Connection URI: {uri}")
                 logger.debug(f"Connection headers: {json.dumps(additional_headers, indent=2)}")
 
-                error_output = f"WebSocket connection rejected: HTTP {status_err.response.status_code}"
+                error_output = (
+                    f"WebSocket connection rejected: HTTP {status_err.response.status_code}"
+                )
                 if status_err.response.body:
                     error_output += f". Response: {status_err.response.body}"
 
@@ -379,7 +381,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                         "body": message_data,
                     },
                     status_code=status_err.response.status_code,
-                    response_headers=dict(status_err.response.headers) if status_err.response.headers else {},
+                    response_headers=dict(status_err.response.headers)
+                    if status_err.response.headers
+                    else {},
                     response_body=status_err.response.body,
                 )
 

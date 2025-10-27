@@ -78,21 +78,6 @@ packages = [
 [tool.hatch.metadata]
 allow-direct-references = true
 
-[tool.ruff]
-line-length = 100
-
-[tool.ruff.lint]
-select = [
-    "I",
-    "E",
-    "F",
-]
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "auto"
 
 [tool.pytest.ini_options]
 testpaths = [

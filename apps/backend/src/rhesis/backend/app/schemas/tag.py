@@ -23,6 +23,7 @@ class TagUpdate(TagBase):
 
 
 class EntityType(str, Enum):
+    SOURCE = "Source"
     TEST = "Test"
     TEST_SET = "TestSet"
     TEST_RUN = "TestRun"

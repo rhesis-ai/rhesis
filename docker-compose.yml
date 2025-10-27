@@ -47,10 +47,18 @@ x-rhesis-config: &rhesis-config
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
   BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
   
-x-gemini-google: &gemini-google
+x-llm-config: &llm-config
+  # Gemini API (legacy)
   GEMINI_API_KEY: ${GEMINI_API_KEY}
   GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME}
   GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+  # Default LLM Provider Configuration
+  DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-vertex_ai}
+  DEFAULT_MODEL_NAME: ${DEFAULT_MODEL_NAME:-gemini-2.0-flash}
+  # Vertex AI Configuration
+  GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+  VERTEX_AI_LOCATION: ${VERTEX_AI_LOCATION:-europe-west4}  # Netherlands - best for Europe
+  VERTEX_AI_PROJECT: ${VERTEX_AI_PROJECT:-}
 
 x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
@@ -113,7 +121,7 @@ services:
       dockerfile: apps/backend/Dockerfile
     container_name: rhesis-backend
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *gemini-google]
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *llm-config]
       LOG_LEVEL: DEBUG
     ports:
       - "8080:8080"
@@ -143,7 +151,7 @@ services:
       dockerfile: apps/worker/Dockerfile
     container_name: rhesis-worker
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *llm-config]
       LOG_LEVEL: INFO
       CELERY_WORKER_CONCURRENCY: 8
       CELERY_WORKER_PREFETCH_MULTIPLIER: 4

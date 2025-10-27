@@ -1,4 +1,3 @@
-
 from rhesis.backend.metrics.base import BaseMetric, MetricType
 
 

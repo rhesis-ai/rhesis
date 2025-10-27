@@ -85,7 +85,7 @@ def get_test_set_count(self):
     org_id, user_id = self.get_tenant_context()
 
     # Use tenant-aware database session with explicit organization_id and user_id
-    with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
+    with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
         # Use the crud utility which will respect the tenant context
         test_sets = crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
         count = len(test_sets)
@@ -116,10 +116,12 @@ def get_test_configuration(self, test_configuration_id: str):
     config_id = UUID(test_configuration_id)
 
     # Use tenant-aware database session with explicit organization_id and user_id
-    with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
+    with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
         # The crud function will use the properly configured session
         # which has the tenant context already set
-        test_config = crud.get_test_configuration(db, test_configuration_id=config_id, organization_id=org_id, user_id=user_id)
+        test_config = crud.get_test_configuration(
+            db, test_configuration_id=config_id, organization_id=org_id, user_id=user_id
+        )
 
     self.log_with_context(
         "info",
@@ -155,7 +157,7 @@ def manual_db_example(self):
     results = {}
 
     # Use tenant-aware database session with explicit organization_id and user_id
-    with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
+    with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
         # The session already has tenant context set
         test_sets = crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
         results["test_set_count"] = len(test_sets)
@@ -260,8 +262,10 @@ def example_execution_mode_task(self, test_config_id: str) -> Dict[str, Any]:
             raise ValueError(f"Invalid test configuration ID: {test_config_id}")
 
         # Use tenant-aware database session with explicit organization_id and user_id
-        with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
-            test_config = crud.get_test_configuration(db, test_config_uuid, organization_id=org_id, user_id=user_id)
+        with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+            test_config = crud.get_test_configuration(
+                db, test_config_uuid, organization_id=org_id, user_id=user_id
+            )
             if not test_config:
                 raise ValueError(f"Test configuration not found: {test_config_id}")
 
@@ -326,7 +330,13 @@ def example_set_execution_mode(test_config_id: str, execution_mode: str) -> bool
 
         with get_db() as db:
             # Set the execution mode
-            success = set_execution_mode(db, test_config_id, ExecutionMode(execution_mode), organization_id=None, user_id=None)
+            success = set_execution_mode(
+                db,
+                test_config_id,
+                ExecutionMode(execution_mode),
+                organization_id=None,
+                user_id=None,
+            )
 
             if success:
                 logger.info(

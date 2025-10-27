@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
+from rhesis.backend.app.dependencies import (
+    get_tenant_db_session,
+)
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.example_task import email_notification_test
 from rhesis.backend.worker import app as celery_app
@@ -17,12 +18,14 @@ router = APIRouter(
     prefix="/jobs",
     tags=["tasks"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)])
+    dependencies=[Depends(require_current_user_or_token)],
+)
 
 
 # @router.get("/", response_model=TaskList)
 async def list_tasks(
-    current_user: schemas.User = Depends(require_current_user_or_token)) -> Dict[str, List[str]]:
+    current_user: schemas.User = Depends(require_current_user_or_token),
+) -> Dict[str, List[str]]:
     """List all registered Celery tasks."""
     # Filter out internal Celery tasks (those starting with "celery.")
     user_tasks = [
@@ -56,7 +59,8 @@ async def get_stats(current_user: schemas.User = Depends(require_current_user_or
 async def test_email_notifications(
     message: str = "Test email notification",
     db: Session = Depends(get_tenant_db_session),
-    current_user: schemas.User = Depends(require_current_user_or_token)):
+    current_user: schemas.User = Depends(require_current_user_or_token),
+):
     """
     Test the email notification system by running a simple task that will send
     an email upon completion.
@@ -91,7 +95,8 @@ async def create_task(
     task_name: str,
     payload: Dict[Any, Any],
     db: Session = Depends(get_tenant_db_session),
-    current_user: schemas.User = Depends(require_current_user_or_token)):
+    current_user: schemas.User = Depends(require_current_user_or_token),
+):
     """
     Submit a new task to Celery.
 
@@ -133,7 +138,8 @@ async def get_task_status(
 async def revoke_task(
     task_id: uuid.UUID,
     terminate: bool = False,
-    current_user: schemas.User = Depends(require_current_user_or_token)):
+    current_user: schemas.User = Depends(require_current_user_or_token),
+):
     """Revoke a task (prevent it from being executed if not already running)."""
     celery_app.control.revoke(task_id, terminate=terminate)
     return {"message": f"Task {task_id} revoked"}

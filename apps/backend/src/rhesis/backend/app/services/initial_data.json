@@ -139,6 +139,21 @@
             "name": "Cancelled",
             "description": "Task no longer needed",
             "entity_type": "Task"
+        },
+        {
+            "name": "Active",
+            "description": "Source is active and usable",
+            "entity_type": "Source"
+        },
+        {
+            "name": "Processing",
+            "description": "Source ingestion or transformation is in progress",
+            "entity_type": "Source"
+        },
+        {
+            "name": "Error",
+            "description": "Last ingestion or transformation failed",
+            "entity_type": "Source"
         }
     ],
     "type_lookup": [
@@ -336,6 +351,11 @@
             "type_name": "ProviderType",
             "type_value": "perplexity",
             "description": "Perplexity Labs model API"
+        },
+        {
+            "type_name": "ProviderType",
+            "type_value": "rhesis",
+            "description": "Rhesis-managed model"
         },
         {
             "type_name": "MetricType",

@@ -1,26 +1,26 @@
 """User Settings Manager - Centralized access to user preferences and settings."""
 
-from typing import Optional
 import uuid
+from typing import Optional
 
 
 class UserSettingsManager:
     """
     Centralized manager for accessing and updating user settings.
-    
+
     Provides a clean interface for working with user preferences without
     cluttering the User model with individual getter/setter methods.
-    
+
     Usage:
         user = await get_user(db, user_id)
-        
+
         # Access model settings
         model_id = user.settings.models.generation.model_id
         temp = user.settings.models.generation.temperature
-        
+
         # Access UI settings
         theme = user.settings.ui.theme
-        
+
         # Update settings
         user.settings.update({
             "models": {
@@ -32,7 +32,7 @@ class UserSettingsManager:
     def __init__(self, settings_dict: dict):
         """
         Initialize settings manager with user's settings dictionary.
-        
+
         Args:
             settings_dict: The user_settings JSONB data from database
         """
@@ -79,13 +79,13 @@ class UserSettingsManager:
     def update(self, updates: dict) -> dict:
         """
         Deep merge updates into settings.
-        
+
         Args:
             updates: Dictionary of settings to update
-            
+
         Returns:
             Updated settings dictionary
-            
+
         Example:
             user.settings.update({
                 "models": {
@@ -249,4 +249,3 @@ class PrivacySettingsAccessor:
     def show_activity(self) -> Optional[bool]:
         """Get show activity setting."""
         return self._data.get("show_activity")
-

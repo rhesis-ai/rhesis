@@ -323,6 +323,6 @@ class TestDimensionHealthChecks(DimensionTestMixin, BaseEntityTests):
         delete_response = authenticated_client.delete(self.endpoints.remove(created["id"]))
         assert delete_response.status_code == status.HTTP_200_OK
         
-        # Verify deletion
+        # Verify deletion (soft delete returns 410 GONE)
         verify_response = authenticated_client.get(self.endpoints.get(created["id"]))
-        assert verify_response.status_code == status.HTTP_404_NOT_FOUND
+        assert verify_response.status_code == status.HTTP_410_GONE

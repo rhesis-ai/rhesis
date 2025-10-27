@@ -1,12 +1,10 @@
+from typing import Sequence, Union
+
 from alembic import op
-import sqlalchemy as sa
-from typing import Union, Sequence
-
-
 
 # revision identifiers, used by Alembic.
-revision: str = 'bcf762626378'
-down_revision: Union[str, None] = '4e087893c30f'
+revision: str = "bcf762626378"
+down_revision: Union[str, None] = "4e087893c30f"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -14,17 +12,17 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """
     Create a PostgreSQL procedure to completely delete a user and all their organization data.
-    
+
     This is a HARD DELETE procedure that removes:
     - All organizations owned by the user
     - All users in those organizations
     - All organization-related data (tests, projects, endpoints, etc.)
     - The target user itself
-    
+
     WARNING: This is irreversible and should only be used for complete data removal,
     such as for testing, data cleanup, or extreme cases.
     """
-    
+
     op.execute("""
         CREATE OR REPLACE PROCEDURE delete_user_and_organization_data(target_email text)
         LANGUAGE 'plpgsql'

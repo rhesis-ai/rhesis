@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -128,23 +127,14 @@ class DocumentHandler(BaseSourceHandler):
         organization_id: str = None,
         db_session=None,
     ) -> dict:
-        """Extract file metadata including file path and uploader name."""
+        """Extract file metadata (file-specific information only)."""
         metadata = {
             "file_size": len(content),
             "file_hash": self._calculate_file_hash(content),
-            "uploaded_at": str(datetime.now(timezone.utc)),
             "original_filename": filename,
             "file_type": self._get_mime_type(filename),
             "file_path": file_path,
         }
-
-        # Add uploader name if available
-        if user_id and db_session:
-            from rhesis.backend.app import crud
-
-            user = crud.get_user(db_session, user_id=user_id, organization_id=organization_id)
-            if user and user.name:
-                metadata["uploader_name"] = user.name
 
         return metadata
 

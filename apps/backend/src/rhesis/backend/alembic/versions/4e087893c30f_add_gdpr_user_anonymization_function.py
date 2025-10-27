@@ -1,12 +1,10 @@
+from typing import Sequence, Union
+
 from alembic import op
-import sqlalchemy as sa
-from typing import Union, Sequence
-
-
 
 # revision identifiers, used by Alembic.
-revision: str = '4e087893c30f'
-down_revision: Union[str, None] = 'da9164715ec2'
+revision: str = "4e087893c30f"
+down_revision: Union[str, None] = "da9164715ec2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -14,11 +12,11 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """
     Create a PostgreSQL function to anonymize user data for GDPR compliance.
-    
+
     This function converts users into "ghost users" by anonymizing all personal data
     while keeping the user record intact to preserve audit trails and foreign key relationships.
     """
-    
+
     # Create the anonymization function
     op.execute("""
         CREATE OR REPLACE FUNCTION gdpr_anonymize_user(user_uuid UUID)

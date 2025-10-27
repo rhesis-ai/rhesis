@@ -348,11 +348,11 @@ class TestTokenRoutes(TokenTestMixin, BaseEntityTests):
         
         assert response.status_code == status.HTTP_200_OK
         
-        # Verify token is revoked
+        # Verify token is revoked (soft delete returns 410 GONE)
         get_response = authenticated_client.get(
             self.endpoints.format_path(self.endpoints.get_by_id, token_id=token_id),
         )
-        assert get_response.status_code == status.HTTP_404_NOT_FOUND
+        assert get_response.status_code == status.HTTP_410_GONE
     
     # === TOKEN REFRESH TESTS ===
     
@@ -586,11 +586,11 @@ class TestTokenManagement(TokenTestMixin, BaseEntityTests):
         )
         assert delete_response.status_code == status.HTTP_200_OK
         
-        # 5. Verify token is revoked
+        # 5. Verify token is revoked (soft delete returns 410 GONE)
         final_get_response = authenticated_client.get(
             self.endpoints.format_path(self.endpoints.get_by_id, token_id=token_id),
         )
-        assert final_get_response.status_code == status.HTTP_404_NOT_FOUND
+        assert final_get_response.status_code == status.HTTP_410_GONE
     
     def test_bulk_token_operations(self, authenticated_client):
         """Test bulk token creation and management"""
