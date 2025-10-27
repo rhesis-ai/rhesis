@@ -23,6 +23,7 @@ class DocumentExtractor:
             # Documents
             ".pdf",
             ".txt",
+            ".md",
             ".csv",
             ".json",
             ".xml",
