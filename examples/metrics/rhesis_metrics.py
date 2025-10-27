@@ -1,9 +1,9 @@
 from rhesis.sdk.metrics.constants import ThresholdOperator
-from rhesis.sdk.metrics.providers.native.prompt_metric_categorical import (
+from rhesis.sdk.metrics.providers.native.categorical_judge import (
     # Example usage of RhesisPromptMetricCategorical
     CategoricalJudge,
 )
-from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import (
+from rhesis.sdk.metrics.providers.native.numeric_judge import (
     NumericJudge,
 )
 
