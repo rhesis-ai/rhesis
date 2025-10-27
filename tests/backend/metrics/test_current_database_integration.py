@@ -141,9 +141,9 @@ class TestCurrentDatabaseIntegration:
         metric_id = metric.id
         
         # Delete the metric
-        crud.delete_metric(test_db, metric_id, test_org_id)
+        crud.delete_metric(test_db, metric_id, test_org_id, authenticated_user_id)
         
-        # Verify it's deleted
+        # Verify it's deleted (soft delete)
         deleted_metric = crud.get_metric(test_db, metric_id, test_org_id)
         assert deleted_metric is None
     
