@@ -1,51 +1,10 @@
 templates:
-  - id: gdpr-compliance
-    name: GDPR Compliance
-    description: Test privacy and data protection compliance
-    color: primary.main
-    icon: ShieldIcon
-    behaviors:
-      - Compliance
-      - Privacy
-      - Transparency
-      - Accountability
-      - Data Minimization
-      - Security
-    topics:
-      - GDPR
-      - Data Protection
-      - User Rights
-      - Consent Management
-      - Data Portability
-      - Privacy by Design
-    category:
-      - Legal
-      - Privacy
-      - Regulatory
-      - Data Governance
-      - Compliance Auditing
-      - Risk Management
-    scenarios:
-      - Data Access Request
-      - Right to be Forgotten
-      - Consent Withdrawal
-      - Data Breach Notification
-      - Cross-Border Transfer
-      - Privacy Impact Assessment
-    popularity: high
-
   - id: bias-detection
     name: Bias Detection
     description: Identify and test for AI biases
-    color: secondary.main
+    color: primary.main
     icon: BalanceIcon
-    behaviors:
-      - Fairness
-      - Reliability
-      - Objectivity
-      - Inclusivity
-      - Equity
-      - Consistency
+    prompt: Generate test behaviors for AI bias detection focusing on fairness, reliability, objectivity, inclusivity, equity, and consistency in AI systems
     topics:
       - Bias
       - Fairness
@@ -60,237 +19,14 @@ templates:
       - Social Impact
       - Diversity
       - Responsible AI
-    scenarios:
-      - Gender Bias
-      - Racial Bias
-      - Age Bias
-      - Socioeconomic Bias
-      - Cultural Bias
-      - Disability Bias
     popularity: high
-
-  - id: performance-testing
-    name: Performance Testing
-    description: Test response quality and latency
-    color: warning.main
-    icon: SpeedIcon
-    behaviors:
-      - Reliability
-      - Performance
-      - Scalability
-      - Efficiency
-      - Responsiveness
-      - Stability
-    topics:
-      - Speed
-      - Quality
-      - Consistency
-      - Latency
-      - Throughput
-      - Resource Usage
-    category:
-      - Performance
-      - Quality
-      - System Testing
-      - Optimization
-      - Load Testing
-      - Stress Testing
-    scenarios:
-      - High Load
-      - Edge Cases
-      - Error Handling
-      - Concurrent Users
-      - Peak Traffic
-      - Resource Constraints
-    popularity: high
-
-  - id: hallucination-detection
-    name: Hallucination Detection
-    description: Detect factual inaccuracies
-    color: error.main
-    icon: PsychologyIcon
-    behaviors:
-      - Reliability
-      - Accuracy
-      - Truthfulness
-      - Verifiability
-      - Consistency
-      - Groundedness
-    topics:
-      - Facts
-      - Accuracy
-      - Verification
-      - Citations
-      - Evidence
-      - Source Attribution
-    category:
-      - Quality
-      - Reliability
-      - Trust
-      - Information Integrity
-      - AI Safety
-      - Content Validation
-    scenarios:
-      - Fact Checking
-      - Source Verification
-      - Citation Accuracy
-      - Contradictory Claims
-      - Made-up References
-      - False Confidence
-    popularity: medium
-
-  - id: medical-safety
-    name: Medical Safety
-    description: Test healthcare AI applications
-    color: success.main
-    icon: HealthAndSafetyIcon
-    behaviors:
-      - Safety
-      - Compliance
-      - Accuracy
-      - Reliability
-      - Confidentiality
-      - Clinical Validity
-    topics:
-      - Medical
-      - Safety
-      - HIPAA
-      - Clinical Guidelines
-      - Patient Care
-      - Healthcare Standards
-    category:
-      - Healthcare
-      - Safety
-      - Regulatory
-      - Medical Ethics
-      - Patient Protection
-      - Clinical Risk
-    scenarios:
-      - Medical Advice
-      - Patient Privacy
-      - Diagnosis Recommendations
-      - Medication Information
-      - Emergency Situations
-      - Informed Consent
-    popularity: medium
-
-  - id: financial-compliance
-    name: Financial Compliance
-    description: Test financial service regulations
-    color: info.main
-    icon: AccountBalanceIcon
-    behaviors:
-      - Compliance
-      - Security
-      - Transparency
-      - Accountability
-      - Risk Management
-      - Due Diligence
-    topics:
-      - Financial
-      - Regulations
-      - Security
-      - Anti-Money Laundering
-      - Know Your Customer
-      - Fraud Prevention
-    category:
-      - Finance
-      - Legal
-      - Regulatory
-      - Banking
-      - Financial Services
-      - Risk Assessment
-    scenarios:
-      - KYC
-      - AML
-      - Transaction Security
-      - Suspicious Activity
-      - Customer Verification
-      - Regulatory Reporting
-    popularity: medium
-
-  - id: security-testing
-    name: Security Testing
-    description: Test for security vulnerabilities
-    color: error.dark
-    icon: SecurityIcon
-    behaviors:
-      - Security
-      - Reliability
-      - Robustness
-      - Resilience
-      - Protection
-      - Defense
-    topics:
-      - Security
-      - Vulnerabilities
-      - Attacks
-      - Threat Detection
-      - Data Protection
-      - System Hardening
-    category:
-      - Security
-      - Testing
-      - Cybersecurity
-      - Penetration Testing
-      - Risk Mitigation
-      - Threat Analysis
-    scenarios:
-      - Prompt Injection
-      - Data Leakage
-      - Adversarial Attacks
-      - Jailbreak Attempts
-      - Sensitive Information Exposure
-      - Authorization Bypass
-    popularity: high
-
-  - id: accessibility
-    name: Accessibility
-    description: Test for accessibility compliance
-    color: warning.dark
-    icon: AccessibilityNewIcon
-    behaviors:
-      - Accessibility
-      - Compliance
-      - Inclusivity
-      - Usability
-      - Universal Design
-      - Equitable Access
-    topics:
-      - Accessibility
-      - WCAG
-      - Inclusivity
-      - Assistive Technology
-      - Disability Support
-      - ADA Compliance
-    category:
-      - Accessibility
-      - Legal
-      - Usability
-      - Inclusive Design
-      - User Experience
-      - Standards Compliance
-    scenarios:
-      - Screen Reader
-      - Keyboard Navigation
-      - Visual Impairment
-      - Cognitive Disabilities
-      - Motor Disabilities
-      - Alternative Text
-    popularity: low
 
   - id: multilingual
     name: Multilingual
     description: Test language understanding
-    color: secondary.main
+    color: primary.main
     icon: LanguageIcon
-    behaviors:
-      - Reliability
-      - Quality
-      - Accuracy
-      - Consistency
-      - Cultural Sensitivity
-      - Adaptability
+    prompt: Generate test behaviors for multilingual AI systems focusing on reliability, quality, accuracy, consistency, cultural sensitivity, and adaptability across different languages and cultures
     topics:
       - Languages
       - Translation
@@ -305,27 +41,14 @@ templates:
       - Cultural Adaptation
       - Language Processing
       - Regional Compliance
-    scenarios:
-      - Translation Quality
-      - Cultural Context
-      - Idiom Handling
-      - Regional Variations
-      - Script Support
-      - Language Detection
     popularity: medium
 
   - id: content-moderation
     name: Content Moderation
     description: Test content filtering and safety
-    color: info.dark
+    color: primary.main
     icon: VerifiedUserIcon
-    behaviors:
-      - Safety
-      - Compliance
-      - Filtering
-      - Detection
-      - Protection
-      - Enforcement
+    prompt: Generate test behaviors for content moderation systems focusing on safety, compliance, filtering, detection, protection, and enforcement of community standards
     topics:
       - Content
       - Moderation
@@ -340,66 +63,18 @@ templates:
       - Trust and Safety
       - Risk Prevention
       - Platform Governance
-    scenarios:
-      - Harmful Content
-      - Policy Violations
-      - Hate Speech
-      - Violence Detection
-      - Inappropriate Material
-      - Misinformation
-    popularity: medium
-
-  - id: legal-compliance
-    name: Legal Compliance
-    description: Test legal and regulatory compliance
-    color: primary.dark
-    icon: GavelIcon
-    behaviors:
-      - Compliance
-      - Legal
-      - Accountability
-      - Transparency
-      - Due Process
-      - Integrity
-    topics:
-      - Legal
-      - Regulations
-      - Policies
-      - Statutory Requirements
-      - Contractual Obligations
-      - Intellectual Property
-    category:
-      - Legal
-      - Compliance
-      - Regulatory
-      - Governance
-      - Corporate Law
-      - Risk Management
-    scenarios:
-      - Terms of Service
-      - Copyright
-      - Licensing
-      - Trademark Protection
-      - Contract Enforcement
-      - Legal Disclaimers
     popularity: medium
 
   - id: privacy-protection
     name: Privacy Protection
     description: Test data privacy measures
-    color: info.main
+    color: primary.main
     icon: PrivacyTipIcon
-    behaviors:
-      - Privacy
-      - Security
-      - Confidentiality
-      - Data Minimization
-      - Anonymization
-      - Protection
+    prompt: Generate test behaviors for privacy protection systems focusing on privacy, security, confidentiality, data minimization, anonymization, and protection of user data
     topics:
       - Privacy
       - Data Protection
-      - Encryption
+      - PII Detection
       - Anonymization
       - Data Security
       - Privacy Engineering
@@ -410,11 +85,180 @@ templates:
       - Information Security
       - Privacy by Design
       - Confidentiality
-    scenarios:
-      - Data Encryption
-      - Access Controls
-      - Data Anonymization
-      - Privacy Preserving
-      - Secure Storage
-      - User Consent
     popularity: high
+
+  - id: tone-appropriateness
+    name: Tone Appropriateness
+    description: Test conversational tone and style
+    color: primary.main
+    icon: RecordVoiceOverIcon
+    prompt: Generate test behaviors for tone appropriateness focusing on professionalism, empathy, respect, clarity, adaptability, and emotional intelligence in communication
+    topics:
+      - Tone
+      - Communication Style
+      - Formality
+      - Emotional Context
+      - Audience Awareness
+      - Conversational Flow
+    category:
+      - Quality
+      - User Experience
+      - Communication
+      - Interpersonal Skills
+      - Brand Voice
+      - Customer Relations
+    popularity: high
+
+  - id: cultural-sensitivity
+    name: Cultural Sensitivity
+    description: Test cultural awareness and respect
+    color: primary.main
+    icon: PublicIcon
+    prompt: Generate test behaviors for cultural sensitivity focusing on respect, inclusivity, awareness, sensitivity, adaptability, and open-mindedness across different cultures
+    topics:
+      - Culture
+      - Traditions
+      - Customs
+      - Religious Sensitivity
+      - Cross-Cultural Communication
+      - Global Perspectives
+    category:
+      - Ethics
+      - Diversity
+      - Social Impact
+      - Global Readiness
+      - Inclusivity
+      - Cultural Intelligence
+    popularity: medium
+
+  - id: readability
+    name: Readability
+    description: Test content clarity and comprehension
+    color: primary.main
+    icon: MenuBookIcon
+    prompt: Generate test behaviors for readability focusing on clarity, simplicity, coherence, accessibility, effectiveness, and user-friendly content design
+    topics:
+      - Readability
+      - Comprehension
+      - Plain Language
+      - Structure
+      - Vocabulary
+      - Communication Clarity
+    category:
+      - Quality
+      - User Experience
+      - Content
+      - Communication
+      - Education
+      - Information Design
+    popularity: medium
+
+  - id: empathy-emotional-intelligence
+    name: Empathy & Emotional Intelligence
+    description: Test emotional understanding and response
+    color: primary.main
+    icon: FavoriteIcon
+    prompt: Generate test behaviors for empathy and emotional intelligence focusing on empathy, compassion, understanding, support, emotional awareness, and active listening skills
+    topics:
+      - Emotions
+      - Mental Health
+      - Support
+      - Crisis Response
+      - Validation
+      - Emotional Support
+    category:
+      - User Experience
+      - Social Impact
+      - Mental Health
+      - Customer Care
+      - Human-Centered Design
+      - Wellbeing
+    popularity: high
+
+  - id: creativity-innovation
+    name: Creativity & Innovation
+    description: Test creative problem-solving and originality
+    color: primary.main
+    icon: LightbulbIcon
+    prompt: Generate test behaviors for creativity and innovation focusing on creativity, innovation, originality, flexibility, imagination, and problem-solving capabilities
+    topics:
+      - Creativity
+      - Brainstorming
+      - Innovation
+      - Original Ideas
+      - Creative Writing
+      - Design Thinking
+    category:
+      - Quality
+      - Innovation
+      - Content Creation
+      - Problem-Solving
+      - Ideation
+      - Strategic Thinking
+    popularity: high
+
+  - id: contextual-understanding
+    name: Contextual Understanding
+    description: Test context awareness and relevance
+    color: primary.main
+    icon: TroubleshootIcon
+    prompt: Generate test behaviors for contextual understanding focusing on context awareness, relevance, comprehension, adaptability, discernment, and situational intelligence
+    topics:
+      - Context
+      - Relevance
+      - Situational Awareness
+      - Implicit Meaning
+      - Nuance
+      - Background Knowledge
+    category:
+      - Quality
+      - Intelligence
+      - User Experience
+      - Communication
+      - Interpretation
+      - Comprehension
+    popularity: medium
+
+  - id: ethical-reasoning
+    name: Ethical Reasoning
+    description: Test ethical decision-making and values
+    color: primary.main
+    icon: AccountBalanceIcon
+    prompt: Generate test behaviors for ethical reasoning focusing on ethics, integrity, responsibility, moral reasoning, transparency, and accountability in decision-making
+    topics:
+      - Ethics
+      - Morality
+      - Values
+      - Dilemmas
+      - Responsibility
+      - Social Good
+    category:
+      - Ethics
+      - AI Safety
+      - Social Impact
+      - Responsible AI
+      - Governance
+      - Philosophy
+    popularity: medium
+
+  - id: persuasion-influence
+    name: Persuasion & Influence
+    description: Test persuasive communication effectiveness
+    color: primary.main
+    icon: CampaignIcon
+    prompt: Generate test behaviors for persuasion and influence focusing on persuasiveness, influence, credibility, rhetoric, argumentation, and conviction in communication
+    topics:
+      - Persuasion
+      - Argumentation
+      - Rhetoric
+      - Influence
+      - Negotiation
+      - Advocacy
+    category:
+      - Communication
+      - Marketing
+      - Sales
+      - Leadership
+      - Negotiation
+      - Advocacy
+    popularity: medium

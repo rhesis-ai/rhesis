@@ -6,10 +6,11 @@ using LLM and Jinja2 templates.
 """
 
 from pathlib import Path
+from typing import List, Optional
 
 import jinja2
 
-from rhesis.backend.app.schemas.services import TestConfigResponse
+from rhesis.backend.app.schemas.services import TestConfigResponse, ChipState, RatedSample, IterationMessage
 from rhesis.sdk.models.providers.gemini import GeminiLLM
 
 
@@ -32,13 +33,23 @@ class TestConfigGeneratorService:
         self.llm = GeminiLLM()
         self.max_sample_size = max_sample_size
 
-    def generate_config(self, prompt: str, sample_size: int = 5) -> TestConfigResponse:
+    def generate_config(
+        self,
+        prompt: str,
+        sample_size: int = 5,
+        chip_states: Optional[List[ChipState]] = None,
+        rated_samples: Optional[List[RatedSample]] = None,
+        previous_messages: Optional[List[IterationMessage]] = None
+    ) -> TestConfigResponse:
         """
-        Generate test configuration based on user prompt.
+        Generate test configuration based on user prompt and iteration context.
 
         Args:
             prompt: User description of what they want to test
             sample_size: Number of items to generate for each category (default: 5, max: 20)
+            chip_states: Current chip states from previous iterations
+            rated_samples: User-rated samples with feedback
+            previous_messages: Previous user messages with their chip states
 
         Returns:
             TestConfigResponse: Generated test configuration
@@ -55,9 +66,15 @@ class TestConfigGeneratorService:
         if sample_size > self.max_sample_size:
             raise ValueError(f"Sample size must be less than {self.max_sample_size}")
 
-        # Render template with user prompt and sample size
+        # Render template with user prompt, sample size, and iteration context
         template = self.jinja_env.get_template("test_config_generator.jinja2")
-        rendered_prompt = template.render({"prompt": prompt, "sample_size": sample_size})
+        rendered_prompt = template.render({
+            "prompt": prompt,
+            "sample_size": sample_size,
+            "chip_states": chip_states,
+            "rated_samples": rated_samples,
+            "previous_messages": previous_messages
+        })
 
         # Generate response using LLM
         return self.llm.generate(rendered_prompt, schema=TestConfigResponse)

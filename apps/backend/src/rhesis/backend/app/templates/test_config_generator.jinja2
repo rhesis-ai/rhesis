@@ -2,6 +2,28 @@ You are a test configuration generator. Based on the user's description, analyze
 
 User Description: {{ prompt }}
 
+{% if previous_messages %}
+Previous Iteration Context:
+{% for message in previous_messages %}
+- Message: "{{ message.content }}" ({{ message.timestamp }})
+{% if message.chip_states %}
+  Previous chip selections:
+{% for chip in message.chip_states %}
+  - {{ chip.label }} ({{ chip.category }}): {{ "Active" if chip.active else "Inactive" }}{% if chip.description %} - {{ chip.description }}{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if rated_samples %}
+User Feedback on Previous Samples:
+{% for sample in rated_samples %}
+- Sample: "{{ sample.prompt }}"
+  Rating: {{ sample.rating }}/5
+{% if sample.feedback %}  Feedback: {{ sample.feedback }}{% endif %}
+{% endfor %}
+{% endif %}
+
 Your task is to generate a comprehensive test configuration by analyzing the user's description and creating relevant categories for:
 
 1. **Behaviors** - What aspects of the system need to be tested (e.g., reliability, security, performance, compliance, usability)

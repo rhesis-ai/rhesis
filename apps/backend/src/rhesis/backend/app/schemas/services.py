@@ -71,9 +71,33 @@ class GenerateContentRequest(BaseModel):
     schema_: Optional[Dict[str, Any]] = Field(None, alias="schema")
 
 
+class ChipState(BaseModel):
+    label: str
+    description: str
+    active: bool
+    category: str  # 'behavior' | 'topic' | 'category' | 'scenario'
+
+
+class RatedSample(BaseModel):
+    prompt: str
+    response: str
+    rating: int
+    feedback: Optional[str] = None
+
+
+class IterationMessage(BaseModel):
+    content: str
+    timestamp: str
+    chip_states: Optional[List[ChipState]] = None
+
+
 class TestConfigRequest(BaseModel):
     prompt: str
     sample_size: int = 5
+    # Iteration context
+    chip_states: Optional[List[ChipState]] = None
+    rated_samples: Optional[List[RatedSample]] = None
+    previous_messages: Optional[List[IterationMessage]] = None
 
 
 class TestConfigItem(BaseModel):
