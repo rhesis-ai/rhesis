@@ -2634,7 +2634,37 @@ def update_comment(
 def delete_comment(
     db: Session, comment_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Comment]:
-    """Delete a comment with optimized tenant context"""
+    """Delete a comment with optimized tenant context and clear task references"""
+    from sqlalchemy import cast, func
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    # First, clear the comment_id from all tasks that reference this comment
+    # This prevents orphaned references in task_metadata
+    try:
+        # Clear comment_id from task_metadata using SQLAlchemy JSONB operators
+        # Cast JSON to JSONB to use the '-' operator for key removal
+        db.query(models.Task).filter(
+            models.Task.task_metadata["comment_id"].astext == str(comment_id),
+            models.Task.organization_id == organization_id,
+        ).update(
+            {
+                models.Task.task_metadata: cast(models.Task.task_metadata, JSONB).op("-")(
+                    "comment_id"
+                ),
+                models.Task.updated_at: func.now(),
+            },
+            synchronize_session=False,
+        )
+
+        # Commit the task metadata updates before deleting the comment
+        db.commit()
+    except Exception as e:
+        # Log the error but continue with comment deletion
+        # This ensures the comment can still be deleted even if task cleanup fails
+        logger.error(f"Error clearing task references for comment {comment_id}: {e}")
+        db.rollback()
+
+    # Now proceed with normal comment deletion
     return delete_item(db, models.Comment, comment_id, organization_id, user_id)
 
 
