@@ -1,0 +1,289 @@
+name: "[Deploy] Chatbot"
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/chatbot/**'
+      - '.github/workflows/chatbot.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        type: string
+        default: 'Manual deployment'
+
+env:
+  SA_KEY_PATH: 'gcp-sa-key.json'
+
+jobs:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate environment parameter
+        uses: ./.github/actions/validate-environment
+        with:
+          environment: ${{ github.event.inputs.environment }}
+
+  build:
+    needs: validate-inputs
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+
+    env:
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      SERVICE: chatbot
+
+    outputs:
+      image_name: ${{ steps.set_env.outputs.image_name }}
+      service_name: ${{ steps.set_env.outputs.service_name }}
+      environment: ${{ env.ENVIRONMENT }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        id: set_env
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+
+      - name: Setup service environment
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: chatbot
+          project-id: ${{ secrets.PROJECT_ID }}
+
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker
+
+      - name: Build Container
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }}:latest -f apps/chatbot/Dockerfile .
+
+      - name: Push Container
+        run: |
+          docker push ${{ env.IMAGE_NAME }}:latest
+
+  deploy:
+    needs: [validate-inputs, build]
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+
+    env:
+      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          REGION="${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}"
+          echo "REGION=$REGION" >> $GITHUB_ENV
+
+      - name: Setup service environment
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: chatbot
+          project-id: ${{ secrets.PROJECT_ID }}
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        run: |
+          echo "🚀 Deploying chatbot service"
+          echo "Image: ${{ env.IMAGE_NAME }}:latest"
+
+          # Build environment variables string
+          # Model configuration (SDK providers)
+          ENV_VARS="DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai' }}"
+          ENV_VARS="$ENV_VARS,DEFAULT_MODEL_NAME=${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.0-flash' }}"
+          
+          # Vertex AI configuration (for vertex_ai provider)
+          ENV_VARS="$ENV_VARS,GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}"
+          ENV_VARS="$ENV_VARS,VERTEX_AI_LOCATION=${{ secrets.VERTEX_AI_LOCATION }}"
+          if [ -n "${{ secrets.VERTEX_AI_PROJECT }}" ]; then
+            ENV_VARS="$ENV_VARS,VERTEX_AI_PROJECT=${{ secrets.VERTEX_AI_PROJECT }}"
+          fi
+          
+          # Legacy Gemini API configuration (for gemini provider - backward compatibility)
+          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
+            ENV_VARS="$ENV_VARS,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
+          fi
+          if [ -n "${{ secrets.GEMINI_MODEL_NAME }}" ]; then
+            ENV_VARS="$ENV_VARS,GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }}"
+          fi
+          
+          # Chatbot configuration
+          ENV_VARS="$ENV_VARS,CHATBOT_RATE_LIMIT=${{ secrets.CHATBOT_RATE_LIMIT || '1000' }}"
+          ENV_VARS="$ENV_VARS,WORKERS=${{ vars.CHATBOT_WORKERS || '4' }}"
+          ENV_VARS="$ENV_VARS,ENVIRONMENT=${{ env.ENVIRONMENT }}"
+          
+          # Add SMTP configuration for rate limit notifications
+          ENV_VARS="$ENV_VARS,SMTP_HOST=${{ secrets.SMTP_HOST }}"
+          ENV_VARS="$ENV_VARS,SMTP_PORT=${{ secrets.SMTP_PORT }}"
+          ENV_VARS="$ENV_VARS,SMTP_USER=${{ secrets.SMTP_USER }}"
+          ENV_VARS="$ENV_VARS,SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}"
+          ENV_VARS="$ENV_VARS,FROM_EMAIL=${{ secrets.FROM_EMAIL }}"
+          
+          # Add CHATBOT_API_KEY for backend authentication (if configured)
+          if [ -n "${{ secrets.CHATBOT_API_KEY }}" ]; then
+            ENV_VARS="$ENV_VARS,CHATBOT_API_KEY=${{ secrets.CHATBOT_API_KEY }}"
+            echo "🔐 Backend authentication enabled (API key configured)"
+            echo "📊 Rate limits: 1000/day per user (authenticated), 100/day per IP (public)"
+            echo "📧 Rate limit notifications enabled (hello@rhesis.ai)"
+          else
+            echo "🌐 Public access only (no API key configured)"
+            echo "📊 Rate limit: 100/day per IP"
+            echo "📧 Rate limit notifications enabled (hello@rhesis.ai)"
+          fi
+          
+          echo "🤖 Model configuration: ${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai' }} / ${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.0-flash' }}"
+
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.IMAGE_NAME }}:latest \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8080 \
+            --memory=512Mi \
+            --cpu=1 \
+            --concurrency=80 \
+            --timeout=120 \
+            --max-instances=10 \
+            --min-instances=0 \
+            --set-env-vars="$ENV_VARS"
+
+          echo "✅ Deployment completed successfully"
+
+      - name: Get service URL
+        id: get_url
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --format="value(status.url)")
+          
+          echo "🌐 Chatbot service URL: $SERVICE_URL"
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
+
+      - name: Set actual service name
+        id: set_service_name
+        run: |
+          SERVICE_TYPE="chatbot"
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            ACTUAL_SERVICE_NAME="${{ vars.APP_NAME }}-${SERVICE_TYPE}"
+          else
+            ACTUAL_SERVICE_NAME="${{ vars.APP_NAME }}-${SERVICE_TYPE}-${{ env.ENVIRONMENT }}"
+          fi
+
+          echo "✅ Service name: $ACTUAL_SERVICE_NAME"
+          echo "ACTUAL_SERVICE_NAME=$ACTUAL_SERVICE_NAME" >> $GITHUB_ENV
+
+      - name: Generate deployment summary
+        uses: ./.github/actions/generate-deployment-summary
+        with:
+          service-type: Chatbot
+          is-preview: false
+          environment: ${{ env.ENVIRONMENT }}
+          env-display: ${{ env.ENV_DISPLAY }}
+          actual-service-name: ${{ env.ACTUAL_SERVICE_NAME }}
+
+      - name: Test chatbot endpoint
+        run: |
+          echo "🧪 Testing chatbot health endpoint..."
+          sleep 10  # Give the service a moment to fully start
+          
+          HEALTH_RESPONSE=$(curl -s -w "\n%{http_code}" "${{ env.SERVICE_URL }}/health")
+          HTTP_CODE=$(echo "$HEALTH_RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$HEALTH_RESPONSE" | head -n-1)
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Health check passed"
+            echo "Response: $RESPONSE_BODY"
+          else
+            echo "⚠️ Health check returned status code: $HTTP_CODE"
+            echo "Response: $RESPONSE_BODY"
+          fi
+          
+          echo ""
+          echo "📋 Chatbot API Information:"
+          echo "  - Health endpoint: ${{ env.SERVICE_URL }}/health"
+          echo "  - Chat endpoint: ${{ env.SERVICE_URL }}/chat"
+          echo "  - API root: ${{ env.SERVICE_URL }}/"
+

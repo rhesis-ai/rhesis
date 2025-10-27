@@ -49,7 +49,9 @@ def send_task_assignment_notification(
         entity_name = None
         if task.entity_type and task.entity_id:
             # SECURITY: Pass task's organization_id for filtering
-            entity_name = _get_entity_name(db, task.entity_type, task.entity_id, str(task.organization_id))
+            entity_name = _get_entity_name(
+                db, task.entity_type, task.entity_id, str(task.organization_id)
+            )
             # Ensure we don't pass "N/A" or None as entity_name
             if entity_name in [None, "N/A", "None"]:
                 entity_name = None
@@ -101,7 +103,9 @@ def send_task_assignment_notification(
         return False
 
 
-def _get_entity_name(db: Session, entity_type: str, entity_id: str, organization_id: str = None) -> Optional[str]:
+def _get_entity_name(
+    db: Session, entity_type: str, entity_id: str, organization_id: str = None
+) -> Optional[str]:
     """
     Get the name of an entity based on its type and ID with organization filtering.
 
@@ -116,7 +120,7 @@ def _get_entity_name(db: Session, entity_type: str, entity_id: str, organization
     """
     try:
         from uuid import UUID
-        
+
         if entity_type == "Test":
             query = db.query(models.Test).filter(models.Test.id == entity_id)
             if organization_id:

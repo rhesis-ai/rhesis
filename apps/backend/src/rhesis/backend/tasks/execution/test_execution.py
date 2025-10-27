@@ -14,11 +14,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
-from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
@@ -104,11 +102,18 @@ def get_test_metrics(test: Test) -> List[Dict]:
 
 
 def check_existing_result(
-    db: Session, test_config_id: str, test_run_id: str, test_id: str, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_config_id: str,
+    test_run_id: str,
+    test_id: str,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[Dict[str, Any]]:
     """Check if a result already exists for this test configuration."""
     filter_str = f"test_configuration_id eq {test_config_id} and test_run_id eq {test_run_id} and test_id eq {test_id}"
-    existing_results = crud.get_test_results(db, limit=1, filter=filter_str, organization_id=organization_id, user_id=user_id)
+    existing_results = crud.get_test_results(
+        db, limit=1, filter=filter_str, organization_id=organization_id, user_id=user_id
+    )
 
     if not existing_results:
         return None
@@ -176,14 +181,11 @@ def process_endpoint_result(result: Dict) -> Dict:
     if not result:
         return {}
 
-
     # Create a DEEP copy of the result to avoid modifying the original or sharing references
     processed_result = copy.deepcopy(result)
 
-
     # Use the existing fallback logic to get the processed output
     processed_output = extract_response_with_fallback(processed_result)
-
 
     # Set the output field to the processed response
     processed_result["output"] = processed_output
@@ -209,7 +211,21 @@ def create_test_result_record(
     processed_result: Dict,
 ) -> None:
     """Create and store the test result record in the database."""
-    test_result_status = get_or_create_status(db, ResultStatus.PASS.value, "TestResult", organization_id=organization_id)
+    # Determine status based on whether all metrics passed
+    all_metrics_passed = (
+        all(
+            metric_data.get("is_successful", False)
+            for metric_data in metrics_results.values()
+            if isinstance(metric_data, dict)
+        )
+        if metrics_results
+        else False
+    )
+
+    status_value = ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+    test_result_status = get_or_create_status(
+        db, status_value, "TestResult", organization_id=organization_id
+    )
 
     test_result_data = {
         "test_configuration_id": UUID(test_config_id),
@@ -224,7 +240,12 @@ def create_test_result_record(
     }
 
     try:
-        result = crud.create_test_result(db, schemas.TestResultCreate(**test_result_data), organization_id=organization_id, user_id=user_id)
+        result = crud.create_test_result(
+            db,
+            schemas.TestResultCreate(**test_result_data),
+            organization_id=organization_id,
+            user_id=user_id,
+        )
         logger.debug(
             f"Successfully created test result with ID: {result.id if hasattr(result, 'id') else 'UNKNOWN'}"
         )
@@ -285,7 +306,9 @@ def execute_test(
         # Tenant context should be passed directly to CRUD operations by the calling task
 
         # Check for existing result to avoid duplicates
-        existing_result = check_existing_result(db, test_config_id, test_run_id, test_id, organization_id, user_id)
+        existing_result = check_existing_result(
+            db, test_config_id, test_run_id, test_id, organization_id, user_id
+        )
         if existing_result:
             logger.info(f"Found existing result for test {test_id}")
             return existing_result
@@ -313,21 +336,25 @@ def execute_test(
 
         # Evaluate metrics
         context = result.get("context", []) if result else []
-        
+
         # Pass user's configured model, db session, and org ID to evaluator
         # This allows metrics to use their own configured models if available
-        metrics_evaluator = MetricEvaluator(
-            model=model,
-            db=db,
-            organization_id=organization_id
-        )
-        
+        metrics_evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
+
         # Log model being used for metrics evaluation
         if model:
-            model_info = model if isinstance(model, str) else f"{type(model).__name__}(model_name={model.model_name})"
-            logger.debug(f"[METRICS_EVALUATION] Evaluating test {test_id} with default model: {model_info}")
+            model_info = (
+                model
+                if isinstance(model, str)
+                else f"{type(model).__name__}(model_name={model.model_name})"
+            )
+            logger.debug(
+                f"[METRICS_EVALUATION] Evaluating test {test_id} with default model: {model_info}"
+            )
         else:
-            logger.debug(f"[METRICS_EVALUATION] Evaluating test {test_id} with system default model")
+            logger.debug(
+                f"[METRICS_EVALUATION] Evaluating test {test_id} with system default model"
+            )
 
         metrics_results = evaluate_prompt_response(
             metrics_evaluator=metrics_evaluator,

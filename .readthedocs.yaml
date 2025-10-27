@@ -12,5 +12,4 @@ build:
       - pip install -e ./sdk
 
 sphinx:
-  configuration: docs/sdk/source/conf.py
-
+  configuration: docs/sphinx/source/conf.py

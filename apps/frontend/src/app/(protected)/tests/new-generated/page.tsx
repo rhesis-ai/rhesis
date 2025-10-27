@@ -1,6 +1,5 @@
-import { Box } from '@mui/material';
 import { auth } from '@/auth';
-import GenerateTestsStepper from './components/GenerateTestsStepper';
+import TestGenerationFlow from './components/TestGenerationFlow';
 
 export default async function GenerateTestsPage() {
   const session = await auth();
@@ -10,8 +9,8 @@ export default async function GenerateTestsPage() {
   }
 
   return (
-    <Box sx={{ p: 0 }}>
-      <GenerateTestsStepper sessionToken={session.session_token} />
-    </Box>
+    <div style={{ padding: 0 }}>
+      <TestGenerationFlow sessionToken={session.session_token} />
+    </div>
   );
 }

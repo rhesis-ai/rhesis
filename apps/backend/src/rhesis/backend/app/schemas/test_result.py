@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional, Union
 
-from pydantic import UUID4, Field
+from pydantic import UUID4, ConfigDict, Field
 
 from rhesis.backend.app.schemas import Base
 
@@ -31,20 +31,23 @@ class TestResult(TestResultBase):
     last_review: Optional[Dict[str, Any]] = None
     matches_review: bool = False
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Review schemas
 class ReviewTargetCreate(Base):
     type: str = Field(..., description="Type of target: 'test' or 'metric'")
-    reference: Optional[str] = Field(None, description="Reference name (metric name or null for test)")
+    reference: Optional[str] = Field(
+        None, description="Reference name (metric name or null for test)"
+    )
 
 
 class ReviewCreate(Base):
     status_id: UUID4 = Field(..., description="Status UUID for this review")
     comments: str = Field(..., description="Review comments")
-    target: ReviewTargetCreate = Field(..., description="Target of the review (test or specific metric)")
+    target: ReviewTargetCreate = Field(
+        ..., description="Target of the review (test or specific metric)"
+    )
 
 
 class ReviewUpdate(Base):

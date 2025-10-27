@@ -20,6 +20,9 @@ export default {
   "soft-deletion": {
     title: "Soft Deletion",
   },
+  "cascade-operations": {
+    title: "Cascade Operations",
+  },
   authentication: {
     title: "Authentication",
   },
@@ -37,6 +40,12 @@ export default {
   },
   "test-result-stats": {
     title: "Test Result Statistics",
+  },
+  "test-result-status": {
+    title: "Test Result Status",
+  },
+  "test-run-status": {
+    title: "Test Run Status",
   },
   "odata-guide": {
     title: "OData Query Guide",

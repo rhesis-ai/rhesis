@@ -94,11 +94,24 @@ start_docs() {
 # Function to start worker
 start_worker() {
     echo -e "${GREEN}⚙️  Starting Rhesis Worker...${NC}"
+    
+    # Kill any existing celery workers first
+    echo -e "${YELLOW}🔍 Checking for existing Celery workers...${NC}"
+    if pgrep -f celery > /dev/null; then
+        echo -e "${YELLOW}🛑 Stopping existing Celery workers...${NC}"
+        pkill -9 -f celery
+        sleep 1
+        echo -e "${GREEN}✅ Existing workers stopped${NC}"
+    else
+        echo -e "${BLUE}ℹ️  No existing workers found${NC}"
+    fi
+    
     cd "$SCRIPT_DIR/apps/backend" || {
         echo -e "${RED}❌ Error: Backend directory not found${NC}"
         exit 1
     }
 
+    echo -e "${GREEN}🚀 Starting new Celery worker...${NC}"
     celery -A rhesis.backend.worker worker --loglevel=DEBUG -Q celery,execution 2>&1 | tee celery.log
 }
 

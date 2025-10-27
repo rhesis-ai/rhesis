@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Dict, Optional
 
-from pydantic import UUID4, ConfigDict, BaseModel
+from pydantic import UUID4, BaseModel, ConfigDict
 
 from .base import Base
 from .status import Status
@@ -77,5 +77,4 @@ class Task(Base):
     # Entity relationships
     # comment_id is now stored in task_metadata
 
-    model_config = ConfigDict(
-from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)

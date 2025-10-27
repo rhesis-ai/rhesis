@@ -1,7 +1,7 @@
 """Test statistics functions for comprehensive test entity analysis."""
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Dict
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -194,9 +194,7 @@ def get_individual_test_stats(
     # Calculate overall summary
     total_executions = overall_stats["passed"] + overall_stats["failed"]
     pass_rate = (
-        round((overall_stats["passed"] / total_executions) * 100, 2)
-        if total_executions > 0
-        else 0
+        round((overall_stats["passed"] / total_executions) * 100, 2) if total_executions > 0 else 0
     )
     avg_execution_time = (
         round(sum(execution_times) / len(execution_times), 2) if execution_times else 0
@@ -216,7 +214,9 @@ def get_individual_test_stats(
 
     # Build recent runs list (sorted by timestamp, most recent first, limited)
     recent_runs = sorted(
-        test_run_results.values(), key=lambda x: x.get("_sort_timestamp") or datetime.min, reverse=True
+        test_run_results.values(),
+        key=lambda x: x.get("_sort_timestamp") or datetime.min,
+        reverse=True,
     )[:recent_runs_limit]
 
     # Remove internal sorting key from response
@@ -274,4 +274,3 @@ def _empty_individual_test_stats(
         "recent_runs": [],
         "metadata": metadata,
     }
-

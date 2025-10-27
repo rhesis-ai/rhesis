@@ -31,7 +31,8 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_type_lookup_id"), "type_lookup", ["id"], unique=True)
     op.add_column(
-        "category", sa.Column("entity_type_id", rhesis.backend.app.models.guid.GUID(), nullable=True)
+        "category",
+        sa.Column("entity_type_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
     )
     op.create_foreign_key(None, "category", "type_lookup", ["entity_type_id"], ["id"])
     op.drop_column("category", "entity_type")

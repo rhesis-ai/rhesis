@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import UUID4, Field, ConfigDict, field_validator, BaseModel
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from rhesis.backend.app.schemas import Base
 
@@ -9,34 +9,42 @@ from rhesis.backend.app.schemas import Base
 # User Settings schemas - use BaseModel instead of Base since these are not DB models
 class LLMModelSettings(BaseModel):
     """Settings for a specific LLM use case (generation or evaluation)"""
+
     model_id: Optional[UUID4] = Field(None, description="ID of the preferred Model")
-    fallback_model_id: Optional[UUID4] = Field(None, description="ID of fallback Model if primary fails")
+    fallback_model_id: Optional[UUID4] = Field(
+        None, description="ID of fallback Model if primary fails"
+    )
     temperature: Optional[float] = Field(None, ge=0.0, le=2.0, description="Temperature override")
     max_tokens: Optional[int] = Field(None, gt=0, description="Max tokens override")
 
 
 class ModelsSettings(BaseModel):
     """Model preferences and settings for different use cases"""
+
     generation: Optional[LLMModelSettings] = Field(
-        default_factory=LLMModelSettings,
-        description="Settings for test generation"
+        default_factory=LLMModelSettings, description="Settings for test generation"
     )
     evaluation: Optional[LLMModelSettings] = Field(
-        default_factory=LLMModelSettings,
-        description="Settings for LLM-as-judge evaluation"
+        default_factory=LLMModelSettings, description="Settings for LLM-as-judge evaluation"
     )
 
 
 class UISettings(BaseModel):
     """UI preferences"""
+
     theme: Optional[str] = Field(None, description="UI theme: 'light', 'dark', or 'auto'")
-    density: Optional[str] = Field(None, description="UI density: 'compact', 'comfortable', or 'spacious'")
+    density: Optional[str] = Field(
+        None, description="UI density: 'compact', 'comfortable', or 'spacious'"
+    )
     sidebar_collapsed: Optional[bool] = Field(None, description="Whether sidebar is collapsed")
-    default_page_size: Optional[int] = Field(None, gt=0, le=100, description="Default pagination size")
+    default_page_size: Optional[int] = Field(
+        None, gt=0, le=100, description="Default pagination size"
+    )
 
 
 class EmailNotificationSettings(BaseModel):
     """Email notification preferences"""
+
     test_run_complete: Optional[bool] = None
     test_failures: Optional[bool] = None
     weekly_summary: Optional[bool] = None
@@ -44,34 +52,41 @@ class EmailNotificationSettings(BaseModel):
 
 class InAppNotificationSettings(BaseModel):
     """In-app notification preferences"""
+
     test_run_complete: Optional[bool] = None
     mentions: Optional[bool] = None
 
 
 class NotificationSettings(BaseModel):
     """Notification preferences"""
+
     email: Optional[EmailNotificationSettings] = Field(default_factory=EmailNotificationSettings)
     in_app: Optional[InAppNotificationSettings] = Field(default_factory=InAppNotificationSettings)
 
 
 class LocalizationSettings(BaseModel):
     """Localization preferences"""
+
     language: Optional[str] = Field(None, description="Preferred language code (e.g., 'en', 'es')")
-    timezone: Optional[str] = Field(None, description="User timezone (e.g., 'UTC', 'America/New_York')")
+    timezone: Optional[str] = Field(
+        None, description="User timezone (e.g., 'UTC', 'America/New_York')"
+    )
     date_format: Optional[str] = Field(None, description="Preferred date format")
     time_format: Optional[str] = Field(None, description="Preferred time format: '12h' or '24h'")
 
 
 class PrivacySettings(BaseModel):
     """Privacy preferences"""
+
     show_email: Optional[bool] = Field(None, description="Show email to other users")
     show_activity: Optional[bool] = Field(None, description="Show activity status")
 
 
 class UserSettings(BaseModel):
     """Complete user settings schema"""
-    model_config = ConfigDict(extra='forbid')
-    
+
+    model_config = ConfigDict(extra="forbid")
+
     version: int = Field(1, description="Settings schema version")
     models: Optional[ModelsSettings] = Field(default_factory=ModelsSettings)
     ui: Optional[UISettings] = Field(default_factory=UISettings)
@@ -82,8 +97,9 @@ class UserSettings(BaseModel):
 
 class UserSettingsUpdate(BaseModel):
     """Schema for updating user settings (all fields optional for partial updates)"""
-    model_config = ConfigDict(extra='forbid')
-    
+
+    model_config = ConfigDict(extra="forbid")
+
     models: Optional[ModelsSettings] = None
     ui: Optional[UISettings] = None
     notifications: Optional[NotificationSettings] = None
@@ -104,8 +120,7 @@ class UserBase(Base):
     organization_id: Optional[UUID4] = None
     last_login_at: Optional[datetime] = None
     user_settings: Optional[UserSettings] = Field(
-        default_factory=lambda: UserSettings(version=1),
-        description="User preferences and settings"
+        default_factory=lambda: UserSettings(version=1), description="User preferences and settings"
     )
 
     @field_validator("email")

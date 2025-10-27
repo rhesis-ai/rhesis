@@ -84,12 +84,13 @@ class TestRecycleModelsEndpoint:
 class TestRecycleGetDeletedEndpoint:
     """Test the GET /recycle/{model_name} endpoint."""
 
-    def test_get_deleted_requires_superuser(
+    def test_get_deleted_accessible_to_all_users(
         self, authenticated_client: TestClient, test_db, test_org_id
     ):
-        """Test that getting deleted records requires superuser privileges."""
+        """Test that getting deleted records is accessible to all authenticated users."""
         response = authenticated_client.get("/recycle/behavior")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        # Should succeed (200) or return empty list, not 403
+        assert response.status_code == status.HTTP_200_OK
 
     def test_get_deleted_invalid_model_name(
         self, superuser_client: TestClient, test_db
@@ -225,10 +226,10 @@ class TestRecycleGetDeletedEndpoint:
 class TestRecycleRestoreEndpoint:
     """Test the POST /recycle/{model_name}/{item_id}/restore endpoint."""
 
-    def test_restore_requires_superuser(
+    def test_restore_accessible_to_all_users(
         self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
-        """Test that restoring requires superuser privileges."""
+        """Test that restoring is accessible to all authenticated users."""
         # Ensure the authenticated user is NOT a superuser for this test
         from rhesis.backend.app import crud
         user = crud.get_user_by_id(test_db, authenticated_user_id)
@@ -246,8 +247,9 @@ class TestRecycleRestoreEndpoint:
             test_db, models.Behavior, behavior.id, organization_id=test_org_id
         )
         
+        # Non-superuser can now restore (with org filtering for security)
         response = authenticated_client.post(f"/recycle/behavior/{behavior.id}/restore")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_200_OK
 
     def test_restore_invalid_model_name(
         self, superuser_client: TestClient, test_db
@@ -457,10 +459,10 @@ class TestRecyclePermanentDeleteEndpoint:
 class TestRecycleStatsEndpoint:
     """Test the GET /recycle/stats/counts endpoint."""
 
-    def test_stats_requires_superuser(
+    def test_stats_accessible_to_all_users(
         self, authenticated_client: TestClient, test_db, authenticated_user_id
     ):
-        """Test that stats endpoint requires superuser privileges."""
+        """Test that stats endpoint is accessible to all authenticated users."""
         # Ensure the authenticated user is NOT a superuser for this test
         from rhesis.backend.app import crud
         user = crud.get_user_by_id(test_db, authenticated_user_id)
@@ -469,7 +471,8 @@ class TestRecycleStatsEndpoint:
         test_db.refresh(user)
         
         response = authenticated_client.get("/recycle/stats/counts")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        # Non-superuser can now access stats (with org filtering for security)
+        assert response.status_code == status.HTTP_200_OK
 
     def test_stats_returns_counts(
         self, superuser_client: TestClient, test_db, test_org_id
@@ -505,15 +508,17 @@ class TestRecycleStatsEndpoint:
 class TestRecycleBulkRestoreEndpoint:
     """Test the POST /recycle/bulk-restore/{model_name} endpoint."""
 
-    def test_bulk_restore_requires_superuser(
+    def test_bulk_restore_accessible_to_all_users(
         self, authenticated_client: TestClient, test_db, test_org_id
     ):
-        """Test that bulk restore requires superuser privileges."""
+        """Test that bulk restore is accessible to all authenticated users."""
         response = authenticated_client.post(
             "/recycle/bulk-restore/behavior",
             json=[]
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        # Should return 400 for empty list, not 403
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "No item IDs provided" in response.json()["detail"]
 
     def test_bulk_restore_requires_item_ids(
         self, superuser_client: TestClient, test_db

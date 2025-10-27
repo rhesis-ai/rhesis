@@ -1,4 +1,5 @@
 ---
+description: This rules needs to apply when commiting to git.
 alwaysApply: false
 ---
 ## Pre-Commit Workflow

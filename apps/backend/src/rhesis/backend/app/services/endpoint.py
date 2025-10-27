@@ -26,7 +26,12 @@ class EndpointService:
         )
 
     def invoke_endpoint(
-        self, db: Session, endpoint_id: str, input_data: Dict[str, Any], organization_id: str = None
+        self,
+        db: Session,
+        endpoint_id: str,
+        input_data: Dict[str, Any],
+        organization_id: str = None,
+        user_id: str = None,
     ) -> Dict[str, Any]:
         """
         Invoke an endpoint with the given input data.
@@ -36,6 +41,7 @@ class EndpointService:
             endpoint_id: ID of the endpoint to invoke
             input_data: Input data to be mapped to the endpoint's request template
             organization_id: Organization ID for security filtering (CRITICAL)
+            user_id: User ID for context injection (CRITICAL - injected into headers, not from user input)
 
         Returns:
             Dict containing the mapped response from the endpoint
@@ -50,8 +56,16 @@ class EndpointService:
             # Create appropriate invoker based on protocol
             invoker = create_invoker(endpoint)
 
+            # Inject organization_id and user_id into input_data for context
+            # These are injected by the backend, NOT from user input (SECURITY CRITICAL)
+            enriched_input_data = input_data.copy()
+            if organization_id:
+                enriched_input_data["organization_id"] = organization_id
+            if user_id:
+                enriched_input_data["user_id"] = user_id
+
             # Invoke the endpoint
-            return invoker.invoke(db, endpoint, input_data)
+            return invoker.invoke(db, endpoint, enriched_input_data)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
@@ -73,12 +87,13 @@ class EndpointService:
             HTTPException: If endpoint is not found or not accessible
         """
         query = db.query(Endpoint).filter(Endpoint.id == endpoint_id)
-        
+
         # Apply organization filtering if provided (SECURITY CRITICAL)
         if organization_id:
             from uuid import UUID
+
             query = query.filter(Endpoint.organization_id == UUID(organization_id))
-        
+
         endpoint = query.first()
         if not endpoint:
             raise HTTPException(status_code=404, detail="Endpoint not found or not accessible")
@@ -154,7 +169,7 @@ if __name__ == "__main__":
             result = invoke(db, args.endpoint_id, input_data)
             # print("\nResponse:")
             # print(json.dumps(result, indent=2))
-            
+
             print(result.get("response", result))
     except Exception as e:
         print(f"\nError: {str(e)}")

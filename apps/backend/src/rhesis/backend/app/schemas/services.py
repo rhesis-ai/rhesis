@@ -67,8 +67,32 @@ class ExtractDocumentResponse(BaseModel):
 
 
 class GenerateContentRequest(BaseModel):
+    """Request for generating content with optional structured output.
+
+    The schema parameter should follow the OpenAI JSON Schema format for structured outputs.
+    This enables type-safe generation across different LLM providers.
+
+    Example:
+        {
+            "prompt": "Generate a user profile",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "email": {"type": "string"}
+                },
+                "required": ["name", "email"],
+                "additionalProperties": False
+            }
+        }
+    """
+
     prompt: str
-    schema_: Optional[Dict[str, Any]] = Field(None, alias="schema")
+    schema_: Optional[Dict[str, Any]] = Field(
+        None,
+        alias="schema",
+        description="Optional OpenAI JSON Schema for structured output validation",
+    )
 
 
 class TestConfigRequest(BaseModel):
@@ -85,4 +109,3 @@ class TestConfigResponse(BaseModel):
     behaviors: List[TestConfigItem]
     topics: List[TestConfigItem]
     categories: List[TestConfigItem]
-    scenarios: List[TestConfigItem]

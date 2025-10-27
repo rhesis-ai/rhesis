@@ -44,12 +44,13 @@ def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = Non
             joinedload(TestSet.prompts).joinedload(Prompt.user),
         )
     )
-    
+
     # Apply organization filtering if provided
     if organization_id:
         from uuid import UUID as UUIDType
+
         query = query.filter(TestSet.organization_id == UUIDType(organization_id))
-    
+
     return query.first()
 
 
@@ -151,69 +152,69 @@ def bulk_create_test_set(
         raise Exception(ERROR_BULK_CREATE_FAILED.format(entity="test set", error=validation_error))
 
     try:
-            # Convert dictionary to schema if needed
-            if isinstance(test_set_data, dict):
-                test_set_data = schemas.TestSetBulkCreate(**test_set_data)
+        # Convert dictionary to schema if needed
+        if isinstance(test_set_data, dict):
+            test_set_data = schemas.TestSetBulkCreate(**test_set_data)
 
-            # Get or create required relationships
-            test_set_status = get_or_create_status(
-                db=db,
-                name=defaults["test_set"]["status"],
-                entity_type=EntityType.GENERAL,
-                organization_id=organization_id, user_id=user_id,
-            )
+        # Get or create required relationships
+        test_set_status = get_or_create_status(
+            db=db,
+            name=defaults["test_set"]["status"],
+            entity_type=EntityType.GENERAL,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
 
-            license_type = get_or_create_type_lookup(
-                db=db,
-                type_name="LicenseType",
-                type_value=defaults["test_set"]["license_type"],
-                organization_id=organization_id,
-                user_id=user_id,
-            )
+        license_type = get_or_create_type_lookup(
+            db=db,
+            type_name="LicenseType",
+            type_value=defaults["test_set"]["license_type"],
+            organization_id=organization_id,
+            user_id=user_id,
+        )
 
-            # Sanitize UUID fields for test set
-            raw_owner_id = getattr(test_set_data, "owner_id", None)
-            raw_assignee_id = getattr(test_set_data, "assignee_id", None)
+        # Sanitize UUID fields for test set
+        raw_owner_id = getattr(test_set_data, "owner_id", None)
+        raw_assignee_id = getattr(test_set_data, "assignee_id", None)
 
-            # Create test set with minimal attributes
-            test_set = models.TestSet(
-                name=test_set_data.name,
-                description=test_set_data.description,
-                short_description=test_set_data.short_description,
-                status_id=test_set_status.id,
-                license_type_id=license_type.id,
-                user_id=user_id,
-                organization_id=organization_id,
-                owner_id=ensure_owner_id(raw_owner_id, user_id),
-                assignee_id=sanitize_uuid_field(raw_assignee_id),  # Sanitize assignee_id
-                priority=getattr(test_set_data, "priority", None)
-                or defaults["test_set"]["priority"],
-                visibility=defaults["test_set"]["visibility"],
-                attributes={},  # Will be updated after tests are created
-            )
+        # Create test set with minimal attributes
+        test_set = models.TestSet(
+            name=test_set_data.name,
+            description=test_set_data.description,
+            short_description=test_set_data.short_description,
+            status_id=test_set_status.id,
+            license_type_id=license_type.id,
+            user_id=user_id,
+            organization_id=organization_id,
+            owner_id=ensure_owner_id(raw_owner_id, user_id),
+            assignee_id=sanitize_uuid_field(raw_assignee_id),  # Sanitize assignee_id
+            priority=getattr(test_set_data, "priority", None) or defaults["test_set"]["priority"],
+            visibility=defaults["test_set"]["visibility"],
+            attributes={},  # Will be updated after tests are created
+        )
 
-            db.add(test_set)
-            db.flush()  # Get the test set ID
+        db.add(test_set)
+        db.flush()  # Get the test set ID
 
-            # Create tests and associate with test set
-            bulk_create_tests(
-                db=db,
-                tests_data=test_set_data.tests,
-                organization_id=organization_id,
-                user_id=user_id,
-                test_set_id=str(test_set.id),
-            )
+        # Create tests and associate with test set
+        bulk_create_tests(
+            db=db,
+            tests_data=test_set_data.tests,
+            organization_id=organization_id,
+            user_id=user_id,
+            test_set_id=str(test_set.id),
+        )
 
-            # Refresh test set to get all relationships
-            db.refresh(test_set)
+        # Refresh test set to get all relationships
+        db.refresh(test_set)
 
-            # Generate and update attributes
-            test_set.attributes = generate_test_set_attributes(
-                db=db, test_set=test_set, defaults=defaults, license_type=license_type
-            )
+        # Generate and update attributes
+        test_set.attributes = generate_test_set_attributes(
+            db=db, test_set=test_set, defaults=defaults, license_type=license_type
+        )
 
-            # Transaction commit/rollback is handled by the session context manager
-            return test_set
+        # Transaction commit/rollback is handled by the session context manager
+        return test_set
 
     except Exception as e:
         raise Exception(f"Failed to create test set: {str(e)}")
@@ -296,45 +297,49 @@ def create_test_set_associations(
         return error_response
 
     try:
-            # Validate test set exists AND belongs to the organization (SECURITY CRITICAL)
-            test_set = db.query(models.TestSet).filter(
+        # Validate test set exists AND belongs to the organization (SECURITY CRITICAL)
+        test_set = (
+            db.query(models.TestSet)
+            .filter(
                 models.TestSet.id == test_set_id,
-                models.TestSet.organization_id == UUID(organization_id)
-            ).first()
-            if not test_set:
-                error_response = {
-                    "success": False,
-                    "total_tests": 0,
-                    "message": ERROR_TEST_SET_NOT_FOUND.format(test_set_id=test_set_id),
-                }
-                logger.info(f"Test set not found, returning: {error_response}")
-                return error_response
-
-            logger.info("Test set found, calling bulk_create_test_set_associations")
-            # Create associations and get result
-            bulk_result = bulk_create_test_set_associations(
-                db=db,
-                test_ids=test_ids,
-                test_set_id=test_set_id,
-                organization_id=organization_id,
-                user_id=user_id,
+                models.TestSet.organization_id == UUID(organization_id),
             )
-            logger.info(f"Result from bulk_create_test_set_associations: {bulk_result}")
+            .first()
+        )
+        if not test_set:
+            error_response = {
+                "success": False,
+                "total_tests": 0,
+                "message": ERROR_TEST_SET_NOT_FOUND.format(test_set_id=test_set_id),
+            }
+            logger.info(f"Test set not found, returning: {error_response}")
+            return error_response
 
-            # If any associations were created, update test set attributes
-            if bulk_result["new_associations"] > 0:
-                logger.info("New associations created, updating test set attributes")
-                db.refresh(test_set)
-                test_set.attributes = generate_test_set_attributes(
-                    db=db,
-                    test_set=test_set,
-                    defaults=load_defaults(),
-                    license_type=test_set.license_type,
-                )
-                # Transaction commit is handled by the session context manager
+        logger.info("Test set found, calling bulk_create_test_set_associations")
+        # Create associations and get result
+        bulk_result = bulk_create_test_set_associations(
+            db=db,
+            test_ids=test_ids,
+            test_set_id=test_set_id,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        logger.info(f"Result from bulk_create_test_set_associations: {bulk_result}")
 
-            logger.info(f"Returning final result: {bulk_result}")
-            return bulk_result
+        # If any associations were created, update test set attributes
+        if bulk_result["new_associations"] > 0:
+            logger.info("New associations created, updating test set attributes")
+            db.refresh(test_set)
+            test_set.attributes = generate_test_set_attributes(
+                db=db,
+                test_set=test_set,
+                defaults=load_defaults(),
+                license_type=test_set.license_type,
+            )
+            # Transaction commit is handled by the session context manager
+
+        logger.info(f"Returning final result: {bulk_result}")
+        return bulk_result
 
     except Exception as e:
         error_response = {
@@ -371,49 +376,53 @@ def remove_test_set_associations(
         }
 
     try:
-            # Get test set and verify it exists AND belongs to the organization (SECURITY CRITICAL)
-            test_set = db.query(models.TestSet).filter(
+        # Get test set and verify it exists AND belongs to the organization (SECURITY CRITICAL)
+        test_set = (
+            db.query(models.TestSet)
+            .filter(
                 models.TestSet.id == test_set_id,
-                models.TestSet.organization_id == UUID(organization_id)
-            ).first()
-            if not test_set:
-                return {
-                    "success": False,
-                    "total_tests": 0,
-                    "removed_associations": 0,
-                    "message": ERROR_TEST_SET_NOT_FOUND.format(test_set_id=test_set_id),
-                }
-
-            # Remove associations
-            result = db.execute(
-                test_test_set_association.delete().where(
-                    test_test_set_association.c.test_set_id == test_set_id,
-                    test_test_set_association.c.test_id.in_(test_ids),
-                    test_test_set_association.c.organization_id == organization_id,
-                )
+                models.TestSet.organization_id == UUID(organization_id),
             )
-
-            removed_count = result.rowcount
-
-            # Refresh test set to get updated relationships
-            db.refresh(test_set)
-
-            # Update attributes
-            test_set.attributes = generate_test_set_attributes(
-                db=db,
-                test_set=test_set,
-                defaults=load_defaults(),
-                license_type=test_set.license_type,
-            )
-
-            # Transaction commit is handled by the session context manager
-
+            .first()
+        )
+        if not test_set:
             return {
-                "success": True,
-                "total_tests": len(test_ids),
-                "removed_associations": removed_count,
-                "message": f"Successfully removed {removed_count} test associations",
+                "success": False,
+                "total_tests": 0,
+                "removed_associations": 0,
+                "message": ERROR_TEST_SET_NOT_FOUND.format(test_set_id=test_set_id),
             }
+
+        # Remove associations
+        result = db.execute(
+            test_test_set_association.delete().where(
+                test_test_set_association.c.test_set_id == test_set_id,
+                test_test_set_association.c.test_id.in_(test_ids),
+                test_test_set_association.c.organization_id == organization_id,
+            )
+        )
+
+        removed_count = result.rowcount
+
+        # Refresh test set to get updated relationships
+        db.refresh(test_set)
+
+        # Update attributes
+        test_set.attributes = generate_test_set_attributes(
+            db=db,
+            test_set=test_set,
+            defaults=load_defaults(),
+            license_type=test_set.license_type,
+        )
+
+        # Transaction commit is handled by the session context manager
+
+        return {
+            "success": True,
+            "total_tests": len(test_ids),
+            "removed_associations": removed_count,
+            "message": f"Successfully removed {removed_count} test associations",
+        }
 
     except Exception as e:
         return {
@@ -457,8 +466,11 @@ def update_test_set_attributes(db: Session, test_set_id: str) -> None:
     # Get defaults and license type - use test_set's organization context
     defaults = load_defaults()
     license_type = get_or_create_type_lookup(
-        db=db, type_name="LicenseType", type_value=defaults["test_set"]["license_type"],
-        organization_id=str(test_set.organization_id), user_id=str(test_set.user_id)
+        db=db,
+        type_name="LicenseType",
+        type_value=defaults["test_set"]["license_type"],
+        organization_id=str(test_set.organization_id),
+        user_id=str(test_set.user_id),
     )
 
     # Regenerate attributes
@@ -513,14 +525,21 @@ def execute_test_set_on_endpoint(
 
     # Resolve test set
     logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
-    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=str(current_user.organization_id))
+    db_test_set = crud.resolve_test_set(
+        test_set_identifier, db, organization_id=str(current_user.organization_id)
+    )
     if db_test_set is None:
         raise ValueError(f"Test Set not found with identifier: {test_set_identifier}")
     logger.info(f"Successfully resolved test set: {db_test_set.name} (ID: {db_test_set.id})")
 
     # Verify endpoint exists
     logger.debug(f"Verifying endpoint exists: {endpoint_id}")
-    db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id, organization_id=str(current_user.organization_id), user_id=str(current_user.id))
+    db_endpoint = crud.get_endpoint(
+        db,
+        endpoint_id=endpoint_id,
+        organization_id=str(current_user.organization_id),
+        user_id=str(current_user.id),
+    )
     if not db_endpoint:
         raise ValueError(f"Endpoint not found: {endpoint_id}")
     logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
@@ -530,7 +549,13 @@ def execute_test_set_on_endpoint(
 
     # Create test configuration
     test_config_id = _create_test_configuration(
-        db, endpoint_id, db_test_set.id, current_user, test_configuration_attributes, organization_id, user_id
+        db,
+        endpoint_id,
+        db_test_set.id,
+        current_user,
+        test_configuration_attributes,
+        organization_id,
+        user_id,
     )
 
     # Submit for execution
@@ -616,10 +641,7 @@ def _create_test_configuration(
 
     # Create the test configuration
     db_test_config = crud.create_test_configuration(
-        db=db, 
-        test_configuration=test_config, 
-        organization_id=organization_id, 
-        user_id=user_id
+        db=db, test_configuration=test_config, organization_id=organization_id, user_id=user_id
     )
     # Access the ID immediately while we're still in the same transaction context
     # This avoids any potential session expiration or RLS context issues

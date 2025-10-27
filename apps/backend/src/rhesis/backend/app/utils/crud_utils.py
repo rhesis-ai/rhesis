@@ -11,8 +11,10 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.constants import EntityType
+
 # Removed unused imports - legacy tenant functions no longer needed
 from rhesis.backend.app.models import Behavior, Category, Status, Topic, TypeLookup
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.model_utils import QueryBuilder
 from rhesis.backend.logging import logger
 
@@ -81,12 +83,17 @@ def _auto_populate_tenant_fields(
     """
     columns = inspect(model).columns.keys()
     populated_data = item_data.copy()
-    
+
     # Auto-populate organization_id (direct - no DB queries, no session variables!)
     if (
         "organization_id" in columns
         and not populated_data.get("organization_id")
-        and organization_id and (isinstance(organization_id, str) and organization_id.strip() or not isinstance(organization_id, str))
+        and organization_id
+        and (
+            isinstance(organization_id, str)
+            and organization_id.strip()
+            or not isinstance(organization_id, str)
+        )
     ):
         try:
             # Handle both UUID objects and string IDs
@@ -95,11 +102,16 @@ def _auto_populate_tenant_fields(
             else:
                 org_uuid = UUID(organization_id)
             populated_data["organization_id"] = org_uuid
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError):
             pass
-    
+
     # Auto-populate user_id (direct - no DB queries, no session variables!)
-    if "user_id" in columns and not populated_data.get("user_id") and user_id and (isinstance(user_id, str) and user_id.strip() or not isinstance(user_id, str)):
+    if (
+        "user_id" in columns
+        and not populated_data.get("user_id")
+        and user_id
+        and (isinstance(user_id, str) and user_id.strip() or not isinstance(user_id, str))
+    ):
         try:
             # Handle both UUID objects and string IDs
             if isinstance(user_id, uuid.UUID):
@@ -107,9 +119,9 @@ def _auto_populate_tenant_fields(
             else:
                 user_uuid = UUID(user_id)
             populated_data["user_id"] = user_uuid
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError):
             pass
-    
+
     return populated_data
 
 
@@ -159,7 +171,7 @@ def _create_db_item_with_transaction(
     db.flush()  # Flush to get the ID and other generated values
     db.refresh(db_item)  # Refresh to ensure we have all generated values
 
-    # Note: commit parameter is kept for backward compatibility but transaction 
+    # Note: commit parameter is kept for backward compatibility but transaction
     # management is now handled by get_db_with_tenant_variables() context manager
 
     return db_item
@@ -168,6 +180,80 @@ def _create_db_item_with_transaction(
 # ============================================================================
 # Core CRUD Operations
 # ============================================================================
+
+
+def _check_and_raise_if_deleted(
+    item: Optional[T],
+    model: Type[T],
+    item_id: uuid.UUID,
+    include_deleted: bool = False,
+) -> Optional[T]:
+    """
+    Helper function to check if an item is soft-deleted and raise exception if needed.
+
+    Args:
+        item: The item to check (or None if not found)
+        model: SQLAlchemy model class (for exception message)
+        item_id: ID of the item (for exception message)
+        include_deleted: If True, don't raise exception for deleted items
+
+    Returns:
+        The item if it exists and is not deleted, or if include_deleted is True
+        None if item doesn't exist
+
+    Raises:
+        ItemDeletedException: If item is soft-deleted and include_deleted is False
+    """
+    # If item doesn't exist at all, return None
+    if item is None:
+        return None
+
+    # If item exists but is deleted, and we're not including deleted
+    if not include_deleted and hasattr(item, "deleted_at") and item.deleted_at is not None:
+        model_name = model.__name__ if hasattr(model, "__name__") else str(model)
+        table_name = getattr(model, "__tablename__", model_name.lower())
+
+        # Try to get the item's name or title for better UX
+        item_name = None
+        if hasattr(item, "name") and item.name:
+            item_name = item.name
+        elif hasattr(item, "title") and item.title:
+            item_name = item.title
+
+        raise ItemDeletedException(model_name, str(item_id), table_name, item_name)
+
+    # Return the item (either active, or deleted but include_deleted=True)
+    return item
+
+
+def _check_and_raise_if_not_found(
+    item: Optional[T],
+    model: Type[T],
+    item_id: uuid.UUID,
+    raise_if_none: bool = True,
+) -> Optional[T]:
+    """
+    Helper function to check if an item exists and raise 404 exception if not found.
+
+    Args:
+        item: The item to check (or None if not found)
+        model: SQLAlchemy model class (for exception message)
+        item_id: ID of the item (for exception message)
+        raise_if_none: If True, raise exception when item is None (default: True)
+
+    Returns:
+        The item if it exists
+        None if item doesn't exist and raise_if_none is False
+
+    Raises:
+        ItemNotFoundException: If item is None and raise_if_none is True
+    """
+    if item is None and raise_if_none:
+        model_name = model.__name__ if hasattr(model, "__name__") else str(model)
+        table_name = getattr(model, "__tablename__", model_name.lower())
+        raise ItemNotFoundException(model_name, str(item_id), table_name)
+
+    return item
 
 
 def get_item(
@@ -186,7 +272,7 @@ def get_item(
     - No SET LOCAL commands needed
     - No SHOW queries during retrieval
     - Direct tenant context injection
-    
+
     Args:
         db: Database session
         model: SQLAlchemy model class
@@ -194,21 +280,24 @@ def get_item(
         organization_id: Organization ID for filtering
         user_id: User ID for filtering
         include_deleted: If True, include soft-deleted records (default: False)
-    
+
     Returns:
         Item or None if not found
+
+    Raises:
+        ItemDeletedException: If item is soft-deleted and include_deleted is False
     """
-    builder = QueryBuilder(db, model)
-    
-    if include_deleted:
-        builder = builder.with_deleted()
-    
-    return (
-        builder
+    # Always check with deleted items first to differentiate not-found vs deleted
+    item = (
+        QueryBuilder(db, model)
+        .with_deleted()  # Always include deleted to check status
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
     )
+
+    # Use helper to check deletion status and raise exception if needed
+    return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
 
 
 def get_item_detail(
@@ -217,6 +306,7 @@ def get_item_detail(
     item_id: uuid.UUID,
     organization_id: str = None,
     user_id: str = None,
+    include_deleted: bool = False,
 ) -> Optional[T]:
     """
     Get a single item with all relationships loaded using optimized approach - no session variables needed.
@@ -227,14 +317,33 @@ def get_item_detail(
     - No SHOW queries during retrieval
     - Direct tenant context injection
     - Uses selectinload for many-to-many relationships to avoid cartesian products
+
+    Args:
+        db: Database session
+        model: SQLAlchemy model class
+        item_id: ID of the item to retrieve
+        organization_id: Organization ID for filtering
+        user_id: User ID for filtering
+        include_deleted: If True, include soft-deleted records (default: False)
+
+    Returns:
+        Item with relationships loaded or None if not found
+
+    Raises:
+        ItemDeletedException: If item is soft-deleted and include_deleted is False
     """
-    return (
+    # Always check with deleted items first to differentiate not-found vs deleted
+    item = (
         QueryBuilder(db, model)
+        .with_deleted()  # Always include deleted to check status
         .with_optimized_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
     )
+
+    # Use helper to check deletion status and raise exception if needed
+    return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
 
 
 def get_items(
@@ -334,20 +443,20 @@ def create_item(
 
     Returns:
         Created database item
-        
+
     Raises:
         ValueError: If organization_id or user_id is required but not provided
     """
     # Check if model has organization_id field and it's required
     columns = inspect(model).columns.keys()
     model_name = model.__name__
-    
+
     # Skip validation for models that don't require organization context
-    exempt_models = ['User', 'Organization', 'Token']
+    exempt_models = ["User", "Organization", "Token"]
     if model_name not in exempt_models:
         if "organization_id" in columns and not organization_id:
             raise ValueError(f"organization_id is required for creating {model_name}")
-    
+
     # Prepare data for creation using direct tenant context
     prepared_data = _prepare_item_data(model, item_data, organization_id, user_id)
 
@@ -382,16 +491,16 @@ def update_item(
 
     Returns:
         Updated database item or None if not found
-        
+
     Raises:
         ValueError: If organization_id or user_id is required but not provided
     """
     # Check if model has organization_id field and it's required
     columns = inspect(model).columns.keys()
     model_name = model.__name__
-    
+
     # Skip validation for models that don't require organization context
-    exempt_models = ['User', 'Organization', 'Token']
+    exempt_models = ["User", "Organization", "Token"]
     if model_name not in exempt_models:
         if "organization_id" in columns and not organization_id:
             raise ValueError(f"organization_id is required for updating {model_name}")
@@ -413,7 +522,9 @@ def update_item(
                     update_data["organization_id"] = organization_id
                 else:
                     update_data["organization_id"] = UUID(organization_id)
-                logger.debug(f"update_item - Auto-populating organization_id: '{organization_id}' for update")
+                logger.debug(
+                    f"update_item - Auto-populating organization_id: '{organization_id}' for update"
+                )
             except (ValueError, TypeError) as e:
                 logger.debug(
                     f"update_item - Invalid organization_id: {organization_id}, error: {e}"
@@ -441,7 +552,7 @@ def update_item(
     # Transaction commit is handled by the session context manager
     db.flush()
     db.refresh(db_item)
-    
+
     return db_item
 
 
@@ -459,11 +570,15 @@ def delete_item(
     out from normal queries. Use restore_item() to restore it.
     For permanent deletion, use hard_delete_item().
 
+    Automatically cascades to configured child relationships (see config/cascade_config.py).
+    For example, deleting a TestRun will automatically soft delete all its TestResults.
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
     - No SHOW queries during deletion
     - Direct tenant context injection
+    - Bulk UPDATE for cascade operations
 
     Args:
         db: Database session
@@ -474,20 +589,29 @@ def delete_item(
 
     Returns:
         Soft-deleted database item or None if not found
-        
+
     Raises:
         ValueError: If organization_id or user_id is required but not provided
     """
+    from rhesis.backend.app.services import cascade as cascade_service
+
     item = get_item(db, model, item_id, organization_id, user_id)
-    
+
     if not item:
         return None
-    
-    # Soft delete using the model's method
-    item.soft_delete()
-    db.commit()
-    
-    return item
+
+    try:
+        # Automatically cascade soft delete to configured child relationships
+        cascade_service.cascade_soft_delete(db, model, item_id, organization_id)
+
+        # Soft delete the parent item using the model's method
+        item.soft_delete()
+        db.commit()
+
+        return item
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_deleted_items(
@@ -502,7 +626,7 @@ def get_deleted_items(
 ) -> List[T]:
     """
     Get only soft-deleted items.
-    
+
     Args:
         db: Database session
         model: SQLAlchemy model class
@@ -512,7 +636,7 @@ def get_deleted_items(
         sort_order: Sort order (default: desc)
         organization_id: Organization ID for filtering
         user_id: User ID for filtering
-    
+
     Returns:
         List of soft-deleted items
     """
@@ -536,25 +660,39 @@ def restore_item(
 ) -> Optional[T]:
     """
     Restore a soft-deleted item.
-    
+
+    Automatically cascades to configured child relationships (see config/cascade_config.py).
+    For example, restoring a TestRun will automatically restore all its TestResults.
+
     Args:
         db: Database session
         model: SQLAlchemy model class
         item_id: ID of the item to restore
         organization_id: Organization ID for filtering
         user_id: User ID for filtering
-    
+
     Returns:
         Restored item or None if not found
     """
+    from rhesis.backend.app.services import cascade as cascade_service
+
     # Get the item, including deleted ones
     item = get_item(db, model, item_id, organization_id, user_id, include_deleted=True)
-    
+
     if item and item.deleted_at:
-        item.restore()
-        db.commit()
-        db.refresh(item)
-    
+        try:
+            # Restore the parent item
+            item.restore()
+
+            # Automatically cascade restore to configured child relationships
+            cascade_service.cascade_restore(db, model, item_id, organization_id)
+
+            db.commit()
+            db.refresh(item)
+        except Exception:
+            db.rollback()
+            raise
+
     return item
 
 
@@ -567,34 +705,40 @@ def hard_delete_item(
 ) -> bool:
     """
     Permanently delete an item from the database.
-    
+
     WARNING: This cannot be undone. Use with caution.
-    
+
     Args:
         db: Database session
         model: SQLAlchemy model class
         item_id: ID of the item to delete
         organization_id: Organization ID for filtering
         user_id: User ID for filtering
-    
+
     Returns:
         True if deleted, False if not found
     """
     # Get item including deleted ones
     item = get_item(db, model, item_id, organization_id, user_id, include_deleted=True)
-    
+
     if not item:
         return False
-    
+
     db.delete(item)
     db.commit()
     return True
 
 
-def count_items(db: Session, model: Type[T], filter: str = None, organization_id: str = None, user_id: str = None) -> int:
+def count_items(
+    db: Session,
+    model: Type[T],
+    filter: str = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> int:
     """
     Get the total count of items matching filters (without pagination) using optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -658,7 +802,12 @@ def _build_search_filters_for_model(model: Type[T], search_data: Dict[str, Any])
 
 
 def get_or_create_entity(
-    db: Session, model: Type[T], entity_data: Union[Dict[str, Any], BaseModel], organization_id: str = None, user_id: str = None, commit: bool = True
+    db: Session,
+    model: Type[T],
+    entity_data: Union[Dict[str, Any], BaseModel],
+    organization_id: str = None,
+    user_id: str = None,
+    commit: bool = True,
 ) -> T:
     """
     Get or create an entity based on identifying fields using optimized approach - no session variables needed.
@@ -687,7 +836,9 @@ def get_or_create_entity(
     search_data = _convert_pydantic_to_dict(entity_data)
 
     # Build base query with direct tenant context
-    query = QueryBuilder(db, model).with_organization_filter(organization_id).with_visibility_filter()
+    query = (
+        QueryBuilder(db, model).with_organization_filter(organization_id).with_visibility_filter()
+    )
 
     # Try to find by ID first if provided
     if "id" in search_data and search_data["id"]:
@@ -717,14 +868,27 @@ def get_or_create_entity(
 # ============================================================================
 
 
-def get_or_create_status(db: Session, name: str, entity_type, description: str = None, organization_id: str = None, user_id: str = None, commit: bool = True) -> Status:
+def get_or_create_status(
+    db: Session,
+    name: str,
+    entity_type,
+    description: str = None,
+    organization_id: str = None,
+    user_id: str = None,
+    commit: bool = True,
+) -> Status:
     """Get or create a status with the specified name, entity type, and optional description using optimized approach - no session variables needed."""
     # Handle EntityType enum or string
     entity_type_value = entity_type.value if hasattr(entity_type, "value") else entity_type
 
     # Get or create the entity type lookup
     entity_type_lookup = get_or_create_type_lookup(
-        db=db, type_name="EntityType", type_value=entity_type_value, organization_id=organization_id, user_id=user_id, commit=commit
+        db=db,
+        type_name="EntityType",
+        type_value=entity_type_value,
+        organization_id=organization_id,
+        user_id=user_id,
+        commit=commit,
     )
 
     # Try to find existing status
@@ -743,7 +907,7 @@ def get_or_create_status(db: Session, name: str, entity_type, description: str =
 
     # Prepare status data
     status_data = {"name": name, "entity_type_id": entity_type_lookup.id}
-    
+
     # Add description only if provided
     if description is not None:
         status_data["description"] = description
@@ -760,7 +924,12 @@ def get_or_create_status(db: Session, name: str, entity_type, description: str =
 
 
 def get_or_create_type_lookup(
-    db: Session, type_name: str, type_value: str, organization_id: str = None, user_id: str = None, commit: bool = True
+    db: Session,
+    type_name: str,
+    type_value: str,
+    organization_id: str = None,
+    user_id: str = None,
+    commit: bool = True,
 ) -> TypeLookup:
     """Get or create a type lookup with the specified type_name and type_value using optimized approach - no session variables needed."""
     logger.debug(
@@ -828,16 +997,24 @@ def get_or_create_topic(
     # Add entity type if provided
     if entity_type:
         entity_type_lookup = get_or_create_type_lookup(
-            db=db, type_name="EntityType", type_value=entity_type, 
-            organization_id=organization_id, user_id=user_id, commit=commit
+            db=db,
+            type_name="EntityType",
+            type_value=entity_type,
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=commit,
         )
         topic_data["entity_type_id"] = entity_type_lookup.id
 
     # Add status if provided
     if status:
         status_obj = get_or_create_status(
-            db=db, name=status, entity_type=EntityType.GENERAL, 
-            organization_id=organization_id, user_id=user_id, commit=commit
+            db=db,
+            name=status,
+            entity_type=EntityType.GENERAL,
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=commit,
         )
         topic_data["status_id"] = status_obj.id
 
@@ -866,21 +1043,31 @@ def get_or_create_category(
     # Add entity type if provided
     if entity_type:
         entity_type_lookup = get_or_create_type_lookup(
-            db=db, type_name="EntityType", type_value=entity_type, 
-            organization_id=organization_id, user_id=user_id, commit=commit
+            db=db,
+            type_name="EntityType",
+            type_value=entity_type,
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=commit,
         )
         category_data["entity_type_id"] = entity_type_lookup.id
 
     # Add status if provided
     if status:
         status_obj = get_or_create_status(
-            db=db, name=status, entity_type=EntityType.GENERAL, 
-            organization_id=organization_id, user_id=user_id, commit=commit
+            db=db,
+            name=status,
+            entity_type=EntityType.GENERAL,
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=commit,
         )
         category_data["status_id"] = status_obj.id
 
     # Use get_or_create_entity for consistent lookup logic
-    return get_or_create_entity(db, Category, category_data, organization_id, user_id, commit=commit)
+    return get_or_create_entity(
+        db, Category, category_data, organization_id, user_id, commit=commit
+    )
 
 
 def get_or_create_behavior(
@@ -903,10 +1090,16 @@ def get_or_create_behavior(
     # Add status if provided
     if status:
         status_obj = get_or_create_status(
-            db=db, name=status, entity_type=EntityType.GENERAL, 
-            organization_id=organization_id, user_id=user_id, commit=commit
+            db=db,
+            name=status,
+            entity_type=EntityType.GENERAL,
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=commit,
         )
         behavior_data["status_id"] = status_obj.id
 
     # Use get_or_create_entity for consistent lookup logic
-    return get_or_create_entity(db, Behavior, behavior_data, organization_id, user_id, commit=commit)
+    return get_or_create_entity(
+        db, Behavior, behavior_data, organization_id, user_id, commit=commit
+    )

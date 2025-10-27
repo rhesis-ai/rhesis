@@ -46,7 +46,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.database import SessionLocal
 from rhesis.backend.app.models.metric import Metric
 from rhesis.backend.app.models.test import Test
 
@@ -140,8 +139,10 @@ def run_metric_test(
 
     try:
         with get_db() as db_session:
-            print(f"🔑 Using database session with direct tenant context: org={organization_id}, user={user_id}")
-            
+            print(
+                f"🔑 Using database session with direct tenant context: org={organization_id}, user={user_id}"
+            )
+
             return _execute_metric_test(
                 db_session=db_session,
                 mock_user=mock_user,
@@ -176,21 +177,20 @@ def _execute_metric_test(
 ) -> dict:
     """Execute the metric test with the provided database session."""
     try:
-
         # Load test data if test_id is provided
         if test_id:
             print(f"🧪 Loading test data: {test_id}")
             test_model = load_test_from_db(db_session, test_id)
 
             if not test_model:
-                    print(f"❌ Test not found: {test_id}")
-                    print("💡 Available tests:")
-                    tests = db_session.query(Test).limit(5).all()
-                    for t in tests:
-                        print(
-                            f"   - {t.nano_id}: {t.prompt.content[:50] if t.prompt else 'No prompt'}..."
-                        )
-                    return {"error": f"Test not found: {test_id}"}
+                print(f"❌ Test not found: {test_id}")
+                print("💡 Available tests:")
+                tests = db_session.query(Test).limit(5).all()
+                for t in tests:
+                    print(
+                        f"   - {t.nano_id}: {t.prompt.content[:50] if t.prompt else 'No prompt'}..."
+                    )
+                return {"error": f"Test not found: {test_id}"}
 
             # Extract test data
             test_input, test_expected, test_context = extract_test_data(test_model)
