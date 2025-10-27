@@ -10,7 +10,7 @@ from rhesis.sdk.metrics.base import (
 )
 from rhesis.sdk.metrics.providers.native.numeric_judge import (
     NumericJudge,
-    PromptMetricNumericConfig,
+    NumericJudgeConfig,
 )
 
 
@@ -44,32 +44,32 @@ def test_numeric_judge__init__(metric):
 
 
 def test_validate_score_range():
-    PromptMetricNumericConfig(min_score=1, max_score=10)
+    NumericJudgeConfig(min_score=1, max_score=10)
 
     with pytest.raises(ValueError):
-        PromptMetricNumericConfig(min_score=1, max_score=None)
+        NumericJudgeConfig(min_score=1, max_score=None)
     with pytest.raises(ValueError):
-        PromptMetricNumericConfig(min_score=None, max_score=1)
+        NumericJudgeConfig(min_score=None, max_score=1)
     with pytest.raises(ValueError):
-        PromptMetricNumericConfig(min_score=1, max_score=1)
+        NumericJudgeConfig(min_score=1, max_score=1)
 
     with pytest.raises(ValueError):
-        PromptMetricNumericConfig(min_score=10, max_score=1)
+        NumericJudgeConfig(min_score=10, max_score=1)
 
 
 def test_set_score_parameters():
-    config = PromptMetricNumericConfig(min_score=1, max_score=10, threshold=5)
+    config = NumericJudgeConfig(min_score=1, max_score=10, threshold=5)
     assert config.min_score == 1
     assert config.max_score == 10
     assert config.threshold == 5
 
-    config = PromptMetricNumericConfig(min_score=1, max_score=10, threshold=None)
+    config = NumericJudgeConfig(min_score=1, max_score=10, threshold=None)
     assert config.min_score == 1
     assert config.max_score == 10
     assert config.threshold == 5.5
 
     with pytest.raises(ValueError):
-        PromptMetricNumericConfig(min_score=1, max_score=10, threshold=11)
+        NumericJudgeConfig(min_score=1, max_score=10, threshold=11)
 
 
 def test_evaluate_score(metric):

@@ -5,7 +5,7 @@ import pytest
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.categorical_judge import (
     CategoricalJudge,
-    PromptMetricCategoricalConfig,
+    CategoricalJudgeConfig,
 )
 
 
@@ -36,7 +36,7 @@ def test_categorical_judge__init__(metric):
 
 
 def test_validate_categories():
-    config = PromptMetricCategoricalConfig(
+    config = CategoricalJudgeConfig(
         categories=["test_category1", "test_category2"],
         passing_categories="test_category1",
     )
@@ -48,7 +48,7 @@ def test_validate_categories():
 
 
 def test_validate_passing_categories(metric):
-    config = PromptMetricCategoricalConfig(
+    config = CategoricalJudgeConfig(
         categories=["test_category1", "test_category2"],
         passing_categories="test_category1",
     )
@@ -60,7 +60,7 @@ def test_validate_passing_categories(metric):
 
 
 def test_normalize_passing_categories(metric):
-    config = PromptMetricCategoricalConfig(
+    config = CategoricalJudgeConfig(
         categories=["test_category1", "test_category2"],
         passing_categories="test_category1",
     )
@@ -68,7 +68,7 @@ def test_normalize_passing_categories(metric):
 
 
 def test_validate_passing_categories_subset(metric):
-    config = PromptMetricCategoricalConfig(
+    config = CategoricalJudgeConfig(
         categories=["test_category1", "test_category2"],
         passing_categories="test_category1",
     )

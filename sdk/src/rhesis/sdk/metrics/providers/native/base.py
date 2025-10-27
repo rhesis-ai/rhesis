@@ -19,7 +19,7 @@ T = TypeVar("T", bound="JudgeBase")
 
 
 @dataclass
-class PromptMetricConfig(MetricConfig):
+class JudgeConfig(MetricConfig):
     evaluation_prompt: Optional[str] = None
     evaluation_steps: Optional[str] = None
     reasoning: Optional[str] = None
@@ -35,7 +35,7 @@ class JudgeBase(BaseMetric):
     Uses LLM to perform evaluation based on provided evaluation criteria.
     """
 
-    def __init__(self, config: PromptMetricConfig, model: Optional[Union[BaseLLM, str]] = None):
+    def __init__(self, config: JudgeConfig, model: Optional[Union[BaseLLM, str]] = None):
         self.config = config
         super().__init__(config=self.config, model=model)
         self.evaluation_prompt = self.config.evaluation_prompt
