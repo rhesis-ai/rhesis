@@ -822,12 +822,39 @@ def delete_status(
 def get_source(
     db: Session,
     source_id: uuid.UUID,
-    include: str = None,
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Source]:
-    """Get source with optimized approach - no session variables needed."""
-    return get_item(db, models.Source, source_id, organization_id, user_id, include=include)
+    """Get source with optimized approach - no session variables needed.
+
+    Note: Content field is deferred and will not be loaded unless explicitly requested.
+    Use get_source_with_content() to load the content field.
+    """
+    return get_item(db, models.Source, source_id, organization_id, user_id)
+
+
+def get_source_with_content(
+    db: Session,
+    source_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
+    include_deleted: bool = False,
+) -> Optional[models.Source]:
+    """Get source with content field explicitly loaded.
+
+    This uses get_item_with_deferred from crud_utils to load the deferred content field.
+    """
+    from rhesis.backend.app.utils.crud_utils import get_item_with_deferred
+
+    return get_item_with_deferred(
+        db=db,
+        model=models.Source,
+        item_id=source_id,
+        deferred_fields=["content"],
+        organization_id=organization_id,
+        user_id=user_id,
+        include_deleted=include_deleted,
+    )
 
 
 def get_sources(
@@ -837,10 +864,14 @@ def get_sources(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    include: str = None,
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Source]:
+    """Get sources with optimized approach - no session variables needed.
+
+    Note: Content field is deferred and will not be loaded.
+    Use get_source_with_content() for individual sources that need content.
+    """
     return get_items(
         db,
         models.Source,
@@ -849,7 +880,6 @@ def get_sources(
         sort_by,
         sort_order,
         filter,
-        include=include,
         organization_id=organization_id,
         user_id=user_id,
     )
