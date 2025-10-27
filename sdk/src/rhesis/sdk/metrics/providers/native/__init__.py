@@ -1,12 +1,12 @@
 """Rhesis custom metrics implementations."""
 
-from .factory import RhesisMetricFactory
 from .categorical_judge import (
     CategoricalJudge,
 )
+from .factory import RhesisMetricFactory
 from .numeric_judge import (
-    NumericScoreResponse,
     NumericJudge,
+    NumericScoreResponse,
 )
 
 __all__ = [
