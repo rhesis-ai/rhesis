@@ -95,6 +95,8 @@ export interface TestSet {
     comments: number;
     tasks: number;
   };
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface TestSetCreate {
