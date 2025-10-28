@@ -244,7 +244,16 @@ async def generate_tests_endpoint(
                 user_id=user_id,
             )
 
-        test_cases = await generate_tests(db, current_user, prompt, num_tests, sources_sdk)
+        test_cases = await generate_tests(
+            db,
+            current_user,
+            prompt,
+            num_tests,
+            sources_sdk,
+            chip_states=chip_states,
+            rated_samples=rated_samples,
+            previous_messages=previous_messages,
+        )
         return {"tests": test_cases}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
