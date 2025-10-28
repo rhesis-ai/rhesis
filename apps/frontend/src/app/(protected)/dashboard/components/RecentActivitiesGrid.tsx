@@ -28,36 +28,11 @@ const recentActivitiesColumns: GridColDef[] = [
   {
     field: 'timestamp',
     headerName: 'Update Time',
-    width: 150,
+    flex: 1,
     valueGetter: (_, row) => {
       return row.updated_at
         ? format(parseISO(row.updated_at), 'yyyy-MM-dd HH:mm')
         : '';
-    },
-  },
-  {
-    field: 'assignee',
-    headerName: 'Assignee',
-    flex: 1,
-    valueGetter: (_, row) => {
-      const assignee = row.assignee;
-      if (!assignee) return 'No assignee';
-
-      // Use the name field if available
-      if (assignee.name) {
-        return assignee.name;
-      }
-
-      // If we have given_name or family_name, format the full name
-      if (assignee.given_name || assignee.family_name) {
-        const fullName = [assignee.given_name, assignee.family_name]
-          .filter(Boolean)
-          .join(' ');
-        return fullName;
-      }
-
-      // Fall back to email if no name is available
-      return assignee.email || 'No contact info';
     },
   },
 ];
