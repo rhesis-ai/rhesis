@@ -23,6 +23,7 @@ class ResultStatus(str, Enum):
 
     PASS = "Pass"
     FAIL = "Fail"
+    ERROR = "Error"
 
 
 class RunStatus(str, Enum):
