@@ -58,7 +58,6 @@ export function useComments({
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityType, entityId, sessionToken]);
 
   const createComment = useCallback(
@@ -185,7 +184,6 @@ export function useComments({
         throw err;
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [sessionToken]
   );
 
