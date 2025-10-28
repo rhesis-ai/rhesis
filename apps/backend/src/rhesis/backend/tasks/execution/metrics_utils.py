@@ -62,16 +62,18 @@ def create_metric_config_from_model(metric: Metric) -> Optional[Dict]:
     # Handle different score types properly
     score_type = getattr(metric, "score_type", "numeric")
     if score_type == "binary" or score_type == "categorical":
-        # For binary/categorical metrics, use reference_score instead of threshold
+        # For categorical metrics, use categories and passing_categories (required by SDK)
+        if metric.categories:
+            metric_config["categories"] = metric.categories
+        if metric.passing_categories:
+            metric_config["passing_categories"] = metric.passing_categories
+        
+        # Keep reference_score for backward compatibility (deprecated but kept during transition)
         if metric.reference_score is not None:
             metric_config["reference_score"] = metric.reference_score
         elif score_type == "binary":
-            # Default reference score for binary metrics
+            # Default reference score for binary metrics (backward compat)
             metric_config["reference_score"] = "True"
-        else:
-            # Categorical metrics require a reference score
-            logger.warning(f"Categorical metric {metric.id} is missing reference_score")
-            metric_config["reference_score"] = "excellent"  # fallback
     else:
         # For numeric metrics, use threshold
         metric_config["threshold"] = metric.threshold if metric.threshold is not None else 0.5
@@ -89,8 +91,11 @@ def create_metric_config_from_model(metric: Metric) -> Optional[Dict]:
         "evaluation_prompt": metric.evaluation_prompt,
         "evaluation_steps": metric.evaluation_steps,
         "reasoning": metric.reasoning,
+        "evaluation_examples": metric.evaluation_examples,
         "min_score": metric.min_score,
         "max_score": metric.max_score,
+        "requires_ground_truth": metric.ground_truth_required,
+        "requires_context": metric.context_required,
     }
 
     # Add all non-None optional parameters
