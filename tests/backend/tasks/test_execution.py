@@ -147,20 +147,6 @@ class TestExecutionWorkflow:
 class TestMetricConfiguration:
     """Test metric configuration and loading"""
     
-    def test_load_default_metrics(self):
-        """Test loading default metrics configuration"""
-        # This would test metric loading when available
-        
-        with patch('rhesis.backend.tasks.execution.test_execution.load_default_metrics') as mock_load_metrics:
-            mock_metrics = [
-                Mock(name="accuracy", description="Accuracy metric"),
-                Mock(name="relevance", description="Relevance metric")
-            ]
-            mock_load_metrics.return_value = mock_metrics
-            
-            # This would test actual metric loading
-            pass
-    
     def test_create_metric_config_from_model(self):
         """Test creating metric configuration from model"""
         # This would test metric configuration creation
