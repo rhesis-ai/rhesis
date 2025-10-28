@@ -7,13 +7,18 @@ from rhesis.sdk.models.utils import validate_llm_response
 
 def test_validate_llm_response():
     print("test")
-    # schmema need to contains json_schema key, as it is OpenAI json schema format
+    # Schema needs to be in OpenAI json_schema format
     json_schema = {
+        "type": "json_schema",
         "json_schema": {
-            "type": "object",
-            "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
-            "required": ["name", "age"],
-        }
+            "name": "TestSchema",
+            "schema": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
+                "required": ["name", "age"],
+            },
+            "strict": True,
+        },
     }
 
     class PydanticSchema(BaseModel):
