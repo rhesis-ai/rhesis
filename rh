@@ -106,13 +106,34 @@ start_worker() {
         echo -e "${BLUE}ℹ️  No existing workers found${NC}"
     fi
     
+    # Clear Python cache
+    echo -e "${YELLOW}🧹 Clearing Python cache...${NC}"
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+    find apps/backend -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null
+    find apps/backend -type f -name "*.pyc" -delete 2>/dev/null
+    echo -e "${GREEN}✅ Cache cleared${NC}"
+    
     cd "$SCRIPT_DIR/apps/backend" || {
         echo -e "${RED}❌ Error: Backend directory not found${NC}"
         exit 1
     }
 
+    LOG_FILE="$SCRIPT_DIR/celery.log"
     echo -e "${GREEN}🚀 Starting new Celery worker...${NC}"
-    celery -A rhesis.backend.worker worker --loglevel=DEBUG -Q celery,execution 2>&1 | tee celery.log
+    echo -e "${BLUE}📝 Logs will be written to: ${LOG_FILE}${NC}"
+    echo -e "${YELLOW}💡 Press Ctrl+C to stop the worker${NC}"
+    echo ""
+    
+    # Set up trap to handle Ctrl+C gracefully
+    trap "echo -e '\n${YELLOW}🛑 Shutting down worker...${NC}'; exit" INT TERM
+    
+    # Run in foreground - using uv run handles the virtual environment automatically
+    # Using --logfile parameter to write logs directly
+    # Using --pool=solo to avoid forking issues on macOS with ML libraries (DeepEval/PyTorch)
+    exec uv run celery -A rhesis.backend.worker worker --loglevel=DEBUG -Q celery,execution --pool=solo --logfile="$LOG_FILE"
 }
 
 # Function to run frontend tests
