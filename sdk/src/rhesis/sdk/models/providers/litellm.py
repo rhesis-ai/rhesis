@@ -62,11 +62,18 @@ class LiteLLM(BaseLLM):
             else [{"role": "user", "content": prompt}]
         )
 
+        # Handle schema format for LiteLLM
+        # LiteLLM expects either a Pydantic model or {"type": "json_object"} for JSON mode
+        response_format = schema
+        if schema and isinstance(schema, dict):
+            # OpenAI-wrapped schema: use JSON mode and we'll validate manually after
+            response_format = {"type": "json_object"}
+
         # Call the completion function passing given arguments
         response = completion(
             model=self.model_name,
             messages=messages,
-            response_format=schema,
+            response_format=response_format,
             api_key=self.api_key,
             *args,
             **kwargs,
@@ -74,6 +81,19 @@ class LiteLLM(BaseLLM):
 
         response_content = response.choices[0].message.content  # type: ignore
         if schema:
+            # Strip markdown code fences if present (```json ... ```)
+            if isinstance(response_content, str):
+                response_content = response_content.strip()
+                if response_content.startswith("```"):
+                    # Remove opening fence (```json or ```)
+                    lines = response_content.split("\n", 1)
+                    if len(lines) > 1:
+                        response_content = lines[1]
+                    # Remove closing fence
+                    if response_content.endswith("```"):
+                        response_content = response_content[:-3]
+                    response_content = response_content.strip()
+            
             response_content = json.loads(response_content)
             validate_llm_response(response_content, schema)
             return response_content
