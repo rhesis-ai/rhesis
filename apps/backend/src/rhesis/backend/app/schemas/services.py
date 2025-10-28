@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import UUID4, BaseModel, Field
 
 from rhesis.backend.app.schemas.documents import Document
 
@@ -98,6 +98,7 @@ class GenerateContentRequest(BaseModel):
 class TestConfigRequest(BaseModel):
     prompt: str
     sample_size: int = 5
+    project_id: Optional[UUID4] = None
 
 
 class TestConfigItem(BaseModel):

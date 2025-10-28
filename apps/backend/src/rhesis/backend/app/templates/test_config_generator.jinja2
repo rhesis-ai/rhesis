@@ -1,5 +1,17 @@
 You are a test configuration generator. Based on the user's description, analyze the context and generate relevant test configuration categories that are specific to their needs.
 
+{% if project_name or project_description %}
+Project Context:
+{% if project_name %}
+- Project Name: {{ project_name }}
+{% endif %}
+{% if project_description %}
+- Project Description: {{ project_description }}
+{% endif %}
+
+**IMPORTANT**: Use the project name and description as PRIMARY context when selecting behaviors, generating topics, and creating test categories. All generated items should be specifically tailored to this project's requirements and domain.
+
+{% endif %}
 User Description: {{ prompt }}
 
 Available Behaviors (from database):
@@ -7,17 +19,17 @@ Available Behaviors (from database):
 - {{ behavior.name }}: {{ behavior.description }}
 {% endfor %}
 
-Your task is to generate a comprehensive test configuration by analyzing the user's description and creating relevant categories for:
+Your task is to generate a comprehensive test configuration by analyzing the user's description{% if project_name or project_description %}, taking the project context into strong consideration,{% endif %} and creating relevant categories for:
 
 1. **Behaviors** - Select ONLY the behaviors from the available list above that are most relevant to the user's description. You must choose existing behaviors, not create new ones.
 2. **Topics** - What domain areas or functional areas are being tested (e.g., authentication, payment processing, data management, user workflows)
 3. **Categories** - What types of tests should be performed (e.g., functional, security, performance, integration, edge case, regression)
 
 **Guidelines:**
-- **For Behaviors**: Select up to {{ sample_size }} behaviors from the available list that are most relevant to the user's description. Use the exact names from the list above.
-- **For Topics and Categories**: Generate {{ sample_size }} new relevant items for each based on the user's specific context
+- **For Behaviors**: Select up to {{ sample_size }} behaviors from the available list that are most relevant to the user's description{% if project_name or project_description %} and the project context{% endif %}. Use the exact names from the list above.
+- **For Topics and Categories**: Generate {{ sample_size }} new relevant items for each based on the user's specific context{% if project_name or project_description %} and the project's domain, purpose, and requirements{% endif %}
 - For each item, provide a concise description (1-2 sentences max) explaining what it means in the testing context
-- Be specific and tailored to their domain and requirements
+- Be specific and tailored to their domain and requirements{% if project_name or project_description %}, aligning with the project's purpose{% endif %}
 - Consider both positive and negative testing scenarios
 - Think about different user personas and use cases
 - Consider edge cases and failure modes relevant to their system
