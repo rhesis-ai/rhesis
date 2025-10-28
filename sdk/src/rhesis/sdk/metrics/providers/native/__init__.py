@@ -1,17 +1,17 @@
 """Rhesis custom metrics implementations."""
 
-from .factory import RhesisMetricFactory
-from .prompt_metric_categorical import (
-    RhesisPromptMetricCategorical,
+from .categorical_judge import (
+    CategoricalJudge,
 )
-from .prompt_metric_numeric import (
+from .factory import RhesisMetricFactory
+from .numeric_judge import (
+    NumericJudge,
     NumericScoreResponse,
-    RhesisPromptMetricNumeric,
 )
 
 __all__ = [
     "RhesisMetricFactory",
-    "RhesisPromptMetricNumeric",
+    "NumericJudge",
     "NumericScoreResponse",
-    "RhesisPromptMetricCategorical",
+    "CategoricalJudge",
 ]

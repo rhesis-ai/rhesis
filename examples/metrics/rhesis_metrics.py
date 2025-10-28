@@ -1,17 +1,17 @@
 from rhesis.sdk.metrics.constants import ThresholdOperator
-from rhesis.sdk.metrics.providers.native.prompt_metric_categorical import (
+from rhesis.sdk.metrics.providers.native.categorical_judge import (
     # Example usage of RhesisPromptMetricCategorical
-    RhesisPromptMetricCategorical,
+    CategoricalJudge,
 )
-from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import (
-    RhesisPromptMetricNumeric,
+from rhesis.sdk.metrics.providers.native.numeric_judge import (
+    NumericJudge,
 )
 
 if __name__ == "__main__":
     print("Example: Creating a categorical metric for evaluating response quality")
 
     # Create a categorical metric for evaluating response quality
-    metric = RhesisPromptMetricCategorical(
+    metric = CategoricalJudge(
         name="response_quality_evaluator",
         evaluation_prompt=(
             "Evaluate the quality of the response based on accuracy, completeness, and helpfulness."
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     """
 
     # Create a metric for evaluating answer quality
-    metric = RhesisPromptMetricNumeric(
+    metric = NumericJudge(
         name="answer_quality_evaluator",
         evaluation_prompt="""
         Evaluate the quality of the provided answer based on the following criteria:
