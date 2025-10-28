@@ -452,10 +452,11 @@ class TestCurrentTaskExecution:
         # Should filter out invalid metrics
         assert isinstance(metrics, list)
         assert len(metrics) >= 1  # At least the valid metric
-        # All returned metrics should be valid (have class_name)
-        for metric_config in metrics:
-            assert metric_config is not None
-            assert "class_name" in metric_config
+        # All returned metrics should be Metric models with class_name
+        for metric in metrics:
+            assert metric is not None
+            assert hasattr(metric, "class_name")
+            assert metric.class_name is not None
     
     def test_evaluate_prompt_response_with_no_expected_response(self):
         """Test evaluation when no expected response is provided."""

@@ -25,7 +25,6 @@ from rhesis.sdk.metrics import MetricConfig
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.enums import ResultStatus
 from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
-from rhesis.backend.tasks.execution.metrics_utils import create_metric_config_from_model
 from rhesis.backend.tasks.execution.response_extractor import extract_response_with_fallback
 
 # ============================================================================
@@ -84,13 +83,12 @@ def get_test_metrics(test: Test) -> List[Dict]:
     behavior = test.behavior
 
     if behavior and behavior.metrics:
-        # Convert metrics and filter out invalid ones
-        raw_metrics = [create_metric_config_from_model(metric) for metric in behavior.metrics]
-        metrics = [metric for metric in raw_metrics if metric is not None]
-
-        invalid_count = len(raw_metrics) - len(metrics)
+        # Pass Metric models directly - evaluator will handle conversion
+        metrics = [metric for metric in behavior.metrics if metric.class_name]
+        
+        invalid_count = len(behavior.metrics) - len(metrics)
         if invalid_count > 0:
-            logger.warning(f"Filtered out {invalid_count} invalid metrics for test {test.id}")
+            logger.warning(f"Filtered out {invalid_count} metrics without class_name for test {test.id}")
 
     # Return empty list if no valid metrics found (no defaults in SDK)
     if not metrics:

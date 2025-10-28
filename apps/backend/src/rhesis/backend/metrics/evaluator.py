@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
@@ -40,11 +41,70 @@ class MetricEvaluator:
         self.organization_id = organization_id  # For secure model lookups
 
     @staticmethod
-    def _get_config_value(config: Union[Dict, MetricConfig], key: str, default: Any = None) -> Any:
-        """Helper to get a value from either dict or MetricConfig object."""
+    def _get_config_value(config: Union[Dict, MetricConfig, MetricModel], key: str, default: Any = None) -> Any:
+        """Helper to get a value from dict, MetricConfig, or Metric model."""
         if isinstance(config, dict):
             return config.get(key, default)
         return getattr(config, key, default)
+
+    @staticmethod
+    def _metric_model_to_dict(metric: MetricModel) -> Dict[str, Any]:
+        """Convert a Metric database model directly to parameters for MetricFactory.
+        
+        This replaces the old create_metric_config_from_model by extracting 
+        parameters directly without unnecessary nesting.
+        """
+        # Determine backend from backend_type relationship
+        backend = metric.backend_type.type_value if metric.backend_type else "rhesis"
+        
+        # Map backend types
+        backend_mapping = {
+            "custom-code": "rhesis",
+            "custom-prompt": "rhesis",
+            "framework": "deepeval",
+        }
+        backend = backend_mapping.get(backend, backend)
+        
+        # Build flat config dict (no nested "parameters")
+        config = {
+            "name": metric.name or f"Metric_{metric.id}",
+            "class_name": metric.class_name,
+            "backend": backend,
+            "description": metric.description or f"Metric evaluation for {metric.class_name}",
+            "model_id": str(metric.model_id) if metric.model_id else None,
+            "evaluation_prompt": metric.evaluation_prompt,
+            "evaluation_steps": metric.evaluation_steps,
+            "reasoning": metric.reasoning,
+            "evaluation_examples": metric.evaluation_examples,
+        }
+        
+        # Add score type specific fields
+        score_type = metric.score_type or "numeric"
+        if score_type == "categorical":
+            # For categorical metrics, use the dedicated fields
+            config["categories"] = metric.categories
+            config["passing_categories"] = metric.passing_categories
+        else:
+            # Numeric metrics
+            config["threshold"] = metric.threshold if metric.threshold is not None else 0.5
+            config["threshold_operator"] = metric.threshold_operator
+            if metric.min_score is not None:
+                config["min_score"] = metric.min_score
+            if metric.max_score is not None:
+                config["max_score"] = metric.max_score
+        
+        # Add requirement flags
+        if metric.ground_truth_required is not None:
+            config["requires_ground_truth"] = metric.ground_truth_required
+        if metric.context_required is not None:
+            config["requires_context"] = metric.context_required
+        
+        # Add model information if available
+        if metric.model and metric.model.provider_type:
+            config["provider"] = metric.model.provider_type.type_value
+            config["model"] = metric.model.model_name
+        
+        return config
 
     def evaluate(
         self,
@@ -52,7 +112,7 @@ class MetricEvaluator:
         output_text: str,
         expected_output: str,
         context: List[str],
-        metrics: List[Union[Dict[str, Any], MetricConfig]],
+        metrics: List[Union[Dict[str, Any], MetricConfig, MetricModel]],
         max_workers: int = 5,
     ) -> Dict[str, Any]:
         """
@@ -63,15 +123,20 @@ class MetricEvaluator:
             output_text: The actual output from the LLM
             expected_output: The expected or reference output
             context: List of context strings used for the response
-            metrics: List of MetricConfig objects or config dictionaries, e.g.
+            metrics: List of Metric models, MetricConfig objects, or config dictionaries, e.g.
                     [
+                        # Database Metric model (direct from DB query)
+                        db.query(Metric).first(),
+                        
+                        # MetricConfig object
                         MetricConfig(
                             class_name="DeepEvalAnswerRelevancy",
                             backend="deepeval",
                             threshold=0.7,
                             description="Measures how relevant the answer is to the question"
                         ),
-                        # Or plain dictionaries
+                        
+                        # Plain dictionary
                         {
                             "class_name": "DeepEvalFaithfulness",
                             "backend": "deepeval",
@@ -88,12 +153,16 @@ class MetricEvaluator:
             logger.warning("No metrics provided for evaluation")
             return {}
 
-        # Convert any dict configs to MetricConfig objects, keeping track of invalid ones
+        # Convert Metric models to dicts first, then validate
         metric_configs = []
         invalid_metric_results = {}  # Store results for invalid metrics
 
         for i, config in enumerate(metrics):
-            # Accept both MetricConfig objects and dicts - adapter handles both
+            # Convert MetricModel to dict if needed
+            if isinstance(config, MetricModel):
+                config = self._metric_model_to_dict(config)
+            
+            # Accept MetricConfig objects and dicts
             if isinstance(config, (MetricConfig, dict)):
                 # Validate basic fields
                 error_reason = diagnose_invalid_metric(config)
