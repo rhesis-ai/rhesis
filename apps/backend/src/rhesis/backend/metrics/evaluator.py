@@ -1,4 +1,5 @@
 import concurrent.futures
+import inspect
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
@@ -412,6 +413,54 @@ class MetricEvaluator:
         logger.info(f"Completed parallel evaluation of {len(results)} metrics")
         return results
 
+    def _call_metric_with_introspection(
+        self,
+        metric: BaseMetric,
+        input_text: str,
+        output_text: str,
+        expected_output: str,
+        context: List[str],
+    ) -> MetricResult:
+        """
+        Call metric.evaluate() with only the parameters it accepts.
+        
+        Uses introspection to check the metric's signature and only passes
+        parameters that are actually defined. This allows metrics to have
+        different signatures (e.g., ContextualRelevancy doesn't need output).
+        
+        Args:
+            metric: The metric instance to evaluate
+            input_text: The input query or question
+            output_text: The actual output from the LLM
+            expected_output: The expected or reference output
+            context: List of context strings used for the response
+            
+        Returns:
+            MetricResult object with score and details
+        """
+        # Inspect the metric's evaluate signature
+        sig = inspect.signature(metric.evaluate)
+        params = sig.parameters
+        
+        # Build kwargs with only the parameters the metric accepts
+        kwargs = {}
+        
+        # Check each potential parameter and include if present in signature
+        if 'input' in params:
+            kwargs['input'] = input_text
+        if 'output' in params:
+            kwargs['output'] = output_text
+        if 'expected_output' in params:
+            kwargs['expected_output'] = expected_output
+        if 'context' in params:
+            kwargs['context'] = context
+            
+        logger.debug(
+            f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}"
+        )
+        
+        return metric.evaluate(**kwargs)
+
     def _evaluate_metric(
         self,
         metric: BaseMetric,
@@ -434,8 +483,8 @@ class MetricEvaluator:
             MetricResult object with score and details
         """
         logger.debug(f"Evaluating metric '{metric.name}'")
-        return metric.evaluate(
-            input=input_text, output=output_text, expected_output=expected_output, context=context
+        return self._call_metric_with_introspection(
+            metric, input_text, output_text, expected_output, context
         )
 
     def _process_metric_result(

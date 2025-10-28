@@ -235,7 +235,8 @@ def build_metric_params_from_config(metric_config: Dict[str, Any]) -> Dict[str, 
     )
 
     # Add score parameters
-    score_type = config_params.get("score_type", "numeric")
+    # score_type can be at top level or in parameters
+    score_type = metric_config.get("score_type") or config_params.get("score_type", "numeric")
 
     if score_type == "numeric":
         if "min_score" in config_params:
@@ -249,7 +250,14 @@ def build_metric_params_from_config(metric_config: Dict[str, Any]) -> Dict[str, 
 
     elif score_type in ["categorical", "binary"]:
         # SDK requires 'categories' list
-        if "reference_score" in metric_config and metric_config["reference_score"]:
+        # Check if categories are already provided (top level or in parameters)
+        if "categories" in metric_config and metric_config["categories"]:
+            params["categories"] = metric_config["categories"]
+            params["passing_categories"] = metric_config.get("passing_categories", metric_config["categories"][:1])
+        elif "categories" in config_params and config_params["categories"]:
+            params["categories"] = config_params["categories"]
+            params["passing_categories"] = config_params.get("passing_categories", config_params["categories"][:1])
+        elif "reference_score" in metric_config and metric_config["reference_score"]:
             # Backend stores single reference score, SDK needs categories list
             params["categories"] = [metric_config["reference_score"], "other"]
             params["passing_categories"] = [metric_config["reference_score"]]
