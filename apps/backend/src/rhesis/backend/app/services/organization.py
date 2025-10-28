@@ -518,6 +518,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 "evaluation_examples": item.get("evaluation_examples"),
                 "threshold_operator": item.get("threshold_operator", ">="),
                 "reference_score": item.get("reference_score"),
+                "categories": item.get("categories"),  # New: categories for categorical metrics
+                "passing_categories": item.get("passing_categories"),  # New: passing categories
                 "metric_type_id": metric_type.id,
                 "backend_type_id": backend_type.id,
                 "status_id": status.id,
