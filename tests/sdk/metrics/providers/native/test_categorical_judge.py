@@ -1,17 +1,18 @@
 from unittest.mock import Mock, patch
 
 import pytest
+
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
-from rhesis.sdk.metrics.providers.native.prompt_metric_categorical import (
-    PromptMetricCategoricalConfig,
-    RhesisPromptMetricCategorical,
+from rhesis.sdk.metrics.providers.native.categorical_judge import (
+    CategoricalJudge,
+    CategoricalJudgeConfig,
 )
 
 
 @pytest.fixture
 def metric(monkeypatch):
     monkeypatch.setenv("RHESIS_API_KEY", "test_api_key")
-    return RhesisPromptMetricCategorical(
+    return CategoricalJudge(
         evaluation_prompt="test_prompt",
         name="test_metric",
         description="test_description",
@@ -23,7 +24,7 @@ def metric(monkeypatch):
     )
 
 
-def test_prompt_metric_numeric_base__init__(metric):
+def test_categorical_judge__init__(metric):
     assert metric.evaluation_prompt == "test_prompt"
     assert metric.evaluation_steps == "test_steps"
     assert metric.reasoning == "test_reasoning"
@@ -35,7 +36,7 @@ def test_prompt_metric_numeric_base__init__(metric):
 
 
 def test_validate_categories():
-    config = PromptMetricCategoricalConfig(
+    config = CategoricalJudgeConfig(
         categories=["test_category1", "test_category2"],
         passing_categories="test_category1",
     )
@@ -47,7 +48,7 @@ def test_validate_categories():
 
 
 def test_validate_passing_categories(metric):
-    config = PromptMetricCategoricalConfig(
+    config = CategoricalJudgeConfig(
         categories=["test_category1", "test_category2"],
         passing_categories="test_category1",
     )
@@ -59,7 +60,7 @@ def test_validate_passing_categories(metric):
 
 
 def test_normalize_passing_categories(metric):
-    config = PromptMetricCategoricalConfig(
+    config = CategoricalJudgeConfig(
         categories=["test_category1", "test_category2"],
         passing_categories="test_category1",
     )
@@ -67,7 +68,7 @@ def test_normalize_passing_categories(metric):
 
 
 def test_validate_passing_categories_subset(metric):
-    config = PromptMetricCategoricalConfig(
+    config = CategoricalJudgeConfig(
         categories=["test_category1", "test_category2"],
         passing_categories="test_category1",
     )
@@ -123,10 +124,7 @@ def test_evaluate_successful_evaluation(metric):
         assert isinstance(result, MetricResult)
         assert result.score == "test_category1"
         assert result.details["score"] == "test_category1"
-        assert (
-            result.details["reason"]
-            == "The output correctly matches the expected category"
-        )
+        assert result.details["reason"] == "The output correctly matches the expected category"
         assert result.details["is_successful"] is True
         assert result.details["score_type"] == "categorical"
         assert result.details["categories"] == ["test_category1", "test_category2"]
@@ -168,6 +166,6 @@ def test_evaluate_error_handling(metric):
 
 def test_from_config_to_config(metric):
     config1 = metric.to_config()
-    metric2 = RhesisPromptMetricCategorical.from_config(config1)
+    metric2 = CategoricalJudge.from_config(config1)
     config2 = metric2.to_config()
     assert config1 == config2
