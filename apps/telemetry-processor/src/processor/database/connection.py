@@ -13,8 +13,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from processor.models import Base
-
 logger = logging.getLogger(__name__)
 
 
@@ -60,29 +58,29 @@ class DatabaseManager:
             autoflush=False,
         )
 
-        # Create tables if they don't exist
-        self._create_tables()
-
+        # Note: Tables are managed by Alembic migrations, not auto-created
         logger.info("Database connection initialized successfully")
 
     def _get_database_url(self) -> str:
         """
         Construct database URL from environment variables.
 
+        Uses ANALYTICS_DB_* environment variables for the dedicated analytics database.
+
         Returns:
             str: PostgreSQL connection URL
         """
         # Try to get full URL first
-        db_url = os.getenv("DATABASE_URL")
+        db_url = os.getenv("ANALYTICS_DATABASE_URL")
         if db_url:
             return db_url
 
-        # Construct from individual parts
-        user = os.getenv("SQLALCHEMY_DB_USER", "rhesis-user")
-        password = os.getenv("SQLALCHEMY_DB_PASS", "your-secured-password")
-        host = os.getenv("SQLALCHEMY_DB_HOST", "postgres")
-        port = os.getenv("SQLALCHEMY_DB_PORT", "5432")
-        db_name = os.getenv("SQLALCHEMY_DB_NAME", "rhesis-db")
+        # Construct from analytics-specific environment variables
+        user = os.getenv("ANALYTICS_DB_USER", "analytics-user")
+        password = os.getenv("ANALYTICS_DB_PASS", "analytics-password")
+        host = os.getenv("ANALYTICS_DB_HOST", "postgres-analytics")
+        port = os.getenv("ANALYTICS_DB_PORT", "5432")
+        db_name = os.getenv("ANALYTICS_DB_NAME", "rhesis-analytics")
 
         return f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
 
@@ -98,15 +96,6 @@ class DatabaseManager:
                     if len(user_pass) == 2:
                         return f"{protocol}://{user_pass[0]}:***@{parts[1]}"
         return url
-
-    def _create_tables(self) -> None:
-        """Create all tables defined in models if they don't exist."""
-        try:
-            Base.metadata.create_all(self._engine)
-            logger.info("Database tables verified/created successfully")
-        except Exception as e:
-            logger.error(f"Error creating tables: {e}", exc_info=True)
-            raise
 
     def get_session(self) -> Session:
         """

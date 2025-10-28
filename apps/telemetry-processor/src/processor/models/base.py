@@ -40,11 +40,11 @@ class AnalyticsBase(Base):
     def __tablename__(cls):
         """
         Auto-generate table name from class name.
-        Converts CamelCase to snake_case with 'analytics_' prefix.
+        Converts CamelCase to snake_case.
         """
         # Convert CamelCase to snake_case
         import re
 
         name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", cls.__name__)
         name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
-        return f"analytics_{name}"
+        return name
