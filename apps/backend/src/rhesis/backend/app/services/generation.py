@@ -99,6 +99,9 @@ async def generate_tests(
     prompt: Dict,
     num_tests: int = 5,
     documents: Optional[List[Document]] = None,
+    chip_states: Optional[List[Dict]] = None,
+    rated_samples: Optional[List[Dict]] = None,
+    previous_messages: Optional[List[Dict]] = None,
 ) -> Dict:
     """
     Generate tests using the appropriate synthesizer based on input.
@@ -115,6 +118,9 @@ async def generate_tests(
             - name (str): Unique identifier or label for the document
             - description (str): Short description of the document's purpose or content
             - content (str): The document content
+        chip_states: Optional list of chip states for iteration context
+        rated_samples: Optional list of rated samples for iteration context
+        previous_messages: Optional list of previous messages for iteration context
 
     Returns:
         Dict: The generated test set as a dictionary
@@ -125,6 +131,11 @@ async def generate_tests(
 
     # Get user's configured model or fallback to default
     model = get_user_generation_model(db, user)
+
+    # Iteration context is available but not yet integrated into synthesizers
+    # These parameters (chip_states, rated_samples, previous_messages) are passed
+    # for future use when synthesizers support iterative refinement
+    # TODO: Integrate iteration context into synthesizer generation logic
 
     # Choose synthesizer based on whether documents are provided
     config = GenerationConfig(**prompt)
