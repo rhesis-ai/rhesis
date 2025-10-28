@@ -1,15 +1,16 @@
 import pytest
+
 from rhesis.sdk.metrics.base import MetricType, ScoreType
-from rhesis.sdk.metrics.providers.native.prompt_metric import (
-    PromptMetricConfig,
-    RhesisPromptMetricBase,
+from rhesis.sdk.metrics.providers.native.base import (
+    JudgeBase,
+    JudgeConfig,
 )
 from rhesis.sdk.models.providers.gemini import GeminiLLM
 
 
 @pytest.fixture
 def config():
-    config = PromptMetricConfig(
+    config = JudgeConfig(
         name="test_metric",
         description="test_description",
         score_type="numeric",
@@ -23,7 +24,7 @@ def config():
 @pytest.fixture
 def metric(monkeypatch, config):
     monkeypatch.setenv("GEMINI_API_KEY", "test")
-    return RhesisPromptMetricBase(config, model="gemini")
+    return JudgeBase(config, model="gemini")
 
 
 def test_prompt_metric_base__init__(monkeypatch, metric):
