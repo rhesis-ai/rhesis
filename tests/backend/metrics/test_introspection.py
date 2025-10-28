@@ -5,7 +5,6 @@ These tests verify that the evaluator correctly handles metrics with
 different evaluate() signatures using introspection.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
 from rhesis.backend.metrics.evaluator import MetricEvaluator

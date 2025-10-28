@@ -6,9 +6,9 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
+from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
 
 # Use inline factory creation to avoid circular imports
 # Implementation of the factory import will be delayed until needed
@@ -368,7 +368,6 @@ class MetricEvaluator:
         # Generate unique keys for each metric to avoid collisions
         metric_keys = []
         used_keys = set()  # Track all used keys to ensure uniqueness
-        class_name_counts = {}
 
         for class_name, metric, metric_config, backend in metric_tasks:
             # Start with the preferred key (name if available, otherwise class_name)

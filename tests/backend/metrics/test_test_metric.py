@@ -2,13 +2,11 @@
 Simple test for run_metric_test function to verify it works with real database connections.
 """
 
-import pytest
-from unittest.mock import Mock, patch
+import importlib.util
 
 # Import the function we want to test from the backend using importlib to avoid pytest collection issues
-import sys
 import os
-import importlib.util
+from unittest.mock import patch
 
 # Load the backend module dynamically to avoid pytest collecting it as a test
 backend_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'apps', 'backend', 'src', 'rhesis', 'backend', 'metrics', 'test_metric.py')

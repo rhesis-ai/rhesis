@@ -5,12 +5,11 @@ These tests verify that the backend MetricEvaluator can successfully use
 SDK metrics through the adapter layer.
 """
 
-import pytest
 from unittest.mock import Mock, patch
-from uuid import uuid4
+
+import pytest
 
 from rhesis.backend.metrics.evaluator import MetricEvaluator
-
 
 # ============================================================================
 # FIXTURES

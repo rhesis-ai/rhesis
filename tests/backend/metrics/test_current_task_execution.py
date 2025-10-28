@@ -5,15 +5,17 @@ These tests validate the test execution orchestration that uses metrics,
 focusing on the interfaces between components.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
+from rhesis.backend.metrics import Evaluator, MetricResult
+from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
 from rhesis.backend.tasks.execution.test_execution import (
     get_test_and_prompt,
     get_test_metrics,
     prepare_metric_configs,
 )
-from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
-from rhesis.backend.metrics import Evaluator, MetricResult
 
 
 class TestCurrentTaskExecution:

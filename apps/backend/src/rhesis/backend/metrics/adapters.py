@@ -12,7 +12,6 @@ future SDK naming changes (e.g., NumericJudge, CategoricalJudge).
 """
 
 from typing import Any, Dict, Optional, Union
-from uuid import UUID
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.logging.rhesis_logger import logger
@@ -78,7 +77,7 @@ def get_sdk_class_name(backend_class_name: str, score_type: Optional[str] = None
     # Handle RhesisPromptMetric split
     if backend_class_name == "RhesisPromptMetric":
         if not score_type:
-            logger.warning(f"RhesisPromptMetric requires score_type, defaulting to 'numeric'")
+            logger.warning("RhesisPromptMetric requires score_type, defaulting to 'numeric'")
             score_type = "numeric"
 
         sdk_class_name = CLASS_NAME_MAP["RhesisPromptMetric"].get(

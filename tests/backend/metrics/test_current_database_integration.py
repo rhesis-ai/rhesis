@@ -5,9 +5,7 @@ These tests validate database integration for metrics, including CRUD operations
 and the storage of evaluation results in TestResult.test_metrics.
 """
 
-import pytest
-from uuid import UUID
-from rhesis.backend.app import crud, schemas, models
+from rhesis.backend.app import crud, models, schemas
 
 
 class TestCurrentDatabaseIntegration:
@@ -204,8 +202,8 @@ class TestCurrentDatabaseIntegration:
     
     def test_test_result_test_metrics_storage(self, test_db, test_org_id, authenticated_user_id, db_test_with_prompt):
         """Test storing evaluation results in TestResult.test_metrics."""
+
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
-        from uuid import uuid4
         
         # Get or create status
         status = get_or_create_status(
@@ -260,8 +258,8 @@ class TestCurrentDatabaseIntegration:
     
     def test_test_result_test_metrics_retrieval(self, test_db, test_org_id, authenticated_user_id, db_test_with_prompt):
         """Test retrieving test_metrics from TestResult."""
+
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
-        from uuid import uuid4
         
         status = get_or_create_status(
             test_db,
@@ -302,8 +300,8 @@ class TestCurrentDatabaseIntegration:
     
     def test_test_result_empty_test_metrics(self, test_db, test_org_id, authenticated_user_id, db_test_with_prompt):
         """Test TestResult with empty test_metrics."""
+
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
-        from uuid import uuid4
         
         status = get_or_create_status(
             test_db,

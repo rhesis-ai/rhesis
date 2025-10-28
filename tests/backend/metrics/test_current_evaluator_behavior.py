@@ -5,10 +5,9 @@ These tests validate the evaluator orchestration logic in the backend
 and will serve as regression guards during the migration to SDK metrics.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
 from rhesis.backend.metrics import Evaluator, MetricResult
-from rhesis.backend.metrics.constants import ScoreType
 
 
 class TestCurrentEvaluatorBehavior:
