@@ -116,7 +116,9 @@ export default function TestSampleCard({
           {/* Main Content */}
           <Box sx={{ flex: 1 }}>
             {/* Metadata Chips */}
-            <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5, alignItems: 'center' }}>
+            <Box
+              sx={{ display: 'flex', gap: 0.5, mb: 1.5, alignItems: 'center' }}
+            >
               <Chip
                 label={sample.behavior}
                 size="small"

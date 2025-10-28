@@ -7,7 +7,6 @@ import {
   IconButton,
   Popover,
   Paper,
-  Chip,
   Stack,
   Divider,
 } from '@mui/material';
@@ -88,7 +87,7 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
                     alignItems: 'flex-start',
                     gap: 1,
                     p: 1,
-                    borderRadius: 1,
+                    borderRadius: theme => theme.shape.borderRadius * 2,
                     bgcolor: 'action.hover',
                     mb: 1,
                   }}
@@ -114,13 +113,12 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
                         overflow: 'auto',
                         bgcolor: 'background.default',
                         p: 1.5,
-                        borderRadius: 1,
+                        borderRadius: theme => theme.shape.borderRadius * 2,
                       }}
                     >
                       <Typography
-                        variant="body2"
+                        variant="caption"
                         sx={{
-                          fontSize: '0.75rem',
                           lineHeight: 1.5,
                           whiteSpace: 'pre-wrap',
                           color: 'text.secondary',
@@ -139,4 +137,3 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
     </>
   );
 }
-

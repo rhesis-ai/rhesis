@@ -28,6 +28,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ApiIcon from '@mui/icons-material/Api';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import DescriptionIcon from '@mui/icons-material/Description';
 import { ConfigChips, TestSample, ChatMessage } from './shared/types';
 import ChipGroup from './shared/ChipGroup';
 import TestSampleCard from './shared/TestSampleCard';
@@ -489,62 +490,67 @@ export default function TestGenerationInterface({
                   />
                 </Box>
 
-              {/* Category */}
-              <Box sx={{ mb: 4 }}>
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}
-                >
+                {/* Category */}
+                <Box sx={{ mb: 4 }}>
                   <Box
                     sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: theme => theme.shape.circular,
-                      bgcolor: 'secondary.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      mb: 2,
                     }}
-                  />
-                  <Typography variant="subtitle2" fontWeight="bold">
-                    Categories
-                  </Typography>
-                </Box>
-                <ChipGroup
-                  chips={configChips.category}
-                  onToggle={chipId => onChipToggle('category', chipId)}
-                />
-              </Box>
-            </Box>
-
-            {/* Uploaded Files Section */}
-            {documents.length > 0 && (
-              <Box
-                sx={{
-                  p: 2,
-                  borderTop: 1,
-                  borderColor: 'divider',
-                  bgcolor: 'background.paper',
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  gutterBottom
-                  sx={{ mb: 1 }}
-                >
-                  Selected sources (documents)
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {documents.map(doc => (
-                    <Chip
-                      key={doc.id}
-                      icon={<DescriptionIcon />}
-                      label={doc.name || doc.originalName}
-                      size="small"
-                      variant="outlined"
-                      onDelete={() => onDocumentRemove(doc.id)}
+                  >
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: theme => theme.shape.circular,
+                        bgcolor: 'secondary.main',
+                      }}
                     />
-                  ))}
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      Categories
+                    </Typography>
+                  </Box>
+                  <ChipGroup
+                    chips={configChips.category}
+                    onToggle={chipId => onChipToggle('category', chipId)}
+                  />
                 </Box>
               </Box>
-            )}
+
+              {/* Uploaded Files Section */}
+              {documents.length > 0 && (
+                <Box
+                  sx={{
+                    p: 2,
+                    borderTop: 1,
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                    sx={{ mb: 1 }}
+                  >
+                    Selected sources (documents)
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {documents.map(doc => (
+                      <Chip
+                        key={doc.id}
+                        icon={<DescriptionIcon />}
+                        label={doc.name || doc.originalName}
+                        size="small"
+                        variant="outlined"
+                        onDelete={() => onDocumentRemove(doc.id)}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
 
               {/* Chat Input */}
               <Box
