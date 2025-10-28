@@ -68,7 +68,6 @@ export default function TestGenerationFlow({
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null
   );
-  const [documents, setDocuments] = useState<ProcessedDocument[]>([]);
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(
     null
   );
