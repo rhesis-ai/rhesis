@@ -80,13 +80,21 @@ def get_test_metrics(test: Test) -> List[Dict]:
     Returns:
         List of valid metric configuration dictionaries
     """
+    logger.debug(f"🔍 [DEBUG] get_test_metrics called for test {test.id}")
     metrics = []
     behavior = test.behavior
+    
+    logger.debug(f"🔍 [DEBUG] Behavior: {behavior.id if behavior else 'None'}")
+    if behavior:
+        logger.debug(f"🔍 [DEBUG] Behavior has {len(behavior.metrics) if behavior.metrics else 0} metrics")
 
     if behavior and behavior.metrics:
         # Convert metrics and filter out invalid ones
+        logger.debug(f"🔍 [DEBUG] Converting {len(behavior.metrics)} behavior metrics to configs")
         raw_metrics = [create_metric_config_from_model(metric) for metric in behavior.metrics]
+        logger.debug(f"🔍 [DEBUG] Created {len(raw_metrics)} raw metric configs")
         metrics = [metric for metric in raw_metrics if metric is not None]
+        logger.debug(f"🔍 [DEBUG] Filtered to {len(metrics)} valid metric configs")
 
         invalid_count = len(raw_metrics) - len(metrics)
         if invalid_count > 0:
@@ -97,6 +105,7 @@ def get_test_metrics(test: Test) -> List[Dict]:
         logger.warning(f"No valid metrics found for test {test.id}, returning empty list")
         return []
 
+    logger.debug(f"🔍 [DEBUG] Returning {len(metrics)} metrics for test {test.id}")
     return metrics
 
 
@@ -130,39 +139,48 @@ def check_existing_result(
 # ============================================================================
 
 
-def prepare_metric_configs(metrics: List[Dict], test_id: str) -> List[MetricConfig]:
+def prepare_metric_configs(metrics: List[Dict], test_id: str) -> List[Dict]:
     """
-    Convert metrics to MetricConfig objects and filter out invalid ones.
+    Validate and filter metric configurations.
+
+    The evaluator accepts both dict and MetricConfig objects. This function
+    validates dicts and filters out any that are missing required fields.
 
     Returns:
-        List of valid MetricConfig objects
+        List of valid metric configuration dicts
     """
-    metric_configs = []
+    # Metrics from get_test_metrics() are already dicts - no conversion needed
+    # The MetricEvaluator accepts both dict and MetricConfig objects
+    logger.debug(f"🔍 [DEBUG] parse_metrics received {len(metrics)} metrics")
+    
+    # Just validate that each metric has required fields
+    valid_metrics = []
     invalid_count = 0
 
     for i, metric in enumerate(metrics):
-        try:
-            config = MetricConfig.from_dict(metric)
-            if config is not None:
-                metric_configs.append(config)
-            else:
-                invalid_count += 1
-                logger.warning(
-                    f"Skipped invalid metric {i} for test {test_id}: missing required fields"
-                )
-        except Exception as e:
+        if not isinstance(metric, dict):
+            logger.warning(f"Metric {i} is not a dict: {type(metric)}")
             invalid_count += 1
-            logger.warning(f"Failed to parse metric {i} for test {test_id}: {str(e)}")
+            continue
+            
+        # Basic validation
+        if not metric.get("class_name"):
+            invalid_count += 1
+            logger.warning(f"Skipped metric {i} for test {test_id}: missing class_name")
+            continue
+            
+        valid_metrics.append(metric)
 
     if invalid_count > 0:
         logger.warning(f"Skipped {invalid_count} invalid metrics for test {test_id}")
 
-    if not metric_configs:
+    if not valid_metrics:
         logger.warning(
             f"No valid metrics found for test {test_id}, proceeding without metric evaluation"
         )
 
-    return metric_configs
+    logger.debug(f"🔍 [DEBUG] parse_metrics returning {len(valid_metrics)} valid metrics")
+    return valid_metrics
 
 
 # ============================================================================
