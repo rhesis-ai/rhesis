@@ -67,7 +67,7 @@ export class SourcesClient extends BaseApiClient {
     description?: string
   ): Promise<Source> {
     // Use direct URL construction to preserve trailing slash
-    const url = new URL(`${this.baseUrl}/sources/upload/`);
+    const url = new URL(`${this.baseUrl}/sources/upload`);
 
     const formData = new FormData();
     formData.append('file', file);
