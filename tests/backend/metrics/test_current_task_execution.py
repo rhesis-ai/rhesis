@@ -218,7 +218,7 @@ class TestCurrentTaskExecution:
         assert isinstance(result, list)
         assert len(result) == 0
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluate_prompt_response(self, mock_create_metric):
         """Test evaluate_prompt_response() orchestration."""
         mock_metric = MagicMock()
@@ -257,7 +257,7 @@ class TestCurrentTaskExecution:
         assert isinstance(result, dict)
         assert len(result) > 0
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluate_prompt_response_with_context(self, mock_create_metric):
         """Test evaluate_prompt_response with context."""
         mock_metric = MagicMock()
@@ -293,7 +293,7 @@ class TestCurrentTaskExecution:
         
         assert isinstance(result, dict)
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluate_prompt_response_empty_metrics(self, mock_create_metric):
         """Test evaluate_prompt_response with empty metrics list."""
         evaluator = Evaluator()
@@ -310,7 +310,7 @@ class TestCurrentTaskExecution:
         # Should return result even with no metrics
         assert isinstance(result, dict)
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluate_prompt_response_multiple_metrics(self, mock_create_metric):
         """Test evaluate_prompt_response with multiple metrics."""
         mock_metric1 = MagicMock()
