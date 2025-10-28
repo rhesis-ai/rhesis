@@ -181,7 +181,7 @@ class EmailService:
             calendar_link = "https://calendar.app.google/CZzqQbtBsMxSHTpx6"
 
         # Get BCC email from environment variable (optional)
-        bcc_email = os.getenv("FOUNDER_EMAIL_BCC")
+        bcc_email = os.getenv("AGENT_EMAIL_BCC")
 
         subject = "Welcome to Rhesis AI!"
 
