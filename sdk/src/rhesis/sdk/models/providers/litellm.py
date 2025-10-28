@@ -64,9 +64,10 @@ class LiteLLM(BaseLLM):
 
         # Handle schema format for LiteLLM
         # LiteLLM expects either a Pydantic model or {"type": "json_object"} for JSON mode
+        # Dict schemas must be in OpenAI-wrapped format
         response_format = schema
         if schema and isinstance(schema, dict):
-            # OpenAI-wrapped schema: use JSON mode and we'll validate manually after
+            # Convert OpenAI-wrapped to JSON mode, validation happens after
             response_format = {"type": "json_object"}
 
         # Call the completion function passing given arguments

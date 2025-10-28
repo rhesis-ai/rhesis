@@ -61,15 +61,14 @@ class RhesisLLM(BaseLLM):
     def generate(self, prompt: str, schema: Optional[BaseModel] = None, **kwargs: Any) -> Any:
         """Run a chat completion using the API, and return the response."""
         try:
-            # Convert to OpenAI-wrapped format if not already wrapped
-            if schema and "json_schema" not in (schema if isinstance(schema, dict) else {}):
-                schema_dict = schema.model_json_schema() if not isinstance(schema, dict) else schema
-                schema_name = schema.__name__ if hasattr(schema, "__name__") else "response"
+            # Convert Pydantic models to OpenAI-wrapped format
+            # Dict schemas must already be in OpenAI-wrapped format
+            if schema and not isinstance(schema, dict):
                 schema = {
                     "type": "json_schema",
                     "json_schema": {
-                        "name": schema_name,
-                        "schema": schema_dict,
+                        "name": schema.__name__,
+                        "schema": schema.model_json_schema(),
                         "strict": True,
                     },
                 }
@@ -83,15 +82,9 @@ class RhesisLLM(BaseLLM):
             return response
 
         except (requests.exceptions.HTTPError, KeyError, IndexError) as e:
-            # Log the error and return an appropriate message
-            import traceback
-            print(f"❌ [RhesisLLM] Error occurred while running the prompt: {e}")
-            print(f"❌ [RhesisLLM] Exception type: {type(e).__name__}")
-            print(f"❌ [RhesisLLM] Full traceback:\n{traceback.format_exc()}")
-            if schema:
-                return {"error": f"An error occurred while processing the request: {str(e)}"}
-
-            return f"An error occurred while processing the request: {str(e)}"
+            error_msg = f"RhesisLLM error: {type(e).__name__} - {str(e)}"
+            print(error_msg)
+            return {"error": error_msg} if schema else error_msg
 
     def create_completion(
         self,

@@ -37,15 +37,9 @@ class LLMService:
             return response_content
 
         except (requests.exceptions.HTTPError, KeyError, IndexError) as e:
-            # Log the error and return an appropriate message
-            import traceback
-            print(f"❌ [LLM Service] Error occurred while running the prompt: {e}")
-            print(f"❌ [LLM Service] Exception type: {type(e).__name__}")
-            print(f"❌ [LLM Service] Full traceback:\n{traceback.format_exc()}")
-            if response_format == "json_object":
-                return {"error": f"An error occurred while processing the request: {str(e)}"}
-
-            return f"An error occurred while processing the request: {str(e)}"
+            error_msg = f"LLM Service error: {type(e).__name__} - {str(e)}"
+            print(error_msg)
+            return {"error": error_msg} if response_format == "json_object" else error_msg
 
     def create_completion(
         self,

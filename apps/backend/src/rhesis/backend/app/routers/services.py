@@ -143,43 +143,20 @@ async def create_chat_completion_endpoint(request: dict):
 @router.post("/generate/content")
 async def generate_content_endpoint(request: GenerateContentRequest):
     """
-    Generate text using LLM with optional JSON schema for structured output.
+    Generate text using LLM with optional OpenAI-wrapped JSON schema for structured output.
 
-    The schema parameter supports two formats:
-    1. Plain JSON schema (recommended for simplicity)
-    2. OpenAI-wrapped format (for compatibility with OpenAI SDK)
-
-    Both formats are automatically converted internally. The plain format is simpler
-    and recommended for most use cases.
-
-    This is compatible with multiple LLM providers (OpenAI, Vertex AI, etc.) and
-    enables type-safe structured generation without requiring Pydantic model definitions.
+    The schema parameter MUST be in OpenAI-wrapped format. This format is compatible
+    with multiple LLM providers (OpenAI, Vertex AI, etc.) and enables type-safe
+    structured generation without requiring Pydantic model definitions.
 
     Args:
-        request: Contains prompt and optional JSON schema for structured output.
+        request: Contains prompt and optional OpenAI-wrapped JSON schema for structured output.
 
     Returns:
         str or dict: Raw text if no schema provided, validated dict if schema is provided
 
-    Schema Format Options:
-
-    Option 1 - Plain JSON Schema (Recommended):
-        ```python
-        {
-            "prompt": "Generate a person's info",
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "age": {"type": "number"}
-                },
-                "required": ["name", "age"],
-                "additionalProperties": false
-            }
-        }
-        ```
-
-    Option 2 - OpenAI-Wrapped Format:
+    Schema Format (Required):
+        The schema must be wrapped in OpenAI's structured output format:
         ```python
         {
             "prompt": "Generate a person's info",
@@ -201,6 +178,9 @@ async def generate_content_endpoint(request: GenerateContentRequest):
             }
         }
         ```
+
+    Note: Plain JSON schemas are not supported. The schema must include the
+    "type": "json_schema" wrapper with name, schema, and strict fields.
     """
     try:
         from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, DEFAULT_MODEL_NAME
