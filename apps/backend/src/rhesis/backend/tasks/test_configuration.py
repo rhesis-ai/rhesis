@@ -53,13 +53,10 @@ def execute_test_configuration(self, test_configuration_id: str):
     self.log_with_context("debug", "Task context retrieved", retries=retries)
 
     try:
-        self.log_with_context("debug", "🔥 About to enter database context")
         # Use tenant-aware database session with explicit organization_id and user_id
         with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
-            self.log_with_context("debug", "🔥 Database context entered, getting config")
             # Get test configuration with tenant context
             test_config = get_test_configuration(db, test_configuration_id, org_id)
-            self.log_with_context("debug", "🔥 Got test config, checking for existing run")
 
             # CRITICAL: Check for existing test run by TASK ID (not config ID)
             # This allows multiple test runs per configuration but prevents task retries
@@ -91,10 +88,8 @@ def execute_test_configuration(self, test_configuration_id: str):
                 db.commit()
                 self.log_with_context("debug", f"Test run {test_run.id} committed to database")
 
-            self.log_with_context("debug", "🔥 About to execute_test_cases")
             # Execute test cases in parallel
             result = execute_test_cases(db, test_config, test_run)
-            self.log_with_context("debug", "🔥 execute_test_cases completed")
 
         # Use utility to create standardized result
         # Remove test_run_id from result if present to avoid duplicate parameter

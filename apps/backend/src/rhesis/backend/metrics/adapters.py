@@ -375,8 +375,6 @@ def create_metric_from_config(
         >>> sdk_metric = create_metric_from_config(config)
     """
     try:
-        logger.debug(f"🔍 [DEBUG ADAPTER] create_metric_from_config called")
-        logger.debug(f"🔍 [DEBUG ADAPTER] Config keys: {list(metric_config.keys())}")
         
         # Validate required fields
         class_name = metric_config.get("class_name")
@@ -384,36 +382,27 @@ def create_metric_from_config(
             logger.warning("Metric config missing class_name, cannot create SDK metric")
             return None
         
-        logger.debug(f"🔍 [DEBUG ADAPTER] class_name: {class_name}")
 
         backend = metric_config.get("backend", "rhesis")
-        logger.debug(f"🔍 [DEBUG ADAPTER] backend: {backend}")
 
         # Map to SDK framework
         framework = map_backend_type_to_framework(backend)
-        logger.debug(f"🔍 [DEBUG ADAPTER] framework: {framework}")
 
         # Get score type from parameters
         score_type = metric_config.get("parameters", {}).get("score_type", "numeric")
-        logger.debug(f"🔍 [DEBUG ADAPTER] score_type: {score_type}")
 
         # Map class name (handles RhesisPromptMetric split)
         sdk_class_name = get_sdk_class_name(class_name, score_type)
-        logger.debug(f"🔍 [DEBUG ADAPTER] sdk_class_name: {sdk_class_name}")
 
         # Build parameters
-        logger.debug(f"🔍 [DEBUG ADAPTER] Building parameters...")
         params = build_metric_params_from_config(metric_config)
-        logger.debug(f"🔍 [DEBUG ADAPTER] Params built, keys: {list(params.keys())}")
 
         # Create metric using SDK factory
         logger.info(
             f"Creating SDK metric from config: framework='{framework}', "
             f"class='{sdk_class_name}', name='{params['name']}'"
         )
-        logger.debug(f"🔍 [DEBUG ADAPTER] About to call MetricFactory.create...")
         metric = MetricFactory.create(framework, sdk_class_name, **params)
-        logger.debug(f"🔍 [DEBUG ADAPTER] MetricFactory.create returned successfully")
 
         logger.debug(f"Successfully created SDK metric '{params['name']}'")
         return metric
