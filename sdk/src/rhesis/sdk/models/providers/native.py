@@ -58,7 +58,9 @@ class RhesisLLM(BaseLLM):
         }
         return self
 
-    def generate(self, prompt: str, schema: Optional[Union[Type[BaseModel], dict]] = None, **kwargs: Any) -> Any:
+    def generate(
+        self, prompt: str, schema: Optional[Union[Type[BaseModel], dict]] = None, **kwargs: Any
+    ) -> Any:
         """Run a chat completion using the API, and return the response."""
         try:
             # Convert Pydantic models to OpenAI-wrapped format
@@ -128,7 +130,7 @@ class RhesisLLM(BaseLLM):
             headers=self.headers,
             json=request_data,
         )
-        
+
         response.raise_for_status()
         result: Dict[str, Any] = response.json()
         return result

@@ -54,12 +54,12 @@ class LiteLLM(BaseLLM):
         """
         Run a chat completion using LiteLLM, returning the response.
         The schema will be used to validate the response if provided.
-        
+
         Args:
             prompt: The user prompt
             system_prompt: Optional system prompt
             schema: Either a Pydantic model or OpenAI-wrapped JSON schema dict
-            
+
         Returns:
             str or dict: Raw text if no schema, validated dict if schema provided
         """
