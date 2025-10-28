@@ -9,15 +9,15 @@ Create Date: 2025-10-26 18:29:27.481341
 
 """
 
-from typing import Sequence, Union
-
 from alembic import op
+from typing import Union, Sequence
 
 # Import our simple template loader
 from rhesis.backend.alembic.utils.template_loader import (
     load_cleanup_type_lookup_template,
     load_type_lookup_template,
 )
+
 
 # revision identifiers, used by Alembic.
 revision: str = "d99dc2079c4d"
