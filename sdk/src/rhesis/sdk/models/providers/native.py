@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type, Union
 
 import requests
 from pydantic import BaseModel
@@ -58,7 +58,7 @@ class RhesisLLM(BaseLLM):
         }
         return self
 
-    def generate(self, prompt: str, schema: Optional[BaseModel] = None, **kwargs: Any) -> Any:
+    def generate(self, prompt: str, schema: Optional[Union[Type[BaseModel], dict]] = None, **kwargs: Any) -> Any:
         """Run a chat completion using the API, and return the response."""
         try:
             # Convert Pydantic models to OpenAI-wrapped format

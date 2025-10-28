@@ -23,7 +23,7 @@ import base64
 import json
 import os
 import tempfile
-from typing import Optional
+from typing import Optional, Type, Union
 
 from pydantic import BaseModel
 
@@ -258,7 +258,7 @@ class VertexAILLM(LiteLLM):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        schema: Optional[BaseModel] = None,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
         *args,
         **kwargs,
     ):
