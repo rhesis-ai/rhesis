@@ -20,7 +20,7 @@ class UserActivity(AnalyticsBase):
     - id, user_id, organization_id, timestamp, deployment_type, event_metadata
     """
 
-    __tablename__ = "analytics_user_activity"
+    __tablename__ = "user_activity"
 
     # Override to make user_id required for this table
     user_id = Column(String(32), nullable=False, index=True)  # Hashed ID
@@ -40,7 +40,7 @@ class EndpointUsage(AnalyticsBase):
     - id, user_id, organization_id, timestamp, deployment_type, event_metadata
     """
 
-    __tablename__ = "analytics_endpoint_usage"
+    __tablename__ = "endpoint_usage"
 
     # Table-specific fields
     endpoint = Column(String(255), nullable=False, index=True)
@@ -59,7 +59,7 @@ class FeatureUsage(AnalyticsBase):
     - id, user_id, organization_id, timestamp, deployment_type, event_metadata
     """
 
-    __tablename__ = "analytics_feature_usage"
+    __tablename__ = "feature_usage"
 
     # Table-specific fields
     feature_name = Column(String(100), nullable=False, index=True)

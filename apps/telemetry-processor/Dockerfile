@@ -20,6 +20,14 @@ RUN uv pip install --system -e .
 # Copy source code
 COPY src/ /app/src/
 
+# Copy alembic configuration and migrations
+COPY alembic/ /app/alembic/
+COPY alembic.ini /app/alembic.ini
+COPY migrate.sh /app/migrate.sh
+
+# Make migration script executable
+RUN chmod +x /app/migrate.sh
+
 # Expose gRPC port
 EXPOSE 4317
 
@@ -27,6 +35,6 @@ EXPOSE 4317
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD python -c "import grpc; channel = grpc.insecure_channel('localhost:4317'); channel.close()" || exit 1
 
-# Run the processor
-CMD ["python", "src/processor.py"]
+# Run migrations then start the processor
+CMD ["sh", "-c", "./migrate.sh && python src/processor.py"]
 
