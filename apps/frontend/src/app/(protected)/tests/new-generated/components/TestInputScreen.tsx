@@ -169,7 +169,7 @@ export default function TestInputScreen({
                 gutterBottom
                 sx={{ mb: 1 }}
               >
-                Select documents to provide context (optional)
+                Select sources to provide context (optional)
               </Typography>
               <SourceSelector
                 selectedSourceIds={selectedSourceIds}

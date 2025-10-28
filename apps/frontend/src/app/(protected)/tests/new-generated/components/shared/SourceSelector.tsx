@@ -26,7 +26,7 @@ interface SourceSelectorProps {
 
 /**
  * SourceSelector Component
- * Allows users to select existing sources (documents) from their library
+ * Allows users to select existing sources from their library
  * Displays selected sources as chips below the dropdown
  */
 export default function SourceSelector({

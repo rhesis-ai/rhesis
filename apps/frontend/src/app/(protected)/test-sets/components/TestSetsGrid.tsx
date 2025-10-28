@@ -32,6 +32,7 @@ import TestSetDrawer from './TestSetDrawer';
 import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
+import ContextPreview from '../../tests/new-generated/components/shared/ContextPreview';
 
 interface TestSetsGridProps {
   testSets: TestSet[];
@@ -157,6 +158,7 @@ export default function TestSetsGrid({
       totalTests: testSet.attributes?.metadata?.total_tests || 0,
       creator: testSet.user,
       counts: testSet.counts,
+      sources: testSet.attributes?.metadata?.sources || [],
     };
   });
 
@@ -252,6 +254,19 @@ export default function TestSetsGrid({
             <Typography variant="body2">{count}</Typography>
           </Box>
         );
+      },
+    },
+    {
+      field: 'sources',
+      headerName: 'Sources',
+      width: 80,
+      sortable: false,
+      filterable: false,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: params => {
+        const sources = params.row.sources;
+        return <ContextPreview context={sources} />;
       },
     },
   ];

@@ -76,7 +76,7 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
             color="text.secondary"
             sx={{ display: 'block', mb: 1.5 }}
           >
-            Documents used to generate this test
+            Sources used to generate this test
           </Typography>
 
           <Stack spacing={2}>

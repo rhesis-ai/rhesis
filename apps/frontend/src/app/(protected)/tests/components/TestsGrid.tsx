@@ -23,6 +23,7 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { convertGridFilterModelToOData } from '@/utils/odata-filter';
+import ContextPreview from '../new-generated/components/shared/ContextPreview';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -225,6 +226,19 @@ export default function TestsTable({
               <Typography variant="body2">{count}</Typography>
             </Box>
           );
+        },
+      },
+      {
+        field: 'test_metadata.sources',
+        headerName: 'Sources',
+        width: 80,
+        sortable: false,
+        filterable: false,
+        align: 'center',
+        headerAlign: 'center',
+        renderCell: params => {
+          const sources = params.row.test_metadata?.sources;
+          return <ContextPreview context={sources} />;
         },
       },
     ],

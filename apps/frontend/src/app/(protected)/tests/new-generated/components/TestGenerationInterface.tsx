@@ -383,7 +383,7 @@ export default function TestGenerationInterface({
                       Tests Configuration
                     </Typography>
                     <Tooltip
-                      title="Configure test parameters and upload documents to guide AI generation."
+                      title="Configure test parameters and upload sources to guide AI generation."
                       arrow
                       placement="top"
                     >
@@ -566,7 +566,7 @@ export default function TestGenerationInterface({
                     p: 0.5,
                   }}
                 >
-                  <Tooltip title="Upload source document">
+                  <Tooltip title="Upload source">
                     <IconButton
                       size="small"
                       sx={{ ml: 0.5 }}
