@@ -1,0 +1,78 @@
+# Installation & Setup
+
+Get started with the Rhesis Python SDK - install the package, configure authentication, and learn the fundamental concepts including models, synthesizers, and metrics.
+
+## Installation
+
+```bash
+pip install rhesis-sdk
+```
+
+## Getting Started
+
+The SDK can be used standalone or integrated with our platform. To communicate with our platform and to use LLMs provided by us you need to obtain an API key.
+
+<Steps>
+### Obtain an API key
+
+1. Visit [Rhesis App](https://app.rhesis.ai)
+2. Sign up for a Rhesis account
+3. Navigate to your account settings
+4. Generate a new API key
+
+Your API key will be in the format `rh-XXXXXXXXXXXXXXXXXXXX`.
+Keep this key secure and never share it publicly.
+
+### Configure the SDK
+
+You can configure the SDK either through environment variables or direct configuration:
+
+**Environment Variables:**
+
+```bash
+export RHESIS_API_KEY="your-api-key"
+export RHESIS_BASE_URL="https://api.rhesis.ai"
+```
+
+**Direct Configuration:**
+
+```python
+import rhesis
+
+rhesis.api_key = "your-api-key"
+rhesis.base_url = "https://api.rhesis.ai"  # optional
+```
+
+### Basic Usage
+
+Once configured, you can start using the SDK to create and manage tests:
+
+```python
+from rhesis.sdk import RhesisClient
+
+# Initialize the client
+client = RhesisClient()
+
+# Create a test
+test = client.create_test(
+    prompt="What is the capital of France?",
+    expected_response="Paris",
+    behavior="Accuracy"
+)
+
+# Run the test
+result = client.run_test(test_id=test.id, endpoint_id="your-endpoint-id")
+print(result)
+```
+
+</Steps>
+
+
+---
+
+<Callout type="default">
+  **Next Steps** - Explore the [Platform Guide](/docs/platform) to understand how SDK integrates
+  with the web interface - Check out [Development](/docs/development/sdk) for advanced SDK usage and
+  API reference - Learn about [Core Concepts](/docs/getting-started/concepts) to understand the
+  overall workflow
+</Callout>
