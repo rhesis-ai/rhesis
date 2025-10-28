@@ -439,4 +439,116 @@ class TestCurrentE2EFlow:
         assert result["test_id"] == full_test_setup["test_id"]
         assert "metrics" in result
         assert "execution_time" in result
+    
+    @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
+    def test_execute_test_full_integration_without_adapter_mock(
+        self, mock_invoke, test_db, test_org_id, authenticated_user_id, 
+        test_endpoint, test_run, test_config, db_test_with_prompt
+    ):
+        """
+        CRITICAL INTEGRATION TEST: Full execute_test() flow without mocking the adapter.
+        
+        This test exercises the COMPLETE production path:
+        1. Database test with real metrics → get_test_metrics()
+        2. Dict validation → prepare_metric_configs()
+        3. Evaluator accepts dicts
+        4. Adapter converts dicts to SDK metrics (NOT MOCKED!)
+        5. SDK metric creation with real factory
+        
+        This would have caught the MetricConfig.from_dict() bug because it
+        exercises the exact production code path that was failing.
+        
+        Key difference from other E2E tests: We do NOT mock create_metric_from_config,
+        allowing the full dict → adapter → SDK metric chain to execute.
+        """
+        from rhesis.backend.app import models
+        from rhesis.backend.tasks.execution.test_execution import execute_test
+        
+        # Create a behavior with real metrics (not mocked)
+        behavior = models.Behavior(
+            name="Test Behavior with Real Metrics",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id
+        )
+        test_db.add(behavior)
+        test_db.flush()
+        
+        # Create a real RhesisPromptMetric in the database
+        metric = models.Metric(
+            name="Integration Test Metric",
+            class_name="RhesisPromptMetric",  # Will be split to RhesisPromptMetricNumeric by adapter
+            score_type="numeric",
+            threshold=0.7,
+            evaluation_prompt="Evaluate the response quality",
+            evaluation_steps="1. Check accuracy\n2. Check relevance",
+            reasoning="Consider completeness and correctness",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id
+        )
+        test_db.add(metric)
+        test_db.flush()
+        
+        # Link metric to behavior
+        behavior.metrics = [metric]
+        
+        # Update test to use this behavior
+        db_test_with_prompt.behavior_id = behavior.id
+        test_db.commit()
+        test_db.refresh(db_test_with_prompt)
+        
+        # Mock only the endpoint invocation, NOT the adapter or metrics
+        mock_invoke.return_value = {
+            "output": "The answer is 42",
+            "status_code": 200
+        }
+        
+        # Execute test - this goes through the FULL production path
+        # Including: get_test_metrics → prepare_metric_configs → 
+        #            evaluator → adapter → SDK metric creation
+        try:
+            result = execute_test(
+                db=test_db,
+                test_config_id=str(test_config.id),
+                test_run_id=str(test_run.id),
+                test_id=str(db_test_with_prompt.id),
+                endpoint_id=str(test_endpoint.id),
+                organization_id=str(test_org_id),
+                user_id=str(authenticated_user_id)
+            )
+            
+            # If we get here, the full flow worked!
+            assert result is not None
+            assert "test_id" in result
+            assert "execution_time" in result
+            
+            # The metric evaluation might not have results due to model config,
+            # but the important thing is we didn't crash with MetricConfig.from_dict() error
+            assert "metrics" in result
+            
+        except (ValueError, AttributeError) as e:
+            error_msg = str(e)
+            
+            # Expected errors from model configuration are OK
+            if any(expected in error_msg for expected in [
+                "RHESIS_API_KEY",
+                "Provider",
+                "api_key",
+                "not set"
+            ]):
+                # SUCCESS! We exercised the full chain without the bug
+                # The error is from model setup, not from dict conversion
+                pass
+            
+            # This specific error means we hit the bug we're preventing
+            elif "from_dict" in error_msg:
+                raise AssertionError(
+                    f"REGRESSION: Hit the MetricConfig.from_dict() bug that this test should prevent! "
+                    f"Error: {error_msg}"
+                )
+            
+            # Any other error is unexpected and should fail the test
+            else:
+                raise AssertionError(
+                    f"Unexpected error in full integration test: {error_msg}"
+                ) from e
 
