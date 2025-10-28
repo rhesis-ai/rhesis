@@ -12,7 +12,7 @@ import pytest
 from rhesis.backend.metrics import MetricResult
 
 
-class TestCurrentE2EFlow:
+class TestE2EFlow:
     """Test current end-to-end flow (baseline)."""
     
     @pytest.fixture

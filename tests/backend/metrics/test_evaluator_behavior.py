@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 from rhesis.backend.metrics import Evaluator, MetricResult
 
 
-class TestCurrentEvaluatorBehavior:
+class TestEvaluatorBehavior:
     """Test current MetricEvaluator behavior (baseline)."""
     
     def test_evaluator_initialization(self):
