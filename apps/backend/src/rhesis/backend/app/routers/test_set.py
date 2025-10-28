@@ -272,6 +272,8 @@ async def generate_test_set(
 
         # Fetch sources from database if source_ids are provided
         documents_to_use = []
+        source_ids_to_documents = {}  # Map document name to source_id
+        source_ids_list = []  # List of source_ids in the same order as documents
         if request.documents:
             documents_to_use = request.documents
         elif request.source_ids:
@@ -298,6 +300,9 @@ async def generate_test_set(
                     path=None,  # Sources don't have file paths
                 )
                 documents_to_use.append(document_sdk)
+                source_ids_list.append(str(source_id))
+                # Store mapping: document name -> source_id for later lookup
+                source_ids_to_documents[document_sdk.name] = str(source_id)
 
         # Build the generation prompt from config and samples
         generation_prompt = build_generation_prompt(request.config, request.samples)
@@ -317,6 +322,8 @@ async def generate_test_set(
             batch_size=request.batch_size,
             prompt=generation_prompt,
             documents=[doc.dict() for doc in documents_to_use] if documents_to_use else None,
+            source_ids=source_ids_list,  # Pass actual source_ids list
+            source_ids_to_documents=source_ids_to_documents,  # Pass mapping for debugging
             name=request.name,  # Pass optional test set name
         )
 
