@@ -78,6 +78,7 @@ class TestSetGenerationRequest(BaseModel):
     num_tests: Optional[int] = None
     batch_size: int = 20
     documents: Optional[List[Document]] = None
+    source_ids: Optional[List[uuid.UUID]] = None
     name: Optional[str] = None
 
 
@@ -243,6 +244,7 @@ def determine_test_count(config: TestSetGenerationConfig, requested_count: Optio
 async def generate_test_set(
     request: TestSetGenerationRequest,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -254,6 +256,7 @@ async def generate_test_set(
     Args:
         request: The generation request containing config, samples, and parameters
         db: Database session
+        tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
 
     Returns:
@@ -266,6 +269,35 @@ async def generate_test_set(
 
         if not request.config.description.strip():
             raise HTTPException(status_code=400, detail="Description is required")
+
+        # Fetch sources from database if source_ids are provided
+        documents_to_use = []
+        if request.documents:
+            documents_to_use = request.documents
+        elif request.source_ids:
+            organization_id, user_id = tenant_context
+            for source_id in request.source_ids:
+                db_source = crud.get_source(
+                    db, source_id=source_id, organization_id=organization_id, user_id=user_id
+                )
+                if not db_source:
+                    raise HTTPException(
+                        status_code=404, detail=f"Source with id {source_id} not found"
+                    )
+
+                # Create Document object for the synthesizer
+                document_sdk = Document(
+                    name=db_source.title or f"Source {db_source.id}",
+                    description=db_source.description
+                    or f"Source document: {db_source.title or f'Source {db_source.id}'}",
+                    content=db_source.content
+                    or (
+                        f"No content available for source: "
+                        f"{db_source.title or f'Source {db_source.id}'}"
+                    ),
+                    path=None,  # Sources don't have file paths
+                )
+                documents_to_use.append(document_sdk)
 
         # Build the generation prompt from config and samples
         generation_prompt = build_generation_prompt(request.config, request.samples)
@@ -284,7 +316,7 @@ async def generate_test_set(
             num_tests=test_count,
             batch_size=request.batch_size,
             prompt=generation_prompt,
-            documents=[doc.dict() for doc in request.documents] if request.documents else None,
+            documents=[doc.dict() for doc in documents_to_use] if documents_to_use else None,
             name=request.name,  # Pass optional test set name
         )
 

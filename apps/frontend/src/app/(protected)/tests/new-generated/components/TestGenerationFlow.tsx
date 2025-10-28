@@ -901,6 +901,7 @@ export default function TestGenerationFlow({
         synthesizer_type: 'prompt',
         batch_size: 20,
         num_tests: numTests,
+        source_ids: selectedSourceIds,
         name: testSetName.trim() || undefined,
       };
 
@@ -928,6 +929,7 @@ export default function TestGenerationFlow({
     testSamples,
     testSetSize,
     testSetName,
+    selectedSourceIds,
     project,
     router,
     show,
