@@ -443,16 +443,49 @@ export default function TestRunMainView({
       filteredTests.length > 0 &&
       !hasInitialSelection
     ) {
-      const testIndex = filteredTests.findIndex(
+      console.log(
+        '[TestRunMainView] Attempting to select test with ID:',
+        initialSelectedTestId
+      );
+      console.log('[TestRunMainView] Available tests:', filteredTests.length);
+
+      // First try to match by test result ID (direct match)
+      let testIndex = filteredTests.findIndex(
         t => t.id === initialSelectedTestId
       );
+      console.log('[TestRunMainView] Direct ID match index:', testIndex);
+
+      // If not found, try to match by test_id (for cross-run navigation)
+      if (testIndex === -1) {
+        testIndex = filteredTests.findIndex(
+          t => t.test_id === initialSelectedTestId
+        );
+        console.log('[TestRunMainView] test_id match index:', testIndex);
+        if (testIndex !== -1) {
+          console.log(
+            '[TestRunMainView] Found test by test_id:',
+            filteredTests[testIndex]
+          );
+        }
+      }
 
       if (testIndex !== -1) {
         // Calculate which page the test is on
         const testPage = Math.floor(testIndex / rowsPerPage);
+        console.log(
+          '[TestRunMainView] Setting page to:',
+          testPage,
+          'and selecting test:',
+          filteredTests[testIndex].id
+        );
         setPage(testPage);
-        setSelectedTestId(initialSelectedTestId);
+        setSelectedTestId(filteredTests[testIndex].id);
         setHasInitialSelection(true);
+      } else {
+        console.warn(
+          '[TestRunMainView] Could not find test with ID or test_id:',
+          initialSelectedTestId
+        );
       }
     }
   }, [initialSelectedTestId, filteredTests, rowsPerPage, hasInitialSelection]);

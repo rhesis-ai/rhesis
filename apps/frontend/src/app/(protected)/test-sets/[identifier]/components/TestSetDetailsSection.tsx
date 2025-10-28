@@ -8,15 +8,14 @@ import {
   Tooltip,
   Chip,
   useTheme,
+  Grid,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
 import DocumentIcon from '@mui/icons-material/InsertDriveFileOutlined';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import { ApiClientFactory } from '../../../../../utils/api-client/client-factory';
 import ExecuteTestSetDrawer from './ExecuteTestSetDrawer';
 import CancelIcon from '@mui/icons-material/CancelOutlined';
@@ -81,7 +80,6 @@ export default function TestSetDetailsSection({
   sessionToken,
 }: TestSetDetailsSectionProps) {
   const theme = useTheme();
-  const router = useRouter();
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(
@@ -210,13 +208,6 @@ export default function TestSetDetailsSection({
     <>
       {/* Action Buttons */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }} suppressHydrationWarning>
-        <Button
-          variant="outlined"
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/tests')}
-        >
-          Back
-        </Button>
         <Tooltip
           title={
             totalTests === 0 ? 'Cannot execute a test set with 0 tests' : ''
@@ -422,6 +413,23 @@ export default function TestSetDetailsSection({
           </Button>
         </Box>
       )}
+
+      {/* Creator Information */}
+      <Box sx={{ mb: 4, mt: 3 }}>
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+          Created by
+        </Typography>
+        <Typography
+          variant="body2"
+          sx={{
+            bgcolor: 'action.hover',
+            borderRadius: theme => theme.shape.borderRadius * 0.25,
+            padding: 1,
+          }}
+        >
+          {testSet.user?.name || testSet.user?.email || 'Not available'}
+        </Typography>
+      </Box>
 
       {/* Metadata Fields */}
       <Box sx={{ mb: 3 }}>
