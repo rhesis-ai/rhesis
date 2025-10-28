@@ -143,32 +143,61 @@ async def create_chat_completion_endpoint(request: dict):
 @router.post("/generate/content")
 async def generate_content_endpoint(request: GenerateContentRequest):
     """
-    Generate text using LLM with optional OpenAI JSON schema for structured output.
+    Generate text using LLM with optional OpenAI-wrapped JSON schema for structured output.
 
-    The schema parameter should follow the OpenAI structured output format. This format
-    is compatible with multiple LLM providers (OpenAI, Vertex AI, etc.) and enables
-    type-safe structured generation without requiring Pydantic model definitions.
+    The schema parameter MUST follow the OpenAI structured output format when provided.
+    This is a wrapped format that includes metadata about the schema. Plain JSON schemas
+    are not supported - they must be wrapped in the OpenAI format shown below.
+
+    This format is compatible with multiple LLM providers (OpenAI, Vertex AI, etc.) and
+    enables type-safe structured generation without requiring Pydantic model definitions.
 
     Args:
-        request: Contains prompt and optional OpenAI JSON schema for structured output.
-                The schema should follow the format defined in OpenAI's structured outputs
-                documentation: a JSON Schema object that describes the expected response format.
+        request: Contains prompt and optional OpenAI-wrapped JSON schema for structured output.
 
     Returns:
         str or dict: Raw text if no schema provided, validated dict if schema is provided
 
-    Example:
+    Schema Format (Required):
+        The schema must be wrapped in OpenAI's structured output format:
+        ```python
+        {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "SchemaName",           # Required: Name for the schema
+                "schema": {                      # Required: The actual JSON schema
+                    "type": "object",
+                    "properties": {
+                        "field1": {"type": "string"},
+                        "field2": {"type": "number"}
+                    },
+                    "required": ["field1"],
+                    "additionalProperties": false
+                },
+                "strict": true                   # Optional: Enable strict mode
+            }
+        }
+        ```
+
+    Example Request:
         ```python
         {
             "prompt": "Generate a person's info",
             "schema": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "age": {"type": "number"}
-                },
-                "required": ["name", "age"],
-                "additionalProperties": False
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "PersonInfo",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "age": {"type": "number"}
+                        },
+                        "required": ["name", "age"],
+                        "additionalProperties": false
+                    },
+                    "strict": true
+                }
             }
         }
         ```
