@@ -87,19 +87,6 @@ class LiteLLM(BaseLLM):
 
         response_content = response.choices[0].message.content  # type: ignore
         if schema:
-            # Strip markdown code fences if present (```json ... ```)
-            if isinstance(response_content, str):
-                response_content = response_content.strip()
-                if response_content.startswith("```"):
-                    # Remove opening fence (```json or ```)
-                    lines = response_content.split("\n", 1)
-                    if len(lines) > 1:
-                        response_content = lines[1]
-                    # Remove closing fence
-                    if response_content.endswith("```"):
-                        response_content = response_content[:-3]
-                    response_content = response_content.strip()
-            
             response_content = json.loads(response_content)
             validate_llm_response(response_content, schema)
             return response_content
