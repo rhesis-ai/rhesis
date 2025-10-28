@@ -114,7 +114,8 @@ def _fetch_and_configure_model(
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
         logger.info(
-            "[LLM_UTILS] Rhesis system model detected - using backend's default model infrastructure"
+            "[LLM_UTILS] Rhesis system model detected - "
+            "using backend's default model infrastructure"
         )
         logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
         return default_model
