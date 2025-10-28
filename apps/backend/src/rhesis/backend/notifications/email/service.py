@@ -181,6 +181,11 @@ class EmailService:
         # Get BCC email from environment variable (optional)
         bcc_email = os.getenv("AGENT_EMAIL_BCC")
 
+        # Get welcome-specific from email (defaults to hello@rhesis.ai for founder emails)
+        welcome_from_email = os.getenv(
+            "WELCOME_FROM_EMAIL", "Nicolai from Rhesis AI <hello@rhesis.ai>"
+        )
+
         subject = "Welcome to Rhesis AI!"
 
         template_variables = {
@@ -196,6 +201,6 @@ class EmailService:
             subject=subject,
             template_variables=template_variables,
             task_id="welcome",
-            from_email="Nicolai from Rhesis AI <hello@rhesis.ai>",
+            from_email=welcome_from_email,
             bcc=bcc_email,
         )
