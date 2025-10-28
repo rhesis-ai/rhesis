@@ -250,7 +250,10 @@ async def generate_tests_endpoint(
                     description=db_source.description
                     or f"Source document: {db_source.title or f'Source {db_source.id}'}",
                     content=db_source.content
-                    or f"No content available for source: {db_source.title or f'Source {db_source.id}'}",
+                    or (
+                        f"No content available for source: "
+                        f"{db_source.title or f'Source {db_source.id}'}"
+                    ),
                     path=None,  # Sources don't have file paths
                 )
                 sources_sdk.append(document_sdk)
