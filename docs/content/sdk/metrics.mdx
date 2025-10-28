@@ -3,7 +3,7 @@
 ## Overview
 
 The Rhesis SDK provides a comprehensive metrics system for evaluating LLM-based systems. The metrics module supports multiple evaluation frameworks and allows you to create custom metrics tailored to your specific use cases. 
-The metrics module is integrated with the backend allowing you to work with metrics directly from the platform.
+The metrics module is integrated with the backend, allowing you to work with metrics directly from the platform.
 
 
 <Callout type="info">
@@ -13,7 +13,7 @@ The SDK integrates with popular evaluation frameworks:
 - **Ragas**
 - **Rhesis**
 
-All framerowkrs are used by the common interface which allows you to use the metrics from different frameworks using the same interface.
+All frameworks are supported through a common interface, allowing you to use metrics from different providers seamlessly.
 </Callout>
 
 ## Supported metrics
@@ -48,7 +48,7 @@ All framerowkrs are used by the common interface which allows you to use the met
 | `CategoricalJudge` | LLM-based categorical classification | Categories, passing categories, custom prompts |
 
 
-If some metrics is missing from the list, or you would like to use a provider, please let us know 
+If any metrics are missing from the list, or you would like to use a different provider, please let us know 
 by creating an issue on [GitHub](https://github.com/rhesis-ai/rhesis/issues).
 
 ## Quick Start
@@ -94,13 +94,13 @@ print(f"Score: {result.score}")
 ### Creating Custom Metrics
 
 You can create custom metrics using the `NumericJudge` and `CategoricalJudge` classes.
-`numericjudge` return the score in the form of the number (for example from 0 to 1), while `categoricaljudge` return the score in the form of the category (for example "good", "fair", "poor").
+`NumericJudge` returns the score as a number (for example from 0 to 1), while `CategoricalJudge` returns the score as a category (for example "good", "fair", "poor").
 
-Each of this need to specify `evaluation_prompt`. Foe better restuls you can specify `evalution steps`, `reasoning` and `evaluation_examples`.
+Each of these requires an `evaluation_prompt`. For better results, you can also specify `evaluation_steps`, `reasoning`, and `evaluation_examples`.
 
 #### Numeric Judge
 
-Numeric judge needs 4 specific parameters to be defined: `min_score`, `max_score`, `threshold` and `threshold_operator`.
+Numeric Judge requires 4 specific parameters to be defined: `min_score`, `max_score`, `threshold`, and `threshold_operator`.
 
 ```python
 from rhesis.sdk.metrics import NumericJudge
@@ -127,7 +127,7 @@ result = metric.evaluate(
 
 #### Categorical Judge
 
-Categorical judge needs to specify `categories` and `passing_categories`.
+Categorical Judge requires you to specify `categories` and `passing_categories`.
 
 ```python
 from rhesis.sdk.metrics import CategoricalJudge
@@ -151,8 +151,8 @@ print(f"Category: {result.score}")
 print(f"Passed: {result.details['is_successful']}")
 ```
 
-## Loading Metrics from configuration
-Custom metrics can be serialized or deserialized. To do so use `from_config` and `to_config` methods, which operate using config dataclass. You can also use `from_dict` and `to_dict` methods.
+## Loading Metrics from Configuration
+Custom metrics can be serialized or deserialized. To do so, use the `from_config` and `to_config` methods, which operate using a config dataclass. You can also use the `from_dict` and `to_dict` methods.
 
 ```python
 metric = NumericJudge(
@@ -170,11 +170,11 @@ config = metric.to_config()
 metric = NumericJudge.from_config(config)
 ```
 
-## Use metrics in the platform
+## Use Metrics in the Platform
 
-The work on metrics can be done in the platform and in the sdk. To make it easier, the sdk provides 
-`push` and `pull` methods to push and pull metrics to and from the platform.
-To do so, you need to specify the following attributes, which are used by our platform:
+Metrics can be managed both in the platform and in the SDK. To facilitate this workflow, the SDK provides 
+`push` and `pull` methods to synchronize metrics with the platform.
+To use these methods, you need to specify the following attributes, which are used by the platform:
 
 ```python
 metric = NumericJudge(
@@ -182,7 +182,7 @@ metric = NumericJudge(
     description="Rate how clear and understandable the response is.",
     metric_type="classification",
     requires_ground_truth=True,
-    requires_context=False
+    requires_context=False,
     evaluation_prompt="Rate how clear and understandable the response is.",
     evaluation_steps="1. Check sentence structure\n"
                      "2. Evaluate word choice\n"
@@ -194,7 +194,7 @@ metric = NumericJudge(
 metric.push()
 ```
 
-To pull the metrics from the platform, you can use the `pull` method. You need to specify the metric name. If the name is not unique, you have to specify the metric id.
+To pull metrics from the platform, use the `pull` method and specify the metric name. If the name is not unique, you must also specify the metric ID.
 
 ```python
 metric = NumericJudge.pull(name="response_clarity")
@@ -224,8 +224,8 @@ print(result.details)
 
 ## Models
 
-All metrics need the LLM model to do the evaluation. If the model is not specified, the default model will be used. You can specify the model in the `model` argument. You can iether pass the model object or the model name.
-For more information about models, see [Models Documentation](./models.mdx).
+All metrics require an LLM model to perform the evaluation. If no model is specified, the default model will be used. You can specify the model using the `model` argument. You can either pass a model object or the model name.
+For more information about models, see the [Models Documentation](./models.mdx).
 
 ```python
 from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
@@ -246,8 +246,6 @@ metric = DeepEvalAnswerRelevancy(threshold=0.7, model="gpt-4")
 
 ## See Also
 
-- [Models Documentation](./models.mdx) - Configure LLM models for
-  evaluation
+- [Models Documentation](./models.mdx) - Configure LLM models for evaluation
 - [Installation](./installation.mdx) - Setup instructions
-- [GitHub Repository](https://github.com/your-org/rhesis) - Source code and
-  examples
+- [GitHub Repository](https://github.com/your-org/rhesis) - Source code and examples
