@@ -1202,8 +1202,16 @@ class RiskDataFactory(BaseDataFactory):
     def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
         """Generate risk edge case data"""
         if case_type == "long_name":
+            # Generate text that's guaranteed to be longer than 100 chars
+            long_text = fake.text(max_nb_chars=200).replace('\n', ' ')
+            # Ensure it's at least 101 characters long
+            while len(long_text) < 101:
+                long_text += " " + fake.sentence()
+            # Trim if it exceeds 200 characters
+            if len(long_text) > 200:
+                long_text = long_text[:200].rsplit(' ', 1)[0]  # Cut at last word boundary
             return {
-                "name": fake.text(max_nb_chars=200).replace('\n', ' '),
+                "name": long_text,
                 "description": fake.paragraph(nb_sentences=5)
             }
         elif case_type == "security_risk":
