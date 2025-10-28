@@ -212,8 +212,8 @@ async def generate_tests_endpoint(
     Generate test cases using the prompt synthesizer.
 
     Args:
-        request: The request containing the prompt, number of tests, and optional source_ids
-            - source_ids contains full SourceData with name, description, content, and id
+        request: The request containing the prompt, number of tests, and optional sources
+            - sources contains full SourceData with name, description, content, and id
         db: Database session
         tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
@@ -224,16 +224,16 @@ async def generate_tests_endpoint(
     try:
         prompt = request.prompt
         num_tests = request.num_tests
-        source_ids = request.source_ids
+        sources = request.sources
 
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
 
-        # Prepare sources from source_ids if provided (they now contain full data)
+        # Prepare sources from sources if provided (they now contain full data)
         sources_sdk = []
-        if source_ids:
-            # source_ids now contains full SourceData objects
-            for source_data in source_ids:
+        if sources:
+            # sources now contains full SourceData objects
+            for source_data in sources:
                 # Create Document object from SourceData
                 document_sdk = Document(
                     name=source_data.name,

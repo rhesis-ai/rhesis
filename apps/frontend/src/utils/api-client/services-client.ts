@@ -40,7 +40,7 @@ interface SourceData {
 interface GenerateTestsRequest {
   prompt: object;
   num_tests?: number;
-  source_ids?: SourceData[];
+  sources?: SourceData[];
   // Iteration context - same as test config
   chip_states?: ChipState[];
   rated_samples?: RatedSample[];

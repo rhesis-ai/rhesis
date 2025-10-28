@@ -177,7 +177,7 @@ export default function TestGenerationFlow({
             const response = await servicesClient.generateTests({
               prompt,
               num_tests: 5,
-              source_ids: selectedSources,
+              sources: selectedSources,
             });
 
             if (response.tests?.length) {
@@ -312,7 +312,7 @@ export default function TestGenerationFlow({
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 5,
-          source_ids: sources, // Use the parameter directly, not the state
+          sources: sources, // Use the parameter directly, not the state
         });
 
         if (response.tests?.length) {
@@ -379,7 +379,7 @@ export default function TestGenerationFlow({
       const response = await servicesClient.generateTests({
         prompt,
         num_tests: 5,
-        source_ids: selectedSources,
+        sources: selectedSources,
       });
 
       if (response.tests?.length) {
@@ -453,7 +453,7 @@ export default function TestGenerationFlow({
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 1,
-          source_ids: selectedSources,
+          sources: selectedSources,
         });
 
         if (response.tests?.length) {
@@ -667,7 +667,7 @@ export default function TestGenerationFlow({
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 5,
-          source_ids: selectedSources,
+          sources: selectedSources,
           chip_states: chipStates,
           rated_samples: ratedSamples,
           previous_messages: [
@@ -816,7 +816,7 @@ export default function TestGenerationFlow({
       const response = await servicesClient.generateTests({
         prompt,
         num_tests: 5,
-        source_ids: selectedSources,
+        sources: selectedSources,
         chip_states: chipStates,
         rated_samples: ratedSamples,
         previous_messages: previousMessages,
@@ -904,7 +904,7 @@ export default function TestGenerationFlow({
         synthesizer_type: 'prompt',
         batch_size: 20,
         num_tests: numTests,
-        source_ids: selectedSources,
+        sources: selectedSources,
         name: testSetName.trim() || undefined,
       };
 

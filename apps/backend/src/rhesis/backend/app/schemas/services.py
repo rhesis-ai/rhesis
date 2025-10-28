@@ -35,7 +35,7 @@ class SourceData(BaseModel):
 class GenerateTestsRequest(BaseModel):
     prompt: dict
     num_tests: int = 5
-    source_ids: Optional[List[SourceData]] = None
+    sources: Optional[List[SourceData]] = None
 
 
 class TestPrompt(BaseModel):
