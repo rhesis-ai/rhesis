@@ -1,45 +1,19 @@
 from typing import List, Optional, Union
 
-# Import DeepEval metrics with fallback for missing metrics
-try:
-    from deepeval.metrics import (
-        AnswerRelevancyMetric,  # type: ignore
-        BiasMetric,  # type: ignore
-        ContextualPrecisionMetric,  # type: ignore
-        ContextualRecallMetric,  # type: ignore
-        ContextualRelevancyMetric,  # type: ignore
-        FaithfulnessMetric,  # type: ignore
-        ToxicityMetric,  # type: ignore
-    )
-except ImportError as e:
-    raise ImportError(f"Failed to import DeepEval metrics: {e}")
-
-# Import optional metrics that may not exist in all DeepEval versions
-try:
-    from deepeval.metrics import MisuseMetric  # type: ignore
-except ImportError:
-    MisuseMetric = None  # type: ignore
-
-try:
-    from deepeval.metrics import NonAdviceMetric  # type: ignore
-except ImportError:
-    NonAdviceMetric = None  # type: ignore
-
-try:
-    from deepeval.metrics import PIILeakageMetric  # type: ignore
-except ImportError:
-    PIILeakageMetric = None  # type: ignore
-
-try:
-    from deepeval.metrics import RoleViolationMetric  # type: ignore
-except ImportError:
-    RoleViolationMetric = None  # type: ignore
-
-try:
-    from deepteam.metrics import IllegalMetric, SafetyMetric  # type: ignore
-except ImportError:
-    IllegalMetric = None  # type: ignore
-    SafetyMetric = None  # type: ignore
+from deepeval.metrics import (  # type: ignore
+    AnswerRelevancyMetric,
+    BiasMetric,
+    ContextualPrecisionMetric,
+    ContextualRecallMetric,
+    ContextualRelevancyMetric,
+    FaithfulnessMetric,
+    MisuseMetric,
+    NonAdviceMetric,
+    PIILeakageMetric,
+    RoleViolationMetric,
+    ToxicityMetric,
+)
+from deepteam.metrics import IllegalMetric, SafetyMetric  # type: ignore
 
 from rhesis.sdk.metrics.base import MetricResult, MetricType
 from rhesis.sdk.metrics.providers.deepeval.metric_base import DeepEvalMetricBase
