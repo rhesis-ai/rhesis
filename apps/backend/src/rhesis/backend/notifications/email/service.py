@@ -168,7 +168,9 @@ class EmailService:
             bool: True if email was sent successfully, False otherwise
         """
         if not self.is_configured:
-            logger.warning(f"Cannot send welcome email to {recipient_email}: SMTP not configured")
+            logger.warning(
+                f"Cannot send welcome email to {recipient_email}: SMTP not configured"
+            )
             return False
 
         # Set default URLs if not provided
@@ -196,6 +198,6 @@ class EmailService:
             subject=subject,
             template_variables=template_variables,
             task_id="welcome",
-            from_email="hello@rhesis.ai",
+            from_email="Nicolai from Rhesis AI <hello@rhesis.ai>",
             bcc=bcc_email,
         )
