@@ -61,28 +61,18 @@ class RhesisLLM(BaseLLM):
     def generate(self, prompt: str, schema: Optional[BaseModel] = None, **kwargs: Any) -> Any:
         """Run a chat completion using the API, and return the response."""
         try:
-            # Convert schemas to OpenAI format if needed
-            if schema:
-                if not isinstance(schema, dict):
-                    # Pydantic model: convert to OpenAI format
-                    schema = {
-                        "type": "json_schema",
-                        "json_schema": {
-                            "name": schema.__name__,
-                            "schema": schema.model_json_schema(),
-                            "strict": True,
-                        },
-                    }
-                elif "json_schema" not in schema:
-                    # Plain JSON schema: wrap in OpenAI format
-                    schema = {
-                        "type": "json_schema",
-                        "json_schema": {
-                            "name": "response",
-                            "schema": schema,
-                            "strict": True,
-                        },
-                    }
+            # Convert to OpenAI-wrapped format if not already wrapped
+            if schema and "json_schema" not in (schema if isinstance(schema, dict) else {}):
+                schema_dict = schema.model_json_schema() if not isinstance(schema, dict) else schema
+                schema_name = schema.__name__ if hasattr(schema, "__name__") else "response"
+                schema = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema_name,
+                        "schema": schema_dict,
+                        "strict": True,
+                    },
+                }
 
             response = self.create_completion(
                 prompt=prompt,
