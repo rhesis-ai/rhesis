@@ -136,13 +136,20 @@ def build_metric_params_from_model(
         "description": metric_model.description,
     }
 
-    # Add prompt-related fields
-    if metric_model.evaluation_prompt:
-        params["evaluation_prompt"] = metric_model.evaluation_prompt
-    if metric_model.evaluation_steps:
-        params["evaluation_steps"] = metric_model.evaluation_steps
-    if metric_model.reasoning:
-        params["reasoning"] = metric_model.reasoning
+    # Add prompt-related fields (all required for RhesisPromptMetric by SDK factory)
+    # Provide defaults for metrics that don't have these configured
+    params["evaluation_prompt"] = (
+        metric_model.evaluation_prompt
+        or f"Evaluate the quality of the output for {params['name']}."
+    )
+    params["evaluation_steps"] = (
+        metric_model.evaluation_steps
+        or "1. Analyze the output\n2. Score based on criteria"
+    )
+    params["reasoning"] = (
+        metric_model.reasoning
+        or "Consider accuracy, relevance, and completeness"
+    )
 
     # Add score-type specific parameters
     score_type = metric_model.score_type or "numeric"
@@ -211,13 +218,21 @@ def build_metric_params_from_config(metric_config: Dict[str, Any]) -> Dict[str, 
     # Extract parameters from nested "parameters" dict if it exists
     config_params = metric_config.get("parameters", {})
 
-    # Add prompt-related fields
-    if "evaluation_prompt" in config_params:
-        params["evaluation_prompt"] = config_params["evaluation_prompt"]
-    if "evaluation_steps" in config_params:
-        params["evaluation_steps"] = config_params["evaluation_steps"]
-    if "reasoning" in config_params:
-        params["reasoning"] = config_params["reasoning"]
+    # Add prompt-related fields (all required for RhesisPromptMetric by SDK factory)
+    # Provide defaults for metrics that don't have these configured
+    metric_name = metric_config.get("name", "Unnamed Metric")
+    params["evaluation_prompt"] = config_params.get(
+        "evaluation_prompt",
+        f"Evaluate the quality of the output for {metric_name}."
+    )
+    params["evaluation_steps"] = config_params.get(
+        "evaluation_steps",
+        "1. Analyze the output\n2. Score based on criteria"
+    )
+    params["reasoning"] = config_params.get(
+        "reasoning",
+        "Consider accuracy, relevance, and completeness"
+    )
 
     # Add score parameters
     score_type = config_params.get("score_type", "numeric")

@@ -264,8 +264,11 @@ class TestBuildMetricParamsFromModel:
 
         assert params["name"] == "Minimal Metric"
         assert params["description"] is None
-        # Optional fields should not be in params if None
-        assert "evaluation_prompt" not in params
+        # SDK factory requires these fields, so they get defaults
+        assert "evaluation_prompt" in params
+        assert "evaluation_steps" in params
+        assert "reasoning" in params
+        # Other optional fields should not be in params if None
         assert "min_score" not in params
 
 
