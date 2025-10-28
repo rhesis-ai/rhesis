@@ -138,8 +138,6 @@ def prepare_metric_configs(metrics: List, test_id: str) -> List:
     Returns:
         List of valid Metric models
     """
-    # Metrics from get_test_metrics() are now Metric models
-    # The MetricEvaluator accepts Metric models, dicts, or MetricConfig objects
     logger.debug(f"🔍 [DEBUG] prepare_metric_configs received {len(metrics)} metrics")
 
     # Validate that each metric has required fields
@@ -147,22 +145,15 @@ def prepare_metric_configs(metrics: List, test_id: str) -> List:
     invalid_count = 0
 
     for i, metric in enumerate(metrics):
-        # Accept Metric models (primary case), dicts (legacy), or MetricConfig objects
-        if hasattr(metric, "class_name"):
-            # It's a Metric model or MetricConfig
-            if not metric.class_name:
-                invalid_count += 1
-                logger.warning(f"Skipped metric {i} for test {test_id}: missing class_name")
-                continue
-        elif isinstance(metric, dict):
-            # Legacy dict format
-            if not metric.get("class_name"):
-                invalid_count += 1
-                logger.warning(f"Skipped metric {i} for test {test_id}: missing class_name")
-                continue
-        else:
+        # All metrics should be Metric model instances
+        if not hasattr(metric, "class_name"):
             logger.warning(f"Metric {i} has unexpected type: {type(metric)}")
             invalid_count += 1
+            continue
+            
+        if not metric.class_name:
+            invalid_count += 1
+            logger.warning(f"Skipped metric {i} for test {test_id}: missing class_name")
             continue
 
         valid_metrics.append(metric)
