@@ -23,7 +23,8 @@ async def generate_tests(
 ) -> Dict:
     """
     Generate tests using the appropriate synthesizer based on input.
-    Uses user's configured default model if available, otherwise falls back to DEFAULT_GENERATION_MODEL.
+    Uses user's configured default model if available,
+    otherwise falls back to DEFAULT_GENERATION_MODEL.
 
     Args:
         db: Database session
@@ -49,7 +50,12 @@ async def generate_tests(
     # Choose synthesizer based on whether documents are provided
     config = GenerationConfig(**prompt)
     if documents:
-        synthesizer = DocumentSynthesizer(prompt=prompt, model=model, config=config)
+        # For DocumentSynthesizer, we need a simple prompt string
+        # The detailed config is passed via the config parameter
+        prompt_string = str(
+            prompt.get("specific_requirements") or prompt.get("test_type", "Generate test cases")
+        )
+        synthesizer = DocumentSynthesizer(prompt=prompt_string, model=model, config=config)
         generate_func = partial(synthesizer.generate, documents=documents, num_tests=num_tests)
     else:
         synthesizer = ConfigSynthesizer(config=config, model=model)

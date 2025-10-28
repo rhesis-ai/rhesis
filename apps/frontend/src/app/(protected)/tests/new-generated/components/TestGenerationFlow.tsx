@@ -389,6 +389,11 @@ export default function TestGenerationFlow({
           topic: test.topic,
           rating: null,
           feedback: '',
+          context: test.metadata?.sources?.map((source: any) => ({
+            name: source.name || source.source || '',
+            description: source.description || '',
+            content: source.content || '',
+          })),
         }));
 
         setTestSamples(newSamples);
@@ -458,6 +463,13 @@ export default function TestGenerationFlow({
             topic: response.tests[0].topic,
             rating: null,
             feedback: '',
+            context: response.tests[0].metadata?.sources?.map(
+              (source: any) => ({
+                name: source.name || source.source || '',
+                description: source.description || '',
+                content: source.content || '',
+              })
+            ),
           };
 
           // Replace the old sample with the new one
@@ -675,6 +687,11 @@ export default function TestGenerationFlow({
               topic: test.topic,
               rating: null,
               feedback: '',
+              context: test.metadata?.sources?.map((source: any) => ({
+                name: source.name || source.source || '',
+                description: source.description || '',
+                content: source.content || '',
+              })),
             })
           );
 
@@ -812,6 +829,11 @@ export default function TestGenerationFlow({
           topic: test.topic,
           rating: null,
           feedback: '',
+          context: test.metadata?.sources?.map((source: any) => ({
+            name: source.name || source.source || '',
+            description: source.description || '',
+            content: source.content || '',
+          })),
         }));
 
         setTestSamples(prev => [...prev, ...newSamples]);
