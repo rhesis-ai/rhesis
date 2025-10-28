@@ -209,10 +209,10 @@ async def get_authenticated_user_with_context(
                 if token:
                     user = crud.get_user_by_id(db, token.user_id)
 
-                    # Handle user based on organization requirement - must be inside the context manager
+                    # Handle user based on organization requirement
+                    # Must be inside the context manager
                     if user:
-                        # Access all attributes we need within the transaction context
-                        user_id = user.id
+                        # Access all attributes we need within transaction context
                         organization_id = user.organization_id
 
                         if without_context:
@@ -225,7 +225,7 @@ async def get_authenticated_user_with_context(
                                     status_code=status.HTTP_403_FORBIDDEN,
                                     detail="User is not associated with an organization",
                                 )
-                            # Return user - tenant context should be passed directly to CRUD operations when needed
+                            # Return user - tenant context passed to CRUD ops
                             return user
 
     # Try JWT token if secret_key is provided
@@ -292,7 +292,7 @@ async def require_current_user_or_token_without_context(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     secret_key: str = Depends(get_secret_key),
 ) -> User:
-    """Require authenticated user via session or token, without requiring organization context and without database session dependency"""
+    """Require authenticated user via session or token, without organization context."""
     user = await get_authenticated_user_with_context(
         request, credentials, secret_key, without_context=True
     )
