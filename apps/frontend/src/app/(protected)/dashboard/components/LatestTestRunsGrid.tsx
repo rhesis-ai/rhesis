@@ -212,7 +212,7 @@ export default function LatestTestRunsGrid({
     },
     {
       field: 'user',
-      headerName: 'User',
+      headerName: 'Executor',
       width: 220,
       valueGetter: (_, row) => {
         if (row.user) {
@@ -229,30 +229,6 @@ export default function LatestTestRunsGrid({
       renderCell: params => (
         <Box sx={{ width: '100%', display: 'flex', alignItems: 'center' }}>
           <Tooltip title={params.value} arrow>
-            <Typography
-              variant="body2"
-              sx={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {params.value}
-            </Typography>
-          </Tooltip>
-        </Box>
-      ),
-    },
-    {
-      field: 'organization',
-      headerName: 'Organization',
-      width: 220,
-      valueGetter: (_, row) => {
-        return row.organization?.name || 'N/A';
-      },
-      renderCell: params => (
-        <Box sx={{ width: '100%', display: 'flex', alignItems: 'center' }}>
-          <Tooltip title={params.row.organization?.description || ''} arrow>
             <Typography
               variant="body2"
               sx={{

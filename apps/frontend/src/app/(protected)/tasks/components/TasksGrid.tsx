@@ -234,24 +234,28 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       field: 'assignee',
       headerName: 'Assignee',
       width: 150,
-      renderCell: params => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar
-            src={params.row.assignee?.picture}
-            alt={params.row.assignee?.name || 'Unassigned'}
-            sx={{
-              width: AVATAR_SIZES.SMALL,
-              height: AVATAR_SIZES.SMALL,
-              bgcolor: 'primary.main',
-            }}
-          >
-            {params.row.assignee?.name?.charAt(0) || 'U'}
-          </Avatar>
-          <Typography variant="body2">
-            {params.row.assignee?.name || 'Unassigned'}
-          </Typography>
-        </Box>
-      ),
+      renderCell: params => {
+        if (!params.row.assignee?.name) {
+          return null;
+        }
+
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Avatar
+              src={params.row.assignee?.picture}
+              alt={params.row.assignee?.name}
+              sx={{
+                width: AVATAR_SIZES.SMALL,
+                height: AVATAR_SIZES.SMALL,
+                bgcolor: 'primary.main',
+              }}
+            >
+              {params.row.assignee?.name?.charAt(0)}
+            </Avatar>
+            <Typography variant="body2">{params.row.assignee?.name}</Typography>
+          </Box>
+        );
+      },
     },
   ];
 

@@ -94,7 +94,7 @@ export default async function TestSetPage({ params }: { params: any }) {
             </Paper>
 
             {/* Tests Grid Paper */}
-            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
+            <Paper elevation={2} sx={{ p: 2, mb: 4 }}>
               <TestSetTestsGrid
                 testSetId={identifier}
                 sessionToken={session.session_token}

@@ -20,6 +20,7 @@ from rhesis.backend.app.utils.crud_utils import (
     delete_item,
     get_item,
     get_item_detail,
+    get_item_with_deferred,
     get_items,
     get_items_detail,
     update_item,
@@ -820,10 +821,39 @@ def delete_status(
 
 # Source CRUD
 def get_source(
-    db: Session, source_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    source_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Source]:
-    """Get source with optimized approach - no session variables needed."""
+    """Get source with optimized approach - no session variables needed.
+
+    Note: Content field is deferred and will not be loaded unless explicitly requested.
+    Use get_source_with_content() to load the content field.
+    """
     return get_item(db, models.Source, source_id, organization_id, user_id)
+
+
+def get_source_with_content(
+    db: Session,
+    source_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
+    include_deleted: bool = False,
+) -> Optional[models.Source]:
+    """Get source with content field explicitly loaded.
+
+    This uses get_item_with_deferred from crud_utils to load the deferred content field.
+    """
+    return get_item_with_deferred(
+        db=db,
+        model=models.Source,
+        item_id=source_id,
+        deferred_fields=["content"],
+        organization_id=organization_id,
+        user_id=user_id,
+        include_deleted=include_deleted,
+    )
 
 
 def get_sources(
@@ -836,6 +866,11 @@ def get_sources(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Source]:
+    """Get sources with optimized approach - no session variables needed.
+
+    Note: Content field is deferred and will not be loaded.
+    Use get_source_with_content() for individual sources that need content.
+    """
     return get_items(
         db,
         models.Source,
@@ -1670,7 +1705,9 @@ def get_test(
 def get_test_detail(
     db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Test]:
-    """Get test with all relationships loaded using optimized approach - no session variables needed."""
+    """Get test with all relationships loaded using optimized approach.
+
+    No session variables needed."""
     return get_item_detail(db, models.Test, test_id, organization_id, user_id)
 
 
@@ -1864,7 +1901,8 @@ def get_test_run_behaviors(
     if not test_run:
         raise ValueError(f"Test run with id {test_run_id} not found")
 
-    # Get unique behavior IDs from tests that have results in this test run (SECURITY: Add organization filtering)
+    # Get unique behavior IDs from tests that have results in this test run
+    # SECURITY: Add organization filtering
     behavior_ids_query = (
         db.query(models.Test.behavior_id)
         .join(models.TestResult, models.Test.id == models.TestResult.test_id)
@@ -1989,7 +2027,9 @@ def delete_test_run(
 def get_test_result(
     db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestResult]:
-    """Get test_result with relationships (tags, tasks, comments) using optimized approach - no session variables needed."""
+    """Get test_result with relationships (tags, tasks, comments) using optimized approach.
+
+    No session variables needed."""
     return get_item_detail(db, models.TestResult, test_result_id, organization_id, user_id)
 
 
@@ -2003,7 +2043,9 @@ def get_test_results(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestResult]:
-    """Get test_results with relationships (tags, tasks, comments) using optimized approach - no session variables needed."""
+    """Get test_results with relationships (tags, tasks, comments) using optimized approach.
+
+    No session variables needed."""
     return get_items_detail(
         db,
         models.TestResult,
@@ -2858,7 +2900,7 @@ def get_tasks_with_comment_counts(
     Get tasks with comment counts using PostgreSQL aggregation with organization filtering.
     Uses a subquery to count comments for each task efficiently.
     """
-    from sqlalchemy import func, select
+    from sqlalchemy import func
     from sqlalchemy.orm import aliased
 
     # Create alias for Comment model
@@ -2870,13 +2912,6 @@ def get_tasks_with_comment_counts(
         from uuid import UUID
 
         comment_filters.append(Comment.organization_id == UUID(organization_id))
-
-    comment_count_subquery = (
-        select(Comment.entity_id, func.count(Comment.id).label("total_comments"))
-        .where(*comment_filters)
-        .group_by(Comment.entity_id)
-        .subquery()
-    )
 
     # First get the tasks with organization filter using QueryBuilder
     from rhesis.backend.app.utils.model_utils import QueryBuilder

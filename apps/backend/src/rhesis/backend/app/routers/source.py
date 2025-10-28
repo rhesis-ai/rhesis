@@ -1,7 +1,7 @@
 import urllib.parse
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -66,7 +66,10 @@ def read_sources(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all sources with their related objects"""
+    """Get all sources with their related objects.
+
+    Note: Content field is excluded for performance. Use /sources/{id}/content to get content.
+    """
     organization_id, user_id = tenant_context
     return crud.get_sources(
         db=db,
@@ -80,7 +83,7 @@ def read_sources(
     )
 
 
-@router.get("/{source_id}")
+@router.get("/{source_id}", response_model=schemas.Source)
 def read_source(
     source_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -90,11 +93,14 @@ def read_source(
     """
     Get source with optimized approach - no session variables needed.
 
+    Note: Content field is excluded for performance. Use /sources/{id}/content to get content.
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
     - No SHOW queries during retrieval
     - Direct tenant context injection
+    - Content field deferred for performance
     """
     organization_id, user_id = tenant_context
     db_source = crud.get_source(
@@ -156,11 +162,11 @@ def update_source(
     return db_source
 
 
-@router.post("/upload/", response_model=schemas.Source)
+@router.post("/upload", response_model=schemas.Source)
 async def upload_source(
     file: UploadFile = File(...),
-    title: str = None,
-    description: str = None,
+    title: str = Form(None),
+    description: str = Form(None),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -256,8 +262,33 @@ async def extract_source_content_endpoint(
         raise HTTPException(status_code=500, detail=f"Failed to extract content: {str(e)}")
 
 
-@router.get("/{source_id}/content")
-async def get_source_content(
+@router.get("/{source_id}/content", response_model=schemas.SourceWithContent)
+def read_source_with_content(
+    source_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Get source with content field included.
+
+    This endpoint explicitly loads the content field which is deferred by default
+    for performance reasons.
+
+    Use this endpoint when you need the source content. For most use cases,
+    use GET /sources/{id} instead to avoid loading large content fields.
+    """
+    organization_id, user_id = tenant_context
+    db_source = crud.get_source_with_content(
+        db, source_id=source_id, organization_id=organization_id, user_id=user_id
+    )
+    if db_source is None:
+        raise HTTPException(status_code=404, detail="Source not found")
+    return db_source
+
+
+@router.get("/{source_id}/file")
+async def get_source_file(
     source_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
