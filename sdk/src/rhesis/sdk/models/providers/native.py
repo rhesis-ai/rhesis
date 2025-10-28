@@ -123,12 +123,24 @@ class RhesisLLM(BaseLLM):
             **kwargs,
         }
 
+        url = self.client.get_url(API_ENDPOINT)
+        print(f"🔍 [RhesisLLM] Sending request to: {url}")
+        print(f"🔍 [RhesisLLM] Request keys: {list(request_data.keys())}")
+        print(f"🔍 [RhesisLLM] Prompt length: {len(prompt)} chars")
+        print(f"🔍 [RhesisLLM] Schema type: {type(schema)}")
+        if schema:
+            print(f"🔍 [RhesisLLM] Schema preview: {str(schema)[:200]}...")
+
         response = requests.post(
-            self.client.get_url(API_ENDPOINT),
+            url,
             headers=self.headers,
             json=request_data,
         )
 
+        print(f"🔍 [RhesisLLM] Response status: {response.status_code}")
+        if response.status_code != 200:
+            print(f"🔍 [RhesisLLM] Response content: {response.text[:500]}")
+        
         response.raise_for_status()
         result: Dict[str, Any] = response.json()
         return result
