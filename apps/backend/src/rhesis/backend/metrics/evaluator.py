@@ -592,6 +592,8 @@ class MetricEvaluator:
                 threshold=self._get_config_value(metric_config, "threshold"),
                 threshold_operator=self._get_config_value(metric_config, "threshold_operator"),
                 reference_score=self._get_config_value(metric_config, "reference_score"),
+                categories=self._get_config_value(metric_config, "categories"),
+                passing_categories=self._get_config_value(metric_config, "passing_categories"),
             )
 
             # Store results - structure depends on metric type
