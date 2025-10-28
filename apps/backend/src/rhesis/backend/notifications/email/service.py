@@ -180,6 +180,9 @@ class EmailService:
         if not calendar_link:
             calendar_link = "https://calendar.app.google/CZzqQbtBsMxSHTpx6"
 
+        # Get BCC email from environment variable (optional)
+        bcc_email = os.getenv("FOUNDER_EMAIL_BCC")
+
         subject = "Welcome to Rhesis AI!"
 
         template_variables = {
@@ -196,5 +199,5 @@ class EmailService:
             template_variables=template_variables,
             task_id="founder_welcome",
             from_email="hello@rhesis.ai",
-            bcc="nicolai@rhesis.ai",
+            bcc=bcc_email,
         )
