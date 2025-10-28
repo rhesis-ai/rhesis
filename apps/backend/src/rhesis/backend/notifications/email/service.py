@@ -31,6 +31,8 @@ class EmailService:
         subject: str,
         template_variables: Dict[str, Any],
         task_id: Optional[str] = None,
+        from_email: Optional[str] = None,
+        bcc: Optional[str] = None,
     ) -> bool:
         """
         Send an email using the specified template.
@@ -41,6 +43,8 @@ class EmailService:
             subject: Email subject line
             template_variables: Variables to pass to the template
             task_id: Optional task ID for logging purposes
+            from_email: Optional custom from email address (overrides default)
+            bcc: Optional BCC email address
 
         Returns:
             bool: True if email was sent successfully, False otherwise
@@ -58,14 +62,16 @@ class EmailService:
             # Create HTML message
             msg = MIMEText(html_content, "html")
             msg["Subject"] = subject
-            msg["From"] = self.smtp_service.from_email
+            msg["From"] = from_email if from_email else self.smtp_service.from_email
             msg["To"] = recipient_email
 
             logger.debug(f"Created HTML email message with subject: {msg['Subject']}")
             logger.debug(f"HTML content length: {len(html_content)}")
 
             # Send email using SMTP service
-            return self.smtp_service.send_message(msg, recipient_email, task_id or "generic")
+            return self.smtp_service.send_message(
+                msg, recipient_email, task_id or "generic", bcc=bcc
+            )
 
         except Exception as e:
             logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
@@ -140,4 +146,55 @@ class EmailService:
             subject=subject,
             template_variables=template_variables,
             task_id="team_invitation",
+        )
+
+    def send_founder_welcome_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        frontend_url: Optional[str] = None,
+        calendar_link: Optional[str] = None,
+    ) -> bool:
+        """
+        Send a welcome email from the founder to a new user.
+
+        Args:
+            recipient_email: Email address of the new user
+            recipient_name: Name of the new user (optional)
+            frontend_url: URL to the frontend application
+            calendar_link: URL to book a call with the founder
+
+        Returns:
+            bool: True if email was sent successfully, False otherwise
+        """
+        if not self.is_configured:
+            logger.warning(
+                f"Cannot send founder welcome email to {recipient_email}: SMTP not configured"
+            )
+            return False
+
+        # Set default URLs if not provided
+        if not frontend_url:
+            frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
+
+        if not calendar_link:
+            calendar_link = "https://calendar.app.google/CZzqQbtBsMxSHTpx6"
+
+        subject = "Welcome to Rhesis AI!"
+
+        template_variables = {
+            "recipient_name": recipient_name or "",
+            "recipient_email": recipient_email,
+            "frontend_url": frontend_url,
+            "calendar_link": calendar_link,
+        }
+
+        return self.send_email(
+            template=EmailTemplate.FOUNDER_WELCOME,
+            recipient_email=recipient_email,
+            subject=subject,
+            template_variables=template_variables,
+            task_id="founder_welcome",
+            from_email="hello@rhesis.ai",
+            bcc="nicolai@rhesis.ai",
         )
