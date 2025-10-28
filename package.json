@@ -1,5 +1,9 @@
 {
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/lab": "^7.0.1-beta.18",
+    "@mui/x-charts": "^8.15.0",
     "emoji-picker-react": "^4.13.3"
   }
 }
