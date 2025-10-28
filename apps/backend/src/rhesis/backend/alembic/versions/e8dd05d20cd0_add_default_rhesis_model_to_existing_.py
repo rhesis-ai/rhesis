@@ -9,20 +9,20 @@ Create Date: 2025-10-26 18:58:31
 
 """
 
-from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.orm import Session
-from typing import Union, Sequence, Optional
 import uuid
+from typing import Optional, Sequence, Union
+
+from alembic import op
+from sqlalchemy.orm import Session
 
 # Import models and utilities
 from rhesis.backend.app import models
+from rhesis.backend.app.constants import DEFAULT_MODEL_NAME, EntityType
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_entity,
-    get_or_create_type_lookup,
     get_or_create_status,
+    get_or_create_type_lookup,
 )
-from rhesis.backend.app.constants import DEFAULT_MODEL_NAME, EntityType
 
 # revision identifiers, used by Alembic.
 revision: str = "e8dd05d20cd0"

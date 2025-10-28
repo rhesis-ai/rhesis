@@ -87,27 +87,27 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
             email_service = EmailService()
 
             if email_service.is_configured:
-                logger.info(f"Sending founder welcome email to new user: {user.email}")
+                logger.info(f"Sending welcome email to new user: {user.email}")
 
-                success = email_service.send_founder_welcome_email(
+                success = email_service.send_welcome_email(
                     recipient_email=user.email,
                     recipient_name=user.name or user.given_name,
                 )
 
                 if success:
-                    logger.info(f"Successfully sent founder welcome email to {user.email}")
+                    logger.info(f"Successfully sent welcome email to {user.email}")
                 else:
-                    logger.warning(f"Failed to send founder welcome email to {user.email}")
+                    logger.warning(f"Failed to send welcome email to {user.email}")
             else:
                 logger.info(
-                    f"Email service not configured, skipping founder welcome email for {user.email}"
+                    f"Email service not configured, skipping welcome email for {user.email}"
                 )
 
         except Exception as e:
             # Log the error but don't fail user creation
             from rhesis.backend.logging.rhesis_logger import logger
 
-            logger.error(f"Error sending founder welcome email to {user.email}: {str(e)}")
+            logger.error(f"Error sending welcome email to {user.email}: {str(e)}")
             logger.error(f"Error type: {type(e).__name__}")
 
     return user

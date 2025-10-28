@@ -19,7 +19,7 @@ class EmailTemplate(Enum):
     TEST_EXECUTION_SUMMARY = "test_execution_summary.html.jinja2"
     TEAM_INVITATION = "team_invitation.html.jinja2"
     TASK_ASSIGNMENT = "task_assignment.html.jinja2"
-    FOUNDER_WELCOME = "founder_welcome.html.jinja2"
+    WELCOME = "welcome.html.jinja2"
 
 
 class TemplateService:
@@ -95,7 +95,7 @@ class TemplateService:
                 "task_metadata",
                 "frontend_url",
             },
-            EmailTemplate.FOUNDER_WELCOME: {
+            EmailTemplate.WELCOME: {
                 "recipient_name",
                 "recipient_email",
                 "frontend_url",
