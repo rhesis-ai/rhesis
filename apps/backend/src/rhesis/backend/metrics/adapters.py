@@ -424,6 +424,12 @@ def create_metric_from_config(
             f"Creating SDK metric from config: framework='{framework}', "
             f"class='{sdk_class_name}', name='{params['name']}'"
         )
+        # Debug: log categories if it's a categorical metric
+        if "categories" in params:
+            logger.debug(f"🔍 Passing categories to factory: {params['categories']}")
+        else:
+            logger.warning(f"⚠️ No categories in params! Available params: {list(params.keys())}")
+        
         metric = MetricFactory.create(framework, sdk_class_name, **params)
 
         logger.debug(f"Successfully created SDK metric '{params['name']}'")
