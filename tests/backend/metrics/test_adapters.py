@@ -8,23 +8,23 @@ These tests validate that the adapter correctly:
 - Handles edge cases and errors gracefully
 """
 
-import pytest
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
+import pytest
+
+from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.metrics.adapters import (
-    CLASS_NAME_MAP,
     BACKEND_TO_FRAMEWORK_MAP,
+    CLASS_NAME_MAP,
+    build_metric_params_from_config,
+    build_metric_params_from_model,
+    create_metric,
+    create_metric_from_config,
+    create_metric_from_db_model,
     get_sdk_class_name,
     map_backend_type_to_framework,
-    build_metric_params_from_model,
-    build_metric_params_from_config,
-    create_metric_from_db_model,
-    create_metric_from_config,
-    create_metric,
 )
-from rhesis.backend.app.models.metric import Metric as MetricModel
-
 
 # ============================================================================
 # FIXTURES
@@ -145,24 +145,24 @@ class TestGetSdkClassName:
     """Test SDK class name mapping logic."""
 
     def test_rhesis_numeric_mapping(self):
-        """Test RhesisPromptMetric + numeric → RhesisPromptMetricNumeric."""
+        """Test RhesisPromptMetric + numeric → NumericJudge."""
         result = get_sdk_class_name("RhesisPromptMetric", "numeric")
-        assert result == "RhesisPromptMetricNumeric"
+        assert result == "NumericJudge"
 
     def test_rhesis_categorical_mapping(self):
-        """Test RhesisPromptMetric + categorical → RhesisPromptMetricCategorical."""
+        """Test RhesisPromptMetric + categorical → CategoricalJudge."""
         result = get_sdk_class_name("RhesisPromptMetric", "categorical")
-        assert result == "RhesisPromptMetricCategorical"
+        assert result == "CategoricalJudge"
 
     def test_rhesis_binary_mapping(self):
-        """Test RhesisPromptMetric + binary → RhesisPromptMetricCategorical."""
+        """Test RhesisPromptMetric + binary → CategoricalJudge."""
         result = get_sdk_class_name("RhesisPromptMetric", "binary")
-        assert result == "RhesisPromptMetricCategorical"
+        assert result == "CategoricalJudge"
 
     def test_rhesis_no_score_type_defaults_numeric(self):
         """Test RhesisPromptMetric without score_type defaults to numeric."""
         result = get_sdk_class_name("RhesisPromptMetric", None)
-        assert result == "RhesisPromptMetricNumeric"
+        assert result == "NumericJudge"
 
     def test_external_metrics_unchanged(self):
         """Test external metric class names pass through unchanged."""
@@ -319,7 +319,7 @@ class TestCreateMetricFromDbModel:
         # Verify correct arguments
         call_args = mock_factory_create.call_args
         assert call_args[0][0] == "rhesis"  # framework
-        assert call_args[0][1] == "RhesisPromptMetricNumeric"  # SDK class name
+        assert call_args[0][1] == "NumericJudge"  # SDK class name
 
     @patch("rhesis.backend.metrics.adapters.MetricFactory.create")
     def test_create_categorical_metric(
@@ -336,7 +336,7 @@ class TestCreateMetricFromDbModel:
         # Verify correct arguments
         call_args = mock_factory_create.call_args
         assert call_args[0][0] == "rhesis"  # framework
-        assert call_args[0][1] == "RhesisPromptMetricCategorical"  # SDK class name
+        assert call_args[0][1] == "CategoricalJudge"  # SDK class name
 
     @patch("rhesis.backend.metrics.adapters.MetricFactory.create")
     def test_create_ragas_metric(self, mock_factory_create, mock_metric_model_ragas):
@@ -393,7 +393,7 @@ class TestCreateMetricFromConfig:
 
         call_args = mock_factory_create.call_args
         assert call_args[0][0] == "rhesis"
-        assert call_args[0][1] == "RhesisPromptMetricNumeric"
+        assert call_args[0][1] == "NumericJudge"
 
     @patch("rhesis.backend.metrics.adapters.MetricFactory.create")
     def test_create_from_categorical_config(
@@ -409,7 +409,7 @@ class TestCreateMetricFromConfig:
 
         call_args = mock_factory_create.call_args
         assert call_args[0][0] == "rhesis"
-        assert call_args[0][1] == "RhesisPromptMetricCategorical"
+        assert call_args[0][1] == "CategoricalJudge"
 
     def test_missing_class_name_in_config(self):
         """Test handling of missing class_name in config."""
@@ -433,7 +433,7 @@ class TestCreateMetric:
         """Test that MetricModel instances route to create_metric_from_db_model."""
         mock_create_db.return_value = Mock()
 
-        result = create_metric(mock_metric_model_numeric)
+        create_metric(mock_metric_model_numeric)
 
         mock_create_db.assert_called_once_with(mock_metric_model_numeric, None)
 
@@ -442,7 +442,7 @@ class TestCreateMetric:
         """Test that dict instances route to create_metric_from_config."""
         mock_create_config.return_value = Mock()
 
-        result = create_metric(metric_config_numeric)
+        create_metric(metric_config_numeric)
 
         mock_create_config.assert_called_once_with(metric_config_numeric, None)
 
@@ -462,7 +462,7 @@ class TestAdapterIntegration:
     """Integration tests with real SDK (if available)."""
 
     @pytest.mark.skipif(
-        not hasattr(__import__("rhesis.sdk.metrics", fromlist=["RhesisPromptMetricNumeric"]), "RhesisPromptMetricNumeric"),
+        not hasattr(__import__("rhesis.sdk.metrics", fromlist=["NumericJudge"]), "NumericJudge"),
         reason="SDK metrics not available"
     )
     @patch("rhesis.backend.metrics.adapters.MetricFactory.create")

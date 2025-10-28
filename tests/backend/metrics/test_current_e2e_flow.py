@@ -5,9 +5,10 @@ These tests validate the complete flow from test execution to result storage,
 ensuring all components work together correctly.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from uuid import uuid4
+
 from rhesis.backend.metrics import MetricResult
 
 
@@ -337,9 +338,8 @@ class TestCurrentE2EFlow:
             "status_code": 200
         }
         
+
         from rhesis.backend.tasks.execution.test_execution import execute_test
-        from rhesis.backend.app import crud
-        from uuid import UUID
         
         result = execute_test(
             db=full_test_setup["db"],
@@ -375,9 +375,8 @@ class TestCurrentE2EFlow:
         )
         mock_create_metric.return_value = mock_metric
         
+
         from rhesis.backend.tasks.execution.test_execution import execute_test
-        from rhesis.backend.app import crud
-        from uuid import UUID
         
         result = execute_test(
             db=full_test_setup["db"],
@@ -419,9 +418,8 @@ class TestCurrentE2EFlow:
         )
         mock_create_metric.return_value = mock_metric
         
+
         from rhesis.backend.tasks.execution.test_execution import execute_test
-        from rhesis.backend.app import crud
-        from uuid import UUID
         
         result = execute_test(
             db=full_test_setup["db"],
@@ -476,7 +474,7 @@ class TestCurrentE2EFlow:
         # Create a real RhesisPromptMetric in the database
         metric = models.Metric(
             name="Integration Test Metric",
-            class_name="RhesisPromptMetric",  # Will be split to RhesisPromptMetricNumeric by adapter
+            class_name="RhesisPromptMetric",  # Will be split to NumericJudge by adapter
             score_type="numeric",
             threshold=0.7,
             evaluation_prompt="Evaluate the response quality",
