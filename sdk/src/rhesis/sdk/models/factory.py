@@ -48,7 +48,7 @@ def _create_gemini_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
     return GeminiLLM(model_name=model_name, api_key=api_key)
 
 
-def _create_ollama_llm(model_name: str) -> BaseLLM:
+def _create_ollama_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
     """Factory function for OllamaLLM."""
     from rhesis.sdk.models.providers.ollama import OllamaLLM
 
