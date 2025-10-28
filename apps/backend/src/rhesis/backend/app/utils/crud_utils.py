@@ -309,7 +309,9 @@ def get_item_detail(
     include_deleted: bool = False,
 ) -> Optional[T]:
     """
-    Get a single item with all relationships loaded using optimized approach - no session variables needed.
+    Get a single item with all relationships loaded using optimized approach.
+
+    No session variables needed.
 
     Performance improvements:
     - Completely bypasses database session variables
@@ -346,6 +348,60 @@ def get_item_detail(
     return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
 
 
+def get_item_with_deferred(
+    db: Session,
+    model: Type[T],
+    item_id: uuid.UUID,
+    deferred_fields: List[str],
+    organization_id: str = None,
+    user_id: str = None,
+    include_deleted: bool = False,
+) -> Optional[T]:
+    """
+    Get a single item with all relationships loaded AND specific deferred fields.
+
+    This is similar to get_item_detail but also explicitly loads deferred columns.
+
+    Args:
+        db: Database session
+        model: SQLAlchemy model class
+        item_id: ID of the item to retrieve
+        deferred_fields: List of deferred field names to explicitly load
+        organization_id: Organization ID for filtering
+        user_id: User ID for filtering
+        include_deleted: If True, include soft-deleted records (default: False)
+
+    Returns:
+        Item with relationships and deferred fields loaded or None if not found
+
+    Raises:
+        ItemDeletedException: If item is soft-deleted and include_deleted is False
+    """
+    from sqlalchemy.orm import undefer
+
+    # Build query with relationships loaded (same as get_item_detail)
+    item = (
+        QueryBuilder(db, model)
+        .with_deleted()  # Always include deleted to check status
+        .with_optimized_loads()
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
+    )
+
+    # Add undefer options for deferred fields BEFORE query execution
+    for field_name in deferred_fields:
+        if hasattr(model, field_name):
+            # Get the actual column attribute (not string)
+            column_attr = getattr(model, field_name)
+            item.query = item.query.options(undefer(column_attr))
+
+    # Execute the query with deferred fields included
+    item = item.filter_by_id(item_id)
+
+    # Use helper to check deletion status and raise exception if needed
+    return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
+
+
 def get_items(
     db: Session,
     model: Type[T],
@@ -358,7 +414,9 @@ def get_items(
     user_id: str = None,
 ) -> List[T]:
     """
-    Get multiple items with pagination, sorting, and filtering using optimized approach - no session variables needed.
+    Get multiple items with pagination, sorting, and filtering using optimized approach.
+
+    No session variables needed.
 
     Performance improvements:
     - Completely bypasses database session variables
@@ -390,7 +448,9 @@ def get_items_detail(
     user_id: str = None,
 ) -> List[T]:
     """
-    Get multiple items with optimized relationship loading using optimized approach - no session variables needed.
+    Get multiple items with optimized relationship loading using optimized approach.
+
+    No session variables needed.
     Uses selectinload for many-to-many relationships to avoid cartesian products.
 
     Performance improvements:
@@ -737,7 +797,9 @@ def count_items(
     user_id: str = None,
 ) -> int:
     """
-    Get the total count of items matching filters (without pagination) using optimized approach - no session variables needed.
+    Get the total count of items matching filters (without pagination) using optimized approach.
+
+    No session variables needed.
 
     Performance improvements:
     - Completely bypasses database session variables
@@ -810,7 +872,9 @@ def get_or_create_entity(
     commit: bool = True,
 ) -> T:
     """
-    Get or create an entity based on identifying fields using optimized approach - no session variables needed.
+    Get or create an entity based on identifying fields using optimized approach.
+
+    No session variables needed.
 
     Attempts to find an existing entity using unique identifying fields before creating a new one.
     Always includes organization_id in the lookup if the model supports it.
@@ -877,7 +941,9 @@ def get_or_create_status(
     user_id: str = None,
     commit: bool = True,
 ) -> Status:
-    """Get or create a status with the specified name, entity type, and optional description using optimized approach - no session variables needed."""
+    """Get or create a status with the specified name, entity type, and optional description.
+
+    Uses optimized approach - no session variables needed."""
     # Handle EntityType enum or string
     entity_type_value = entity_type.value if hasattr(entity_type, "value") else entity_type
 
@@ -931,9 +997,12 @@ def get_or_create_type_lookup(
     user_id: str = None,
     commit: bool = True,
 ) -> TypeLookup:
-    """Get or create a type lookup with the specified type_name and type_value using optimized approach - no session variables needed."""
+    """Get or create a type lookup with the specified type_name and type_value.
+
+    Uses optimized approach - no session variables needed."""
     logger.debug(
-        f"get_or_create_type_lookup - Looking for type_name='{type_name}', type_value='{type_value}'"
+        f"get_or_create_type_lookup - Looking for type_name='{type_name}', "
+        f"type_value='{type_value}'"
     )
 
     # Try to find existing type lookup
@@ -986,7 +1055,9 @@ def get_or_create_topic(
     user_id: str = None,
     commit: bool = True,
 ) -> Topic:
-    """Get or create a topic with optional entity type, description, and status using optimized approach - no session variables needed."""
+    """Get or create a topic with optional entity type, description, and status.
+
+    Uses optimized approach - no session variables needed."""
     # Prepare topic data - only include non-None values
     topic_data = {"name": name}
 
@@ -1032,7 +1103,9 @@ def get_or_create_category(
     user_id: str = None,
     commit: bool = True,
 ) -> Category:
-    """Get or create a category with optional entity type, description, and status using optimized approach - no session variables needed."""
+    """Get or create a category with optional entity type, description, and status.
+
+    Uses optimized approach - no session variables needed."""
     # Prepare category data - only include non-None values
     category_data = {"name": name}
 
@@ -1079,7 +1152,9 @@ def get_or_create_behavior(
     user_id: str = None,
     commit: bool = True,
 ) -> Behavior:
-    """Get or create a behavior with optional description and status using optimized approach - no session variables needed."""
+    """Get or create a behavior with optional description and status.
+
+    Uses optimized approach - no session variables needed."""
     # Prepare behavior data - only include non-None values
     behavior_data = {"name": name}
 
