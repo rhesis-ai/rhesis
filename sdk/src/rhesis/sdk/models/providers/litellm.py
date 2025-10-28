@@ -47,13 +47,21 @@ class LiteLLM(BaseLLM):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        schema: Optional[Type[BaseModel]] = None,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
         *args,
         **kwargs,
     ) -> Union[str, dict]:
         """
         Run a chat completion using LiteLLM, returning the response.
         The schema will be used to validate the response if provided.
+        
+        Args:
+            prompt: The user prompt
+            system_prompt: Optional system prompt
+            schema: Either a Pydantic model or OpenAI-wrapped JSON schema dict
+            
+        Returns:
+            str or dict: Raw text if no schema, validated dict if schema provided
         """
         # handle system prompt
         messages = (
@@ -63,12 +71,9 @@ class LiteLLM(BaseLLM):
         )
 
         # Handle schema format for LiteLLM
-        # LiteLLM expects either a Pydantic model or {"type": "json_object"} for JSON mode
-        # Dict schemas must be in OpenAI-wrapped format
+        # Dict schemas must already be in OpenAI-wrapped format
+        # LiteLLM can handle both Pydantic models and OpenAI-wrapped dicts directly
         response_format = schema
-        if schema and isinstance(schema, dict):
-            # Convert OpenAI-wrapped to JSON mode, validation happens after
-            response_format = {"type": "json_object"}
 
         # Call the completion function passing given arguments
         response = completion(
