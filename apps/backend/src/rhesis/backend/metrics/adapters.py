@@ -80,9 +80,7 @@ def get_sdk_class_name(backend_class_name: str, score_type: Optional[str] = None
             logger.warning("RhesisPromptMetric requires score_type, defaulting to 'numeric'")
             score_type = "numeric"
 
-        sdk_class_name = CLASS_NAME_MAP["RhesisPromptMetric"].get(
-            score_type, "NumericJudge"
-        )
+        sdk_class_name = CLASS_NAME_MAP["RhesisPromptMetric"].get(score_type, "NumericJudge")
         logger.debug(f"Mapped {backend_class_name} (score_type={score_type}) → {sdk_class_name}")
         return sdk_class_name
 
@@ -134,13 +132,9 @@ def build_metric_params_from_model(
         or f"Evaluate the quality of the output for {params['name']}."
     )
     params["evaluation_steps"] = (
-        metric_model.evaluation_steps
-        or "1. Analyze the output\n2. Score based on criteria"
+        metric_model.evaluation_steps or "1. Analyze the output\n2. Score based on criteria"
     )
-    params["reasoning"] = (
-        metric_model.reasoning
-        or "Consider accuracy, relevance, and completeness"
-    )
+    params["reasoning"] = metric_model.reasoning or "Consider accuracy, relevance, and completeness"
 
     # Add score-type specific parameters
     score_type = metric_model.score_type or "numeric"
@@ -213,16 +207,13 @@ def build_metric_params_from_config(metric_config: Dict[str, Any]) -> Dict[str, 
     # Provide defaults for metrics that don't have these configured
     metric_name = metric_config.get("name", "Unnamed Metric")
     params["evaluation_prompt"] = config_params.get(
-        "evaluation_prompt",
-        f"Evaluate the quality of the output for {metric_name}."
+        "evaluation_prompt", f"Evaluate the quality of the output for {metric_name}."
     )
     params["evaluation_steps"] = config_params.get(
-        "evaluation_steps",
-        "1. Analyze the output\n2. Score based on criteria"
+        "evaluation_steps", "1. Analyze the output\n2. Score based on criteria"
     )
     params["reasoning"] = config_params.get(
-        "reasoning",
-        "Consider accuracy, relevance, and completeness"
+        "reasoning", "Consider accuracy, relevance, and completeness"
     )
 
     # Add score parameters
@@ -243,14 +234,14 @@ def build_metric_params_from_config(metric_config: Dict[str, Any]) -> Dict[str, 
         # SDK requires 'categories' list
         # Check if categories are already provided (top level or in parameters)
         categories_found = False
-        
+
         categories_value = metric_config.get("categories") or config_params.get("categories")
         if categories_value and isinstance(categories_value, list) and len(categories_value) >= 2:
             params["categories"] = categories_value
             params["passing_categories"] = (
-                metric_config.get("passing_categories") or 
-                config_params.get("passing_categories") or 
-                categories_value[:1]
+                metric_config.get("passing_categories")
+                or config_params.get("passing_categories")
+                or categories_value[:1]
             )
             categories_found = True
         elif "reference_score" in metric_config and metric_config.get("reference_score"):
@@ -269,7 +260,7 @@ def build_metric_params_from_config(metric_config: Dict[str, Any]) -> Dict[str, 
                 f"Mapped binary metric '{metric_config.get('name', 'unknown')}' to "
                 f"categorical with True/False categories"
             )
-        
+
         if not categories_found:
             # Don't default - fail loudly so the metric config can be fixed
             logger.error(
@@ -388,13 +379,11 @@ def create_metric_from_config(
         >>> sdk_metric = create_metric_from_config(config)
     """
     try:
-        
         # Validate required fields
         class_name = metric_config.get("class_name")
         if not class_name:
             logger.warning("Metric config missing class_name, cannot create SDK metric")
             return None
-        
 
         backend = metric_config.get("backend", "rhesis")
 
@@ -420,7 +409,7 @@ def create_metric_from_config(
             logger.debug(f"🔍 Passing categories to factory: {params['categories']}")
         else:
             logger.warning(f"⚠️ No categories in params! Available params: {list(params.keys())}")
-        
+
         metric = MetricFactory.create(framework, sdk_class_name, **params)
 
         logger.debug(f"Successfully created SDK metric '{params['name']}'")

@@ -143,7 +143,7 @@ def prepare_metric_configs(metrics: List[Dict], test_id: str) -> List[Dict]:
     # Metrics from get_test_metrics() are already dicts - no conversion needed
     # The MetricEvaluator accepts both dict and MetricConfig objects
     logger.debug(f"🔍 [DEBUG] parse_metrics received {len(metrics)} metrics")
-    
+
     # Just validate that each metric has required fields
     valid_metrics = []
     invalid_count = 0
@@ -153,13 +153,13 @@ def prepare_metric_configs(metrics: List[Dict], test_id: str) -> List[Dict]:
             logger.warning(f"Metric {i} is not a dict: {type(metric)}")
             invalid_count += 1
             continue
-            
+
         # Basic validation
         if not metric.get("class_name"):
             invalid_count += 1
             logger.warning(f"Skipped metric {i} for test {test_id}: missing class_name")
             continue
-            
+
         valid_metrics.append(metric)
 
     if invalid_count > 0:
