@@ -279,24 +279,26 @@ class MetricEvaluator:
                 logger.debug(
                     f"🔍 [DEBUG EVALUATOR] About to create metric via adapter: {metric_name or class_name}"
                 )
+                logger.debug(f"🔍 [DEBUG EVALUATOR] metric_config type: {type(metric_config)}")
                 logger.debug(
-                    f"🔍 [DEBUG EVALUATOR] metric_config type: {type(metric_config)}"
+                    f"[SDK_ADAPTER] Creating metric via SDK adapter: {metric_name or class_name}"
                 )
-                logger.debug(f"[SDK_ADAPTER] Creating metric via SDK adapter: {metric_name or class_name}")
-                
+
                 # Merge metric_params (which includes the model) into metric_config
-                config_dict = metric_config.to_dict() if hasattr(metric_config, "to_dict") else metric_config
+                config_dict = (
+                    metric_config.to_dict() if hasattr(metric_config, "to_dict") else metric_config
+                )
                 if metric_params:
                     # Add model to config's parameters
                     if "parameters" not in config_dict:
                         config_dict["parameters"] = {}
                     config_dict["parameters"].update(metric_params)
-                
+
                 metric = create_metric_from_config(
                     config_dict,
                     self.organization_id,
                 )
-                
+
                 if metric is None:
                     metric_name = (
                         metric_config.get("name")
@@ -423,42 +425,40 @@ class MetricEvaluator:
     ) -> MetricResult:
         """
         Call metric.evaluate() with only the parameters it accepts.
-        
+
         Uses introspection to check the metric's signature and only passes
         parameters that are actually defined. This allows metrics to have
         different signatures (e.g., ContextualRelevancy doesn't need output).
-        
+
         Args:
             metric: The metric instance to evaluate
             input_text: The input query or question
             output_text: The actual output from the LLM
             expected_output: The expected or reference output
             context: List of context strings used for the response
-            
+
         Returns:
             MetricResult object with score and details
         """
         # Inspect the metric's evaluate signature
         sig = inspect.signature(metric.evaluate)
         params = sig.parameters
-        
+
         # Build kwargs with only the parameters the metric accepts
         kwargs = {}
-        
+
         # Check each potential parameter and include if present in signature
-        if 'input' in params:
-            kwargs['input'] = input_text
-        if 'output' in params:
-            kwargs['output'] = output_text
-        if 'expected_output' in params:
-            kwargs['expected_output'] = expected_output
-        if 'context' in params:
-            kwargs['context'] = context
-            
-        logger.debug(
-            f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}"
-        )
-        
+        if "input" in params:
+            kwargs["input"] = input_text
+        if "output" in params:
+            kwargs["output"] = output_text
+        if "expected_output" in params:
+            kwargs["expected_output"] = expected_output
+        if "context" in params:
+            kwargs["context"] = context
+
+        logger.debug(f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}")
+
         return metric.evaluate(**kwargs)
 
     def _evaluate_metric(
