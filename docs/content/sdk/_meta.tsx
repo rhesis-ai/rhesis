@@ -1,7 +1,9 @@
 import type { MetaRecord } from 'nextra'
 
 const meta: MetaRecord = {
-  sdk: 'Installation & Setup',
+  installation: 'Installation & Setup',
+  models: 'Models',
+  metrics: 'Metrics',
   index: 'Reference & Integration',
 }
 
