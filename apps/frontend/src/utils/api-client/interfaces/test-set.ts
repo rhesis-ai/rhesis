@@ -267,6 +267,7 @@ export interface TestSetGenerationRequest {
   synthesizer_type?: string;
   num_tests?: number;
   batch_size?: number;
+  source_ids?: string[];
   name?: string;
 }
 
