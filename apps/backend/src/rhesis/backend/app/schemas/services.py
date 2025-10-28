@@ -1,5 +1,4 @@
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 from pydantic import UUID4, BaseModel, Field
 
@@ -24,10 +23,19 @@ class ChatRequest(BaseModel):
     stream: bool = False
 
 
+class SourceData(BaseModel):
+    """Source data passed from frontend to backend for test generation."""
+
+    id: UUID4
+    name: str
+    description: Optional[str] = None
+    content: Optional[str] = None
+
+
 class GenerateTestsRequest(BaseModel):
     prompt: dict
     num_tests: int = 5
-    source_ids: Optional[List[UUID]] = None
+    source_ids: Optional[List[SourceData]] = None
 
 
 class TestPrompt(BaseModel):

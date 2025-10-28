@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
@@ -214,7 +213,7 @@ async def generate_tests_endpoint(
 
     Args:
         request: The request containing the prompt, number of tests, and optional source_ids
-            - Each source_id references a source in the database that will be used for generation
+            - source_ids contains full SourceData with name, description, content, and id
         db: Database session
         tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
@@ -230,30 +229,17 @@ async def generate_tests_endpoint(
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
 
-        # Fetch sources from database if source_ids are provided
+        # Prepare sources from source_ids if provided (they now contain full data)
         sources_sdk = []
         if source_ids:
-            organization_id, user_id = tenant_context
-            for source_id in source_ids:
-                db_source = crud.get_source(
-                    db, source_id=source_id, organization_id=organization_id, user_id=user_id
-                )
-                if not db_source:
-                    raise HTTPException(
-                        status_code=404, detail=f"Source with id {source_id} not found"
-                    )
-
-                # Create Document object for the synthesizer
-                # Ensure description and content are not empty to satisfy SDK validation
+            # source_ids now contains full SourceData objects
+            for source_data in source_ids:
+                # Create Document object from SourceData
                 document_sdk = Document(
-                    name=db_source.title or f"Source {db_source.id}",
-                    description=db_source.description
-                    or f"Source document: {db_source.title or f'Source {db_source.id}'}",
-                    content=db_source.content
-                    or (
-                        f"No content available for source: "
-                        f"{db_source.title or f'Source {db_source.id}'}"
-                    ),
+                    name=source_data.name,
+                    description=source_data.description or (f"Source document: {source_data.name}"),
+                    content=source_data.content
+                    or (f"No content available for source: {source_data.name}"),
                     path=None,  # Sources don't have file paths
                 )
                 sources_sdk.append(document_sdk)
