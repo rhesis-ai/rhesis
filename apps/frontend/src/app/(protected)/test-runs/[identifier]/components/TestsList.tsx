@@ -14,10 +14,12 @@ import {
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ChatIcon from '@mui/icons-material/Chat';
 import TaskIcon from '@mui/icons-material/Task';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import { getTestResultStatus, type TestResultStatus } from '@/utils/testResultStatus';
 
 interface TestsListProps {
   tests: TestResultDetail[];
@@ -32,7 +34,7 @@ interface TestListItemProps {
   isSelected: boolean;
   onClick: () => void;
   promptContent: string;
-  isPassed: boolean;
+  status: TestResultStatus;
   passedMetrics: number;
   totalMetrics: number;
 }
@@ -78,7 +80,7 @@ function TestListItem({
   isSelected,
   onClick,
   promptContent,
-  isPassed,
+  status,
   passedMetrics,
   totalMetrics,
 }: TestListItemProps) {
@@ -92,6 +94,33 @@ function TestListItem({
     promptContent.length > 100
       ? `${promptContent.substring(0, 100)}...`
       : promptContent;
+
+  // Get status-specific styling
+  const getStatusColor = () => {
+    switch (status) {
+      case 'Pass':
+        return 'success.main';
+      case 'Fail':
+        return 'error.main';
+      case 'Error':
+        return 'warning.main';
+      default:
+        return 'text.secondary';
+    }
+  };
+
+  const getStatusIcon = () => {
+    switch (status) {
+      case 'Pass':
+        return <CheckCircleOutlineIcon fontSize="small" />;
+      case 'Fail':
+        return <CancelOutlinedIcon fontSize="small" />;
+      case 'Error':
+        return <ErrorOutlineIcon fontSize="small" />;
+      default:
+        return <CancelOutlinedIcon fontSize="small" />;
+    }
+  };
 
   return (
     <ListItem disablePadding sx={{ mb: 1 }}>
@@ -132,17 +161,13 @@ function TestListItem({
             <Box
               sx={{
                 flexShrink: 0,
-                color: isPassed ? 'success.main' : 'error.main',
+                color: getStatusColor(),
                 display: 'flex',
                 alignItems: 'center',
                 mt: 0.5,
               }}
             >
-              {isPassed ? (
-                <CheckCircleOutlineIcon fontSize="small" />
-              ) : (
-                <CancelOutlinedIcon fontSize="small" />
-              )}
+              {getStatusIcon()}
             </Box>
 
             <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -178,11 +203,13 @@ function TestListItem({
               <Typography
                 variant="caption"
                 sx={{
-                  color: isPassed ? 'success.main' : 'error.main',
+                  color: getStatusColor(),
                   fontWeight: 500,
                 }}
               >
-                {passedMetrics}/{totalMetrics} metrics
+                {status === 'Error' 
+                  ? 'No metrics' 
+                  : `${passedMetrics}/${totalMetrics} metrics`}
               </Typography>
 
               {/* Conflicting Review Indicator */}
@@ -238,14 +265,14 @@ export default function TestsList({
   const listContainerRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLDivElement>(null);
 
-  // Process tests to determine pass/fail status
+  // Process tests to determine status (Pass/Fail/Error)
   const processedTests = useMemo(() => {
     return tests.map(test => {
       const metrics = test.test_metrics?.metrics || {};
       const metricValues = Object.values(metrics);
       const passedMetrics = metricValues.filter(m => m.is_successful).length;
       const totalMetrics = metricValues.length;
-      const isPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
+      const status = getTestResultStatus(test);
 
       const promptContent =
         test.prompt_id && prompts[test.prompt_id]
@@ -254,7 +281,7 @@ export default function TestsList({
 
       return {
         test,
-        isPassed,
+        status,
         passedMetrics,
         totalMetrics,
         promptContent,
@@ -365,7 +392,7 @@ export default function TestsList({
     >
       <List sx={{ py: 0 }}>
         {processedTests.map(
-          ({ test, isPassed, passedMetrics, totalMetrics, promptContent }) => (
+          ({ test, status, passedMetrics, totalMetrics, promptContent }) => (
             <Box
               key={test.id}
               ref={selectedTestId === test.id ? selectedItemRef : null}
@@ -375,7 +402,7 @@ export default function TestsList({
                 isSelected={selectedTestId === test.id}
                 onClick={() => onTestSelect(test.id)}
                 promptContent={promptContent}
-                isPassed={isPassed}
+                status={status}
                 passedMetrics={passedMetrics}
                 totalMetrics={totalMetrics}
               />
