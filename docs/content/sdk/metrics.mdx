@@ -18,7 +18,7 @@ All frameworks are supported through a common interface, allowing you to use met
 
 ## Supported metrics
 
-### DeepEval Metrics
+### DeepEval metrics
 
 | Metric | Description | Requires Context | Requires Ground Truth |
 |--------|-------------|------------------|----------------------|
@@ -31,7 +31,7 @@ All frameworks are supported through a common interface, allowing you to use met
 | `DeepEvalToxicity` | Detects toxic content | No | No |
 | `DeepEvalPIILeakage` | Detects personally identifiable information | No | No |
 
-### Ragas Metrics
+### Ragas metrics
 
 | Metric | Description | Requires Context | Requires Ground Truth |
 |--------|-------------|------------------|----------------------|
@@ -40,7 +40,7 @@ All frameworks are supported through a common interface, allowing you to use met
 | `RagasFaithfulness` | Checks answer groundedness | Yes | No |
 | `RagasAspectCritic` | Custom aspect-based evaluation | No | No |
 
-### Rhesis Custom Metrics
+### Rhesis custom metrics
 
 | Metric | Description | Configuration |
 |--------|-------------|--------------|
@@ -53,7 +53,7 @@ by creating an issue on [GitHub](https://github.com/rhesis-ai/rhesis/issues).
 
 ## Quick Start
 
-### Using DeepEval Metrics
+### Using DeepEval metrics
 
 ```python
 from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
@@ -71,7 +71,7 @@ print(f"Score: {result.score}")
 print(f"Passed: {result.details['is_successful']}")
 ```
 
-### Using Ragas Metrics
+### Using Ragas metrics
 
 ```python
 from rhesis.sdk.metrics import RagasFaithfulness
@@ -91,14 +91,14 @@ result = metric.evaluate(
 print(f"Score: {result.score}")
 ```
 
-### Creating Custom Metrics
+### Creating custom metrics
 
 You can create custom metrics using the `NumericJudge` and `CategoricalJudge` classes.
 `NumericJudge` returns the score as a number (for example from 0 to 1), while `CategoricalJudge` returns the score as a category (for example "good", "fair", "poor").
 
 Each of these requires an `evaluation_prompt`. For better results, you can also specify `evaluation_steps`, `reasoning`, and `evaluation_examples`.
 
-#### Numeric Judge
+#### Numeric judge
 
 Numeric Judge requires 4 specific parameters to be defined: `min_score`, `max_score`, `threshold`, and `threshold_operator`.
 
@@ -125,7 +125,7 @@ result = metric.evaluate(
 )
 ```
 
-#### Categorical Judge
+#### Categorical judge
 
 Categorical Judge requires you to specify `categories` and `passing_categories`.
 
@@ -151,56 +151,7 @@ print(f"Category: {result.score}")
 print(f"Passed: {result.details['is_successful']}")
 ```
 
-## Loading Metrics from Configuration
-Custom metrics can be serialized or deserialized. To do so, use the `from_config` and `to_config` methods, which operate using a config dataclass. You can also use the `from_dict` and `to_dict` methods.
-
-```python
-metric = NumericJudge(
-    name="response_clarity",
-    evaluation_prompt="Rate how clear and understandable the response is.",
-    evaluation_steps="1. Check sentence structure\n"
-                     "2. Evaluate word choice\n"
-                     "3. Assess overall clarity",
-    min_score=0.0,
-    max_score=10.0,
-    threshold=7.0
-)
-
-config = metric.to_config()
-metric = NumericJudge.from_config(config)
-```
-
-## Use Metrics in the Platform
-
-Metrics can be managed both in the platform and in the SDK. To facilitate this workflow, the SDK provides 
-`push` and `pull` methods to synchronize metrics with the platform.
-To use these methods, you need to specify the following attributes, which are used by the platform:
-
-```python
-metric = NumericJudge(
-    name="response_clarity",
-    description="Rate how clear and understandable the response is.",
-    metric_type="classification",
-    requires_ground_truth=True,
-    requires_context=False,
-    evaluation_prompt="Rate how clear and understandable the response is.",
-    evaluation_steps="1. Check sentence structure\n"
-                     "2. Evaluate word choice\n"
-                     "3. Assess overall clarity",
-    min_score=0.0,
-    max_score=10.0,
-    threshold=7.0
-)
-metric.push()
-```
-
-To pull metrics from the platform, use the `pull` method and specify the metric name. If the name is not unique, you must also specify the metric ID.
-
-```python
-metric = NumericJudge.pull(name="response_clarity")
-```
-
-## Metric Results
+### Understanding results
 
 All metrics return a `MetricResult` object:
 
@@ -222,7 +173,7 @@ print(result.details)
 # }
 ```
 
-## Models
+### Configuring models
 
 All metrics require an LLM model to perform the evaluation. If no model is specified, the default model will be used. You can specify the model using the `model` argument. You can either pass a model object or the model name.
 For more information about models, see the [Models Documentation](./models.mdx).
@@ -239,10 +190,61 @@ metric = DeepEvalAnswerRelevancy(threshold=0.7, model=model)
 metric = DeepEvalAnswerRelevancy(threshold=0.7, model="gpt-4")
 ```
 
+## Advanced configuration
 
+### Serialization
+Custom metrics can be serialized or deserialized. To do so, use the `from_config` and `to_config` methods, which operate using a config dataclass. You can also use the `from_dict` and `to_dict` methods.
 
+```python
+metric = NumericJudge(
+    name="response_clarity",
+    evaluation_prompt="Rate how clear and understandable the response is.",
+    evaluation_steps="1. Check sentence structure\n"
+                     "2. Evaluate word choice\n"
+                     "3. Assess overall clarity",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0
+)
 
+config = metric.to_config()
+metric = NumericJudge.from_config(config)
+```
 
+### Platform Integration
+
+Metrics can be managed both in the platform and in the SDK. To facilitate this workflow, the SDK provides 
+`push` and `pull` methods to synchronize metrics with the platform.
+
+#### Pushing Metrics
+
+To push a metric to the platform, you need to specify the following attributes:
+
+```python
+metric = NumericJudge(
+    name="response_clarity",
+    description="Rate how clear and understandable the response is.",
+    metric_type="classification",
+    requires_ground_truth=True,
+    requires_context=False,
+    evaluation_prompt="Rate how clear and understandable the response is.",
+    evaluation_steps="1. Check sentence structure\n"
+                     "2. Evaluate word choice\n"
+                     "3. Assess overall clarity",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0
+)
+metric.push()
+```
+
+#### Pulling Metrics
+
+To pull metrics from the platform, use the `pull` method and specify the metric name. If the name is not unique, you must also specify the metric ID.
+
+```python
+metric = NumericJudge.pull(name="response_clarity")
+```
 
 ## See Also
 
