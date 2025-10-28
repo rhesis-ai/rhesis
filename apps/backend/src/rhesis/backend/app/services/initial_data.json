@@ -46,6 +46,11 @@
             "entity_type": "TestResult"
         },
         {
+            "name": "Error",
+            "description": "Test execution error (no metrics to evaluate)",
+            "entity_type": "TestResult"
+        },
+        {
             "name": "Review",
             "description": "This is a test status",
             "entity_type": "TestResult"

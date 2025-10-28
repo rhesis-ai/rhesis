@@ -214,18 +214,19 @@ def create_test_result_record(
     processed_result: Dict,
 ) -> None:
     """Create and store the test result record in the database."""
-    # Determine status based on whether all metrics passed
-    all_metrics_passed = (
-        all(
+    # Determine status based on metrics evaluation
+    if not metrics_results or len(metrics_results) == 0:
+        # No metrics to evaluate - mark as ERROR
+        status_value = ResultStatus.ERROR.value
+    else:
+        # Check if all metrics passed
+        all_metrics_passed = all(
             metric_data.get("is_successful", False)
             for metric_data in metrics_results.values()
             if isinstance(metric_data, dict)
         )
-        if metrics_results
-        else False
-    )
-
-    status_value = ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+        status_value = ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+    
     test_result_status = get_or_create_status(
         db, status_value, "TestResult", organization_id=organization_id
     )
