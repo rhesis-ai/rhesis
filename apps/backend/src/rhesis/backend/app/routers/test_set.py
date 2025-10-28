@@ -79,7 +79,7 @@ class TestSetGenerationRequest(BaseModel):
     num_tests: Optional[int] = None
     batch_size: int = 20
     documents: Optional[List[Document]] = None
-    source_ids: Optional[List[SourceData]] = None
+    sources: Optional[List[SourceData]] = None
     name: Optional[str] = None
 
 
@@ -256,7 +256,7 @@ async def generate_test_set(
 
     Args:
         request: The generation request containing config, samples, and parameters
-            - source_ids contains full SourceData with name, description, content, and id
+            - sources contains full SourceData with name, description, content, and id
         db: Database session
         tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
@@ -272,15 +272,15 @@ async def generate_test_set(
         if not request.config.description.strip():
             raise HTTPException(status_code=400, detail="Description is required")
 
-        # Prepare documents from source_ids if provided (they now contain full data)
+        # Prepare documents from sources if provided (they now contain full data)
         documents_to_use = []
         source_ids_to_documents = {}  # Map document name to source_id
         source_ids_list = []  # List of source_ids in the same order as documents
         if request.documents:
             documents_to_use = request.documents
-        elif request.source_ids:
-            # source_ids now contains full SourceData objects
-            for source_data in request.source_ids:
+        elif request.sources:
+            # sources now contains full SourceData objects
+            for source_data in request.sources:
                 # Create Document object from SourceData
                 document_sdk = Document(
                     name=source_data.name,
