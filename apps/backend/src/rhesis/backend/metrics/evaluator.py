@@ -83,15 +83,18 @@ class MetricEvaluator:
         Returns:
             Dictionary containing scores and details for each metric
         """
+        logger.debug(f"🔍 [DEBUG EVALUATOR] evaluate() called with {len(metrics) if metrics else 0} metrics")
         if not metrics:
             logger.warning("No metrics provided for evaluation")
             return {}
 
+        logger.debug(f"🔍 [DEBUG EVALUATOR] Starting metric processing...")
         # Convert any dict configs to MetricConfig objects, keeping track of invalid ones
         metric_configs = []
         invalid_metric_results = {}  # Store results for invalid metrics
 
         for i, config in enumerate(metrics):
+            logger.debug(f"🔍 [DEBUG EVALUATOR] Processing metric {i}: type={type(config)}")
             # Accept both MetricConfig objects and dicts - adapter handles both
             if isinstance(config, (MetricConfig, dict)):
                 # Validate basic fields
@@ -182,8 +185,10 @@ class MetricEvaluator:
         Returns:
             List of tuples containing (class_name, metric_instance, metric_config, backend)
         """
+        logger.debug(f"🔍 [DEBUG EVALUATOR] _prepare_metrics called with {len(metrics)} metrics")
         # Filter out any None values that might have slipped through
         valid_metrics = [metric for metric in metrics if metric is not None]
+        logger.debug(f"🔍 [DEBUG EVALUATOR] Filtered to {len(valid_metrics)} valid metrics")
 
         logger.info(f"Preparing {len(valid_metrics)} metrics for evaluation")
         metric_tasks = []
@@ -276,12 +281,20 @@ class MetricEvaluator:
                     else getattr(metric_config, "name", class_name)
                 )
                 logger.debug(
-                    f"[SDK_ADAPTER] Creating metric via SDK adapter: {metric_name or class_name}"
+                    f"🔍 [DEBUG EVALUATOR] About to create metric via adapter: {metric_name or class_name}"
                 )
+                logger.debug(
+                    f"🔍 [DEBUG EVALUATOR] metric_config type: {type(metric_config)}"
+                )
+                logger.debug(f"[SDK_ADAPTER] Creating metric via SDK adapter: {metric_name or class_name}")
+                
+                logger.debug(f"🔍 [DEBUG EVALUATOR] Calling create_metric_from_config...")
                 metric = create_metric_from_config(
                     metric_config.to_dict() if hasattr(metric_config, "to_dict") else metric_config,
                     self.organization_id,
                 )
+                logger.debug(f"🔍 [DEBUG EVALUATOR] create_metric_from_config returned: {type(metric) if metric else None}")
+                
                 if metric is None:
                     metric_name = (
                         metric_config.get("name")

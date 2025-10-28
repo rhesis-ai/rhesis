@@ -262,13 +262,8 @@ def _execute_metric_test(
         if not metric_config_dict:
             return {"error": "Failed to create metric configuration"}
 
-        # Import MetricConfig and create instance
-        from rhesis.sdk.metrics import MetricConfig
-
-        metric_config = MetricConfig.from_dict(metric_config_dict)
-
-        if not metric_config:
-            return {"error": "Failed to create metric config object"}
+        # Use dict directly - evaluator accepts both dict and MetricConfig objects
+        metric_config = metric_config_dict
 
         # Initialize evaluator and run evaluation
         print("\n🚀 Running evaluation...")
