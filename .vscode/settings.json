@@ -22,9 +22,9 @@
     "python.testing.pytestArgs": [
         "--ignore=tests/backend",
         "--ignore=tests/sdk/services",
-        "--ignore=tests/sdk/test_behavior.py",
-        "--ignore=tests/sdk/test_topic.py",
+        "--ignore=tests/sdk/entities",
         "--ignore=tests/sdk/synthesizers",
+        "--ignore=tests/sdk/tests",
         "--ignore=sdk",
         "--ignore=apps/"
     ],

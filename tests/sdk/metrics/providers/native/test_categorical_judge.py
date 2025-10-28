@@ -1,19 +1,21 @@
 from unittest.mock import Mock, patch
 
 import pytest
+
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
-from rhesis.sdk.metrics.providers.native.prompt_metric_categorical import (
-    RhesisPromptMetricCategorical,
+from rhesis.sdk.metrics.providers.native.categorical_judge import (
+    CategoricalJudge,
+    CategoricalJudgeConfig,
 )
 
 
 @pytest.fixture
 def metric(monkeypatch):
     monkeypatch.setenv("RHESIS_API_KEY", "test_api_key")
-    return RhesisPromptMetricCategorical(
+    return CategoricalJudge(
+        evaluation_prompt="test_prompt",
         name="test_metric",
         description="test_description",
-        evaluation_prompt="test_prompt",
         evaluation_steps="test_steps",
         reasoning="test_reasoning",
         evaluation_examples="test_examples",
@@ -22,7 +24,7 @@ def metric(monkeypatch):
     )
 
 
-def test_prompt_metric_numeric_base__init__(metric):
+def test_categorical_judge__init__(metric):
     assert metric.evaluation_prompt == "test_prompt"
     assert metric.evaluation_steps == "test_steps"
     assert metric.reasoning == "test_reasoning"
@@ -33,51 +35,58 @@ def test_prompt_metric_numeric_base__init__(metric):
     assert metric.score_type == ScoreType.CATEGORICAL
 
 
-def test_validate_categories(metric):
-    metric.categories = ["test_category1", "test_category2"]
-    metric._validate_categories()
+def test_validate_categories():
+    config = CategoricalJudgeConfig(
+        categories=["test_category1", "test_category2"],
+        passing_categories="test_category1",
+    )
+    config._validate_categories()
 
     with pytest.raises(ValueError):
-        metric.categories = ["test_category1"]
-        metric._validate_categories()
+        config.categories = ["test_category1"]
+        config._validate_categories()
 
 
 def test_validate_passing_categories(metric):
-    metric.passing_categories = "test_category1"
-    metric._validate_passing_categories()
-
-    metric.passing_categories = ["test_category1", "test_category2"]
-    metric._validate_passing_categories()
+    config = CategoricalJudgeConfig(
+        categories=["test_category1", "test_category2"],
+        passing_categories="test_category1",
+    )
+    config._validate_passing_categories()
 
     with pytest.raises(ValueError):
-        metric.passing_categories = 1
-        metric._validate_passing_categories()
+        config.passing_categories = 1
+        config._validate_passing_categories()
 
 
 def test_normalize_passing_categories(metric):
-    metric.passing_categories = "test_category1"
-    metric._normalize_passing_categories()
-    assert metric.passing_categories == ["test_category1"]
+    config = CategoricalJudgeConfig(
+        categories=["test_category1", "test_category2"],
+        passing_categories="test_category1",
+    )
+    assert config.passing_categories == ["test_category1"]
 
 
 def test_validate_passing_categories_subset(metric):
-    metric.categories = ["test_category1", "test_category2"]
-    metric.passing_categories = ["test_category1"]
-    metric._validate_passing_categories_subset()
+    config = CategoricalJudgeConfig(
+        categories=["test_category1", "test_category2"],
+        passing_categories="test_category1",
+    )
+    config._validate_passing_categories_subset()
 
     with pytest.raises(ValueError):
-        metric.categories = ["test_category1", "test_category2"]
-        metric.passing_categories = [
+        config.categories = ["test_category1", "test_category2"]
+        config.passing_categories = [
             "test_category1",
             "test_category2",
             "test_category3",
         ]
-        metric._validate_passing_categories_subset()
+        config._validate_passing_categories_subset()
 
     with pytest.raises(ValueError):
-        metric.categories = ["test_category1", "test_category2"]
-        metric.passing_categories = ["test_category3"]
-        metric._validate_passing_categories_subset()
+        config.categories = ["test_category1", "test_category2"]
+        config.passing_categories = ["test_category3"]
+        config._validate_passing_categories_subset()
 
 
 def test_evaluate_score(metric):
@@ -86,10 +95,8 @@ def test_evaluate_score(metric):
 
 
 def test_to_config(metric):
-    assert metric.to_config().parameters == {
-        "categories": ["test_category1", "test_category2"],
-        "passing_categories": ["test_category1"],
-    }
+    assert metric.to_config().categories == ["test_category1", "test_category2"]
+    assert metric.to_config().passing_categories == ["test_category1"]
 
 
 def test_evaluate_successful_evaluation(metric):
@@ -117,10 +124,7 @@ def test_evaluate_successful_evaluation(metric):
         assert isinstance(result, MetricResult)
         assert result.score == "test_category1"
         assert result.details["score"] == "test_category1"
-        assert (
-            result.details["reason"]
-            == "The output correctly matches the expected category"
-        )
+        assert result.details["reason"] == "The output correctly matches the expected category"
         assert result.details["is_successful"] is True
         assert result.details["score_type"] == "categorical"
         assert result.details["categories"] == ["test_category1", "test_category2"]
@@ -158,3 +162,10 @@ def test_evaluate_error_handling(metric):
         assert "exception_type" in result.details
         assert "exception_details" in result.details
         assert "prompt" in result.details
+
+
+def test_from_config_to_config(metric):
+    config1 = metric.to_config()
+    metric2 = CategoricalJudge.from_config(config1)
+    config2 = metric2.to_config()
+    assert config1 == config2

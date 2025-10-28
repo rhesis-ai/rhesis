@@ -3,15 +3,25 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Typography, TextField, Chip, Paper, Button } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CircularProgress from '@mui/material/CircularProgress';
 import SourceSelector from './shared/SourceSelector';
+import ProjectSelector from './shared/ProjectSelector';
+import ActionBar from '@/components/common/ActionBar';
 
 interface TestInputScreenProps {
-  onContinue: (description: string, sourceIds: string[]) => void;
+  onContinue: (
+    description: string,
+    sourceIds: string[],
+    projectId: string | null
+  ) => void;
   initialDescription?: string;
   selectedSourceIds: string[];
   onSourcesChange: (sourceIds: string[]) => void;
+  selectedProjectId: string | null;
+  onProjectChange: (projectId: string | null) => void;
   isLoading?: boolean;
+  onBack?: () => void;
 }
 
 const SUGGESTIONS = [
@@ -56,7 +66,10 @@ export default function TestInputScreen({
   initialDescription = '',
   selectedSourceIds,
   onSourcesChange,
+  selectedProjectId,
+  onProjectChange,
   isLoading = false,
+  onBack,
 }: TestInputScreenProps) {
   const [description, setDescription] = useState(initialDescription);
 
@@ -66,9 +79,9 @@ export default function TestInputScreen({
 
   const handleContinue = useCallback(() => {
     if (description.trim()) {
-      onContinue(description, selectedSourceIds);
+      onContinue(description, selectedSourceIds, selectedProjectId);
     }
-  }, [description, selectedSourceIds, onContinue]);
+  }, [description, selectedSourceIds, selectedProjectId, onContinue]);
 
   const canContinue = description.trim().length > 0;
 
@@ -83,8 +96,28 @@ export default function TestInputScreen({
       >
         <Box>
           <Paper sx={{ p: 3, mb: 4 }}>
+            {/* Project Selection */}
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ mb: 1 }}
+              >
+                Select project (optional)
+              </Typography>
+              <ProjectSelector
+                selectedProjectId={selectedProjectId}
+                onProjectChange={onProjectChange}
+              />
+            </Box>
+
             {/* Subtitle */}
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography
+              variant="subtitle2"
+              color="text.secondary"
+              sx={{ mb: 3 }}
+            >
               Describe what you want to test
             </Typography>
 
@@ -93,7 +126,7 @@ export default function TestInputScreen({
               fullWidth
               multiline
               rows={4}
-              placeholder="Describe what you want to test. Be as specific as possible. For example: 'I want to test our customer support chatbot for accuracy, helpfulness, and handling of edge cases like refunds and complaints.'"
+              placeholder="For example: 'I want to test our customer support chatbot for accuracy, helpfulness, and handling of edge cases like refunds and complaints.'"
               value={description}
               onChange={e => setDescription(e.target.value)}
               variant="outlined"
@@ -102,7 +135,11 @@ export default function TestInputScreen({
 
             {/* Suggestions */}
             <Box sx={{ mb: 4 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+              >
                 Or try one of these:
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -127,51 +164,45 @@ export default function TestInputScreen({
             {/* Source Selection */}
             <Box sx={{ mb: 3 }}>
               <Typography
-                variant="body2"
+                variant="subtitle2"
                 color="text.secondary"
                 gutterBottom
                 sx={{ mb: 1 }}
               >
-                Select sources (documents) to provide context (optional)
+                Select documents to provide context (optional)
               </Typography>
               <SourceSelector
                 selectedSourceIds={selectedSourceIds}
                 onSourcesChange={onSourcesChange}
               />
             </Box>
-
-            {/* Action Bar */}
-            <Box
-              sx={{
-                mt: 4,
-                pt: 3,
-                borderTop: 1,
-                borderColor: 'divider',
-                display: 'flex',
-                justifyContent: 'flex-end',
-              }}
-            >
-              <Button
-                variant="contained"
-                size="large"
-                endIcon={
-                  isLoading ? (
-                    <CircularProgress size={20} color="inherit" />
-                  ) : (
-                    <ArrowForwardIcon />
-                  )
-                }
-                onClick={handleContinue}
-                disabled={!canContinue || isLoading}
-              >
-                {isLoading
-                  ? 'Loading configuration...'
-                  : 'Continue to Configuration'}
-              </Button>
-            </Box>
           </Paper>
         </Box>
       </Box>
+
+      {/* Action Bar */}
+      <ActionBar
+        leftButton={
+          onBack
+            ? {
+                label: 'Back',
+                onClick: onBack,
+                variant: 'outlined',
+                startIcon: <ArrowBackIcon />,
+              }
+            : undefined
+        }
+        rightButton={{
+          label: isLoading ? 'Loading configuration...' : 'Continue',
+          onClick: handleContinue,
+          disabled: !canContinue || isLoading,
+          endIcon: isLoading ? (
+            <CircularProgress size={20} color="inherit" />
+          ) : (
+            <ArrowForwardIcon />
+          ),
+        }}
+      />
     </Box>
   );
 }

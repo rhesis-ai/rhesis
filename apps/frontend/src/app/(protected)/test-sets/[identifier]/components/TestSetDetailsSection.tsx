@@ -8,12 +8,13 @@ import {
   Tooltip,
   Chip,
   useTheme,
+  Grid,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
 import DocumentIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '../../../../../utils/api-client/client-factory';
 import ExecuteTestSetDrawer from './ExecuteTestSetDrawer';
@@ -268,6 +269,7 @@ export default function TestSetDetailsSection({
                 whiteSpace: 'pre-wrap',
                 fontFamily: 'monospace',
                 bgcolor: 'action.hover',
+                color: 'text.primary',
                 borderRadius: theme => theme.shape.borderRadius * 0.25,
                 padding: 1,
                 paddingRight: theme.spacing(10),
@@ -353,6 +355,7 @@ export default function TestSetDetailsSection({
                 whiteSpace: 'pre-wrap',
                 fontFamily: 'monospace',
                 bgcolor: 'action.hover',
+                color: 'text.primary',
                 borderRadius: theme => theme.shape.borderRadius * 0.25,
                 padding: 1,
                 minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
@@ -410,6 +413,23 @@ export default function TestSetDetailsSection({
           </Button>
         </Box>
       )}
+
+      {/* Creator Information */}
+      <Box sx={{ mb: 4, mt: 3 }}>
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+          Created by
+        </Typography>
+        <Typography
+          variant="body2"
+          sx={{
+            bgcolor: 'action.hover',
+            borderRadius: theme => theme.shape.borderRadius * 0.25,
+            padding: 1,
+          }}
+        >
+          {testSet.user?.name || testSet.user?.email || 'Not available'}
+        </Typography>
+      </Box>
 
       {/* Metadata Fields */}
       <Box sx={{ mb: 3 }}>

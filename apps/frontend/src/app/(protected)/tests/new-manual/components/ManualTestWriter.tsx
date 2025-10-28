@@ -337,283 +337,283 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
   const categoryOptions = categories.map(c => c.name);
 
   return (
-    <Box sx={{ flexGrow: 1, p: 3 }}>
-      {/* Breadcrumbs */}
-      <Breadcrumbs
-        separator={<NavigateNextIcon fontSize="small" />}
-        aria-label="breadcrumb"
-        sx={{ mb: 2 }}
-      >
-        <Link
-          href="/tests"
-          passHref
-          style={{ textDecoration: 'none', color: 'inherit' }}
+    <>
+      {/* Main Content */}
+      <Box sx={{ flexGrow: 1, p: 3, pb: 0 }}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs
+          separator={<NavigateNextIcon fontSize="small" />}
+          aria-label="breadcrumb"
+          sx={{ mb: 2 }}
         >
-          <Typography color="text.primary">Tests</Typography>
-        </Link>
-        <Typography color="text.primary">Manual Test Writer</Typography>
-      </Breadcrumbs>
+          <Link
+            href="/tests"
+            passHref
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
+            <Typography color="text.primary">Tests</Typography>
+          </Link>
+          <Typography color="text.primary">Manual Test Writer</Typography>
+        </Breadcrumbs>
 
-      {/* Page Title */}
-      <Typography variant="h4" sx={{ mb: 3 }}>
-        Manual Test Writer
-      </Typography>
+        {/* Page Title */}
+        <Typography variant="h4" sx={{ mb: 3 }}>
+          Manual Test Writer
+        </Typography>
 
-      {/* Test Cases Grid */}
-      <Box>
-        <Card>
-          <CardContent>
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                mb: 2,
-              }}
-            >
-              <Box>
-                <Typography variant="h6">
-                  Test Cases ({testCases.length})
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  One test case per row
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<UploadIcon />}
-                  onClick={handleImport}
-                  disabled={loading}
-                  size="small"
-                >
-                  Import
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<DownloadIcon />}
-                  onClick={handleExport}
-                  disabled={loading || testCases.length === 0}
-                  size="small"
-                >
-                  Export
-                </Button>
-              </Box>
-            </Box>
-
-            <TableContainer component={Paper} variant="outlined">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ width: 50 }}>#</TableCell>
-                    <TableCell sx={{ minWidth: 300 }}>Test Prompt *</TableCell>
-                    <TableCell sx={{ minWidth: 200 }}>Category *</TableCell>
-                    <TableCell sx={{ minWidth: 200 }}>Topic *</TableCell>
-                    <TableCell sx={{ minWidth: 200 }}>Behavior *</TableCell>
-                    <TableCell sx={{ minWidth: 300 }}>
-                      Expected Output
-                    </TableCell>
-                    <TableCell sx={{ width: 80 }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {testCases.map((testCase, index) => (
-                    <TableRow key={testCase.id}>
-                      <TableCell sx={{ textAlign: 'center' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {index + 1}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ p: 1 }}>
-                        <TextField
-                          fullWidth
-                          value={testCase.prompt}
-                          onChange={e =>
-                            updateTestCase(
-                              testCase.id,
-                              'prompt',
-                              e.target.value
-                            )
-                          }
-                          placeholder="Enter test prompt or scenario description..."
-                          size="small"
-                          disabled={loading}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ p: 1 }}>
-                        <Autocomplete
-                          freeSolo
-                          options={categoryOptions}
-                          value={testCase.category}
-                          onChange={(_, newValue) => {
-                            updateTestCase(
-                              testCase.id,
-                              'category',
-                              newValue || ''
-                            );
-                          }}
-                          onInputChange={(_, newInputValue) => {
-                            updateTestCase(
-                              testCase.id,
-                              'category',
-                              newInputValue
-                            );
-                          }}
-                          filterOptions={(options, params) => {
-                            const filtered = filter(options, params);
-                            const { inputValue } = params;
-                            const isExisting = options.some(
-                              option => inputValue === option
-                            );
-                            if (inputValue !== '' && !isExisting) {
-                              filtered.push(inputValue);
-                            }
-                            return filtered;
-                          }}
-                          renderInput={params => (
-                            <TextField
-                              {...params}
-                              placeholder="Select or type new..."
-                              size="small"
-                            />
-                          )}
-                          disabled={loading}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ p: 1 }}>
-                        <Autocomplete
-                          freeSolo
-                          options={topicOptions}
-                          value={testCase.topic}
-                          onChange={(_, newValue) => {
-                            updateTestCase(
-                              testCase.id,
-                              'topic',
-                              newValue || ''
-                            );
-                          }}
-                          onInputChange={(_, newInputValue) => {
-                            updateTestCase(testCase.id, 'topic', newInputValue);
-                          }}
-                          filterOptions={(options, params) => {
-                            const filtered = filter(options, params);
-                            const { inputValue } = params;
-                            const isExisting = options.some(
-                              option => inputValue === option
-                            );
-                            if (inputValue !== '' && !isExisting) {
-                              filtered.push(inputValue);
-                            }
-                            return filtered;
-                          }}
-                          renderInput={params => (
-                            <TextField
-                              {...params}
-                              placeholder="Select or type new..."
-                              size="small"
-                            />
-                          )}
-                          disabled={loading}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ p: 1 }}>
-                        <Autocomplete
-                          freeSolo
-                          options={behaviorOptions}
-                          value={testCase.behavior}
-                          onChange={(_, newValue) => {
-                            updateTestCase(
-                              testCase.id,
-                              'behavior',
-                              newValue || ''
-                            );
-                          }}
-                          onInputChange={(_, newInputValue) => {
-                            updateTestCase(
-                              testCase.id,
-                              'behavior',
-                              newInputValue
-                            );
-                          }}
-                          filterOptions={(options, params) => {
-                            const filtered = filter(options, params);
-                            const { inputValue } = params;
-                            const isExisting = options.some(
-                              option => inputValue === option
-                            );
-                            if (inputValue !== '' && !isExisting) {
-                              filtered.push(inputValue);
-                            }
-                            return filtered;
-                          }}
-                          renderInput={params => (
-                            <TextField
-                              {...params}
-                              placeholder="Select or type new..."
-                              size="small"
-                            />
-                          )}
-                          disabled={loading}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ p: 1 }}>
-                        <TextField
-                          fullWidth
-                          value={testCase.expectedOutput}
-                          onChange={e =>
-                            updateTestCase(
-                              testCase.id,
-                              'expectedOutput',
-                              e.target.value
-                            )
-                          }
-                          placeholder="Describe expected output or behavior..."
-                          size="small"
-                          disabled={loading}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <IconButton
-                          onClick={() => deleteRow(testCase.id)}
-                          disabled={testCases.length === 1 || loading}
-                          color="error"
-                          size="small"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            <Box
-              sx={{
-                mt: 2,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={addNewRow}
-                disabled={loading}
+        {/* Test Cases Grid */}
+        <Box>
+          <Card>
+            <CardContent>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  mb: 2,
+                }}
               >
-                Add Another Test Case
-              </Button>
-              <Typography variant="body2" color="text.secondary">
-                Total: {testCases.length} test case
-                {testCases.length !== 1 ? 's' : ''}
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
+                <Box>
+                  <Typography variant="h6">
+                    Test Cases ({testCases.length})
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    One test case per row
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<DownloadIcon />}
+                    onClick={handleExport}
+                    disabled={loading || testCases.length === 0}
+                    size="small"
+                  >
+                    Export
+                  </Button>
+                </Box>
+              </Box>
+
+              <TableContainer component={Paper} variant="outlined">
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ width: 50 }}>#</TableCell>
+                      <TableCell sx={{ minWidth: 300 }}>
+                        Test Prompt *
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>Category *</TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>Topic *</TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>Behavior *</TableCell>
+                      <TableCell sx={{ minWidth: 300 }}>
+                        Expected Output
+                      </TableCell>
+                      <TableCell sx={{ width: 80 }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {testCases.map((testCase, index) => (
+                      <TableRow key={testCase.id}>
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {index + 1}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ p: 1 }}>
+                          <TextField
+                            fullWidth
+                            value={testCase.prompt}
+                            onChange={e =>
+                              updateTestCase(
+                                testCase.id,
+                                'prompt',
+                                e.target.value
+                              )
+                            }
+                            placeholder="Enter test prompt or scenario description..."
+                            size="small"
+                            disabled={loading}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ p: 1 }}>
+                          <Autocomplete
+                            freeSolo
+                            options={categoryOptions}
+                            value={testCase.category}
+                            onChange={(_, newValue) => {
+                              updateTestCase(
+                                testCase.id,
+                                'category',
+                                newValue || ''
+                              );
+                            }}
+                            onInputChange={(_, newInputValue) => {
+                              updateTestCase(
+                                testCase.id,
+                                'category',
+                                newInputValue
+                              );
+                            }}
+                            filterOptions={(options, params) => {
+                              const filtered = filter(options, params);
+                              const { inputValue } = params;
+                              const isExisting = options.some(
+                                option => inputValue === option
+                              );
+                              if (inputValue !== '' && !isExisting) {
+                                filtered.push(inputValue);
+                              }
+                              return filtered;
+                            }}
+                            renderInput={params => (
+                              <TextField
+                                {...params}
+                                placeholder="Select or type new..."
+                                size="small"
+                              />
+                            )}
+                            disabled={loading}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ p: 1 }}>
+                          <Autocomplete
+                            freeSolo
+                            options={topicOptions}
+                            value={testCase.topic}
+                            onChange={(_, newValue) => {
+                              updateTestCase(
+                                testCase.id,
+                                'topic',
+                                newValue || ''
+                              );
+                            }}
+                            onInputChange={(_, newInputValue) => {
+                              updateTestCase(
+                                testCase.id,
+                                'topic',
+                                newInputValue
+                              );
+                            }}
+                            filterOptions={(options, params) => {
+                              const filtered = filter(options, params);
+                              const { inputValue } = params;
+                              const isExisting = options.some(
+                                option => inputValue === option
+                              );
+                              if (inputValue !== '' && !isExisting) {
+                                filtered.push(inputValue);
+                              }
+                              return filtered;
+                            }}
+                            renderInput={params => (
+                              <TextField
+                                {...params}
+                                placeholder="Select or type new..."
+                                size="small"
+                              />
+                            )}
+                            disabled={loading}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ p: 1 }}>
+                          <Autocomplete
+                            freeSolo
+                            options={behaviorOptions}
+                            value={testCase.behavior}
+                            onChange={(_, newValue) => {
+                              updateTestCase(
+                                testCase.id,
+                                'behavior',
+                                newValue || ''
+                              );
+                            }}
+                            onInputChange={(_, newInputValue) => {
+                              updateTestCase(
+                                testCase.id,
+                                'behavior',
+                                newInputValue
+                              );
+                            }}
+                            filterOptions={(options, params) => {
+                              const filtered = filter(options, params);
+                              const { inputValue } = params;
+                              const isExisting = options.some(
+                                option => inputValue === option
+                              );
+                              if (inputValue !== '' && !isExisting) {
+                                filtered.push(inputValue);
+                              }
+                              return filtered;
+                            }}
+                            renderInput={params => (
+                              <TextField
+                                {...params}
+                                placeholder="Select or type new..."
+                                size="small"
+                              />
+                            )}
+                            disabled={loading}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ p: 1 }}>
+                          <TextField
+                            fullWidth
+                            value={testCase.expectedOutput}
+                            onChange={e =>
+                              updateTestCase(
+                                testCase.id,
+                                'expectedOutput',
+                                e.target.value
+                              )
+                            }
+                            placeholder="Describe expected output or behavior..."
+                            size="small"
+                            disabled={loading}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <IconButton
+                            onClick={() => deleteRow(testCase.id)}
+                            disabled={testCases.length === 1 || loading}
+                            color="error"
+                            size="small"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              <Box
+                sx={{
+                  mt: 2,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={addNewRow}
+                  disabled={loading}
+                >
+                  Add Another Test Case
+                </Button>
+                <Typography variant="body2" color="text.secondary">
+                  Total: {testCases.length} test case
+                  {testCases.length !== 1 ? 's' : ''}
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
       </Box>
 
-      {/* Action Bar */}
+      {/* Bottom Action Bar */}
       <ActionBar
         leftButton={{
           label: 'Back to Tests',
@@ -669,6 +669,6 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 }

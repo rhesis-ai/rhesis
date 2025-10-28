@@ -374,404 +374,443 @@ export default function TestGenerationInterface({
   }, [session?.session_token, onDocumentAdd]);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      {/* Main Content - 2 Panel Layout */}
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* LEFT PANEL - Configuration */}
-        <Box
+    <Box sx={{ flexGrow: 1, bgcolor: 'background.default' }}>
+      {/* Main Content */}
+      <Box
+        sx={{
+          pt: 3,
+          pb: 3,
+        }}
+      >
+        {/* 2 Panel Layout */}
+        <Paper
+          elevation={2}
           sx={{
-            width: '33%',
-            borderRight: 1,
-            borderColor: 'divider',
             display: 'flex',
-            flexDirection: 'column',
+            height: 'calc(100vh - 200px)',
+            overflow: 'hidden',
+            mb: 4,
           }}
         >
-          <Card
+          {/* LEFT PANEL - Configuration */}
+          <Box
             sx={{
-              height: '100%',
-              borderRadius: 0, // Intentional: flush with panel edges
-              border: 0,
+              width: '33%',
+              borderRight: 1,
+              borderColor: 'divider',
               display: 'flex',
               flexDirection: 'column',
             }}
           >
-            {/* Header */}
-            <CardHeader
+            <Card
+              elevation={0}
               sx={{
-                borderBottom: 1,
-                borderColor: 'divider',
-                minHeight: 64,
-                alignItems: 'center',
-              }}
-              title={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Typography variant="h6" fontWeight="bold">
-                    Tests Configuration
-                  </Typography>
-                  <Tooltip
-                    title="Configure test parameters and upload documents to guide AI generation."
-                    arrow
-                    placement="top"
-                  >
-                    <InfoOutlinedIcon
-                      sx={{
-                        fontSize: 16,
-                        color: 'text.secondary',
-                        cursor: 'help',
-                      }}
-                    />
-                  </Tooltip>
-                </Box>
-              }
-            />
-
-            {/* Scrollable Configuration Area */}
-            <Box
-              sx={{
-                flex: 1,
-                overflow: 'auto',
-                p: 3,
-                position: 'relative',
+                height: '100%',
+                borderRadius: 0, // Intentional: flush with panel edges
+                border: 0,
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
-              {/* Loading Overlay */}
-              {isGenerating && (
+              {/* Header */}
+              <CardHeader
+                sx={{
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                  minHeight: 64,
+                  alignItems: 'center',
+                }}
+                title={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="h6" fontWeight="bold">
+                      Tests Configuration
+                    </Typography>
+                    <Tooltip
+                      title="Configure test parameters and upload documents to guide AI generation."
+                      arrow
+                      placement="top"
+                    >
+                      <InfoOutlinedIcon
+                        sx={{
+                          fontSize: 16,
+                          color: 'text.secondary',
+                          cursor: 'help',
+                        }}
+                      />
+                    </Tooltip>
+                  </Box>
+                }
+              />
+
+              {/* Scrollable Configuration Area */}
+              <Box
+                sx={{
+                  flex: 1,
+                  overflow: 'auto',
+                  p: 3,
+                  position: 'relative',
+                }}
+              >
+                {/* Loading Overlay */}
+                {isGenerating && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      bgcolor: 'background.paper',
+                      opacity: 0.95,
+                      zIndex: 1,
+                    }}
+                  >
+                    <CircularProgress sx={{ mb: 2 }} />
+                    <Typography variant="body1">
+                      Updating configuration...
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Behavior Testing */}
+                <Box sx={{ mb: 4 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: theme => theme.shape.circular,
+                        bgcolor: 'primary.main',
+                      }}
+                    />
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      Behaviors
+                    </Typography>
+                  </Box>
+                  <ChipGroup
+                    chips={configChips.behavior}
+                    onToggle={chipId => onChipToggle('behavior', chipId)}
+                  />
+                </Box>
+
+                {/* Topics */}
+                <Box sx={{ mb: 4 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: theme => theme.shape.circular,
+                        bgcolor: 'success.main',
+                      }}
+                    />
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      Topics
+                    </Typography>
+                  </Box>
+                  <ChipGroup
+                    chips={configChips.topics}
+                    onToggle={chipId => onChipToggle('topics', chipId)}
+                  />
+                </Box>
+
+                {/* Category */}
+                <Box sx={{ mb: 4 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: theme => theme.shape.circular,
+                        bgcolor: 'secondary.main',
+                      }}
+                    />
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      Categories
+                    </Typography>
+                  </Box>
+                  <ChipGroup
+                    chips={configChips.category}
+                    onToggle={chipId => onChipToggle('category', chipId)}
+                  />
+                </Box>
+              </Box>
+
+              {/* Uploaded Files Section */}
+              {documents.length > 0 && (
                 <Box
                   sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    p: 2,
+                    borderTop: 1,
+                    borderColor: 'divider',
                     bgcolor: 'background.paper',
-                    opacity: 0.95,
-                    zIndex: 1,
                   }}
                 >
-                  <CircularProgress sx={{ mb: 2 }} />
-                  <Typography variant="body1">
-                    Updating configuration...
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                    sx={{ mb: 1 }}
+                  >
+                    Selected sources (documents)
                   </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {documents.map(doc => (
+                      <Chip
+                        key={doc.id}
+                        icon={<DescriptionIcon />}
+                        label={doc.name || doc.originalName}
+                        size="small"
+                        variant="outlined"
+                        onDelete={() => onDocumentRemove(doc.id)}
+                      />
+                    ))}
+                  </Box>
                 </Box>
               )}
 
-              {/* Behavior Testing */}
-              <Box sx={{ mb: 4 }}>
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}
-                >
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: theme => theme.shape.circular,
-                      bgcolor: 'primary.main',
-                    }}
-                  />
-                  <Typography variant="subtitle2" fontWeight="bold">
-                    Behaviors
-                  </Typography>
-                </Box>
-                <ChipGroup
-                  chips={configChips.behavior}
-                  onToggle={chipId => onChipToggle('behavior', chipId)}
-                />
-              </Box>
-
-              {/* Topics */}
-              <Box sx={{ mb: 4 }}>
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}
-                >
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: theme => theme.shape.circular,
-                      bgcolor: 'secondary.main',
-                    }}
-                  />
-                  <Typography variant="subtitle2" fontWeight="bold">
-                    Topics
-                  </Typography>
-                </Box>
-                <ChipGroup
-                  chips={configChips.topics}
-                  onToggle={chipId => onChipToggle('topics', chipId)}
-                />
-              </Box>
-
-              {/* Category */}
-              <Box sx={{ mb: 4 }}>
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}
-                >
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: theme => theme.shape.circular,
-                      bgcolor: 'warning.main',
-                    }}
-                  />
-                  <Typography variant="subtitle2" fontWeight="bold">
-                    Categories
-                  </Typography>
-                </Box>
-                <ChipGroup
-                  chips={configChips.category}
-                  onToggle={chipId => onChipToggle('category', chipId)}
-                />
-              </Box>
-            </Box>
-
-            {/* Uploaded Files Section */}
-            {documents.length > 0 && (
+              {/* Chat Input */}
               <Box
                 sx={{
                   p: 2,
                   borderTop: 1,
                   borderColor: 'divider',
-                  bgcolor: 'background.paper',
+                  bgcolor: 'background.default',
                 }}
               >
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  gutterBottom
-                  sx={{ mb: 1 }}
+                <Paper
+                  elevation={1}
+                  sx={{
+                    borderRadius: theme => theme.shape.borderRadius * 0.75,
+                    border: 1,
+                    borderColor: 'primary.light',
+                    display: 'flex',
+                    alignItems: 'center',
+                    p: 0.5,
+                  }}
                 >
-                  Selected sources (documents)
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {documents.map(doc => (
-                    <Chip
-                      key={doc.id}
-                      icon={<DescriptionIcon />}
-                      label={doc.name || doc.originalName}
+                  <Tooltip title="Upload source document">
+                    <IconButton
                       size="small"
-                      variant="outlined"
-                      onDelete={() => onDocumentRemove(doc.id)}
-                    />
-                  ))}
-                </Box>
-              </Box>
-            )}
-
-            {/* Chat Input */}
-            <Box
-              sx={{
-                p: 2,
-                borderTop: 1,
-                borderColor: 'divider',
-                bgcolor: 'background.default',
-              }}
-            >
-              <Paper
-                elevation={1}
-                sx={{
-                  borderRadius: theme => theme.shape.borderRadius * 0.75,
-                  border: 1,
-                  borderColor: 'primary.light',
-                  display: 'flex',
-                  alignItems: 'center',
-                  p: 0.5,
-                }}
-              >
-                <Tooltip title="Upload source document">
+                      sx={{ ml: 0.5 }}
+                      onClick={() => setShowUploadDialog(true)}
+                    >
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <TextField
+                    fullWidth
+                    placeholder="Further refine test generation..."
+                    value={inputMessage}
+                    onChange={e => setInputMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    variant="standard"
+                    size="small"
+                    InputProps={{
+                      disableUnderline: true,
+                    }}
+                    sx={{ mx: 1 }}
+                  />
                   <IconButton
                     size="small"
-                    sx={{ ml: 0.5 }}
-                    onClick={() => setShowUploadDialog(true)}
+                    onClick={handleSendMessage}
+                    disabled={!inputMessage.trim()}
+                    sx={{
+                      bgcolor: 'primary.main',
+                      color: 'white',
+                      '&:hover': {
+                        bgcolor: 'primary.dark',
+                      },
+                      '&:disabled': {
+                        bgcolor: 'action.disabledBackground',
+                      },
+                    }}
                   >
-                    <AddIcon fontSize="small" />
+                    <SendIcon fontSize="small" />
                   </IconButton>
-                </Tooltip>
-                <TextField
-                  fullWidth
-                  placeholder="Further refine test generation..."
-                  value={inputMessage}
-                  onChange={e => setInputMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  variant="standard"
-                  size="small"
-                  InputProps={{
-                    disableUnderline: true,
-                  }}
-                  sx={{ mx: 1 }}
-                />
-                <IconButton
-                  size="small"
-                  onClick={handleSendMessage}
-                  disabled={!inputMessage.trim()}
-                  sx={{
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    '&:hover': {
-                      bgcolor: 'primary.dark',
-                    },
-                    '&:disabled': {
-                      bgcolor: 'action.disabledBackground',
-                    },
-                  }}
-                >
-                  <SendIcon fontSize="small" />
-                </IconButton>
-              </Paper>
-            </Box>
-          </Card>
-        </Box>
+                </Paper>
+              </Box>
+            </Card>
+          </Box>
 
-        {/* RIGHT PANEL - Preview */}
-        <Box
-          sx={{
-            width: '67%',
-            bgcolor: 'background.default',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <Card
+          {/* RIGHT PANEL - Preview */}
+          <Box
             sx={{
-              height: '100%',
-              borderRadius: 0, // Intentional: flush with panel edges
-              border: 0,
+              width: '67%',
+              bgcolor: 'background.default',
               display: 'flex',
               flexDirection: 'column',
             }}
           >
-            {/* Header */}
-            <CardHeader
+            <Card
+              elevation={0}
               sx={{
-                borderBottom: 1,
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-                minHeight: 64,
-                alignItems: 'center',
-              }}
-              title={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="h6" fontWeight="bold">
-                    Review Test Cases
-                  </Typography>
-                  <Tooltip
-                    title="Preview of generated test samples. Rate them to improve future generations."
-                    arrow
-                    placement="top"
-                  >
-                    <InfoOutlinedIcon
-                      sx={{
-                        fontSize: 16,
-                        color: 'text.secondary',
-                        cursor: 'help',
-                      }}
-                    />
-                  </Tooltip>
-                </Box>
-              }
-              action={
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
-                  onClick={() => setShowEndpointModal(true)}
-                  sx={{ textTransform: 'none' }}
-                >
-                  {endpointInfo
-                    ? `${endpointInfo.projectName} › ${endpointInfo.name}`
-                    : 'Show Live Responses'}
-                </Button>
-              }
-            />
-
-            {/* Scrollable Samples Area */}
-            <CardContent
-              sx={{
-                flex: 1,
-                p: 0,
-                bgcolor: 'background.default',
-                overflow: 'auto',
+                height: '100%',
+                borderRadius: 0, // Intentional: flush with panel edges
+                border: 0,
                 display: 'flex',
                 flexDirection: 'column',
               }}
             >
-              {isGenerating ? (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flex: 1,
-                  }}
-                >
-                  <CircularProgress sx={{ mb: 2 }} />
-                  <Typography variant="body1">
-                    Generating test samples...
-                  </Typography>
-                </Box>
-              ) : localTestSamples.length === 0 ? (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textAlign: 'center',
-                    flex: 1,
-                  }}
-                >
-                  <VisibilityIcon sx={{ fontSize: 64, opacity: 0.3, mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    No samples generated yet
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Adjust the configuration to generate test samples
-                  </Typography>
-                </Box>
-              ) : (
-                <Box sx={{ p: 3 }}>
-                  {localTestSamples.map(sample => (
-                    <TestSampleCard
-                      key={sample.id}
-                      sample={sample}
-                      onRate={onRateSample}
-                      onFeedbackChange={onSampleFeedbackChange}
-                      onRegenerate={onRegenerate}
-                      isRegenerating={regeneratingSampleId === sample.id}
-                    />
-                  ))}
-
-                  {/* Load More Button */}
-                  <Box sx={{ textAlign: 'center', mt: 3 }}>
-                    <Button
-                      variant="outlined"
-                      startIcon={
-                        isLoadingMore ? (
-                          <CircularProgress size={16} />
-                        ) : (
-                          <AutoFixHighIcon />
-                        )
-                      }
-                      onClick={onLoadMoreSamples}
-                      disabled={isLoadingMore}
+              {/* Header */}
+              <CardHeader
+                sx={{
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                  minHeight: 64,
+                  alignItems: 'center',
+                }}
+                title={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6" fontWeight="bold">
+                      Review Test Cases
+                    </Typography>
+                    <Tooltip
+                      title="Preview of generated test samples. Rate them to improve future generations."
+                      arrow
+                      placement="top"
                     >
-                      {isLoadingMore ? 'Loading...' : 'Load More Samples'}
-                    </Button>
+                      <InfoOutlinedIcon
+                        sx={{
+                          fontSize: 16,
+                          color: 'text.secondary',
+                          cursor: 'help',
+                        }}
+                      />
+                    </Tooltip>
                   </Box>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Box>
+                }
+                action={
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
+                    onClick={() => setShowEndpointModal(true)}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    {endpointInfo
+                      ? `${endpointInfo.projectName} › ${endpointInfo.name}`
+                      : 'Show Live Responses'}
+                  </Button>
+                }
+              />
+
+              {/* Scrollable Samples Area */}
+              <CardContent
+                sx={{
+                  flex: 1,
+                  p: 0,
+                  bgcolor: 'background.default',
+                  overflow: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                {isGenerating ? (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flex: 1,
+                    }}
+                  >
+                    <CircularProgress sx={{ mb: 2 }} />
+                    <Typography variant="body1">
+                      Generating test samples...
+                    </Typography>
+                  </Box>
+                ) : localTestSamples.length === 0 ? (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      textAlign: 'center',
+                      flex: 1,
+                    }}
+                  >
+                    <VisibilityIcon
+                      sx={{ fontSize: 64, opacity: 0.3, mb: 2 }}
+                    />
+                    <Typography
+                      variant="h6"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      No samples generated yet
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Adjust the configuration to generate test samples
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ p: 3 }}>
+                    {localTestSamples.map(sample => (
+                      <TestSampleCard
+                        key={sample.id}
+                        sample={sample}
+                        onRate={onRateSample}
+                        onFeedbackChange={onSampleFeedbackChange}
+                        onRegenerate={onRegenerate}
+                        isRegenerating={regeneratingSampleId === sample.id}
+                      />
+                    ))}
+
+                    {/* Load More Button */}
+                    <Box sx={{ textAlign: 'center', mt: 3 }}>
+                      <Button
+                        variant="outlined"
+                        startIcon={
+                          isLoadingMore ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            <AutoFixHighIcon />
+                          )
+                        }
+                        onClick={onLoadMoreSamples}
+                        disabled={isLoadingMore}
+                      >
+                        {isLoadingMore ? 'Loading...' : 'Load More Samples'}
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Box>
+        </Paper>
       </Box>
 
-      {/* Bottom Action Bar */}
+      {/* Action Bar */}
       <ActionBar
         leftButton={{
           label: 'Back',

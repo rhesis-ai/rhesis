@@ -13,11 +13,10 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
-import { Typography, Box, Alert, Avatar, Chip } from '@mui/material';
+import { Typography, Box, Alert, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDrawer from './TestDrawer';
-import PersonIcon from '@mui/icons-material/Person';
 import TestSetSelectionDialog from './TestSetSelectionDialog';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
@@ -192,40 +191,6 @@ export default function TestsTable({
           if (!categoryName) return null;
 
           return <Chip label={categoryName} size="small" variant="outlined" />;
-        },
-      },
-      {
-        field: 'assignee.name',
-        headerName: 'Assignee',
-        flex: 1,
-        filterable: true,
-        valueGetter: (value, row) => {
-          const assignee = row.assignee;
-          if (!assignee) return '';
-          return (
-            assignee.name ||
-            `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() ||
-            assignee.email ||
-            ''
-          );
-        },
-        renderCell: params => {
-          const assignee = params.row.assignee;
-          if (!assignee) return null;
-
-          const displayName =
-            assignee.name ||
-            `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() ||
-            assignee.email;
-
-          return (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Avatar src={assignee.picture} sx={{ width: 24, height: 24 }}>
-                <PersonIcon />
-              </Avatar>
-              <Typography variant="body2">{displayName}</Typography>
-            </Box>
-          );
         },
       },
       {

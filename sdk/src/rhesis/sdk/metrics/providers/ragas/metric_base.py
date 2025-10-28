@@ -1,20 +1,39 @@
-from rhesis.sdk.metrics.base import BaseMetric, MetricType
+from typing import Any, Optional, Union
+
+from ragas.llms import LangchainLLMWrapper
+
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricType, ScoreType
+from rhesis.sdk.metrics.providers.ragas.model import CustomLLM
 
 
 class RagasMetricBase(BaseMetric):
     """Base class for Ragas metrics with common functionality."""
 
-    def __init__(self, name: str, threshold: float = 0.5, metric_type: MetricType = "rag"):
-        super().__init__(name=name, metric_type=metric_type)
-        self.threshold = threshold  # Use the setter for validation
-        # Actual Ragas implementation to be added
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        score_type: Optional[Union[str, ScoreType]] = None,
+        metric_type: Optional[Union[str, MetricType]] = None,
+        model: Optional[Any] = None,
+    ):
+        config = MetricConfig(
+            name=name,
+            description=description,
+            score_type=score_type,
+            metric_type=metric_type,
+        )
+        super().__init__(config=config, model=model)
+
+        self._ragas_model = LangchainLLMWrapper(CustomLLM(rhesis_model=self.model))
 
     @property
-    def threshold(self) -> float:
-        return self._threshold
+    def model(self) -> Any:
+        """Get the current model."""
+        return self._model
 
-    @threshold.setter
-    def threshold(self, value: float):
-        if not 0 <= value <= 1:
-            raise ValueError("Threshold must be between 0 and 1")
-        self._threshold = value
+    @model.setter
+    def model(self, value: Any):
+        """Set the model and update the Ragas wrapper."""
+        self._model = self.set_model(value)
+        self._ragas_model = LangchainLLMWrapper(CustomLLM(rhesis_model=self._model))
