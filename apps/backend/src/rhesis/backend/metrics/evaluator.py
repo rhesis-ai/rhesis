@@ -268,8 +268,8 @@ class MetricEvaluator:
                 if metric_model is not None:
                     metric_params["model"] = metric_model
 
-                # Instantiate the metric using SDK via adapter
-                from rhesis.backend.metrics.adapters import create_metric_from_config
+                # Instantiate the metric directly using SDK MetricFactory
+                from rhesis.sdk.metrics import MetricFactory
 
                 metric_name = (
                     metric_config.get("name")
@@ -277,11 +277,7 @@ class MetricEvaluator:
                     else getattr(metric_config, "name", class_name)
                 )
                 logger.debug(
-                    f"🔍 [DEBUG EVALUATOR] About to create metric via adapter: {metric_name or class_name}"
-                )
-                logger.debug(f"🔍 [DEBUG EVALUATOR] metric_config type: {type(metric_config)}")
-                logger.debug(
-                    f"[SDK_ADAPTER] Creating metric via SDK adapter: {metric_name or class_name}"
+                    f"[SDK_DIRECT] Creating metric directly via SDK: {metric_name or class_name}"
                 )
 
                 # Merge metric_params (which includes the model) into metric_config
@@ -294,19 +290,26 @@ class MetricEvaluator:
                         config_dict["parameters"] = {}
                     config_dict["parameters"].update(metric_params)
 
-                metric = create_metric_from_config(
-                    config_dict,
-                    self.organization_id,
-                )
+                # Extract parameters for SDK factory
+                params_dict = config_dict.get("parameters", {})
+                
+                # Flatten config: merge top-level and nested parameters
+                factory_params = {**config_dict}
+                factory_params.update(params_dict)
+                
+                # Remove non-parameter fields
+                factory_params.pop("class_name", None)
+                factory_params.pop("backend", None)
+                factory_params.pop("parameters", None)
 
-                if metric is None:
-                    metric_name = (
-                        metric_config.get("name")
-                        if isinstance(metric_config, dict)
-                        else getattr(metric_config, "name", class_name)
-                    )
+                # Create metric directly via SDK factory
+                try:
+                    metric = MetricFactory.create(backend, class_name, **factory_params)
+                except Exception as create_error:
                     logger.error(
-                        f"[SDK_ADAPTER] Failed to create metric '{metric_name or class_name}' via adapter"
+                        f"[SDK_DIRECT] Failed to create metric '{metric_name or class_name}' "
+                        f"(class: {class_name}, backend: {backend}): {create_error}",
+                        exc_info=True
                     )
                     continue
 
