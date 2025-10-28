@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Welcome to Rhesis AI</title>
+</head>
+<body style="font-family: 'Be Vietnam Pro', Arial, sans-serif; line-height: 1.6; color: #3D3D3D; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #FFFFFF;">
+
+    <!-- Hero Welcome Section -->
+    <div style="background: linear-gradient(135deg, #F2F9FD 0%, #E4F2FA 100%); border-radius: 12px; padding: 30px 20px; margin-bottom: 25px; text-align: center;">
+        <h1 style="color: #2AA1CE; margin: 0 0 15px 0; font-size: 28px; font-weight: 600;">
+            Welcome to Rhesis AI! 🎉
+        </h1>
+        <p style="margin: 0; font-size: 16px; color: #3D3D3D;">
+            We're excited to have you on board{{ ', ' + recipient_name if recipient_name else '' }}!
+        </p>
+    </div>
+
+    <!-- Personal Message Section -->
+    <div style="background: white; border-left: 4px solid #50B9E0; padding: 20px; margin-bottom: 25px; border-radius: 4px;">
+        <p style="margin: 0 0 15px 0; font-size: 15px; line-height: 1.8;">
+            Thank you for signing up for Rhesis AI! I'm Dr. Nicolai Bohn, Co-Founder & CEO, and I personally wanted to reach out to welcome you to our platform.
+        </p>
+        <p style="margin: 0 0 15px 0; font-size: 15px; line-height: 1.8;">
+            Rhesis AI is a comprehensive test management platform specifically designed for Gen AI applications. We built it to help teams like yours evaluate, manage, and improve AI systems with confidence.
+        </p>
+        <p style="margin: 0; font-size: 15px; line-height: 1.8;">
+            Whether you're testing LLM outputs, managing test cases, or tracking performance metrics, we're here to make your AI testing workflow seamless and powerful.
+        </p>
+    </div>
+
+    <!-- Getting Started Section -->
+    <div style="background: #F2F9FD; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+        <h3 style="color: #2AA1CE; margin-top: 0; margin-bottom: 15px; font-size: 18px;">
+            🚀 Ready to Get Started?
+        </h3>
+        <p style="margin: 0 0 15px 0; font-size: 15px; line-height: 1.8;">
+            You can start exploring Rhesis AI right away:
+        </p>
+        <ul style="margin: 0 0 15px 0; padding-left: 25px; font-size: 15px; line-height: 1.8;">
+            <li style="margin-bottom: 8px;">Create your first project and test sets</li>
+            <li style="margin-bottom: 8px;">Run automated tests on your AI endpoints</li>
+            <li style="margin-bottom: 8px;">Invite your team members to collaborate</li>
+            <li>Explore our comprehensive documentation and guides</li>
+        </ul>
+        {% if frontend_url -%}
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="{{ frontend_url }}"
+               style="display: inline-block; background-color: #2AA1CE; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                Open Rhesis AI
+            </a>
+        </div>
+        {%- endif %}
+    </div>
+
+    <!-- Personal Invitation Section -->
+    <div style="background: white; border: 2px solid #E4F2FA; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+        <h3 style="color: #3D3D3D; margin-top: 0; margin-bottom: 15px; font-size: 18px;">
+            💬 Have Questions? Let's Talk!
+        </h3>
+        <p style="margin: 0 0 15px 0; font-size: 15px; line-height: 1.8;">
+            I'd love to hear about your use case and help you get the most out of Rhesis AI. Feel free to book a call with me directly – no sales pitch, just a friendly chat about how we can support your AI testing needs.
+        </p>
+        {% if calendar_link -%}
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="{{ calendar_link }}"
+               style="display: inline-block; background-color: #FD6E12; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                📅 Book a Call with Me
+            </a>
+        </div>
+        {%- endif %}
+    </div>
+
+    <!-- Support Section -->
+    <div style="background: #F2F9FD; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+        <h4 style="color: #3D3D3D; margin-top: 0; margin-bottom: 12px; font-size: 16px;">
+            📚 Need Help Getting Started?
+        </h4>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #3D3D3D;">
+            Check out our <a href="{{ frontend_url }}/docs" style="color: #2AA1CE; text-decoration: none; font-weight: 600;">documentation</a> or reach out to our support team at <a href="mailto:hello@rhesis.ai" style="color: #2AA1CE; text-decoration: none;">hello@rhesis.ai</a>. We're here to help!
+        </p>
+    </div>
+
+    <!-- Founder Signature -->
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #E4F2FA;">
+        <p style="margin: 0 0 5px 0; font-size: 15px; line-height: 1.6;">
+            Best regards,
+        </p>
+        <p style="margin: 0 0 3px 0; font-size: 16px; font-weight: 600; color: #2AA1CE;">
+            Dr. Nicolai Bohn
+        </p>
+        <p style="margin: 0 0 5px 0; font-size: 14px; color: #3D3D3D;">
+            Co-Founder & CEO
+        </p>
+        <p style="margin: 0 0 15px 0; font-size: 14px; color: #3D3D3D;">
+            <a href="https://rhesis.ai" style="color: #2AA1CE; text-decoration: none;">Website</a> •
+            <a href="https://linkedin.com/company/rhesis-ai" style="color: #2AA1CE; text-decoration: none;">LinkedIn</a> •
+            <a href="https://github.com/rhesis-ai" style="color: #2AA1CE; text-decoration: none;">GitHub</a>
+        </p>
+    </div>
+
+    <!-- Legal Imprint -->
+    <div style="text-align: left;">
+        {% include '_imprint.html.jinja2' %}
+    </div>
+
+</body>
+</html>
