@@ -33,30 +33,6 @@ import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 
-interface StatusInfo {
-  label: string;
-  borderColor: string;
-  color: string;
-}
-
-const getStatusInfo = (
-  testSet: TestSet & { status?: string | { name: string } }
-): StatusInfo => {
-  // Only use actual status from API
-  return {
-    label:
-      typeof testSet.status === 'string'
-        ? testSet.status
-        : testSet.status &&
-            typeof testSet.status === 'object' &&
-            'name' in testSet.status
-          ? testSet.status.name
-          : 'Unknown',
-    borderColor: 'primary.light',
-    color: 'primary.main',
-  };
-};
-
 interface TestSetsGridProps {
   testSets: TestSet[];
   loading: boolean;
@@ -65,70 +41,15 @@ interface TestSetsGridProps {
 }
 
 const ChipContainer = ({ items }: { items: string[] }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [visibleItems, setVisibleItems] = useState<string[]>([]);
-  const [remainingCount, setRemainingCount] = useState(0);
-
-  useEffect(() => {
-    const calculateVisibleChips = () => {
-      if (!containerRef.current || items.length === 0) return;
-
-      const container = containerRef.current;
-      const containerWidth = container.clientWidth;
-      const tempDiv = document.createElement('div');
-      tempDiv.style.visibility = 'hidden';
-      tempDiv.style.position = 'absolute';
-      document.body.appendChild(tempDiv);
-
-      let totalWidth = 0;
-      let visibleCount = 0;
-
-      // Account for potential overflow chip width
-      const overflowChip = document.createElement('div');
-      overflowChip.innerHTML =
-        '<span class="MuiChip-root" style="padding: 0 8px;">+99</span>';
-      document.body.appendChild(overflowChip);
-      const overflowChipWidth =
-        (overflowChip.firstChild as HTMLElement)?.getBoundingClientRect()
-          .width || 0;
-      overflowChip.remove();
-
-      for (let i = 0; i < items.length; i++) {
-        const chip = document.createElement('div');
-        chip.innerHTML = `<span class="MuiChip-root" style="padding: 0 8px;">${items[i]}</span>`;
-        tempDiv.appendChild(chip);
-        const chipWidth =
-          (chip.firstChild as HTMLElement)?.getBoundingClientRect().width || 0;
-
-        if (
-          totalWidth +
-            chipWidth +
-            (i < items.length - 1 ? overflowChipWidth : 0) <=
-          containerWidth - 16
-        ) {
-          // 16px for safety margin
-          totalWidth += chipWidth + 8; // 8px for gap
-          visibleCount++;
-        } else {
-          break;
-        }
-      }
-
-      tempDiv.remove();
-      setVisibleItems(items.slice(0, visibleCount));
-      setRemainingCount(items.length - visibleCount);
-    };
-
-    calculateVisibleChips();
-    window.addEventListener('resize', calculateVisibleChips);
-    return () => window.removeEventListener('resize', calculateVisibleChips);
-  }, [items]);
-
   if (items.length === 0) return '-';
+
+  // Simple approach: show first 2-3 chips and overflow
+  const maxVisible = 3;
+  const visibleItems = items.slice(0, maxVisible);
+  const remainingCount = items.length - maxVisible;
 
   return (
     <Box
-      ref={containerRef}
       sx={{
         display: 'flex',
         gap: 0.5,
@@ -141,7 +62,7 @@ const ChipContainer = ({ items }: { items: string[] }) => {
         <Chip key={item} label={item} size="small" variant="outlined" />
       ))}
       {remainingCount > 0 && (
-        <Tooltip title={items.slice(visibleItems.length).join(', ')} arrow>
+        <Tooltip title={items.slice(maxVisible).join(', ')} arrow>
           <Chip label={`+${remainingCount}`} size="small" variant="outlined" />
         </Tooltip>
       )}
@@ -228,18 +149,14 @@ export default function TestSetsGrid({
 
   // Process test sets for display
   const processedTestSets = testSets.map(testSet => {
-    const statusInfo = getStatusInfo(
-      testSet as TestSet & { status?: string | { name: string } }
-    );
-
     return {
       id: testSet.id,
       name: testSet.name,
       behaviors: testSet.attributes?.metadata?.behaviors || [],
       categories: testSet.attributes?.metadata?.categories || [],
       totalTests: testSet.attributes?.metadata?.total_tests || 0,
-      status: statusInfo.label,
-      assignee: testSet.assignee,
+      creator: testSet.user,
+      counts: testSet.counts,
     };
   });
 
@@ -275,29 +192,27 @@ export default function TestSetsGrid({
       valueGetter: (_, row) => row.totalTests,
     },
     {
-      field: 'status',
-      headerName: 'Status',
-      flex: 0.5,
-      renderCell: params => (
-        <Chip label={params.row.status} size="small" variant="outlined" />
-      ),
-    },
-    {
-      field: 'assignee',
-      headerName: 'Assignee',
+      field: 'creator',
+      headerName: 'Creator',
       flex: 0.75,
+      sortable: true,
+      valueGetter: (_, row) =>
+        row.creator?.name ||
+        `${row.creator?.given_name || ''} ${row.creator?.family_name || ''}`.trim() ||
+        row.creator?.email ||
+        '',
       renderCell: params => {
-        const assignee = params.row.assignee;
-        if (!assignee) return '-';
+        const creator = params.row.creator;
+        if (!creator) return '-';
 
         const displayName =
-          assignee.name ||
-          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() ||
-          assignee.email;
+          creator.name ||
+          `${creator.given_name || ''} ${creator.family_name || ''}`.trim() ||
+          creator.email;
 
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar src={assignee.picture} sx={{ width: 24, height: 24 }}>
+            <Avatar src={creator.picture} sx={{ width: 24, height: 24 }}>
               <PersonIcon />
             </Avatar>
             <Typography variant="body2">{displayName}</Typography>

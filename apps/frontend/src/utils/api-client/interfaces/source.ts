@@ -8,6 +8,7 @@ export interface Source {
   id: UUID;
   title: string;
   description?: string;
+  // Note: content is only included when fetched via /sources/{id}/content endpoint
   content?: string;
   source_type_id?: UUID;
   url?: string;

@@ -104,6 +104,7 @@ const EXCLUDE_PATTERNS = [
   /globals\.css$/, // Exclude globals.css (contains theme definitions)
   /check-hardcoded-styles\.js$/, // Exclude this script itself
   /apps\/documentation\/components\//, // Temporarily exclude docs components (need refactoring)
+  /^docs\//, // Exclude docs/ directory (markdown documentation)
   /create-pr-comment\.js$/, // Exclude PR comment script (contains documentation examples)
   /\.module\.css$/, // Exclude CSS modules (they might have hardcoded values for specific reasons)
   /\.test\./,
