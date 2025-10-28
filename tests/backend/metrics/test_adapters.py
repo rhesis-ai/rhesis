@@ -16,13 +16,11 @@ import pytest
 from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.metrics.adapters import (
     BACKEND_TO_FRAMEWORK_MAP,
-    CLASS_NAME_MAP,
     build_metric_params_from_config,
     build_metric_params_from_model,
     create_metric,
     create_metric_from_config,
     create_metric_from_db_model,
-    get_sdk_class_name,
     map_backend_type_to_framework,
 )
 
@@ -33,12 +31,12 @@ from rhesis.backend.metrics.adapters import (
 
 @pytest.fixture
 def mock_metric_model_numeric():
-    """Create a mock numeric RhesisPromptMetric model."""
+    """Create a mock numeric NumericJudge model."""
     model = Mock(spec=MetricModel)
     model.id = uuid4()
     model.name = "Test Numeric Metric"
     model.description = "Test numeric metric"
-    model.class_name = "RhesisPromptMetric"
+    model.class_name = "NumericJudge"
     model.score_type = "numeric"
     model.evaluation_prompt = "Rate the accuracy from 1 to 5"
     model.evaluation_steps = "Step 1, Step 2"
@@ -50,23 +48,26 @@ def mock_metric_model_numeric():
     model.ground_truth_required = False
     model.context_required = False
     model.model_id = None
+    model.evaluation_examples = None
     model.backend_type = Mock(type_value="rhesis")
     return model
 
 
 @pytest.fixture
 def mock_metric_model_categorical():
-    """Create a mock categorical RhesisPromptMetric model."""
+    """Create a mock categorical CategoricalJudge model."""
     model = Mock(spec=MetricModel)
     model.id = uuid4()
     model.name = "Test Categorical Metric"
     model.description = "Test categorical metric"
-    model.class_name = "RhesisPromptMetric"
+    model.class_name = "CategoricalJudge"
     model.score_type = "categorical"
     model.evaluation_prompt = "Rate as poor/good/excellent"
     model.evaluation_steps = None
     model.reasoning = None
-    model.reference_score = "excellent"
+    model.reference_score = "excellent"  # Deprecated but kept for transition
+    model.categories = ["excellent", "good", "poor"]
+    model.passing_categories = ["excellent"]
     model.min_score = None
     model.max_score = None
     model.threshold = None
@@ -74,6 +75,7 @@ def mock_metric_model_categorical():
     model.ground_truth_required = True
     model.context_required = False
     model.model_id = None
+    model.evaluation_examples = None
     model.backend_type = Mock(type_value="rhesis")
     return model
 
@@ -106,7 +108,7 @@ def metric_config_numeric():
     """Create a numeric metric config dict."""
     return {
         "name": "Test Numeric Config",
-        "class_name": "RhesisPromptMetric",
+        "class_name": "NumericJudge",
         "backend": "rhesis",
         "description": "Test numeric from config",
         "threshold": 3.0,
@@ -125,10 +127,11 @@ def metric_config_categorical():
     """Create a categorical metric config dict."""
     return {
         "name": "Test Categorical Config",
-        "class_name": "RhesisPromptMetric",
+        "class_name": "CategoricalJudge",
         "backend": "rhesis",
         "description": "Test categorical from config",
-        "reference_score": "good",
+        "categories": ["good", "poor", "excellent"],
+        "passing_categories": ["good", "excellent"],
         "parameters": {
             "score_type": "categorical",
             "evaluation_prompt": "Rate as poor/good/excellent",
@@ -141,39 +144,9 @@ def metric_config_categorical():
 # ============================================================================
 
 
-class TestGetSdkClassName:
-    """Test SDK class name mapping logic."""
-
-    def test_rhesis_numeric_mapping(self):
-        """Test RhesisPromptMetric + numeric → NumericJudge."""
-        result = get_sdk_class_name("RhesisPromptMetric", "numeric")
-        assert result == "NumericJudge"
-
-    def test_rhesis_categorical_mapping(self):
-        """Test RhesisPromptMetric + categorical → CategoricalJudge."""
-        result = get_sdk_class_name("RhesisPromptMetric", "categorical")
-        assert result == "CategoricalJudge"
-
-    def test_rhesis_binary_mapping(self):
-        """Test RhesisPromptMetric + binary → CategoricalJudge."""
-        result = get_sdk_class_name("RhesisPromptMetric", "binary")
-        assert result == "CategoricalJudge"
-
-    def test_rhesis_no_score_type_defaults_numeric(self):
-        """Test RhesisPromptMetric without score_type defaults to numeric."""
-        result = get_sdk_class_name("RhesisPromptMetric", None)
-        assert result == "NumericJudge"
-
-    def test_external_metrics_unchanged(self):
-        """Test external metric class names pass through unchanged."""
-        assert get_sdk_class_name("RagasAnswerRelevancy") == "RagasAnswerRelevancy"
-        assert (
-            get_sdk_class_name("DeepEvalContextualRelevancy")
-            == "DeepEvalContextualRelevancy"
-        )
-        assert (
-            get_sdk_class_name("RagasContextualPrecision") == "RagasContextualPrecision"
-        )
+# NOTE: TestGetSdkClassName removed after adapter simplification
+# The database now stores SDK-compatible class names directly (NumericJudge, CategoricalJudge)
+# No mapping function needed anymore - see migration phases 1-7
 
 
 class TestMapBackendTypeToFramework:
@@ -235,8 +208,8 @@ class TestBuildMetricParamsFromModel:
         params = build_metric_params_from_model(mock_metric_model_categorical)
 
         assert params["name"] == "Test Categorical Metric"
-        # SDK uses categories list, not reference_score
-        assert params["categories"] == ["excellent", "other"]
+        # Categories are now stored directly in database
+        assert params["categories"] == ["excellent", "good", "poor"]
         assert params["passing_categories"] == ["excellent"]
         assert params["requires_ground_truth"] is True
         assert "min_score" not in params  # Categorical doesn't have numeric scores
@@ -292,9 +265,9 @@ class TestBuildMetricParamsFromConfig:
         params = build_metric_params_from_config(metric_config_categorical)
 
         assert params["name"] == "Test Categorical Config"
-        # SDK uses categories list, not reference_score
-        assert params["categories"] == ["good", "other"]
-        assert params["passing_categories"] == ["good"]
+        # Categories are now provided directly in config (no conversion needed)
+        assert params["categories"] == ["good", "poor", "excellent"]
+        assert params["passing_categories"] == ["good", "excellent"]
         assert params["evaluation_prompt"] == "Rate as poor/good/excellent"
 
 
@@ -482,20 +455,10 @@ class TestAdapterIntegration:
 
 
 class TestFutureNamingMigration:
-    """Test that adapter supports future SDK naming changes."""
+    """Test that adapter configuration is complete."""
 
-    def test_class_name_map_structure(self):
-        """Verify CLASS_NAME_MAP has correct structure for easy updates."""
-        assert "RhesisPromptMetric" in CLASS_NAME_MAP
-        assert "numeric" in CLASS_NAME_MAP["RhesisPromptMetric"]
-        assert "categorical" in CLASS_NAME_MAP["RhesisPromptMetric"]
-        assert "binary" in CLASS_NAME_MAP["RhesisPromptMetric"]
-
-    def test_mapping_values_are_strings(self):
-        """Verify all mapped class names are strings."""
-        for score_type, class_name in CLASS_NAME_MAP["RhesisPromptMetric"].items():
-            assert isinstance(class_name, str)
-            assert len(class_name) > 0
+    # NOTE: CLASS_NAME_MAP tests removed after adapter simplification
+    # Database now stores SDK class names directly, no mapping needed
 
     def test_backend_framework_map_complete(self):
         """Verify all expected backend types have framework mappings."""
