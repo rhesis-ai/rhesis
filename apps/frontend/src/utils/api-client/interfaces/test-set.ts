@@ -261,13 +261,20 @@ export interface TestSetGenerationConfig {
   description: string;
 }
 
+export interface SourceData {
+  id: string;
+  name: string;
+  description?: string;
+  content?: string;
+}
+
 export interface TestSetGenerationRequest {
   config: TestSetGenerationConfig;
   samples?: GenerationSample[];
   synthesizer_type?: string;
   num_tests?: number;
   batch_size?: number;
-  source_ids?: string[];
+  source_ids?: SourceData[];
   name?: string;
 }
 

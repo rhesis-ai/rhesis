@@ -19,9 +19,11 @@ import { Source } from '@/utils/api-client/interfaces/source';
 import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
 
+import { SourceData } from '@/utils/api-client/interfaces/test-set';
+
 interface SourceSelectorProps {
   selectedSourceIds: string[];
-  onSourcesChange: (sourceIds: string[]) => void;
+  onSourcesChange: (sources: SourceData[]) => void;
 }
 
 /**
@@ -75,16 +77,106 @@ export default function SourceSelector({
     }
   };
 
-  const handleChange = (event: SelectChangeEvent<string>) => {
+  const handleChange = async (event: SelectChangeEvent<string>) => {
     const value = event.target.value;
     if (value && !selectedSourceIds.includes(value)) {
-      const newSourceIds = [...selectedSourceIds, value];
-      onSourcesChange(newSourceIds);
+      const source = getSourceById(value);
+      if (source && source.id && session?.session_token) {
+        // Fetch content if not already available
+        let content = source.content;
+        if (!content) {
+          try {
+            const apiFactory = new ApiClientFactory(session.session_token);
+            const sourcesClient = apiFactory.getSourcesClient();
+            const sourceWithContent = await sourcesClient.getSourceWithContent(
+              source.id
+            );
+            content = sourceWithContent.content;
+          } catch (err) {
+            console.error('Error fetching source content:', err);
+          }
+        }
+
+        // Create SourceData object from selected Source
+        const sourceData: SourceData = {
+          id: source.id,
+          name: source.title,
+          description: source.description,
+          content: content,
+        };
+        const currentSources = await Promise.all(
+          selectedSourceIds.map(async id => {
+            const s = getSourceById(id);
+            if (!s || !s.id || !session?.session_token) return null;
+
+            let sourceContent = s.content;
+            if (!sourceContent) {
+              try {
+                const apiFactory = new ApiClientFactory(session.session_token);
+                const sourcesClient = apiFactory.getSourcesClient();
+                const sWithContent = await sourcesClient.getSourceWithContent(
+                  s.id
+                );
+                sourceContent = sWithContent.content;
+              } catch (err) {
+                console.error('Error fetching source content:', err);
+              }
+            }
+
+            return {
+              id: s.id,
+              name: s.title,
+              description: s.description,
+              content: sourceContent,
+            };
+          })
+        );
+        const newSources = [
+          ...(currentSources.filter(Boolean) as SourceData[]),
+          sourceData,
+        ];
+        onSourcesChange(newSources);
+      }
     }
   };
 
-  const handleRemove = (sourceId: string) => {
-    onSourcesChange(selectedSourceIds.filter(id => id !== sourceId));
+  const handleRemove = async (sourceId: string) => {
+    const remainingIds = selectedSourceIds.filter(id => id !== sourceId);
+
+    if (!session?.session_token) {
+      onSourcesChange([]);
+      return;
+    }
+
+    const apiFactory = new ApiClientFactory(session.session_token);
+
+    const newSources = await Promise.all(
+      remainingIds.map(async id => {
+        const s = getSourceById(id);
+        if (!s || !s.id) return null;
+
+        const sourceId = s.id;
+        let sourceContent = s.content;
+        if (!sourceContent) {
+          try {
+            const sourcesClient = apiFactory.getSourcesClient();
+            const sWithContent =
+              await sourcesClient.getSourceWithContent(sourceId);
+            sourceContent = sWithContent.content;
+          } catch (err) {
+            console.error('Error fetching source content:', err);
+          }
+        }
+
+        return {
+          id: sourceId,
+          name: s.title,
+          description: s.description,
+          content: sourceContent,
+        };
+      })
+    );
+    onSourcesChange(newSources.filter(Boolean) as SourceData[]);
   };
 
   const getSourceById = (sourceId: string): Source | undefined => {

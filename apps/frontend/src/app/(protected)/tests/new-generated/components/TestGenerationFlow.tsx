@@ -20,6 +20,7 @@ import {
   TestSetGenerationRequest,
   TestSetGenerationConfig,
   GenerationSample,
+  SourceData,
 } from '@/utils/api-client/interfaces/test-set';
 import TestInputScreen from './TestInputScreen';
 import TestGenerationInterface from './TestGenerationInterface';
@@ -64,7 +65,8 @@ export default function TestGenerationFlow({
 
   // Data State
   const [description, setDescription] = useState('');
-  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]); // Keep for display
+  const [selectedSources, setSelectedSources] = useState<SourceData[]>([]); // Full source data
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null
   );
@@ -175,7 +177,7 @@ export default function TestGenerationFlow({
             const response = await servicesClient.generateTests({
               prompt,
               num_tests: 5,
-              source_ids: selectedSourceIds,
+              source_ids: selectedSources,
             });
 
             if (response.tests?.length) {
@@ -220,9 +222,10 @@ export default function TestGenerationFlow({
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
-    async (desc: string, sourceIds: string[], projectId: string | null) => {
+    async (desc: string, sources: SourceData[], projectId: string | null) => {
       setDescription(desc);
-      setSelectedSourceIds(sourceIds);
+      setSelectedSources(sources);
+      setSelectedSourceIds(sources.map(s => s.id));
       setSelectedProjectId(projectId);
 
       // Generate test configuration and samples before navigating
@@ -309,7 +312,7 @@ export default function TestGenerationFlow({
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 5,
-          source_ids: sourceIds, // Use the parameter directly, not the state
+          source_ids: sources, // Use the parameter directly, not the state
         });
 
         if (response.tests?.length) {
@@ -376,7 +379,7 @@ export default function TestGenerationFlow({
       const response = await servicesClient.generateTests({
         prompt,
         num_tests: 5,
-        source_ids: selectedSourceIds,
+        source_ids: selectedSources,
       });
 
       if (response.tests?.length) {
@@ -450,7 +453,7 @@ export default function TestGenerationFlow({
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 1,
-          source_ids: selectedSourceIds,
+          source_ids: selectedSources,
         });
 
         if (response.tests?.length) {
@@ -664,7 +667,7 @@ export default function TestGenerationFlow({
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 5,
-          source_ids: selectedSourceIds,
+          source_ids: selectedSources,
           chip_states: chipStates,
           rated_samples: ratedSamples,
           previous_messages: [
@@ -813,7 +816,7 @@ export default function TestGenerationFlow({
       const response = await servicesClient.generateTests({
         prompt,
         num_tests: 5,
-        source_ids: selectedSourceIds,
+        source_ids: selectedSources,
         chip_states: chipStates,
         rated_samples: ratedSamples,
         previous_messages: previousMessages,
@@ -901,7 +904,7 @@ export default function TestGenerationFlow({
         synthesizer_type: 'prompt',
         batch_size: 20,
         num_tests: numTests,
-        source_ids: selectedSourceIds,
+        source_ids: selectedSources,
         name: testSetName.trim() || undefined,
       };
 
@@ -985,7 +988,10 @@ export default function TestGenerationFlow({
             onContinue={handleContinueFromInput}
             initialDescription={description}
             selectedSourceIds={selectedSourceIds}
-            onSourcesChange={setSelectedSourceIds}
+            onSourcesChange={(sources: SourceData[]) => {
+              setSelectedSources(sources);
+              setSelectedSourceIds(sources.map(s => s.id));
+            }}
             selectedProjectId={selectedProjectId}
             onProjectChange={setSelectedProjectId}
             isLoading={isGenerating}

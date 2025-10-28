@@ -30,10 +30,17 @@ interface Test {
 
 import { DocumentMetadata } from './interfaces/documents';
 
+interface SourceData {
+  id: string;
+  name: string;
+  description?: string;
+  content?: string;
+}
+
 interface GenerateTestsRequest {
   prompt: object;
   num_tests?: number;
-  source_ids?: string[];
+  source_ids?: SourceData[];
   // Iteration context - same as test config
   chip_states?: ChipState[];
   rated_samples?: RatedSample[];

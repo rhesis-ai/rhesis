@@ -18,6 +18,7 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.documents import Document
+from rhesis.backend.app.schemas.services import SourceData
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
     create_test_set_associations,
@@ -78,7 +79,7 @@ class TestSetGenerationRequest(BaseModel):
     num_tests: Optional[int] = None
     batch_size: int = 20
     documents: Optional[List[Document]] = None
-    source_ids: Optional[List[uuid.UUID]] = None
+    source_ids: Optional[List[SourceData]] = None
     name: Optional[str] = None
 
 
@@ -255,6 +256,7 @@ async def generate_test_set(
 
     Args:
         request: The generation request containing config, samples, and parameters
+            - source_ids contains full SourceData with name, description, content, and id
         db: Database session
         tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
@@ -270,39 +272,27 @@ async def generate_test_set(
         if not request.config.description.strip():
             raise HTTPException(status_code=400, detail="Description is required")
 
-        # Fetch sources from database if source_ids are provided
+        # Prepare documents from source_ids if provided (they now contain full data)
         documents_to_use = []
         source_ids_to_documents = {}  # Map document name to source_id
         source_ids_list = []  # List of source_ids in the same order as documents
         if request.documents:
             documents_to_use = request.documents
         elif request.source_ids:
-            organization_id, user_id = tenant_context
-            for source_id in request.source_ids:
-                db_source = crud.get_source(
-                    db, source_id=source_id, organization_id=organization_id, user_id=user_id
-                )
-                if not db_source:
-                    raise HTTPException(
-                        status_code=404, detail=f"Source with id {source_id} not found"
-                    )
-
-                # Create Document object for the synthesizer
+            # source_ids now contains full SourceData objects
+            for source_data in request.source_ids:
+                # Create Document object from SourceData
                 document_sdk = Document(
-                    name=db_source.title or f"Source {db_source.id}",
-                    description=db_source.description
-                    or f"Source document: {db_source.title or f'Source {db_source.id}'}",
-                    content=db_source.content
-                    or (
-                        f"No content available for source: "
-                        f"{db_source.title or f'Source {db_source.id}'}"
-                    ),
+                    name=source_data.name,
+                    description=source_data.description or (f"Source document: {source_data.name}"),
+                    content=source_data.content
+                    or (f"No content available for source: {source_data.name}"),
                     path=None,  # Sources don't have file paths
                 )
                 documents_to_use.append(document_sdk)
-                source_ids_list.append(str(source_id))
+                source_ids_list.append(str(source_data.id))
                 # Store mapping: document name -> source_id for later lookup
-                source_ids_to_documents[document_sdk.name] = str(source_id)
+                source_ids_to_documents[source_data.name] = str(source_data.id)
 
         # Build the generation prompt from config and samples
         generation_prompt = build_generation_prompt(request.config, request.samples)

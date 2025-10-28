@@ -8,16 +8,17 @@ import CircularProgress from '@mui/material/CircularProgress';
 import SourceSelector from './shared/SourceSelector';
 import ProjectSelector from './shared/ProjectSelector';
 import ActionBar from '@/components/common/ActionBar';
+import { SourceData } from '@/utils/api-client/interfaces/test-set';
 
 interface TestInputScreenProps {
   onContinue: (
     description: string,
-    sourceIds: string[],
+    sources: SourceData[],
     projectId: string | null
   ) => void;
   initialDescription?: string;
   selectedSourceIds: string[];
-  onSourcesChange: (sourceIds: string[]) => void;
+  onSourcesChange: (sources: SourceData[]) => void;
   selectedProjectId: string | null;
   onProjectChange: (projectId: string | null) => void;
   isLoading?: boolean;
@@ -72,16 +73,25 @@ export default function TestInputScreen({
   onBack,
 }: TestInputScreenProps) {
   const [description, setDescription] = useState(initialDescription);
+  const [sourcesData, setSourcesData] = useState<SourceData[]>([]);
 
   const handleSuggestionClick = useCallback((suggestion: string) => {
     setDescription(suggestion);
   }, []);
 
+  const handleSourcesChange = useCallback(
+    (sources: SourceData[]) => {
+      setSourcesData(sources);
+      onSourcesChange(sources);
+    },
+    [onSourcesChange]
+  );
+
   const handleContinue = useCallback(() => {
     if (description.trim()) {
-      onContinue(description, selectedSourceIds, selectedProjectId);
+      onContinue(description, sourcesData, selectedProjectId);
     }
-  }, [description, selectedSourceIds, selectedProjectId, onContinue]);
+  }, [description, sourcesData, selectedProjectId, onContinue]);
 
   const canContinue = description.trim().length > 0;
 
@@ -173,7 +183,7 @@ export default function TestInputScreen({
               </Typography>
               <SourceSelector
                 selectedSourceIds={selectedSourceIds}
-                onSourcesChange={onSourcesChange}
+                onSourcesChange={handleSourcesChange}
               />
             </Box>
           </Paper>
