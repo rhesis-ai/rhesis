@@ -66,6 +66,7 @@ interface IterationMessage {
 interface GenerateTestConfigRequest {
   prompt: string;
   sample_size: number;
+  project_id?: string;
   // Iteration context
   chip_states?: ChipState[];
   rated_samples?: RatedSample[];
