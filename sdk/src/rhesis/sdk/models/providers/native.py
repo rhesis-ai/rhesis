@@ -82,11 +82,14 @@ class RhesisLLM(BaseLLM):
 
         except (requests.exceptions.HTTPError, KeyError, IndexError) as e:
             # Log the error and return an appropriate message
-            print(f"Error occurred while running the prompt: {e}")
+            import traceback
+            print(f"❌ [RhesisLLM] Error occurred while running the prompt: {e}")
+            print(f"❌ [RhesisLLM] Exception type: {type(e).__name__}")
+            print(f"❌ [RhesisLLM] Full traceback:\n{traceback.format_exc()}")
             if schema:
-                return {"error": "An error occurred while processing the request."}
+                return {"error": f"An error occurred while processing the request: {str(e)}"}
 
-            return "An error occurred while processing the request."
+            return f"An error occurred while processing the request: {str(e)}"
 
     def create_completion(
         self,
