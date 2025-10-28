@@ -168,9 +168,7 @@ class EmailService:
             bool: True if email was sent successfully, False otherwise
         """
         if not self.is_configured:
-            logger.warning(
-                f"Cannot send welcome email to {recipient_email}: SMTP not configured"
-            )
+            logger.warning(f"Cannot send welcome email to {recipient_email}: SMTP not configured")
             return False
 
         # Set default URLs if not provided
