@@ -251,24 +251,46 @@ def build_metric_params_from_config(metric_config: Dict[str, Any]) -> Dict[str, 
     elif score_type in ["categorical", "binary"]:
         # SDK requires 'categories' list
         # Check if categories are already provided (top level or in parameters)
-        if "categories" in metric_config and metric_config["categories"]:
-            params["categories"] = metric_config["categories"]
-            params["passing_categories"] = metric_config.get("passing_categories", metric_config["categories"][:1])
-        elif "categories" in config_params and config_params["categories"]:
-            params["categories"] = config_params["categories"]
-            params["passing_categories"] = config_params.get("passing_categories", config_params["categories"][:1])
-        elif "reference_score" in metric_config and metric_config["reference_score"]:
+        categories_found = False
+        
+        categories_value = metric_config.get("categories") or config_params.get("categories")
+        if categories_value and isinstance(categories_value, list) and len(categories_value) >= 2:
+            params["categories"] = categories_value
+            params["passing_categories"] = (
+                metric_config.get("passing_categories") or 
+                config_params.get("passing_categories") or 
+                categories_value[:1]
+            )
+            categories_found = True
+        elif "reference_score" in metric_config and metric_config.get("reference_score"):
             # Backend stores single reference score, SDK needs categories list
-            params["categories"] = [metric_config["reference_score"], "other"]
-            params["passing_categories"] = [metric_config["reference_score"]]
-        else:
-            # Default categories
-            if score_type == "binary":
-                params["categories"] = ["pass", "fail"]
-                params["passing_categories"] = ["pass"]
-            else:
-                params["categories"] = ["good", "bad"]
-                params["passing_categories"] = ["good"]
+            ref_score = metric_config["reference_score"]
+            params["categories"] = [ref_score, "other"]
+            params["passing_categories"] = [ref_score]
+            categories_found = True
+        elif score_type == "binary":
+            # Binary type: map to True/False categories (SDK doesn't have binary type)
+            # Database migration to add categories field is pending
+            params["categories"] = ["True", "False"]
+            params["passing_categories"] = ["True"]
+            categories_found = True
+            logger.info(
+                f"Mapped binary metric '{metric_config.get('name', 'unknown')}' to "
+                f"categorical with True/False categories"
+            )
+        
+        if not categories_found:
+            # Don't default - fail loudly so the metric config can be fixed
+            logger.error(
+                f"Missing categories for categorical metric '{metric_config.get('name', 'unknown')}'. "
+                f"metric_config keys: {list(metric_config.keys())}, "
+                f"config_params keys: {list(config_params.keys())}. "
+                f"Categorical metrics require 'categories' or 'reference_score' to be set."
+            )
+            raise ValueError(
+                f"Categorical metric '{metric_config.get('name', 'unknown')}' is missing required "
+                f"'categories' or 'reference_score' configuration"
+            )
 
     # Add model info if available
     if "model_id" in metric_config and metric_config["model_id"]:
