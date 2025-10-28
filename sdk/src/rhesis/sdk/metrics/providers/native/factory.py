@@ -1,10 +1,10 @@
 from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
-from rhesis.sdk.metrics.providers.native.prompt_metric_categorical import (
-    RhesisPromptMetricCategorical,
+from rhesis.sdk.metrics.providers.native.categorical_judge import (
+    CategoricalJudge,
 )
-from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import RhesisPromptMetricNumeric
+from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
 
 
 class RhesisMetricFactory(BaseMetricFactory):
@@ -14,44 +14,28 @@ class RhesisMetricFactory(BaseMetricFactory):
     _metrics = {
         # Add metrics as they're implemented, e.g.:
         # "RhesisCustomMetric": RhesisCustomMetric,
-        "RhesisPromptMetricCategorical": RhesisPromptMetricCategorical,
-        "RhesisPromptMetricNumeric": RhesisPromptMetricNumeric,
+        "CategoricalJudge": CategoricalJudge,
+        "NumericJudge": NumericJudge,
     }
 
     # Define which parameters each metric class accepts
     _supported_params = {
         # Example: "RhesisCustomMetric": {"threshold", "custom_param1", "custom_param2"},
-        "RhesisPromptMetricNumeric": {
-            "threshold",
-            "reference_score",
-            "threshold_operator",
-            "score_type",
-            "evaluation_prompt",
-            "evaluation_steps",
-            "reasoning",
-            "evaluation_examples",
-            "min_score",
-            "max_score",
-            "provider",
-            "model",
-            "api_key",
-            "metric_type",
-            "name",
-        },
-        "RhesisPromptMetricCategorical": {
+        "CategoricalJudge": {
             "categories",
             "passing_categories",
             "evaluation_prompt",
             "evaluation_steps",
             "reasoning",
             "evaluation_examples",
-            "model",
             "name",
             "description",
+            "model",
             "requires_ground_truth",
             "requires_context",
+            "metric_type",
         },
-        "RhesisDetailedPromptMetricNumeric": {
+        "NumericJudge": {
             "threshold",
             "reference_score",
             "threshold_operator",
@@ -67,19 +51,39 @@ class RhesisMetricFactory(BaseMetricFactory):
             "api_key",
             "metric_type",
             "name",
+            "description",
+        },
+        "NumericDetailedJudge": {
+            "threshold",
+            "reference_score",
+            "threshold_operator",
+            "score_type",
+            "evaluation_prompt",
+            "evaluation_steps",
+            "reasoning",
+            "evaluation_examples",
+            "min_score",
+            "max_score",
+            "provider",
+            "model",
+            "api_key",
+            "metric_type",
+            "name",
+            "description",
         },
     }
 
     # Define required parameters for each metric class
     _required_params = {
-        "RhesisPromptMetricNumeric": {"name", "evaluation_prompt", "evaluation_steps", "reasoning"}
+        "CategoricalJudge": {"categories", "passing_categories"},
+        "NumericJudge": {"evaluation_prompt"},
     }
 
     def create(self, class_name: str, **kwargs) -> BaseMetric:
         """Create a metric instance using class name.
 
         Args:
-            class_name: The class name to instantiate (e.g., 'RhesisPromptMetricNumeric')
+            class_name: The class name to instantiate (e.g., 'NumericJudge')
             **kwargs: Additional parameters to pass to the class constructor
 
         Returns:

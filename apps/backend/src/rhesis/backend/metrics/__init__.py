@@ -32,9 +32,9 @@ from rhesis.sdk.metrics import (
     MetricConfig,
     MetricResult,
     MetricFactory,
-    # Native metrics
-    RhesisPromptMetricNumeric,
-    RhesisPromptMetricCategorical,
+    # Native metrics (renamed)
+    NumericJudge,
+    CategoricalJudge,
     # Ragas metrics
     RagasAnswerAccuracy,
     RagasAspectCritic,
@@ -68,8 +68,8 @@ __all__ = [
     "MetricConfig",
     "MetricResult",
     "MetricFactory",
-    "RhesisPromptMetricNumeric",
-    "RhesisPromptMetricCategorical",
+    "NumericJudge",
+    "CategoricalJudge",
     "RagasAnswerAccuracy",
     "RagasAspectCritic",
     "RagasContextRelevance",

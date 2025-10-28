@@ -24,9 +24,9 @@ from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepEvalToxicity,
 )
 from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
+    CategoricalJudge,
+    NumericJudge,
     RhesisMetricFactory,
-    RhesisPromptMetricCategorical,
-    RhesisPromptMetricNumeric,
 )
 from rhesis.sdk.metrics.providers.ragas.metric_base import RagasMetricBase
 from rhesis.sdk.metrics.providers.ragas.metrics import (
@@ -64,8 +64,8 @@ __all__ = [
     "DeepEvalToxicity",
     # Rhesis metrics
     "RhesisMetricFactory",
-    "RhesisPromptMetricCategorical",
-    "RhesisPromptMetricNumeric",
+    "CategoricalJudge",
+    "NumericJudge",
     # Ragas metrics
     "RagasMetricBase",
     "RagasAnswerAccuracy",

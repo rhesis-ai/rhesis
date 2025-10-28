@@ -4,7 +4,7 @@ import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import SourcePreviewClientWrapper from './components/SourcePreviewClientWrapper';
 import { Box, Typography, Alert, Paper } from '@mui/material';
-import styles from '@/styles/KnowledgePage.module.css';
+import styles from '@/styles/Knowledge.module.css';
 import { notFound } from 'next/navigation';
 
 interface SourcePreviewPageProps {
@@ -39,8 +39,10 @@ export default async function SourcePreviewPage({
     // Await params before using its properties (Next.js 15 requirement)
     const resolvedParams = await params;
 
-    // Fetch source details
-    const source = await sourcesClient.getSource(resolvedParams.id as any);
+    // Fetch source details with content field
+    const source = await sourcesClient.getSourceWithContent(
+      resolvedParams.id as any
+    );
 
     return (
       <SourcePreviewClientWrapper

@@ -391,12 +391,15 @@ async def generate_test_config(
 
     This endpoint:
     1. Fetches all behaviors from the database (filtered by organization)
-    2. Sends the behaviors to the LLM and asks it to select relevant ones based on the prompt
-    3. LLM generates topics and test categories
+    2. Optionally fetches project details if project_id is provided
+    3. Sends the behaviors and project context to the LLM and asks it to select
+       relevant ones based on the prompt
+    4. LLM generates topics and test categories
 
     Args:
-        request: Contains prompt (description) for test configuration generation and
-            optional sample_size (default: 5, max: 20) for number of items per category
+        request: Contains prompt (description) for test configuration generation,
+            optional sample_size (default: 5, max: 20) for number of items per category,
+            and optional project_id to include project context
         db: Database session (injected)
         tenant_context: Organization and user context (injected)
         current_user: Current authenticated user (injected)
@@ -415,7 +418,11 @@ async def generate_test_config(
 
         service = TestConfigGeneratorService()
         result = service.generate_config(
-            request.prompt, request.sample_size, db=db, organization_id=organization_id
+            request.prompt,
+            request.sample_size,
+            db=db,
+            organization_id=organization_id,
+            project_id=request.project_id,
         )
 
         logger.info("Test config generation successful")

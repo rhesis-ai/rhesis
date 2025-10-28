@@ -22,23 +22,15 @@ from rhesis.sdk.metrics import BaseMetric, MetricFactory
 # CLASS NAME MAPPING
 # ============================================================================
 # This mapping handles the split of backend's single RhesisPromptMetric class
-# into SDK's separate Numeric and Categorical classes.
-#
-# FUTURE: When SDK renames to NumericJudge/CategoricalJudge, update here:
-# "numeric": "NumericJudge",
-# "categorical": "CategoricalJudge",
+# into SDK's separate Numeric and Categorical judge classes.
 # ============================================================================
 
 CLASS_NAME_MAP = {
     "RhesisPromptMetric": {
-        # Current SDK names (as of Oct 2025)
-        "numeric": "RhesisPromptMetricNumeric",
-        "categorical": "RhesisPromptMetricCategorical",
-        "binary": "RhesisPromptMetricCategorical",  # Binary uses categorical
-        # FUTURE: Replace with new SDK names when ready
-        # "numeric": "NumericJudge",
-        # "categorical": "CategoricalJudge",
-        # "binary": "CategoricalJudge",
+        # SDK renamed metrics (as of Oct 2025)
+        "numeric": "NumericJudge",
+        "categorical": "CategoricalJudge",
+        "binary": "CategoricalJudge",  # Binary uses categorical
     }
 }
 
@@ -71,14 +63,14 @@ def get_sdk_class_name(backend_class_name: str, score_type: Optional[str] = None
         score_type: Score type ("numeric", "categorical", "binary")
 
     Returns:
-        SDK class name (e.g., "RhesisPromptMetricNumeric")
+        SDK class name (e.g., "NumericJudge")
 
     Examples:
         >>> get_sdk_class_name("RhesisPromptMetric", "numeric")
-        'RhesisPromptMetricNumeric'
+        'NumericJudge'
 
         >>> get_sdk_class_name("RhesisPromptMetric", "categorical")
-        'RhesisPromptMetricCategorical'
+        'CategoricalJudge'
 
         >>> get_sdk_class_name("RagasAnswerRelevancy")
         'RagasAnswerRelevancy'
@@ -90,7 +82,7 @@ def get_sdk_class_name(backend_class_name: str, score_type: Optional[str] = None
             score_type = "numeric"
 
         sdk_class_name = CLASS_NAME_MAP["RhesisPromptMetric"].get(
-            score_type, "RhesisPromptMetricNumeric"
+            score_type, "NumericJudge"
         )
         logger.debug(f"Mapped {backend_class_name} (score_type={score_type}) → {sdk_class_name}")
         return sdk_class_name

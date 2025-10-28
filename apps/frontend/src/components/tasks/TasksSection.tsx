@@ -169,7 +169,7 @@ export function TasksSection({
     {
       field: 'title',
       headerName: 'Title',
-      width: 300,
+      width: 200,
       renderCell: params => (
         <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
           {params.row.title}
@@ -179,7 +179,7 @@ export function TasksSection({
     {
       field: 'description',
       headerName: 'Description',
-      width: 400,
+      width: 250,
       renderCell: params => (
         <Typography
           variant="body2"
