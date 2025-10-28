@@ -33,11 +33,11 @@ class SourceType(str, Enum):
         return [source_type.value for source_type in cls]
 
 
-# Base schema for Source
+# Base schema for Source (without content for performance)
 class SourceBase(Base):
     title: str  # Source name is required
     description: Optional[str] = None  # Description is optional
-    content: Optional[str] = None  # Raw text content from source, extracted
+    # content is intentionally excluded from base schema - use SourceWithContent to access it
     source_type_id: Optional[UUID4] = None  # Type of source (e.g., website, paper, etc.)
     status_id: Optional[UUID4] = None  # Status of the source (e.g., Active, Processing)
     url: Optional[str] = None  # Optional URL as string with basic validation
@@ -66,15 +66,16 @@ class SourceBase(Base):
 
 # Schema for creating a new Source
 class SourceCreate(SourceBase):
-    pass
+    content: Optional[str] = None  # Raw text content from source, extracted (only for create)
 
 
 # Schema for updating an existing Source (all fields are optional)
 class SourceUpdate(SourceBase):
     title: Optional[str] = None  # Make title optional for updates
+    content: Optional[str] = None  # Raw text content from source, extracted (only for update)
 
 
-# Schema for returning a Source (includes related objects)
+# Schema for returning a Source (content field is deferred in the model for performance)
 class Source(SourceBase):
     id: UUID4
     created_at: Union[datetime, str]
@@ -84,5 +85,12 @@ class Source(SourceBase):
     source_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
     user: Optional[User] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Schema for returning a Source WITH content (use /sources/{id}/detail endpoint)
+class SourceWithContent(Source):
+    content: Optional[str] = None  # Raw text content from source, extracted
 
     model_config = ConfigDict(from_attributes=True)

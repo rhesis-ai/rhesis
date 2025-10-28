@@ -44,6 +44,14 @@ export default function SourcePreviewClientWrapper({
   const notifications = useNotifications();
 
   useEffect(() => {
+    // If source already has content field (from /content endpoint), use it
+    if (source.content) {
+      setContent(source.content);
+      setLoading(false);
+      return;
+    }
+
+    // Otherwise, try to fetch content from file endpoint
     const fetchContent = async () => {
       try {
         setLoading(true);
@@ -52,32 +60,18 @@ export default function SourcePreviewClientWrapper({
         const clientFactory = new ApiClientFactory(sessionToken);
         const sourcesClient = clientFactory.getSourcesClient();
 
-        // Try to get extracted content first (processed markdown)
+        // Try to get content from file endpoint
         try {
-          console.log('Attempting to extract content for source:', source.id);
-          const extractedData = await sourcesClient.extractSourceContent(
-            source.id
+          console.log('Attempting to get raw content for source:', source.id);
+          const rawContent = await sourcesClient.getSourceContent(source.id);
+          console.log(
+            'Raw content successful:',
+            rawContent.substring(0, 100) + '...'
           );
-          console.log('Extraction successful:', extractedData);
-          setContent(extractedData.content || '');
-        } catch (extractError) {
-          // Fallback to raw content if extraction fails
-          console.warn(
-            'Extraction failed, falling back to raw content:',
-            extractError
-          );
-          try {
-            console.log('Attempting to get raw content for source:', source.id);
-            const rawContent = await sourcesClient.getSourceContent(source.id);
-            console.log(
-              'Raw content successful:',
-              rawContent.substring(0, 100) + '...'
-            );
-            setContent(rawContent);
-          } catch (rawError) {
-            console.error('Both extraction and raw content failed:', rawError);
-            throw rawError;
-          }
+          setContent(rawContent);
+        } catch (rawError) {
+          console.error('Failed to get content:', rawError);
+          setError('Failed to load source content');
         }
       } catch (error) {
         console.error('Error fetching source content:', error);
@@ -88,7 +82,7 @@ export default function SourcePreviewClientWrapper({
     };
 
     fetchContent();
-  }, [source.id, sessionToken]);
+  }, [source.id, source.content, sessionToken]);
 
   const handleCopyContentBlock = async () => {
     try {
