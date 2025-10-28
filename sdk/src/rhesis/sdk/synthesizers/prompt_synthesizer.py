@@ -52,17 +52,34 @@ class PromptSynthesizer(TestSetSynthesizer):
         num_tests: int,
         context: Optional[str] = None,
         config: Optional[GenerationConfig] = None,
+        chip_states: Optional[List[Dict]] = None,
+        rated_samples: Optional[List[Dict]] = None,
+        previous_messages: Optional[List[Dict]] = None,
     ) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
         if config is not None:
-            config = asdict(config)
+            config_dict = asdict(config)
+            # Add iteration context if provided
+            if chip_states:
+                config_dict["chip_states"] = chip_states
+            if rated_samples:
+                config_dict["rated_samples"] = rated_samples
+            if previous_messages:
+                config_dict["previous_messages"] = previous_messages
             formatted_prompt = self.system_prompt.render(
-                generation_prompt=self.prompt, **config, num_tests=num_tests, context=context
+                generation_prompt=self.prompt, **config_dict, num_tests=num_tests, context=context
             )
         else:
-            formatted_prompt = self.system_prompt.render(
-                generation_prompt=self.prompt, num_tests=num_tests, context=context
-            )
+            template_context = {"generation_prompt": self.prompt, "num_tests": num_tests}
+            if context:
+                template_context["context"] = context
+            if chip_states:
+                template_context["chip_states"] = chip_states
+            if rated_samples:
+                template_context["rated_samples"] = rated_samples
+            if previous_messages:
+                template_context["previous_messages"] = previous_messages
+            formatted_prompt = self.system_prompt.render(**template_context)
 
         # Use utility function for retry logic
         response = retry_llm_call(self.model, formatted_prompt)
@@ -94,6 +111,9 @@ class PromptSynthesizer(TestSetSynthesizer):
         num_tests: int = 5,
         context: Optional[str] = None,
         config: Optional[GenerationConfig] = None,
+        chip_states: Optional[List[Dict]] = None,
+        rated_samples: Optional[List[Dict]] = None,
+        previous_messages: Optional[List[Dict]] = None,
     ) -> TestSet:
         """
         Generate test cases based on the given prompt.
@@ -101,6 +121,10 @@ class PromptSynthesizer(TestSetSynthesizer):
         Args:
             num_tests: Total number of test cases to generate. Defaults to 5.
             context: Optional context string to use for generation.
+            config: Optional generation config
+            chip_states: Optional list of chip states for iteration context
+            rated_samples: Optional list of rated samples for iteration context
+            previous_messages: Optional list of previous messages for iteration context
 
         Returns:
             TestSet: A TestSet entity containing the generated test cases
@@ -117,7 +141,9 @@ class PromptSynthesizer(TestSetSynthesizer):
             while remaining_tests > 0:
                 chunk_size = min(self.batch_size, remaining_tests)
                 try:
-                    chunk_tests = self._generate_batch(chunk_size, context, config)
+                    chunk_tests = self._generate_batch(
+                        chunk_size, context, config, chip_states, rated_samples, previous_messages
+                    )
                     all_test_cases.extend(chunk_tests)
                     remaining_tests -= len(chunk_tests)
 
@@ -136,7 +162,9 @@ class PromptSynthesizer(TestSetSynthesizer):
                         break
         else:
             # Generate all tests in a single batch
-            all_test_cases = self._generate_batch(num_tests, context, config)
+            all_test_cases = self._generate_batch(
+                num_tests, context, config, chip_states, rated_samples, previous_messages
+            )
 
         # Ensure we have some test cases
         if not all_test_cases:

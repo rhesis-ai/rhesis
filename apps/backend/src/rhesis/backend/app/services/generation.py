@@ -132,11 +132,6 @@ async def generate_tests(
     # Get user's configured model or fallback to default
     model = get_user_generation_model(db, user)
 
-    # Iteration context is available but not yet integrated into synthesizers
-    # These parameters (chip_states, rated_samples, previous_messages) are passed
-    # for future use when synthesizers support iterative refinement
-    # TODO: Integrate iteration context into synthesizer generation logic
-
     # Choose synthesizer based on whether documents are provided
     config = GenerationConfig(**prompt)
     if documents:
@@ -145,10 +140,23 @@ async def generate_tests(
         prompt_string = str(
             prompt.get("specific_requirements") or prompt.get("test_type", "Generate test cases")
         )
-        synthesizer = DocumentSynthesizer(prompt=prompt_string, model=model, config=config)
+        synthesizer = DocumentSynthesizer(
+            prompt=prompt_string,
+            model=model,
+            config=config,
+            chip_states=chip_states,
+            rated_samples=rated_samples,
+            previous_messages=previous_messages,
+        )
         generate_func = partial(synthesizer.generate, documents=documents, num_tests=num_tests)
     else:
-        synthesizer = ConfigSynthesizer(config=config, model=model)
+        synthesizer = ConfigSynthesizer(
+            config=config,
+            model=model,
+            chip_states=chip_states,
+            rated_samples=rated_samples,
+            previous_messages=previous_messages,
+        )
         generate_func = partial(synthesizer.generate, num_tests=num_tests)
 
     # Run the potentially blocking operation in a separate thread
