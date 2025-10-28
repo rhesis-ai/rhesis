@@ -238,12 +238,12 @@ export default function TestSetTestsGrid({
 
   return (
     <>
-      <Typography variant="h6" sx={{ mb: 2 }}>
+      <Typography variant="h6" sx={{ mb: 1 }}>
         Tests
       </Typography>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 1 }}>
           {error}
         </Alert>
       )}
@@ -251,7 +251,7 @@ export default function TestSetTestsGrid({
       {selectedRows.length > 0 && (
         <Box
           sx={{
-            mb: 2,
+            mb: 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
