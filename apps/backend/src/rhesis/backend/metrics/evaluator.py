@@ -284,8 +284,16 @@ class MetricEvaluator:
                 )
                 logger.debug(f"[SDK_ADAPTER] Creating metric via SDK adapter: {metric_name or class_name}")
                 
+                # Merge metric_params (which includes the model) into metric_config
+                config_dict = metric_config.to_dict() if hasattr(metric_config, "to_dict") else metric_config
+                if metric_params:
+                    # Add model to config's parameters
+                    if "parameters" not in config_dict:
+                        config_dict["parameters"] = {}
+                    config_dict["parameters"].update(metric_params)
+                
                 metric = create_metric_from_config(
-                    metric_config.to_dict() if hasattr(metric_config, "to_dict") else metric_config,
+                    config_dict,
                     self.organization_id,
                 )
                 
