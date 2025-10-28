@@ -72,18 +72,18 @@ def get_test_and_prompt(
     return test, prompt.content, prompt.expected_response or ""
 
 
-def get_test_metrics(test: Test) -> List[Dict]:
+def get_test_metrics(test: Test) -> List:
     """
     Retrieve and validate metrics for a test from its associated behavior.
 
     Returns:
-        List of valid metric configuration dictionaries
+        List of valid Metric models
     """
     metrics = []
     behavior = test.behavior
 
     if behavior and behavior.metrics:
-        # Pass Metric models directly - evaluator will handle conversion
+        # Return Metric models directly - evaluator accepts them
         metrics = [metric for metric in behavior.metrics if metric.class_name]
         
         invalid_count = len(behavior.metrics) - len(metrics)
@@ -128,34 +128,41 @@ def check_existing_result(
 # ============================================================================
 
 
-def prepare_metric_configs(metrics: List[Dict], test_id: str) -> List[Dict]:
+def prepare_metric_configs(metrics: List, test_id: str) -> List:
     """
-    Validate and filter metric configurations.
+    Validate and filter metric models.
 
-    The evaluator accepts both dict and MetricConfig objects. This function
-    validates dicts and filters out any that are missing required fields.
+    The evaluator accepts Metric models directly. This function validates that
+    models have required fields and filters out any that are invalid.
 
     Returns:
-        List of valid metric configuration dicts
+        List of valid Metric models
     """
-    # Metrics from get_test_metrics() are already dicts - no conversion needed
-    # The MetricEvaluator accepts both dict and MetricConfig objects
-    logger.debug(f"🔍 [DEBUG] parse_metrics received {len(metrics)} metrics")
+    # Metrics from get_test_metrics() are now Metric models
+    # The MetricEvaluator accepts Metric models, dicts, or MetricConfig objects
+    logger.debug(f"🔍 [DEBUG] prepare_metric_configs received {len(metrics)} metrics")
 
-    # Just validate that each metric has required fields
+    # Validate that each metric has required fields
     valid_metrics = []
     invalid_count = 0
 
     for i, metric in enumerate(metrics):
-        if not isinstance(metric, dict):
-            logger.warning(f"Metric {i} is not a dict: {type(metric)}")
+        # Accept Metric models (primary case), dicts (legacy), or MetricConfig objects
+        if hasattr(metric, "class_name"):
+            # It's a Metric model or MetricConfig
+            if not metric.class_name:
+                invalid_count += 1
+                logger.warning(f"Skipped metric {i} for test {test_id}: missing class_name")
+                continue
+        elif isinstance(metric, dict):
+            # Legacy dict format
+            if not metric.get("class_name"):
+                invalid_count += 1
+                logger.warning(f"Skipped metric {i} for test {test_id}: missing class_name")
+                continue
+        else:
+            logger.warning(f"Metric {i} has unexpected type: {type(metric)}")
             invalid_count += 1
-            continue
-
-        # Basic validation
-        if not metric.get("class_name"):
-            invalid_count += 1
-            logger.warning(f"Skipped metric {i} for test {test_id}: missing class_name")
             continue
 
         valid_metrics.append(metric)
