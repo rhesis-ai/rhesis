@@ -373,7 +373,8 @@ def bulk_create_tests(
             user_id=user_id,
         )
 
-        for i, test_data in enumerate(tests_data):            test_data_dict = prepare_test_data(test_data, defaults)
+        for i, test_data in enumerate(tests_data):
+            test_data_dict = prepare_test_data(test_data, defaults)
             prompt_data = test_data_dict.pop("prompt", {})
 
             # Create prompt and related entities
