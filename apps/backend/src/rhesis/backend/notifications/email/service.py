@@ -148,7 +148,7 @@ class EmailService:
             task_id="team_invitation",
         )
 
-    def send_founder_welcome_email(
+    def send_welcome_email(
         self,
         recipient_email: str,
         recipient_name: Optional[str],
@@ -156,7 +156,7 @@ class EmailService:
         calendar_link: Optional[str] = None,
     ) -> bool:
         """
-        Send a welcome email from the founder to a new user.
+        Send a welcome email to a new user.
 
         Args:
             recipient_email: Email address of the new user
@@ -168,9 +168,7 @@ class EmailService:
             bool: True if email was sent successfully, False otherwise
         """
         if not self.is_configured:
-            logger.warning(
-                f"Cannot send founder welcome email to {recipient_email}: SMTP not configured"
-            )
+            logger.warning(f"Cannot send welcome email to {recipient_email}: SMTP not configured")
             return False
 
         # Set default URLs if not provided
@@ -178,7 +176,7 @@ class EmailService:
             frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
 
         if not calendar_link:
-            calendar_link = "https://calendar.app.google/CZzqQbtBsMxSHTpx6"
+            calendar_link = os.getenv("WELCOME_CALENDAR_LINK")
 
         # Get BCC email from environment variable (optional)
         bcc_email = os.getenv("AGENT_EMAIL_BCC")
@@ -193,11 +191,11 @@ class EmailService:
         }
 
         return self.send_email(
-            template=EmailTemplate.FOUNDER_WELCOME,
+            template=EmailTemplate.WELCOME,
             recipient_email=recipient_email,
             subject=subject,
             template_variables=template_variables,
-            task_id="founder_welcome",
+            task_id="welcome",
             from_email="hello@rhesis.ai",
             bcc=bcc_email,
         )

@@ -1,9 +1,9 @@
 from typing import Sequence, Union
 
+import rhesis
 import sqlalchemy as sa
 from alembic import op
 
-import rhesis
 from rhesis.backend.alembic.utils.template_loader import (
     load_cleanup_status_template,
     load_status_template,
