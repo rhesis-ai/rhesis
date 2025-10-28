@@ -24,7 +24,7 @@ from .response_pattern import (
     ResponsePatternUpdate,
 )
 from .risk import Risk, RiskBase, RiskCreate, RiskUpdate
-from .source import Source, SourceBase, SourceCreate, SourceUpdate
+from .source import Source, SourceBase, SourceCreate, SourceUpdate, SourceWithContent
 from .stats import (
     DimensionStats,
     EntityStats,
@@ -197,6 +197,7 @@ __all__ = [
     "SourceBase",
     "SourceCreate",
     "SourceUpdate",
+    "SourceWithContent",
     "Topic",
     "TopicBase",
     "TopicCreate",

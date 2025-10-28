@@ -46,13 +46,21 @@ export default function TestSampleCard({
   const [localFeedback, setLocalFeedback] = useState(sample.feedback);
 
   const handleThumbsUp = () => {
-    onRate(sample.id, 5);
+    // Toggle: if already rated 5, set to 0 (unrated), otherwise set to 5
+    const newRating = sample.rating === 5 ? 0 : 5;
+    onRate(sample.id, newRating);
     setShowFeedback(false);
   };
 
   const handleThumbsDown = () => {
-    onRate(sample.id, 1);
-    setShowFeedback(true);
+    // Toggle: if already rated 1, set to 0 (unrated), otherwise set to 1
+    const newRating = sample.rating === 1 ? 0 : 1;
+    onRate(sample.id, newRating);
+    if (newRating === 1) {
+      setShowFeedback(true);
+    } else {
+      setShowFeedback(false);
+    }
   };
 
   const handleSendFeedback = () => {
@@ -67,6 +75,7 @@ export default function TestSampleCard({
 
   return (
     <Card
+      elevation={0}
       sx={{
         mb: 2,
         borderRadius: theme => theme.shape.borderRadius,
@@ -133,7 +142,7 @@ export default function TestSampleCard({
                 elevation={0}
                 sx={{
                   maxWidth: '80%',
-                  bgcolor: 'primary.light',
+                  bgcolor: 'background.light2',
                   borderRadius: theme => theme.shape.borderRadius,
                   borderBottomLeftRadius: 0.5,
                   px: 1.5,
@@ -142,7 +151,13 @@ export default function TestSampleCard({
               >
                 <Typography
                   variant="body2"
-                  sx={{ fontStyle: 'italic', color: 'primary.contrastText' }}
+                  sx={{
+                    fontStyle: 'italic',
+                    color: theme =>
+                      theme.palette.mode === 'dark'
+                        ? 'primary.contrastText'
+                        : 'text.primary',
+                  }}
                 >
                   {sample.prompt}
                 </Typography>

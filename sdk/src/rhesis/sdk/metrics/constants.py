@@ -1,9 +1,10 @@
 import operator
+from typing import Any, Callable, Dict
 
 from rhesis.sdk.metrics.base import ScoreType, ThresholdOperator
 
 # Mapping threshold operators to Python operator functions
-OPERATOR_MAP = {
+OPERATOR_MAP: Dict[ThresholdOperator, Callable[[Any, Any], bool]] = {
     ThresholdOperator.EQUAL: operator.eq,
     ThresholdOperator.LESS_THAN: operator.lt,
     ThresholdOperator.GREATER_THAN: operator.gt,

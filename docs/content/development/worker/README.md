@@ -56,4 +56,4 @@ If you're experiencing chord-related issues:
 
 ## Related Documentation
 
-- [Backend API Documentation](../backend/README.md): Information about the API services that queue background tasks
+- [Backend API Documentation](https://docs.rhesis.ai/development/backend): Information about the API services that queue background tasks

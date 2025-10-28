@@ -1,19 +1,25 @@
 import pytest
-from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricType, ScoreType
+from rhesis.sdk.metrics.base import (
+    Backend,
+    BaseMetric,
+    MetricConfig,
+    MetricType,
+    ScoreType,
+)
 from rhesis.sdk.models.providers.gemini import GeminiLLM
 from rhesis.sdk.models.providers.native import RhesisLLM
 
 
 def test_metric_config_defaults():
     config = MetricConfig()
-    assert config.backend == "rhesis"
+    assert config.backend == Backend.RHESIS
 
 
 def test_metric_config_with_backend():
     config = MetricConfig(backend="rhesis")
-    assert config.backend == "rhesis"
+    assert config.backend == Backend.RHESIS
     config = MetricConfig(backend="deepeval")
-    assert config.backend == "deepeval"
+    assert config.backend == Backend.DEEPEVAL
 
 
 def test_metric_config_with_score_type():
@@ -52,12 +58,13 @@ def test_base_metric_init(monkeypatch):
         def evaluate(self):
             pass
 
-    metric = TestMetric(
+    config = MetricConfig(
         name="test",
         description="test description",
         score_type="numeric",
         metric_type="generation",
     )
+    metric = TestMetric(config)
     assert metric.name == "test"
     assert metric.description == "test description"
     assert metric.score_type == ScoreType.NUMERIC
@@ -72,12 +79,13 @@ def test_base_set_model(monkeypatch):
         def evaluate(self):
             pass
 
-    metric = TestMetric(
+    config = MetricConfig(
         name="test",
         description="test description",
         score_type="numeric",
         metric_type="generation",
     )
+    metric = TestMetric(config)
     # Test default model
     model = metric.set_model(None)
     assert isinstance(model, RhesisLLM)
@@ -97,9 +105,15 @@ def test_base_metric_model_in_init(monkeypatch):
         def evaluate(self):
             pass
 
-    metric = TestMetric(model=None)
+    config = MetricConfig(
+        name="test",
+        description="test description",
+        score_type="numeric",
+        metric_type="generation",
+    )
+    metric = TestMetric(config, model=None)
     assert isinstance(metric.model, RhesisLLM)
-    metric = TestMetric(model="gemini")
+    metric = TestMetric(config, model="gemini")
     assert isinstance(metric.model, GeminiLLM)
-    metric = TestMetric(model=GeminiLLM())
+    metric = TestMetric(config, model=GeminiLLM())
     assert isinstance(metric.model, GeminiLLM)

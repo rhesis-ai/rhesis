@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { Box, Grid, Paper, useTheme, TablePagination } from '@mui/material';
+import { useRouter } from 'next/navigation';
 import TestRunFilterBar, { FilterState } from './TestRunFilterBar';
 import TestsList from './TestsList';
 import TestDetailPanel from './TestDetailPanel';
@@ -54,8 +55,10 @@ export default function TestRunMainView({
 }: TestRunMainViewProps) {
   const theme = useTheme();
   const notifications = useNotifications();
+  const router = useRouter();
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isRerunning, setIsRerunning] = useState(false);
   const [isComparisonMode, setIsComparisonMode] = useState(false);
   const [viewMode, setViewMode] = useState<'split' | 'table'>('split');
   const [page, setPage] = useState(0);
@@ -289,6 +292,45 @@ export default function TestRunMainView({
     }
   }, [testRunId, sessionToken, notifications]);
 
+  // Handle re-run button click
+  const handleRerun = useCallback(async () => {
+    if (!testRun.test_configuration_id) {
+      notifications.show('Cannot re-run: No test configuration found', {
+        severity: 'error',
+      });
+      return;
+    }
+
+    try {
+      setIsRerunning(true);
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const testConfigurationsClient = apiFactory.getTestConfigurationsClient();
+
+      // Execute the test configuration (creates a new test run)
+      await testConfigurationsClient.executeTestConfiguration(
+        testRun.test_configuration_id
+      );
+
+      notifications.show(
+        'Test run started successfully. Redirecting to test runs page...',
+        {
+          severity: 'success',
+        }
+      );
+
+      // Navigate to the test runs page to see the new test run
+      // The test run is created asynchronously, so we can't navigate directly to it
+      router.push('/test-runs');
+    } catch (error) {
+      console.error('Error re-running test:', error);
+      notifications.show('Failed to start test run', {
+        severity: 'error',
+      });
+    } finally {
+      setIsRerunning(false);
+    }
+  }, [testRun.test_configuration_id, sessionToken, notifications, router]);
+
   // Fetch available test runs for comparison
   React.useEffect(() => {
     const fetchTestRuns = async () => {
@@ -401,16 +443,49 @@ export default function TestRunMainView({
       filteredTests.length > 0 &&
       !hasInitialSelection
     ) {
-      const testIndex = filteredTests.findIndex(
+      console.log(
+        '[TestRunMainView] Attempting to select test with ID:',
+        initialSelectedTestId
+      );
+      console.log('[TestRunMainView] Available tests:', filteredTests.length);
+
+      // First try to match by test result ID (direct match)
+      let testIndex = filteredTests.findIndex(
         t => t.id === initialSelectedTestId
       );
+      console.log('[TestRunMainView] Direct ID match index:', testIndex);
+
+      // If not found, try to match by test_id (for cross-run navigation)
+      if (testIndex === -1) {
+        testIndex = filteredTests.findIndex(
+          t => t.test_id === initialSelectedTestId
+        );
+        console.log('[TestRunMainView] test_id match index:', testIndex);
+        if (testIndex !== -1) {
+          console.log(
+            '[TestRunMainView] Found test by test_id:',
+            filteredTests[testIndex]
+          );
+        }
+      }
 
       if (testIndex !== -1) {
         // Calculate which page the test is on
         const testPage = Math.floor(testIndex / rowsPerPage);
+        console.log(
+          '[TestRunMainView] Setting page to:',
+          testPage,
+          'and selecting test:',
+          filteredTests[testIndex].id
+        );
         setPage(testPage);
-        setSelectedTestId(initialSelectedTestId);
+        setSelectedTestId(filteredTests[testIndex].id);
         setHasInitialSelection(true);
+      } else {
+        console.warn(
+          '[TestRunMainView] Could not find test with ID or test_id:',
+          initialSelectedTestId
+        );
       }
     }
   }, [initialSelectedTestId, filteredTests, rowsPerPage, hasInitialSelection]);
@@ -469,6 +544,9 @@ export default function TestRunMainView({
             filteredTests={filteredTests.length}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            onRerun={handleRerun}
+            isRerunning={isRerunning}
+            canRerun={!!testRun.test_configuration_id}
           />
 
           {/* Conditional Layout based on viewMode */}

@@ -66,6 +66,9 @@ export default function TestGenerationFlow({
   // Data State
   const [description, setDescription] = useState('');
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null
+  );
   const [documents, setDocuments] = useState<ProcessedDocument[]>([]);
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(
     null
@@ -105,8 +108,35 @@ export default function TestGenerationFlow({
             setDescription(template.description);
             setIsGenerating(true);
 
-            // Create chips directly from template values (no API call needed)
+            // Generate behaviors from template prompt using API
+            const apiFactory = new ApiClientFactory(sessionToken);
+            const servicesClient = apiFactory.getServicesClient();
+
+            // Call generate/test_config with template prompt to get behaviors
+            const configResponse = await servicesClient.generateTestConfig({
+              prompt: template.prompt,
+              sample_size: 5,
+              project_id: selectedProjectId || undefined,
+            });
+
+            // Create chips from API response and template values
             const createChipsFromArray = (
+              items: Array<{ name: string; description: string }> | undefined,
+              colorVariant: 'blue' | 'purple' | 'orange' | 'green'
+            ): ChipConfig[] => {
+              if (!items || !Array.isArray(items)) {
+                return [];
+              }
+              return items.map((item, index) => ({
+                id: item.name.toLowerCase().replace(/\s+/g, '-'),
+                label: item.name,
+                description: item.description,
+                active: true, // All template chips are active
+                colorVariant,
+              }));
+            };
+
+            const createChipsFromStringArray = (
               items: string[],
               colorVariant: 'blue' | 'purple' | 'orange' | 'green'
             ): ChipConfig[] => {
@@ -120,22 +150,25 @@ export default function TestGenerationFlow({
             };
 
             const newConfigChips: ConfigChips = {
-              behavior: createChipsFromArray(template.behaviors, 'blue'),
-              topics: createChipsFromArray(template.topics, 'purple'),
-              category: createChipsFromArray(template.category, 'orange'),
+              behavior: createChipsFromArray(configResponse.behaviors, 'blue'),
+              topics: createChipsFromStringArray(template.topics, 'green'),
+              category: createChipsFromStringArray(template.category, 'purple'),
             };
 
             setConfigChips(newConfigChips);
 
             // Generate initial test samples directly
-            const apiFactory = new ApiClientFactory(sessionToken);
-            const servicesClient = apiFactory.getServicesClient();
+
+            // Extract behavior labels from the generated chips
+            const behaviorLabels = newConfigChips.behavior.map(
+              chip => chip.label
+            );
 
             const prompt = {
               project_context: project?.name || 'General',
-              test_behaviors: template.behaviors,
-              test_purposes: template.topics,
-              key_topics: template.topics,
+              behaviors: behaviorLabels,
+              topics: template.topics,
+              categories: template.category,
               specific_requirements: template.description,
               test_type: 'Single interaction tests',
               output_format: 'Generate only user inputs',
@@ -185,9 +218,10 @@ export default function TestGenerationFlow({
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
-    async (desc: string, sourceIds: string[]) => {
+    async (desc: string, sourceIds: string[], projectId: string | null) => {
       setDescription(desc);
       setSelectedSourceIds(sourceIds);
+      setSelectedProjectId(projectId);
 
       // Generate test configuration and samples before navigating
       setIsGenerating(true);
@@ -217,19 +251,37 @@ export default function TestGenerationFlow({
         }
         setDocuments(fetchedDocuments);
 
+        // Fetch project if selected
+        if (projectId) {
+          try {
+            const projectsClient = apiFactory.getProjectsClient();
+            const fetchedProject = await projectsClient.getProject(projectId);
+            setProject(fetchedProject);
+          } catch (error) {
+            console.error(`Failed to fetch project ${projectId}:`, error);
+            show(`Failed to load project`, { severity: 'warning' });
+          }
+        } else {
+          setProject(null);
+        }
+
         // Step 1: Generate test configuration based on description
         const configResponse = await servicesClient.generateTestConfig({
           prompt: desc,
           sample_size: 10,
+          project_id: projectId || undefined,
         });
 
         console.log('Config response:', configResponse);
 
         // Step 2: Create chips from config response (5 active, 5 inactive)
         const createChipsFromArray = (
-          items: Array<{ name: string; description: string }>,
+          items: Array<{ name: string; description: string }> | undefined,
           colorVariant: 'blue' | 'purple' | 'orange' | 'green'
         ): ChipConfig[] => {
+          if (!items || !Array.isArray(items)) {
+            return [];
+          }
           return items.map((item, index) => {
             return {
               id: item.name.toLowerCase().replace(/\s+/g, '-'),
@@ -246,10 +298,10 @@ export default function TestGenerationFlow({
             configResponse.behaviors || [],
             'blue'
           ),
-          topics: createChipsFromArray(configResponse.topics || [], 'purple'),
+          topics: createChipsFromArray(configResponse.topics || [], 'green'),
           category: createChipsFromArray(
             configResponse.categories || [],
-            'orange'
+            'purple'
           ),
         };
 
@@ -262,12 +314,15 @@ export default function TestGenerationFlow({
         const activeTopics = newConfigChips.topics
           .filter(c => c.active)
           .map(c => c.label);
+        const activeCategories = newConfigChips.category
+          .filter(c => c.active)
+          .map(c => c.label);
 
         const prompt = {
           project_context: project?.name || 'General',
-          test_behaviors: activeBehaviors,
-          test_purposes: activeTopics,
-          key_topics: activeTopics,
+          behaviors: activeBehaviors,
+          topics: activeTopics,
+          categories: activeCategories,
           specific_requirements: desc,
           test_type: 'Single interaction tests',
           output_format: 'Generate only user inputs',
@@ -418,12 +473,15 @@ export default function TestGenerationFlow({
       const activeTopics = configChips.topics
         .filter(c => c.active)
         .map(c => c.label);
+      const activeCategories = configChips.category
+        .filter(c => c.active)
+        .map(c => c.label);
 
       const prompt = {
         project_context: project?.name || 'General',
-        test_behaviors: activeBehaviors,
-        test_purposes: activeTopics,
-        key_topics: activeTopics,
+        behaviors: activeBehaviors,
+        topics: activeTopics,
+        categories: activeCategories,
         specific_requirements: description,
         test_type: 'Single interaction tests',
         output_format: 'Generate only user inputs',
@@ -490,12 +548,15 @@ export default function TestGenerationFlow({
         const activeTopics = configChips.topics
           .filter(c => c.active)
           .map(c => c.label);
+        const activeCategories = configChips.category
+          .filter(c => c.active)
+          .map(c => c.label);
 
         const prompt = {
           project_context: project?.name || 'General',
-          test_behaviors: activeBehaviors,
-          test_purposes: activeTopics,
-          key_topics: activeTopics,
+          behaviors: activeBehaviors,
+          topics: activeTopics,
+          categories: activeCategories,
           specific_requirements: `${description}\n\nPrevious test: "${sample.prompt}"\n\nUser feedback: ${feedback}\n\nPlease generate a new test that addresses this feedback.`,
           test_type: 'Single interaction tests',
           output_format: 'Generate only user inputs',
@@ -571,11 +632,39 @@ export default function TestGenerationFlow({
 
   const handleSendMessage = useCallback(
     async (message: string) => {
+      // 1. Collect all chip states (both selected and deselected) for this message
+      const chipStates: Array<{
+        label: string;
+        description: string;
+        active: boolean;
+        category: 'behavior' | 'topic' | 'category' | 'scenario';
+      }> = [
+        ...configChips.behavior.map(chip => ({
+          label: chip.label,
+          description: chip.description || '',
+          active: chip.active,
+          category: 'behavior' as const,
+        })),
+        ...configChips.topics.map(chip => ({
+          label: chip.label,
+          description: chip.description || '',
+          active: chip.active,
+          category: 'topic' as const,
+        })),
+        ...configChips.category.map(chip => ({
+          label: chip.label,
+          description: chip.description || '',
+          active: chip.active,
+          category: 'category' as const,
+        })),
+      ];
+
       const newMessage: ChatMessage = {
         id: `msg-${Date.now()}`,
         type: 'user',
         content: message,
         timestamp: new Date(),
+        chip_states: chipStates,
       };
       setChatMessages(prev => [...prev, newMessage]);
 
@@ -586,34 +675,7 @@ export default function TestGenerationFlow({
 
         // Build complete iteration context
 
-        // 1. Collect all chip states (both selected and deselected)
-        const chipStates: Array<{
-          label: string;
-          description: string;
-          active: boolean;
-          category: 'behavior' | 'topic' | 'category' | 'scenario';
-        }> = [
-          ...configChips.behavior.map(chip => ({
-            label: chip.label,
-            description: chip.description || '',
-            active: chip.active,
-            category: 'behavior' as const,
-          })),
-          ...configChips.topics.map(chip => ({
-            label: chip.label,
-            description: chip.description || '',
-            active: chip.active,
-            category: 'topic' as const,
-          })),
-          ...configChips.category.map(chip => ({
-            label: chip.label,
-            description: chip.description || '',
-            active: chip.active,
-            category: 'category' as const,
-          })),
-        ];
-
-        // 2. Collect all rated samples with feedback
+        // 1. Collect all rated samples with feedback
         const ratedSamples = testSamples
           .filter(sample => sample.rating !== null)
           .map(sample => ({
@@ -626,24 +688,25 @@ export default function TestGenerationFlow({
                 : undefined,
           }));
 
-        // 3. Collect all previous user messages (not assistant responses)
+        // 2. Collect all previous user messages (not assistant responses) with their chip_states
         const previousMessages = chatMessages
           .filter(msg => msg.type === 'user')
           .map(msg => ({
             content: msg.content,
             timestamp: msg.timestamp.toISOString(),
+            chip_states: msg.chip_states,
           }));
 
         console.log('Sending to generateTestConfig:', {
           prompt: description,
           sample_size: 10,
-          chip_states: chipStates.length,
           rated_samples: ratedSamples,
           previous_messages: [
             ...previousMessages,
             {
               content: message,
               timestamp: newMessage.timestamp.toISOString(),
+              chip_states: chipStates,
             },
           ],
         });
@@ -652,22 +715,26 @@ export default function TestGenerationFlow({
         const configResponse = await servicesClient.generateTestConfig({
           prompt: description, // Keep original prompt separate
           sample_size: 10,
-          chip_states: chipStates,
+          project_id: selectedProjectId || undefined,
           rated_samples: ratedSamples,
           previous_messages: [
             ...previousMessages,
             {
               content: message,
               timestamp: newMessage.timestamp.toISOString(),
+              chip_states: chipStates,
             },
           ],
         });
 
         // Step 2: Create chips from config response (5 active, 5 inactive)
         const createChipsFromArray = (
-          items: Array<{ name: string; description: string }>,
+          items: Array<{ name: string; description: string }> | undefined,
           colorVariant: 'blue' | 'purple' | 'orange' | 'green'
         ): ChipConfig[] => {
+          if (!items || !Array.isArray(items)) {
+            return [];
+          }
           return items.map((item, index) => {
             return {
               id: item.name.toLowerCase().replace(/\s+/g, '-'),
@@ -684,10 +751,10 @@ export default function TestGenerationFlow({
             configResponse.behaviors || [],
             'blue'
           ),
-          topics: createChipsFromArray(configResponse.topics || [], 'purple'),
+          topics: createChipsFromArray(configResponse.topics || [], 'green'),
           category: createChipsFromArray(
             configResponse.categories || [],
-            'orange'
+            'purple'
           ),
         };
 
@@ -700,13 +767,16 @@ export default function TestGenerationFlow({
         const activeTopics = newConfigChips.topics
           .filter(c => c.active)
           .map(c => c.label);
+        const activeCategories = newConfigChips.category
+          .filter(c => c.active)
+          .map(c => c.label);
 
         // Build prompt with basic context (detailed context sent separately)
         const prompt = {
           project_context: project?.name || 'General',
-          test_behaviors: activeBehaviors,
-          test_purposes: activeTopics,
-          key_topics: activeTopics,
+          behaviors: activeBehaviors,
+          topics: activeTopics,
+          categories: activeCategories,
           specific_requirements: description,
           test_type: 'Single interaction tests',
           output_format: 'Generate only user inputs',
@@ -817,12 +887,15 @@ export default function TestGenerationFlow({
       const activeTopics = configChips.topics
         .filter(c => c.active)
         .map(c => c.label);
+      const activeCategories = configChips.category
+        .filter(c => c.active)
+        .map(c => c.label);
 
       const prompt = {
         project_context: project?.name || 'General',
-        test_behaviors: activeBehaviors,
-        test_purposes: activeTopics,
-        key_topics: activeTopics,
+        behaviors: activeBehaviors,
+        topics: activeTopics,
+        categories: activeCategories,
         specific_requirements: description,
         test_type: 'Single interaction tests',
         output_format: 'Generate only user inputs',
@@ -1000,6 +1073,10 @@ export default function TestGenerationFlow({
   }, []);
 
   // Navigation handlers
+  const handleBackToTests = useCallback(() => {
+    router.push('/tests');
+  }, [router]);
+
   const handleBackToInput = useCallback(() => {
     // If user came from template selection, go back to landing screen
     if (mode === 'template') {
@@ -1046,7 +1123,10 @@ export default function TestGenerationFlow({
             initialDescription={description}
             selectedSourceIds={selectedSourceIds}
             onSourcesChange={setSelectedSourceIds}
+            selectedProjectId={selectedProjectId}
+            onProjectChange={setSelectedProjectId}
             isLoading={isGenerating}
+            onBack={handleBackToTests}
           />
         );
 
