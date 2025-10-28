@@ -55,7 +55,8 @@ export default function StatusChip({
   const finalIconSize = iconSize ?? defaultIconSize;
 
   // Determine status from either new status prop or legacy passed prop
-  const actualStatus: TestResultStatus = status || (passed !== undefined ? (passed ? 'Pass' : 'Fail') : 'Error');
+  const actualStatus: TestResultStatus =
+    status || (passed !== undefined ? (passed ? 'Pass' : 'Fail') : 'Error');
 
   // Determine icon based on status
   const getIcon = () => {

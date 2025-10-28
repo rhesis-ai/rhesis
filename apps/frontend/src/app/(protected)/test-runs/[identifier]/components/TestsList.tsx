@@ -19,7 +19,10 @@ import ChatIcon from '@mui/icons-material/Chat';
 import TaskIcon from '@mui/icons-material/Task';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
-import { getTestResultStatus, type TestResultStatus } from '@/utils/testResultStatus';
+import {
+  getTestResultStatus,
+  type TestResultStatus,
+} from '@/utils/testResultStatus';
 
 interface TestsListProps {
   tests: TestResultDetail[];
@@ -207,8 +210,8 @@ function TestListItem({
                   fontWeight: 500,
                 }}
               >
-                {status === 'Error' 
-                  ? 'No metrics' 
+                {status === 'Error'
+                  ? 'No metrics'
                   : `${passedMetrics}/${totalMetrics} metrics`}
               </Typography>
 

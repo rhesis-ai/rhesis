@@ -5,7 +5,10 @@ import { Box, Typography, Paper, Chip, useTheme } from '@mui/material';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestResultTags from './TestResultTags';
 import StatusChip from '@/components/common/StatusChip';
-import { getTestResultStatus, getTestResultLabel } from '@/utils/testResultStatus';
+import {
+  getTestResultStatus,
+  getTestResultLabel,
+} from '@/utils/testResultStatus';
 
 interface TestDetailOverviewTabProps {
   test: TestResultDetail;
