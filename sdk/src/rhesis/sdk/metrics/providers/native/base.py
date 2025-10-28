@@ -13,13 +13,13 @@ from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to
 from rhesis.sdk.models import BaseLLM
 
 # Type variable for generic return types
-T = TypeVar("T", bound="RhesisPromptMetricBase")
+T = TypeVar("T", bound="JudgeBase")
 
 # Custom parameters
 
 
 @dataclass
-class PromptMetricConfig(MetricConfig):
+class JudgeConfig(MetricConfig):
     evaluation_prompt: Optional[str] = None
     evaluation_steps: Optional[str] = None
     reasoning: Optional[str] = None
@@ -29,13 +29,13 @@ class PromptMetricConfig(MetricConfig):
         return super().__post_init__()
 
 
-class RhesisPromptMetricBase(BaseMetric):
+class JudgeBase(BaseMetric):
     """
     A generic metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
     """
 
-    def __init__(self, config: PromptMetricConfig, model: Optional[Union[BaseLLM, str]] = None):
+    def __init__(self, config: JudgeConfig, model: Optional[Union[BaseLLM, str]] = None):
         self.config = config
         super().__init__(config=self.config, model=model)
         self.evaluation_prompt = self.config.evaluation_prompt
@@ -114,7 +114,7 @@ class RhesisPromptMetricBase(BaseMetric):
         logger = logging.getLogger(__name__)
         error_msg = f"Error evaluating with {self.name}: {str(e)}"
 
-        logger.error(f"Exception in RhesisPromptMetric.evaluate: {error_msg}")
+        logger.error(f"Exception in JudgeBase.evaluate: {error_msg}")
         logger.error(f"Exception type: {type(e).__name__}")
         logger.error(f"Exception details: {str(e)}")
         logger.error(f"Full traceback:\n{traceback.format_exc()}")
@@ -251,9 +251,7 @@ class RhesisPromptMetricBase(BaseMetric):
         client.send_request(Endpoints.METRICS, Methods.POST, config)
 
     @classmethod
-    def pull(
-        cls, name: Optional[str] = None, nano_id: Optional[str] = None
-    ) -> "RhesisPromptMetricBase":
+    def pull(cls, name: Optional[str] = None, nano_id: Optional[str] = None) -> "JudgeBase":
         """
         Pull the metric from the backend.
         # Either 'name' or 'nano_id' must be provided to pull a metric from the backend.
@@ -265,7 +263,7 @@ class RhesisPromptMetricBase(BaseMetric):
             nano_id (Optional[str]): The nano_id of the metric
 
         Returns:
-            RhesisPromptMetricNumeric: The metric
+            JudgeBase: The metric
         """
         if not name and not nano_id:
             raise ValueError("Either name or nano_id must be provided")
