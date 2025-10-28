@@ -18,7 +18,7 @@ from rhesis.backend.tasks.execution.test_execution import (
 )
 
 
-class TestCurrentTaskExecution:
+class TestTaskExecution:
     """Test current task execution flow (baseline)."""
     
     @pytest.fixture
