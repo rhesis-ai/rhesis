@@ -61,8 +61,9 @@ class RhesisLLM(BaseLLM):
     def generate(self, prompt: str, schema: Optional[BaseModel] = None, **kwargs: Any) -> Any:
         """Run a chat completion using the API, and return the response."""
         try:
-            # Before sending the request, we need to convert the Pydantic schema to a JSON schema
-            if schema:
+            # Convert Pydantic schema to OpenAI format
+            # Dict schemas are assumed to already be in OpenAI format
+            if schema and not isinstance(schema, dict):
                 schema = {
                     "type": "json_schema",
                     "json_schema": {
@@ -124,22 +125,12 @@ class RhesisLLM(BaseLLM):
         }
 
         url = self.client.get_url(API_ENDPOINT)
-        print(f"🔍 [RhesisLLM] Sending request to: {url}")
-        print(f"🔍 [RhesisLLM] Request keys: {list(request_data.keys())}")
-        print(f"🔍 [RhesisLLM] Prompt length: {len(prompt)} chars")
-        print(f"🔍 [RhesisLLM] Schema type: {type(schema)}")
-        if schema:
-            print(f"🔍 [RhesisLLM] Schema preview: {str(schema)[:200]}...")
 
         response = requests.post(
             url,
             headers=self.headers,
             json=request_data,
         )
-
-        print(f"🔍 [RhesisLLM] Response status: {response.status_code}")
-        if response.status_code != 200:
-            print(f"🔍 [RhesisLLM] Response content: {response.text[:500]}")
         
         response.raise_for_status()
         result: Dict[str, Any] = response.json()
