@@ -123,9 +123,9 @@ services:
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_DB: rhesis
-      POSTGRES_USER: rhesis
-      POSTGRES_PASSWORD: rhesis
+      POSTGRES_DB: your_database
+      POSTGRES_USER: your_username
+      POSTGRES_PASSWORD: your_password
     ports:
       - "5432:5432"
 
@@ -142,7 +142,7 @@ services:
       - postgres
       - redis
     environment:
-      DATABASE_URL: postgresql://rhesis:rhesis@postgres:5432/rhesis
+      DATABASE_URL: postgresql://your_username:your_password@postgres:5432/your_database
       REDIS_URL: redis://redis:6379`}
 </CodeBlock>
 

@@ -75,6 +75,15 @@ function show_usage() {
   echo "  STORAGE_SERVICE_URI           Google Cloud Storage bucket URI"
   echo "  STORAGE_SERVICE_ACCOUNT_KEY   Google Cloud Storage service account key (Base64 encoded JSON)"
   echo "  LOCAL_STORAGE_PATH            Local storage path for temporary files"
+  echo "  DEPLOYMENT_TYPE               Deployment type (cloud or self-hosted)"
+  echo ""
+  echo "  # Analytics Database (Telemetry Processor)"
+  echo "  ANALYTICS_DATABASE_URL        Full analytics database URL (alternative to individual vars)"
+  echo "  ANALYTICS_DB_USER             Analytics database username"
+  echo "  ANALYTICS_DB_PASS             Analytics database password"
+  echo "  ANALYTICS_DB_HOST             Analytics database host (Cloud SQL socket path)"
+  echo "  ANALYTICS_DB_PORT             Analytics database port (default: 5432)"
+  echo "  ANALYTICS_DB_NAME             Analytics database name"
   echo ""
   echo "  # Celery worker variables"
   echo "  BROKER_URL                    Celery broker URL"
@@ -247,6 +256,15 @@ SERVICE_VARS=(
   "STORAGE_SERVICE_URI"
   "STORAGE_SERVICE_ACCOUNT_KEY"
   "LOCAL_STORAGE_PATH"
+  "DEPLOYMENT_TYPE"
+  
+  # Analytics Database (Telemetry Processor)
+  "ANALYTICS_DATABASE_URL"
+  "ANALYTICS_DB_USER"
+  "ANALYTICS_DB_PASS"
+  "ANALYTICS_DB_HOST"
+  "ANALYTICS_DB_PORT"
+  "ANALYTICS_DB_NAME"
   
   # Celery worker variables
   "BROKER_URL"

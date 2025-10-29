@@ -232,6 +232,7 @@ yarn-error.log*
 **/.env-*
 **/env.*
 !**/env.example
+!**/alembic/env.py
 
 # Docker files
 
