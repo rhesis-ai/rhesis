@@ -13,7 +13,8 @@ from tenacity import (
     wait_exponential,
 )
 
-from rhesis.backend.app.models.metric import Metric as MetricModel, ScoreType
+from rhesis.backend.app.models.metric import Metric as MetricModel
+from rhesis.backend.app.models.metric import ScoreType
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
@@ -234,11 +235,13 @@ class MetricEvaluator:
         # Log summary
         if invalid_metric_results:
             logger.warning(
-                f"Found {len(invalid_metric_results)} invalid metrics that will be reported as errors"
+                f"Found {len(invalid_metric_results)} invalid metrics "
+                f"that will be reported as errors"
             )
 
         logger.debug(
-            f"Using {len(metric_configs)} valid metrics and {len(invalid_metric_results)} invalid metrics"
+            f"Using {len(metric_configs)} valid metrics and "
+            f"{len(invalid_metric_results)} invalid metrics"
         )
 
         if not metric_configs:
@@ -338,25 +341,38 @@ class MetricEvaluator:
                                 model_name=model_record.model_name,
                                 api_key=model_record.key,
                             )
+                            metric_name_for_log = self._get_config_value(
+                                metric_config, "name", class_name
+                            )
                             logger.info(
-                                f"[METRIC_MODEL] Using metric-specific model for '{self._get_config_value(metric_config, 'name', class_name)}': "
-                                f"{model_record.name} (provider={model_record.provider_type.type_value}, "
+                                f"[METRIC_MODEL] Using metric-specific model for "
+                                f"'{metric_name_for_log}': {model_record.name} "
+                                f"(provider={model_record.provider_type.type_value}, "
                                 f"model={model_record.model_name})"
                             )
                         else:
+                            metric_name_for_log = self._get_config_value(
+                                metric_config, "name", class_name
+                            )
                             logger.warning(
-                                f"[METRIC_MODEL] Model ID {model_id} not found for metric '{self._get_config_value(metric_config, 'name', class_name)}'"
+                                f"[METRIC_MODEL] Model ID {model_id} not found for "
+                                f"metric '{metric_name_for_log}'"
                             )
                     except Exception as e:
+                        metric_name_for_log = self._get_config_value(
+                            metric_config, "name", class_name
+                        )
                         logger.warning(
-                            f"[METRIC_MODEL] Error fetching metric-specific model for '{self._get_config_value(metric_config, 'name', class_name)}': {e}"
+                            f"[METRIC_MODEL] Error fetching metric-specific model for "
+                            f"'{metric_name_for_log}': {e}"
                         )
 
                 # 2. Fall back to user's default evaluation model if no metric-specific model
                 if metric_model is None and self.model is not None:
                     metric_model = self.model
+                    metric_name_for_log = self._get_config_value(metric_config, "name", class_name)
                     logger.debug(
-                        f"[METRIC_MODEL] Using user's default model for '{self._get_config_value(metric_config, 'name', class_name)}'"
+                        f"[METRIC_MODEL] Using user's default model for '{metric_name_for_log}'"
                     )
 
                 # 3. Pass model to metric if available (will fall back to system default if None)
@@ -556,9 +572,7 @@ class MetricEvaluator:
 
                 try:
                     # Process the result
-                    result = self._process_metric_result(
-                        future, class_name, metric_config, backend
-                    )
+                    result = self._process_metric_result(future, class_name, metric_config, backend)
                     results[unique_key] = result
                     completed_count += 1
                     logger.debug(
@@ -567,14 +581,12 @@ class MetricEvaluator:
                     )
                 except Exception as e:
                     # Ensure we always have a result, even for processing errors
-                    error_result = self._create_error_result(
-                        class_name, metric_config, backend, e
-                    )
+                    error_result = self._create_error_result(class_name, metric_config, backend, e)
                     results[unique_key] = error_result
                     failed_count += 1
                     completed_count += 1
                     logger.error(
-                        f"✗ Metric '{unique_key}' failed " f"({completed_count}/{total_metrics}): {e}"
+                        f"✗ Metric '{unique_key}' failed ({completed_count}/{total_metrics}): {e}"
                     )
 
         except concurrent.futures.TimeoutError:
@@ -828,7 +840,7 @@ class MetricEvaluator:
             )
 
             # Step 4: Handle incomplete metrics (timeouts)
-            incomplete_count = self._handle_incomplete_metrics(results, metric_keys, metric_tasks)
+            self._handle_incomplete_metrics(results, metric_keys, metric_tasks)
 
         # Step 5: Log summary
         self._log_evaluation_summary(results)
