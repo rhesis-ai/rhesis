@@ -1,8 +1,17 @@
 import gc
 from typing import Optional
 
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+try:
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+except ImportError:
+    raise ImportError(
+        "HuggingFace dependencies are not installed.\n"
+        "Please install them with:\n"
+        "  pip install rhesis-sdk[huggingface]\n"
+        "or:\n"
+        "  uv sync --extra huggingface"
+    )
 
 from rhesis.sdk.errors import (
     HUGGINGFACE_MODEL_NOT_LOADED,

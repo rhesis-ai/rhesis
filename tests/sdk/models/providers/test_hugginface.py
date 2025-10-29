@@ -1,7 +1,12 @@
 from unittest.mock import Mock, patch
 
 import pytest
+
+pytest.importorskip("torch")
+pytest.importorskip("transformers")
+
 import torch
+
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
 from rhesis.sdk.models import HuggingFaceLLM
 
@@ -23,9 +28,7 @@ class TestHuggingFaceLLM:
         model_name = "provider/model"
         default_kwargs = {"temperature": 0.7}
 
-        llm = HuggingFaceLLM(
-            model_name, auto_loading=False, default_kwargs=default_kwargs
-        )
+        llm = HuggingFaceLLM(model_name, auto_loading=False, default_kwargs=default_kwargs)
 
         assert llm.model_name == model_name
         assert llm.model is None
@@ -55,9 +58,7 @@ class TestHuggingFaceLLM:
         model_name = "provider/model"
         default_kwargs = {"temperature": 0.7}
 
-        llm = HuggingFaceLLM(
-            model_name, auto_loading=True, default_kwargs=default_kwargs
-        )
+        llm = HuggingFaceLLM(model_name, auto_loading=True, default_kwargs=default_kwargs)
 
         assert llm.model_name == model_name
         assert llm.model is not None
@@ -90,9 +91,7 @@ class TestHuggingFaceLLM:
         mock_tokenizer.decode.return_value = "Generated response"
 
         inputs = {
-            "input_ids": torch.tensor(
-                [[1, 995, 460, 10032, 13, 13, 22467, 528, 264, 13015]]
-            ),
+            "input_ids": torch.tensor([[1, 995, 460, 10032, 13, 13, 22467, 528, 264, 13015]]),
             "attention_mask": torch.tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]),
         }
 
@@ -115,9 +114,7 @@ class TestHuggingFaceLLM:
 
     def test_generate_without_chat_template(self):
         """Should generate when tokenizer has no chat_template"""
-        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks(
-            has_chat_template=False
-        )
+        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks(has_chat_template=False)
         result = llm.generate("Hello, world!")
         assert result == "Generated response"
         mock_tokenizer.assert_called_once_with("Hello, world!", return_tensors="pt")
@@ -126,9 +123,7 @@ class TestHuggingFaceLLM:
 
     def test_generate_with_chat_template_and_system_prompt(self):
         """Should use apply_chat_template when chat_template is available and system_prompt given"""
-        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks(
-            has_chat_template=True
-        )
+        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks(has_chat_template=True)
         result = llm.generate("Hello?", system_prompt="You are a helpful assistant.")
         assert result == "Generated response"
         mock_tokenizer.apply_chat_template.assert_called_once()
@@ -137,9 +132,7 @@ class TestHuggingFaceLLM:
 
     def test_generate_with_chat_template_no_system_prompt(self):
         """Should use apply_chat_template when chat_template is available and no system_prompt given"""
-        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks(
-            has_chat_template=True
-        )
+        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks(has_chat_template=True)
         result = llm.generate("Hello?")
         assert result == "Generated response"
         mock_tokenizer.apply_chat_template.assert_called_once()
@@ -148,9 +141,7 @@ class TestHuggingFaceLLM:
 
     def test_generate_with_system_prompt_no_chat_template(self):
         """Should prepend system_prompt when chat_template is missing"""
-        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks(
-            has_chat_template=False
-        )
+        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks(has_chat_template=False)
         prompt = "Hello?"
         system_prompt = "You are helpful."
         result = llm.generate(prompt, system_prompt=system_prompt)
