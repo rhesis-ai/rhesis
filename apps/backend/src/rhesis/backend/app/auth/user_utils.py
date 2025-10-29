@@ -20,6 +20,7 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
     """Find existing user or create a new one"""
     user = None
     current_time = datetime.now(timezone.utc)
+    is_new_user = False
 
     # First try to find user by email (this is our primary matching criteria)
     if email:
@@ -75,6 +76,39 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
             last_login_at=current_time,
         )
         user = crud.create_user(db, user_data)
+        is_new_user = True
+
+    # Send welcome email to new users
+    if is_new_user:
+        try:
+            from rhesis.backend.logging.rhesis_logger import logger
+            from rhesis.backend.notifications.email.service import EmailService
+
+            email_service = EmailService()
+
+            if email_service.is_configured:
+                logger.info(f"Sending welcome email to new user: {user.email}")
+
+                success = email_service.send_welcome_email(
+                    recipient_email=user.email,
+                    recipient_name=user.name or user.given_name,
+                )
+
+                if success:
+                    logger.info(f"Successfully sent welcome email to {user.email}")
+                else:
+                    logger.warning(f"Failed to send welcome email to {user.email}")
+            else:
+                logger.info(
+                    f"Email service not configured, skipping welcome email for {user.email}"
+                )
+
+        except Exception as e:
+            # Log the error but don't fail user creation
+            from rhesis.backend.logging.rhesis_logger import logger
+
+            logger.error(f"Error sending welcome email to {user.email}: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
 
     return user
 
@@ -175,10 +209,10 @@ async def get_authenticated_user_with_context(
                 if token:
                     user = crud.get_user_by_id(db, token.user_id)
 
-                    # Handle user based on organization requirement - must be inside the context manager
+                    # Handle user based on organization requirement
+                    # Must be inside the context manager
                     if user:
-                        # Access all attributes we need within the transaction context
-                        user_id = user.id
+                        # Access all attributes we need within transaction context
                         organization_id = user.organization_id
 
                         if without_context:
@@ -191,7 +225,7 @@ async def get_authenticated_user_with_context(
                                     status_code=status.HTTP_403_FORBIDDEN,
                                     detail="User is not associated with an organization",
                                 )
-                            # Return user - tenant context should be passed directly to CRUD operations when needed
+                            # Return user - tenant context passed to CRUD ops
                             return user
 
     # Try JWT token if secret_key is provided
@@ -258,7 +292,7 @@ async def require_current_user_or_token_without_context(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     secret_key: str = Depends(get_secret_key),
 ) -> User:
-    """Require authenticated user via session or token, without requiring organization context and without database session dependency"""
+    """Require authenticated user via session or token, without organization context."""
     user = await get_authenticated_user_with_context(
         request, credentials, secret_key, without_context=True
     )

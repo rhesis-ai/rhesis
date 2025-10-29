@@ -26,10 +26,13 @@ class SMTPService:
         if not self.is_configured:
             logger.warning("SMTP configuration incomplete. Email notifications will be disabled.")
             logger.warning(
-                f"Missing SMTP config - HOST: {bool(self.smtp_host)}, USER: {bool(self.smtp_user)}, PASSWORD: {bool(self.smtp_password)}"
+                f"Missing SMTP config - HOST: {bool(self.smtp_host)}, "
+                f"USER: {bool(self.smtp_user)}, PASSWORD: [REDACTED]"
             )
 
-    def send_message(self, msg: MIMEMultipart, recipient_email: str, task_id: str) -> bool:
+    def send_message(
+        self, msg: MIMEMultipart, recipient_email: str, task_id: str, bcc: str = None
+    ) -> bool:
         """
         Send the email message with proper SSL/TLS handling and timeout.
 
@@ -37,6 +40,7 @@ class SMTPService:
             msg: The email message to send
             recipient_email: Email address for logging
             task_id: Task ID for logging
+            bcc: Optional BCC email address
 
         Returns:
             bool: True if email was sent successfully, False otherwise
@@ -46,6 +50,11 @@ class SMTPService:
             return False
 
         logger.info(f"Connecting to SMTP server {self.smtp_host}:{self.smtp_port}")
+
+        # Add BCC header if provided
+        if bcc:
+            msg["Bcc"] = bcc
+            logger.info(f"Adding BCC recipient: {bcc}")
 
         # Set socket timeout to prevent hanging
         socket.setdefaulttimeout(30)
