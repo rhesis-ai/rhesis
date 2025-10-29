@@ -156,9 +156,7 @@ export default function ProjectEditDrawer({
         const usersClient = new UsersClient(sessionToken);
         const fetchedUsers = await usersClient.getUsers();
         setUsers(fetchedUsers.data);
-      } catch (error) {
-        console.error('Failed to fetch users:', error);
-      }
+      } catch (error) {}
     };
 
     if (open) {
@@ -228,7 +226,6 @@ export default function ProjectEditDrawer({
       await onSave(projectUpdate);
       onClose();
     } catch (error) {
-      console.error('Failed to save project:', error);
     } finally {
       setLoading(false);
     }

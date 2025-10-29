@@ -529,9 +529,7 @@ export default function TaskDetailPage({ params }: PageProps) {
 
                   const finalUrl = `${baseUrl}${queryString}${commentHash}`;
                   router.push(finalUrl);
-                } catch (error) {
-                  console.error('Navigation error:', error);
-                }
+                } catch (error) {}
               }
             }}
             sx={{

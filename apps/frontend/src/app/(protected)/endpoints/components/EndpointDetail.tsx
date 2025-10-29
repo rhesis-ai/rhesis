@@ -551,7 +551,7 @@ export default function EndpointDetail({
                   </Typography>
                   <Chip
                     label={endpoint.environment}
-                    color={getEnvironmentColor(endpoint.environment as string)}
+                    color={getEnvironmentColor()}
                     variant="outlined"
                     sx={{ textTransform: 'capitalize' }}
                   />

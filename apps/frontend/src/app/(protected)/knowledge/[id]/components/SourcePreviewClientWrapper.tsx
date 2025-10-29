@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
+  Alert,
   Paper,
   Button,
+  Chip,
   IconButton,
   Tooltip,
   Collapse,
-  useTheme,
-  TextField,
 } from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { PageContainer } from '@toolpad/core/PageContainer';
@@ -18,19 +18,11 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DownloadIcon from '@mui/icons-material/Download';
+import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
-import EditIcon from '@mui/icons-material/Edit';
-import styles from '@/styles/Knowledge.module.css';
-import {
-  FILE_SIZE_CONSTANTS,
-  TEXT_CONSTANTS,
-  formatFileSize,
-  formatDate,
-  getFileExtension,
-  truncateFilename,
-} from '@/constants/knowledge';
+import styles from '@/styles/SourcePreview.module.css';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
@@ -45,17 +37,45 @@ export default function SourcePreviewClientWrapper({
   source,
   sessionToken,
 }: SourcePreviewClientWrapperProps) {
-  const [content] = useState<string>(source.content || '');
+  const [content, setContent] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const notifications = useNotifications();
-  const theme = useTheme();
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [editedName, setEditedName] = useState(source.title || '');
-  const [editedDescription, setEditedDescription] = useState(
-    source.description || ''
-  );
-  const [isUpdating, setIsUpdating] = useState(false);
+
+  useEffect(() => {
+    // If source already has content field (from /content endpoint), use it
+    if (source.content) {
+      setContent(source.content);
+      setLoading(false);
+      return;
+    }
+
+    // Otherwise, try to fetch content from file endpoint
+    const fetchContent = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const sourcesClient = clientFactory.getSourcesClient();
+
+        // Try to get content from file endpoint
+        try {
+          const rawContent = await sourcesClient.getSourceContent(source.id);
+          setContent(rawContent);
+        } catch (rawError) {
+          setError('Failed to load source content');
+        }
+      } catch (error) {
+        setError('Failed to load source content');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchContent();
+  }, [source.id, source.content, sessionToken]);
 
   const handleCopyContentBlock = async () => {
     try {
@@ -65,97 +85,10 @@ export default function SourcePreviewClientWrapper({
         autoHideDuration: 2000,
       });
     } catch (error) {
-      console.error('Failed to copy content:', error);
       notifications.show('Failed to copy content', {
         severity: 'error',
         autoHideDuration: 2000,
       });
-    }
-  };
-
-  const handleEditName = () => {
-    setIsEditingName(true);
-    setEditedName(source.title || '');
-  };
-
-  const handleEditDescription = () => {
-    setIsEditingDescription(true);
-    setEditedDescription(source.description || '');
-  };
-
-  const handleCancelNameEdit = () => {
-    setIsEditingName(false);
-    setEditedName(source.title || '');
-  };
-
-  const handleCancelDescriptionEdit = () => {
-    setIsEditingDescription(false);
-    setEditedDescription(source.description || '');
-  };
-
-  const handleSaveNameEdit = async () => {
-    if (!sessionToken) return;
-
-    setIsUpdating(true);
-    try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const sourcesClient = clientFactory.getSourcesClient();
-
-      await sourcesClient.updateSource(source.id, {
-        title: editedName,
-      });
-
-      // Update the source object to reflect the new title
-      source.title = editedName;
-      setIsEditingName(false);
-
-      notifications.show('Name updated successfully!', {
-        severity: 'success',
-        autoHideDuration: 2000,
-      });
-    } catch (error) {
-      console.error('Error updating source name:', error);
-      notifications.show('Failed to update name', {
-        severity: 'error',
-        autoHideDuration: 2000,
-      });
-      // Reset the edited name to the original value on error
-      setEditedName(source.title || '');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleSaveDescriptionEdit = async () => {
-    if (!sessionToken) return;
-
-    setIsUpdating(true);
-    try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const sourcesClient = clientFactory.getSourcesClient();
-
-      await sourcesClient.updateSource(source.id, {
-        description: editedDescription,
-      });
-
-      // Update the source object to reflect the new description
-      source.description = editedDescription;
-      setIsEditingDescription(false);
-
-      notifications.show('Description updated successfully!', {
-        severity: 'success',
-        autoHideDuration: 2000,
-      });
-    } catch (error) {
-      console.error('Error updating source description:', error);
-      notifications.show('Failed to update description', {
-        severity: 'error',
-        autoHideDuration: 2000,
-      });
-      // Reset the edited description to the original value on error
-      setEditedDescription(source.description || '');
-    } finally {
-      setIsUpdating(false);
     }
   };
 
@@ -182,12 +115,61 @@ export default function SourcePreviewClientWrapper({
         autoHideDuration: 2000,
       });
     } catch (error) {
-      console.error('Failed to download file:', error);
       notifications.show('Failed to download file', {
         severity: 'error',
         autoHideDuration: 2000,
       });
     }
+  };
+
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Unknown';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid date';
+
+      // Use consistent DD/MM/YYYY formatting
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+
+      return `${day}/${month}/${year}`;
+    } catch {
+      return 'Invalid date';
+    }
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return 'Unknown';
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
+  };
+
+  const getFileExtension = (filename?: string) => {
+    if (!filename) return 'unknown';
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (!ext) return 'unknown';
+    return ext === 'htm' ? 'html' : ext === 'jpeg' ? 'jpg' : ext;
+  };
+
+  const truncateFilename = (filename: string, maxLength: number = 50) => {
+    if (filename.length <= maxLength) return filename;
+
+    // Try to preserve the file extension
+    const lastDotIndex = filename.lastIndexOf('.');
+    if (lastDotIndex > 0) {
+      const extension = filename.substring(lastDotIndex);
+      const nameWithoutExt = filename.substring(0, lastDotIndex);
+      const availableLength = maxLength - extension.length - 3; // 3 for "..."
+
+      if (availableLength > 0) {
+        return `${nameWithoutExt.substring(0, availableLength)}...${extension}`;
+      }
+    }
+
+    // Fallback: just truncate and add ellipsis
+    return `${filename.substring(0, maxLength - 3)}...`;
   };
 
   const fileExtension = getFileExtension(
@@ -203,294 +185,149 @@ export default function SourcePreviewClientWrapper({
         { title: displayTitle, path: `/knowledge/${source.id}` },
       ]}
     >
-      {/* Source Detail */}
-      <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Source Detail
-        </Typography>
+      {/* Header with source info and actions */}
+      <Paper className={styles.headerContainer}>
+        <Box className={styles.headerContent}>
+          <Box className={styles.sourceInfo}>
+            {/* Action Buttons */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<DownloadIcon />}
+                onClick={handleDownloadFile}
+              >
+                Download File
+              </Button>
+            </Box>
 
-        {/* Action Buttons */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={handleDownloadFile}
-          >
-            Download File
-          </Button>
-        </Box>
+            {source.description && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                className={styles.description}
+              >
+                {source.description}
+              </Typography>
+            )}
 
-        {/* Title Field */}
-        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
-          Title
-        </Typography>
-        {isEditingName ? (
-          <TextField
-            fullWidth
-            value={editedName}
-            onChange={e => setEditedName(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSaveNameEdit();
-              }
-            }}
-            sx={{ mb: 2 }}
-            autoFocus
-          />
-        ) : (
-          <Box sx={{ position: 'relative', mb: 3 }}>
-            <Typography
-              component="pre"
-              variant="body2"
+            {/* Metadata Grid */}
+            <Box
               sx={{
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'monospace',
-                bgcolor: 'action.hover',
-                borderRadius: theme => theme.shape.borderRadius * 0.25,
-                padding: 1,
-                paddingRight: theme.spacing(10),
-                wordBreak: 'break-word',
-                minHeight: 'calc(2 * 1.4375em + 2 * 8px)',
-                display: 'flex',
-                alignItems: 'center',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 2,
+                mb: 2,
               }}
             >
-              {source.title || 'Untitled Source'}
-            </Typography>
-            <Button
-              startIcon={<EditIcon />}
-              onClick={handleEditName}
-              sx={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                zIndex: 1,
-                backgroundColor: theme =>
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(0, 0, 0, 0.6)'
-                    : 'rgba(255, 255, 255, 0.8)',
-                '&:hover': {
-                  backgroundColor: theme =>
-                    theme.palette.mode === 'dark'
-                      ? 'rgba(0, 0, 0, 0.8)'
-                      : 'rgba(255, 255, 255, 0.9)',
-                },
-              }}
-            >
-              Edit
-            </Button>
-          </Box>
-        )}
-
-        {/* Name Edit Actions */}
-        {isEditingName && (
-          <Box
-            sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 3 }}
-          >
-            <Button
-              variant="outlined"
-              onClick={handleCancelNameEdit}
-              disabled={isUpdating}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSaveNameEdit}
-              disabled={isUpdating}
-            >
-              {isUpdating ? 'Saving...' : 'Save'}
-            </Button>
-          </Box>
-        )}
-
-        {/* Description Field */}
-        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
-          Description
-        </Typography>
-        {isEditingDescription ? (
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            value={editedDescription}
-            onChange={e => setEditedDescription(e.target.value)}
-            sx={{ mb: 2 }}
-            autoFocus
-          />
-        ) : (
-          <Box sx={{ position: 'relative', mb: 3 }}>
-            <Typography
-              component="pre"
-              variant="body2"
-              sx={{
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'monospace',
-                bgcolor: 'action.hover',
-                borderRadius: theme => theme.shape.borderRadius * 0.25,
-                padding: 1,
-                minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
-                paddingRight: theme.spacing(10),
-                wordBreak: 'break-word',
-              }}
-            >
-              {source.description || ' '}
-            </Typography>
-            <Button
-              startIcon={<EditIcon />}
-              onClick={handleEditDescription}
-              sx={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                zIndex: 1,
-                backgroundColor: theme =>
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(0, 0, 0, 0.6)'
-                    : 'rgba(255, 255, 255, 0.8)',
-                '&:hover': {
-                  backgroundColor: theme =>
-                    theme.palette.mode === 'dark'
-                      ? 'rgba(0, 0, 0, 0.8)'
-                      : 'rgba(255, 255, 255, 0.9)',
-                },
-              }}
-            >
-              Edit
-            </Button>
-          </Box>
-        )}
-
-        {/* Description Edit Actions */}
-        {isEditingDescription && (
-          <Box
-            sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 3 }}
-          >
-            <Button
-              variant="outlined"
-              onClick={handleCancelDescriptionEdit}
-              disabled={isUpdating}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSaveDescriptionEdit}
-              disabled={isUpdating}
-            >
-              {isUpdating ? 'Saving...' : 'Save'}
-            </Button>
-          </Box>
-        )}
-
-        {/* Metadata Grid */}
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 2,
-            mb: 2,
-          }}
-        >
-          <Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.5 }}
-            >
-              Size:
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {formatFileSize(source.source_metadata?.file_size)}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.5 }}
-            >
-              Type:
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {fileExtension.toUpperCase()}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.5 }}
-            >
-              Added by:
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {source.source_metadata?.uploader_name || 'Unknown'}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.5 }}
-            >
-              Uploaded:
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {formatDate(source.source_metadata?.uploaded_at)}
-            </Typography>
+              <Box>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 0.5 }}
+                >
+                  Size:
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {formatFileSize(source.source_metadata?.file_size)}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 0.5 }}
+                >
+                  Type:
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {fileExtension.toUpperCase()}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 0.5 }}
+                >
+                  Added by:
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {source.source_metadata?.uploader_name || 'Unknown'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 0.5 }}
+                >
+                  Uploaded:
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {formatDate(source.source_metadata?.uploaded_at)}
+                </Typography>
+              </Box>
+            </Box>
           </Box>
         </Box>
       </Paper>
 
       {/* Content preview */}
-      {content ? (
-        <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
-          <Box className={styles.contentBlock}>
-            {/* Content Block Header */}
-            <Box className={styles.contentBlockHeader}>
-              <Box className={styles.contentBlockTitle}>
-                <InsertDriveFileOutlined className={styles.documentIcon} />
-                <Typography variant="body2" color="text.secondary">
-                  Extracted Content
-                </Typography>
-              </Box>
-              <Box className={styles.contentBlockActions}>
-                <Tooltip title="Copy Content">
-                  <IconButton
-                    size="small"
-                    onClick={handleCopyContentBlock}
-                    className={styles.copyButton}
-                  >
-                    <ContentCopyIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={isContentExpanded ? 'Collapse' : 'Expand'}>
-                  <IconButton
-                    size="small"
-                    onClick={() => setIsContentExpanded(!isContentExpanded)}
-                    className={styles.expandButton}
-                  >
-                    {isContentExpanded ? (
-                      <ExpandLessIcon />
-                    ) : (
-                      <ExpandMoreIcon />
-                    )}
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Box>
+      {loading && (
+        <Box className={styles.loadingContainer}>
+          <Typography color="text.secondary">Loading content...</Typography>
+        </Box>
+      )}
 
-            {/* Content Block Body */}
-            <Collapse in={isContentExpanded}>
-              <Box className={styles.contentBlockBody}>
-                <pre className={styles.contentText}>{content}</pre>
-              </Box>
-            </Collapse>
+      {error && (
+        <Alert severity="error" className={styles.errorAlert}>
+          {error}
+        </Alert>
+      )}
+
+      {!loading && !error && content && (
+        <Box className={styles.contentBlock}>
+          {/* Content Block Header */}
+          <Box className={styles.contentBlockHeader}>
+            <Box className={styles.contentBlockTitle}>
+              <InsertDriveFileOutlined className={styles.documentIcon} />
+              <Typography variant="body2" color="text.secondary">
+                {source.title || 'Document Content'}
+              </Typography>
+            </Box>
+            <Box className={styles.contentBlockActions}>
+              <Tooltip title="Copy Content">
+                <IconButton
+                  size="small"
+                  onClick={handleCopyContentBlock}
+                  className={styles.copyButton}
+                >
+                  <ContentCopyIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={isContentExpanded ? 'Collapse' : 'Expand'}>
+                <IconButton
+                  size="small"
+                  onClick={() => setIsContentExpanded(!isContentExpanded)}
+                  className={styles.expandButton}
+                >
+                  {isContentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
-        </Paper>
-      ) : (
+
+          {/* Content Block Body */}
+          <Collapse in={isContentExpanded}>
+            <Box className={styles.contentBlockBody}>
+              <pre className={styles.contentText}>{content}</pre>
+            </Box>
+          </Collapse>
+        </Box>
+      )}
+
+      {!loading && !error && !content && (
         <Box className={styles.emptyContainer}>
           <Typography color="text.secondary">No content available</Typography>
         </Box>

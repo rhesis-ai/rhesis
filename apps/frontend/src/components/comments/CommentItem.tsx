@@ -74,7 +74,6 @@ export function CommentItem({
         const tasks = await fetchTasksByCommentId(comment.id);
         setAssociatedTasks(tasks);
       } catch (error) {
-        console.error('Failed to fetch associated tasks:', error);
       } finally {
         setIsLoadingTasks(false);
       }
@@ -91,7 +90,6 @@ export function CommentItem({
       await onEdit(comment.id, editText.trim());
       setIsEditing(false);
     } catch (error) {
-      console.error('Failed to edit comment:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -112,7 +110,6 @@ export function CommentItem({
       await onDelete(comment.id);
       setShowDeleteModal(false);
     } catch (error) {
-      console.error('Failed to delete comment:', error);
     } finally {
       setIsDeleting(false);
     }

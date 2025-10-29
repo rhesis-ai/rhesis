@@ -151,7 +151,6 @@ export class TestSetsClient extends BaseApiClient {
         this.baseUrl,
         queryString ? `${path}?${queryString}` : path
       );
-      console.log('Fetching test sets with has_runs filter:', url);
 
       // Use fetch to get raw response and construct paginated response manually
       const rawResponse = await fetch(url, {
@@ -228,7 +227,6 @@ export class TestSetsClient extends BaseApiClient {
 
     // Convert numeric priorities to string values
     if (!response || !response.data) {
-      console.error('Invalid response from getTestSets:', response);
       throw new Error('Invalid response structure from test sets API');
     }
 

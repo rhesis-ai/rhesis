@@ -157,7 +157,11 @@ export default function SourcesGrid({
 
       // Delete all selected sources
       await Promise.all(
-        selectedRows.map(id => sourcesClient.deleteSource(String(id)))
+        selectedRows.map(id =>
+          sourcesClient.deleteSource(
+            String(id) as `${string}-${string}-${string}-${string}-${string}`
+          )
+        )
       );
 
       // Show success notification
@@ -186,7 +190,12 @@ export default function SourcesGrid({
 
   // Get action buttons based on selection
   const getActionButtons = useCallback(() => {
-    const buttons = [
+    const buttons: Array<{
+      label: string;
+      icon: React.ReactNode;
+      variant: 'text' | 'outlined' | 'contained';
+      onClick: () => void;
+    }> = [
       {
         label: 'Upload Source',
         icon: <UploadIcon />,

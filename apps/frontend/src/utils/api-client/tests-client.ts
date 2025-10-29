@@ -97,12 +97,7 @@ export class TestsClient extends BaseApiClient {
   }
 
   async getTest(id: string): Promise<TestDetail> {
-    console.log('Fetching test with ID:', id);
-    console.log('API URL:', `${this.baseUrl}${API_ENDPOINTS.tests}/${id}`);
-    console.log('Headers:', this.getHeaders());
-
     const test = await this.fetch<TestDetail>(`${API_ENDPOINTS.tests}/${id}`);
-    console.log('Raw API response:', test);
 
     // Convert numeric priority to string value
     return this.convertTestPriority(test);

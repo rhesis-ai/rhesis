@@ -60,7 +60,6 @@ export default async function TestSetPage({ params }: { params: any }) {
   }
 
   // Log the test set data to help diagnose status issues
-  console.log('Test Set JSON Data:', JSON.stringify(testSet, null, 2));
 
   // Serialize the testSet data to ensure consistent rendering
   const serializedTestSet = JSON.parse(JSON.stringify(testSet));
