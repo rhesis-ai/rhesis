@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { Box, Grid, Typography, useTheme } from '@mui/material';
-import { InsertDriveFileOutlined as DocumentIcon } from '@mui/icons-material';
 import BaseFreesoloAutocomplete, {
   AutocompleteOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
@@ -10,6 +9,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail, TypeLookup } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import TestExecutableField from './TestExecutableField';
+import FilePreview from '@/components/common/FilePreview';
 import { UUID } from 'crypto';
 
 interface TestDetailDataProps {
@@ -343,39 +343,19 @@ export default function TestDetailData({
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {test.test_metadata.sources.map((source: any, index: number) => (
-              <Box key={index}>
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-                >
-                  <DocumentIcon
-                    sx={{
-                      fontSize: theme.iconSizes.small,
-                      color: 'text.secondary',
-                    }}
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    {source.document || source.source || 'Unknown Document'}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    p: 2,
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: theme => theme.shape.borderRadius * 0.25,
-                    backgroundColor: 'background.paper',
-                    minHeight: '100px',
-                    maxHeight: '300px',
-                    overflow: 'auto',
-                    fontFamily: 'monospace',
-                    fontSize: theme.typography.helperText.fontSize,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {source.content || 'No content available'}
-                </Box>
-              </Box>
+              <FilePreview
+                key={index}
+                title={
+                  source.name ||
+                  source.document ||
+                  source.source ||
+                  'Unknown Document'
+                }
+                content={source.content || 'No content available'}
+                description={source.description}
+                showCopyButton={true}
+                defaultExpanded={false}
+              />
             ))}
           </Box>
         </Grid>
