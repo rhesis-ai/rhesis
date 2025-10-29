@@ -125,6 +125,8 @@ services:
       LOG_LEVEL: DEBUG
     ports:
       - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
@@ -161,6 +163,8 @@ services:
       ENABLE_FLOWER: no
     ports:
       - "8081:8081"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
