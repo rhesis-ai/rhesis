@@ -31,7 +31,7 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
 
         # Check if telemetry is globally enabled (based on deployment type + env var)
         telemetry_enabled = is_telemetry_enabled()
-        
+
         if not telemetry_enabled:
             # Telemetry disabled, just process request normally
             return await call_next(request)
