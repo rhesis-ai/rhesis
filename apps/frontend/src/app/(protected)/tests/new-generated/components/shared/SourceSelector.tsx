@@ -19,14 +19,16 @@ import { Source } from '@/utils/api-client/interfaces/source';
 import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
 
+import { SourceData } from '@/utils/api-client/interfaces/test-set';
+
 interface SourceSelectorProps {
   selectedSourceIds: string[];
-  onSourcesChange: (sourceIds: string[]) => void;
+  onSourcesChange: (sources: SourceData[]) => void;
 }
 
 /**
  * SourceSelector Component
- * Allows users to select existing sources (documents) from their library
+ * Allows users to select existing sources from their library
  * Displays selected sources as chips below the dropdown
  */
 export default function SourceSelector({
@@ -78,12 +80,47 @@ export default function SourceSelector({
   const handleChange = (event: SelectChangeEvent<string>) => {
     const value = event.target.value;
     if (value && !selectedSourceIds.includes(value)) {
-      onSourcesChange([...selectedSourceIds, value]);
+      const source = getSourceById(value);
+      if (source && source.id) {
+        // Create SourceData object with ID and name (mapped from title)
+        const sourceData: SourceData = {
+          id: source.id,
+          name: source.title,
+          description: source.description,
+        };
+        const currentSources = selectedSourceIds.map(id => {
+          const s = getSourceById(id);
+          if (!s || !s.id) return null;
+          // Include name (mapped from title) and description for display
+          return {
+            id: s.id,
+            name: s.title,
+            description: s.description,
+          };
+        });
+        const newSources = [
+          ...(currentSources.filter(Boolean) as SourceData[]),
+          sourceData,
+        ];
+        onSourcesChange(newSources);
+      }
     }
   };
 
   const handleRemove = (sourceId: string) => {
-    onSourcesChange(selectedSourceIds.filter(id => id !== sourceId));
+    const remainingIds = selectedSourceIds.filter(id => id !== sourceId);
+
+    // Include name (mapped from title) and description for display
+    const newSources = remainingIds.map(id => {
+      const s = getSourceById(id);
+      if (!s || !s.id) return null;
+      return {
+        id: s.id,
+        name: s.title,
+        description: s.description,
+      };
+    });
+    onSourcesChange(newSources.filter(Boolean) as SourceData[]);
   };
 
   const getSourceById = (sourceId: string): Source | undefined => {

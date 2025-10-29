@@ -20,6 +20,7 @@ import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
 import SendIcon from '@mui/icons-material/Send';
 import CircularProgress from '@mui/material/CircularProgress';
 import { TestSample } from './types';
+import ContextPreview from './ContextPreview';
 
 interface TestSampleCardProps {
   sample: TestSample;
@@ -115,7 +116,9 @@ export default function TestSampleCard({
           {/* Main Content */}
           <Box sx={{ flex: 1 }}>
             {/* Metadata Chips */}
-            <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}>
+            <Box
+              sx={{ display: 'flex', gap: 0.5, mb: 1.5, alignItems: 'center' }}
+            >
               <Chip
                 label={sample.behavior}
                 size="small"
@@ -123,6 +126,7 @@ export default function TestSampleCard({
                 variant="outlined"
               />
               <Chip label={sample.topic} size="small" variant="outlined" />
+              <ContextPreview context={sample.context} />
             </Box>
 
             {/* Prompt (Left-aligned) */}

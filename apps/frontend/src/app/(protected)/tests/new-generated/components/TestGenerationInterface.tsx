@@ -29,12 +29,8 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ApiIcon from '@mui/icons-material/Api';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import {
-  ConfigChips,
-  TestSample,
-  ChatMessage,
-  type ProcessedDocument,
-} from './shared/types';
+import { ConfigChips, TestSample, ChatMessage } from './shared/types';
+import { SourceData } from '@/utils/api-client/interfaces/test-set';
 import ChipGroup from './shared/ChipGroup';
 import TestSampleCard from './shared/TestSampleCard';
 import ActionBar from '@/components/common/ActionBar';
@@ -47,8 +43,8 @@ interface TestGenerationInterfaceProps {
   configChips: ConfigChips;
   testSamples: TestSample[];
   chatMessages: ChatMessage[];
-  documents: ProcessedDocument[];
   description: string;
+  selectedSources: SourceData[];
   selectedEndpointId: string | null;
   onChipToggle: (category: keyof ConfigChips, chipId: string) => void;
   onSendMessage: (message: string) => void;
@@ -59,8 +55,7 @@ interface TestGenerationInterfaceProps {
   onBack: () => void;
   onNext: () => void;
   onEndpointChange: (endpointId: string | null) => void;
-  onDocumentRemove: (documentId: string) => void;
-  onDocumentAdd: (document: ProcessedDocument) => void;
+  onSourceRemove: (sourceId: string) => void;
   isGenerating: boolean;
   isLoadingMore: boolean;
   regeneratingSampleId: string | null;
@@ -75,8 +70,8 @@ export default function TestGenerationInterface({
   configChips,
   testSamples,
   chatMessages,
-  documents,
   description,
+  selectedSources,
   selectedEndpointId,
   onChipToggle,
   onSendMessage,
@@ -87,8 +82,7 @@ export default function TestGenerationInterface({
   onBack,
   onNext,
   onEndpointChange,
-  onDocumentRemove,
-  onDocumentAdd,
+  onSourceRemove,
   isGenerating,
   isLoadingMore,
   regeneratingSampleId,
@@ -342,37 +336,6 @@ export default function TestGenerationInterface({
     [handleSendMessage]
   );
 
-  const handleUploadSuccess = useCallback(async () => {
-    if (!session?.session_token) return;
-
-    try {
-      // Fetch the newly uploaded source
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const sourcesClient = apiFactory.getSourcesClient();
-
-      // Get all sources and find the most recent one (sorted by created_at desc by default)
-      const response = await sourcesClient.getSources({ skip: 0, limit: 1 });
-      if (response.data.length > 0) {
-        // Get the most recent source (assuming it's the one just uploaded)
-        const mostRecentSource = response.data[0];
-
-        const newDocument: ProcessedDocument = {
-          id: mostRecentSource.id,
-          name: mostRecentSource.title,
-          description: mostRecentSource.description || '',
-          path: '',
-          content: mostRecentSource.content || '',
-          originalName: mostRecentSource.title,
-          status: 'completed',
-        };
-
-        onDocumentAdd(newDocument);
-      }
-    } catch (error) {
-      console.error('Error loading uploaded source:', error);
-    }
-  }, [session?.session_token, onDocumentAdd]);
-
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default' }}>
       {/* Main Content */}
@@ -426,7 +389,7 @@ export default function TestGenerationInterface({
                       Tests Configuration
                     </Typography>
                     <Tooltip
-                      title="Configure test parameters and upload documents to guide AI generation."
+                      title="Configure test parameters and upload sources to guide AI generation."
                       arrow
                       placement="top"
                     >
@@ -561,8 +524,8 @@ export default function TestGenerationInterface({
                 </Box>
               </Box>
 
-              {/* Uploaded Files Section */}
-              {documents.length > 0 && (
+              {/* Selected Sources Section */}
+              {selectedSources.length > 0 && (
                 <Box
                   sx={{
                     p: 2,
@@ -577,17 +540,17 @@ export default function TestGenerationInterface({
                     gutterBottom
                     sx={{ mb: 1 }}
                   >
-                    Selected sources (documents)
+                    Selected sources
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {documents.map(doc => (
+                    {selectedSources.map(source => (
                       <Chip
-                        key={doc.id}
+                        key={source.id}
                         icon={<DescriptionIcon />}
-                        label={doc.name || doc.originalName}
+                        label={source.name || source.id}
                         size="small"
                         variant="outlined"
-                        onDelete={() => onDocumentRemove(doc.id)}
+                        onDelete={() => onSourceRemove(source.id)}
                       />
                     ))}
                   </Box>
@@ -614,7 +577,7 @@ export default function TestGenerationInterface({
                     p: 0.5,
                   }}
                 >
-                  <Tooltip title="Upload source document">
+                  <Tooltip title="Upload source">
                     <IconButton
                       size="small"
                       sx={{ ml: 0.5 }}
@@ -854,7 +817,6 @@ export default function TestGenerationInterface({
         <UploadSourceDialog
           open={showUploadDialog}
           onClose={() => setShowUploadDialog(false)}
-          onSuccess={handleUploadSuccess}
           sessionToken={session.session_token}
         />
       )}
