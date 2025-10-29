@@ -17,6 +17,7 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import {
   SUPPORTED_PROVIDERS,
+  LOCAL_PROVIDERS,
   PROVIDER_ICONS,
   type ProviderInfo,
 } from '@/config/model-providers';
@@ -39,6 +40,9 @@ export function ProviderSelectionDialog({
     provider => provider.type_value !== 'rhesis'
   );
 
+  // Check if frontend is running in local mode
+  const isLocalMode = process.env.FRONTEND_ENV === 'local';
+
   if (!userSelectableProviders || userSelectableProviders.length === 0) {
     return (
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -57,17 +61,32 @@ export function ProviderSelectionDialog({
     );
   }
 
-  // Sort providers: enabled first (alphabetically), then coming soon (alphabetically)
+  // Sort providers: supported first, then local deployment, then unsupported (all alphabetically)
   const sortedProviders = [...userSelectableProviders].sort((a, b) => {
     const aSupported = SUPPORTED_PROVIDERS.includes(a.type_value);
     const bSupported = SUPPORTED_PROVIDERS.includes(b.type_value);
+    const aLocal = LOCAL_PROVIDERS.includes(a.type_value);
+    const bLocal = LOCAL_PROVIDERS.includes(b.type_value);
 
-    // If support status differs, supported comes first
-    if (aSupported !== bSupported) {
-      return bSupported ? 1 : -1;
+    // Determine tier for each provider
+    // Tier 1: Supported and not local (fully enabled)
+    // Tier 2: Local deployment (supported but local-only)
+    // Tier 3: Not supported (coming soon)
+    const getTier = (isSupported: boolean, isLocal: boolean) => {
+      if (isSupported && !isLocal) return 1;
+      if (isLocal) return 2;
+      return 3;
+    };
+
+    const aTier = getTier(aSupported, aLocal);
+    const bTier = getTier(bSupported, bLocal);
+
+    // If tiers differ, sort by tier
+    if (aTier !== bTier) {
+      return aTier - bTier;
     }
 
-    // Within same support status, sort alphabetically
+    // Within same tier, sort alphabetically
     return a.type_value.localeCompare(b.type_value);
   });
 
@@ -80,6 +99,10 @@ export function ProviderSelectionDialog({
             const isSupported = SUPPORTED_PROVIDERS.includes(
               provider.type_value
             );
+            const isLocal = LOCAL_PROVIDERS.includes(provider.type_value);
+            // Enable local providers only when FRONTEND_ENV is 'local'
+            const isEnabled = isSupported && (!isLocal || isLocalMode);
+            
             const providerInfo: ProviderInfo = {
               id: provider.type_value,
               name: provider.description || provider.type_value,
@@ -94,15 +117,15 @@ export function ProviderSelectionDialog({
             return (
               <ListItemButton
                 key={provider.id}
-                onClick={() => isSupported && onSelectProvider(provider)}
-                disabled={!isSupported}
+                onClick={() => isEnabled && onSelectProvider(provider)}
+                disabled={!isEnabled}
                 sx={{
                   borderRadius: theme => theme.shape.borderRadius * 0.25,
                   my: 0.5,
-                  opacity: isSupported ? 1 : 0.5,
-                  cursor: isSupported ? 'pointer' : 'not-allowed',
+                  opacity: isEnabled ? 1 : 0.5,
+                  cursor: isEnabled ? 'pointer' : 'not-allowed',
                   '&:hover': {
-                    backgroundColor: isSupported
+                    backgroundColor: isEnabled
                       ? 'action.hover'
                       : 'transparent',
                   },
@@ -111,14 +134,27 @@ export function ProviderSelectionDialog({
                   },
                 }}
               >
-                <ListItemIcon sx={{ opacity: isSupported ? 1 : 0.4 }}>
+                <ListItemIcon sx={{ opacity: isEnabled ? 1 : 0.4 }}>
                   {providerInfo.icon}
                 </ListItemIcon>
                 <ListItemText
                   primary={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography>{providerInfo.name}</Typography>
-                      {!isSupported && (
+                      {isLocal && (
+                        <Chip
+                          label="Local deployment only"
+                          size="small"
+                          color="default"
+                          sx={{
+                            height: 20,
+                            fontSize: theme =>
+                              theme.typography.caption.fontSize,
+                            fontWeight: 500,
+                          }}
+                        />
+                      )}
+                      {!isSupported && !isLocal && (
                         <Chip
                           label="Coming Soon"
                           size="small"
@@ -135,7 +171,7 @@ export function ProviderSelectionDialog({
                   }
                   secondary={providerInfo.description}
                   secondaryTypographyProps={{
-                    sx: { opacity: isSupported ? 1 : 0.6 },
+                    sx: { opacity: isEnabled ? 1 : 0.6 },
                   }}
                 />
               </ListItemButton>
