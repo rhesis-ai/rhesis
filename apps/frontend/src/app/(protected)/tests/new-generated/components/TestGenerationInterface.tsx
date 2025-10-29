@@ -24,11 +24,13 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SendIcon from '@mui/icons-material/Send';
 import AddIcon from '@mui/icons-material/Add';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import DescriptionIcon from '@mui/icons-material/Description';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ApiIcon from '@mui/icons-material/Api';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { ConfigChips, TestSample, ChatMessage } from './shared/types';
+import { SourceData } from '@/utils/api-client/interfaces/test-set';
 import ChipGroup from './shared/ChipGroup';
 import TestSampleCard from './shared/TestSampleCard';
 import ActionBar from '@/components/common/ActionBar';
@@ -42,6 +44,7 @@ interface TestGenerationInterfaceProps {
   testSamples: TestSample[];
   chatMessages: ChatMessage[];
   description: string;
+  selectedSources: SourceData[];
   selectedEndpointId: string | null;
   onChipToggle: (category: keyof ConfigChips, chipId: string) => void;
   onSendMessage: (message: string) => void;
@@ -52,6 +55,7 @@ interface TestGenerationInterfaceProps {
   onBack: () => void;
   onNext: () => void;
   onEndpointChange: (endpointId: string | null) => void;
+  onSourceRemove: (sourceId: string) => void;
   isGenerating: boolean;
   isLoadingMore: boolean;
   regeneratingSampleId: string | null;
@@ -67,6 +71,7 @@ export default function TestGenerationInterface({
   testSamples,
   chatMessages,
   description,
+  selectedSources,
   selectedEndpointId,
   onChipToggle,
   onSendMessage,
@@ -77,6 +82,7 @@ export default function TestGenerationInterface({
   onBack,
   onNext,
   onEndpointChange,
+  onSourceRemove,
   isGenerating,
   isLoadingMore,
   regeneratingSampleId,
@@ -517,6 +523,39 @@ export default function TestGenerationInterface({
                   />
                 </Box>
               </Box>
+
+              {/* Selected Sources Section */}
+              {selectedSources.length > 0 && (
+                <Box
+                  sx={{
+                    p: 2,
+                    borderTop: 1,
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                    sx={{ mb: 1 }}
+                  >
+                    Selected sources (documents)
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {selectedSources.map(source => (
+                      <Chip
+                        key={source.id}
+                        icon={<DescriptionIcon />}
+                        label={source.name || source.id}
+                        size="small"
+                        variant="outlined"
+                        onDelete={() => onSourceRemove(source.id)}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
 
               {/* Chat Input */}
               <Box

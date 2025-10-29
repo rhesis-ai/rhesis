@@ -190,10 +190,15 @@ export default function TestGenerationFlow({
                   topic: test.topic,
                   rating: null,
                   feedback: '',
-                  context: test.metadata?.sources?.map((source: any) => ({
-                    name: source.name || source.source,
-                    description: source.description,
-                  })),
+                  context: test.metadata?.sources
+                    ?.map((source: any) => ({
+                      name: source.name || source.source || source.title || '',
+                      description: source.description || '',
+                      content: source.content || '',
+                    }))
+                    .filter(
+                      (src: any) => src.name && src.name.trim().length > 0
+                    ),
                 })
               );
 
@@ -325,11 +330,13 @@ export default function TestGenerationFlow({
               topic: test.topic,
               rating: null,
               feedback: '',
-              context: test.metadata?.sources?.map((source: any) => ({
-                name: source.name || source.source || '',
-                description: source.description || '',
-                content: source.content || '',
-              })),
+              context: test.metadata?.sources
+                ?.map((source: any) => ({
+                  name: source.name || source.source || source.title || '',
+                  description: source.description || '',
+                  content: source.content || '',
+                }))
+                .filter((src: any) => src.name && src.name.trim().length > 0),
             })
           );
 
@@ -465,13 +472,13 @@ export default function TestGenerationFlow({
             topic: response.tests[0].topic,
             rating: null,
             feedback: '',
-            context: response.tests[0].metadata?.sources?.map(
-              (source: any) => ({
-                name: source.name || source.source || '',
+            context: response.tests[0].metadata?.sources
+              ?.map((source: any) => ({
+                name: source.name || source.source || source.title || '',
                 description: source.description || '',
                 content: source.content || '',
-              })
-            ),
+              }))
+              .filter((src: any) => src.name && src.name.trim().length > 0),
           };
 
           // Replace the old sample with the new one
@@ -689,11 +696,13 @@ export default function TestGenerationFlow({
               topic: test.topic,
               rating: null,
               feedback: '',
-              context: test.metadata?.sources?.map((source: any) => ({
-                name: source.name || source.source || '',
-                description: source.description || '',
-                content: source.content || '',
-              })),
+              context: test.metadata?.sources
+                ?.map((source: any) => ({
+                  name: source.name || source.source || source.title || '',
+                  description: source.description || '',
+                  content: source.content || '',
+                }))
+                .filter((src: any) => src.name && src.name.trim().length > 0),
             })
           );
 
@@ -960,6 +969,11 @@ export default function TestGenerationFlow({
     setCurrentScreen('confirmation');
   }, []);
 
+  const handleSourceRemove = useCallback((sourceId: string) => {
+    setSelectedSources(prev => prev.filter(s => s.id !== sourceId));
+    setSelectedSourceIds(prev => prev.filter(id => id !== sourceId));
+  }, []);
+
   // Render current screen
   const renderCurrentScreen = () => {
     // Show loading state while initializing from template
@@ -1006,6 +1020,7 @@ export default function TestGenerationFlow({
             testSamples={testSamples}
             chatMessages={chatMessages}
             description={description}
+            selectedSources={selectedSources}
             selectedEndpointId={selectedEndpointId}
             onChipToggle={handleChipToggle}
             onSendMessage={handleSendMessage}
@@ -1016,6 +1031,7 @@ export default function TestGenerationFlow({
             onBack={handleBackToInput}
             onNext={handleNextToConfirmation}
             onEndpointChange={setSelectedEndpointId}
+            onSourceRemove={handleSourceRemove}
             isGenerating={isGenerating}
             isLoadingMore={isLoadingMore}
             regeneratingSampleId={regeneratingSampleId}
@@ -1028,6 +1044,7 @@ export default function TestGenerationFlow({
             configChips={configChips}
             testSetSize={testSetSize}
             testSetName={testSetName}
+            sources={selectedSources}
             onBack={handleBackToInterface}
             onGenerate={handleGenerate}
             onTestSetSizeChange={setTestSetSize}

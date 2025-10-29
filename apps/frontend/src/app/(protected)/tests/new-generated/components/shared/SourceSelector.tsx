@@ -82,16 +82,20 @@ export default function SourceSelector({
     if (value && !selectedSourceIds.includes(value)) {
       const source = getSourceById(value);
       if (source && source.id) {
-        // Create SourceData object with only ID - backend will fetch full data
+        // Create SourceData object with ID and name (mapped from title)
         const sourceData: SourceData = {
           id: source.id,
+          name: source.title,
+          description: source.description,
         };
         const currentSources = selectedSourceIds.map(id => {
           const s = getSourceById(id);
           if (!s || !s.id) return null;
-          // Only send ID - backend will fetch full data from database
+          // Include name (mapped from title) and description for display
           return {
             id: s.id,
+            name: s.title,
+            description: s.description,
           };
         });
         const newSources = [
@@ -106,12 +110,14 @@ export default function SourceSelector({
   const handleRemove = (sourceId: string) => {
     const remainingIds = selectedSourceIds.filter(id => id !== sourceId);
 
-    // Only send IDs - backend will fetch full data from database
+    // Include name (mapped from title) and description for display
     const newSources = remainingIds.map(id => {
       const s = getSourceById(id);
       if (!s || !s.id) return null;
       return {
         id: s.id,
+        name: s.title,
+        description: s.description,
       };
     });
     onSourcesChange(newSources.filter(Boolean) as SourceData[]);

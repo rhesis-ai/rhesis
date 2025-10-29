@@ -17,11 +17,13 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import { ConfigChips, TestSetSize, ChipConfig } from './shared/types';
 import TestSetSizeSelector from './shared/TestSetSizeSelector';
 import ActionBar from '@/components/common/ActionBar';
+import { SourceData } from '@/utils/api-client/interfaces/test-set';
 
 interface TestConfigurationConfirmationProps {
   configChips: ConfigChips;
   testSetSize: TestSetSize;
   testSetName: string;
+  sources?: SourceData[];
   onBack: () => void;
   onGenerate: () => void;
   onTestSetSizeChange: (size: TestSetSize) => void;
@@ -37,6 +39,7 @@ export default function TestConfigurationConfirmation({
   configChips,
   testSetSize,
   testSetName,
+  sources = [],
   onBack,
   onGenerate,
   onTestSetSizeChange,
@@ -180,6 +183,37 @@ export default function TestConfigurationConfirmation({
                             color="secondary"
                           />
                         ))}
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Documents */}
+                {sources.length > 0 && (
+                  <Box sx={{ mb: 3 }}>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Context Documents
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 1,
+                      }}
+                    >
+                      {sources.map(doc => (
+                        <Chip
+                          key={doc.id}
+                          label={doc.name || doc.id}
+                          sx={{
+                            bgcolor: 'info.main',
+                            color: 'info.contrastText',
+                          }}
+                        />
+                      ))}
                     </Box>
                   </Box>
                 )}
