@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import SourcePreviewClientWrapper from './components/SourcePreviewClientWrapper';
-import { Box, Typography, Alert, Paper } from '@mui/material';
+import { Alert, Paper } from '@mui/material';
 import styles from '@/styles/KnowledgePage.module.css';
 import { notFound } from 'next/navigation';
 
@@ -41,7 +41,7 @@ export default async function SourcePreviewPage({
 
     // Fetch source details with content field
     const source = await sourcesClient.getSourceWithContent(
-      resolvedParams.id as any
+      resolvedParams.id as `${string}-${string}-${string}-${string}-${string}`
     );
 
     return (
@@ -51,8 +51,6 @@ export default async function SourcePreviewPage({
       />
     );
   } catch (error) {
-    console.error('Error loading source:', error);
-
     // If source not found, return 404
     if (error instanceof Error && error.message.includes('404')) {
       notFound();
