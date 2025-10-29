@@ -19,21 +19,21 @@ Revises: a6a7196f4949
 Create Date: 2025-10-30 00:35:46
 """
 
+from typing import Sequence, Union
+
 from alembic import op
-import sqlalchemy as sa
 from sqlalchemy.orm import Session
-from typing import Union, Sequence
 
 # Import reusable metric sync utility
 from rhesis.backend.alembic.utils.metric_sync import (
-    sync_metrics_to_organizations,
     load_metrics_from_initial_data,
     remove_metrics_from_organizations,
+    sync_metrics_to_organizations,
 )
 
 # revision identifiers, used by Alembic.
-revision: str = '7e5b79f596ce'
-down_revision: Union[str, None] = 'a6a7196f4949'
+revision: str = "7e5b79f596ce"
+down_revision: Union[str, None] = "a6a7196f4949"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -41,7 +41,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """
     Sync all metrics from initial_data.json to existing organizations.
-    
+
     Uses the reusable sync_metrics_to_organizations utility which:
     - Is fully idempotent (safe to run multiple times)
     - Only creates missing metrics
@@ -55,13 +55,13 @@ def upgrade() -> None:
         sync_metrics_to_organizations(
             session=session,
             verbose=True,
-            commit=False  # We'll commit here for better error handling
+            commit=False,  # We'll commit here for better error handling
         )
-        
+
         # Commit all changes
         session.commit()
 
-    except Exception as e:
+    except Exception:
         session.rollback()
         raise
     finally:
@@ -71,10 +71,10 @@ def upgrade() -> None:
 def downgrade() -> None:
     """
     Remove all metrics defined in initial_data.json from all organizations.
-    
+
     WARNING: This uses initial_data.json as reference and will remove ALL metrics
     defined there from all organizations. Use with extreme caution on production systems.
-    
+
     Note: This is a destructive operation and should only be used in development or
     if you absolutely need to roll back the migration.
     """
@@ -85,18 +85,18 @@ def downgrade() -> None:
         # Load metrics from initial_data.json to get the names
         all_metrics = load_metrics_from_initial_data()
         metric_names = [m["name"] for m in all_metrics]
-        
+
         # Use the reusable utility to remove metrics
         remove_metrics_from_organizations(
             session=session,
             metric_names=metric_names,
             verbose=True,
-            commit=False  # We'll commit here for better error handling
+            commit=False,  # We'll commit here for better error handling
         )
-        
+
         session.commit()
 
-    except Exception as e:
+    except Exception:
         session.rollback()
         raise
     finally:
