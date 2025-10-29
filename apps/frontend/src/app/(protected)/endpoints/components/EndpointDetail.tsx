@@ -18,8 +18,6 @@ import {
   ListItemIcon,
   ListItemText,
   Chip,
-  Alert,
-  Snackbar,
 } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -98,9 +96,7 @@ const getProjectIcon = (project: Project) => {
 };
 
 // Environment chips should use neutral colors for better UX
-const getEnvironmentColor = (
-  environment: string
-):
+const getEnvironmentColor = ():
   | 'default'
   | 'primary'
   | 'secondary'
@@ -175,15 +171,6 @@ export default function EndpointDetail({
   const [isEditing, setIsEditing] = useState(false);
   const [editedValues, setEditedValues] = useState<Partial<Endpoint>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [notification, setNotification] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error';
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
   const [testResponse, setTestResponse] = useState<string>('');
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
   const [testInput, setTestInput] = useState<string>(`{
@@ -223,8 +210,8 @@ export default function EndpointDetail({
 
           setProjects(projectMap);
         }
-      } catch (err) {
-        console.error('Error fetching projects:', err);
+      } catch {
+        // Error handled silently
       } finally {
         setLoadingProjects(false);
       }
@@ -265,7 +252,6 @@ export default function EndpointDetail({
         throw new Error(result.error);
       }
     } catch (error) {
-      console.error('Failed to update endpoint:', error);
       notifications.show(
         `Failed to update endpoint: ${(error as Error).message}`,
         { severity: 'error' }
@@ -275,7 +261,7 @@ export default function EndpointDetail({
     }
   };
 
-  const handleChange = (field: keyof Endpoint, value: any) => {
+  const handleChange = (field: keyof Endpoint, value: unknown) => {
     setEditedValues(prev => ({ ...prev, [field]: value }));
   };
 
@@ -283,14 +269,10 @@ export default function EndpointDetail({
     try {
       const parsedValue = JSON.parse(value);
       handleChange(field, parsedValue);
-    } catch (error) {
+    } catch {
       // Handle JSON parse error if needed
       handleChange(field, value);
     }
-  };
-
-  const handleCloseNotification = () => {
-    notifications.show('Operation completed', { severity: 'success' });
   };
 
   return (

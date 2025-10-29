@@ -10,8 +10,6 @@ import { usePathname } from 'next/navigation';
 import { DeletedEntityAlert } from '@/components/common/DeletedEntityAlert';
 import { NotFoundAlert } from '@/components/common/NotFoundAlert';
 import {
-  isDeletedEntityError,
-  isNotFoundError,
   getDeletedEntityData,
   getNotFoundEntityData,
   getErrorMessage,
@@ -22,7 +20,7 @@ interface ErrorProps {
   error: Error & {
     digest?: string;
     status?: number;
-    data?: any;
+    data?: Record<string, unknown>;
   };
   reset: () => void;
 }
@@ -53,32 +51,10 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
   const deletedEntityData = useMemo(() => getDeletedEntityData(error), [error]);
 
   useEffect(() => {
-    // Use different log levels for expected vs unexpected states
-    if (notFoundEntityData) {
-      console.warn('Entity not found:', {
-        entity: notFoundEntityData.model_name,
-        id: notFoundEntityData.item_id,
-        message: notFoundEntityData.message,
-      });
-    } else if (deletedEntityData) {
-      console.warn('Deleted entity accessed:', {
-        entity: deletedEntityData.model_name,
-        id: deletedEntityData.item_id,
-        message: deletedEntityData.message,
-      });
-    } else {
-      console.error('Protected route error:', {
-        message: error.message,
-        status: error.status,
-        digest: error.digest,
-        stack: error.stack,
-      });
-
-      // TODO: Send to error tracking service in production
-      // if (process.env.NODE_ENV === 'production') {
-      //   reportErrorToService(error);
-      // }
-    }
+    // TODO: Send to error tracking service in production
+    // if (process.env.NODE_ENV === 'production') {
+    //   reportErrorToService(error);
+    // }
   }, [error, notFoundEntityData, deletedEntityData]);
 
   // Get current pathname and parse segments (reactive to navigation changes)
