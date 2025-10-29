@@ -187,7 +187,7 @@ export default function TestConfigurationConfirmation({
                   </Box>
                 )}
 
-                {/* Documents */}
+                {/* Sources */}
                 {sources.length > 0 && (
                   <Box sx={{ mb: 3 }}>
                     <Typography
@@ -195,7 +195,7 @@ export default function TestConfigurationConfirmation({
                       color="text.secondary"
                       gutterBottom
                     >
-                      Context Documents
+                      Context Sources
                     </Typography>
                     <Box
                       sx={{
