@@ -4,13 +4,11 @@ import * as React from 'react';
 import { Box, Tabs, Tab } from '@mui/material';
 import { usePathname, useRouter } from 'next/navigation';
 
-interface TabPanelProps {
+function TabPanel(props: {
   children?: React.ReactNode;
   index: number;
   value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
+}) {
   const { children, value, index, ...other } = props;
 
   return (
