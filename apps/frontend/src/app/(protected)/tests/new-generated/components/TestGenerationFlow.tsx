@@ -15,12 +15,12 @@ import {
   TestTemplate,
   ChipConfig,
 } from './shared/types';
-import { ProcessedDocument } from '@/utils/api-client/interfaces/documents';
 import { Project } from '@/utils/api-client/interfaces/project';
 import {
   TestSetGenerationRequest,
   TestSetGenerationConfig,
   GenerationSample,
+  SourceData,
 } from '@/utils/api-client/interfaces/test-set';
 import TestInputScreen from './TestInputScreen';
 import TestGenerationInterface from './TestGenerationInterface';
@@ -65,11 +65,11 @@ export default function TestGenerationFlow({
 
   // Data State
   const [description, setDescription] = useState('');
-  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]); // Keep for display
+  const [selectedSources, setSelectedSources] = useState<SourceData[]>([]); // Full source data
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null
   );
-  const [documents, setDocuments] = useState<ProcessedDocument[]>([]);
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(
     null
   );
@@ -177,7 +177,7 @@ export default function TestGenerationFlow({
             const response = await servicesClient.generateTests({
               prompt,
               num_tests: 5,
-              documents: [],
+              sources: selectedSources,
             });
 
             if (response.tests?.length) {
@@ -190,6 +190,15 @@ export default function TestGenerationFlow({
                   topic: test.topic,
                   rating: null,
                   feedback: '',
+                  context: test.metadata?.sources
+                    ?.map((source: any) => ({
+                      name: source.name || source.source || source.title || '',
+                      description: source.description || '',
+                      content: source.content || '',
+                    }))
+                    .filter(
+                      (src: any) => src.name && src.name.trim().length > 0
+                    ),
                 })
               );
 
@@ -218,9 +227,10 @@ export default function TestGenerationFlow({
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
-    async (desc: string, sourceIds: string[], projectId: string | null) => {
+    async (desc: string, sources: SourceData[], projectId: string | null) => {
       setDescription(desc);
-      setSelectedSourceIds(sourceIds);
+      setSelectedSources(sources);
+      setSelectedSourceIds(sources.map(s => s.id));
       setSelectedProjectId(projectId);
 
       // Generate test configuration and samples before navigating
@@ -228,28 +238,6 @@ export default function TestGenerationFlow({
       try {
         const apiFactory = new ApiClientFactory(sessionToken);
         const servicesClient = apiFactory.getServicesClient();
-        const sourcesClient = apiFactory.getSourcesClient();
-
-        // Fetch source content for selected sources
-        const fetchedDocuments: ProcessedDocument[] = [];
-        for (const sourceId of sourceIds) {
-          try {
-            const source = await sourcesClient.getSource(sourceId as any);
-            fetchedDocuments.push({
-              id: source.id,
-              name: source.title,
-              description: source.description || '',
-              path: '',
-              content: source.content || '',
-              originalName: source.title,
-              status: 'completed',
-            });
-          } catch (error) {
-            console.error(`Failed to fetch source ${sourceId}:`, error);
-            show(`Failed to load source: ${sourceId}`, { severity: 'warning' });
-          }
-        }
-        setDocuments(fetchedDocuments);
 
         // Fetch project if selected
         if (projectId) {
@@ -271,8 +259,6 @@ export default function TestGenerationFlow({
           sample_size: 10,
           project_id: projectId || undefined,
         });
-
-        console.log('Config response:', configResponse);
 
         // Step 2: Create chips from config response (5 active, 5 inactive)
         const createChipsFromArray = (
@@ -328,18 +314,10 @@ export default function TestGenerationFlow({
           output_format: 'Generate only user inputs',
         };
 
-        const documentPayload = fetchedDocuments
-          .filter(doc => doc.description && doc.description.trim())
-          .map(doc => ({
-            name: doc.name,
-            description: doc.description,
-            content: doc.content,
-          }));
-
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 5,
-          documents: documentPayload,
+          sources: sources, // Use the parameter directly, not the state
         });
 
         if (response.tests?.length) {
@@ -352,6 +330,13 @@ export default function TestGenerationFlow({
               topic: test.topic,
               rating: null,
               feedback: '',
+              context: test.metadata?.sources
+                ?.map((source: any) => ({
+                  name: source.name || source.source || source.title || '',
+                  description: source.description || '',
+                  content: source.content || '',
+                }))
+                .filter((src: any) => src.name && src.name.trim().length > 0),
             })
           );
 
@@ -368,95 +353,6 @@ export default function TestGenerationFlow({
       }
     },
     [sessionToken, project, show]
-  );
-
-  // Document processing
-  const processDocument = useCallback(
-    async (file: File) => {
-      const documentId = Math.random().toString(36).substr(2, 9);
-
-      const initialDoc: ProcessedDocument = {
-        id: documentId,
-        name: '',
-        description: '',
-        path: '',
-        content: '',
-        originalName: file.name,
-        status: 'uploading',
-      };
-
-      setDocuments(prev => [...prev, initialDoc]);
-
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const servicesClient = apiFactory.getServicesClient();
-
-        // Upload document
-        const uploadResponse = await servicesClient.uploadDocument(file);
-
-        setDocuments(prev =>
-          prev.map(doc =>
-            doc.id === documentId
-              ? {
-                  ...doc,
-                  path: uploadResponse.path,
-                  status: 'extracting' as const,
-                }
-              : doc
-          )
-        );
-
-        // Extract content
-        const extractResponse = await servicesClient.extractDocument(
-          uploadResponse.path
-        );
-
-        setDocuments(prev =>
-          prev.map(doc =>
-            doc.id === documentId
-              ? {
-                  ...doc,
-                  content: extractResponse.content,
-                  status: 'generating' as const,
-                }
-              : doc
-          )
-        );
-
-        // Generate metadata
-        const metadata = await servicesClient.generateDocumentMetadata(
-          extractResponse.content
-        );
-
-        setDocuments(prev =>
-          prev.map(doc =>
-            doc.id === documentId
-              ? {
-                  ...doc,
-                  name: metadata.name,
-                  description: metadata.description,
-                  status: 'completed' as const,
-                }
-              : doc
-          )
-        );
-
-        show(`Document "${file.name}" processed successfully`, {
-          severity: 'success',
-        });
-      } catch (error) {
-        console.error('Error processing document:', error);
-        setDocuments(prev =>
-          prev.map(doc =>
-            doc.id === documentId ? { ...doc, status: 'error' as const } : doc
-          )
-        );
-        show(`Failed to process document "${file.name}"`, {
-          severity: 'error',
-        });
-      }
-    },
-    [sessionToken, show]
   );
 
   // Generate test samples
@@ -487,23 +383,10 @@ export default function TestGenerationFlow({
         output_format: 'Generate only user inputs',
       };
 
-      const documentPayload = documents
-        .filter(
-          doc =>
-            doc.status === 'completed' &&
-            doc.description &&
-            doc.description.trim()
-        )
-        .map(doc => ({
-          name: doc.name,
-          description: doc.description,
-          content: doc.content,
-        }));
-
       const response = await servicesClient.generateTests({
         prompt,
         num_tests: 5,
-        documents: documentPayload,
+        sources: selectedSources,
       });
 
       if (response.tests?.length) {
@@ -515,6 +398,11 @@ export default function TestGenerationFlow({
           topic: test.topic,
           rating: null,
           feedback: '',
+          context: test.metadata?.sources?.map((source: any) => ({
+            name: source.name || source.source || '',
+            description: source.description || '',
+            content: source.content || '',
+          })),
         }));
 
         setTestSamples(newSamples);
@@ -526,7 +414,14 @@ export default function TestGenerationFlow({
     } finally {
       setIsGenerating(false);
     }
-  }, [sessionToken, description, configChips, documents, project, show]);
+  }, [
+    sessionToken,
+    description,
+    configChips,
+    selectedSourceIds,
+    project,
+    show,
+  ]);
 
   // Regenerate sample with feedback
   const handleRegenerateSample = useCallback(
@@ -562,23 +457,10 @@ export default function TestGenerationFlow({
           output_format: 'Generate only user inputs',
         };
 
-        const documentPayload = documents
-          .filter(
-            doc =>
-              doc.status === 'completed' &&
-              doc.description &&
-              doc.description.trim()
-          )
-          .map(doc => ({
-            name: doc.name,
-            description: doc.description,
-            content: doc.content,
-          }));
-
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 1,
-          documents: documentPayload,
+          sources: selectedSources,
         });
 
         if (response.tests?.length) {
@@ -590,6 +472,13 @@ export default function TestGenerationFlow({
             topic: response.tests[0].topic,
             rating: null,
             feedback: '',
+            context: response.tests[0].metadata?.sources
+              ?.map((source: any) => ({
+                name: source.name || source.source || source.title || '',
+                description: source.description || '',
+                content: source.content || '',
+              }))
+              .filter((src: any) => src.name && src.name.trim().length > 0),
           };
 
           // Replace the old sample with the new one
@@ -610,7 +499,7 @@ export default function TestGenerationFlow({
       sessionToken,
       description,
       configChips,
-      documents,
+      selectedSourceIds,
       project,
       testSamples,
       show,
@@ -782,23 +671,10 @@ export default function TestGenerationFlow({
           output_format: 'Generate only user inputs',
         };
 
-        const documentPayload = documents
-          .filter(
-            doc =>
-              doc.status === 'completed' &&
-              doc.description &&
-              doc.description.trim()
-          )
-          .map(doc => ({
-            name: doc.name,
-            description: doc.description,
-            content: doc.content,
-          }));
-
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 5,
-          documents: documentPayload,
+          sources: selectedSources,
           chip_states: chipStates,
           rated_samples: ratedSamples,
           previous_messages: [
@@ -820,6 +696,13 @@ export default function TestGenerationFlow({
               topic: test.topic,
               rating: null,
               feedback: '',
+              context: test.metadata?.sources
+                ?.map((source: any) => ({
+                  name: source.name || source.source || source.title || '',
+                  description: source.description || '',
+                  content: source.content || '',
+                }))
+                .filter((src: any) => src.name && src.name.trim().length > 0),
             })
           );
 
@@ -847,7 +730,7 @@ export default function TestGenerationFlow({
     [
       sessionToken,
       description,
-      documents,
+      selectedSourceIds,
       project,
       show,
       configChips,
@@ -901,19 +784,6 @@ export default function TestGenerationFlow({
         output_format: 'Generate only user inputs',
       };
 
-      const documentPayload = documents
-        .filter(
-          doc =>
-            doc.status === 'completed' &&
-            doc.description &&
-            doc.description.trim()
-        )
-        .map(doc => ({
-          name: doc.name,
-          description: doc.description,
-          content: doc.content,
-        }));
-
       // Collect iteration context for "Load More"
       const chipStates = [
         ...configChips.behavior.map(chip => ({
@@ -955,7 +825,7 @@ export default function TestGenerationFlow({
       const response = await servicesClient.generateTests({
         prompt,
         num_tests: 5,
-        documents: documentPayload,
+        sources: selectedSources,
         chip_states: chipStates,
         rated_samples: ratedSamples,
         previous_messages: previousMessages,
@@ -970,6 +840,11 @@ export default function TestGenerationFlow({
           topic: test.topic,
           rating: null,
           feedback: '',
+          context: test.metadata?.sources?.map((source: any) => ({
+            name: source.name || source.source || '',
+            description: source.description || '',
+            content: source.content || '',
+          })),
         }));
 
         setTestSamples(prev => [...prev, ...newSamples]);
@@ -980,7 +855,14 @@ export default function TestGenerationFlow({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [sessionToken, description, configChips, documents, project, show]);
+  }, [
+    sessionToken,
+    description,
+    configChips,
+    selectedSourceIds,
+    project,
+    show,
+  ]);
 
   // Final generation
   const handleGenerate = useCallback(async () => {
@@ -1031,6 +913,7 @@ export default function TestGenerationFlow({
         synthesizer_type: 'prompt',
         batch_size: 20,
         num_tests: numTests,
+        sources: selectedSources,
         name: testSetName.trim() || undefined,
       };
 
@@ -1058,19 +941,11 @@ export default function TestGenerationFlow({
     testSamples,
     testSetSize,
     testSetName,
+    selectedSourceIds,
     project,
     router,
     show,
   ]);
-
-  // Document handlers
-  const handleDocumentRemove = useCallback((documentId: string) => {
-    setDocuments(prev => prev.filter(doc => doc.id !== documentId));
-  }, []);
-
-  const handleDocumentAdd = useCallback((document: ProcessedDocument) => {
-    setDocuments(prev => [...prev, document]);
-  }, []);
 
   // Navigation handlers
   const handleBackToTests = useCallback(() => {
@@ -1092,6 +967,11 @@ export default function TestGenerationFlow({
 
   const handleNextToConfirmation = useCallback(() => {
     setCurrentScreen('confirmation');
+  }, []);
+
+  const handleSourceRemove = useCallback((sourceId: string) => {
+    setSelectedSources(prev => prev.filter(s => s.id !== sourceId));
+    setSelectedSourceIds(prev => prev.filter(id => id !== sourceId));
   }, []);
 
   // Render current screen
@@ -1122,7 +1002,10 @@ export default function TestGenerationFlow({
             onContinue={handleContinueFromInput}
             initialDescription={description}
             selectedSourceIds={selectedSourceIds}
-            onSourcesChange={setSelectedSourceIds}
+            onSourcesChange={(sources: SourceData[]) => {
+              setSelectedSources(sources);
+              setSelectedSourceIds(sources.map(s => s.id));
+            }}
             selectedProjectId={selectedProjectId}
             onProjectChange={setSelectedProjectId}
             isLoading={isGenerating}
@@ -1136,8 +1019,8 @@ export default function TestGenerationFlow({
             configChips={configChips}
             testSamples={testSamples}
             chatMessages={chatMessages}
-            documents={documents}
             description={description}
+            selectedSources={selectedSources}
             selectedEndpointId={selectedEndpointId}
             onChipToggle={handleChipToggle}
             onSendMessage={handleSendMessage}
@@ -1148,8 +1031,7 @@ export default function TestGenerationFlow({
             onBack={handleBackToInput}
             onNext={handleNextToConfirmation}
             onEndpointChange={setSelectedEndpointId}
-            onDocumentRemove={handleDocumentRemove}
-            onDocumentAdd={handleDocumentAdd}
+            onSourceRemove={handleSourceRemove}
             isGenerating={isGenerating}
             isLoadingMore={isLoadingMore}
             regeneratingSampleId={regeneratingSampleId}
@@ -1160,9 +1042,9 @@ export default function TestGenerationFlow({
         return (
           <TestConfigurationConfirmation
             configChips={configChips}
-            documents={documents}
             testSetSize={testSetSize}
             testSetName={testSetName}
+            sources={selectedSources}
             onBack={handleBackToInterface}
             onGenerate={handleGenerate}
             onTestSetSizeChange={setTestSetSize}

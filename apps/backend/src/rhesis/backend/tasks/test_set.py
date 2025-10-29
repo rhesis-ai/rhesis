@@ -1,5 +1,5 @@
 import logging
-from typing import Union
+from typing import Optional, Union
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
@@ -164,7 +164,15 @@ def _create_synthesizer(
     return synthesizer
 
 
-def _save_test_set_to_database(self, test_set, org_id: str, user_id: str, custom_name: str = None):
+def _save_test_set_to_database(
+    self,
+    test_set,
+    org_id: str,
+    user_id: str,
+    custom_name: str = None,
+    source_ids: list = None,
+    source_ids_to_documents: dict = None,
+):
     """Save the generated test set directly to the database.
 
     Args:
@@ -172,9 +180,39 @@ def _save_test_set_to_database(self, test_set, org_id: str, user_id: str, custom
         org_id: Organization ID
         user_id: User ID
         custom_name: Optional custom name to use instead of auto-generated name
+        source_ids: List of source_ids in order corresponding to documents
+        source_ids_to_documents: Optional mapping of document names to source_ids
     """
     if not test_set.tests:
         raise ValueError("No tests to save. Please add tests to the test set first.")
+
+    # If we have source_ids, add them to each test based on document name in metadata
+    if source_ids and source_ids_to_documents:
+        for i, test in enumerate(test_set.tests):
+            # Try to access metadata - tests can be dict or object
+            test_metadata = (
+                test.get("metadata", {})
+                if isinstance(test, dict)
+                else getattr(test, "metadata", {})
+            )
+
+            if test_metadata and "sources" in test_metadata:
+                sources = test_metadata.get("sources", [])
+                if sources and "name" in sources[0]:
+                    doc_name = sources[0]["name"]
+                    if doc_name in source_ids_to_documents:
+                        # Add source_id to the test metadata for later extraction
+                        source_id = source_ids_to_documents[doc_name]
+                        if isinstance(test, dict):
+                            if "metadata" not in test:
+                                test["metadata"] = {}
+                            test["metadata"]["_source_id"] = source_id
+                        else:
+                            if not hasattr(test, "metadata") or not test.metadata:
+                                test.metadata = {}
+                            elif not isinstance(test.metadata, dict):
+                                test.metadata = dict(test.metadata)
+                            test.metadata["_source_id"] = source_id
 
     test_set_data = {
         "name": custom_name if custom_name else test_set.name,
@@ -285,6 +323,8 @@ def generate_and_save_test_set(
     batch_size: int = 20,
     model: Union[str, BaseLLM, None] = None,
     name: str = None,
+    source_ids: Optional[list] = None,
+    source_ids_to_documents: Optional[dict] = None,
     **synthesizer_kwargs,
 ):
     """
@@ -354,6 +394,12 @@ def generate_and_save_test_set(
     # Access context using the new utility method
     org_id, user_id = self.get_tenant_context()
 
+    # Store source_ids for later use when creating tests
+    if source_ids is None:
+        source_ids = []
+    if source_ids_to_documents is None:
+        source_ids_to_documents = {}
+
     # Log the parameters (safely, without exposing sensitive data)
     log_kwargs = {k: v for k, v in synthesizer_kwargs.items() if not k.lower().endswith("_key")}
 
@@ -386,7 +432,22 @@ def generate_and_save_test_set(
 
         # Step 4: Generate test set
         self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} test cases"})
-        test_set = synthesizer.generate(num_tests=num_tests)
+
+        # Handle DocumentSynthesizer specially - it needs documents parameter
+        if synth_type == SynthesizerType.DOCUMENT and "documents" in synthesizer_kwargs:
+            # Convert dicts to Document objects (from Celery serialization)
+            from rhesis.sdk.types import Document
+
+            documents_raw = synthesizer_kwargs["documents"]
+            if documents_raw:
+                documents = [
+                    Document(**doc) if isinstance(doc, dict) else doc for doc in documents_raw
+                ]
+                test_set = synthesizer.generate(documents=documents, num_tests=num_tests)
+            else:
+                raise ValueError("documents parameter is required for DocumentSynthesizer")
+        else:
+            test_set = synthesizer.generate(num_tests=num_tests)
 
         self.log_with_context(
             "info",
@@ -397,7 +458,15 @@ def generate_and_save_test_set(
 
         # Step 5: Save to database
         self.update_state(state="PROGRESS", meta={"status": "Saving test set to database"})
-        db_test_set = _save_test_set_to_database(self, test_set, org_id, user_id, custom_name=name)
+        db_test_set = _save_test_set_to_database(
+            self,
+            test_set,
+            org_id,
+            user_id,
+            custom_name=name,
+            source_ids=source_ids,
+            source_ids_to_documents=source_ids_to_documents,
+        )
 
         # Step 6: Build and return result
         result = _build_task_result(

@@ -27,7 +27,7 @@ import {
 interface UploadSourceDialogProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
   sessionToken: string;
 }
 
@@ -101,7 +101,7 @@ export default function UploadSourceDialog({
 
       // Reset form and close dialog
       handleClose();
-      onSuccess();
+      onSuccess?.();
     } catch (error) {
       console.error('Error uploading source:', error);
       const errorMessage =

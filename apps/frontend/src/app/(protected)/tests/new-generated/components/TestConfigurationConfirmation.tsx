@@ -14,20 +14,16 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BoltIcon from '@mui/icons-material/Bolt';
-import {
-  ConfigChips,
-  TestSetSize,
-  ProcessedDocument,
-  ChipConfig,
-} from './shared/types';
+import { ConfigChips, TestSetSize, ChipConfig } from './shared/types';
 import TestSetSizeSelector from './shared/TestSetSizeSelector';
 import ActionBar from '@/components/common/ActionBar';
+import { SourceData } from '@/utils/api-client/interfaces/test-set';
 
 interface TestConfigurationConfirmationProps {
   configChips: ConfigChips;
-  documents: ProcessedDocument[];
   testSetSize: TestSetSize;
   testSetName: string;
+  sources?: SourceData[];
   onBack: () => void;
   onGenerate: () => void;
   onTestSetSizeChange: (size: TestSetSize) => void;
@@ -41,9 +37,9 @@ interface TestConfigurationConfirmationProps {
  */
 export default function TestConfigurationConfirmation({
   configChips,
-  documents,
   testSetSize,
   testSetName,
+  sources = [],
   onBack,
   onGenerate,
   onTestSetSizeChange,
@@ -191,15 +187,15 @@ export default function TestConfigurationConfirmation({
                   </Box>
                 )}
 
-                {/* Documents */}
-                {documents.length > 0 && (
-                  <Box>
+                {/* Sources */}
+                {sources.length > 0 && (
+                  <Box sx={{ mb: 3 }}>
                     <Typography
                       variant="subtitle2"
                       color="text.secondary"
                       gutterBottom
                     >
-                      Context Documents
+                      Context Sources
                     </Typography>
                     <Box
                       sx={{
@@ -208,12 +204,14 @@ export default function TestConfigurationConfirmation({
                         gap: 1,
                       }}
                     >
-                      {documents.map(doc => (
+                      {sources.map(doc => (
                         <Chip
                           key={doc.id}
-                          label={doc.name || doc.originalName}
-                          size="small"
-                          variant="outlined"
+                          label={doc.name || doc.id}
+                          sx={{
+                            bgcolor: 'info.main',
+                            color: 'info.contrastText',
+                          }}
                         />
                       ))}
                     </Box>
