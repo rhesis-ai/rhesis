@@ -293,6 +293,9 @@ jobs:
             --from-literal=SMTP_USER="${{ secrets.SMTP_USER }}" \
             --from-literal=SMTP_PASSWORD="${{ secrets.SMTP_PASSWORD }}" \
             --from-literal=FROM_EMAIL="${{ secrets.FROM_EMAIL }}" \
+            --from-literal=AGENT_EMAIL_BCC="${{ secrets.AGENT_EMAIL_BCC }}" \
+            --from-literal=WELCOME_CALENDAR_LINK="${{ secrets.WELCOME_CALENDAR_LINK }}" \
+            --from-literal=WELCOME_FROM_EMAIL="${{ secrets.WELCOME_FROM_EMAIL }}" \
             --from-literal=BACKEND_ENV="${{ secrets.BACKEND_ENV }}" \
             --from-literal=WORKER_ENV="${{ secrets.WORKER_ENV }}" \
             --from-literal=FRONTEND_URL="${{ secrets.FRONTEND_URL }}" \
