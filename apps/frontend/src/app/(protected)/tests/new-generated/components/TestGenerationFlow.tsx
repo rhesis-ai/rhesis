@@ -116,6 +116,7 @@ export default function TestGenerationFlow({
             const configResponse = await servicesClient.generateTestConfig({
               prompt: template.prompt,
               sample_size: 5,
+              project_id: selectedProjectId || undefined,
             });
 
             // Create chips from API response and template values
@@ -264,6 +265,7 @@ export default function TestGenerationFlow({
         const configResponse = await servicesClient.generateTestConfig({
           prompt: desc,
           sample_size: 10,
+          project_id: projectId || undefined,
         });
 
         // Step 2: Create chips from config response (5 active, 5 inactive)
@@ -689,6 +691,7 @@ export default function TestGenerationFlow({
         const configResponse = await servicesClient.generateTestConfig({
           prompt: description, // Keep original prompt separate
           sample_size: 10,
+          project_id: selectedProjectId || undefined,
           rated_samples: ratedSamples,
           previous_messages: [
             ...previousMessages,

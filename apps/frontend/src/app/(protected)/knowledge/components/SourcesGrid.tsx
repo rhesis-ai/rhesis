@@ -17,22 +17,23 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import UploadSourceDialog from './UploadSourceDialog';
-import styles from '@/styles/SourcesGrid.module.css';
+import styles from '@/styles/Knowledge.module.css';
 import { convertGridFilterModelToOData } from '@/utils/odata-filter';
+import {
+  FILE_SIZE_CONSTANTS,
+  FILE_TYPE_CONSTANTS,
+  TEXT_CONSTANTS,
+  formatFileSize,
+  formatDate,
+  getFileExtension,
+} from '@/constants/knowledge';
 
 interface SourcesGridProps {
   sessionToken: string;
   onRefresh?: () => void;
 }
 
-// Helper function to format file size
-const formatFileSize = (bytes?: number) => {
-  if (!bytes) return 'Unknown';
-
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
-};
+// Remove the local formatFileSize function since we're importing it
 
 export default function SourcesGrid({
   sessionToken,
@@ -236,8 +237,9 @@ export default function SourcesGrid({
                   variant="caption"
                   className={styles.sourceDescription}
                 >
-                  {source.description.length > 50
-                    ? `${source.description.substring(0, 50)}...`
+                  {source.description.length >
+                  TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH
+                    ? `${source.description.substring(0, TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH)}...`
                     : source.description}
                 </Typography>
               )}
@@ -252,20 +254,6 @@ export default function SourcesGrid({
         renderCell: params => {
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
-
-          // Extract file extension from original filename
-          const getFileExtension = (filename?: string) => {
-            if (!filename) return 'unknown';
-
-            const ext = filename.split('.').pop()?.toLowerCase();
-            if (!ext) return 'unknown';
-
-            // Handle special cases where we want to normalize extensions
-            const normalizedExt =
-              ext === 'htm' ? 'html' : ext === 'jpeg' ? 'jpg' : ext;
-
-            return normalizedExt;
-          };
 
           const fileExtension = getFileExtension(metadata.original_filename);
 
@@ -301,23 +289,6 @@ export default function SourcesGrid({
         width: 110,
         renderCell: params => {
           const source = params.row as Source;
-
-          const formatDate = (dateString: string | null | undefined) => {
-            if (!dateString) return 'Unknown';
-            try {
-              const date = new Date(dateString);
-              if (isNaN(date.getTime())) return 'Invalid date';
-
-              // Use consistent DD/MM/YYYY formatting
-              const year = date.getFullYear();
-              const month = String(date.getMonth() + 1).padStart(2, '0');
-              const day = String(date.getDate()).padStart(2, '0');
-
-              return `${day}/${month}/${year}`;
-            } catch {
-              return 'Invalid date';
-            }
-          };
 
           // Use uploaded_at from source_metadata
           const dateToShow = source.source_metadata?.uploaded_at;

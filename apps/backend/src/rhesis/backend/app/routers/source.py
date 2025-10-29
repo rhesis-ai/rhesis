@@ -1,7 +1,7 @@
 import urllib.parse
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -162,11 +162,11 @@ def update_source(
     return db_source
 
 
-@router.post("/upload/", response_model=schemas.Source)
+@router.post("/upload", response_model=schemas.Source)
 async def upload_source(
     file: UploadFile = File(...),
-    title: str = None,
-    description: str = None,
+    title: str = Form(None),
+    description: str = Form(None),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),

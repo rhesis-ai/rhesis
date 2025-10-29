@@ -4,7 +4,7 @@ import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import SourcePreviewClientWrapper from './components/SourcePreviewClientWrapper';
 import { Alert, Paper } from '@mui/material';
-import styles from '@/styles/KnowledgePage.module.css';
+import styles from '@/styles/Knowledge.module.css';
 import { notFound } from 'next/navigation';
 
 interface SourcePreviewPageProps {
