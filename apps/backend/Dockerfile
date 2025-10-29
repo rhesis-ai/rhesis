@@ -1,5 +1,12 @@
 # Hint: Build this image with an expanded build context
 # `docker build -t rhesis-backend -f apps/backend/Dockerfile .`
+#
+# IMPORTANT: This Dockerfile is optimized for layer caching while ensuring migration files
+# are always up-to-date. It copies only __init__.py files before dependency installation,
+# then copies ALL source code (including migrations) in a later layer.
+#
+# For critical deployments, use --no-cache to force a complete rebuild:
+# `docker build --no-cache -t rhesis-backend -f apps/backend/Dockerfile .`
 
 # Single stage build for simplicity
 # IMPORTANT: The python version must match the version in the .python-version file.
@@ -14,16 +21,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     postgresql-client \
     curl \
+    git \
     && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only the dependency files for backend
 COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/README.md ./
 
-# Copy only the minimal source code needed for your local package metadata
-# This ensures uv can install your package without invalidating the layer later
-COPY apps/backend/src/rhesis /app/src/rhesis
-
+# Copy ONLY the minimal Python package structure needed for dependency resolution
+# This prevents migration files from being cached in an early layer
+# We only need __init__.py files for the package to be recognized
+RUN mkdir -p /app/src/rhesis/backend
+COPY apps/backend/src/rhesis/__init__.py /app/src/rhesis/__init__.py
+COPY apps/backend/src/rhesis/backend/__init__.py /app/src/rhesis/backend/__init__.py
 
 # Compile bytecode to improve performance   
 ENV UV_COMPILE_BYTECODE=1 
@@ -43,7 +53,8 @@ RUN uv add /app/sdk
 # Install backend dependencies (which includes the SDK)
 RUN uv sync
 
-# Now copy the rest of your source (scripts, modules, etc.)
+# Now copy ALL source code including migrations - this layer will invalidate when any source changes
+# This ensures migration files are always up-to-date in the final image
 COPY apps/backend/src /app/src
 
 # Copy the migration and startup scripts
@@ -51,6 +62,7 @@ COPY apps/backend/migrate.sh /app/migrate.sh
 COPY apps/backend/start.sh /app/start.sh
 
 # Remove build dependencies after installing Python packages
+# Keep git as it's needed by ragas package at runtime
 RUN apt-get purge -y build-essential libpq-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
