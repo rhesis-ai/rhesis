@@ -24,10 +24,13 @@ class ChatRequest(BaseModel):
 
 
 class SourceData(BaseModel):
-    """Source data passed from frontend to backend for test generation."""
+    """Source data passed from frontend to backend for test generation.
+
+    Only id is required. The backend will fetch name, description, and content from the database.
+    """
 
     id: UUID4
-    name: str
+    name: Optional[str] = None
     description: Optional[str] = None
     content: Optional[str] = None
 
