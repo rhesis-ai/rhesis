@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
@@ -26,14 +25,16 @@ from rhesis.backend.app.services.gemini_client import (
     get_chat_response,
     get_json_response,
 )
-from rhesis.backend.app.services.generation import generate_tests
+from rhesis.backend.app.services.generation import (
+    generate_tests,
+    process_sources_to_documents,
+)
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.handlers import DocumentHandler
 from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.extractor import DocumentExtractor
-from rhesis.sdk.types import Document
 
 router = APIRouter(
     prefix="/services",
@@ -235,37 +236,12 @@ async def generate_tests_endpoint(
         sources_sdk = []
         if sources:
             organization_id, user_id = tenant_context
-            for source_data in sources:
-                # Fetch source from database if name/description/content are not provided
-                if not source_data.name or not source_data.content:
-                    db_source = crud.get_source_with_content(
-                        db=db,
-                        source_id=source_data.id,
-                        organization_id=organization_id,
-                        user_id=user_id,
-                    )
-                    if db_source is None:
-                        raise HTTPException(
-                            status_code=404, detail=f"Source with id {source_data.id} not found"
-                        )
-                    # Use database values, fallback to provided values if available
-                    source_name = source_data.name or db_source.title
-                    source_description = source_data.description or db_source.description
-                    source_content = source_data.content or db_source.content or ""
-                else:
-                    # All data provided, use as-is
-                    source_name = source_data.name
-                    source_description = source_data.description
-                    source_content = source_data.content or ""
-
-                # Create Document object from SourceData
-                document_sdk = Document(
-                    name=source_name,
-                    description=source_description or (f"Source document: {source_name}"),
-                    content=source_content or (f"No content available for source: {source_name}"),
-                    path=None,  # Sources don't have file paths
-                )
-                sources_sdk.append(document_sdk)
+            sources_sdk, _, _ = process_sources_to_documents(
+                sources=sources,
+                db=db,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
 
         test_cases = await generate_tests(db, current_user, prompt, num_tests, sources_sdk)
         return {"tests": test_cases}
