@@ -993,10 +993,10 @@ def get_or_create_type_lookup(
     db: Session,
     type_name: str,
     type_value: str,
-    description: str = None,
     organization_id: str = None,
     user_id: str = None,
     commit: bool = True,
+    description: str = None,
 ) -> TypeLookup:
     """Get or create a type lookup with the specified type_name and type_value.
 
