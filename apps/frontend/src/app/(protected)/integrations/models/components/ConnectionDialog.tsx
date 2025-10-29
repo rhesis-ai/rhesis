@@ -32,6 +32,7 @@ import {
   PROVIDERS_REQUIRING_ENDPOINT,
   DEFAULT_ENDPOINTS,
   PROVIDER_ICONS,
+  LOCAL_PROVIDERS,
 } from '@/config/model-providers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
@@ -91,6 +92,14 @@ export function ConnectionDialog({
       ? PROVIDERS_REQUIRING_ENDPOINT.includes(model.provider_type.type_value)
       : provider
         ? PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
+        : false;
+
+  // Determine if this is a local provider (doesn't require API key)
+  const isLocalProvider =
+    isEditMode && model?.provider_type
+      ? LOCAL_PROVIDERS.includes(model.provider_type.type_value)
+      : provider
+        ? LOCAL_PROVIDERS.includes(provider.type_value)
         : false;
 
   // Reset form when dialog opens
@@ -225,15 +234,21 @@ export function ConnectionDialog({
     const currentProvider =
       isEditMode && model?.provider_type ? model.provider_type : provider;
 
+    // For local providers, API key is optional
+    const currentIsLocalProvider = currentProvider 
+      ? LOCAL_PROVIDERS.includes(currentProvider.type_value)
+      : false;
+
     if (
       !currentProvider ||
       !modelName ||
-      !apiKey ||
-      apiKey === '************'
+      (!currentIsLocalProvider && (!apiKey || apiKey === '************'))
     ) {
       setTestResult({
         success: false,
-        message: 'Please fill in provider, model name, and API key',
+        message: currentIsLocalProvider 
+          ? 'Please fill in provider and model name'
+          : 'Please fill in provider, model name, and API key',
       });
       return;
     }
@@ -258,7 +273,7 @@ export function ConnectionDialog({
       const requestBody: any = {
         provider: currentProvider.type_value,
         model_name: modelName,
-        api_key: apiKey,
+        api_key: apiKey && apiKey !== '************' ? apiKey : '', // Always include api_key field, empty string for local providers
       };
 
       // Only include endpoint if it's required and has a value
@@ -374,7 +389,7 @@ export function ConnectionDialog({
         provider &&
         name &&
         modelName &&
-        apiKey &&
+        (isLocalProvider || apiKey) &&
         (!requiresEndpoint || endpoint);
 
       if (isValid && onConnect) {
@@ -386,7 +401,7 @@ export function ConnectionDialog({
             description: `${isCustomProvider ? providerName : provider!.description} Connection`,
             icon: provider!.type_value,
             model_name: modelName,
-            key: apiKey,
+            key: apiKey || '', // Empty string for local providers without API key
             tags: [provider!.type_value],
             // Only store custom headers (Authorization and Content-Type are handled automatically by SDK)
             request_headers: customHeaders,
@@ -542,65 +557,97 @@ export function ConnectionDialog({
                   />
                 )}
 
-                {/* API Key with Test Connection Button */}
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                  <TextField
-                    label="API Key"
-                    fullWidth
-                    required={!isEditMode}
-                    type={showApiKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={e => setApiKey(e.target.value)}
-                    onFocus={e => {
-                      // Clear placeholder when user clicks on field in edit mode
-                      if (isEditMode && apiKey === '************') {
-                        setApiKey('');
+                {/* API Key with Test Connection Button (hidden for local providers) */}
+                {!isLocalProvider && (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                    <TextField
+                      label="API Key"
+                      fullWidth
+                      required={!isEditMode}
+                      type={showApiKey ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={e => setApiKey(e.target.value)}
+                      onFocus={e => {
+                        // Clear placeholder when user clicks on field in edit mode
+                        if (isEditMode && apiKey === '************') {
+                          setApiKey('');
+                        }
+                      }}
+                      onBlur={e => {
+                        // Restore placeholder if field is empty in edit mode
+                        if (isEditMode && !e.target.value) {
+                          setApiKey('************');
+                        }
+                      }}
+                      helperText={
+                        isEditMode
+                          ? apiKey !== '************' && apiKey !== ''
+                            ? 'New API key will replace the current one'
+                            : 'Click to update the API key'
+                          : isCustomProvider
+                            ? 'Authentication key for your deployment (if required)'
+                            : "Your API key from the model provider's dashboard"
                       }
-                    }}
-                    onBlur={e => {
-                      // Restore placeholder if field is empty in edit mode
-                      if (isEditMode && !e.target.value) {
-                        setApiKey('************');
-                      }
-                    }}
-                    helperText={
-                      isEditMode
-                        ? apiKey !== '************' && apiKey !== ''
-                          ? 'New API key will replace the current one'
-                          : 'Click to update the API key'
-                        : isCustomProvider
-                          ? 'Authentication key for your deployment (if required)'
-                          : "Your API key from the model provider's dashboard"
-                    }
-                    InputProps={{
-                      endAdornment:
-                        apiKey && apiKey !== '************' ? (
-                          <IconButton
-                            size="small"
-                            onClick={() => setShowApiKey(!showApiKey)}
-                            edge="end"
-                            aria-label={
-                              showApiKey ? 'Hide API key' : 'Show API key'
-                            }
-                          >
-                            {showApiKey ? (
-                              <VisibilityOffIcon fontSize="small" />
-                            ) : (
-                              <VisibilityIcon fontSize="small" />
-                            )}
-                          </IconButton>
-                        ) : null,
-                    }}
-                  />
-                  {(!isEditMode ||
-                    (isEditMode && apiKey !== '************')) && (
+                      InputProps={{
+                        endAdornment:
+                          apiKey && apiKey !== '************' ? (
+                            <IconButton
+                              size="small"
+                              onClick={() => setShowApiKey(!showApiKey)}
+                              edge="end"
+                              aria-label={
+                                showApiKey ? 'Hide API key' : 'Show API key'
+                              }
+                            >
+                              {showApiKey ? (
+                                <VisibilityOffIcon fontSize="small" />
+                              ) : (
+                                <VisibilityIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          ) : null,
+                      }}
+                    />
+                    {(!isEditMode ||
+                      (isEditMode && apiKey !== '************')) && (
+                      <Button
+                        onClick={handleTestConnection}
+                        variant="outlined"
+                        disabled={
+                          !modelName ||
+                          !apiKey ||
+                          apiKey === '************' ||
+                          (requiresEndpoint && !endpoint) ||
+                          testingConnection ||
+                          loading
+                        }
+                        startIcon={
+                          testingConnection ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            <CheckCircleIcon />
+                          )
+                        }
+                        sx={{
+                          minWidth: '120px',
+                          height: '56px',
+                          mt: 0,
+                        }}
+                      >
+                        {testingConnection ? 'Testing...' : 'Test'}
+                      </Button>
+                    )}
+                  </Box>
+                )}
+
+                {/* Test Connection Button for Local Providers (no API key needed) */}
+                {isLocalProvider && (
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <Button
                       onClick={handleTestConnection}
                       variant="outlined"
                       disabled={
                         !modelName ||
-                        !apiKey ||
-                        apiKey === '************' ||
                         (requiresEndpoint && !endpoint) ||
                         testingConnection ||
                         loading
@@ -615,13 +662,12 @@ export function ConnectionDialog({
                       sx={{
                         minWidth: '120px',
                         height: '56px',
-                        mt: 0,
                       }}
                     >
-                      {testingConnection ? 'Testing...' : 'Test'}
+                      {testingConnection ? 'Testing...' : 'Test Connection'}
                     </Button>
-                  )}
-                </Box>
+                  </Box>
+                )}
               </>
             )}
 
@@ -851,10 +897,10 @@ export function ConnectionDialog({
               !name ||
               !modelName ||
               (!isEditMode && isCustomProvider && !providerName) ||
-              (!isEditMode && !apiKey) ||
+              (!isEditMode && !isLocalProvider && !apiKey) ||
               (requiresEndpoint && !endpoint) ||
               (!isEditMode && !connectionTested) ||
-              (isEditMode && apiKey !== '************' && !connectionTested) || // Require test if key changed in edit mode
+              (isEditMode && !isLocalProvider && apiKey !== '************' && !connectionTested) || // Require test if key changed in edit mode (but not for local providers)
               loading
             }
             size="large"
