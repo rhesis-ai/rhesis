@@ -323,28 +323,35 @@ class MetricDataFactory(BaseDataFactory):
         return {
             "name": fake.word().title() + " Metric",
             "evaluation_prompt": fake.sentence(nb_words=8),
-            "score_type": fake.random_element(elements=("numeric", "categorical", "binary"))
+            "score_type": fake.random_element(elements=("numeric", "categorical"))
         }
     
     @classmethod
     def sample_data(cls) -> Dict[str, Any]:
         """Generate sample metric data"""
-        return {
+        score_type = fake.random_element(elements=("numeric", "categorical"))
+        data = {
             "name": fake.word().title() + " " + fake.word().title() + " Metric",
             "description": fake.text(max_nb_chars=150),
             "evaluation_prompt": fake.sentence(nb_words=8),
             "evaluation_steps": fake.text(max_nb_chars=200),
             "reasoning": fake.text(max_nb_chars=100),
-            "score_type": fake.random_element(elements=("numeric", "categorical", "binary")),
+            "score_type": score_type,
             "min_score": fake.random_number(digits=1),
             "max_score": fake.random_number(digits=2),
-            "reference_score": fake.word(),
             "threshold": fake.random_number(digits=1),
             "threshold_operator": fake.random_element(elements=("=", "<", ">", "<=", ">=", "!=")),
             "explanation": fake.text(max_nb_chars=100),
             "context_required": fake.boolean(),
             "evaluation_examples": fake.text(max_nb_chars=200)
         }
+        
+        # Add categories for categorical metrics
+        if score_type == "categorical":
+            data["categories"] = [fake.word() for _ in range(3)]
+            data["passing_categories"] = [data["categories"][0]]
+        
+        return data
     
     @classmethod
     def update_data(cls) -> Dict[str, Any]:
@@ -377,7 +384,9 @@ class MetricDataFactory(BaseDataFactory):
             return {
                 "name": f"Test 测试 тест テスト {fake.word()} Metric",
                 "evaluation_prompt": "Unicode evaluation: 测试 тест テスト",
-                "score_type": "binary",
+                "score_type": "categorical",
+                "categories": ["pass", "fail"],
+                "passing_categories": ["pass"],
                 "description": "Unicode description: 测试 тест テスト"
             }
         elif case_type == "sql_injection":
