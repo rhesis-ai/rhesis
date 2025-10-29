@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     postgresql-client \
     curl \
+    git \
     && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
 
@@ -61,6 +62,7 @@ COPY apps/backend/migrate.sh /app/migrate.sh
 COPY apps/backend/start.sh /app/start.sh
 
 # Remove build dependencies after installing Python packages
+# Keep git as it's needed by ragas package at runtime
 RUN apt-get purge -y build-essential libpq-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
