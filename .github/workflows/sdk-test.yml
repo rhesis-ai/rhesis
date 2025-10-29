@@ -6,6 +6,10 @@ on:
     branches: [ main ]
     paths:
       - 'sdk/**'
+  push:
+    branches: [ main ]
+    paths:
+      - 'sdk/**'
 
 jobs:
   test-sdk:
