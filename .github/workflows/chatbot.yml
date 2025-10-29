@@ -199,6 +199,9 @@ jobs:
           ENV_VARS="$ENV_VARS,SMTP_USER=${{ secrets.SMTP_USER }}"
           ENV_VARS="$ENV_VARS,SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}"
           ENV_VARS="$ENV_VARS,FROM_EMAIL=${{ secrets.FROM_EMAIL }}"
+          ENV_VARS="$ENV_VARS,AGENT_EMAIL_BCC=${{ secrets.AGENT_EMAIL_BCC }}"
+          ENV_VARS="$ENV_VARS,WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }}"
+          ENV_VARS="$ENV_VARS,WELCOME_FROM_EMAIL=${{ secrets.WELCOME_FROM_EMAIL }}"
           
           # Add CHATBOT_API_KEY for backend authentication (if configured)
           if [ -n "${{ secrets.CHATBOT_API_KEY }}" ]; then
