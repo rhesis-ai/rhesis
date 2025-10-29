@@ -46,13 +46,21 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
         # Process type lookups first as they're needed by other entities
         print("Processing type lookups...")
         for item in initial_data.get("type_lookup", []):
-            get_or_create_type_lookup(
+            description = item.get("description")
+            print(
+                f"  Creating type_lookup: {item['type_name']}.{item['type_value']} with description: {description}"
+            )
+            result = get_or_create_type_lookup(
                 db=db,
                 type_name=item["type_name"],
                 type_value=item["type_value"],
+                description=description,
                 organization_id=organization_id,
                 user_id=user_id,
                 commit=False,
+            )
+            print(
+                f"  Result: type_lookup created/found with description: {getattr(result, 'description', 'NO DESCRIPTION ATTR')}"
             )
 
         # Process statuses next as they're also needed by other entities
