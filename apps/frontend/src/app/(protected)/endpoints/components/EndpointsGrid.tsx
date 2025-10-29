@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Chip, Paper, Box, Button, Typography, useTheme } from '@mui/material';
-import { useRouter } from 'next/navigation';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
