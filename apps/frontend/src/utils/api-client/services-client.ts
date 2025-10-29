@@ -32,7 +32,7 @@ import { DocumentMetadata } from './interfaces/documents';
 
 interface SourceData {
   id: string;
-  name: string;
+  name?: string;
   description?: string;
   content?: string;
 }
