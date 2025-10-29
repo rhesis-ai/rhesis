@@ -335,20 +335,20 @@ export default function TestDetailData({
         />
       </Grid>
 
-      {/* Source Documents Section */}
+      {/* Sources Section */}
       {test.test_metadata?.sources && test.test_metadata.sources.length > 0 && (
         <Grid item xs={12}>
           <Box sx={{ mb: 1 }}>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Source Documents
+              Sources
             </Typography>
             <Typography
               variant="caption"
               color="text.secondary"
               sx={{ display: 'block', fontStyle: 'italic' }}
             >
-              The content shown below is the portion of the document that was
-              used to generate this test case.
+              The content shown below is the portion of the source that was used
+              to generate this test case.
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -359,7 +359,7 @@ export default function TestDetailData({
                   source.name ||
                   source.document ||
                   source.source ||
-                  'Unknown Document'
+                  'Unknown Source'
                 }
                 content={source.content || 'No content available'}
                 showCopyButton={true}

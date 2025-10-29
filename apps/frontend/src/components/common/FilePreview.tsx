@@ -17,7 +17,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 
 interface FilePreviewProps {
   /**
-   * Title/name of the file/document
+   * Title/name of the source
    */
   title: string;
   /**
