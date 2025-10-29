@@ -41,7 +41,8 @@ export function ProviderSelectionDialog({
   );
 
   // Check if frontend is running in local mode by detecting localhost in the app URL
-  const isLocalMode = process.env.NEXT_PUBLIC_APP_URL?.includes('localhost') || false;
+  const isLocalMode =
+    process.env.NEXT_PUBLIC_APP_URL?.includes('localhost') || false;
 
   if (!userSelectableProviders || userSelectableProviders.length === 0) {
     return (
@@ -102,7 +103,7 @@ export function ProviderSelectionDialog({
             const isLocal = LOCAL_PROVIDERS.includes(provider.type_value);
             // Enable local providers only when FRONTEND_ENV is 'local'
             const isEnabled = isSupported && (!isLocal || isLocalMode);
-            
+
             const providerInfo: ProviderInfo = {
               id: provider.type_value,
               name: provider.description || provider.type_value,
@@ -125,9 +126,7 @@ export function ProviderSelectionDialog({
                   opacity: isEnabled ? 1 : 0.5,
                   cursor: isEnabled ? 'pointer' : 'not-allowed',
                   '&:hover': {
-                    backgroundColor: isEnabled
-                      ? 'action.hover'
-                      : 'transparent',
+                    backgroundColor: isEnabled ? 'action.hover' : 'transparent',
                   },
                   '&.Mui-disabled': {
                     opacity: 0.5,

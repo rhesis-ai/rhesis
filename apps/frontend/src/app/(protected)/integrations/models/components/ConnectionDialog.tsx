@@ -235,7 +235,7 @@ export function ConnectionDialog({
       isEditMode && model?.provider_type ? model.provider_type : provider;
 
     // For local providers, API key is optional
-    const currentIsLocalProvider = currentProvider 
+    const currentIsLocalProvider = currentProvider
       ? LOCAL_PROVIDERS.includes(currentProvider.type_value)
       : false;
 
@@ -246,7 +246,7 @@ export function ConnectionDialog({
     ) {
       setTestResult({
         success: false,
-        message: currentIsLocalProvider 
+        message: currentIsLocalProvider
           ? 'Please fill in provider and model name'
           : 'Please fill in provider, model name, and API key',
       });
@@ -559,7 +559,9 @@ export function ConnectionDialog({
 
                 {/* API Key with Test Connection Button (hidden for local providers) */}
                 {!isLocalProvider && (
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                  <Box
+                    sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}
+                  >
                     <TextField
                       label="API Key"
                       fullWidth
@@ -900,7 +902,10 @@ export function ConnectionDialog({
               (!isEditMode && !isLocalProvider && !apiKey) ||
               (requiresEndpoint && !endpoint) ||
               (!isEditMode && !connectionTested) ||
-              (isEditMode && !isLocalProvider && apiKey !== '************' && !connectionTested) || // Require test if key changed in edit mode (but not for local providers)
+              (isEditMode &&
+                !isLocalProvider &&
+                apiKey !== '************' &&
+                !connectionTested) || // Require test if key changed in edit mode (but not for local providers)
               loading
             }
             size="large"
