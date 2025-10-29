@@ -245,7 +245,6 @@ def determine_test_count(config: TestSetGenerationConfig, requested_count: Optio
 async def generate_test_set(
     request: TestSetGenerationRequest,
     db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -258,7 +257,6 @@ async def generate_test_set(
         request: The generation request containing config, samples, and parameters
             - sources contains full SourceData with name, description, content, and id
         db: Database session
-        tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
 
     Returns:
