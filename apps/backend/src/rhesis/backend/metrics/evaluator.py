@@ -80,7 +80,9 @@ class MetricEvaluator:
 
         # Set defaults for required fields
         config["name"] = config["name"] or f"Metric_{metric.id}"
-        config["description"] = config["description"] or f"Metric evaluation for {metric.class_name}"
+        config["description"] = (
+            config["description"] or f"Metric evaluation for {metric.class_name}"
+        )
         config["score_type"] = config["score_type"] or ScoreType.NUMERIC.value
 
         # Add score type specific fields using enum
