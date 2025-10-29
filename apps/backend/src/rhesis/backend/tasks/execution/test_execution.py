@@ -85,10 +85,12 @@ def get_test_metrics(test: Test) -> List:
     if behavior and behavior.metrics:
         # Return Metric models directly - evaluator accepts them
         metrics = [metric for metric in behavior.metrics if metric.class_name]
-        
+
         invalid_count = len(behavior.metrics) - len(metrics)
         if invalid_count > 0:
-            logger.warning(f"Filtered out {invalid_count} metrics without class_name for test {test.id}")
+            logger.warning(
+                f"Filtered out {invalid_count} metrics without class_name for test {test.id}"
+            )
 
     # Return empty list if no valid metrics found (no defaults in SDK)
     if not metrics:
@@ -150,7 +152,7 @@ def prepare_metric_configs(metrics: List, test_id: str) -> List:
             logger.warning(f"Metric {i} has unexpected type: {type(metric)}")
             invalid_count += 1
             continue
-            
+
         if not metric.class_name:
             invalid_count += 1
             logger.warning(f"Skipped metric {i} for test {test_id}: missing class_name")
@@ -226,7 +228,7 @@ def create_test_result_record(
             if isinstance(metric_data, dict)
         )
         status_value = ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
-    
+
     test_result_status = get_or_create_status(
         db, status_value, "TestResult", organization_id=organization_id
     )

@@ -166,8 +166,13 @@ class ScoreEvaluator:
             return self._evaluate_numeric_score(score, threshold, sanitized_operator)
         else:  # CATEGORICAL
             return self._evaluate_categorical_score(
-                score, reference_score, threshold, sanitized_operator, score_type, 
-                categories, passing_categories
+                score,
+                reference_score,
+                threshold,
+                sanitized_operator,
+                score_type,
+                categories,
+                passing_categories,
             )
 
     def _evaluate_numeric_score(
@@ -236,12 +241,12 @@ class ScoreEvaluator:
         score_str = (
             str(score).lower().strip() if not isinstance(score, str) else score.lower().strip()
         )
-        
+
         # New approach: use passing_categories if available
         if passing_categories is not None and len(passing_categories) > 0:
             # Normalize passing categories to lowercase
             passing_cats_lower = [str(cat).lower().strip() for cat in passing_categories]
-            
+
             # Check if score is in passing categories
             if threshold_operator == ThresholdOperator.EQUAL:
                 return score_str in passing_cats_lower
@@ -253,7 +258,7 @@ class ScoreEvaluator:
                     "defaulting to membership check"
                 )
                 return score_str in passing_cats_lower
-        
+
         # Legacy approach: use reference_score
         if reference_score is not None:
             reference_str = reference_score.lower().strip()

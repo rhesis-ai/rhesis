@@ -8,6 +8,7 @@ Revises: 415c0d01df0e
 Create Date: 2025-10-28 23:25:00.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -20,8 +21,8 @@ from rhesis.backend.alembic.utils.template_loader import (
 
 
 # revision identifiers, used by Alembic.
-revision: str = '416d3e2c6f1f'
-down_revision: Union[str, None] = '415c0d01df0e'
+revision: str = "416d3e2c6f1f"
+down_revision: Union[str, None] = "415c0d01df0e"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -42,4 +43,3 @@ def downgrade() -> None:
     # Remove Error status entry from status table
     status_names = "'Error'"
     op.execute(load_cleanup_status_template("EntityType", "TestResult", status_names))
-

@@ -41,7 +41,9 @@ class MetricEvaluator:
         self.organization_id = organization_id  # For secure model lookups
 
     @staticmethod
-    def _get_config_value(config: Union[Dict, MetricConfig, MetricModel], key: str, default: Any = None) -> Any:
+    def _get_config_value(
+        config: Union[Dict, MetricConfig, MetricModel], key: str, default: Any = None
+    ) -> Any:
         """Helper to get a value from dict, MetricConfig, or Metric model."""
         if isinstance(config, dict):
             return config.get(key, default)
@@ -50,13 +52,13 @@ class MetricEvaluator:
     @staticmethod
     def _metric_model_to_dict(metric: MetricModel) -> Dict[str, Any]:
         """Convert a Metric database model directly to parameters for MetricFactory.
-        
-        This replaces the old create_metric_config_from_model by extracting 
+
+        This replaces the old create_metric_config_from_model by extracting
         parameters directly without unnecessary nesting.
         """
         # Determine backend from backend_type relationship
         backend = metric.backend_type.type_value if metric.backend_type else "rhesis"
-        
+
         # Map backend types
         backend_mapping = {
             "custom-code": "rhesis",
@@ -64,7 +66,7 @@ class MetricEvaluator:
             "framework": "deepeval",
         }
         backend = backend_mapping.get(backend, backend)
-        
+
         # Build flat config dict (no nested "parameters")
         config = {
             "name": metric.name or f"Metric_{metric.id}",
@@ -77,7 +79,7 @@ class MetricEvaluator:
             "reasoning": metric.reasoning,
             "evaluation_examples": metric.evaluation_examples,
         }
-        
+
         # Add score type specific fields
         score_type = metric.score_type or "numeric"
         if score_type == "categorical":
@@ -92,18 +94,18 @@ class MetricEvaluator:
                 config["min_score"] = metric.min_score
             if metric.max_score is not None:
                 config["max_score"] = metric.max_score
-        
+
         # Add requirement flags
         if metric.ground_truth_required is not None:
             config["requires_ground_truth"] = metric.ground_truth_required
         if metric.context_required is not None:
             config["requires_context"] = metric.context_required
-        
+
         # Add model information if available
         if metric.model and metric.model.provider_type:
             config["provider"] = metric.model.provider_type.type_value
             config["model"] = metric.model.model_name
-        
+
         return config
 
     def evaluate(
@@ -127,7 +129,7 @@ class MetricEvaluator:
                     [
                         # Database Metric model (direct from DB query)
                         db.query(Metric).first(),
-                        
+
                         # MetricConfig object
                         MetricConfig(
                             class_name="DeepEvalAnswerRelevancy",
@@ -135,7 +137,7 @@ class MetricEvaluator:
                             threshold=0.7,
                             description="Measures how relevant the answer is to the question"
                         ),
-                        
+
                         # Plain dictionary
                         {
                             "class_name": "DeepEvalFaithfulness",
@@ -161,7 +163,7 @@ class MetricEvaluator:
             # Convert MetricModel to dict if needed
             if isinstance(config, MetricModel):
                 config = self._metric_model_to_dict(config)
-            
+
             # Accept MetricConfig objects and dicts
             if isinstance(config, (MetricConfig, dict)):
                 # Validate basic fields
@@ -361,11 +363,11 @@ class MetricEvaluator:
 
                 # Extract parameters for SDK factory
                 params_dict = config_dict.get("parameters", {})
-                
+
                 # Flatten config: merge top-level and nested parameters
                 factory_params = {**config_dict}
                 factory_params.update(params_dict)
-                
+
                 # Remove non-parameter fields
                 factory_params.pop("class_name", None)
                 factory_params.pop("backend", None)
@@ -378,7 +380,7 @@ class MetricEvaluator:
                     logger.error(
                         f"[SDK_DIRECT] Failed to create metric '{metric_name or class_name}' "
                         f"(class: {class_name}, backend: {backend}): {create_error}",
-                        exc_info=True
+                        exc_info=True,
                     )
                     continue
 
