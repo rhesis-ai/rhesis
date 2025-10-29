@@ -62,19 +62,12 @@ export default function SourcePreviewClientWrapper({
 
         // Try to get content from file endpoint
         try {
-          console.log('Attempting to get raw content for source:', source.id);
           const rawContent = await sourcesClient.getSourceContent(source.id);
-          console.log(
-            'Raw content successful:',
-            rawContent.substring(0, 100) + '...'
-          );
           setContent(rawContent);
         } catch (rawError) {
-          console.error('Failed to get content:', rawError);
           setError('Failed to load source content');
         }
       } catch (error) {
-        console.error('Error fetching source content:', error);
         setError('Failed to load source content');
       } finally {
         setLoading(false);
@@ -92,7 +85,6 @@ export default function SourcePreviewClientWrapper({
         autoHideDuration: 2000,
       });
     } catch (error) {
-      console.error('Failed to copy content:', error);
       notifications.show('Failed to copy content', {
         severity: 'error',
         autoHideDuration: 2000,
@@ -123,7 +115,6 @@ export default function SourcePreviewClientWrapper({
         autoHideDuration: 2000,
       });
     } catch (error) {
-      console.error('Failed to download file:', error);
       notifications.show('Failed to download file', {
         severity: 'error',
         autoHideDuration: 2000,

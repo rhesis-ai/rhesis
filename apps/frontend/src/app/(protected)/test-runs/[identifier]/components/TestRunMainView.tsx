@@ -283,7 +283,6 @@ export default function TestRunMainView({
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error downloading test run:', error);
       notifications.show('Failed to download test run results', {
         severity: 'error',
       });
@@ -322,7 +321,6 @@ export default function TestRunMainView({
       // The test run is created asynchronously, so we can't navigate directly to it
       router.push('/test-runs');
     } catch (error) {
-      console.error('Error re-running test:', error);
       notifications.show('Failed to start test run', {
         severity: 'error',
       });
@@ -339,9 +337,6 @@ export default function TestRunMainView({
         const testSetId = testRun.test_configuration?.test_set?.id;
 
         if (!testSetId) {
-          console.warn(
-            'No test_set found for test run, cannot fetch comparison runs'
-          );
           setAvailableTestRuns([]);
           return;
         }
@@ -373,7 +368,6 @@ export default function TestRunMainView({
 
         setAvailableTestRuns(runs);
       } catch (error) {
-        console.error('Error fetching test runs for comparison:', error);
         setAvailableTestRuns([]);
       }
     };
@@ -426,7 +420,6 @@ export default function TestRunMainView({
 
         return testResults;
       } catch (error) {
-        console.error('Error loading baseline test results:', error);
         notifications.show('Failed to load baseline test results', {
           severity: 'error',
         });
@@ -443,49 +436,27 @@ export default function TestRunMainView({
       filteredTests.length > 0 &&
       !hasInitialSelection
     ) {
-      console.log(
-        '[TestRunMainView] Attempting to select test with ID:',
-        initialSelectedTestId
-      );
-      console.log('[TestRunMainView] Available tests:', filteredTests.length);
-
       // First try to match by test result ID (direct match)
       let testIndex = filteredTests.findIndex(
         t => t.id === initialSelectedTestId
       );
-      console.log('[TestRunMainView] Direct ID match index:', testIndex);
 
       // If not found, try to match by test_id (for cross-run navigation)
       if (testIndex === -1) {
         testIndex = filteredTests.findIndex(
           t => t.test_id === initialSelectedTestId
         );
-        console.log('[TestRunMainView] test_id match index:', testIndex);
         if (testIndex !== -1) {
-          console.log(
-            '[TestRunMainView] Found test by test_id:',
-            filteredTests[testIndex]
-          );
         }
       }
 
       if (testIndex !== -1) {
         // Calculate which page the test is on
         const testPage = Math.floor(testIndex / rowsPerPage);
-        console.log(
-          '[TestRunMainView] Setting page to:',
-          testPage,
-          'and selecting test:',
-          filteredTests[testIndex].id
-        );
         setPage(testPage);
         setSelectedTestId(filteredTests[testIndex].id);
         setHasInitialSelection(true);
       } else {
-        console.warn(
-          '[TestRunMainView] Could not find test with ID or test_id:',
-          initialSelectedTestId
-        );
       }
     }
   }, [initialSelectedTestId, filteredTests, rowsPerPage, hasInitialSelection]);

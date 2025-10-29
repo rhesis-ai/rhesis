@@ -32,13 +32,11 @@ export class EndpointsClient extends BaseApiClient {
 
   async createEndpoint(endpoint: EndpointCreate): Promise<Endpoint> {
     try {
-      console.log('Creating endpoint with data:', JSON.stringify(endpoint));
       return await this.fetch<Endpoint>(API_ENDPOINTS.endpoints, {
         method: 'POST',
         body: JSON.stringify(endpoint),
       });
     } catch (error) {
-      console.error('Error in EndpointsClient.createEndpoint:', error);
       throw error;
     }
   }

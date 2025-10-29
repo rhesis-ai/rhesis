@@ -94,12 +94,6 @@ export default function UpdateTest({
 
   // Initialize form data from test when provided
   useEffect(() => {
-    console.log('Test prop in UpdateTest:', {
-      test,
-      testStatus: test?.status,
-      testStatusId: test?.status?.id,
-    });
-
     if (test) {
       setFormData(prevData => {
         const newData = {
@@ -112,13 +106,6 @@ export default function UpdateTest({
           owner_id: test.owner?.id || undefined,
           status_id: test.status?.id,
         };
-
-        console.log('Updating formData:', {
-          prevData,
-          newData,
-          statusFromTest: test.status,
-          statusIdFromTest: test.status?.id,
-        });
 
         return newData;
       });
@@ -169,12 +156,6 @@ export default function UpdateTest({
             entity_type: ENTITY_TYPES.test,
           }),
         ]);
-
-        console.log('Debug - Options loaded:', {
-          statusesData,
-          testStatus: test.status,
-          formDataStatusId: formData.status_id,
-        });
 
         // Filter out duplicates and invalid entries before setting state
         setBehaviors(filterUniqueValidOptions(behaviorsData));
@@ -510,11 +491,6 @@ export default function UpdateTest({
           label="Status"
           value={formData.status_id || ''}
           onChange={event => {
-            console.log('Status changed:', {
-              newValue: event.target.value,
-              currentValue: formData.status_id,
-              availableStatuses: statuses,
-            });
             setFormData(prev => ({
               ...prev,
               status_id: event.target.value as UUID,

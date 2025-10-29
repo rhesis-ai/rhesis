@@ -167,9 +167,7 @@ export default function TestGenerationInterface({
               endpoint.project_id
             );
             projectName = project.name;
-          } catch (err) {
-            console.error('Failed to load project:', err);
-          }
+          } catch (err) {}
         }
 
         setEndpointInfo({
@@ -178,7 +176,6 @@ export default function TestGenerationInterface({
           environment: endpoint.environment,
         });
       } catch (error) {
-        console.error('Failed to load endpoint info:', error);
         setEndpointInfo(null);
       }
     };
@@ -289,10 +286,6 @@ export default function TestGenerationInterface({
             delete updatedSamples[i].responseError;
             newProcessedIds.add(sample.id);
           } catch (error) {
-            console.error(
-              `Error fetching response for sample ${sample.id}:`,
-              error
-            );
             updatedSamples[i] = {
               ...sample,
               isLoadingResponse: false,
@@ -368,9 +361,7 @@ export default function TestGenerationInterface({
 
         onDocumentAdd(newDocument);
       }
-    } catch (error) {
-      console.error('Error loading uploaded source:', error);
-    }
+    } catch (error) {}
   }, [session?.session_token, onDocumentAdd]);
 
   return (

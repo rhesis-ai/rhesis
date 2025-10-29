@@ -39,9 +39,6 @@ export default function DemoPage() {
   }, []);
 
   const handleContinue = () => {
-    console.log(
-      '🟢 [DEBUG] Demo page - redirecting to Auth0 with demo user pre-filled'
-    );
     setIsRedirecting(true);
 
     // Redirect to backend demo endpoint which will redirect to Auth0 with login_hint

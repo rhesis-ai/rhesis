@@ -110,7 +110,6 @@ export default function NewMetricPage() {
         });
         setModels(response.data || []); // Use .data instead of .items
       } catch (error) {
-        console.error('Failed to fetch models:', error);
         notifications.show('Failed to load evaluation models', {
           severity: 'error',
         });
@@ -171,7 +170,6 @@ export default function NewMetricPage() {
     setIsCreating(true);
 
     try {
-      console.log('Session:', session);
       if (!session?.session_token) {
         throw new Error(
           'No session token available. Please try logging in again.'
@@ -239,8 +237,6 @@ export default function NewMetricPage() {
         model_id: formData.model_id ? (formData.model_id as UUID) : undefined,
         owner_id: session.user?.id as UUID,
       };
-
-      console.log('Submitting metric:', JSON.stringify(metricRequest, null, 2));
 
       await metricsClient.createMetric(metricRequest);
       notifications.show('Metric created successfully', {
