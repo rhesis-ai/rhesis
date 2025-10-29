@@ -23,7 +23,7 @@ import Image from 'next/image';
 
 // Providers currently supported by the Rhesis SDK
 // These must match the keys in PROVIDER_REGISTRY in sdk/src/rhesis/sdk/models/factory.py
-export const SUPPORTED_PROVIDERS = ['openai', 'gemini', 'ollama', 'anthropic', 'groq', 'mistral', 'replicate', 'perplexity', 'together_ai', 'cohere'];
+export const SUPPORTED_PROVIDERS = ['openai', 'gemini', 'ollama', 'anthropic', 'groq', 'mistral', 'replicate', 'perplexity', 'together_ai', 'cohere', 'huggingface'];
 
 export const LOCAL_PROVIDERS = ["huggingface", "ollama"];
 

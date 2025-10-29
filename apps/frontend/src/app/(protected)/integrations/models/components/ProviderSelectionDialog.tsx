@@ -40,8 +40,8 @@ export function ProviderSelectionDialog({
     provider => provider.type_value !== 'rhesis'
   );
 
-  // Check if frontend is running in local mode
-  const isLocalMode = process.env.FRONTEND_ENV === 'local';
+  // Check if frontend is running in local mode by detecting localhost in the app URL
+  const isLocalMode = process.env.NEXT_PUBLIC_APP_URL?.includes('localhost') || false;
 
   if (!userSelectableProviders || userSelectableProviders.length === 0) {
     return (
@@ -143,7 +143,7 @@ export function ProviderSelectionDialog({
                       <Typography>{providerInfo.name}</Typography>
                       {isLocal && (
                         <Chip
-                          label="Local deployment only"
+                          label="Local deployment"
                           size="small"
                           color="default"
                           sx={{
