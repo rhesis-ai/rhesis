@@ -262,7 +262,6 @@ The tool now prevents common PR creation failures and handles updates:
    ```
 
 3. 📝 **Follow commit message conventions**:
-
    - `feat:` for new features
    - `fix:` for bug fixes
    - `docs:` for documentation changes
@@ -291,7 +290,6 @@ The tool now prevents common PR creation failures and handles updates:
    ```
 
    This tool will:
-
    - 🔍 **Check if your changes are pushed** to remote
    - 🤝 **Prompt you to push** if needed (with option to push automatically)
    - 📝 **Generate a professional PR** with proper title formatting, detailed description, commit summaries, and comprehensive checklist
