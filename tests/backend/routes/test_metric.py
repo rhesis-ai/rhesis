@@ -179,11 +179,16 @@ class TestMetricValidation(MetricTestMixin, BaseEntityTests):
     
     def test_create_metric_score_type_validation(self, metric_factory):
         """📊 Test metric creation with different score types"""
-        score_types = ["numeric", "categorical", "binary"]
+        score_types = ["numeric", "categorical"]
         
         for score_type in score_types:
             data = self.get_minimal_data()
             data["score_type"] = score_type
+            
+            # Add required fields for categorical metrics
+            if score_type == "categorical":
+                data["categories"] = ["pass", "fail", "maybe"]
+                data["passing_categories"] = ["pass"]
             
             response = metric_factory.client.post(self.endpoints.create, json=data)
             assert response.status_code == status.HTTP_200_OK

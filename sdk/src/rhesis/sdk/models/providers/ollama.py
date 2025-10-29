@@ -3,6 +3,10 @@ Available models:
 https://ollama.com/library
 """
 
+from typing import Optional, Type, Union
+
+from pydantic import BaseModel
+
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
 PROVIDER = "ollama"
@@ -37,4 +41,13 @@ class OllamaLLM(LiteLLM):
         Raises:
             ValueError: If the API key is not set.
         """
+        self.api_base = kwargs.get("api_base", "http://localhost:11434")
         super().__init__(PROVIDER + "/" + model_name)
+
+    def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        schema: Optional[Type[BaseModel]] = None,
+    ) -> Union[str, dict]:
+        return super().generate(prompt, system_prompt, schema, api_base=self.api_base)
