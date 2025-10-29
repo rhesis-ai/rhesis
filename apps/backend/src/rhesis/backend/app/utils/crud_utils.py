@@ -165,11 +165,21 @@ def _create_db_item_with_transaction(
     db: Session, model: Type[T], item_data: Dict[str, Any], commit: bool = True
 ) -> T:
     """Create database item. Transaction management is handled by the session context manager."""
+    logger.debug(
+        f"_create_db_item_with_transaction - Creating {model.__name__} with data: {item_data}"
+    )
     db_item = model(**item_data)
+    logger.debug(
+        f"_create_db_item_with_transaction - Created {model.__name__} instance, checking description: {getattr(db_item, 'description', 'NO ATTR')}"
+    )
 
     db.add(db_item)
     db.flush()  # Flush to get the ID and other generated values
     db.refresh(db_item)  # Refresh to ensure we have all generated values
+
+    logger.debug(
+        f"_create_db_item_with_transaction - After flush/refresh, description: {getattr(db_item, 'description', 'NO ATTR')}"
+    )
 
     # Note: commit parameter is kept for backward compatibility but transaction
     # management is now handled by get_db_with_tenant_variables() context manager
@@ -993,6 +1003,7 @@ def get_or_create_type_lookup(
     db: Session,
     type_name: str,
     type_value: str,
+    description: str = None,
     organization_id: str = None,
     user_id: str = None,
     commit: bool = True,
@@ -1030,10 +1041,14 @@ def get_or_create_type_lookup(
     # Create new type lookup
     logger.debug("get_or_create_type_lookup - Creating new type lookup")
     try:
+        item_data = {"type_name": type_name, "type_value": type_value}
+        if description is not None:
+            item_data["description"] = description
+
         result = create_item(
             db=db,
             model=TypeLookup,
-            item_data={"type_name": type_name, "type_value": type_value},
+            item_data=item_data,
             organization_id=organization_id,
             user_id=user_id,
             commit=commit,
