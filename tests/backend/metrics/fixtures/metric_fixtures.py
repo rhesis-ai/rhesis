@@ -29,7 +29,11 @@ def categorical_metric_config() -> Dict[str, Any]:
 
 @pytest.fixture
 def binary_metric_config() -> Dict[str, Any]:
-    """Fixture for binary metric configuration."""
+    """
+    DEPRECATED: Fixture for binary metric configuration.
+    Binary metrics have been migrated to categorical.
+    This now returns a categorical metric configuration.
+    """
     return MetricConfigFactory.binary_config()
 
 
@@ -73,9 +77,13 @@ def mock_llm_categorical_response() -> Dict[str, Any]:
 
 @pytest.fixture
 def mock_llm_binary_response() -> Dict[str, Any]:
-    """Mock LLM response for binary metric."""
+    """
+    DEPRECATED: Mock LLM response for binary metric.
+    Binary metrics have been migrated to categorical.
+    This now returns a categorical response.
+    """
     return {
-        "score": True,
+        "score": "Pass",
         "reason": "Response meets the criteria",
         "verdict": "pass"
     }
