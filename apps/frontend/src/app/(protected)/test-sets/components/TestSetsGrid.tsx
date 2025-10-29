@@ -129,7 +129,6 @@ export default function TestSetsGrid({
       setTestSets(response.data);
       setTotalCount(response.pagination.totalCount);
     } catch (error) {
-      console.error('Error fetching paginated test sets:', error);
     } finally {
       setLoading(false);
     }
@@ -313,7 +312,6 @@ export default function TestSetsGrid({
       setSelectedRows([]);
       fetchTestSets();
     } catch (error) {
-      console.error('Error deleting test sets:', error);
       notifications.show('Failed to delete test sets', {
         severity: 'error',
         autoHideDuration: 6000,

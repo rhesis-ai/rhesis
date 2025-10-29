@@ -71,7 +71,6 @@ export default function TestDetailData({
           }))
         );
       } catch (error) {
-        console.error('Error fetching test types:', error);
         setTypes([]);
       }
 
@@ -125,9 +124,7 @@ export default function TestDetailData({
       }
 
       setTest(updatedTest);
-    } catch (error) {
-      console.error('Error refreshing test:', error);
-    }
+    } catch (error) {}
   }, [sessionToken, test.id, isUpdating]);
 
   const handleUpdate = async (
@@ -148,7 +145,6 @@ export default function TestDetailData({
         // If it's a string, it's a new value that needs to be created
         // This would require additional API calls to create the entity
         // For now, we'll just log it
-        console.log(`Would create new ${field} with name: ${value}`);
         notifications.show(
           `Creating new ${field} is not supported in this version`,
           {
@@ -186,8 +182,6 @@ export default function TestDetailData({
         await refreshTest();
       }
     } catch (error) {
-      console.error(`Error updating test ${field}:`, error);
-
       notifications.show(`Failed to update test ${field}`, {
         severity: 'error',
         autoHideDuration: 6000,

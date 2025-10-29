@@ -39,7 +39,6 @@ export default function TestDrawer({
       );
       return payload.user?.id;
     } catch (err) {
-      console.error('Error decoding JWT token:', err);
       return undefined;
     }
   };
@@ -50,7 +49,6 @@ export default function TestDrawer({
       await submitRef.current?.();
       onClose();
     } catch (err) {
-      console.error('Error saving test:', err);
     } finally {
       setLoading(false);
     }

@@ -103,7 +103,6 @@ export default function ComparisonView({
       onLoadBaseline(selectedBaselineId)
         .then(setBaselineTestResults)
         .catch(error => {
-          console.error('Error loading baseline:', error);
           setBaselineTestResults([]);
         })
         .finally(() => setLoading(false));

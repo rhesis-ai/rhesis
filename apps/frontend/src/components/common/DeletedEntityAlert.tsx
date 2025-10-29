@@ -87,7 +87,6 @@ export function DeletedEntityAlert({
         }, 1000);
       }
     } catch (error) {
-      console.error('Error restoring item:', error);
       setRestoreError(
         error instanceof Error ? error.message : 'Failed to restore item'
       );

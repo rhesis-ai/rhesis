@@ -103,7 +103,6 @@ export default function EndpointSelector({
 
       setEndpointOptions(options);
     } catch (err) {
-      console.error('Error loading endpoints:', err);
       setError('Failed to load endpoints. Please try again.');
     } finally {
       setIsLoading(false);

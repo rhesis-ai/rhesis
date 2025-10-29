@@ -15,7 +15,7 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default function EndpointPage({ params, searchParams }: PageProps) {
+export default function EndpointPage({ params }: PageProps) {
   // Use the params Promise
   const [identifier, setIdentifier] = useState<string>('');
 

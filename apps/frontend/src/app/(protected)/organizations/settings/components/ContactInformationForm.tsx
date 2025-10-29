@@ -101,7 +101,6 @@ export default function ContactInformationForm({
       });
       onUpdate();
     } catch (err: any) {
-      console.error('Error updating contact information:', err);
       setError(err.message || 'Failed to update contact information');
     } finally {
       setSaving(false);

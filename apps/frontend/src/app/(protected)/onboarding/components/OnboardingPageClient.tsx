@@ -98,10 +98,8 @@ export default function OnboardingPageClient({
       try {
         organization =
           await organizationsClient.createOrganization(organizationData);
-        console.log('Organization creation response:', organization);
       } catch (orgError: any) {
         setIsSubmitting(false);
-        console.error('Organization creation error:', orgError);
         notifications.show(
           orgError?.message ||
             'Failed to create organization. Please try again.',
@@ -123,7 +121,6 @@ export default function OnboardingPageClient({
         response = await usersClient.updateUser(userId, userUpdate);
       } catch (userError: any) {
         setIsSubmitting(false);
-        console.error('User update error:', userError);
         notifications.show(
           userError?.message || 'Failed to update user. Please try again.',
           { severity: 'error' }
@@ -187,10 +184,6 @@ export default function OnboardingPageClient({
                   errorMessage = error;
                 }
 
-                console.error(
-                  `Failed to create user with email ${email}:`,
-                  error
-                );
                 invitationResults.push({
                   email,
                   success: false,
@@ -240,7 +233,6 @@ export default function OnboardingPageClient({
           }
         } catch (error: any) {
           setIsSubmitting(false);
-          console.error('Error creating invited users:', error);
           const errorMessage =
             error?.message ||
             error?.detail ||
@@ -271,7 +263,6 @@ export default function OnboardingPageClient({
         } catch (initError: any) {
           setIsSubmitting(false);
           setOnboardingStatus('idle');
-          console.error('Initial data loading error:', initError);
           notifications.show(
             initError?.message ||
               'Failed to set up organization. Please contact support.',
@@ -285,7 +276,6 @@ export default function OnboardingPageClient({
     } catch (error: any) {
       setIsSubmitting(false);
       setOnboardingStatus('idle');
-      console.error('Onboarding error:', error);
       notifications.show(
         error?.message || 'Failed to complete onboarding. Please try again.',
         { severity: 'error' }

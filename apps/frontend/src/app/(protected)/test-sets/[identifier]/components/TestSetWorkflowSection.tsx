@@ -61,7 +61,6 @@ export default function TestSetWorkflowSection({
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error updating test set:', error);
       notifications.show(`Failed to update ${fieldName}`, {
         severity: 'error',
       });

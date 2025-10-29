@@ -65,7 +65,6 @@ export default function SourcePreviewClientWrapper({
         autoHideDuration: 2000,
       });
     } catch (error) {
-      console.error('Failed to copy content:', error);
       notifications.show('Failed to copy content', {
         severity: 'error',
         autoHideDuration: 2000,
@@ -114,7 +113,6 @@ export default function SourcePreviewClientWrapper({
         autoHideDuration: 2000,
       });
     } catch (error) {
-      console.error('Error updating source name:', error);
       notifications.show('Failed to update name', {
         severity: 'error',
         autoHideDuration: 2000,
@@ -147,7 +145,6 @@ export default function SourcePreviewClientWrapper({
         autoHideDuration: 2000,
       });
     } catch (error) {
-      console.error('Error updating source description:', error);
       notifications.show('Failed to update description', {
         severity: 'error',
         autoHideDuration: 2000,
@@ -182,7 +179,6 @@ export default function SourcePreviewClientWrapper({
         autoHideDuration: 2000,
       });
     } catch (error) {
-      console.error('Failed to download file:', error);
       notifications.show('Failed to download file', {
         severity: 'error',
         autoHideDuration: 2000,

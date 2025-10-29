@@ -180,7 +180,6 @@ export default function SelectedMetricsTab({
       }
       setDrawerOpen(false);
     } catch (err) {
-      console.error('Error saving behavior:', err);
       setDrawerError(
         err instanceof Error ? err.message : 'Failed to save dimension'
       );
@@ -208,7 +207,6 @@ export default function SelectedMetricsTab({
           try {
             await Promise.all(removePromises);
           } catch (err) {
-            console.error('Error removing metrics from behavior:', err);
             notifications.show(
               'Failed to remove all metrics from dimension. Please try again.',
               { severity: 'error', autoHideDuration: 4000 }
@@ -240,7 +238,6 @@ export default function SelectedMetricsTab({
         });
         setDrawerOpen(false);
       } catch (err) {
-        console.error('Error deleting behavior:', err);
         notifications.show(
           err instanceof Error ? err.message : 'Failed to delete dimension',
           { severity: 'error', autoHideDuration: 4000 }
@@ -298,7 +295,6 @@ export default function SelectedMetricsTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error removing metric from behavior:', err);
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',
         autoHideDuration: 4000,

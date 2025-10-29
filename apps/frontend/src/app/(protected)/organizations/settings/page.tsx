@@ -40,7 +40,6 @@ export default function OrganizationSettingsPage() {
         );
         setOrganization(orgData);
       } catch (err: any) {
-        console.error('Error fetching organization:', err);
         setError(err.message || 'Failed to load organization details');
       } finally {
         if (showLoading) {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   GridColDef,
   GridRowSelectionModel,
@@ -16,7 +16,6 @@ import UploadIcon from '@mui/icons-material/Upload';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { DeleteButton } from '@/components/common/DeleteButton';
 import UploadSourceDialog from './UploadSourceDialog';
 import styles from '@/styles/Knowledge.module.css';
 import { convertGridFilterModelToOData } from '@/utils/odata-filter';
@@ -86,8 +85,7 @@ export default function SourcesGrid({
       setSources(response.data);
       setTotalCount(response.pagination.totalCount);
       setError(null);
-    } catch (error) {
-      console.error('Error fetching sources:', error);
+    } catch {
       setError('Failed to load knowledge sources');
       setSources([]);
     } finally {
@@ -105,11 +103,12 @@ export default function SourcesGrid({
     fetchSources();
   }, [fetchSources]);
 
-  // Handle refresh
-  const handleRefresh = useCallback(() => {
-    fetchSources();
-    onRefresh?.();
-  }, [fetchSources, onRefresh]);
+  // Handle refresh - called by parent via onRefresh
+  useEffect(() => {
+    if (onRefresh) {
+      fetchSources();
+    }
+  }, [onRefresh, fetchSources]);
 
   // Handle pagination
   const handlePaginationModelChange = useCallback(
@@ -136,7 +135,7 @@ export default function SourcesGrid({
 
   // Handle row click to navigate to preview
   const handleRowClick = useCallback(
-    (params: any) => {
+    (params: { id: string }) => {
       const sourceId = params.id;
       router.push(`/knowledge/${sourceId}`);
     },
@@ -158,7 +157,11 @@ export default function SourcesGrid({
 
       // Delete all selected sources
       await Promise.all(
-        selectedRows.map(id => sourcesClient.deleteSource(id as any))
+        selectedRows.map(id =>
+          sourcesClient.deleteSource(
+            String(id) as `${string}-${string}-${string}-${string}-${string}`
+          )
+        )
       );
 
       // Show success notification
@@ -170,8 +173,7 @@ export default function SourcesGrid({
       // Clear selection and refresh data
       setSelectedRows([]);
       fetchSources();
-    } catch (error) {
-      console.error('Error deleting sources:', error);
+    } catch {
       notifications.show('Failed to delete sources', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -188,7 +190,12 @@ export default function SourcesGrid({
 
   // Get action buttons based on selection
   const getActionButtons = useCallback(() => {
-    const buttons = [
+    const buttons: Array<{
+      label: string;
+      icon: React.ReactNode;
+      variant: 'text' | 'outlined' | 'contained';
+      onClick: () => void;
+    }> = [
       {
         label: 'Upload Source',
         icon: <UploadIcon />,
@@ -204,9 +211,8 @@ export default function SourcesGrid({
         label: 'Delete Sources',
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
-        color: 'error' as const,
         onClick: handleDeleteSources,
-      } as any);
+      });
     }
 
     return buttons;

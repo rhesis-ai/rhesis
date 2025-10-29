@@ -69,9 +69,7 @@ export default function TestDetailReviewsTab({
           entity_type: 'TestResult',
         });
         setStatuses(statusList);
-      } catch (err) {
-        console.error('Error fetching statuses:', err);
-      }
+      } catch (err) {}
     };
 
     if (showReviewForm) {
@@ -163,7 +161,6 @@ export default function TestDetailReviewsTab({
       setDeleteDialogOpen(false);
       setReviewToDelete(null);
     } catch (err) {
-      console.error('Error deleting review:', err);
       // Could add error handling here
     } finally {
       setDeleting(false);

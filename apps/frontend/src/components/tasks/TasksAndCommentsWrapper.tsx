@@ -53,9 +53,7 @@ export function TasksAndCommentsWrapper({
         await createTask(enrichedTaskData);
         // Notify parent that counts have changed
         onCountsChange?.();
-      } catch (error) {
-        console.error('Failed to create task:', error);
-      }
+      } catch (error) {}
     },
     [createTask, onCountsChange, additionalMetadata]
   );
@@ -71,9 +69,7 @@ export function TasksAndCommentsWrapper({
         await deleteTask(taskId);
         // Notify parent that counts have changed
         onCountsChange?.();
-      } catch (error) {
-        console.error('Failed to delete task:', error);
-      }
+      } catch (error) {}
     },
     [deleteTask, onCountsChange]
   );

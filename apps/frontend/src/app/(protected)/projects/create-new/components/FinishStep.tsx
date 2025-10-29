@@ -125,7 +125,6 @@ export default function FinishStep({
           setOwner(ownerData);
         }
       } catch (error) {
-        console.error('Failed to fetch owner details:', error);
         // Fall back to a placeholder if the API call fails
         if (formData.owner_id) {
           setOwner({
@@ -153,7 +152,6 @@ export default function FinishStep({
       return PROJECT_ICONS[formData.icon as keyof typeof PROJECT_ICONS];
     }
     // Fallback to default icon if the selected one doesn't exist
-    console.warn(`Icon ${formData.icon} not found, using default.`);
     return SmartToyIcon;
   };
 

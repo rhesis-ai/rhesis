@@ -64,7 +64,6 @@ export default function TestSetTestsGrid({
         setError(null);
       }
     } catch (error) {
-      console.error('Error fetching test set tests:', error);
       if (isMounted.current) {
         setError('Failed to load tests');
         setTests([]);
@@ -203,8 +202,6 @@ export default function TestSetTestsGrid({
       fetchTests();
       onRefresh?.();
     } catch (error) {
-      console.error('Error removing tests from test set:', error);
-
       notifications.show('Failed to remove tests from test set', {
         severity: 'error',
         autoHideDuration: 6000,

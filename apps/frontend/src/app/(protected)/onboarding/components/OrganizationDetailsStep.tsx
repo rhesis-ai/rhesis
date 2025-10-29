@@ -70,7 +70,6 @@ export default function OrganizationDetailsStep({
         const data: Partial<FormData> = {};
 
         // Log the user object to check what fields are actually available
-        console.log('Session user data:', session.user);
 
         // Access potential Auth0 properties
         const extendedUser = session.user as unknown as ExtendedUser;
@@ -85,20 +84,14 @@ export default function OrganizationDetailsStep({
           // First try to use given_name for firstName if available
           if (extendedUser.given_name) {
             data.firstName = extendedUser.given_name;
-            console.log('Using given_name for firstName:', data.firstName);
           }
           // Fall back to name parsing if given_name is not available, but only if name doesn't look like an email
           else if (session.user.name && !looksLikeEmail(session.user.name)) {
             const nameParts = session.user.name.split(' ');
             if (nameParts.length > 0) {
               data.firstName = nameParts[0];
-              console.log('Using split name for firstName:', data.firstName);
             }
           } else if (session.user.name && looksLikeEmail(session.user.name)) {
-            console.log(
-              'Skipping name parsing because name looks like an email:',
-              session.user.name
-            );
           }
         }
 
@@ -107,20 +100,14 @@ export default function OrganizationDetailsStep({
           // First try to use family_name for lastName if available
           if (extendedUser.family_name) {
             data.lastName = extendedUser.family_name;
-            console.log('Using family_name for lastName:', data.lastName);
           }
           // Fall back to name parsing if family_name is not available, but only if name doesn't look like an email
           else if (session.user.name && !looksLikeEmail(session.user.name)) {
             const nameParts = session.user.name.split(' ');
             if (nameParts.length > 1) {
               data.lastName = nameParts.slice(1).join(' ');
-              console.log('Using split name for lastName:', data.lastName);
             }
           } else if (session.user.name && looksLikeEmail(session.user.name)) {
-            console.log(
-              'Skipping name parsing because name looks like an email:',
-              session.user.name
-            );
           }
         }
 
@@ -132,7 +119,6 @@ export default function OrganizationDetailsStep({
         // Mark that we've attempted prefilling
         setHasAttemptedPrefill(true);
       } catch (error) {
-        console.error('Error processing user session data:', error);
         setHasAttemptedPrefill(true);
       }
     }
@@ -196,17 +182,11 @@ export default function OrganizationDetailsStep({
           website: formData.website || '',
         };
         sessionStorage.setItem('onboardingUserData', JSON.stringify(userData));
-      } catch (storageError) {
-        console.error(
-          'Error storing user data in session storage:',
-          storageError
-        );
-      }
+      } catch (storageError) {}
 
       // Proceed to next step without updating user profile
       onNext();
     } catch (error) {
-      console.error('Error during form submission:', error);
       setErrorMessage('Failed to submit form. Please try again.');
     } finally {
       setIsSubmitting(false);

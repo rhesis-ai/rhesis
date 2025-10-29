@@ -110,7 +110,6 @@ export default function TestSetsCharts() {
         // Mark that we've fetched the data
         dataFetchedRef.current = true;
       } catch (err) {
-        console.error('Error fetching test set stats:', err);
         setError('Failed to load test set statistics');
       } finally {
         setIsLoading(false);

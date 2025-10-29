@@ -87,13 +87,11 @@ export default function TestsTable({
 
       const response = await testsClient.getTests(apiParams);
 
-      console.log('API response:', response);
       setTests(response.data);
       setTotalCount(response.pagination.totalCount);
 
       setError(null);
     } catch (error) {
-      console.error('Error fetching tests:', error);
       setError('Failed to load tests');
       setTests([]);
     } finally {
@@ -315,7 +313,6 @@ export default function TestsTable({
       fetchTests();
       onRefresh?.();
     } catch (error) {
-      console.error('Error deleting tests:', error);
       notifications.show('Failed to delete tests', {
         severity: 'error',
         autoHideDuration: 6000,
@@ -389,7 +386,6 @@ export default function TestsTable({
 
         onRefresh?.();
       } catch (error) {
-        console.error('Error fetching newly created test:', error);
         // Fallback to full refresh
         fetchTests();
         onRefresh?.();

@@ -82,7 +82,6 @@ export default function TestSetSelectionDialog({
       } catch (error) {
         // Error fetching test sets
         // eslint-disable-next-line no-console
-        console.error('Error fetching test sets:', error);
         notifications.show('Failed to load test sets', {
           severity: 'error',
           autoHideDuration: 6000,
@@ -131,8 +130,6 @@ export default function TestSetSelectionDialog({
 
         handleClose();
       } catch (error) {
-        console.error('Error associating test with test set:', error);
-
         // Check if the error message contains our target string
         const errorMessage = error instanceof Error ? error.message : '';
         if (

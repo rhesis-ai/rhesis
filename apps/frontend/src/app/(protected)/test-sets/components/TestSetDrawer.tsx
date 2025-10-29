@@ -60,7 +60,6 @@ export default function TestSetDrawer({
       onSuccess?.();
       onClose();
     } catch (err) {
-      console.error('Error saving test set:', err);
       setError('Failed to save test set');
     } finally {
       setLoading(false);

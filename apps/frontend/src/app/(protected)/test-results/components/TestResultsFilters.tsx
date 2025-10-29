@@ -71,7 +71,6 @@ export default function TestResultsFilters({
       });
       setTestSets(response.data);
     } catch (error) {
-      console.error('Failed to load test sets:', error);
     } finally {
       setIsLoadingTestSets(false);
     }
@@ -99,7 +98,6 @@ export default function TestResultsFilters({
         });
         setTestRuns(response.data);
       } catch (error) {
-        console.error('Failed to load test runs:', error);
       } finally {
         setIsLoadingTestRuns(false);
       }

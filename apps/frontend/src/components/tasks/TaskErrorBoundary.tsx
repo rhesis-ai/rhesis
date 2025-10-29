@@ -24,9 +24,7 @@ export class TaskErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Task component error:', error, errorInfo);
-  }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {}
 
   handleRetry = () => {
     this.setState({ hasError: false, error: undefined });

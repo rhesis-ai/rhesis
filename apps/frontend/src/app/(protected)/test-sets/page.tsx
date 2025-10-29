@@ -46,10 +46,6 @@ export default async function TestSetsPage() {
               status: status.name,
             };
           } catch (error) {
-            console.error(
-              `Error fetching status for test set ${testSet.id}:`,
-              error
-            );
             return testSet;
           }
         }

@@ -76,7 +76,6 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
 
       setError(null);
     } catch (error) {
-      console.error('Error fetching tasks:', error);
       setError('Failed to load tasks');
       setTasks([]);
     } finally {
@@ -139,7 +138,6 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       await Promise.all(selectedRows.map(id => deleteTask(id as string)));
       setSelectedRows([]);
     } catch (err) {
-      console.error('Error deleting tasks:', err);
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);

@@ -120,11 +120,8 @@ export default function SwaggerEndpointForm() {
           try {
             const serverSession = await auth();
             sessionToken = serverSession?.session_token;
-          } catch (error) {
-            console.error(
-              'Failed to get session from server-side auth:',
-              error
-            );
+          } catch {
+            // Failed to get session from server-side auth
           }
         }
 
@@ -135,8 +132,7 @@ export default function SwaggerEndpointForm() {
         } else {
           setError('Authentication required. Please log in again.');
         }
-      } catch (err) {
-        console.error('Error fetching projects:', err);
+      } catch {
         setError('Failed to load projects. Please try again later.');
       } finally {
         setLoadingProjects(false);
@@ -146,7 +142,7 @@ export default function SwaggerEndpointForm() {
     fetchProjects();
   }, [session]);
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,

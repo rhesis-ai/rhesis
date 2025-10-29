@@ -64,9 +64,7 @@ export default function CreateTokenModal({
 
       await onCreateToken(name, expiresInDays);
       handleClose();
-    } catch (error) {
-      console.error('Error creating token:', error);
-    }
+    } catch (error) {}
   };
 
   const handleClose = () => {

@@ -57,7 +57,6 @@ export default function TasksCharts({ sessionToken }: TasksChartsProps) {
 
         setStats(stats);
       } catch (error) {
-        console.error('Error fetching task stats:', error);
       } finally {
         setLoading(false);
       }

@@ -1,20 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
-  Chip,
-  Paper,
-  Box,
-  Button,
-  Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  useTheme,
-} from '@mui/material';
-import { useRouter } from 'next/navigation';
+import { Chip, Paper, Box, Button, Typography, useTheme } from '@mui/material';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
@@ -80,21 +67,15 @@ const ICON_MAP: Record<string, React.ComponentType> = {
 // Get appropriate icon based on project type or use case
 const getProjectIcon = (project: Project | undefined) => {
   if (!project) {
-    console.log('No project provided to getProjectIcon');
     return <SmartToyIcon />;
   }
 
-  console.log('Project in getProjectIcon:', project);
-  console.log('Project icon:', project.icon);
-
   // Check if a specific project icon was selected during creation
   if (project.icon && ICON_MAP[project.icon]) {
-    console.log('Found matching icon in ICON_MAP:', project.icon);
     const IconComponent = ICON_MAP[project.icon];
     return <IconComponent />;
   }
 
-  console.log('No matching icon found, using default');
   // Fall back to a default icon
   return <SmartToyIcon />;
 };
@@ -120,7 +101,6 @@ export default function EndpointGrid({
   onEndpointDeleted,
 }: EndpointGridProps) {
   const theme = useTheme();
-  const router = useRouter();
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
@@ -147,25 +127,18 @@ export default function EndpointGrid({
             ? response
             : response?.data;
 
-          console.log('Fetched projects response:', response);
-          console.log('Projects array:', projectsArray);
-
           if (Array.isArray(projectsArray)) {
             projectsArray.forEach((project: Project) => {
               if (project && project.id) {
-                console.log('Adding project to map:', project);
                 projectMap[project.id] = project;
               }
             });
-          } else {
-            console.warn('Projects response is not an array:', response);
           }
 
-          console.log('Final project map:', projectMap);
           setProjects(projectMap);
         }
-      } catch (err) {
-        console.error('Error fetching projects:', err);
+      } catch {
+        // Error handled silently
       } finally {
         setLoadingProjects(false);
       }
@@ -205,9 +178,8 @@ export default function EndpointGrid({
       if (onEndpointDeleted) {
         onEndpointDeleted();
       }
-    } catch (error) {
-      console.error('Error deleting endpoints:', error);
-      // You might want to show a toast notification here
+    } catch {
+      // Error handled silently
     } finally {
       setDeleting(false);
     }

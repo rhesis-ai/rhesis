@@ -96,7 +96,6 @@ export default function ExecuteTestSetDrawer({
 
           setProjects(processedProjects);
         } catch (projectsError) {
-          console.error('Error fetching projects:', projectsError);
           setProjects([]);
         }
 
@@ -124,11 +123,9 @@ export default function ExecuteTestSetDrawer({
             setEndpoints([]);
           }
         } catch (endpointsError) {
-          console.error('Error fetching endpoints:', endpointsError);
           setEndpoints([]);
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
         setError(
           'Failed to load data. Please check your connection and try again.'
         );

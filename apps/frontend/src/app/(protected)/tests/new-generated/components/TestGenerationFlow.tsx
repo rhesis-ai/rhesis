@@ -200,7 +200,6 @@ export default function TestGenerationFlow({
             setCurrentScreen('interface');
             setIsGenerating(false);
           } catch (e) {
-            console.error('Failed to parse or generate from template:', e);
             setIsGenerating(false);
             show('Failed to load template', {
               severity: 'error',
@@ -208,7 +207,6 @@ export default function TestGenerationFlow({
           }
         }
       } catch (error) {
-        console.error('Failed to initialize from template:', error);
         show('Failed to load template', { severity: 'error' });
       }
     };
@@ -245,7 +243,6 @@ export default function TestGenerationFlow({
               status: 'completed',
             });
           } catch (error) {
-            console.error(`Failed to fetch source ${sourceId}:`, error);
             show(`Failed to load source: ${sourceId}`, { severity: 'warning' });
           }
         }
@@ -258,7 +255,6 @@ export default function TestGenerationFlow({
             const fetchedProject = await projectsClient.getProject(projectId);
             setProject(fetchedProject);
           } catch (error) {
-            console.error(`Failed to fetch project ${projectId}:`, error);
             show(`Failed to load project`, { severity: 'warning' });
           }
         } else {
@@ -271,8 +267,6 @@ export default function TestGenerationFlow({
           sample_size: 10,
           project_id: projectId || undefined,
         });
-
-        console.log('Config response:', configResponse);
 
         // Step 2: Create chips from config response (5 active, 5 inactive)
         const createChipsFromArray = (
@@ -361,7 +355,6 @@ export default function TestGenerationFlow({
           setCurrentScreen('interface');
         }
       } catch (error) {
-        console.error('Error generating configuration and samples:', error);
         show('Failed to generate configuration', { severity: 'error' });
       } finally {
         setIsGenerating(false);
@@ -445,7 +438,6 @@ export default function TestGenerationFlow({
           severity: 'success',
         });
       } catch (error) {
-        console.error('Error processing document:', error);
         setDocuments(prev =>
           prev.map(doc =>
             doc.id === documentId ? { ...doc, status: 'error' as const } : doc
@@ -521,7 +513,6 @@ export default function TestGenerationFlow({
         show('Samples generated successfully', { severity: 'success' });
       }
     } catch (error) {
-      console.error('Error generating samples:', error);
       show('Failed to generate samples', { severity: 'error' });
     } finally {
       setIsGenerating(false);
@@ -600,7 +591,6 @@ export default function TestGenerationFlow({
           show('Sample regenerated successfully', { severity: 'success' });
         }
       } catch (error) {
-        console.error('Error regenerating sample:', error);
         show('Failed to regenerate sample', { severity: 'error' });
       } finally {
         setRegeneratingSampleId(null);
@@ -696,20 +686,6 @@ export default function TestGenerationFlow({
             timestamp: msg.timestamp.toISOString(),
             chip_states: msg.chip_states,
           }));
-
-        console.log('Sending to generateTestConfig:', {
-          prompt: description,
-          sample_size: 10,
-          rated_samples: ratedSamples,
-          previous_messages: [
-            ...previousMessages,
-            {
-              content: message,
-              timestamp: newMessage.timestamp.toISOString(),
-              chip_states: chipStates,
-            },
-          ],
-        });
 
         // Step 1: Regenerate test configuration with full iteration context
         const configResponse = await servicesClient.generateTestConfig({
@@ -838,7 +814,6 @@ export default function TestGenerationFlow({
           show('Test generation refined successfully', { severity: 'success' });
         }
       } catch (error) {
-        console.error('Error refining test generation:', error);
         show('Failed to refine test generation', { severity: 'error' });
       } finally {
         setIsGenerating(false);
@@ -975,7 +950,6 @@ export default function TestGenerationFlow({
         setTestSamples(prev => [...prev, ...newSamples]);
       }
     } catch (error) {
-      console.error('Error loading more samples:', error);
       show('Failed to load more samples', { severity: 'error' });
     } finally {
       setIsLoadingMore(false);
@@ -1037,14 +1011,9 @@ export default function TestGenerationFlow({
       const response = await testSetsClient.generateTestSet(request);
 
       show(response.message, { severity: 'success' });
-      console.log('Test generation task started:', {
-        taskId: response.task_id,
-        estimatedTests: response.estimated_tests,
-      });
 
       setTimeout(() => router.push('/tests'), 2000);
     } catch (error) {
-      console.error('Failed to start test generation:', error);
       show('Failed to start test generation. Please try again.', {
         severity: 'error',
       });

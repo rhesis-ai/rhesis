@@ -100,7 +100,6 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
           setIsLoading(false);
         }
       } catch (err) {
-        console.error('Error fetching chart stats:', err);
         if (isMounted.current) {
           setIsLoading(false);
           setHasError(true);

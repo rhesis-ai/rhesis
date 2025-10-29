@@ -90,15 +90,8 @@ export default function TestDetailHistoryTab({
             // Use name if available, otherwise use the test run ID
             const displayName = testRun.name || testRunIds[index];
             testRunNamesMap.set(testRun.id, displayName);
-            console.log(
-              `Mapped test run ${testRun.id} to name: ${displayName}`
-            );
           } else {
             // If fetch failed, use the ID as fallback
-            console.warn(
-              `Failed to fetch test run ${testRunIds[index]}:`,
-              result.reason
-            );
             testRunNamesMap.set(testRunIds[index], testRunIds[index]);
           }
         });
@@ -152,7 +145,6 @@ export default function TestDetailHistoryTab({
         setHistory(dedupedHistory);
         setError(null);
       } catch (err) {
-        console.error('Error fetching test history:', err);
         setError('Failed to load test history');
       } finally {
         setLoading(false);
@@ -242,16 +234,7 @@ export default function TestDetailHistoryTab({
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{ textDecoration: 'none' }}
-                          onClick={() => {
-                            console.log(
-                              'Navigating with test_id:',
-                              test.test_id
-                            );
-                            console.log(
-                              'Full URL:',
-                              `/test-runs/${item.testRunId}${test.test_id ? `?selectedresult=${test.test_id}` : ''}`
-                            );
-                          }}
+                          onClick={() => {}}
                         >
                           <Box
                             sx={{

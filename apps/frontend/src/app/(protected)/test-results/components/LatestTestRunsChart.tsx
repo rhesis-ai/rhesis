@@ -110,8 +110,6 @@ export default function LatestTestRunsChart({
       const statsData =
         await testResultsClient.getComprehensiveTestResultsStats(options);
       if (statsData && typeof statsData === 'object') {
-        console.log('Test Runs API Response:', statsData);
-        console.log('Test runs data:', statsData.test_run_summary);
         setStats(statsData);
         setError(null);
       } else {
@@ -132,14 +130,11 @@ export default function LatestTestRunsChart({
   }, [fetchData]);
 
   const testRunsData = useMemo(() => {
-    console.log('Raw test runs data:', stats?.test_run_summary);
     const data = transformTestRunsData(stats?.test_run_summary);
-    console.log('Transformed test runs data:', data);
     const finalData = data.map(item => ({
       ...item,
       pass_rate: isNaN(item.pass_rate) ? 0 : item.pass_rate,
     }));
-    console.log('Final test runs data for chart:', finalData);
     return finalData;
   }, [stats?.test_run_summary]);
 

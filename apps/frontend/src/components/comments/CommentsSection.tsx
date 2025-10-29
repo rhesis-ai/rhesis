@@ -90,7 +90,6 @@ export function CommentsSection({
         setNewComment('');
       } catch (err) {
         setError('Failed to post comment. Please try again.');
-        console.error('Failed to create comment:', err);
       } finally {
         setIsSubmitting(false);
       }
@@ -103,7 +102,6 @@ export function CommentsSection({
       try {
         await onEditComment(commentId, newText);
       } catch (err) {
-        console.error('Failed to edit comment:', err);
         throw err; // Re-throw to let CommentItem handle the error
       }
     },
@@ -115,7 +113,6 @@ export function CommentsSection({
       try {
         await onDeleteComment(commentId);
       } catch (err) {
-        console.error('Failed to delete comment:', err);
         throw err; // Re-throw to let CommentItem handle the error
       }
     },
@@ -127,7 +124,6 @@ export function CommentsSection({
       try {
         await onReactToComment(commentId, emoji);
       } catch (err) {
-        console.error('Failed to react to comment:', err);
         throw err; // Re-throw to let CommentItem handle the error
       }
     },

@@ -4,11 +4,6 @@ import { Box, Paper, Typography, Button, Stack, Chip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 
 export default function ToolsPage() {
-  const handleAddTool = () => {
-    // Disabled for now - coming soon
-    console.log('Add tool - coming soon');
-  };
-
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ maxWidth: 1200, mx: 'auto' }}>

@@ -100,10 +100,6 @@ export class BaseApiClient {
     isSessionClearing = true;
 
     try {
-      console.log(
-        '[ERROR] Unauthorized error detected in API client, checking current location...'
-      );
-
       // Don't interfere if we're already on logout/signin pages
       const currentPath = window.location.pathname;
       if (
@@ -111,13 +107,8 @@ export class BaseApiClient {
         currentPath.includes('/auth/signin') ||
         currentPath === '/'
       ) {
-        console.log('[ERROR] Already on auth page, skipping session clearing');
         throw new Error('Unauthorized');
       }
-
-      console.log(
-        '[ERROR] Clearing session due to unauthorized API response...'
-      );
 
       // Add a delay to ensure any pending operations complete
       await this.delay(500);
@@ -126,7 +117,6 @@ export class BaseApiClient {
       // This line should never be reached as clearAllSessionData redirects
       throw new Error('Unauthorized - session cleared');
     } catch (error) {
-      console.error('Error during session clearing:', error);
       throw new Error('Unauthorized'); // Throw clean error instead of re-throwing complex error
     } finally {
       // Reset the flag after a delay
@@ -155,7 +145,6 @@ export class BaseApiClient {
       const parsed = parseInt(totalCount, 10);
       return isNaN(parsed) ? defaultValue : parsed;
     } catch (error) {
-      console.warn('Error parsing x-total-count header:', error);
       return defaultValue;
     }
   }
@@ -231,10 +220,6 @@ export class BaseApiClient {
               errorMessage = await response.text();
             }
           } catch (parseError) {
-            console.error(
-              '[ERROR] [DEBUG] Error parsing response:',
-              parseError
-            );
             errorMessage = await response.text();
           }
 
@@ -300,20 +285,10 @@ export class BaseApiClient {
           response.status === 204 ||
           response.headers.get('content-length') === '0'
         ) {
-          console.log('[SUCCESS] [DEBUG] API Success (No Content):', {
-            url,
-            status: response.status,
-          });
           return undefined as unknown as T;
         }
 
         const result = await response.json();
-        console.log('[SUCCESS] [DEBUG] API Success:', {
-          url,
-          status: response.status,
-          dataType: Array.isArray(result) ? 'array' : typeof result,
-          count: Array.isArray(result) ? result.length : undefined,
-        });
         return result;
       } catch (error: any) {
         lastError = error;
@@ -337,7 +312,6 @@ export class BaseApiClient {
             error instanceof TypeError &&
             error.message.includes('Failed to fetch')
           ) {
-            console.error(`Network error requesting ${url}:`, error);
             throw new Error(
               `Network error when connecting to ${this.baseUrl}. Please check your connection and ensure the API server is running.`
             );
@@ -348,9 +322,7 @@ export class BaseApiClient {
           const isClientError =
             error.status && [400, 409, 410, 422, 429].includes(error.status);
           if (isClientError) {
-            console.warn(`API client error for ${url}:`, error);
           } else {
-            console.error(`API request failed for ${url}:`, error);
           }
           throw error;
         }

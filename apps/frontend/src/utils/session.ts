@@ -36,9 +36,6 @@ export async function getSession(): Promise<Session | null> {
     }
   } catch (error) {
     // If JSON parsing fails, treat as direct token
-    console.log(
-      '[WARNING] [DEBUG] Session cookie is not JSON, treating as direct token'
-    );
   }
 
   try {
@@ -64,16 +61,11 @@ export async function getSession(): Promise<Session | null> {
       user: data.user,
     };
   } catch (error) {
-    console.error('Session error:', error);
     return null;
   }
 }
 
 export async function clearAllSessionData() {
-  console.log(
-    '🟡 [DEBUG] clearAllSessionData called - starting session cleanup'
-  );
-
   // Step 1: Call backend logout endpoint to clear server-side session
   // Try to get the session token first to pass to backend
   let sessionToken: string | undefined;
@@ -100,17 +92,12 @@ export async function clearAllSessionData() {
         sessionToken = decodeURIComponent(cookieValue);
       }
     }
-  } catch (error) {
-    console.warn('🟡 [DEBUG] Could not retrieve session token:', error);
-  }
+  } catch (error) {}
 
   // Call backend logout with retry logic
   const maxRetries = 2;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      console.log(
-        `🟡 [DEBUG] Calling backend logout endpoint (attempt ${attempt + 1}/${maxRetries + 1})`
-      );
       const logoutUrl = new URL(`${API_CONFIG.baseUrl}/auth/logout`);
       if (sessionToken) {
         logoutUrl.searchParams.set('session_token', sessionToken);
@@ -123,10 +110,6 @@ export async function clearAllSessionData() {
           Accept: 'application/json',
         },
       });
-      console.log(
-        '🟡 [DEBUG] Backend logout response status:',
-        response.status
-      );
 
       if (response.ok) {
         break; // Success, exit retry loop
@@ -137,14 +120,7 @@ export async function clearAllSessionData() {
         await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
       }
     } catch (error) {
-      console.warn(
-        `🟡 [DEBUG] Backend logout attempt ${attempt + 1} failed:`,
-        error
-      );
       if (attempt === maxRetries) {
-        console.warn(
-          '🟡 [DEBUG] All backend logout attempts failed, continuing with frontend cleanup'
-        );
       }
     }
   }
@@ -180,8 +156,6 @@ export async function clearAllSessionData() {
   const allCookiesToClear = Array.from(
     new Set([...cookieNames, ...knownAuthCookies])
   );
-
-  console.log('🟡 [DEBUG] Clearing ALL cookies:', allCookiesToClear);
 
   // Clear each cookie with multiple variations to ensure complete removal
   allCookiesToClear.forEach(name => {
@@ -228,15 +202,11 @@ export async function clearAllSessionData() {
     });
   }, 100);
 
-  console.log('🟡 [DEBUG] Clearing localStorage items');
   // Step 3: Clear ALL local storage items
   localStorage.clear();
 
   // Step 4: Clear ALL session storage items
   sessionStorage.clear();
 
-  console.log(
-    '🟡 [DEBUG] Session data clearing completed - no redirect needed'
-  );
   // Note: Redirect will be handled by the calling function (NextAuth signOut)
 }

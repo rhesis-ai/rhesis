@@ -13,7 +13,6 @@ export default function TeamPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleInvitesSent = (emails: string[]) => {
-    console.log('Invitations sent to:', emails);
     // Trigger refresh of team members grid
     setRefreshTrigger(prev => prev + 1);
   };

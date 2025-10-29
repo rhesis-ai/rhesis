@@ -72,7 +72,6 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
     taskDataCache.set(cacheKey, statuses);
     return statuses;
   } catch (error) {
-    console.error('Failed to fetch statuses:', error);
     // Return default statuses if API fails - using proper UUIDs
     const defaultStatuses = [
       {
@@ -144,7 +143,6 @@ export async function getPriorities(
     taskDataCache.set(cacheKey, priorities);
     return priorities;
   } catch (error) {
-    console.error('Failed to fetch priorities:', error);
     // Return default priorities if API fails - using proper UUIDs
     const defaultPriorities = [
       {
@@ -216,9 +214,7 @@ export async function getStatusesForTask(
           return [...allStatuses, additionalStatus];
         }
       }
-    } catch (error) {
-      console.warn('Failed to fetch specific status:', error);
-    }
+    } catch (error) {}
   }
 
   return allStatuses;
@@ -254,9 +250,7 @@ export async function getPrioritiesForTask(
           return [...allPriorities, additionalPriority];
         }
       }
-    } catch (error) {
-      console.warn('Failed to fetch specific priority:', error);
-    }
+    } catch (error) {}
   }
 
   return allPriorities;

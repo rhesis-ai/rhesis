@@ -143,9 +143,7 @@ export default function TestResultDrawer({
 
       // Notify parent to update its state
       onTestResultUpdate(updatedTest);
-    } catch (error) {
-      console.error('Error refetching test result:', error);
-    }
+    } catch (error) {}
   }, [test, sessionToken, onTestResultUpdate]);
 
   const drawerContent = () => {

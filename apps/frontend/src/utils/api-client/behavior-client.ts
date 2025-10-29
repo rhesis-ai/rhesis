@@ -60,26 +60,11 @@ export class BehaviorClient extends BaseApiClient {
   async getBehaviorsWithMetrics(
     params: Omit<BehaviorsQueryParams, 'include'> = {}
   ): Promise<BehaviorWithMetrics[]> {
-    console.log(
-      '[SEARCH] [DEBUG] getBehaviorsWithMetrics called with params:',
-      params
-    );
     try {
       // Since getBehaviors now always returns BehaviorWithMetrics, we can just call it directly
       const result = await this.getBehaviors(params);
-      console.log('[SUCCESS] [DEBUG] getBehaviorsWithMetrics result:', {
-        count: result.length,
-        firstItem: result[0]
-          ? {
-              id: result[0].id,
-              name: result[0].name,
-              metricsCount: result[0].metrics?.length || 0,
-            }
-          : null,
-      });
       return result;
     } catch (error) {
-      console.error('[ERROR] [DEBUG] getBehaviorsWithMetrics error:', error);
       throw error;
     }
   }

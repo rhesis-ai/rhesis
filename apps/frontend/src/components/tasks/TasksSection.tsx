@@ -65,10 +65,6 @@ export function TasksSection({
   // Handle pagination changes
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
-      console.log(
-        '[TasksSection] handlePaginationModelChange called',
-        newModel
-      );
       setPaginationModel(newModel);
     },
     []
@@ -136,18 +132,14 @@ export function TasksSection({
     if (onDeleteTask) {
       try {
         await onDeleteTask(taskId);
-      } catch (error) {
-        console.error('Failed to delete task:', error);
-      }
+      } catch (error) {}
     }
   };
 
   const handleRowClick = (params: any) => {
     try {
       router.push(`/tasks/${params.id}`);
-    } catch (error) {
-      console.error('Navigation error:', error);
-    }
+    } catch (error) {}
   };
 
   const handleCreateTask = () => {

@@ -37,8 +37,6 @@ export default async function ProjectsPage() {
       />
     );
   } catch (error) {
-    console.error('Error loading projects:', error);
-
     // Show error state instead of empty projects
     return (
       <Paper sx={{ p: 3 }}>

@@ -501,7 +501,6 @@ export default function TestDetailCharts({
 
         setStats(data);
       } catch (err) {
-        console.error('Error fetching test stats:', err);
         setError(
           err instanceof Error ? err.message : 'Failed to load statistics'
         );

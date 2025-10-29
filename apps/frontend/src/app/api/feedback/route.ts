@@ -68,7 +68,6 @@ ${rating ? `<p><strong>Rating:</strong> ${rating}/5 stars</p>` : ''}
       message: 'Feedback sent successfully',
     });
   } catch (error) {
-    console.error('Error sending feedback email:', error);
     return NextResponse.json(
       { error: 'Failed to send feedback' },
       { status: 500 }

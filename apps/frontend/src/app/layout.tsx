@@ -59,15 +59,10 @@ async function getNavigationItems(
         organizationName = organization.name;
       }
     } catch (error) {
-      console.error('Error fetching organization:', error);
-
       // If this is an Unauthorized error (expired JWT), the session is invalid
       // Log it but continue with default navigation to allow the client-side
       // session handling to take over
       if (error instanceof Error && error.message.includes('Unauthorized')) {
-        console.warn(
-          'Backend JWT appears to be expired, using default navigation'
-        );
       }
       // Continue with default organization name
     }

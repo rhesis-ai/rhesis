@@ -202,9 +202,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
 
           // Log expected validation errors as warnings, unexpected errors as errors
           if (isExpectedError) {
-            console.warn(`Invitation validation: ${email} - ${errorMessage}`);
           } else {
-            console.error(`Failed to create user with email ${email}:`, error);
           }
 
           invitationResults.push({
@@ -318,7 +316,6 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
         }
       }
     } catch (error) {
-      console.error('Error during form submission:', error);
       notifications.show('Failed to send invitations. Please try again.', {
         severity: 'error',
       });

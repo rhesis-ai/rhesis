@@ -43,8 +43,6 @@ export default function TestToTestSet({
 
       setTestSetDialogOpen(false);
     } catch (error) {
-      console.error('Error associating test with test set:', error);
-
       // Check if the error message contains our target string
       const errorMessage = error instanceof Error ? error.message : '';
       if (
