@@ -5,11 +5,12 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.models.metric import Metric as MetricModel
+from rhesis.backend.app.models.metric import Metric as MetricModel, ScoreType
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
+from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 
 # Use inline factory creation to avoid circular imports
 # Implementation of the factory import will be delayed until needed
@@ -51,39 +52,40 @@ class MetricEvaluator:
 
     @staticmethod
     def _metric_model_to_dict(metric: MetricModel) -> Dict[str, Any]:
-        """Convert a Metric database model directly to parameters for MetricFactory.
+        """Convert a Metric database model to SDK-compatible config dict.
 
-        This replaces the old create_metric_config_from_model by extracting
-        parameters directly without unnecessary nesting.
+        Uses the SDK's backend_config_to_sdk_config utility to ensure proper
+        field name conversion (e.g., ground_truth_required -> requires_ground_truth).
         """
-        # Determine backend from backend_type relationship
-        backend = metric.backend_type.type_value if metric.backend_type else "rhesis"
+        # Common fields to extract from the metric model
+        common_fields = [
+            "name",
+            "class_name",
+            "description",
+            "evaluation_prompt",
+            "evaluation_steps",
+            "reasoning",
+            "evaluation_examples",
+            "score_type",
+            "ground_truth_required",
+            "context_required",
+        ]
 
-        # Map backend types
-        backend_mapping = {
-            "custom-code": "rhesis",
-            "custom-prompt": "rhesis",
-            "framework": "deepeval",
-        }
-        backend = backend_mapping.get(backend, backend)
+        # Build config dict by extracting common fields
+        config = {field: getattr(metric, field, None) for field in common_fields}
 
-        # Build flat config dict (no nested "parameters")
-        config = {
-            "name": metric.name or f"Metric_{metric.id}",
-            "class_name": metric.class_name,
-            "backend": backend,
-            "description": metric.description or f"Metric evaluation for {metric.class_name}",
-            "model_id": str(metric.model_id) if metric.model_id else None,
-            "evaluation_prompt": metric.evaluation_prompt,
-            "evaluation_steps": metric.evaluation_steps,
-            "reasoning": metric.reasoning,
-            "evaluation_examples": metric.evaluation_examples,
-        }
+        # Add derived fields
+        config["backend"] = metric.backend_type.type_value if metric.backend_type else "rhesis"
+        config["model_id"] = str(metric.model_id) if metric.model_id else None
 
-        # Add score type specific fields
-        score_type = metric.score_type or "numeric"
-        if score_type == "categorical":
-            # For categorical metrics, use the dedicated fields
+        # Set defaults for required fields
+        config["name"] = config["name"] or f"Metric_{metric.id}"
+        config["description"] = config["description"] or f"Metric evaluation for {metric.class_name}"
+        config["score_type"] = config["score_type"] or ScoreType.NUMERIC.value
+
+        # Add score type specific fields using enum
+        score_type = metric.score_type or ScoreType.NUMERIC.value
+        if score_type == ScoreType.CATEGORICAL.value:
             config["categories"] = metric.categories
             config["passing_categories"] = metric.passing_categories
         else:
@@ -95,16 +97,14 @@ class MetricEvaluator:
             if metric.max_score is not None:
                 config["max_score"] = metric.max_score
 
-        # Add requirement flags
-        if metric.ground_truth_required is not None:
-            config["requires_ground_truth"] = metric.ground_truth_required
-        if metric.context_required is not None:
-            config["requires_context"] = metric.context_required
-
         # Add model information if available
         if metric.model and metric.model.provider_type:
             config["provider"] = metric.model.provider_type.type_value
             config["model"] = metric.model.model_name
+
+        # Convert backend field names to SDK field names
+        # This handles ground_truth_required -> requires_ground_truth
+        config = backend_config_to_sdk_config(config)
 
         return config
 
