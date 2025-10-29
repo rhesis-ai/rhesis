@@ -16,6 +16,7 @@ DEFAULT_PROVIDER = "rhesis"
 DEFAULT_MODELS = {
     "rhesis": "rhesis-default",
     "anthropic": "claude-4",
+    "cohere": "command-r-plus",
     "gemini": "gemini-2.0-flash",
     "groq": "llama3-8b-8192",
     "huggingface": "meta-llama/Llama-2-7b-chat-hf",
@@ -77,6 +78,13 @@ def _create_anthropic_llm(model_name: str, api_key: Optional[str], **kwargs) -> 
     return AnthropicLLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
+def _create_cohere_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
+    """Factory function for CohereLLM."""
+    from rhesis.sdk.models.providers.cohere import CohereLLM
+
+    return CohereLLM(model_name=model_name, api_key=api_key, **kwargs)
+
+
 def _create_groq_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for GroqLLM."""
     from rhesis.sdk.models.providers.groq import GroqLLM
@@ -131,6 +139,7 @@ def _create_together_ai_llm(model_name: str, api_key: Optional[str], **kwargs) -
 PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
     "rhesis": _create_rhesis_llm,
     "anthropic": _create_anthropic_llm,
+    "cohere": _create_cohere_llm,
     "gemini": _create_gemini_llm,
     "groq": _create_groq_llm,
     "huggingface": _create_huggingface_llm,
