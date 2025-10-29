@@ -1,9 +1,17 @@
 import concurrent.futures
 import inspect
+import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 from sqlalchemy.orm import Session
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from rhesis.backend.app.models.metric import Metric as MetricModel, ScoreType
 from rhesis.backend.logging.rhesis_logger import logger
@@ -14,6 +22,20 @@ from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 
 # Use inline factory creation to avoid circular imports
 # Implementation of the factory import will be delayed until needed
+
+# ============================================================================
+# CONFIGURATION CONSTANTS
+# ============================================================================
+
+# Overall timeout for all metrics in a batch (10 minutes)
+METRIC_OVERALL_TIMEOUT = 600
+
+# Maximum number of retry attempts for transient failures
+METRIC_MAX_RETRIES = 3
+
+# Retry backoff configuration (exponential: 1s, 2s, 4s, 8s, 10s)
+METRIC_RETRY_MIN_WAIT = 1  # seconds
+METRIC_RETRY_MAX_WAIT = 10  # seconds
 
 
 class MetricEvaluator:
@@ -412,6 +434,340 @@ class MetricEvaluator:
 
         return metric_tasks
 
+    # ============================================================================
+    # METRIC KEY GENERATION
+    # ============================================================================
+
+    def _generate_unique_metric_keys(
+        self, metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]]
+    ) -> Tuple[List[str], Dict[str, Any]]:
+        """
+        Generate unique keys for each metric and initialize results dictionary.
+
+        Args:
+            metric_tasks: List of prepared metric tasks
+
+        Returns:
+            Tuple of (list of unique keys, initialized results dict)
+        """
+        metric_keys = []
+        used_keys = set()
+        results = {}
+
+        for class_name, metric, metric_config, backend in metric_tasks:
+            # Get preferred name
+            metric_name = (
+                metric_config.get("name")
+                if isinstance(metric_config, dict)
+                else getattr(metric_config, "name", None)
+            )
+            base_key = metric_name if metric_name and metric_name.strip() else class_name
+
+            # Ensure uniqueness
+            unique_key = base_key
+            counter = 1
+            while unique_key in used_keys:
+                unique_key = f"{base_key}_{counter}"
+                counter += 1
+
+            used_keys.add(unique_key)
+            metric_keys.append(unique_key)
+            # Pre-populate with None to track incomplete metrics
+            results[unique_key] = None
+
+        return metric_keys, results
+
+    # ============================================================================
+    # METRIC SUBMISSION
+    # ============================================================================
+
+    def _submit_metric_evaluations(
+        self,
+        executor: concurrent.futures.ThreadPoolExecutor,
+        metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]],
+        metric_keys: List[str],
+        input_text: str,
+        output_text: str,
+        expected_output: str,
+        context: List[str],
+    ) -> Dict[concurrent.futures.Future, Tuple[str, str, MetricConfig, str]]:
+        """
+        Submit all metric evaluation tasks to the executor.
+
+        Args:
+            executor: ThreadPoolExecutor instance
+            metric_tasks: List of prepared metric tasks
+            metric_keys: List of unique metric keys
+            input_text: Input text for evaluation
+            output_text: Output text for evaluation
+            expected_output: Expected output for evaluation
+            context: Context for evaluation
+
+        Returns:
+            Dictionary mapping futures to metric metadata
+        """
+        future_to_metric = {}
+
+        for (class_name, metric, metric_config, backend), unique_key in zip(
+            metric_tasks, metric_keys
+        ):
+            future = executor.submit(
+                self._evaluate_metric_with_retry,
+                metric,
+                input_text,
+                output_text,
+                expected_output,
+                context,
+            )
+            future_to_metric[future] = (unique_key, class_name, metric_config, backend)
+
+        return future_to_metric
+
+    # ============================================================================
+    # RESULT COLLECTION
+    # ============================================================================
+
+    def _collect_metric_results(
+        self,
+        future_to_metric: Dict[concurrent.futures.Future, Tuple[str, str, MetricConfig, str]],
+        results: Dict[str, Any],
+        total_metrics: int,
+        timeout: int,
+    ) -> Tuple[int, int]:
+        """
+        Collect results as metrics complete, with overall timeout.
+
+        Args:
+            future_to_metric: Mapping of futures to metric metadata
+            results: Results dictionary to populate
+            total_metrics: Total number of metrics
+            timeout: Overall timeout in seconds
+
+        Returns:
+            Tuple of (completed_count, failed_count)
+        """
+        completed_count = 0
+        failed_count = 0
+
+        try:
+            # Process results as they complete with overall timeout
+            for future in concurrent.futures.as_completed(future_to_metric, timeout=timeout):
+                unique_key, class_name, metric_config, backend = future_to_metric[future]
+
+                try:
+                    # Process the result
+                    result = self._process_metric_result(
+                        future, class_name, metric_config, backend
+                    )
+                    results[unique_key] = result
+                    completed_count += 1
+                    logger.debug(
+                        f"✓ Metric '{unique_key}' completed successfully "
+                        f"({completed_count}/{total_metrics})"
+                    )
+                except Exception as e:
+                    # Ensure we always have a result, even for processing errors
+                    error_result = self._create_error_result(
+                        class_name, metric_config, backend, e
+                    )
+                    results[unique_key] = error_result
+                    failed_count += 1
+                    completed_count += 1
+                    logger.error(
+                        f"✗ Metric '{unique_key}' failed " f"({completed_count}/{total_metrics}): {e}"
+                    )
+
+        except concurrent.futures.TimeoutError:
+            logger.error(
+                f"⏱ Overall timeout ({timeout}s) reached. "
+                f"{completed_count}/{total_metrics} metrics completed"
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error in result collection: {e}", exc_info=True)
+
+        return completed_count, failed_count
+
+    # ============================================================================
+    # INCOMPLETE METRIC HANDLING
+    # ============================================================================
+
+    def _handle_incomplete_metrics(
+        self,
+        results: Dict[str, Any],
+        metric_keys: List[str],
+        metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]],
+    ) -> int:
+        """
+        Handle metrics that didn't complete within timeout.
+
+        Args:
+            results: Results dictionary
+            metric_keys: List of unique metric keys
+            metric_tasks: List of prepared metric tasks
+
+        Returns:
+            Number of incomplete metrics
+        """
+        incomplete_metrics = [key for key, val in results.items() if val is None]
+
+        if incomplete_metrics:
+            logger.error(f"⚠ {len(incomplete_metrics)} metrics incomplete: {incomplete_metrics}")
+
+            # Create timeout results for incomplete metrics
+            for key in incomplete_metrics:
+                idx = metric_keys.index(key)
+                class_name, _, metric_config, backend = metric_tasks[idx]
+
+                results[key] = self._create_timeout_result(class_name, metric_config, backend)
+
+        return len(incomplete_metrics)
+
+    # ============================================================================
+    # SUMMARY LOGGING
+    # ============================================================================
+
+    def _log_evaluation_summary(self, results: Dict[str, Any]) -> None:
+        """
+        Log a summary of the evaluation results.
+
+        Args:
+            results: Final results dictionary
+        """
+        successful = sum(1 for r in results.values() if r and r.get("is_successful", False))
+        failed = sum(1 for r in results.values() if r and not r.get("is_successful", False))
+
+        logger.info(
+            f"📊 Metric evaluation complete: {successful} successful, "
+            f"{failed} failed/timed out (total: {len(results)})"
+        )
+
+    # ============================================================================
+    # RETRY WRAPPER
+    # ============================================================================
+
+    def _evaluate_metric_with_retry(
+        self,
+        metric: BaseMetric,
+        input_text: str,
+        output_text: str,
+        expected_output: str,
+        context: List[str],
+    ) -> MetricResult:
+        """
+        Evaluate a single metric with automatic retry on transient failures.
+
+        Uses tenacity for intelligent retry with exponential backoff.
+        Only retries on network/timeout errors, not validation errors.
+
+        Args:
+            metric: The metric instance to evaluate
+            input_text: The input query or question
+            output_text: The actual output from the LLM
+            expected_output: The expected or reference output
+            context: List of context strings used for the response
+
+        Returns:
+            MetricResult object with score and details
+
+        Raises:
+            Exception: After max retries exhausted
+        """
+
+        @retry(
+            retry=retry_if_exception_type((TimeoutError, ConnectionError, OSError)),
+            stop=stop_after_attempt(METRIC_MAX_RETRIES + 1),
+            wait=wait_exponential(
+                multiplier=1, min=METRIC_RETRY_MIN_WAIT, max=METRIC_RETRY_MAX_WAIT
+            ),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=True,
+        )
+        def _execute_with_retry():
+            return self._evaluate_metric(metric, input_text, output_text, expected_output, context)
+
+        try:
+            return _execute_with_retry()
+        except Exception as e:
+            logger.error(
+                f"Metric '{metric.name}' failed after {METRIC_MAX_RETRIES + 1} attempts: {e}",
+                exc_info=True,
+            )
+            raise
+
+    # ============================================================================
+    # ERROR RESULT HELPERS
+    # ============================================================================
+
+    def _create_error_result(
+        self,
+        class_name: str,
+        metric_config: Union[Dict, MetricConfig],
+        backend: str,
+        exception: Exception,
+    ) -> Dict[str, Any]:
+        """
+        Create a consistent error result for a failed metric.
+
+        Args:
+            class_name: Name of the metric class
+            metric_config: Configuration for the metric
+            backend: Backend used for the metric
+            exception: The exception that occurred
+
+        Returns:
+            Dictionary with error result
+        """
+        return {
+            "score": 0.0,
+            "reason": f"Evaluation failed: {str(exception)}",
+            "is_successful": False,
+            "backend": backend,
+            "name": self._get_config_value(metric_config, "name", class_name),
+            "class_name": class_name,
+            "description": self._get_config_value(
+                metric_config, "description", f"{class_name} evaluation metric"
+            ),
+            "error": str(exception),
+            "error_type": type(exception).__name__,
+            "threshold": self._get_config_value(metric_config, "threshold", 0.0),
+        }
+
+    def _create_timeout_result(
+        self,
+        class_name: str,
+        metric_config: Union[Dict, MetricConfig],
+        backend: str,
+    ) -> Dict[str, Any]:
+        """
+        Create a result for metrics that timed out.
+
+        Args:
+            class_name: Name of the metric class
+            metric_config: Configuration for the metric
+            backend: Backend used for the metric
+
+        Returns:
+            Dictionary with timeout result
+        """
+        return {
+            "score": 0.0,
+            "reason": f"Metric evaluation timed out after {METRIC_OVERALL_TIMEOUT}s",
+            "is_successful": False,
+            "backend": backend,
+            "name": self._get_config_value(metric_config, "name", class_name),
+            "class_name": class_name,
+            "description": self._get_config_value(
+                metric_config, "description", f"{class_name} evaluation metric"
+            ),
+            "error": "Timeout",
+            "error_type": "TimeoutError",
+            "threshold": self._get_config_value(metric_config, "threshold", 0.0),
+        }
+
+    # ============================================================================
+    # MAIN ORCHESTRATION METHOD
+    # ============================================================================
+
     def _execute_metrics_in_parallel(
         self,
         metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]],
@@ -422,7 +778,10 @@ class MetricEvaluator:
         max_workers: int,
     ) -> Dict[str, Any]:
         """
-        Execute metrics in parallel using ThreadPoolExecutor.
+        Execute metrics in parallel with overall timeout and complete accountability.
+
+        This is the main orchestration method that coordinates metric evaluation.
+        It guarantees that every metric gets a result (success, error, or timeout).
 
         Args:
             metric_tasks: List of prepared metric tasks
@@ -435,60 +794,45 @@ class MetricEvaluator:
         Returns:
             Dictionary of metric results
         """
-        results = {}
-
         if not metric_tasks:
             logger.warning("No metrics to evaluate")
-            return results
+            return {}
 
-        logger.info(f"Starting parallel evaluation of {len(metric_tasks)} metrics using threads")
+        # Step 1: Generate unique keys and initialize results
+        metric_keys, results = self._generate_unique_metric_keys(metric_tasks)
+        total_metrics = len(metric_tasks)
 
-        # Generate unique keys for each metric to avoid collisions
-        metric_keys = []
-        used_keys = set()  # Track all used keys to ensure uniqueness
+        logger.info(
+            f"Starting parallel evaluation of {total_metrics} metrics: {list(results.keys())}"
+        )
 
-        for class_name, metric, metric_config, backend in metric_tasks:
-            # Start with the preferred key (name if available, otherwise class_name)
-            metric_name = (
-                metric_config.get("name")
-                if isinstance(metric_config, dict)
-                else getattr(metric_config, "name", None)
-            )
-            if metric_name and metric_name.strip():
-                base_key = metric_name
-            else:
-                base_key = class_name
-
-            # Ensure the key is unique by adding suffixes if necessary
-            unique_key = base_key
-            counter = 1
-            while unique_key in used_keys:
-                unique_key = f"{base_key}_{counter}"
-                counter += 1
-
-            # Track this key as used
-            used_keys.add(unique_key)
-            metric_keys.append(unique_key)
-
+        # Step 2: Execute metrics in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks
-            future_to_metric = {
-                executor.submit(
-                    self._evaluate_metric, metric, input_text, output_text, expected_output, context
-                ): (unique_key, class_name, metric_config, backend)
-                for (class_name, metric, metric_config, backend), unique_key in zip(
-                    metric_tasks, metric_keys
-                )
-            }
+            future_to_metric = self._submit_metric_evaluations(
+                executor,
+                metric_tasks,
+                metric_keys,
+                input_text,
+                output_text,
+                expected_output,
+                context,
+            )
 
-            # Process results as they complete
-            for future in concurrent.futures.as_completed(future_to_metric):
-                unique_key, class_name, metric_config, backend = future_to_metric[future]
-                results[unique_key] = self._process_metric_result(
-                    future, class_name, metric_config, backend
-                )
+            # Step 3: Collect results as they complete
+            completed_count, failed_count = self._collect_metric_results(
+                future_to_metric,
+                results,
+                total_metrics,
+                METRIC_OVERALL_TIMEOUT,
+            )
 
-        logger.info(f"Completed parallel evaluation of {len(results)} metrics")
+            # Step 4: Handle incomplete metrics (timeouts)
+            incomplete_count = self._handle_incomplete_metrics(results, metric_keys, metric_tasks)
+
+        # Step 5: Log summary
+        self._log_evaluation_summary(results)
+
         return results
 
     def _call_metric_with_introspection(
