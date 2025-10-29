@@ -27,7 +27,7 @@ class SMTPService:
             logger.warning("SMTP configuration incomplete. Email notifications will be disabled.")
             logger.warning(
                 f"Missing SMTP config - HOST: {bool(self.smtp_host)}, "
-                f"USER: {bool(self.smtp_user)}, PASSWORD: {bool(self.smtp_password)}"
+                f"USER: {bool(self.smtp_user)}, PASSWORD: [REDACTED]"
             )
 
     def send_message(
