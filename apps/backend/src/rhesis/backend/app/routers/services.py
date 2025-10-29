@@ -205,7 +205,6 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
     db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -215,7 +214,6 @@ async def generate_tests_endpoint(
         request: The request containing the prompt, number of tests, and optional sources
             - sources contains full SourceData with name, description, content, and id
         db: Database session
-        tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
 
     Returns:

@@ -374,7 +374,11 @@ def bulk_create_tests(
         )
 
         for i, test_data in enumerate(tests_data):
+            logger.debug(f"bulk_create_tests - Processing test {i + 1}/{len(tests_data)}")
             test_data_dict = prepare_test_data(test_data, defaults)
+            logger.debug(
+                f"bulk_create_tests - test_data_dict after prepare_test_data: {test_data_dict}"
+            )
             prompt_data = test_data_dict.pop("prompt", {})
 
             # Create prompt and related entities
@@ -486,14 +490,27 @@ def bulk_create_tests(
             }
 
             # Clean any remaining UUID fields from the test data dict
+            logger.debug(
+                f"bulk_create_tests - Remaining test_data_dict before cleaning: {test_data_dict}"
+            )
             for key, value in list(test_data_dict.items()):
                 if key.endswith("_id"):
+                    original_value = value
                     test_data_dict[key] = sanitize_uuid_field(value)
-
+                    if original_value != test_data_dict[key]:
+                        logger.debug(
+                            f"bulk_create_tests - Cleaned remaining field {key}: "
+                            f"'{original_value}' -> '{test_data_dict[key]}'"
+                        )
             # Add any remaining fields from test_data_dict that weren't explicitly handled
             remaining_fields = {k: v for k, v in test_data_dict.items() if k not in test_params}
+            logger.debug(f"bulk_create_tests - Remaining fields to add: {remaining_fields}")
             test_params.update(remaining_fields)
 
+            # Log final test parameters for debugging UUID issues
+            uuid_params = {k: v for k, v in test_params.items() if k.endswith("_id")}
+            logger.debug(f"bulk_create_tests - Final UUID parameters: {uuid_params}")
+            logger.debug(f"bulk_create_tests - All test parameters: {test_params}")
             # Map "metadata" to "test_metadata" (SDK uses "metadata" but DB uses "test_metadata")
             if "metadata" in test_params and "test_metadata" not in test_params:
                 test_params["test_metadata"] = test_params.pop("metadata")
@@ -502,6 +519,9 @@ def bulk_create_tests(
                 test = models.Test(**test_params)
                 db.add(test)
                 created_tests.append(test)
+                logger.debug(
+                    f"bulk_create_tests - Successfully created Test model for test {i + 1}"
+                )
             except Exception as model_error:
                 logger.error(
                     f"bulk_create_tests - Failed to create Test model for test {i + 1}: "
