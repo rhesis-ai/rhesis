@@ -5,6 +5,7 @@ This module provides conditional telemetry export based on user preferences.
 """
 
 from .instrumentation import (
+    _set_telemetry_enabled_for_testing,
     get_tracer,
     initialize_telemetry,
     is_telemetry_enabled,
@@ -20,4 +21,5 @@ __all__ = [
     "set_telemetry_enabled",
     "track_user_activity",
     "track_feature_usage",
+    "_set_telemetry_enabled_for_testing",  # Testing helper
 ]

@@ -196,6 +196,28 @@ def is_telemetry_enabled() -> bool:
     return False
 
 
+def _set_telemetry_enabled_for_testing(enabled: bool):
+    """
+    Set telemetry enabled state for testing purposes.
+
+    WARNING: This function is ONLY for use in tests. It modifies global state
+    and should be used with proper test isolation (fixtures).
+
+    Args:
+        enabled: Whether telemetry should be enabled
+
+    Example:
+        ```python
+        # In test
+        _set_telemetry_enabled_for_testing(True)
+        # ... test code ...
+        _set_telemetry_enabled_for_testing(False)  # Clean up
+        ```
+    """
+    global _TELEMETRY_GLOBALLY_ENABLED
+    _TELEMETRY_GLOBALLY_ENABLED = enabled
+
+
 def set_telemetry_enabled(
     enabled: bool, user_id: Optional[str] = None, org_id: Optional[str] = None
 ):
