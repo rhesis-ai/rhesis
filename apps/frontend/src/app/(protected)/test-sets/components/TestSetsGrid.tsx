@@ -266,18 +266,21 @@ export default function TestSetsGrid({
       headerAlign: 'center',
       renderCell: params => {
         const sources = params.row.sources;
-        if (!sources || sources.length === 0) return null;
+        const count = sources?.length || 0;
+        if (count === 0) return null;
         return (
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: 0.5,
             }}
           >
             <InsertDriveFileOutlined
               sx={{ fontSize: 16, color: 'text.secondary' }}
             />
+            <Typography variant="body2">{count}</Typography>
           </Box>
         );
       },
