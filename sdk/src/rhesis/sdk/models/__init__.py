@@ -16,7 +16,6 @@ except ImportError:
 __all__ = [
     "BaseLLM",
     "RhesisLLM",
-    "HuggingFaceLLM",
     "LiteLLM",
     "GeminiLLM",
     "VertexAILLM",
