@@ -5,6 +5,10 @@ import { Box, Typography, Paper, Chip, useTheme } from '@mui/material';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestResultTags from './TestResultTags';
 import StatusChip from '@/components/common/StatusChip';
+import {
+  getTestResultStatus,
+  getTestResultLabel,
+} from '@/utils/testResultStatus';
 
 interface TestDetailOverviewTabProps {
   test: TestResultDetail;
@@ -28,14 +32,9 @@ export default function TestDetailOverviewTab({
 
   const responseContent = test.test_output?.output || 'No response available';
 
-  // Calculate overall pass/fail status based on ALL metrics (same logic as TestsList)
-  const overallPassed = useMemo(() => {
-    const testMetrics = test.test_metrics?.metrics || {};
-    const metricValues = Object.values(testMetrics);
-    const totalMetrics = metricValues.length;
-    const passedMetrics = metricValues.filter(m => m.is_successful).length;
-    return totalMetrics > 0 && passedMetrics === totalMetrics;
-  }, [test]);
+  // Get the test result status (Pass, Fail, or Error)
+  const testStatus = useMemo(() => getTestResultStatus(test), [test]);
+  const testLabel = useMemo(() => getTestResultLabel(test), [test]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -46,8 +45,8 @@ export default function TestDetailOverviewTab({
             Test Result
           </Typography>
           <StatusChip
-            passed={overallPassed}
-            label={overallPassed ? 'Passed' : 'Failed'}
+            status={testStatus}
+            label={testLabel}
             size="medium"
             variant="filled"
             sx={{ fontWeight: 600 }}

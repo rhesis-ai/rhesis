@@ -82,12 +82,20 @@ class TestDataGenerator:
     @staticmethod
     def generate_metric_data() -> Dict[str, Any]:
         """Generate realistic metric test data"""
-        return {
+        score_type = fake.random_element(elements=("numeric", "categorical"))
+        data = {
             "name": fake.word().title() + " " + fake.word().title(),
             "description": fake.text(max_nb_chars=150),
             "evaluation_prompt": fake.sentence(nb_words=8),
-            "score_type": fake.random_element(elements=("numeric", "categorical", "binary"))
+            "score_type": score_type
         }
+        
+        # Add required fields for categorical metrics
+        if score_type == "categorical":
+            data["categories"] = ["pass", "fail", "partial"]
+            data["passing_categories"] = ["pass"]
+        
+        return data
     
     @staticmethod
     def generate_topic_data(

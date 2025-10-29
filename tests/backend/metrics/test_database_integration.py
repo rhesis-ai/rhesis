@@ -8,7 +8,7 @@ and the storage of evaluation results in TestResult.test_metrics.
 from rhesis.backend.app import crud, models, schemas
 
 
-class TestCurrentDatabaseIntegration:
+class TestDatabaseIntegration:
     """Test current database operations (baseline)."""
     
     def test_create_metric_in_database(self, test_db, test_org_id, authenticated_user_id):
