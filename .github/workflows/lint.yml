@@ -40,6 +40,12 @@ jobs:
         version: latest
         enable-cache: true
 
+    - name: Check SDK uv.lock file
+      if: steps.filter.outputs.sdk == 'true' ||  github.event_name == 'workflow_dispatch'
+      run: |
+        cd sdk
+        uv lock --check
+
     - name: Run SDK linting
       if: steps.filter.outputs.sdk == 'true' || github.event_name == 'workflow_dispatch'
       run: |
@@ -47,7 +53,12 @@ jobs:
         make lint
       continue-on-error: false
 
-    # Backend Linting
+    - name: Check Backend uv.lock file
+      if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+      run: |
+        cd apps/backend
+        uv lock --check
+
     - name: Run Backend linting
       if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
       run: |
