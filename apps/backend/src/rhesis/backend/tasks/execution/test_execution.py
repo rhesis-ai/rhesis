@@ -25,7 +25,6 @@ from rhesis.sdk.metrics import MetricConfig
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.enums import ResultStatus
 from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
-from rhesis.backend.tasks.execution.metrics_utils import create_metric_config_from_model
 from rhesis.backend.tasks.execution.response_extractor import extract_response_with_fallback
 
 # ============================================================================
@@ -73,24 +72,25 @@ def get_test_and_prompt(
     return test, prompt.content, prompt.expected_response or ""
 
 
-def get_test_metrics(test: Test) -> List[Dict]:
+def get_test_metrics(test: Test) -> List:
     """
     Retrieve and validate metrics for a test from its associated behavior.
 
     Returns:
-        List of valid metric configuration dictionaries
+        List of valid Metric models
     """
     metrics = []
     behavior = test.behavior
 
     if behavior and behavior.metrics:
-        # Convert metrics and filter out invalid ones
-        raw_metrics = [create_metric_config_from_model(metric) for metric in behavior.metrics]
-        metrics = [metric for metric in raw_metrics if metric is not None]
+        # Return Metric models directly - evaluator accepts them
+        metrics = [metric for metric in behavior.metrics if metric.class_name]
 
-        invalid_count = len(raw_metrics) - len(metrics)
+        invalid_count = len(behavior.metrics) - len(metrics)
         if invalid_count > 0:
-            logger.warning(f"Filtered out {invalid_count} invalid metrics for test {test.id}")
+            logger.warning(
+                f"Filtered out {invalid_count} metrics without class_name for test {test.id}"
+            )
 
     # Return empty list if no valid metrics found (no defaults in SDK)
     if not metrics:
@@ -130,32 +130,30 @@ def check_existing_result(
 # ============================================================================
 
 
-def prepare_metric_configs(metrics: List[Dict], test_id: str) -> List[Dict]:
+def prepare_metric_configs(metrics: List, test_id: str) -> List:
     """
-    Validate and filter metric configurations.
+    Validate and filter metric models.
 
-    The evaluator accepts both dict and MetricConfig objects. This function
-    validates dicts and filters out any that are missing required fields.
+    The evaluator accepts Metric models directly. This function validates that
+    models have required fields and filters out any that are invalid.
 
     Returns:
-        List of valid metric configuration dicts
+        List of valid Metric models
     """
-    # Metrics from get_test_metrics() are already dicts - no conversion needed
-    # The MetricEvaluator accepts both dict and MetricConfig objects
-    logger.debug(f"🔍 [DEBUG] parse_metrics received {len(metrics)} metrics")
+    logger.debug(f"🔍 [DEBUG] prepare_metric_configs received {len(metrics)} metrics")
 
-    # Just validate that each metric has required fields
+    # Validate that each metric has required fields
     valid_metrics = []
     invalid_count = 0
 
     for i, metric in enumerate(metrics):
-        if not isinstance(metric, dict):
-            logger.warning(f"Metric {i} is not a dict: {type(metric)}")
+        # All metrics should be Metric model instances
+        if not hasattr(metric, "class_name"):
+            logger.warning(f"Metric {i} has unexpected type: {type(metric)}")
             invalid_count += 1
             continue
 
-        # Basic validation
-        if not metric.get("class_name"):
+        if not metric.class_name:
             invalid_count += 1
             logger.warning(f"Skipped metric {i} for test {test_id}: missing class_name")
             continue
@@ -218,18 +216,19 @@ def create_test_result_record(
     processed_result: Dict,
 ) -> None:
     """Create and store the test result record in the database."""
-    # Determine status based on whether all metrics passed
-    all_metrics_passed = (
-        all(
+    # Determine status based on metrics evaluation
+    if not metrics_results or len(metrics_results) == 0:
+        # No metrics to evaluate - mark as ERROR
+        status_value = ResultStatus.ERROR.value
+    else:
+        # Check if all metrics passed
+        all_metrics_passed = all(
             metric_data.get("is_successful", False)
             for metric_data in metrics_results.values()
             if isinstance(metric_data, dict)
         )
-        if metrics_results
-        else False
-    )
+        status_value = ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
 
-    status_value = ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
     test_result_status = get_or_create_status(
         db, status_value, "TestResult", organization_id=organization_id
     )

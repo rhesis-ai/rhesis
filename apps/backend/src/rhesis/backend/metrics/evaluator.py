@@ -5,10 +5,12 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.models.metric import Metric as MetricModel, ScoreType
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
+from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 
 # Use inline factory creation to avoid circular imports
 # Implementation of the factory import will be delayed until needed
@@ -40,11 +42,73 @@ class MetricEvaluator:
         self.organization_id = organization_id  # For secure model lookups
 
     @staticmethod
-    def _get_config_value(config: Union[Dict, MetricConfig], key: str, default: Any = None) -> Any:
-        """Helper to get a value from either dict or MetricConfig object."""
+    def _get_config_value(
+        config: Union[Dict, MetricConfig, MetricModel], key: str, default: Any = None
+    ) -> Any:
+        """Helper to get a value from dict, MetricConfig, or Metric model."""
         if isinstance(config, dict):
             return config.get(key, default)
         return getattr(config, key, default)
+
+    @staticmethod
+    def _metric_model_to_dict(metric: MetricModel) -> Dict[str, Any]:
+        """Convert a Metric database model to SDK-compatible config dict.
+
+        Uses the SDK's backend_config_to_sdk_config utility to ensure proper
+        field name conversion (e.g., ground_truth_required -> requires_ground_truth).
+        """
+        # Common fields to extract from the metric model
+        common_fields = [
+            "name",
+            "class_name",
+            "description",
+            "evaluation_prompt",
+            "evaluation_steps",
+            "reasoning",
+            "evaluation_examples",
+            "score_type",
+            "ground_truth_required",
+            "context_required",
+        ]
+
+        # Build config dict by extracting common fields
+        config = {field: getattr(metric, field, None) for field in common_fields}
+
+        # Add derived fields
+        config["backend"] = metric.backend_type.type_value if metric.backend_type else "rhesis"
+        config["model_id"] = str(metric.model_id) if metric.model_id else None
+
+        # Set defaults for required fields
+        config["name"] = config["name"] or f"Metric_{metric.id}"
+        config["description"] = (
+            config["description"] or f"Metric evaluation for {metric.class_name}"
+        )
+        config["score_type"] = config["score_type"] or ScoreType.NUMERIC.value
+
+        # Add score type specific fields using enum
+        score_type = metric.score_type or ScoreType.NUMERIC.value
+        if score_type == ScoreType.CATEGORICAL.value:
+            config["categories"] = metric.categories
+            config["passing_categories"] = metric.passing_categories
+        else:
+            # Numeric metrics
+            config["threshold"] = metric.threshold if metric.threshold is not None else 0.5
+            config["threshold_operator"] = metric.threshold_operator
+            if metric.min_score is not None:
+                config["min_score"] = metric.min_score
+            if metric.max_score is not None:
+                config["max_score"] = metric.max_score
+
+        # Add model information if available
+        if metric.model and metric.model.provider_type:
+            config["provider"] = metric.model.provider_type.type_value
+            config["model"] = metric.model.model_name
+
+        # Convert backend field names to SDK field names
+        # This handles ground_truth_required -> requires_ground_truth
+        config = backend_config_to_sdk_config(config)
+
+        return config
 
     def evaluate(
         self,
@@ -52,7 +116,7 @@ class MetricEvaluator:
         output_text: str,
         expected_output: str,
         context: List[str],
-        metrics: List[Union[Dict[str, Any], MetricConfig]],
+        metrics: List[Union[Dict[str, Any], MetricConfig, MetricModel]],
         max_workers: int = 5,
     ) -> Dict[str, Any]:
         """
@@ -63,15 +127,20 @@ class MetricEvaluator:
             output_text: The actual output from the LLM
             expected_output: The expected or reference output
             context: List of context strings used for the response
-            metrics: List of MetricConfig objects or config dictionaries, e.g.
+            metrics: List of Metric models, MetricConfig objects, or config dictionaries, e.g.
                     [
+                        # Database Metric model (direct from DB query)
+                        db.query(Metric).first(),
+
+                        # MetricConfig object
                         MetricConfig(
                             class_name="DeepEvalAnswerRelevancy",
                             backend="deepeval",
                             threshold=0.7,
                             description="Measures how relevant the answer is to the question"
                         ),
-                        # Or plain dictionaries
+
+                        # Plain dictionary
                         {
                             "class_name": "DeepEvalFaithfulness",
                             "backend": "deepeval",
@@ -88,12 +157,16 @@ class MetricEvaluator:
             logger.warning("No metrics provided for evaluation")
             return {}
 
-        # Convert any dict configs to MetricConfig objects, keeping track of invalid ones
+        # Convert Metric models to dicts first, then validate
         metric_configs = []
         invalid_metric_results = {}  # Store results for invalid metrics
 
         for i, config in enumerate(metrics):
-            # Accept both MetricConfig objects and dicts - adapter handles both
+            # Convert MetricModel to dict if needed
+            if isinstance(config, MetricModel):
+                config = self._metric_model_to_dict(config)
+
+            # Accept MetricConfig objects and dicts
             if isinstance(config, (MetricConfig, dict)):
                 # Validate basic fields
                 error_reason = diagnose_invalid_metric(config)
@@ -268,8 +341,8 @@ class MetricEvaluator:
                 if metric_model is not None:
                     metric_params["model"] = metric_model
 
-                # Instantiate the metric using SDK via adapter
-                from rhesis.backend.metrics.adapters import create_metric_from_config
+                # Instantiate the metric directly using SDK MetricFactory
+                from rhesis.sdk.metrics import MetricFactory
 
                 metric_name = (
                     metric_config.get("name")
@@ -277,11 +350,7 @@ class MetricEvaluator:
                     else getattr(metric_config, "name", class_name)
                 )
                 logger.debug(
-                    f"🔍 [DEBUG EVALUATOR] About to create metric via adapter: {metric_name or class_name}"
-                )
-                logger.debug(f"🔍 [DEBUG EVALUATOR] metric_config type: {type(metric_config)}")
-                logger.debug(
-                    f"[SDK_ADAPTER] Creating metric via SDK adapter: {metric_name or class_name}"
+                    f"[SDK_DIRECT] Creating metric directly via SDK: {metric_name or class_name}"
                 )
 
                 # Merge metric_params (which includes the model) into metric_config
@@ -294,19 +363,26 @@ class MetricEvaluator:
                         config_dict["parameters"] = {}
                     config_dict["parameters"].update(metric_params)
 
-                metric = create_metric_from_config(
-                    config_dict,
-                    self.organization_id,
-                )
+                # Extract parameters for SDK factory
+                params_dict = config_dict.get("parameters", {})
 
-                if metric is None:
-                    metric_name = (
-                        metric_config.get("name")
-                        if isinstance(metric_config, dict)
-                        else getattr(metric_config, "name", class_name)
-                    )
+                # Flatten config: merge top-level and nested parameters
+                factory_params = {**config_dict}
+                factory_params.update(params_dict)
+
+                # Remove non-parameter fields
+                factory_params.pop("class_name", None)
+                factory_params.pop("backend", None)
+                factory_params.pop("parameters", None)
+
+                # Create metric directly via SDK factory
+                try:
+                    metric = MetricFactory.create(backend, class_name, **factory_params)
+                except Exception as create_error:
                     logger.error(
-                        f"[SDK_ADAPTER] Failed to create metric '{metric_name or class_name}' via adapter"
+                        f"[SDK_DIRECT] Failed to create metric '{metric_name or class_name}' "
+                        f"(class: {class_name}, backend: {backend}): {create_error}",
+                        exc_info=True,
                     )
                     continue
 
@@ -520,6 +596,8 @@ class MetricEvaluator:
                 threshold=self._get_config_value(metric_config, "threshold"),
                 threshold_operator=self._get_config_value(metric_config, "threshold_operator"),
                 reference_score=self._get_config_value(metric_config, "reference_score"),
+                categories=self._get_config_value(metric_config, "categories"),
+                passing_categories=self._get_config_value(metric_config, "passing_categories"),
             )
 
             # Store results - structure depends on metric type

@@ -12,7 +12,6 @@ from rhesis.backend.app.schemas.user import UserReference
 
 
 class ScoreType(str, Enum):
-    BINARY = "binary"
     NUMERIC = "numeric"
     CATEGORICAL = "categorical"
 
@@ -35,7 +34,11 @@ class MetricBase(Base):
     score_type: ScoreType
     min_score: Optional[float] = None
     max_score: Optional[float] = None
-    reference_score: Optional[str] = None
+    reference_score: Optional[str] = (
+        None  # @deprecated: kept for transition, use categories instead
+    )
+    categories: Optional[List[str]] = None  # List of valid categories for categorical metrics
+    passing_categories: Optional[List[str]] = None  # Categories that indicate pass
     threshold: Optional[float] = None
     threshold_operator: Optional[ThresholdOperator] = ThresholdOperator.GREATER_THAN_OR_EQUAL
     explanation: Optional[str] = None
