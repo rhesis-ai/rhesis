@@ -27,6 +27,9 @@ class DocumentSynthesizer(TestSetSynthesizer):
         strategy: Literal["sequential", "random"] = "random",
         model: Optional[Union[str, BaseLLM]] = None,
         config: Optional[GenerationConfig] = None,
+        chip_states: Optional[List[Dict]] = None,
+        rated_samples: Optional[List[Dict]] = None,
+        previous_messages: Optional[List[Dict]] = None,
     ):
         """
         Initialize the document synthesizer.
@@ -37,6 +40,9 @@ class DocumentSynthesizer(TestSetSynthesizer):
             system_prompt: Optional custom system prompt template to override the default
             max_context_tokens: Maximum tokens per context used by the ContextGenerator
             strategy: Context selection strategy - "sequential" (from start) or "random" (shuffled)
+            chip_states: Optional list of chip states for iteration context
+            rated_samples: Optional list of rated samples for iteration context
+            previous_messages: Optional list of previous messages for iteration context
         """
         if isinstance(model, str) or model is None:
             self.model = get_model(model)
@@ -53,6 +59,9 @@ class DocumentSynthesizer(TestSetSynthesizer):
         self.strategy = strategy
         self.document_extractor = DocumentExtractor()
         self.config = config
+        self.chip_states = chip_states
+        self.rated_samples = rated_samples
+        self.previous_messages = previous_messages
 
     def _compute_tests_distribution(
         self,
@@ -292,7 +301,12 @@ class DocumentSynthesizer(TestSetSynthesizer):
             )
 
             result = self.prompt_synthesizer.generate(
-                num_tests=per_context, context=context_doc["content"], config=self.config
+                num_tests=per_context,
+                context=context_doc["content"],
+                config=self.config,
+                chip_states=self.chip_states,
+                rated_samples=self.rated_samples,
+                previous_messages=self.previous_messages,
             )
 
             # Add context and document mapping to each test

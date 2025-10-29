@@ -24,8 +24,8 @@ class ChatRequest(BaseModel):
 
 
 class SourceData(BaseModel):
-    """Source data passed from frontend to backend for test generation.
-
+    """
+    Source data for test generation.
     Only id is required. The backend will fetch name, description, and content from the database.
     """
 
@@ -35,10 +35,39 @@ class SourceData(BaseModel):
     content: Optional[str] = None
 
 
+class ChipState(BaseModel):
+    """Chip state representing user preferences for test configuration."""
+
+    label: str
+    description: str
+    active: bool
+    category: str
+
+
+class RatedSample(BaseModel):
+    """Rated sample from user feedback."""
+
+    prompt: str
+    response: str
+    rating: int
+    feedback: Optional[str] = None
+
+
+class IterationMessage(BaseModel):
+    """Previous iteration message for context."""
+
+    content: str
+    timestamp: str
+    chip_states: Optional[List[ChipState]] = None
+
+
 class GenerateTestsRequest(BaseModel):
     prompt: dict
     num_tests: int = 5
     sources: Optional[List[SourceData]] = None
+    chip_states: Optional[List[ChipState]] = None
+    rated_samples: Optional[List[RatedSample]] = None
+    previous_messages: Optional[List[IterationMessage]] = None
 
 
 class TestPrompt(BaseModel):
