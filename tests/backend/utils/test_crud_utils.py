@@ -380,10 +380,10 @@ class TestGetOrCreateSpecializedFunctions:
                 db=test_db,
                 type_name=type_name,
                 type_value=type_value,
-                description=description,
                 organization_id=str(test_org_id),
                 user_id=str(authenticated_user_id),
                 commit=True,
+                description=description,
             )
 
             # Verify result
