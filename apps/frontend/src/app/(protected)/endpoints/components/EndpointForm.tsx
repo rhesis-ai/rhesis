@@ -299,7 +299,7 @@ export default function EndpointForm() {
 
       // Ensure we're sending a single object, not an array
       const endpointData = transformedData as unknown as Omit<Endpoint, 'id'>;
-      const result = await createEndpoint(endpointData);
+      await createEndpoint(endpointData);
 
       // Show success notification
       notifications.show('Endpoint created successfully!', {

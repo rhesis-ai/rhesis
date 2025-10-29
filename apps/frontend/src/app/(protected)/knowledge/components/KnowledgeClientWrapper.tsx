@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Typography, Alert, Paper } from '@mui/material';
+import { Box, Typography, Paper, Alert } from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import { useNotifications } from '@/components/common/NotificationContext';
 import SourcesGrid from './SourcesGrid';
-import styles from '@/styles/Knowledge.module.css';
+import styles from '@/styles/KnowledgeClientWrapper.module.css';
 
 /** Props for the EmptyStateMessage component */
 interface EmptyStateMessageProps {
@@ -32,11 +31,11 @@ function EmptyStateMessage({
         </Box>
       )}
 
-      <Typography variant="h5" className={styles.emptyStateTitle}>
+      <Typography variant="h5" className={styles.title}>
         {title}
       </Typography>
 
-      <Typography variant="body1" className={styles.emptyStateDescription}>
+      <Typography variant="body1" className={styles.description}>
         {description}
       </Typography>
     </Paper>
@@ -58,7 +57,6 @@ export default function KnowledgeClientWrapper({
   sessionToken,
 }: KnowledgeClientWrapperProps) {
   const [refreshKey, setRefreshKey] = useState(0);
-  const notifications = useNotifications();
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
