@@ -115,8 +115,10 @@ class DocumentHandler(BaseSourceHandler):
         # Get file content from storage
         file_content = await self.get_source_content(file_path)
 
+        # Extract content
+        filename = Path(file_path).name
         extractor = DocumentExtractor()
-        return extractor.extract_from_bytes(file_content, Path(file_path).name)
+        return extractor.extract_from_bytes(file_content, filename)
 
     def _extract_metadata(
         self,
