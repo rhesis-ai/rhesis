@@ -34,7 +34,9 @@ class MetricBase(Base):
     score_type: ScoreType
     min_score: Optional[float] = None
     max_score: Optional[float] = None
-    reference_score: Optional[str] = None  # @deprecated: kept for transition, use categories instead
+    reference_score: Optional[str] = (
+        None  # @deprecated: kept for transition, use categories instead
+    )
     categories: Optional[List[str]] = None  # List of valid categories for categorical metrics
     passing_categories: Optional[List[str]] = None  # Categories that indicate pass
     threshold: Optional[float] = None

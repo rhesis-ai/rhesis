@@ -1,7 +1,7 @@
 """
 Utility functions for managing behavior metrics.
 
-Note: Metric model to config conversion is now handled directly by the 
+Note: Metric model to config conversion is now handled directly by the
 MetricEvaluator class - no intermediate conversion needed.
 """
 
@@ -40,9 +40,11 @@ def get_behavior_metrics(db: Session, behavior_id: UUID) -> List[Metric]:
 
         # Filter out metrics without class_name
         valid_metrics = [m for m in metrics if m.class_name]
-        
+
         if len(valid_metrics) < len(metrics):
-            logger.warning(f"Filtered out {len(metrics) - len(valid_metrics)} metrics without class_name")
+            logger.warning(
+                f"Filtered out {len(metrics) - len(valid_metrics)} metrics without class_name"
+            )
 
         return valid_metrics
 
