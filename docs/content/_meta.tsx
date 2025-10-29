@@ -4,4 +4,5 @@ export default {
   platform: 'Platform',
   sdk: 'SDK',
   development: 'Development',
+  telemetry: 'Telemetry',
 }
