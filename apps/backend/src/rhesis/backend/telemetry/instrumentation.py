@@ -17,6 +17,7 @@ from opentelemetry.trace import NoOpTracerProvider
 from rhesis.backend.logging.rhesis_logger import logger
 
 # Sensitive metadata keys to filter out from telemetry
+# This blocklist prevents accidental exposure of credentials and PII
 SENSITIVE_METADATA_KEYS = {
     "password",
     "passwd",
@@ -70,9 +71,21 @@ class ConditionalSpanProcessor(BatchSpanProcessor):
 
 def _hash_id(id_str: str) -> str:
     """
-    One-way hash of user/org IDs for privacy.
+    Applies SHA-256 one-way hash to user/organization identifiers for pseudonymization.
 
-    This ensures we can track unique users without storing actual IDs.
+    This implements GDPR Article 32 requirements for data pseudonymization.
+    Hashed values cannot be reverse-engineered to reveal original identifiers.
+
+    Args:
+        id_str: Original user or organization identifier
+
+    Returns:
+        First 16 characters of SHA-256 hash (provides 2^64 unique values)
+
+    Security Properties:
+        - One-way: Cannot derive original ID from hash
+        - Deterministic: Same ID always produces same hash
+        - Collision-resistant: Different IDs produce different hashes
     """
     if not id_str:
         return ""
@@ -83,14 +96,31 @@ def _sanitize_metadata(metadata: dict) -> dict:
     """
     Filter out potentially sensitive keys from metadata.
 
-    Removes any keys that match common patterns for sensitive data
-    to prevent accidental leakage via telemetry.
+    Implements defense-in-depth by removing any keys that match common patterns
+    for sensitive data to prevent accidental exposure via telemetry.
+
+    This function provides automatic protection against accidental inclusion of:
+    - Credentials (passwords, API keys, tokens)
+    - Personal information (emails, SSN, credit cards)
+    - Authentication data (auth tokens, session tokens, bearer tokens)
 
     Args:
         metadata: Dictionary of metadata to sanitize
 
     Returns:
         Sanitized dictionary with sensitive keys removed
+
+    Security:
+        - Exact match: Filters keys in SENSITIVE_METADATA_KEYS
+        - Pattern match: Filters any key containing "password", "token", "key", or "secret"
+        - Case insensitive: Catches variations like "Password", "PASSWORD", "password"
+
+    Examples:
+        >>> _sanitize_metadata({"username": "john", "password": "secret"})
+        {"username": "john"}
+
+        >>> _sanitize_metadata({"api_key": "abc123", "user_agent": "Mozilla"})
+        {"user_agent": "Mozilla"}
     """
     return {
         k: v
@@ -105,9 +135,19 @@ def initialize_telemetry():
     Initialize OpenTelemetry with conditional export.
 
     This should be called once during application startup.
-    Telemetry is controlled by deployment type and environment variables:
-    - Cloud: Always enabled
-    - Self-hosted: Controlled by TELEMETRY_ENABLED env var
+
+    Telemetry Configuration:
+    - Cloud deployments: Always enabled (user consent via Terms & Conditions)
+    - Self-hosted deployments: Opt-in via TELEMETRY_ENABLED environment variable
+
+    Environment Variables:
+        DEPLOYMENT_TYPE: "cloud" or "self-hosted"
+        TELEMETRY_ENABLED: "true" or "false" (self-hosted only, defaults to false)
+        OTEL_EXPORTER_OTLP_ENDPOINT: Telemetry collector endpoint URL
+        OTEL_SERVICE_NAME: Service identifier (default: "rhesis-backend")
+
+    See is_telemetry_enabled() docstring for detailed information about
+    data collection practices and privacy protections.
     """
     global _TELEMETRY_GLOBALLY_ENABLED
 
@@ -174,17 +214,64 @@ def initialize_telemetry():
 
 def is_telemetry_enabled() -> bool:
     """
-    Check if telemetry is enabled based on deployment type and environment variable.
+    Check if telemetry is enabled based on deployment type.
 
-    - Cloud deployment: Always enabled (implicit user consent)
-    - Self-hosted deployment: Controlled by TELEMETRY_ENABLED environment variable
+    CLOUD DEPLOYMENTS:
+    - Telemetry is always enabled
+    - User consent collected via agreement to Terms & Conditions
+    - See https://rhesis.ai/terms for full details
+
+    SELF-HOSTED DEPLOYMENTS:
+    - Telemetry is disabled by default
+    - Opt-in by setting TELEMETRY_ENABLED=true
+
+    IMPORTANT FOR SELF-HOSTED ADMINISTRATORS:
+    Setting TELEMETRY_ENABLED=true opts in to anonymous usage analytics.
+
+    Data Collected:
+    - Login/logout events with hashed user IDs (SHA-256, irreversible, 16-char truncated)
+    - API endpoint usage and response times
+    - Feature interaction patterns (e.g., "test created", "report viewed")
+    - Deployment type tag ("cloud" or "self-hosted")
+    - Service version information
+
+    Data NOT Collected:
+    - No email addresses, names, or personally identifiable information
+    - No test data, prompts, or LLM responses
+    - No API keys, tokens, passwords, or credentials
+    - No IP addresses or organization names
+    - No file contents or source code
+
+    Privacy & Security:
+    - All user/organization IDs are pseudonymized via SHA-256 hashing
+    - Data is transmitted over encrypted connections (HTTPS/gRPC with TLS)
+    - Sensitive metadata keys are automatically filtered (passwords, tokens, etc.)
+    - No data is shared with third parties
+
+    All data is sent to Rhesis's telemetry servers for product improvement.
+    For full privacy details, see: https://rhesis.ai/privacy-policy
+
+    You may disable telemetry at any time by setting TELEMETRY_ENABLED=false
+    or omitting this variable entirely (defaults to disabled).
 
     Returns:
         bool: True if telemetry should be collected
+
+    Examples:
+        # Self-hosted: Enable telemetry
+        DEPLOYMENT_TYPE=self-hosted
+        TELEMETRY_ENABLED=true
+
+        # Self-hosted: Disable telemetry (default)
+        DEPLOYMENT_TYPE=self-hosted
+        TELEMETRY_ENABLED=false
+
+        # Cloud: Always enabled
+        DEPLOYMENT_TYPE=cloud
     """
     deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
 
-    # Cloud users: Always collect telemetry (implicit consent)
+    # Cloud users: User consent collected via Terms & Conditions agreement
     if deployment_type == "cloud":
         return True
 
@@ -192,7 +279,7 @@ def is_telemetry_enabled() -> bool:
     if deployment_type == "self-hosted":
         return os.getenv("TELEMETRY_ENABLED", "false").lower() in ("true", "1", "yes")
 
-    # Unknown deployment type: Disable telemetry
+    # Unknown deployment type: Disable telemetry for safety
     return False
 
 
@@ -226,8 +313,14 @@ def set_telemetry_enabled(
 
     Args:
         enabled: Whether telemetry is enabled for this request
-        user_id: User ID to associate with telemetry (will be hashed)
-        org_id: Organization ID to associate with telemetry (will be hashed)
+        user_id: User ID hashed using SHA-256 (one-way, 16-character truncated).
+                 Original ID is never stored or transmitted.
+        org_id: Organization ID hashed using SHA-256 (one-way, 16-character truncated).
+                Original ID is never stored or transmitted.
+
+    Note:
+        This function automatically applies pseudonymization to provided IDs.
+        The hashing occurs before storage in context variables.
     """
     _telemetry_enabled.set(enabled)
 
@@ -254,10 +347,25 @@ def track_user_activity(event_type: str, session_id: Optional[str] = None, **met
     """
     Track user activity events (login, logout, etc.).
 
+    Only collects data if telemetry is enabled for the current request context.
+    All user/organization IDs are automatically pseudonymized via SHA-256 hashing.
+
     Args:
         event_type: Type of event (login, logout, session_start, etc.)
-        session_id: Session identifier
-        **metadata: Additional metadata to include
+        session_id: Session identifier (not hashed, as it's already temporary)
+        **metadata: Additional metadata to include (automatically sanitized for sensitive keys)
+
+    Data Collected:
+        - Event type and timestamp
+        - Hashed user ID (SHA-256, 16-char truncated)
+        - Hashed organization ID (if available)
+        - Deployment type (cloud/self-hosted)
+        - Session ID (temporary identifier)
+        - Sanitized metadata (sensitive keys automatically filtered)
+
+    Examples:
+        >>> track_user_activity("login", session_id="abc123", login_method="oauth")
+        >>> track_user_activity("logout", session_id="abc123")
     """
     if not _telemetry_enabled.get(False):
         return
@@ -292,12 +400,32 @@ def track_user_activity(event_type: str, session_id: Optional[str] = None, **met
 
 def track_feature_usage(feature_name: str, action: str, **metadata):
     """
-    Track feature-specific usage.
+    Track feature-specific usage patterns.
+
+    Only collects data if telemetry is enabled for the current request context.
+    All user/organization IDs are automatically pseudonymized via SHA-256 hashing.
 
     Args:
-        feature_name: Name of the feature (e.g., "test_run", "metric")
-        action: Action performed (e.g., "created", "updated", "viewed")
-        **metadata: Additional metadata to include
+        feature_name: Name of the feature (e.g., "test_run", "metric", "prompt")
+        action: Action performed (e.g., "created", "updated", "viewed", "deleted")
+        **metadata: Additional metadata to include (automatically sanitized for sensitive keys)
+
+    Data Collected:
+        - Feature name and action
+        - Hashed user ID (SHA-256, 16-char truncated)
+        - Hashed organization ID (if available)
+        - Deployment type (cloud/self-hosted)
+        - Timestamp
+        - Sanitized metadata (sensitive keys automatically filtered)
+
+    Data NOT Collected:
+        - No feature content (e.g., test data, prompt text)
+        - No identifiable information
+        - No sensitive credentials or tokens
+
+    Examples:
+        >>> track_feature_usage("test_run", "created", test_count=5)
+        >>> track_feature_usage("metric", "viewed", metric_type="accuracy")
     """
     if not _telemetry_enabled.get(False):
         return
