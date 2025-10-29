@@ -98,9 +98,7 @@ export default function ModelsPage() {
       const usersClient = apiFactory.getUsersClient();
       const settings = await usersClient.getUserSettings();
       setUserSettings(settings);
-    } catch (err) {
-      console.error('Failed to refresh user settings:', err);
-    }
+    } catch (err) {}
   };
 
   const handleConnect = async (

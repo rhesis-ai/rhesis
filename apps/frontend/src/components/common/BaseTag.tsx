@@ -206,7 +206,6 @@ export default function BaseTag({
         autoHideDuration: 4000,
       });
     } catch (error) {
-      console.error('Error updating tags:', error);
       notifications?.show(
         error instanceof Error ? error.message : 'Failed to update tags',
         {

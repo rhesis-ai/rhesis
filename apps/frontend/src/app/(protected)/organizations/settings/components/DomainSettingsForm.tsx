@@ -63,7 +63,6 @@ export default function DomainSettingsForm({
       });
       onUpdate();
     } catch (err: any) {
-      console.error('Error updating domain settings:', err);
       setError(err.message || 'Failed to update domain settings');
     } finally {
       setSaving(false);

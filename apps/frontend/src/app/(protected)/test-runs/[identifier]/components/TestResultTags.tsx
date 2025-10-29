@@ -49,9 +49,7 @@ export default function TestResultTags({
 
         // Notify parent of the update
         onUpdate(updatedTestResult);
-      } catch (error) {
-        console.error('Failed to fetch updated test result:', error);
-      }
+      } catch (error) {}
     }, 500);
   };
 

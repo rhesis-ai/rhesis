@@ -66,11 +66,9 @@ export default function TeamMembersGrid({
           limit,
         });
 
-        console.log('Fetched users:', response);
         setUsers(response.data || []);
         setTotalCount(response.total || 0);
       } catch (error) {
-        console.error('Error fetching users:', error);
         setError('Failed to load team members. Please try again.');
       } finally {
         setLoading(false);
@@ -146,8 +144,6 @@ export default function TeamMembersGrid({
       const skip = paginationModel.page * paginationModel.pageSize;
       fetchUsers(skip, paginationModel.pageSize);
     } catch (error: any) {
-      console.error('Error deleting user:', error);
-
       // Handle specific error cases
       const errorMessage =
         error?.message ||

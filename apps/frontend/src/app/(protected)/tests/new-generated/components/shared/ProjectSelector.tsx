@@ -118,7 +118,6 @@ export default function ProjectSelector({
 
       setProjects(validProjects);
     } catch (err) {
-      console.error('Error loading projects:', err);
       setError('Failed to load projects. Please try again.');
     } finally {
       setIsLoading(false);
