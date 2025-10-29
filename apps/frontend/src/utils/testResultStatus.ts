@@ -5,6 +5,9 @@
 import { TestResultDetail } from './api-client/interfaces/test-results';
 import { TestResultStatus } from '@/components/common/StatusChip';
 
+// Re-export the TestResultStatus type for convenience
+export type { TestResultStatus } from '@/components/common/StatusChip';
+
 /**
  * Determines the test result status from a test result object
  *
