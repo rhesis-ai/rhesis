@@ -263,7 +263,7 @@ export interface TestSetGenerationConfig {
 
 export interface SourceData {
   id: string;
-  name: string;
+  name?: string;
   description?: string;
   content?: string;
 }
