@@ -1,64 +1,34 @@
 'use client';
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import {
-  BasePieChart,
-  BaseLineChart,
-  BaseChartsGrid,
-} from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestStats } from '@/utils/api-client/interfaces/tests';
-import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';
-import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 import { useSession } from 'next-auth/react';
-import { format, subMonths } from 'date-fns';
 import {
   Box,
   CircularProgress,
-  Typography,
   Alert,
+  Grid,
+  Paper,
+  Typography,
   useTheme,
 } from '@mui/material';
-import { chartUtils } from '@/components/common/BaseLineChart';
-import { pieChartUtils } from '@/components/common/BasePieChart';
-import { formatTimelineDate } from '@/app/(protected)/test-results/components/timelineUtils';
-
-// Get last 6 months dynamically
-const getLastSixMonths = () => chartUtils.getLastNMonths(6);
-
-// Dynamically generated mock data for the last 6 months
-const testTrendData = getLastSixMonths();
-
-// Default data for dimension charts with non-zero values to ensure visualization
-const dimensionDataBehavior = [
-  { name: 'Reliability', value: 1 },
-  { name: 'Robustness', value: 1 },
-  { name: 'Compliance', value: 1 },
-];
-
-const dimensionDataCategory = [
-  { name: 'Harmful', value: 1 },
-  { name: 'Harmless', value: 1 },
-  { name: 'Jailbreak', value: 1 },
-];
-
-// Fallback data for test cases managed - will be populated dynamically
-const testCasesManagedData = getLastSixMonths();
-
-// Types for chart data items
-interface ChartDataItem {
-  name: string;
-  value: number;
-  fullName?: string;
-  percentage?: string;
-}
+import { PieChart } from '@mui/x-charts/PieChart';
+import { useRouter } from 'next/navigation';
+import {
+  TestRunStatsStatus,
+  TestRunStatsResults,
+} from '@/utils/api-client/interfaces/test-run-stats';
 
 export default function DashboardCharts() {
   const { data: session } = useSession();
+  const router = useRouter();
   const theme = useTheme();
-  const [testStats, setTestStats] = useState<TestStats | null>(null);
-  const [testResultsStats, setTestResultsStats] =
-    useState<TestResultsStats | null>(null);
+  const [statusChart, setStatusChart] = useState<TestRunStatsStatus | null>(
+    null
+  );
+  const [resultChart, setResultChart] = useState<TestRunStatsResults | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,25 +38,42 @@ export default function DashboardCharts() {
     [session?.session_token]
   );
 
+  // Get brand colors from theme - matching BasePieChart color palette
+  const brandColors = useMemo(
+    () => [
+      theme.palette.primary.main,
+      theme.palette.secondary.main,
+      theme.palette.warning.main,
+      theme.palette.info.main,
+      `${theme.palette.primary.main}99`, // 60% opacity
+      `${theme.palette.secondary.main}99`, // 60% opacity
+    ],
+    [theme]
+  );
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
         setIsLoading(true);
         const clientFactory = new ApiClientFactory(sessionToken || '');
+        const testRunsClient = clientFactory.getTestRunsClient();
 
-        // Fetch both test stats and test results timeline data in parallel
-        const [testStatsResponse, testResultsResponse] = await Promise.all([
-          clientFactory.getTestsClient().getTestStats({ top: 5, months: 6 }),
-          clientFactory
-            .getTestResultsClient()
-            .getComprehensiveTestResultsStats({
-              mode: 'timeline',
-              months: 6,
-            } as TestResultsStatsOptions),
+        // Use the same API calls as TestRunCharts
+        const [statusStats, resultStats] = await Promise.all([
+          testRunsClient.getTestRunStats({
+            mode: 'status',
+            top: 5,
+            months: 6,
+          }),
+          testRunsClient.getTestRunStats({
+            mode: 'results',
+            top: 5,
+            months: 6,
+          }),
         ]);
 
-        setTestStats(testStatsResponse);
-        setTestResultsStats(testResultsResponse);
+        setStatusChart(statusStats as TestRunStatsStatus);
+        setResultChart(resultStats as TestRunStatsResults);
         setError(null);
       } catch (err) {
         const errorMessage =
@@ -102,178 +89,139 @@ export default function DashboardCharts() {
     }
   }, [sessionToken]);
 
-  // Create useCallback versions of the generator functions
-  const generateCategoryDataCallback = useCallback(() => {
-    // Define the function inside the callback to avoid recreation on every render
-    const generateData = () => {
-      if (!testStats?.stats?.category?.breakdown) return dimensionDataCategory;
+  // Prepare data for pie charts - matching TestRunCharts data format
+  const statusData = useMemo(() => {
+    if (!statusChart?.status_distribution) return [];
+    return statusChart.status_distribution.slice(0, 5).map(item => ({
+      label: item.status,
+      value: item.count,
+      id: item.status,
+    }));
+  }, [statusChart]);
 
-      return Object.entries(testStats.stats.category.breakdown)
-        .map(([key, value]) => ({
-          name: key,
-          value: value as number,
-        }))
-        .sort((a, b) => b.value - a.value);
-    };
+  const resultData = useMemo(() => {
+    if (!resultChart?.result_distribution) return [];
+    const { result_distribution } = resultChart;
+    return [
+      { label: 'Passed', value: result_distribution.passed, id: 'passed' },
+      { label: 'Failed', value: result_distribution.failed, id: 'failed' },
+      { label: 'Pending', value: result_distribution.pending, id: 'pending' },
+    ].filter(item => item.value > 0);
+  }, [resultChart]);
 
-    return generateData();
-  }, [testStats]);
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-  const generateBehaviorDataCallback = useCallback(() => {
-    // Define the function inside the callback to avoid recreation on every render
-    const generateData = () => {
-      if (!testStats?.stats?.behavior?.breakdown) return dimensionDataBehavior;
-
-      return Object.entries(testStats.stats.behavior.breakdown)
-        .map(([key, value]) => ({
-          name: key,
-          value: value as number,
-        }))
-        .sort((a, b) => b.value - a.value);
-    };
-
-    return generateData();
-  }, [testStats]);
-
-  const generateTestCasesManagedCallback = useCallback(() => {
-    // Define the function inside the callback to avoid recreation on every render
-    const generateData = () => {
-      if (!testStats) return testCasesManagedData;
-
-      if (testStats.history?.monthly_counts) {
-        const monthlyData = chartUtils.createMonthlyData(
-          testStats.history.monthly_counts,
-          getLastSixMonths()
-        );
-
-        // Ensure the most recent month shows the actual current total
-        // This handles cases where historical cumulative data doesn't match the current total
-        if (monthlyData.length > 0 && testStats.total) {
-          const lastMonth = monthlyData[monthlyData.length - 1];
-          if (lastMonth.total < testStats.total) {
-            lastMonth.total = testStats.total;
-          }
-        }
-
-        return monthlyData;
-      }
-
-      return [{ name: 'Current Total', total: testStats.total || 0 }];
-    };
-
-    return generateData();
-  }, [testStats]);
-
-  const generateTestExecutionTrendCallback = useCallback(() => {
-    // Generate test execution trend data from test results timeline
-    const generateData = () => {
-      if (
-        !testResultsStats?.timeline ||
-        testResultsStats.timeline.length === 0
-      ) {
-        return testTrendData; // Fallback to mock data
-      }
-
-      return testResultsStats.timeline
-        .sort((a, b) => {
-          // Sort by original date format (YYYY-MM) chronologically first
-          return a.date.localeCompare(b.date);
-        })
-        .map(item => ({
-          name: formatTimelineDate(item.date),
-          tests: item.overall?.total || 0,
-          passed: item.overall?.passed || 0,
-          failed: item.overall?.failed || 0,
-          pass_rate: item.overall?.pass_rate || 0,
-        }));
-    };
-
-    return generateData();
-  }, [testResultsStats]);
-
-  // Memoize chart data to prevent unnecessary recalculations
-  const categoryData = useMemo(
-    () => generateCategoryDataCallback(),
-    [generateCategoryDataCallback]
-  );
-  const behaviorData = useMemo(
-    () => generateBehaviorDataCallback(),
-    [generateBehaviorDataCallback]
-  );
-  const testCasesData = useMemo(
-    () => generateTestCasesManagedCallback(),
-    [generateTestCasesManagedCallback]
-  );
-  const testExecutionTrendData = useMemo(
-    () => generateTestExecutionTrendCallback(),
-    [generateTestExecutionTrendCallback]
-  );
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ mb: 2 }}>
+        {error}
+      </Alert>
+    );
+  }
 
   return (
     <>
-      {isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
-      )}
+      {/* Test Runs by Status - Pie Chart */}
+      <Grid item xs={12} md={6}>
+        <Paper
+          sx={{ p: 3, height: '400px', maxHeight: '400px', overflow: 'hidden' }}
+        >
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Test Runs by Status
+          </Typography>
+          {statusData.length > 0 ? (
+            <PieChart
+              series={[
+                {
+                  data: statusData,
+                  highlightScope: { fade: 'global', highlight: 'item' },
+                  innerRadius: 50,
+                  outerRadius: 120,
+                  paddingAngle: 2,
+                  cornerRadius: 5,
+                  id: 'status-distribution',
+                },
+              ]}
+              height={320}
+              margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+              colors={brandColors}
+              sx={{
+                cursor: 'pointer',
+                '& .MuiChartsLegend-root': {
+                  display: 'none !important',
+                },
+              }}
+            />
+          ) : (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: 320,
+              }}
+            >
+              <Typography color="text.secondary">
+                No test run data available
+              </Typography>
+            </Box>
+          )}
+        </Paper>
+      </Grid>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {!isLoading && !error && (
-        <BaseChartsGrid columns={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
-          <BaseLineChart
-            title="Cumulative Tests"
-            data={testCasesData}
-            series={[{ dataKey: 'total', name: 'Total Test Cases' }]}
-            useThemeColors={true}
-            colorPalette="line"
-            height={180}
-          />
-
-          <BaseLineChart
-            title="Test Execution Trend"
-            data={testExecutionTrendData}
-            series={[
-              {
-                dataKey: 'tests',
-                name: 'Total Tests',
-                color: theme.palette.primary.main,
-              }, // Primary blue
-              {
-                dataKey: 'passed',
-                name: 'Passed Tests',
-                color: theme.palette.success.main,
-              }, // Success green
-              {
-                dataKey: 'failed',
-                name: 'Failed Tests',
-                color: theme.palette.error.main,
-              }, // Error red
-            ]}
-            useThemeColors={false}
-            colorPalette="line"
-            height={180}
-          />
-
-          <BasePieChart
-            title="Tests Behavior Distribution"
-            data={behaviorData}
-            useThemeColors={true}
-            colorPalette="pie"
-          />
-
-          <BasePieChart
-            title="Tests Category Distribution"
-            data={categoryData}
-            useThemeColors={true}
-            colorPalette="pie"
-          />
-        </BaseChartsGrid>
-      )}
+      {/* Test Runs by Result - Pie Chart */}
+      <Grid item xs={12} md={6}>
+        <Paper
+          sx={{ p: 3, height: '400px', maxHeight: '400px', overflow: 'hidden' }}
+        >
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Tests by Result
+          </Typography>
+          {resultData.length > 0 ? (
+            <PieChart
+              series={[
+                {
+                  data: resultData,
+                  highlightScope: { fade: 'global', highlight: 'item' },
+                  innerRadius: 50,
+                  outerRadius: 120,
+                  paddingAngle: 2,
+                  cornerRadius: 5,
+                  id: 'result-distribution',
+                },
+              ]}
+              height={320}
+              margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+              colors={brandColors}
+              sx={{
+                cursor: 'pointer',
+                '& .MuiChartsLegend-root': {
+                  display: 'none !important',
+                },
+              }}
+            />
+          ) : (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: 320,
+              }}
+            >
+              <Typography color="text.secondary">
+                No test run data available
+              </Typography>
+            </Box>
+          )}
+        </Paper>
+      </Grid>
     </>
   );
 }
