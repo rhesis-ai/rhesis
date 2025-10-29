@@ -536,7 +536,7 @@ export function ConnectionDialog({
                     placeholder={DEFAULT_ENDPOINTS[provider?.type_value || '']}
                     helperText={
                       provider?.type_value === 'ollama'
-                        ? 'The URL where Ollama is running (default: http://localhost:11434)'
+                        ? 'The URL where Ollama is running (default: http://host.docker.internal:11434)'
                         : 'The base URL for your self-hosted model endpoint'
                     }
                   />

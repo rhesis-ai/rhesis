@@ -30,7 +30,7 @@ export const PROVIDERS_REQUIRING_ENDPOINT = ['ollama', 'vllm', 'huggingface'];
 
 // Default endpoints for providers that need them
 export const DEFAULT_ENDPOINTS: Record<string, string> = {
-  ollama: 'http://localhost:11434',
+  ollama: 'http://host.docker.internal:11434',
   vllm: 'http://localhost:8000',
 };
 
