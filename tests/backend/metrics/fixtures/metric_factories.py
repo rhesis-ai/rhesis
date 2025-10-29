@@ -61,18 +61,22 @@ class MetricConfigFactory:
     
     @classmethod
     def binary_config(cls, **overrides) -> Dict[str, Any]:
-        """Generate binary metric configuration."""
+        """
+        DEPRECATED: Binary metrics have been migrated to categorical.
+        This method now returns a categorical metric configuration.
+        """
         config = {
             "name": "Pass/Fail Metric",
-            "class_name": "RhesisPromptMetric",
+            "class_name": "CategoricalJudge",
             "backend": "rhesis",
-            "description": "Binary pass/fail evaluation",
+            "description": "Categorical pass/fail evaluation",
             "parameters": {
-                "evaluation_prompt": "Does this response meet the criteria? Answer True or False",
+                "evaluation_prompt": "Does this response meet the criteria? Answer Pass or Fail",
                 "evaluation_steps": "1. Check criteria\n2. Determine pass/fail",
-                "reasoning": "Binary evaluation for clear pass/fail criteria",
-                "score_type": "binary",
-                "reference_score": "True",
+                "reasoning": "Categorical evaluation for clear pass/fail criteria",
+                "score_type": "categorical",
+                "categories": ["Pass", "Fail"],
+                "passing_categories": ["Pass"],
             }
         }
         config.update(overrides)
@@ -90,6 +94,7 @@ class MetricConfigFactory:
     def batch_configs(cls, count: int, variation: bool = True) -> List[Dict[str, Any]]:
         """Generate batch of metric configurations."""
         configs = []
+        # Note: binary_config now returns categorical for backward compatibility
         types = [cls.numeric_config, cls.categorical_config, cls.binary_config]
         
         for i in range(count):
@@ -121,7 +126,10 @@ class RhesisMetricConfigFactory:
     
     @classmethod
     def prompt_metric_binary(cls, **overrides) -> Dict[str, Any]:
-        """Create RhesisPromptMetric with binary score_type."""
+        """
+        DEPRECATED: Create CategoricalJudge metric (formerly binary).
+        Binary metrics have been migrated to categorical.
+        """
         return MetricConfigFactory.binary_config(**overrides)
     
     @classmethod
