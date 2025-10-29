@@ -1,5 +1,7 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
+import logging
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -16,6 +18,8 @@ from rhesis.sdk.synthesizers.utils import (
     retry_llm_call,
 )
 from rhesis.sdk.utils import clean_and_validate_tests
+
+logger = logging.getLogger(__name__)
 
 TEMPLATE_NAME = "config_synthesizer.md"
 
@@ -89,6 +93,13 @@ class ConfigSynthesizer(TestSetSynthesizer):
             template_context["previous_messages"] = self.previous_messages
 
         formatted_prompt = self.template.render(**template_context)
+
+        # Debug: Log full rendered template
+        print("\n" + "=" * 80, file=sys.stderr, flush=True)
+        print("DEBUG: Full Rendered Template (ConfigSynthesizer):", file=sys.stderr, flush=True)
+        print("=" * 80, file=sys.stderr, flush=True)
+        print(formatted_prompt, file=sys.stderr, flush=True)
+        print("=" * 80 + "\n", file=sys.stderr, flush=True)
 
         # Use utility function for retry logic
         response = retry_llm_call(self.model, formatted_prompt)
