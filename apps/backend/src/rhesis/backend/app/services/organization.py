@@ -53,6 +53,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 organization_id=organization_id,
                 user_id=user_id,
                 commit=False,
+                description=item.get("description"),
             )
 
         # Process statuses next as they're also needed by other entities
