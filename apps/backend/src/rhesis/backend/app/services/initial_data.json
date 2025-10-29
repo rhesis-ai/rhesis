@@ -314,7 +314,7 @@
         },
         {
             "type_name": "ProviderType",
-            "type_value": "meta",
+            "type_value": "meta_llama",
             "description": "Meta Llama provider"
         },
         {
@@ -339,7 +339,7 @@
         },
         {
             "type_name": "ProviderType",
-            "type_value": "together",
+            "type_value": "together_ai",
             "description": "Together AI multi-model provider"
         },
         {
