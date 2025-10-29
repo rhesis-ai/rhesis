@@ -540,7 +540,7 @@ export default function TestGenerationInterface({
                     gutterBottom
                     sx={{ mb: 1 }}
                   >
-                    Selected sources (documents)
+                    Selected sources
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     {selectedSources.map(source => (
