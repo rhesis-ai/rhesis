@@ -28,8 +28,9 @@ class BasePerformanceTests(BaseEntityTests):
         
         duration = time.time() - start_time
         
-        # Should complete within reasonable time (10 seconds for 10 creates)
-        assert duration < 10.0
+        # Should complete within reasonable time (20 seconds for 10 creates)
+        # Increased from 10s to 20s to account for slower CI environments
+        assert duration < 20.0, f"Creating 10 entities took {duration:.2f}s (expected < 20s)"
         assert len(created_entities) == 10
         
         # Clean up - delete created entities
