@@ -12,6 +12,7 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import NoOpTracerProvider
 
 from rhesis.backend.logging.rhesis_logger import logger
 
@@ -73,6 +74,8 @@ def initialize_telemetry():
     if not _TELEMETRY_GLOBALLY_ENABLED:
         deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
         logger.info(f"Telemetry disabled for deployment_type={deployment_type}")
+        # Set NoOp provider to prevent span creation entirely (zero performance overhead)
+        trace.set_tracer_provider(NoOpTracerProvider())
         return
 
     otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
@@ -80,6 +83,8 @@ def initialize_telemetry():
     if not otel_endpoint:
         logger.info("Telemetry disabled: OTEL_EXPORTER_OTLP_ENDPOINT not set")
         _TELEMETRY_GLOBALLY_ENABLED = False
+        # Set NoOp provider to prevent span creation entirely
+        trace.set_tracer_provider(NoOpTracerProvider())
         return
 
     # Determine deployment type
