@@ -48,6 +48,7 @@ dependencies = [
     "rhesis-sdk",
     "gcsfs>=2025.9.0",
     "cryptography>=44.0.3",
+    "numpy>=2.2.5",
 ]
 
 [dependency-groups]
