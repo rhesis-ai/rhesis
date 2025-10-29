@@ -338,9 +338,19 @@ export default function TestDetailData({
       {/* Source Documents Section */}
       {test.test_metadata?.sources && test.test_metadata.sources.length > 0 && (
         <Grid item xs={12}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Source Documents
-          </Typography>
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Source Documents
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', fontStyle: 'italic' }}
+            >
+              The content shown below is the portion of the document that was
+              used to generate this test case.
+            </Typography>
+          </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {test.test_metadata.sources.map((source: any, index: number) => (
               <FilePreview
@@ -352,7 +362,6 @@ export default function TestDetailData({
                   'Unknown Document'
                 }
                 content={source.content || 'No content available'}
-                description={source.description}
                 showCopyButton={true}
                 defaultExpanded={false}
               />

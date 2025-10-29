@@ -469,11 +469,6 @@ export default function TestSetDetailsSection({
                   <DocumentIcon sx={{ fontSize: 'inherit' }} />
                   {source.name || source.document || 'Unknown Source'}
                 </Typography>
-                {source.description && (
-                  <Typography variant="body2" color="text.secondary">
-                    {source.description}
-                  </Typography>
-                )}
                 {source.document && source.document !== source.name && (
                   <Typography
                     variant="caption"
