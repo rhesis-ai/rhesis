@@ -164,14 +164,13 @@ jobs:
 
       - name: Build Container
         run: |
+          # Build without cache to ensure all migration files are always up-to-date
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, tag with commit SHA
-            # Use --no-cache to ensure all migration files are included
             docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/backend/Dockerfile .
             echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
           else
             # For regular deployments, use latest tag
-            # Use --no-cache to ensure all migration files are included
             docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:latest -f apps/backend/Dockerfile .
             echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
           fi
