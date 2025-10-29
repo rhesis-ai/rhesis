@@ -96,9 +96,7 @@ const getProjectIcon = (project: Project) => {
 };
 
 // Environment chips should use neutral colors for better UX
-const getEnvironmentColor = (
-  _environment: string
-):
+const getEnvironmentColor = ():
   | 'default'
   | 'primary'
   | 'secondary'

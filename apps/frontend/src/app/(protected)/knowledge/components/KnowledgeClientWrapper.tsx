@@ -1,16 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Typography, Alert, Paper } from '@mui/material';
+import { Box, Typography, Paper, Alert } from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import { useNotifications } from '@/components/common/NotificationContext';
 import SourcesGrid from './SourcesGrid';
 import styles from '@/styles/KnowledgeClientWrapper.module.css';
-
-/** Type for alert/snackbar severity */
-type AlertSeverity = 'success' | 'error' | 'info' | 'warning';
 
 /** Props for the EmptyStateMessage component */
 interface EmptyStateMessageProps {
@@ -60,9 +56,7 @@ export default function KnowledgeClientWrapper({
   initialSources = [],
   sessionToken,
 }: KnowledgeClientWrapperProps) {
-  const [sources, setSources] = useState<Source[]>(initialSources || []);
   const [refreshKey, setRefreshKey] = useState(0);
-  const notifications = useNotifications();
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
