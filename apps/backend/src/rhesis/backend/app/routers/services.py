@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app import crud
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
@@ -205,6 +206,7 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -212,7 +214,8 @@ async def generate_tests_endpoint(
 
     Args:
         request: The request containing the prompt, number of tests, and optional sources
-            - sources contains full SourceData with name, description, content, and id
+            - sources contains SourceData with id
+            (name, description, content will be fetched from DB)
         db: Database session
         current_user: Current authenticated user
 
@@ -227,17 +230,39 @@ async def generate_tests_endpoint(
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
 
-        # Prepare sources from sources if provided (they now contain full data)
+        # Prepare sources from sources if provided
+        # Fetch full source data from database if only IDs are provided
         sources_sdk = []
         if sources:
-            # sources now contains full SourceData objects
+            organization_id, user_id = tenant_context
             for source_data in sources:
+                # Fetch source from database if name/description/content are not provided
+                if not source_data.name or not source_data.content:
+                    db_source = crud.get_source_with_content(
+                        db=db,
+                        source_id=source_data.id,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    )
+                    if db_source is None:
+                        raise HTTPException(
+                            status_code=404, detail=f"Source with id {source_data.id} not found"
+                        )
+                    # Use database values, fallback to provided values if available
+                    source_name = source_data.name or db_source.title
+                    source_description = source_data.description or db_source.description
+                    source_content = source_data.content or db_source.content or ""
+                else:
+                    # All data provided, use as-is
+                    source_name = source_data.name
+                    source_description = source_data.description
+                    source_content = source_data.content or ""
+
                 # Create Document object from SourceData
                 document_sdk = Document(
-                    name=source_data.name,
-                    description=source_data.description or (f"Source document: {source_data.name}"),
-                    content=source_data.content
-                    or (f"No content available for source: {source_data.name}"),
+                    name=source_name,
+                    description=source_description or (f"Source document: {source_name}"),
+                    content=source_content or (f"No content available for source: {source_name}"),
                     path=None,  # Sources don't have file paths
                 )
                 sources_sdk.append(document_sdk)
