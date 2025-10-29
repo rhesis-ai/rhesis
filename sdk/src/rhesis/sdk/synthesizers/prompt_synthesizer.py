@@ -1,5 +1,7 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
+import logging
+import sys
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Union
 
@@ -15,6 +17,8 @@ from rhesis.sdk.synthesizers.utils import (
     retry_llm_call,
 )
 from rhesis.sdk.utils import clean_and_validate_tests
+
+logger = logging.getLogger(__name__)
 
 
 class PromptSynthesizer(TestSetSynthesizer):
@@ -69,6 +73,12 @@ class PromptSynthesizer(TestSetSynthesizer):
             formatted_prompt = self.system_prompt.render(
                 generation_prompt=self.prompt, **config_dict, num_tests=num_tests, context=context
             )
+            # Debug: Log full rendered template
+            print("\n" + "=" * 80, file=sys.stderr, flush=True)
+            print("DEBUG: Full Rendered Template (with config):", file=sys.stderr, flush=True)
+            print("=" * 80, file=sys.stderr, flush=True)
+            print(formatted_prompt, file=sys.stderr, flush=True)
+            print("=" * 80 + "\n", file=sys.stderr, flush=True)
         else:
             template_context = {"generation_prompt": self.prompt, "num_tests": num_tests}
             if context:
@@ -80,6 +90,13 @@ class PromptSynthesizer(TestSetSynthesizer):
             if previous_messages:
                 template_context["previous_messages"] = previous_messages
             formatted_prompt = self.system_prompt.render(**template_context)
+
+            # Debug: Log full rendered template
+            print("\n" + "=" * 80, file=sys.stderr, flush=True)
+            print("DEBUG: Full Rendered Template (without config):", file=sys.stderr, flush=True)
+            print("=" * 80, file=sys.stderr, flush=True)
+            print(formatted_prompt, file=sys.stderr, flush=True)
+            print("=" * 80 + "\n", file=sys.stderr, flush=True)
 
         # Use utility function for retry logic
         response = retry_llm_call(self.model, formatted_prompt)
