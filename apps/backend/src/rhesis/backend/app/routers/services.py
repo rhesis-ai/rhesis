@@ -407,11 +407,10 @@ async def generate_test_config(
             f"with sample_size: {request.sample_size} for organization: {organization_id}"
         )
 
-        service = TestConfigGeneratorService()
+        service = TestConfigGeneratorService(db=db, user=current_user)
         result = service.generate_config(
             request.prompt,
             request.sample_size,
-            db=db,
             organization_id=organization_id,
             project_id=request.project_id,
         )
