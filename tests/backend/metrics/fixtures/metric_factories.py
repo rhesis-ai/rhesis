@@ -6,7 +6,8 @@ These factories follow the established pattern from data_factories.py
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List
+
 from faker import Faker
 
 fake = Faker()

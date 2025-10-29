@@ -53,24 +53,6 @@ class RhesisMetricFactory(BaseMetricFactory):
             "name",
             "description",
         },
-        "NumericDetailedJudge": {
-            "threshold",
-            "reference_score",
-            "threshold_operator",
-            "score_type",
-            "evaluation_prompt",
-            "evaluation_steps",
-            "reasoning",
-            "evaluation_examples",
-            "min_score",
-            "max_score",
-            "provider",
-            "model",
-            "api_key",
-            "metric_type",
-            "name",
-            "description",
-        },
     }
 
     # Define required parameters for each metric class

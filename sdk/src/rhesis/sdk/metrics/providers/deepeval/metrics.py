@@ -1,19 +1,19 @@
 from typing import List, Optional, Union
 
-from deepeval.metrics import (
-    AnswerRelevancyMetric,  # type: ignore
-    BiasMetric,  # type: ignore
-    ContextualPrecisionMetric,  # type: ignore
-    ContextualRecallMetric,  # type: ignore
-    ContextualRelevancyMetric,  # type: ignore
-    FaithfulnessMetric,  # type: ignore
-    MisuseMetric,  # type: ignore
-    NonAdviceMetric,  # type: ignore
-    PIILeakageMetric,  # type: ignore
-    RoleViolationMetric,  # type: ignore
-    ToxicityMetric,  # type: ignore
+from deepeval.metrics import (  # type: ignore
+    AnswerRelevancyMetric,
+    BiasMetric,
+    ContextualPrecisionMetric,
+    ContextualRecallMetric,
+    ContextualRelevancyMetric,
+    FaithfulnessMetric,
+    MisuseMetric,
+    NonAdviceMetric,
+    PIILeakageMetric,
+    RoleViolationMetric,
+    ToxicityMetric,
 )
-from deepteam.metrics import IllegalMetric, SafetyMetric
+from deepteam.metrics import IllegalMetric, SafetyMetric  # type: ignore
 
 from rhesis.sdk.metrics.base import MetricResult, MetricType
 from rhesis.sdk.metrics.providers.deepeval.metric_base import DeepEvalMetricBase
