@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     procps \
+    git \
     && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
 
@@ -81,6 +82,7 @@ RUN uv sync
 #Add environment variable for the path. This way the Python environment is activated.
 
 # Remove build dependencies after installing Python packages
+# Keep git as it's needed by ragas package at runtime
 RUN apt-get purge -y gcc \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
