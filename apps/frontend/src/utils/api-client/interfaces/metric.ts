@@ -7,7 +7,7 @@ import { PaginationParams } from './pagination';
 import { Model } from './model';
 import { Organization } from './organization';
 
-export type ScoreType = 'binary' | 'numeric' | 'categorical';
+export type ScoreType = 'numeric' | 'categorical';
 
 export type ThresholdOperator = '=' | '<' | '>' | '<=' | '>=' | '!=';
 
@@ -22,7 +22,9 @@ export interface Metric {
   score_type: ScoreType;
   min_score?: number;
   max_score?: number;
-  reference_score?: string;
+  reference_score?: string; // @deprecated: kept for transition, use categories instead
+  categories?: string[]; // List of valid categories for categorical metrics
+  passing_categories?: string[]; // Categories that indicate pass
   threshold?: number;
   threshold_operator?: ThresholdOperator;
   explanation: string;
@@ -56,6 +58,9 @@ export interface MetricCreate {
   score_type: ScoreType;
   min_score?: number;
   max_score?: number;
+  reference_score?: string; // @deprecated: kept for transition, use categories instead
+  categories?: string[]; // List of valid categories for categorical metrics
+  passing_categories?: string[]; // Categories that indicate pass
   threshold?: number;
   threshold_operator?: ThresholdOperator;
   explanation: string;
@@ -79,6 +84,9 @@ export interface MetricUpdate {
   score_type?: ScoreType;
   min_score?: number;
   max_score?: number;
+  reference_score?: string; // @deprecated: kept for transition, use categories instead
+  categories?: string[]; // List of valid categories for categorical metrics
+  passing_categories?: string[]; // Categories that indicate pass
   threshold?: number;
   threshold_operator?: ThresholdOperator;
   explanation?: string;
