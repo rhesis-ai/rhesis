@@ -5,13 +5,12 @@ Pytest fixtures for metrics testing. These provide consistent test data
 for baseline regression tests.
 """
 
+from typing import Any, Dict, List
+
 import pytest
-from typing import Dict, Any, List
-from unittest.mock import MagicMock
 
 from .metric_factories import (
     MetricConfigFactory,
-    RhesisMetricConfigFactory,
     RagasMetricConfigFactory,
 )
 

@@ -5,9 +5,10 @@ These tests validate the complete flow from test execution to result storage,
 ensuring all components work together correctly.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from uuid import uuid4
+
 from rhesis.backend.metrics import MetricResult
 
 
@@ -90,8 +91,8 @@ class TestCurrentE2EFlow:
         }
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_e2e_single_test_execution(self, mock_evaluate, mock_invoke, full_test_setup):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_e2e_single_test_execution(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test complete flow: task → execution → evaluation → storage."""
         # Mock endpoint invocation
         mock_invoke.return_value = {
@@ -100,10 +101,15 @@ class TestCurrentE2EFlow:
         }
         
         # Mock metric evaluation
-        mock_evaluate.return_value = MetricResult(
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = False
+        mock_metric.requires_context = False
+        mock_metric.name = "Test Metric"
+        mock_metric.evaluate.return_value = MetricResult(
             score=9.0,
             details={"reason": "Excellent response"}
         )
+        mock_create_metric.return_value = mock_metric
         
         from rhesis.backend.tasks.execution.test_execution import execute_test
         
@@ -128,8 +134,8 @@ class TestCurrentE2EFlow:
         assert mock_invoke.called
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_e2e_with_multiple_metrics(self, mock_evaluate, mock_invoke, full_test_setup):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_e2e_with_multiple_metrics(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test execution with multiple metrics."""
         mock_invoke.return_value = {
             "output": "Positive response",
@@ -137,16 +143,25 @@ class TestCurrentE2EFlow:
         }
         
         # Multiple metric evaluations
-        mock_evaluate.side_effect = [
-            MetricResult(
-                score=8.5,
-                details={"reason": "High quality"}
-            ),
-            MetricResult(
-                score="positive",
-                details={"reason": "Positive sentiment"}
-            )
-        ]
+        mock_metric1 = MagicMock()
+        mock_metric1.requires_ground_truth = False
+        mock_metric1.requires_context = False
+        mock_metric1.name = "Metric 1"
+        mock_metric1.evaluate.return_value = MetricResult(
+            score=8.5,
+            details={"reason": "High quality"}
+        )
+        
+        mock_metric2 = MagicMock()
+        mock_metric2.requires_ground_truth = False
+        mock_metric2.requires_context = False
+        mock_metric2.name = "Metric 2"
+        mock_metric2.evaluate.return_value = MetricResult(
+            score="positive",
+            details={"reason": "Positive sentiment"}
+        )
+        
+        mock_create_metric.side_effect = [mock_metric1, mock_metric2]
         
         from rhesis.backend.tasks.execution.test_execution import execute_test
         
@@ -167,8 +182,8 @@ class TestCurrentE2EFlow:
         assert mock_invoke.called
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_e2e_handles_endpoint_error(self, mock_evaluate, mock_invoke, full_test_setup):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_e2e_handles_endpoint_error(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test flow handles endpoint errors gracefully."""
         # Endpoint fails
         mock_invoke.side_effect = Exception("Endpoint unavailable")
@@ -193,8 +208,8 @@ class TestCurrentE2EFlow:
             assert "unavailable" in str(e).lower() or "error" in str(e).lower()
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_e2e_handles_metric_evaluation_error(self, mock_evaluate, mock_invoke, full_test_setup):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_e2e_handles_metric_evaluation_error(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test flow handles metric evaluation errors gracefully."""
         mock_invoke.return_value = {
             "output": "Test response",
@@ -202,7 +217,12 @@ class TestCurrentE2EFlow:
         }
         
         # Metric evaluation fails
-        mock_evaluate.side_effect = Exception("Evaluation failed")
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = False
+        mock_metric.requires_context = False
+        mock_metric.name = "Failing Metric"
+        mock_metric.evaluate.side_effect = Exception("Evaluation failed")
+        mock_create_metric.return_value = mock_metric
         
         from rhesis.backend.tasks.execution.test_execution import execute_test
         
@@ -221,8 +241,8 @@ class TestCurrentE2EFlow:
         assert result is not None
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.ragas.metrics.RagasAnswerRelevancy.evaluate')
-    def test_e2e_with_ragas_metric(self, mock_ragas_evaluate, mock_invoke, test_db, test_org_id, authenticated_user_id, db_test_with_prompt, test_endpoint, test_run):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_e2e_with_ragas_metric(self, mock_create_metric, mock_invoke, test_db, test_org_id, authenticated_user_id, db_test_with_prompt, test_endpoint, test_run):
         """Test with Ragas metric."""
         from rhesis.backend.app import models
         from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
@@ -286,10 +306,15 @@ class TestCurrentE2EFlow:
             "status_code": 200
         }
         
-        mock_ragas_evaluate.return_value = MetricResult(
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = False
+        mock_metric.requires_context = True
+        mock_metric.name = "Ragas Answer Relevancy"
+        mock_metric.evaluate.return_value = MetricResult(
             score=0.85,
             details={"reason": "Highly relevant"}
         )
+        mock_create_metric.return_value = mock_metric
         
         from rhesis.backend.tasks.execution.test_execution import execute_test
         
@@ -313,9 +338,8 @@ class TestCurrentE2EFlow:
             "status_code": 200
         }
         
+
         from rhesis.backend.tasks.execution.test_execution import execute_test
-        from rhesis.backend.app import crud
-        from uuid import UUID
         
         result = execute_test(
             db=full_test_setup["db"],
@@ -333,22 +357,26 @@ class TestCurrentE2EFlow:
         assert result["execution_time"] >= 0
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_e2e_metric_results_structure(self, mock_evaluate, mock_invoke, full_test_setup):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_e2e_metric_results_structure(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test that metric results are stored in correct structure."""
         mock_invoke.return_value = {
             "output": "Test response",
             "status_code": 200
         }
         
-        mock_evaluate.return_value = MetricResult(
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = False
+        mock_metric.requires_context = False
+        mock_metric.name = "Test Metric"
+        mock_metric.evaluate.return_value = MetricResult(
             score=8.0,
             details={"reason": "Good quality"}
         )
+        mock_create_metric.return_value = mock_metric
         
+
         from rhesis.backend.tasks.execution.test_execution import execute_test
-        from rhesis.backend.app import crud
-        from uuid import UUID
         
         result = execute_test(
             db=full_test_setup["db"],
@@ -372,22 +400,26 @@ class TestCurrentE2EFlow:
             assert "score" in metric_data or "passed" in metric_data
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.rhesis.prompt_metric.RhesisPromptMetric.evaluate')
-    def test_e2e_result_queryable_via_api(self, mock_evaluate, mock_invoke, full_test_setup):
+    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    def test_e2e_result_queryable_via_api(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test that stored results are queryable."""
         mock_invoke.return_value = {
             "output": "Response",
             "status_code": 200
         }
         
-        mock_evaluate.return_value = MetricResult(
+        mock_metric = MagicMock()
+        mock_metric.requires_ground_truth = False
+        mock_metric.requires_context = False
+        mock_metric.name = "Test Metric"
+        mock_metric.evaluate.return_value = MetricResult(
             score=7.5,
             details={"reason": "Pass"}
         )
+        mock_create_metric.return_value = mock_metric
         
+
         from rhesis.backend.tasks.execution.test_execution import execute_test
-        from rhesis.backend.app import crud
-        from uuid import UUID
         
         result = execute_test(
             db=full_test_setup["db"],
@@ -405,4 +437,116 @@ class TestCurrentE2EFlow:
         assert result["test_id"] == full_test_setup["test_id"]
         assert "metrics" in result
         assert "execution_time" in result
+    
+    @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
+    def test_execute_test_full_integration_without_adapter_mock(
+        self, mock_invoke, test_db, test_org_id, authenticated_user_id, 
+        test_endpoint, test_run, test_config, db_test_with_prompt
+    ):
+        """
+        CRITICAL INTEGRATION TEST: Full execute_test() flow without mocking the adapter.
+        
+        This test exercises the COMPLETE production path:
+        1. Database test with real metrics → get_test_metrics()
+        2. Dict validation → prepare_metric_configs()
+        3. Evaluator accepts dicts
+        4. Adapter converts dicts to SDK metrics (NOT MOCKED!)
+        5. SDK metric creation with real factory
+        
+        This would have caught the MetricConfig.from_dict() bug because it
+        exercises the exact production code path that was failing.
+        
+        Key difference from other E2E tests: We do NOT mock create_metric_from_config,
+        allowing the full dict → adapter → SDK metric chain to execute.
+        """
+        from rhesis.backend.app import models
+        from rhesis.backend.tasks.execution.test_execution import execute_test
+        
+        # Create a behavior with real metrics (not mocked)
+        behavior = models.Behavior(
+            name="Test Behavior with Real Metrics",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id
+        )
+        test_db.add(behavior)
+        test_db.flush()
+        
+        # Create a real RhesisPromptMetric in the database
+        metric = models.Metric(
+            name="Integration Test Metric",
+            class_name="RhesisPromptMetric",  # Will be split to NumericJudge by adapter
+            score_type="numeric",
+            threshold=0.7,
+            evaluation_prompt="Evaluate the response quality",
+            evaluation_steps="1. Check accuracy\n2. Check relevance",
+            reasoning="Consider completeness and correctness",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id
+        )
+        test_db.add(metric)
+        test_db.flush()
+        
+        # Link metric to behavior
+        behavior.metrics = [metric]
+        
+        # Update test to use this behavior
+        db_test_with_prompt.behavior_id = behavior.id
+        test_db.commit()
+        test_db.refresh(db_test_with_prompt)
+        
+        # Mock only the endpoint invocation, NOT the adapter or metrics
+        mock_invoke.return_value = {
+            "output": "The answer is 42",
+            "status_code": 200
+        }
+        
+        # Execute test - this goes through the FULL production path
+        # Including: get_test_metrics → prepare_metric_configs → 
+        #            evaluator → adapter → SDK metric creation
+        try:
+            result = execute_test(
+                db=test_db,
+                test_config_id=str(test_config.id),
+                test_run_id=str(test_run.id),
+                test_id=str(db_test_with_prompt.id),
+                endpoint_id=str(test_endpoint.id),
+                organization_id=str(test_org_id),
+                user_id=str(authenticated_user_id)
+            )
+            
+            # If we get here, the full flow worked!
+            assert result is not None
+            assert "test_id" in result
+            assert "execution_time" in result
+            
+            # The metric evaluation might not have results due to model config,
+            # but the important thing is we didn't crash with MetricConfig.from_dict() error
+            assert "metrics" in result
+            
+        except (ValueError, AttributeError) as e:
+            error_msg = str(e)
+            
+            # Expected errors from model configuration are OK
+            if any(expected in error_msg for expected in [
+                "RHESIS_API_KEY",
+                "Provider",
+                "api_key",
+                "not set"
+            ]):
+                # SUCCESS! We exercised the full chain without the bug
+                # The error is from model setup, not from dict conversion
+                pass
+            
+            # This specific error means we hit the bug we're preventing
+            elif "from_dict" in error_msg:
+                raise AssertionError(
+                    f"REGRESSION: Hit the MetricConfig.from_dict() bug that this test should prevent! "
+                    f"Error: {error_msg}"
+                )
+            
+            # Any other error is unexpected and should fail the test
+            else:
+                raise AssertionError(
+                    f"Unexpected error in full integration test: {error_msg}"
+                ) from e
 

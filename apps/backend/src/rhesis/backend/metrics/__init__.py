@@ -1,67 +1,81 @@
-"""Metrics for evaluating RAG and generation systems."""
+"""
+Backend metrics orchestration - uses SDK metrics via adapter layer.
 
-from .base import BaseMetric, MetricConfig, MetricResult
-from .config.loader import MetricConfigLoader
-from .constants import OPERATOR_MAP, VALID_OPERATORS_BY_SCORE_TYPE, ScoreType, ThresholdOperator
+This module provides:
+- MetricEvaluator: Orchestrates batch evaluation with parallel execution
+- ScoreEvaluator: Evaluates scores against thresholds
+- Adapter: Bridges database models to SDK metrics
+- Re-exports: SDK metrics for convenience
+"""
+
+# Backend-specific orchestration
+# Re-export SDK classes for convenience
+from rhesis.sdk.metrics import (
+    BaseMetric,
+    CategoricalJudge,
+    # DeepEval metrics
+    DeepEvalAnswerRelevancy,
+    DeepEvalContextualPrecision,
+    DeepEvalContextualRecall,
+    DeepEvalContextualRelevancy,
+    DeepEvalFaithfulness,
+    MetricConfig,
+    MetricFactory,
+    MetricResult,
+    # Native metrics (renamed)
+    NumericJudge,
+    # Ragas metrics
+    RagasAnswerAccuracy,
+    RagasAspectCritic,
+    RagasContextRelevance,
+    RagasFaithfulness,
+)
+
+# Adapter layer (DB → SDK)
+from .adapters import (
+    create_metric,
+    create_metric_from_config,
+    create_metric_from_db_model,
+)
+from .constants import (
+    OPERATOR_MAP,
+    VALID_OPERATORS_BY_SCORE_TYPE,
+    ScoreType,
+    ThresholdOperator,
+)
 from .evaluator import MetricEvaluator as Evaluator
-from .factory import MetricFactory
-
-# Lazy import to avoid circular dependencies
-# from .deepeval import (  # Re-export DeepEval metrics
-#     DeepEvalMetricBase,
-#     DeepEvalMetricFactory,
-#     DeepEvalAnswerRelevancy,
-#     DeepEvalFaithfulness,
-#     DeepEvalContextualRelevancy,
-#     DeepEvalContextualPrecision,
-#     DeepEvalContextualRecall,
-# )
-from .ragas import (  # Re-export Ragas metrics
-    RagasAnswerRelevancy,
-    RagasContextualPrecision,
-    RagasMetricBase,
-    RagasMetricFactory,
-)
-from .rhesis import (  # Re-export Rhesis metrics
-    RhesisMetricBase,
-    RhesisMetricFactory,
-    RhesisPromptMetric,
-)
 from .score_evaluator import ScoreEvaluator
 from .utils import diagnose_invalid_metric, run_evaluation
 
 __all__ = [
-    # Base metrics
-    "BaseMetric",
-    "MetricConfig",
-    "MetricResult",
-    "MetricConfigLoader",
-    "MetricFactory",
-    # Evaluation
+    # Backend orchestration
     "Evaluator",
     "ScoreEvaluator",
     "run_evaluation",
+    "diagnose_invalid_metric",
+    # Adapter layer
+    "create_metric_from_db_model",
+    "create_metric_from_config",
+    "create_metric",
     # Types and utilities
     "ScoreType",
     "ThresholdOperator",
     "OPERATOR_MAP",
     "VALID_OPERATORS_BY_SCORE_TYPE",
-    "diagnose_invalid_metric",
-    # Rhesis metrics
-    "RhesisMetricBase",
-    "RhesisMetricFactory",
-    "RhesisPromptMetric",
-    # DeepEval metrics (commented out to avoid circular imports)
-    # "DeepEvalMetricBase",
-    # "DeepEvalMetricFactory",
-    # "DeepEvalAnswerRelevancy",
-    # "DeepEvalFaithfulness",
-    # "DeepEvalContextualRelevancy",
-    # "DeepEvalContextualPrecision",
-    # "DeepEvalContextualRecall",
-    # Ragas metrics
-    "RagasMetricBase",
-    "RagasMetricFactory",
-    "RagasAnswerRelevancy",
-    "RagasContextualPrecision",
+    # SDK re-exports
+    "BaseMetric",
+    "MetricConfig",
+    "MetricResult",
+    "MetricFactory",
+    "NumericJudge",
+    "CategoricalJudge",
+    "RagasAnswerAccuracy",
+    "RagasAspectCritic",
+    "RagasContextRelevance",
+    "RagasFaithfulness",
+    "DeepEvalAnswerRelevancy",
+    "DeepEvalFaithfulness",
+    "DeepEvalContextualPrecision",
+    "DeepEvalContextualRecall",
+    "DeepEvalContextualRelevancy",
 ]

@@ -5,7 +5,6 @@ These tests validate the utility functions that convert database Metric models
 to metric configurations, which is a critical interface for the migration.
 """
 
-import pytest
 from rhesis.backend.tasks.execution.metrics_utils import create_metric_config_from_model
 
 
