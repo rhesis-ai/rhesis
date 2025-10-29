@@ -171,6 +171,7 @@ export default function EndpointForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState(0);
+  const [urlError] = useState<string | null>(null);
   const [testResponse, setTestResponse] = useState<string>('');
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
