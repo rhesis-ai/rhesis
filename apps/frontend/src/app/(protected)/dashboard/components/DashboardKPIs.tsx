@@ -188,8 +188,8 @@ export default function DashboardKPIs({ sessionToken }: DashboardKPIsProps) {
         setTestStats(testStatsResponse);
         setTestResultsStats(testResultsResponse);
         setTestSetStats(testSetStatsResponse);
-      } catch (err) {
-        console.error('Error fetching KPIs:', err);
+      } catch {
+        // Error handled silently - component will show no data
       } finally {
         setLoading(false);
       }
@@ -250,12 +250,6 @@ export default function DashboardKPIs({ sessionToken }: DashboardKPIsProps) {
     cumulativeSets += count;
     cumulativeTestSets.push(cumulativeSets);
   });
-
-  // Calculate coverage percentage (tests per test set)
-  const coveragePercentage =
-    totalTestSets > 0
-      ? Math.min(100, Math.round((totalTests / (totalTestSets * 10)) * 100))
-      : 0;
 
   return (
     <Box sx={{ mb: 4 }}>

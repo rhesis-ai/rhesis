@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Card,
-  CardContent,
   FormControl,
   Grid,
   InputLabel,
@@ -17,11 +16,9 @@ import {
   TextField,
   Typography,
   Alert,
-  SelectChangeEvent,
   ToggleButton,
   ToggleButtonGroup,
   CircularProgress,
-  Avatar,
   ListItemIcon,
   ListItemText,
   FormHelperText,
@@ -110,7 +107,6 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 // Enums based on your backend models
 const PROTOCOLS = ['REST'];
 const ENVIRONMENTS = ['production', 'staging', 'development'];
-const RESPONSE_FORMATS = ['json', 'xml', 'text'];
 const METHODS = ['POST'];
 
 interface TabPanelProps {
@@ -175,7 +171,6 @@ export default function EndpointForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState(0);
-  const [urlError, setUrlError] = useState<string | null>(null);
   const [testResponse, setTestResponse] = useState<string>('');
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -212,8 +207,7 @@ export default function EndpointForm() {
         ).getProjectsClient();
         const data = await client.getProjects();
         setProjects(Array.isArray(data) ? data : data?.data || []);
-      } catch (err) {
-        console.error('Error fetching projects:', err);
+      } catch {
         setError('Failed to load projects. Please try again later.');
         setProjects([]);
       } finally {
@@ -237,7 +231,7 @@ export default function EndpointForm() {
     }
   };
 
-  const handleChange = (field: keyof FormData, value: any) => {
+  const handleChange = (field: keyof FormData, value: unknown) => {
     setFormData((prev: FormData) => ({ ...prev, [field]: value }));
   };
 
@@ -284,32 +278,27 @@ export default function EndpointForm() {
         const value = transformedData[field] as string;
         if (value && typeof value === 'string' && value.trim()) {
           try {
-            (transformedData as any)[field] = JSON.parse(value);
-          } catch (e) {
-            console.error(`Invalid JSON in ${field}:`, e);
-            delete (transformedData as any)[field];
+            (transformedData as Record<string, unknown>)[field] =
+              JSON.parse(value);
+          } catch {
+            delete (transformedData as Record<string, unknown>)[field];
           }
         } else {
-          delete (transformedData as any)[field];
+          delete (transformedData as Record<string, unknown>)[field];
         }
       }
 
       // Remove organization_id as it should not be part of the request
-      delete (transformedData as any).organization_id;
+      delete (transformedData as Record<string, unknown>).organization_id;
 
       // Remove empty project_id
       if (!transformedData.project_id || transformedData.project_id === '') {
-        delete (transformedData as any).project_id;
+        delete (transformedData as Record<string, unknown>).project_id;
       }
 
       // Ensure we're sending a single object, not an array
       const endpointData = transformedData as unknown as Omit<Endpoint, 'id'>;
-      console.log(
-        'Submitting endpoint data:',
-        JSON.stringify(endpointData, null, 2)
-      );
       const result = await createEndpoint(endpointData);
-      console.log('Create endpoint result:', result);
 
       // Show success notification
       notifications.show('Endpoint created successfully!', {

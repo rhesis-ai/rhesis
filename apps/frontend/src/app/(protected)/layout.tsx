@@ -2,10 +2,8 @@
 
 import * as React from 'react';
 import { DashboardLayout } from '@toolpad/core/DashboardLayout';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import AuthErrorBoundary from './error-boundary';
 import { useSession } from 'next-auth/react';
-import { UUID } from 'crypto';
 import { SxProps } from '@mui/system';
 import SidebarFooter from '@/components/navigation/SidebarFooter';
 import ToolbarActions from '@/components/layout/ToolbarActions';

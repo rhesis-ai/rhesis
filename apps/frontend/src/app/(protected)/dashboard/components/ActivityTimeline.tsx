@@ -51,7 +51,7 @@ interface Activity {
   title: string;
   subtitle?: string;
   timestamp: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 const getActivityIcon = (type: ActivityType) => {

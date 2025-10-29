@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import {
@@ -13,7 +13,6 @@ import {
   useTheme,
 } from '@mui/material';
 import { PieChart } from '@mui/x-charts/PieChart';
-import { useRouter } from 'next/navigation';
 import {
   TestRunStatsStatus,
   TestRunStatsResults,
@@ -21,7 +20,6 @@ import {
 
 export default function DashboardCharts() {
   const { data: session } = useSession();
-  const router = useRouter();
   const theme = useTheme();
   const [statusChart, setStatusChart] = useState<TestRunStatsStatus | null>(
     null

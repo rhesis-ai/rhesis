@@ -5,13 +5,13 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export interface InvokeEndpointResult {
   success: boolean;
-  data?: any;
+  data?: Record<string, unknown>;
   error?: string;
 }
 
 export async function invokeEndpoint(
   endpointId: string,
-  inputData: any
+  inputData: Record<string, unknown>
 ): Promise<InvokeEndpointResult> {
   try {
     const session = await auth();
@@ -31,7 +31,6 @@ export async function invokeEndpoint(
       data: response,
     };
   } catch (error) {
-    console.error('Failed to invoke endpoint:', error);
     return {
       success: false,
       error:
