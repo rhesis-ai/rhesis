@@ -22,6 +22,7 @@ import {
   Avatar,
 } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
+import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import AddIcon from '@mui/icons-material/Add';
@@ -32,7 +33,6 @@ import TestSetDrawer from './TestSetDrawer';
 import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
-import ContextPreview from '../../tests/new-generated/components/shared/ContextPreview';
 
 interface TestSetsGridProps {
   testSets: TestSet[];
@@ -266,7 +266,20 @@ export default function TestSetsGrid({
       headerAlign: 'center',
       renderCell: params => {
         const sources = params.row.sources;
-        return <ContextPreview context={sources} />;
+        if (!sources || sources.length === 0) return null;
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <InsertDriveFileOutlined
+              sx={{ fontSize: 16, color: 'text.secondary' }}
+            />
+          </Box>
+        );
       },
     },
   ];

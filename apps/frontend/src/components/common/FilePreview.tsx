@@ -146,7 +146,7 @@ export default function FilePreview({
             sx={{
               margin: 0,
               fontFamily: 'monospace',
-              fontSize: '0.875rem',
+              fontSize: theme => theme.typography.body2.fontSize,
               lineHeight: 1.6,
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',

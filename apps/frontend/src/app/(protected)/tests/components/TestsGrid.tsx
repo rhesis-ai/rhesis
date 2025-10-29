@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Typography, Box, Alert, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
+import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDrawer from './TestDrawer';
 import TestSetSelectionDialog from './TestSetSelectionDialog';
@@ -23,7 +24,6 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { convertGridFilterModelToOData } from '@/utils/odata-filter';
-import ContextPreview from '../new-generated/components/shared/ContextPreview';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -238,7 +238,20 @@ export default function TestsTable({
         headerAlign: 'center',
         renderCell: params => {
           const sources = params.row.test_metadata?.sources;
-          return <ContextPreview context={sources} />;
+          if (!sources || sources.length === 0) return null;
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <InsertDriveFileOutlined
+                sx={{ fontSize: 16, color: 'text.secondary' }}
+              />
+            </Box>
+          );
         },
       },
     ],
