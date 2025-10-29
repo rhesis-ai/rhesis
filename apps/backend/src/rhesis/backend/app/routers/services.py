@@ -218,6 +218,7 @@ async def generate_tests_endpoint(
             - sources contains SourceData with id
             (name, description, content will be fetched from DB)
         db: Database session
+        tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
 
     Returns:
@@ -227,6 +228,9 @@ async def generate_tests_endpoint(
         prompt = request.prompt
         num_tests = request.num_tests
         sources = request.sources
+        chip_states = request.chip_states
+        rated_samples = request.rated_samples
+        previous_messages = request.previous_messages
 
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
@@ -243,7 +247,16 @@ async def generate_tests_endpoint(
                 user_id=user_id,
             )
 
-        test_cases = await generate_tests(db, current_user, prompt, num_tests, sources_sdk)
+        test_cases = await generate_tests(
+            db,
+            current_user,
+            prompt,
+            num_tests,
+            sources_sdk,
+            chip_states=chip_states,
+            rated_samples=rated_samples,
+            previous_messages=previous_messages,
+        )
         return {"tests": test_cases}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

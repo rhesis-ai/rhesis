@@ -1,5 +1,7 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
+import logging
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -16,6 +18,8 @@ from rhesis.sdk.synthesizers.utils import (
     retry_llm_call,
 )
 from rhesis.sdk.utils import clean_and_validate_tests
+
+logger = logging.getLogger(__name__)
 
 TEMPLATE_NAME = "config_synthesizer.md"
 
@@ -41,6 +45,9 @@ class ConfigSynthesizer(TestSetSynthesizer):
         config: GenerationConfig,
         batch_size: int = 20,
         model: Optional[Union[str, BaseLLM]] = None,
+        chip_states: Optional[List[Dict]] = None,
+        rated_samples: Optional[List[Dict]] = None,
+        previous_messages: Optional[List[Dict]] = None,
     ):
         """
         Initialize the ConfigSynthesizer.
@@ -49,10 +56,16 @@ class ConfigSynthesizer(TestSetSynthesizer):
             batch_size: Maximum number of tests to generate in a single LLM call (reduced default
             for stability)
             system_prompt: Optional custom system prompt template to override the default
+            chip_states: Optional list of chip states for iteration context
+            rated_samples: Optional list of rated samples for iteration context
+            previous_messages: Optional list of previous messages for iteration context
         """
 
         super().__init__(batch_size=batch_size)
         self.config = config
+        self.chip_states = chip_states
+        self.rated_samples = rated_samples
+        self.previous_messages = previous_messages
 
         # Set system prompt using utility function
         template_path = Path(__file__).parent / "assets" / TEMPLATE_NAME
@@ -67,7 +80,26 @@ class ConfigSynthesizer(TestSetSynthesizer):
         self, num_tests: int, context: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
-        formatted_prompt = self.template.render(**asdict(self.config))
+        # Prepare template context with config and iteration context
+        template_context = asdict(self.config)
+        template_context["num_tests"] = num_tests
+
+        # Add iteration context if available
+        if self.chip_states:
+            template_context["chip_states"] = self.chip_states
+        if self.rated_samples:
+            template_context["rated_samples"] = self.rated_samples
+        if self.previous_messages:
+            template_context["previous_messages"] = self.previous_messages
+
+        formatted_prompt = self.template.render(**template_context)
+
+        # Debug: Log full rendered template
+        print("\n" + "=" * 80, file=sys.stderr, flush=True)
+        print("DEBUG: Full Rendered Template (ConfigSynthesizer):", file=sys.stderr, flush=True)
+        print("=" * 80, file=sys.stderr, flush=True)
+        print(formatted_prompt, file=sys.stderr, flush=True)
+        print("=" * 80 + "\n", file=sys.stderr, flush=True)
 
         # Use utility function for retry logic
         response = retry_llm_call(self.model, formatted_prompt)
