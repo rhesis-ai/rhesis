@@ -437,11 +437,13 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         endpoint_data["auth_token"] = auth_token
                         auth_token_loaded = True
                         print(
-                            f"  ✓ Loaded {env_var_name} from environment for endpoint: {item['name']}"
+                            f"  ✓ Loaded {env_var_name} from environment for "
+                            f"endpoint: {item['name']}"
                         )
                     else:
                         print(
-                            f"  ⚠ Warning: {env_var_name} not found in environment for endpoint: {item['name']}"
+                            f"  ⚠ Warning: {env_var_name} not found in environment for "
+                            f"endpoint: {item['name']}"
                         )
                         print("  → Skipping auth_type configuration (no token available)")
                 else:
