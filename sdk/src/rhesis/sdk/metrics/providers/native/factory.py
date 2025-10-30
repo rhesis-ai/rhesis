@@ -18,7 +18,10 @@ class RhesisMetricFactory(BaseMetricFactory):
         "NumericJudge": NumericJudge,
     }
 
-    # Define which parameters each metric class accepts
+    # Common parameters supported by all metrics
+    _common_params = {"model"}
+
+    # Metric-specific parameters (in addition to common params)
     _supported_params = {
         # Example: "RhesisCustomMetric": {"threshold", "custom_param1", "custom_param2"},
         "CategoricalJudge": {
@@ -30,7 +33,6 @@ class RhesisMetricFactory(BaseMetricFactory):
             "evaluation_examples",
             "name",
             "description",
-            "model",
             "requires_ground_truth",
             "requires_context",
             "metric_type",
@@ -47,7 +49,6 @@ class RhesisMetricFactory(BaseMetricFactory):
             "min_score",
             "max_score",
             "provider",
-            "model",
             "api_key",
             "metric_type",
             "name",
@@ -102,8 +103,11 @@ class RhesisMetricFactory(BaseMetricFactory):
                 f"Provided parameters: {set(combined_kwargs.keys())}"
             )
 
+        # Merge common params with metric-specific params
+        metric_params = self._supported_params.get(class_name, set())
+        supported_params = self._common_params | metric_params
+
         # Filter kwargs to only include supported parameters for this class
-        supported_params = self._supported_params.get(class_name, set())
         filtered_kwargs = {k: v for k, v in combined_kwargs.items() if k in supported_params}
 
         return self._metrics[class_name](**filtered_kwargs)
