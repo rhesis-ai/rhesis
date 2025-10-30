@@ -21,10 +21,10 @@ class RagasMetricFactory(BaseMetricFactory):
 
     # Define which parameters each metric class accepts
     _supported_params = {
-        "RagasAnswerAccuracy": {"threshold"},
-        "RagasContextRelevance": {"threshold"},
-        "RagasFaithfulness": {"threshold"},
-        "RagasAspectCritic": {"threshold"},
+        "RagasAnswerAccuracy": {"threshold", "model"},
+        "RagasContextRelevance": {"threshold", "model"},
+        "RagasFaithfulness": {"threshold", "model"},
+        "RagasAspectCritic": {"threshold", "model", "name", "definition"},
     }
 
     def create(self, class_name: str, **kwargs) -> BaseMetric:
