@@ -542,7 +542,7 @@ export default function SelectedMetricsTab({
       >
         <Button
           startIcon={<AddIcon />}
-          onClick={handleSwitchToDirectoryWithAssignMode}
+          onClick={handleAddNewSection}
           sx={{ color: 'text.secondary' }}
         >
           Add New Behavior
