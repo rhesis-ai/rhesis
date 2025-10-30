@@ -158,6 +158,31 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
     [router]
   );
 
+  // Get action buttons based on selection
+  const getActionButtons = useCallback(() => {
+    const buttons = [];
+
+    buttons.push({
+      label: 'Create Task',
+      onClick: () => router.push('/tasks/create'),
+      icon: <AddIcon />,
+      variant: 'contained' as const,
+      color: 'primary' as const,
+    });
+
+    if (selectedRows.length > 0) {
+      buttons.push({
+        label: `Delete (${selectedRows.length})`,
+        onClick: handleDeleteSelected,
+        icon: <DeleteIcon />,
+        variant: 'outlined' as const,
+        color: 'error' as const,
+      });
+    }
+
+    return buttons;
+  }, [selectedRows.length, handleDeleteSelected, router]);
+
   // Handle pagination change
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
@@ -169,95 +194,102 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   // Handle filter change
   const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
     setFilterModel(newModel);
+    // Reset to first page when filters change
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
   // Column definitions
-  const columns: GridColDef[] = [
-    {
-      field: 'title',
-      headerName: 'Title',
-      width: 300,
-      renderCell: params => (
-        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-          {params.row.title}
-        </Typography>
-      ),
-    },
-    {
-      field: 'description',
-      headerName: 'Description',
-      width: 400,
-      renderCell: params => (
-        <Typography
-          variant="body2"
-          sx={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            maxWidth: '100%',
-          }}
-        >
-          {params.row.description || '-'}
-        </Typography>
-      ),
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 120,
-      renderCell: params => {
-        const getStatusColor = (status?: string) => {
-          switch (status) {
-            case 'Open':
-              return 'warning';
-            case 'In Progress':
-              return 'primary';
-            case 'Completed':
-              return 'success';
-            case 'Cancelled':
-              return 'error';
-            default:
-              return 'default';
+  const columns: GridColDef[] = React.useMemo(
+    () => [
+      {
+        field: 'title',
+        headerName: 'Title',
+        width: 300,
+        renderCell: params => (
+          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+            {params.row.title}
+          </Typography>
+        ),
+      },
+      {
+        field: 'description',
+        headerName: 'Description',
+        width: 400,
+        renderCell: params => (
+          <Typography
+            variant="body2"
+            sx={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '100%',
+            }}
+          >
+            {params.row.description || '-'}
+          </Typography>
+        ),
+      },
+      {
+        field: 'status',
+        headerName: 'Status',
+        width: 120,
+        renderCell: params => {
+          const getStatusColor = (status?: string) => {
+            switch (status) {
+              case 'Open':
+                return 'warning';
+              case 'In Progress':
+                return 'primary';
+              case 'Completed':
+                return 'success';
+              case 'Cancelled':
+                return 'error';
+              default:
+                return 'default';
+            }
+          };
+
+          return (
+            <Chip
+              label={params.row.status?.name || 'Unknown'}
+              color={getStatusColor(params.row.status?.name) as any}
+              size="small"
+            />
+          );
+        },
+      },
+      {
+        field: 'assignee',
+        headerName: 'Assignee',
+        width: 150,
+        renderCell: params => {
+          if (!params.row.assignee?.name) {
+            return null;
           }
-        };
 
-        return (
-          <Chip
-            label={params.row.status?.name || 'Unknown'}
-            color={getStatusColor(params.row.status?.name) as any}
-            size="small"
-          />
-        );
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Avatar
+                src={params.row.assignee?.picture}
+                alt={params.row.assignee?.name}
+                sx={{
+                  width: AVATAR_SIZES.SMALL,
+                  height: AVATAR_SIZES.SMALL,
+                  bgcolor: 'primary.main',
+                }}
+              >
+                {params.row.assignee?.name?.charAt(0)}
+              </Avatar>
+              <Typography variant="body2">
+                {params.row.assignee?.name}
+              </Typography>
+            </Box>
+          );
+        },
       },
-    },
-    {
-      field: 'assignee',
-      headerName: 'Assignee',
-      width: 150,
-      renderCell: params => {
-        if (!params.row.assignee?.name) {
-          return null;
-        }
-
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar
-              src={params.row.assignee?.picture}
-              alt={params.row.assignee?.name}
-              sx={{
-                width: AVATAR_SIZES.SMALL,
-                height: AVATAR_SIZES.SMALL,
-                bgcolor: 'primary.main',
-              }}
-            >
-              {params.row.assignee?.name?.charAt(0)}
-            </Avatar>
-            <Typography variant="body2">{params.row.assignee?.name}</Typography>
-          </Box>
-        );
-      },
-    },
-  ];
+    ],
+    []
+  );
 
   return (
     <Box>
@@ -271,42 +303,23 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         rows={tasks}
         columns={columns}
         loading={loading}
-        onRowClick={handleRowClick}
-        checkboxSelection
-        onRowSelectionModelChange={setSelectedRows}
-        rowSelectionModel={selectedRows}
+        getRowId={row => row.id}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
+        filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
-        pageSizeOptions={[10, 25, 50, 100]}
-        getRowId={row => row.id}
+        actionButtons={getActionButtons()}
+        checkboxSelection
         disableRowSelectionOnClick
-        showToolbar={true}
+        onRowSelectionModelChange={setSelectedRows}
+        rowSelectionModel={selectedRows}
+        onRowClick={handleRowClick}
         serverSidePagination={true}
         totalRows={totalCount}
+        pageSizeOptions={[10, 25, 50, 100]}
         serverSideFiltering={true}
-        enableQuickFilter={true}
+        showToolbar={true}
         disablePaperWrapper={true}
-        actionButtons={[
-          {
-            label: 'Create Task',
-            onClick: () => router.push('/tasks/create'),
-            icon: <AddIcon />,
-            variant: 'contained' as const,
-            color: 'primary' as const,
-          },
-          ...(selectedRows.length > 0
-            ? [
-                {
-                  label: `Delete (${selectedRows.length})`,
-                  onClick: handleDeleteSelected,
-                  icon: <DeleteIcon />,
-                  variant: 'outlined' as const,
-                  color: 'error' as const,
-                },
-              ]
-            : []),
-        ]}
         sx={{
           '& .MuiDataGrid-row': {
             cursor: 'pointer',
