@@ -31,13 +31,13 @@
 
 Rhesis is an open-source testing platform that transforms how Gen AI teams validate their applications. Collaborative test management turns domain expertise into comprehensive automated testing: legal defines requirements, marketing sets expectations, engineers build quality, and everyone knows exactly how the Gen AI application performs before users do.
 
-<img src="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/68d66fa1ff10c81d4e4e4d0f_Frame%201000004352.png" 
+<img src="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/69039cdfccde6a7b02eac36f_Release%200.4.1.gif" 
      loading="lazy" 
-     width="1392" 
+     width="1080" 
      sizes="(max-width: 479px) 100vw, (max-width: 767px) 95vw, (max-width: 991px) 94vw, 95vw" 
      alt="Rhesis Platform Results" 
-     srcset="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/68d66fa1ff10c81d4e4e4d0f_Frame%201000004352.png 2939w" 
-     class="uui-layout41_lightbox-image-01-2">
+     srcset="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/69039cdfccde6a7b02eac36f_Release%200.4.1.gif 1080w" 
+     >
 
 ## 🎯 Why Rhesis?
 
