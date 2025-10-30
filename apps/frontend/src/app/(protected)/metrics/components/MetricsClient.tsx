@@ -112,6 +112,9 @@ export default function MetricsClientComponent({
 
   const [value, setValue] = React.useState(initialTab);
 
+  // Check if we're in assign mode (coming from "Add New Behavior")
+  const assignMode = searchParams.get('assignMode') === 'true';
+
   // Data state
   const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>([]);
   const [behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<
@@ -386,6 +389,7 @@ export default function MetricsClientComponent({
               setBehaviorMetrics={setBehaviorMetrics}
               setBehaviorsWithMetrics={setBehaviorsWithMetrics}
               onTabChange={() => setValue(1)} // Function to switch to Selected Metrics tab
+              assignMode={assignMode}
             />
           </CustomTabPanel>
 
