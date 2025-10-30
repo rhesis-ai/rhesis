@@ -3,6 +3,7 @@ from typing import List
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
 from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepEvalAnswerRelevancy,
+    DeepEvalBias,
     DeepEvalContextualPrecision,
     DeepEvalContextualRecall,
     DeepEvalContextualRelevancy,
@@ -12,6 +13,8 @@ from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepEvalPIILeakage,
     DeepEvalRoleViolation,
     DeepEvalToxicity,
+    DeepTeamIllegal,
+    DeepTeamSafety,
 )
 
 
@@ -20,6 +23,7 @@ class DeepEvalMetricFactory(BaseMetricFactory):
 
     _metrics = {
         "DeepEvalAnswerRelevancy": DeepEvalAnswerRelevancy,
+        "DeepEvalBias": DeepEvalBias,
         "DeepEvalFaithfulness": DeepEvalFaithfulness,
         "DeepEvalContextualRelevancy": DeepEvalContextualRelevancy,
         "DeepEvalContextualPrecision": DeepEvalContextualPrecision,
@@ -29,21 +33,27 @@ class DeepEvalMetricFactory(BaseMetricFactory):
         "DeepEvalMisuse": DeepEvalMisuse,
         "DeepEvalPIILeakage": DeepEvalPIILeakage,
         "DeepEvalRoleViolation": DeepEvalRoleViolation,
+        "DeepTeamIllegal": DeepTeamIllegal,
+        "DeepTeamSafety": DeepTeamSafety,
     }
 
     # Define which parameters each metric class accepts
     _supported_params = {
-        # All DeepEval metrics support threshold
-        "DeepEvalAnswerRelevancy": {"threshold"},
-        "DeepEvalFaithfulness": {"threshold"},
-        "DeepEvalContextualRelevancy": {"threshold"},
-        "DeepEvalContextualPrecision": {"threshold"},
-        "DeepEvalContextualRecall": {"threshold"},
-        "DeepEvalToxicity": {"threshold"},
-        "DeepEvalNonAdvice": {"threshold"},
-        "DeepEvalMisuse": {"threshold"},
-        "DeepEvalPIILeakage": {"threshold"},
-        "DeepEvalRoleViolation": {"threshold"},
+        # All DeepEval metrics support threshold and model
+        "DeepEvalAnswerRelevancy": {"threshold", "model"},
+        "DeepEvalBias": {"threshold", "model"},
+        "DeepEvalFaithfulness": {"threshold", "model"},
+        "DeepEvalContextualRelevancy": {"threshold", "model"},
+        "DeepEvalContextualPrecision": {"threshold", "model"},
+        "DeepEvalContextualRecall": {"threshold", "model"},
+        "DeepEvalToxicity": {"threshold", "model"},
+        "DeepEvalNonAdvice": {"threshold", "model", "advice_types"},
+        "DeepEvalMisuse": {"threshold", "model", "domain"},
+        "DeepEvalPIILeakage": {"threshold", "model"},
+        "DeepEvalRoleViolation": {"threshold", "model", "role"},
+        # DeepTeam metrics have custom parameters plus model
+        "DeepTeamIllegal": {"illegal_category", "model"},
+        "DeepTeamSafety": {"safety_category", "model"},
     }
 
     def create(self, class_name: str, **kwargs) -> BaseMetric:
