@@ -19,7 +19,7 @@ export interface VersionInfo {
  */
 export function shouldShowGitInfo(): boolean {
   const frontendEnv = process.env.FRONTEND_ENV?.toLowerCase();
-  const nodeEnv = process.env.NODE_ENV?.toLowerCase();
+  const nodeEnv = process.env.FRONTEND_ENV?.toLowerCase();
 
   // Don't show git info in production
   return frontendEnv !== 'production' && nodeEnv !== 'production';
