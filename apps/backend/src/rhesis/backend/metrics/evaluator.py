@@ -946,15 +946,27 @@ class MetricEvaluator:
                 or f"{class_name} evaluation metric"
             )
 
-            # Calculate is_successful using the score evaluator
-            is_successful = self.score_evaluator.evaluate_score(
-                score=result.score,
-                threshold=self._get_config_value(metric_config, "threshold"),
-                threshold_operator=self._get_config_value(metric_config, "threshold_operator"),
-                reference_score=self._get_config_value(metric_config, "reference_score"),
-                categories=self._get_config_value(metric_config, "categories"),
-                passing_categories=self._get_config_value(metric_config, "passing_categories"),
-            )
+            # Determine is_successful value
+            # Priority: Use metric's own is_successful if provided, otherwise compute it
+            if "is_successful" in result.details and result.details["is_successful"] is not None:
+                # Trust the metric's own evaluation (e.g., DeepEval, Ragas)
+                is_successful = result.details["is_successful"]
+                logger.debug(
+                    f"Using metric's own is_successful value for '{class_name}': {is_successful}"
+                )
+            else:
+                # Compute is_successful using our score evaluator
+                is_successful = self.score_evaluator.evaluate_score(
+                    score=result.score,
+                    threshold=self._get_config_value(metric_config, "threshold"),
+                    threshold_operator=self._get_config_value(metric_config, "threshold_operator"),
+                    reference_score=self._get_config_value(metric_config, "reference_score"),
+                    categories=self._get_config_value(metric_config, "categories"),
+                    passing_categories=self._get_config_value(metric_config, "passing_categories"),
+                )
+                logger.debug(
+                    f"Computed is_successful for '{class_name}' using score evaluator: {is_successful}"
+                )
 
             # Store results - structure depends on metric type
             processed_result = {

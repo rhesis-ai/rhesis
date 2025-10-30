@@ -437,11 +437,13 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         endpoint_data["auth_token"] = auth_token
                         auth_token_loaded = True
                         print(
-                            f"  ✓ Loaded {env_var_name} from environment for endpoint: {item['name']}"
+                            f"  ✓ Loaded {env_var_name} from environment for "
+                            f"endpoint: {item['name']}"
                         )
                     else:
                         print(
-                            f"  ⚠ Warning: {env_var_name} not found in environment for endpoint: {item['name']}"
+                            f"  ⚠ Warning: {env_var_name} not found in environment for "
+                            f"endpoint: {item['name']}"
                         )
                         print("  → Skipping auth_type configuration (no token available)")
                 else:
@@ -590,15 +592,10 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             commit=False,
         )
 
-        # Get the backend-configured model name (e.g., gemini-2.0-flash)
-        from rhesis.backend.app.constants import DEFAULT_MODEL_NAME
-
-        default_model_name = DEFAULT_MODEL_NAME
-
         # Create the default Rhesis model
         default_model_data = {
             "name": "Rhesis Default",
-            "model_name": default_model_name,
+            "model_name": "default",
             "description": "Default Rhesis-hosted model. No API key required.",
             "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
             "provider_type_id": rhesis_provider_type.id,

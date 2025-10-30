@@ -32,7 +32,7 @@ export async function updateEndpoint(
       data: updatedEndpoint,
     };
   } catch (error) {
-    console.error('Failed to update endpoint:', error);
+    // Failed to update endpoint
     return {
       success: false,
       error:

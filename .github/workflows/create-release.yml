@@ -75,6 +75,17 @@ jobs:
         run: |
           python3 .github/release --bump-config-file release_config.json
           uv lock --project ./apps/backend 
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Run Prettier to format frontend code
+        working-directory: apps/frontend
+        run: |
+          npx --yes prettier@^3 --version
+          npx --yes prettier@^3 --write .
           
       - name: Commit changes
         run: |

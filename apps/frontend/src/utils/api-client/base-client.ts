@@ -193,7 +193,7 @@ export class BaseApiClient {
 
           // Don't log 404/410 in development - they're expected states handled by error boundary
           const shouldLog = !(
-            process.env.NODE_ENV === 'development' &&
+            process.env.FRONTEND_ENV === 'development' &&
             [404, 410].includes(response.status)
           );
 

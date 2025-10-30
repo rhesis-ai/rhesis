@@ -12,6 +12,7 @@ import jinja2
 from rhesis.backend.app import crud
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
+from rhesis.sdk.models.factory import get_model
 
 
 class TestConfigGeneratorService:
@@ -35,7 +36,12 @@ class TestConfigGeneratorService:
         self.db = db
         self.user = user
 
-        self.llm = get_user_generation_model(self.db, self.user)
+        model = get_user_generation_model(self.db, self.user)
+        # If model is a string (provider name), convert it to an LLM instance
+        if isinstance(model, str):
+            self.llm = get_model(provider=model)
+        else:
+            self.llm = model
         self.max_sample_size = max_sample_size
 
     def generate_config(

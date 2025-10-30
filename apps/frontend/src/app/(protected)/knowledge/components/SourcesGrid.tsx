@@ -6,6 +6,7 @@ import {
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridSortModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
@@ -19,7 +20,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { DeleteButton } from '@/components/common/DeleteButton';
 import UploadSourceDialog from './UploadSourceDialog';
 import styles from '@/styles/Knowledge.module.css';
-import { convertGridFilterModelToOData } from '@/utils/odata-filter';
+import { combineSourceFiltersToOData } from '@/utils/odata-filter';
 import {
   FILE_SIZE_CONSTANTS,
   FILE_TYPE_CONSTANTS,
@@ -56,6 +57,9 @@ export default function SourcesGrid({
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
+  const [sortModel, setSortModel] = useState<GridSortModel>([
+    { field: 'created_at', sort: 'desc' },
+  ]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -71,13 +75,17 @@ export default function SourcesGrid({
       const sourcesClient = clientFactory.getSourcesClient();
 
       // Convert filter model to OData filter string
-      const filterString = convertGridFilterModelToOData(filterModel);
+      const filterString = combineSourceFiltersToOData(filterModel);
+
+      // Get sort field and order from sortModel
+      const sortField = sortModel[0]?.field || 'created_at';
+      const sortOrder = sortModel[0]?.sort || 'desc';
 
       const apiParams = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc' as const,
+        sort_by: sortField,
+        sort_order: sortOrder as 'asc' | 'desc',
         ...(filterString && { $filter: filterString }),
       };
 
@@ -98,6 +106,7 @@ export default function SourcesGrid({
     paginationModel.page,
     paginationModel.pageSize,
     filterModel,
+    sortModel,
   ]);
 
   // Initial data fetch
@@ -123,6 +132,13 @@ export default function SourcesGrid({
   const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
     setFilterModel(newModel);
     // Reset to first page when filters change
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
+  // Handle sort change
+  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
+    setSortModel(newModel);
+    // Reset to first page when sort changes
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
@@ -218,31 +234,43 @@ export default function SourcesGrid({
       {
         field: 'title',
         headerName: 'Title',
+        width: 200,
+        minWidth: 150,
+        renderCell: params => {
+          const source = params.row as Source;
+          return <Typography variant="body2">{source.title}</Typography>;
+        },
+      },
+      {
+        field: 'description',
+        headerName: 'Description',
         flex: 1,
         minWidth: 250,
         renderCell: params => {
           const source = params.row as Source;
-
+          if (!source.description) {
+            return (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                fontStyle="italic"
+              >
+                No description
+              </Typography>
+            );
+          }
           return (
-            <Box className={styles.sourceContent}>
-              <Typography variant="body2">{source.title}</Typography>
-              {source.description && (
-                <Typography
-                  variant="caption"
-                  className={styles.sourceDescription}
-                >
-                  {source.description.length >
-                  TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH
-                    ? `${source.description.substring(0, TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH)}...`
-                    : source.description}
-                </Typography>
-              )}
-            </Box>
+            <Typography variant="body2" color="text.secondary">
+              {source.description.length >
+              TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH
+                ? `${source.description.substring(0, TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH)}...`
+                : source.description}
+            </Typography>
           );
         },
       },
       {
-        field: 'type',
+        field: 'file_type',
         headerName: 'Type',
         width: 100,
         renderCell: params => {
@@ -262,9 +290,10 @@ export default function SourcesGrid({
         },
       },
       {
-        field: 'size',
+        field: 'file_size',
         headerName: 'Size',
         width: 90,
+        type: 'number',
         renderCell: params => {
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
@@ -281,11 +310,12 @@ export default function SourcesGrid({
         field: 'created_at',
         headerName: 'Uploaded',
         width: 110,
+        filterable: false,
         renderCell: params => {
           const source = params.row as Source;
 
-          // Use uploaded_at from source_metadata
-          const dateToShow = source.source_metadata?.uploaded_at;
+          // Use backend-created timestamp only
+          const dateToShow = source.created_at;
 
           return (
             <Typography variant="body2" color="text.secondary">
@@ -295,12 +325,14 @@ export default function SourcesGrid({
         },
       },
       {
-        field: 'uploader',
+        field: 'user.name',
         headerName: 'Added by',
         width: 130,
+        sortable: false,
         renderCell: params => {
           const source = params.row as Source;
-          const uploaderName = source.source_metadata?.uploader_name;
+          // Use top-level user only
+          const uploaderName = source.user?.name || source.user?.email;
 
           if (!uploaderName) {
             return (
@@ -352,7 +384,10 @@ export default function SourcesGrid({
         showToolbar={false}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
+        filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
+        sortModel={sortModel}
+        onSortModelChange={handleSortModelChange}
         actionButtons={getActionButtons()}
         checkboxSelection
         disableRowSelectionOnClick
@@ -360,6 +395,7 @@ export default function SourcesGrid({
         rowSelectionModel={selectedRows}
         serverSidePagination={true}
         serverSideFiltering={true}
+        sortingMode="server"
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}

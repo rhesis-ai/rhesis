@@ -426,7 +426,7 @@ export default function SourcePreviewClientWrapper({
               Added by:
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {source.source_metadata?.uploader_name || 'Unknown'}
+              {source.user?.name || source.user?.email || 'Unknown'}
             </Typography>
           </Box>
           <Box>
@@ -438,7 +438,7 @@ export default function SourcePreviewClientWrapper({
               Uploaded:
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {formatDate(source.source_metadata?.uploaded_at)}
+              {formatDate(source.created_at)}
             </Typography>
           </Box>
         </Box>
