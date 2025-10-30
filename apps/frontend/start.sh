@@ -63,7 +63,7 @@ start_server() {
         log "${BLUE}🔨 Building Next.js application...${NC}"
         
         # Build the application first
-        if npm run build; then
+        if NODE_ENV=production npm run build; then
             log "${GREEN}✅ Build completed successfully${NC}"
         else
             handle_error "Build failed"
@@ -74,10 +74,11 @@ start_server() {
         echo ""
         
         # Start the production server
-        exec npm run start
+        exec NODE_ENV=production npm run start -- --hostname 0.0.0.0
     else
         log "${BLUE}🛠️  Starting development server...${NC}"
         log "${YELLOW}📦 Framework:${NC} ${GREEN}Next.js${NC}"
+        log "${YELLOW}🔧 Command:${NC} ${GREEN}npm run dev --host${NC}"
         log "${YELLOW}🔄 Hot Reload:${NC} ${GREEN}enabled${NC}"
         log "${YELLOW}🎨 Turbo Mode:${NC} ${GREEN}active${NC}"
         echo ""
@@ -86,7 +87,7 @@ start_server() {
         echo ""
         
         # Start the development server
-        exec npm run dev
+        exec npm run dev --host
     fi
 }
 
