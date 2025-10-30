@@ -12,7 +12,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import MetricCard from './MetricCard';
 import SectionEditDrawer from './DimensionDrawer';
@@ -75,6 +75,7 @@ export default function SelectedMetricsTab({
   onTabChange,
 }: SelectedMetricsTabProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const notifications = useNotifications();
   const theme = useTheme();
 
@@ -99,6 +100,14 @@ export default function SelectedMetricsTab({
     setEditingSection({ key: null, title: '', description: '' });
     setIsNewSection(true);
     setDrawerOpen(true);
+  };
+
+  const handleSwitchToDirectoryWithAssignMode = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('assignMode', 'true');
+    params.delete('tab'); // Switch to directory tab (tab 0)
+    router.replace(`/metrics?${params.toString()}`, { scroll: false });
+    onTabChange(); // Trigger the tab change
   };
 
   const handleSaveSection = async (
@@ -461,7 +470,7 @@ export default function SelectedMetricsTab({
             <Button
               variant="outlined"
               startIcon={<AddIcon />}
-              onClick={onTabChange}
+              onClick={handleSwitchToDirectoryWithAssignMode}
               sx={{
                 color: theme.palette.primary.main,
                 borderColor: theme.palette.primary.main,
@@ -536,7 +545,7 @@ export default function SelectedMetricsTab({
           onClick={handleAddNewSection}
           sx={{ color: 'text.secondary' }}
         >
-          Add New Dimension
+          Add New Behavior
         </Button>
       </Box>
 
