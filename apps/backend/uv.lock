@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -4244,7 +4244,6 @@ dependencies = [
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-instrumentation-fastapi" },
     { name = "opentelemetry-sdk" },
-    { name = "pandas" },
     { name = "pathspec" },
     { name = "portalocker" },
     { name = "proto-plus" },
@@ -4311,7 +4310,6 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.32.1" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.45b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.32.1" },
-    { name = "pandas", specifier = "==2.2.2" },
     { name = "pathspec", specifier = "==0.12.1" },
     { name = "portalocker", specifier = "==3.1.1" },
     { name = "proto-plus", specifier = ">=1.26.1" },

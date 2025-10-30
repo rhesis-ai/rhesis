@@ -26,7 +26,6 @@ dependencies = [
     "chardet",
     "jsonpath-ng==1.7.0",
     "websockets==15.0.1",
-    "pandas==2.2.2",
     "tenacity==8.2.3",
     "psutil==5.9.5",
     "celery[redis]==5.5.2",
