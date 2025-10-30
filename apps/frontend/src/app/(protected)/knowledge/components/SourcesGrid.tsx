@@ -234,26 +234,38 @@ export default function SourcesGrid({
       {
         field: 'title',
         headerName: 'Title',
+        width: 200,
+        minWidth: 150,
+        renderCell: params => {
+          const source = params.row as Source;
+          return <Typography variant="body2">{source.title}</Typography>;
+        },
+      },
+      {
+        field: 'description',
+        headerName: 'Description',
         flex: 1,
         minWidth: 250,
         renderCell: params => {
           const source = params.row as Source;
-
+          if (!source.description) {
+            return (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                fontStyle="italic"
+              >
+                No description
+              </Typography>
+            );
+          }
           return (
-            <Box className={styles.sourceContent}>
-              <Typography variant="body2">{source.title}</Typography>
-              {source.description && (
-                <Typography
-                  variant="caption"
-                  className={styles.sourceDescription}
-                >
-                  {source.description.length >
-                  TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH
-                    ? `${source.description.substring(0, TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH)}...`
-                    : source.description}
-                </Typography>
-              )}
-            </Box>
+            <Typography variant="body2" color="text.secondary">
+              {source.description.length >
+              TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH
+                ? `${source.description.substring(0, TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH)}...`
+                : source.description}
+            </Typography>
           );
         },
       },
