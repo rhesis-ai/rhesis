@@ -590,15 +590,10 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             commit=False,
         )
 
-        # Get the backend-configured model name (e.g., gemini-2.0-flash)
-        from rhesis.backend.app.constants import DEFAULT_MODEL_NAME
-
-        default_model_name = DEFAULT_MODEL_NAME
-
         # Create the default Rhesis model
         default_model_data = {
             "name": "Rhesis Default",
-            "model_name": default_model_name,
+            "model_name": "default",
             "description": "Default Rhesis-hosted model. No API key required.",
             "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
             "provider_type_id": rhesis_provider_type.id,
