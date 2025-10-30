@@ -19,7 +19,6 @@ Thank you for your interest in contributing to Rhesis! This document provides **
 - ❓ [Questions or Need Help?](#questions-or-need-help)
 
 <a id="component-specific-contributing-guides"></a>
-
 ## 📖 Component-Specific Contributing Guides
 
 This is the **general contributing guide** for the Rhesis monorepo. Each component has its own detailed contributing guide:
@@ -30,8 +29,11 @@ This is the **general contributing guide** for the Rhesis monorepo. Each compone
 
 **Please read this general guide first, then read the specific guide for the component you're contributing to.**
 
-<a id="project-structure"></a>
 
+
+
+
+<a id="project-structure"></a>
 ## 📁 Project Structure
 
 The Rhesis repository is organized as a monorepo containing multiple applications and packages:
@@ -51,11 +53,9 @@ rhesis/
 ```
 
 <a id="tools-installation-on-linux"></a>
-
 ## 🐧 Tools Installation on Linux
 
 These are the following tools that are required for development:
-
 ```bash
 # Install build dependencies (Ubuntu/Debian)
 sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-dev \
@@ -64,18 +64,17 @@ libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
 
 ```
 
-<a id="python-environment-setup"></a>
 
+<a id="python-environment-setup"></a>
 ## 🐍 Python Environment Setup
 
 Both backend and SDK use Python as the primary language. We utilize the `uv` tool for Python version and package management. UV is a fast Python package installer and resolver that handles dependency management and virtual environments efficiently.
 
 UV is our recommended solution for all development tasks. While it differs from traditional package managers, it offers superior performance and ease of use. For comprehensive information, refer to the [uv documentation](https://docs.astral.sh/uv/).
 
+
 ### 🍎 macOS UV Installation
-
 **Prerequisites**: Ensure you have [Homebrew](https://brew.sh/) and Xcode Command Line Tools installed. Install Xcode Command Line Tools using `xcode-select --install`
-
 ```bash
 # Install UV via Homebrew (recommended)
 brew install uv
@@ -104,26 +103,23 @@ source ~/.bashrc  # or ~/.zshrc
 uv --version
 ```
 
+
 <!-- to do: add instructions for frontend -->
 
 <a id="coding-standards-linting-and-formatting"></a>
-
 ## 🎨 Coding Standards, Linting and Formatting
 
 **Key principles:**
-
 - 💬 Write meaningful comments and comprehensive documentation
 - 📏 Maintain focused, single-responsibility functions
 - 🏷️ Use descriptive variable and function names
 
 **Follow language-specific style guides:**
-
 - 🐍 **Python**: We adhere to PEP 8 standards and utilize [Ruff](https://docs.astral.sh/ruff/) for both
-  formatting and linting.
+formatting and linting.
 - 🟨 **JavaScript/TypeScript**: We use ESLint for linting
 
 **Our code quality toolchain includes:**
-
 - 🖥️ VS Code / Cursor Configuration
 - 🛠️ Makefile: Linting & Formatting with Ruff
 - 📝 Pre-commit hooks
@@ -143,7 +139,6 @@ We use a `Makefile` to streamline common development tasks such as linting, form
 The SDK and backend employ different Makefile configurations but share identical targets:
 
 Available targets include:
-
 - `make format` &mdash; Formats **all** Python files using Ruff
 - `make format_diff` &mdash; Formats only **modified files** using Ruff
 - `make lint` &mdash; Lints **all** Python files using Ruff
@@ -151,15 +146,26 @@ Available targets include:
 - `make test` &mdash; Executes the test suite
 - `make all` &mdash; Runs all checks (format_diff, lint_diff, test)
 
+
 > **ℹ️ Note:**
 > You must execute all `make` commands from within either the `apps/backend/` or `sdk/` directories.
 > Running `make` from the repository root directory is **not supported** and will not work as expected.
 
+
 ### 📝 Pre-commit Hooks
-
 We implement pre-commit hooks to automatically execute formatting and linting scripts before each commit.
-Installation requires the following command:
+It also checks for secrets in the code using TruffleHog.
 
+Before installing the pre-commit hooks, you need to install TruffleHog:
+```bash
+# Install TruffleHog on macOS
+brew install trufflehog
+# Install TruffleHog on Linux
+curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+```
+
+
+Installation requires the following command:
 ```bash
 uvx pre-commit install
 ```
@@ -167,20 +173,21 @@ uvx pre-commit install
 On every commit, pre-commit hooks automatically run Ruff formatting and linting on modified files.
 When issues are detected, the system attempts automatic resolution. Unresolved issues appear in the commit message and require manual attention. To proceed with the commit, resolve all issues and stage the modified files using the `git add` command. You can then retry the commit or manually execute checks using `make format` and `make lint` commands.
 
-If you want to disable pre-commit hooks for a specific commit, you can use the following command:
 
+If you want to disable pre-commit hooks for a specific commit, you can use the following command:
 ```bash
 git commit --no-verify
 ```
 
 To remove pre-commit hooks, execute:
-
 ```bash
 uvx pre-commit uninstall
 ```
 
-<a id="documentation"></a>
 
+
+
+<a id="documentation"></a>
 ## 📚 Documentation
 
 - 📝 Update documentation for any modified functionality
@@ -188,7 +195,6 @@ uvx pre-commit uninstall
 - 🔄 Maintain README.md currency with user-facing changes
 
 <a id="testing"></a>
-
 ## 🧪 Testing
 
 - ✍️ Write unit tests for all new features and bug fixes
@@ -196,23 +202,20 @@ uvx pre-commit uninstall
 - 🔗 Include integration tests where appropriate
 
 <a id="development-workflow"></a>
-
 ## 🔄 Development Workflow
 
-1. 🌿 **Create a feature branch**:
 
+1. 🌿 **Create a feature branch**:
 ```bash
 git checkout -b feature/your-feature-name
 ```
 
 2. 🪝 **Enable pre-commit hooks**:
-
 ```bash
 uvx pre-commit install
 ```
 
 3. ✍️ **Implement changes and verify all checks pass using the Makefile**:
-
 ```bash
 make format      # Format code with Ruff
 make format_diff # Show formatting differences without applying
@@ -222,26 +225,23 @@ make test        # Execute tests
 ```
 
 Alternatively, run all checks simultaneously:
-
 ```bash
 make all
 ```
 
-4. 📝 **Commit your changes**:
 
+4. 📝 **Commit your changes**:
 ```bash
 git add .
 git commit -m "feat: your descriptive commit message"
 ```
 
 5. 📤 **Push changes and create a Pull Request**:
-
 ```bash
 git push origin feature/your-feature-name
 ```
 
 6. **Generate a Pull Request** using our automated PR tool:
-
 ```bash
 # Navigate to the repository root first
 cd <repo_root>
@@ -250,8 +250,8 @@ cd <repo_root>
 .github/pr
 ```
 
-<a id="commit-guidelines"></a>
 
+<a id="commit-guidelines"></a>
 ## 📝 Commit Guidelines
 
 We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
@@ -265,7 +265,6 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 ```
 
 Types include:
-
 - ✨ `feat`: A new feature
 - 🐛 `fix`: A bug fix
 - 📚 `docs`: Documentation only changes
@@ -276,8 +275,8 @@ Types include:
 - 🔨 `build`: Changes that affect the build system or external dependencies
 - 👷 `ci`: Changes to our CI configuration files and scripts
 
-<a id="pull-request-process"></a>
 
+<a id="pull-request-process"></a>
 ## 📨 Pull Request Process
 
 1. ✅ Ensure code adherence to our coding standards
@@ -288,14 +287,12 @@ Types include:
 6. 🔄 Maintainers will merge approved PRs
 
 **Additional requirements:**
-
 - ✅ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages
 - 🧪 Include tests for new features
 - 📚 Update documentation as needed
 - ✔️ Ensure all checks pass before requesting review
 
 <a id="github-automation-tools"></a>
-
 ## 🤖 GitHub Automation Tools
 
 This repository includes automation scripts and tools for GitHub workflows and repository management located in the `.github/` directory.
@@ -303,7 +300,6 @@ This repository includes automation scripts and tools for GitHub workflows and r
 To utilize these tools, you must install and authenticate the GitHub CLI tool:
 
 1. 🛠️ **Install GitHub CLI** (required for automated PR creation):
-
 ```bash
 # 🐧 Ubuntu/Debian
 sudo apt update && sudo apt install gh
@@ -315,10 +311,12 @@ brew install gh
 ```
 
 2. 🔐 **Authenticate with GitHub**:
-
 ```bash
 gh auth login
 ```
+
+
+
 
 ### 🚀 PR Creation Script
 
@@ -328,7 +326,6 @@ An intelligent script that automates the creation of pull requests by analyzing 
 
 **🔍 Enhanced Features**
 The script now includes smart detection and update capabilities:
-
 - **Push Detection**: Automatically detects if your branch or changes aren't pushed
 - **Interactive Prompting**: Offers clear options to push content before PR creation
 - **PR Update**: Updates existing PRs instead of failing when a PR already exists
@@ -376,7 +373,6 @@ The script now includes smart detection and update capabilities:
 The script will detect and handle these common scenarios:
 
 **Scenario 1: Branch doesn't exist on remote**
-
 ```
 ⚠️  [WARNING] The branch 'feature/new-functionality' doesn't exist on the remote repository.
    This means the entire branch needs to be pushed before creating a PR.
@@ -389,7 +385,6 @@ What would you like to do? (1/2):
 ```
 
 **Scenario 2: Branch exists but has unpushed commits**
-
 ```
 ⚠️  [WARNING] There are unpushed commits on branch 'feature/new-functionality'.
    You have local commits that haven't been pushed to the remote repository.
@@ -402,14 +397,12 @@ What would you like to do? (1/2):
 ```
 
 **Scenario 3: Everything is up to date**
-
 ```
 ℹ️  [PR-Creator] Branch and all changes are already pushed to remote.
 ℹ️  [PR-Creator] Generated PR title: New Functionality
 ```
 
 **Scenario 4: PR already exists**
-
 ```
 ℹ️  [PR-Creator] Found existing PR for branch 'feature/new-functionality'
 ℹ️  [PR-Creator] Updating existing PR...
@@ -430,7 +423,6 @@ The script intelligently handles different branch naming patterns and properly c
 - `custom-branch-name` → "Custom Branch Name"
 
 **Supported Abbreviations:**
-
 - **Infrastructure**: DEV, STG, STAGING, PROD, PRD, PRODUCTION, AWS, GCP, AZURE, K8S, DOCKER
 - **APIs & Protocols**: API, REST, HTTP, HTTPS, URL, URI, GRPC, TCP, UDP, SSH, FTP, SMTP
 - **Frontend**: UI, UX, CSS, HTML, JS, TS, JSX, TSX
@@ -466,8 +458,8 @@ The script creates a comprehensive PR description including:
 [SUCCESS] URL: https://github.com/rhesis-ai/rhesis/pull/36
 ```
 
-### 🏷️ Release Management Script
 
+### 🏷️ Release Management Script
 > **📋 For comprehensive release information, see [RELEASING.md](RELEASING.md)**
 
 #### 🔄 `release`
@@ -520,8 +512,10 @@ When contributing new automation tools to the `.github/` directory:
 5. 🧪 Test thoroughly before committing
 6. 📋 Follow the existing script patterns for consistency
 
-<a id="versioning-and-release-process"></a>
 
+
+
+<a id="versioning-and-release-process"></a>
 ## 🏷️ Versioning and Release Process
 
 ### 📊 Versioning Strategy
@@ -541,7 +535,6 @@ Since we use a monorepo structure, we employ a component-specific tagging strate
 #### 🎯 Component-Specific Tags
 
 We use prefixed tags to identify which component a version belongs to:
-
 - 🔙 `backend-v1.0.0` - For backend releases
 - 🎨 `frontend-v2.3.1` - For frontend releases
 - 📦 `sdk-v0.5.2` - For SDK releases
@@ -565,7 +558,6 @@ When releasing a component:
 1. 📝 Update the component's version in its respective configuration file (e.g., `pyproject.toml`, `package.json`)
 2. 📋 Update the component's CHANGELOG.md
 3. 🏷️ Create a tag with the component prefix and version:
-
    ```
    git tag <component>-v<version>
    git push origin <component>-v<version>
@@ -580,7 +572,6 @@ When creating a platform-wide release:
 
 1. 📝 Update the main CHANGELOG.md with details of all component versions included
 2. 🏷️ Create a platform-wide tag:
-
    ```
    git tag v<version>
    git push origin v<version>
@@ -606,12 +597,12 @@ For more complex scenarios:
 
 - 🚨 **Hotfixes**: For urgent fixes, use the format `<component>-v<version>-hotfix.<number>` (e.g., `backend-v1.0.0-hotfix.1`)
 
-<a id="questions-or-need-help"></a>
 
+
+<a id="questions-or-need-help"></a>
 ## ❓ Questions or Need Help?
 
 If you have questions or need help with the contribution process:
-
 - Contact us at support@rhesis.ai
 - Create an issue in the repository
 - Check our [documentation](https://docs.rhesis.ai)
