@@ -85,6 +85,15 @@ function show_usage() {
   echo "  ANALYTICS_DB_PORT             Analytics database port (default: 5432)"
   echo "  ANALYTICS_DB_NAME             Analytics database name"
   echo ""
+  echo "  # Telemetry variables"
+  echo "  OTEL_EXPORTER_OTLP_ENDPOINT   OTel collector endpoint"
+  echo "  OTEL_SERVICE_NAME             OTel service name"
+  echo "  DEPLOYMENT_TYPE               Deployment type (cloud or self-hosted)"
+  echo "  TELEMETRY_ENABLED             Telemetry enabled (true or false)"
+  echo "  NEXT_PUBLIC_OTEL_ENDPOINT     OTel collector endpoint for frontend"
+  echo "  NEXT_PUBLIC_DEPLOYMENT_TYPE   Deployment type for frontend"
+  echo "  TELEMETRY_PROCESSOR_ENDPOINT Telemetry processor endpoint"
+  echo ""
   echo "  # Celery worker variables"
   echo "  BROKER_URL                    Celery broker URL"
   echo "  CELERY_RESULT_BACKEND         Celery result backend URL"
@@ -265,6 +274,15 @@ SERVICE_VARS=(
   "ANALYTICS_DB_HOST"
   "ANALYTICS_DB_PORT"
   "ANALYTICS_DB_NAME"
+
+  # Telemetry variables
+  "OTEL_EXPORTER_OTLP_ENDPOINT"
+  "OTEL_SERVICE_NAME"
+  "DEPLOYMENT_TYPE"
+  "TELEMETRY_ENABLED"
+  "NEXT_PUBLIC_OTEL_ENDPOINT"
+  "NEXT_PUBLIC_DEPLOYMENT_TYPE"
+  "TELEMETRY_PROCESSOR_ENDPOINT"
   
   # Celery worker variables
   "BROKER_URL"
