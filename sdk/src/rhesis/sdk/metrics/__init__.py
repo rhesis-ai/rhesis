@@ -22,6 +22,8 @@ from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepEvalPIILeakage,
     DeepEvalRoleViolation,
     DeepEvalToxicity,
+    DeepTeamIllegal,
+    DeepTeamSafety,
 )
 from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
     CategoricalJudge,
@@ -49,8 +51,9 @@ __all__ = [
     "ThresholdOperator",
     "OPERATOR_MAP",
     "VALID_OPERATORS_BY_SCORE_TYPE",
-    # DeepEval metrics
+    # DeepEval
     "DeepEvalMetricFactory",
+    # DeepEval metrics
     "DeepEvalAnswerRelevancy",
     "DeepEvalBias",
     "DeepEvalContextualPrecision",
@@ -62,12 +65,16 @@ __all__ = [
     "DeepEvalPIILeakage",
     "DeepEvalRoleViolation",
     "DeepEvalToxicity",
-    # Rhesis metrics
+    "DeepTeamSafety",
+    "DeepTeamIllegal",
+    # Rhesis
     "RhesisMetricFactory",
+    # Rhesis metrics
     "CategoricalJudge",
     "NumericJudge",
-    # Ragas metrics
+    # Ragas
     "RagasMetricBase",
+    # Ragas metrics
     "RagasAnswerAccuracy",
     "RagasAspectCritic",
     "RagasContextRelevance",
