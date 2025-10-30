@@ -28,7 +28,7 @@ export async function createEndpoint(
       data: endpoint,
     };
   } catch (error) {
-    console.error('Failed to create endpoint:', error);
+    // Failed to create endpoint
     return {
       success: false,
       error:
