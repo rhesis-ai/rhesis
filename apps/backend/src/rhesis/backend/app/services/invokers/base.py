@@ -95,6 +95,26 @@ class BaseEndpointInvoker(ABC):
                 status_code=500, detail=f"Failed to get client credentials token: {str(e)}"
             )
 
+    # Shared header injection methods
+    def _inject_context_headers(
+        self, headers: Dict[str, str], input_data: Dict[str, Any] = None
+    ) -> None:
+        """
+        Inject context headers (organization_id, user_id) into headers dict.
+
+        These come from backend context, NOT user input (SECURITY CRITICAL).
+        Only adds headers if they don't already exist.
+
+        Args:
+            headers: Headers dictionary to inject into (modified in-place)
+            input_data: Input data containing organization_id and user_id from backend context
+        """
+        if input_data:
+            if "organization_id" in input_data and "X-Organization-ID" not in headers:
+                headers["X-Organization-ID"] = str(input_data["organization_id"])
+            if "user_id" in input_data and "X-User-ID" not in headers:
+                headers["X-User-ID"] = str(input_data["user_id"])
+
     # Shared error handling methods
     def _create_error_response(
         self,
