@@ -284,8 +284,8 @@ export default function SourcesGrid({
         renderCell: params => {
           const source = params.row as Source;
 
-          // Use uploaded_at from source_metadata
-          const dateToShow = source.source_metadata?.uploaded_at;
+          // Use backend-created timestamp only
+          const dateToShow = source.created_at;
 
           return (
             <Typography variant="body2" color="text.secondary">
@@ -300,7 +300,8 @@ export default function SourcesGrid({
         width: 130,
         renderCell: params => {
           const source = params.row as Source;
-          const uploaderName = source.source_metadata?.uploader_name;
+          // Use top-level user only
+          const uploaderName = source.user?.name || source.user?.email;
 
           if (!uploaderName) {
             return (
