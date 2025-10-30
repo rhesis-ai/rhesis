@@ -242,7 +242,7 @@ export default function SourcesGrid({
         },
       },
       {
-        field: 'type',
+        field: 'file_type',
         headerName: 'Type',
         width: 100,
         renderCell: params => {
@@ -262,9 +262,10 @@ export default function SourcesGrid({
         },
       },
       {
-        field: 'size',
+        field: 'file_size',
         headerName: 'Size',
         width: 90,
+        type: 'number',
         renderCell: params => {
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
@@ -281,6 +282,7 @@ export default function SourcesGrid({
         field: 'created_at',
         headerName: 'Uploaded',
         width: 110,
+        filterable: false,
         renderCell: params => {
           const source = params.row as Source;
 
@@ -295,7 +297,7 @@ export default function SourcesGrid({
         },
       },
       {
-        field: 'uploader',
+        field: 'user.name',
         headerName: 'Added by',
         width: 130,
         renderCell: params => {
