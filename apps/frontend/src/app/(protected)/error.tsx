@@ -75,7 +75,7 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
       });
 
       // TODO: Send to error tracking service in production
-      // if (process.env.NODE_ENV === 'production') {
+      // if (process.env.FRONTEND_ENV === 'production') {
       //   reportErrorToService(error);
       // }
     }
@@ -212,7 +212,7 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
             </Typography>
 
             {/* Show error digest in development for debugging */}
-            {process.env.NODE_ENV === 'development' && error.digest && (
+            {process.env.FRONTEND_ENV === 'development' && error.digest && (
               <Alert severity="info">
                 <Typography variant="caption" component="div">
                   <strong>Error Digest:</strong> {error.digest}

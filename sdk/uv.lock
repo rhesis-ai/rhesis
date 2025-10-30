@@ -3580,7 +3580,7 @@ wheels = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.3.1.post1"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "deepeval" },

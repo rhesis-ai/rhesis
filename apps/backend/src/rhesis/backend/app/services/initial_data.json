@@ -1019,7 +1019,7 @@
             "ground_truth_required": false,
             "context_required": false,
             "class_name": "DeepEvalPIILeakage",
-            "threshold_operator": ">=",
+            "threshold_operator": "<",
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
