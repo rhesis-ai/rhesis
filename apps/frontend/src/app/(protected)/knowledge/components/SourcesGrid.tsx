@@ -19,7 +19,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { DeleteButton } from '@/components/common/DeleteButton';
 import UploadSourceDialog from './UploadSourceDialog';
 import styles from '@/styles/Knowledge.module.css';
-import { convertGridFilterModelToOData } from '@/utils/odata-filter';
+import { combineSourceFiltersToOData } from '@/utils/odata-filter';
 import {
   FILE_SIZE_CONSTANTS,
   FILE_TYPE_CONSTANTS,
@@ -71,7 +71,7 @@ export default function SourcesGrid({
       const sourcesClient = clientFactory.getSourcesClient();
 
       // Convert filter model to OData filter string
-      const filterString = convertGridFilterModelToOData(filterModel);
+      const filterString = combineSourceFiltersToOData(filterModel);
 
       const apiParams = {
         skip: paginationModel.page * paginationModel.pageSize,
@@ -353,6 +353,7 @@ export default function SourcesGrid({
         showToolbar={false}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
+        filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
         actionButtons={getActionButtons()}
         checkboxSelection

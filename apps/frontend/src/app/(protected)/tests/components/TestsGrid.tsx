@@ -23,7 +23,7 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { convertGridFilterModelToOData } from '@/utils/odata-filter';
+import { combineTestFiltersToOData } from '@/utils/odata-filter';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -76,7 +76,7 @@ export default function TestsTable({
       const testsClient = clientFactory.getTestsClient();
 
       // Convert filter model to OData filter string
-      const filterString = convertGridFilterModelToOData(filterModel);
+      const filterString = combineTestFiltersToOData(filterModel);
 
       const apiParams: Parameters<typeof testsClient.getTests>[0] = {
         skip: paginationModel.page * paginationModel.pageSize,
@@ -508,6 +508,7 @@ export default function TestsTable({
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         serverSideFiltering={true}
+        filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
         showToolbar={true}
         disablePaperWrapper={true}
