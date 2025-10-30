@@ -6,6 +6,7 @@ import {
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridSortModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
@@ -56,6 +57,9 @@ export default function SourcesGrid({
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
+  const [sortModel, setSortModel] = useState<GridSortModel>([
+    { field: 'created_at', sort: 'desc' },
+  ]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -73,11 +77,15 @@ export default function SourcesGrid({
       // Convert filter model to OData filter string
       const filterString = combineSourceFiltersToOData(filterModel);
 
+      // Get sort field and order from sortModel
+      const sortField = sortModel[0]?.field || 'created_at';
+      const sortOrder = sortModel[0]?.sort || 'desc';
+
       const apiParams = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc' as const,
+        sort_by: sortField,
+        sort_order: sortOrder as 'asc' | 'desc',
         ...(filterString && { $filter: filterString }),
       };
 
@@ -98,6 +106,7 @@ export default function SourcesGrid({
     paginationModel.page,
     paginationModel.pageSize,
     filterModel,
+    sortModel,
   ]);
 
   // Initial data fetch
@@ -123,6 +132,13 @@ export default function SourcesGrid({
   const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
     setFilterModel(newModel);
     // Reset to first page when filters change
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
+  // Handle sort change
+  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
+    setSortModel(newModel);
+    // Reset to first page when sort changes
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
@@ -300,6 +316,7 @@ export default function SourcesGrid({
         field: 'user.name',
         headerName: 'Added by',
         width: 130,
+        sortable: false,
         renderCell: params => {
           const source = params.row as Source;
           // Use top-level user only
@@ -357,6 +374,8 @@ export default function SourcesGrid({
         onPaginationModelChange={handlePaginationModelChange}
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
+        sortModel={sortModel}
+        onSortModelChange={handleSortModelChange}
         actionButtons={getActionButtons()}
         checkboxSelection
         disableRowSelectionOnClick
@@ -364,6 +383,7 @@ export default function SourcesGrid({
         rowSelectionModel={selectedRows}
         serverSidePagination={true}
         serverSideFiltering={true}
+        sortingMode="server"
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
