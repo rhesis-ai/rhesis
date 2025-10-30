@@ -13,14 +13,12 @@ Main table view component that displays test results in a tabular format.
 **Features:**
 
 - **Three columns:**
-
   - **Prompt**: Shows truncated prompt text with full content in tooltip
   - **Response**: Shows truncated response text with full content in tooltip
   - **Evaluation**: Displays pass/fail status with metric counts and failed metric names
   - **Actions**: Dropdown menu with actions
 
 - **Interactive features:**
-
   - Click any row to open detail drawer
   - Hover effects on rows
   - Pagination support (10, 25, 50, 100 rows per page)
