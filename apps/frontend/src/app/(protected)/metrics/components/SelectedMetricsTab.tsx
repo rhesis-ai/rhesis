@@ -536,7 +536,7 @@ export default function SelectedMetricsTab({
           onClick={handleAddNewSection}
           sx={{ color: 'text.secondary' }}
         >
-          Add New Dimension
+          Add New Behavior
         </Button>
       </Box>
 
