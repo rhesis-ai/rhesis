@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.1] - 2025-10-30
 
 ### Added
+
 - Added support for additional file formats (.pptx, .xlsx, .html, .htm, .zip) for source uploads.
 - Added drag-and-drop file upload component for sources.
 - Added source indicators to test and test set grids.
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added local deployment models and providers.
 
 ### Changed
+
 - Replaced 'Document' terminology with 'Source' throughout the frontend.
 - Replaced ContextPreview with a document icon in grids.
 - Improved source display in test and test-set pages.
@@ -43,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated test generation to allow an optional test set name parameter.
 
 ### Fixed
+
 - Fixed missing ContentCopyIcon import.
 - Fixed exhaustive-deps warnings in the `useComments` hook.
 - Fixed source name display in confirmation and interface screens for test generation.
@@ -61,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed issue where organisation name overlapped.
 
 ### Removed
+
 - Removed unused documents section and DescriptionIcon import.
 - Removed unused documents state and import.
 - Removed undefined documents reference from TestConfigurationConfirmation.
@@ -71,7 +75,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed telemetry settings and related components.
 - Removed binary score type from new metrics page and metrics detail page.
 - Removed import button from manual test writer.
-
 
 ## [0.4.0] - 2025-10-16
 
