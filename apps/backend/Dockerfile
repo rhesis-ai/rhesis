@@ -39,6 +39,9 @@ ENV UV_COMPILE_BYTECODE=1
 # the size of the image.
 ENV UV_NO_MANAGED_PYTHON=1
 
+# Skip the installation of the dev dependencies
+ENV UV_NO_DEV=1
+
 # Copy the SDK directory
 COPY sdk /app/sdk/
 
