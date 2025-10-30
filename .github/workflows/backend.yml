@@ -275,8 +275,7 @@ jobs:
             --cpu=1 \
             --set-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
             --set-env-vars="SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}" \
-            --command=/bin/bash \
-            --args=-c,--args="cd /app && ./apps/backend/migrate.sh"
+            --args=bash,-c,"cd /app && ./apps/backend/migrate.sh"
           
           echo "✅ Migration job created"
           
