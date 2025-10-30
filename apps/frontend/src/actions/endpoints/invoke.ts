@@ -31,7 +31,7 @@ export async function invokeEndpoint(
       data: response,
     };
   } catch (error) {
-    console.error('Failed to invoke endpoint:', error);
+    // Failed to invoke endpoint
     return {
       success: false,
       error:
