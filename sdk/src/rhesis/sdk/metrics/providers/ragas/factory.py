@@ -19,12 +19,15 @@ class RagasMetricFactory(BaseMetricFactory):
         "RagasAspectCritic": RagasAspectCritic,
     }
 
-    # Define which parameters each metric class accepts
+    # Common parameters supported by all metrics
+    _common_params = {"model"}
+
+    # Metric-specific parameters (in addition to common params)
     _supported_params = {
-        "RagasAnswerAccuracy": {"threshold", "model"},
-        "RagasContextRelevance": {"threshold", "model"},
-        "RagasFaithfulness": {"threshold", "model"},
-        "RagasAspectCritic": {"threshold", "model", "name", "definition"},
+        "RagasAnswerAccuracy": {"threshold"},
+        "RagasContextRelevance": {"threshold"},
+        "RagasFaithfulness": {"threshold"},
+        "RagasAspectCritic": {"threshold", "name", "definition"},
     }
 
     def create(self, class_name: str, **kwargs) -> BaseMetric:
@@ -46,8 +49,11 @@ class RagasMetricFactory(BaseMetricFactory):
                 f"Unknown metric class: {class_name}. Available classes: {available_classes}"
             )
 
+        # Merge common params with metric-specific params
+        metric_params = self._supported_params.get(class_name, set())
+        supported_params = self._common_params | metric_params
+
         # Filter kwargs to only include supported parameters for this class
-        supported_params = self._supported_params.get(class_name, set())
         filtered_kwargs = {k: v for k, v in kwargs.items() if k in supported_params}
 
         return self._metrics[class_name](**filtered_kwargs)
