@@ -35,7 +35,7 @@ const SectionEditDrawer = ({
   isNew = false,
   loading = false,
   error,
-  entityName = 'Dimension',
+  entityName = 'Behavior',
   organization_id,
 }: SectionEditDrawerProps) => {
   const [currentTitle, setCurrentTitle] = React.useState(initialTitle);
@@ -72,10 +72,6 @@ const SectionEditDrawer = ({
       >
         {/* Main Section */}
         <Stack spacing={2}>
-          <Typography variant="subtitle2" color="text.secondary">
-            {entityName} Details
-          </Typography>
-
           <TextField
             label="Name"
             value={currentTitle}
