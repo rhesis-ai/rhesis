@@ -7,12 +7,12 @@ import pytest
 import requests
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def docker_compose_test_env() -> Generator[dict, None, None]:
     compose_file = Path("../../../docker-compose.test.yml")
     # Test if backend is running
     max_attempts = 3
-    backend_url = "http://localhost:8080/health"
+    backend_url = "http://localhost:8080/healt"
     backend_is_running = False
 
     print("🔄 Checking if backend is running...")
@@ -64,7 +64,7 @@ def docker_compose_test_env() -> Generator[dict, None, None]:
     }
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="function")
 def db_cleanup(docker_compose_test_env):
     """
     Automatic database cleanup for integration tests.
