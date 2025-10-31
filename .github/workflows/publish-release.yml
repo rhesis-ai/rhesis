@@ -28,6 +28,7 @@ jobs:
         run: |
           git add .
           git commit -m "Add random file"
+          git tag sdk-v$(echo $((RANDOM % 10000 + 1)))
       - name: Push changes
         run: |
           git push
