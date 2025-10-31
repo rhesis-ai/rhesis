@@ -83,7 +83,6 @@ jobs:
 
   build:
     needs: validate-inputs
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -189,7 +188,6 @@ jobs:
 
   migrate:
     needs: [validate-inputs, build]
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -247,21 +245,21 @@ jobs:
       - name: Run database migrations
         run: |
           echo "🗃️ Running database migrations..."
-          
+
           # Determine which image to use based on preview mode
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             IMAGE_TAG="${{ env.COMMIT_SHA }}"
           else
             IMAGE_TAG="latest"
           fi
-          
+
           echo "Using image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
-          
+
           # Create a unique job name for this migration run
           MIGRATION_JOB_NAME="backend-migrate-$(date +%s)"
-          
+
           echo "Creating Cloud Run Job: $MIGRATION_JOB_NAME"
-          
+
           # Create a Cloud Run Job to run migrations (executes once)
           gcloud run jobs create $MIGRATION_JOB_NAME \
             --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
@@ -276,35 +274,34 @@ jobs:
             --set-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
             --set-env-vars="SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}" \
             --args=bash,-c,./migrate.sh
-          
+
           echo "✅ Migration job created"
-          
+
           # Execute the migration job
           echo "🚀 Executing migration job..."
           gcloud run jobs execute $MIGRATION_JOB_NAME \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --wait
-          
+
           MIGRATION_EXIT_CODE=$?
-          
+
           # Clean up the job after execution
           echo "🧹 Cleaning up migration job..."
           gcloud run jobs delete $MIGRATION_JOB_NAME \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --quiet
-          
+
           if [ $MIGRATION_EXIT_CODE -ne 0 ]; then
             echo "❌ Migration failed with exit code $MIGRATION_EXIT_CODE"
             exit $MIGRATION_EXIT_CODE
           fi
-          
+
           echo "✅ Database migrations completed successfully"
 
   deploy:
     needs: [validate-inputs, build, migrate]
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     permissions:
       contents: read

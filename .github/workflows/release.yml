@@ -1,0 +1,12 @@
+name: "[Release] Deploy all to staging"
+
+on:
+  push:
+    branches: release/*
+
+jobs:
+  deploy-all-to-staging:
+    uses: ./.github/workflows/deploy_all.yml
+    with:
+      environment: stg
+    secrets: inherit
