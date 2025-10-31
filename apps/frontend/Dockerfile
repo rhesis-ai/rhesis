@@ -1,4 +1,6 @@
+########################################################
 # First stage: Build the application
+########################################################
 FROM node:22-alpine AS builder
 
 # Define ARG for this stage. Default to production if not set.
@@ -63,7 +65,9 @@ RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || 
 # Remove the temporary .env file
 RUN rm -f .env
 
+########################################################
 # Second stage: Run the application
+########################################################
 FROM node:22-alpine AS runner
 
 # Redefine ARG for this stage
@@ -78,15 +82,19 @@ WORKDIR /app
 ENV FRONTEND_ENV=${FRONTEND_ENV}
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Create a non-root user and switch to it
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
 # Copy all necessary files from the builder stage
-COPY --from=builder /app/package.json /app/package-lock.json ./
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.mjs ./
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/tsconfig.json ./
-COPY --from=builder /app/.eslintrc.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/package.json /app/package-lock.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.mjs ./
+COPY --from=builder --chown=nextjs:nodejs /app/src ./src
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/.eslintrc.json ./
 # Copy .next directory (will be created during build for production/staging/development or as empty dir for other envs)
-COPY --from=builder /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 # Do NOT copy src, tsconfig.json, .eslintrc.json or any .env files to production image
 # Install dependencies and handle environment-specific setup
 RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ]; then \
@@ -101,10 +109,6 @@ RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || 
         npm ci --legacy-peer-deps && npm cache clean --force; \
     fi
 
-# Create a non-root user and switch to it
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs && \
-    chown -R nextjs:nodejs /app
 USER nextjs
 
 # EXPOSE uses the default port, but runtime PORT env var will override this
