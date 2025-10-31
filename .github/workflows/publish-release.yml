@@ -23,7 +23,7 @@ jobs:
           git config user.email "a.kwasigrochsdfdsfsdf@gmail.com"
       - name: Create random file
         run: |
-          echo "Hello, world!" > random.txt
+          echo $((RANDOM % 10000 + 1)) > random.txt
       - name: Commit changes
         run: |
           git add .
