@@ -3,8 +3,33 @@ on:
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
+  backend-deploy:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    uses: ./.github/workflows/backend.yml
+    with:
+      environment: prd
+      reason: "Release deployment to prd"
+    secrets: inherit
+
+  frontend-deploy:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    uses: ./.github/workflows/frontend.yml
+    with:
+      environment: prd
+      reason: "Release deployment to prd"
+    secrets: inherit
+
+  worker-deploy:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    uses: ./.github/workflows/worker.yml
+    with:
+      environment: prd
+      reason: "Release deployment to prd"
+    secrets: inherit
+
   publish:
     if: startsWith(github.ref, 'refs/heads/release/')
+    needs: [backend-deploy, frontend-deploy, worker-deploy]
     runs-on: ubuntu-latest
     steps:
       - name: Generate a token
@@ -47,27 +72,3 @@ jobs:
           gh pr merge --auto --merge
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
-
-  backend-deploy:
-    needs: publish
-    uses: ./.github/workflows/backend.yml
-    with:
-      environment: prd
-      reason: "Release deployment to prd"
-    secrets: inherit
-
-  frontend-deploy:
-    needs: publish
-    uses: ./.github/workflows/frontend.yml
-    with:
-      environment: prd
-      reason: "Release deployment to prd"
-    secrets: inherit
-
-  worker-deploy:
-    needs: publish
-    uses: ./.github/workflows/worker.yml
-    with:
-      environment: prd
-      reason: "Release deployment to prd"
-    secrets: inherit
