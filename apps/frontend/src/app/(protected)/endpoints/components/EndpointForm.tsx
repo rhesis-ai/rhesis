@@ -810,8 +810,8 @@ export default function EndpointForm() {
                 Test your endpoint configuration with sample data
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Enter sample JSON data that matches your request template
-                structure
+                Enter sample JSON data. It will be matched to your request
+                template and parsed using your response mappings.
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor

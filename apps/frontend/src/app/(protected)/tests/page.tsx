@@ -95,7 +95,7 @@ export default function TestsPage() {
         />
 
         {/* Table Section */}
-        <Paper sx={{ width: '100%', mb: 2, mt: 4 }}>
+        <Paper sx={{ width: '100%', mb: 2, mt: 2 }}>
           <Box sx={{ p: 2 }}>
             <TestsGrid
               sessionToken={session.session_token}
