@@ -407,13 +407,38 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 )
 
             # Build endpoint data
+            # Handle URL environment variable replacement
+            url = item["url"]
+            if "${BACKEND_ENV}" in url:
+                backend_env = os.getenv("BACKEND_ENV", "development")
+                # Map environment to chatbot subdomain
+                env_mapping = {
+                    "development": "dev",
+                    "staging": "stg",
+                    "production": "",  # Production uses no prefix
+                    "local": "",  # Local uses no prefix
+                }
+                env_prefix = env_mapping.get(backend_env, "dev")
+                # Replace ${BACKEND_ENV} with the appropriate prefix
+                if env_prefix:
+                    url = url.replace("${BACKEND_ENV}", env_prefix)
+                else:
+                    # For production and local, remove the prefix and the hyphen
+                    url = url.replace("${BACKEND_ENV}-", "")
+                print(f"  ✓ Resolved URL for {backend_env} environment: {url}")
+
+            # Handle environment variable replacement in environment field
+            environment = item.get("environment", "development")
+            if "${BACKEND_ENV}" in environment:
+                environment = os.getenv("BACKEND_ENV", "development")
+
             endpoint_data = {
                 "name": item["name"],
                 "description": item.get("description"),
                 "protocol": item["protocol"],
-                "url": item["url"],
+                "url": url,
                 "method": item.get("method"),
-                "environment": item.get("environment", "development"),
+                "environment": environment,
                 "config_source": item.get("config_source", "manual"),
                 "response_format": item.get("response_format", "json"),
                 "request_headers": item.get("request_headers"),
