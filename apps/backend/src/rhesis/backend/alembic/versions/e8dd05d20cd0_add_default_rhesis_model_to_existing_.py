@@ -71,8 +71,8 @@ def _update_user_model_settings(
 
         # Apply updates using UserSettingsManager if needed
         if updates:
+            # Settings are auto-persisted when using user.settings
             user.settings.update(updates)
-            user.user_settings = user.settings.raw
             session.flush()
             users_updated += 1
 
