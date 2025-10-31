@@ -46,7 +46,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             )
 
             # Log response summary
-            logger.info(f"Response received: {response.status_code}")
+            logger.debug(f"Response received: {response.status_code}")
 
             # Handle different response scenarios
             if response.status_code >= 400:
@@ -79,7 +79,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
     ) -> tuple:
         """Prepare all request components."""
-        logger.info(f"Invoking endpoint: {endpoint.name}")
+        logger.debug(f"Invoking endpoint: {endpoint.name}")
 
         # Get method and validate
         method = (endpoint.method or "POST").upper()
@@ -94,21 +94,27 @@ class RestEndpointInvoker(BaseEndpointInvoker):
 
         # Build URL
         url = endpoint.url + (endpoint.endpoint_path or "")
-        logger.info(f"Making {method} request to: {url}")
+        logger.debug(f"Making {method} request to: {url}")
 
         return method, headers, request_body, url
 
     def _create_request_details(self, method: str, url: str, headers: Dict, body: Any) -> Dict:
-        """Create request details dictionary."""
-        return {"protocol": "REST", "method": method, "url": url, "headers": headers, "body": body}
+        """Create request details dictionary with sanitized headers."""
+        return {
+            "protocol": "REST",
+            "method": method,
+            "url": url,
+            "headers": self._sanitize_headers(headers),
+            "body": body,
+        }
 
     def _safe_request_details(self, local_vars: Dict, protocol: str) -> Dict:
-        """Safely create request details from local variables."""
+        """Safely create request details from local variables with sanitized headers."""
         return {
             "protocol": protocol,
             "method": local_vars.get("method", "UNKNOWN"),
             "url": local_vars.get("url", "UNKNOWN"),
-            "headers": local_vars.get("headers", {}),
+            "headers": self._sanitize_headers(local_vars.get("headers", {})),
             "body": local_vars.get("request_body"),
         }
 

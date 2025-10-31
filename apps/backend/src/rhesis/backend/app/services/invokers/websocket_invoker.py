@@ -138,11 +138,8 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
             if auth_token:
                 logger.debug(
-                    f"Auth token obtained in {auth_duration:.2f}s (length: {len(auth_token)} chars)"
+                    f"Auth token obtained successfully in {auth_duration:.2f}s (length: {len(auth_token)} chars)"
                 )
-                # Log first and last few characters for debugging without exposing full token
-                if len(auth_token) > 10:
-                    logger.debug(f"Auth token preview: {auth_token[:5]}...{auth_token[-5:]}")
             else:
                 logger.warning(f"No auth token obtained after {auth_duration:.2f}s")
 
@@ -182,7 +179,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             additional_headers = self._prepare_additional_headers_with_auth(
                 endpoint, auth_token, input_data
             )
-            logger.debug(f"Additional headers: {json.dumps(additional_headers, indent=2)}")
+            logger.debug(
+                f"Additional headers: {json.dumps(self._sanitize_headers(additional_headers), indent=2)}"
+            )
 
             try:
                 # Use the new websockets.asyncio.client.connect API
@@ -364,7 +363,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 )
                 logger.error(f"Response body: {status_err.response.body}")
                 logger.debug(f"Connection URI: {uri}")
-                logger.debug(f"Connection headers: {json.dumps(additional_headers, indent=2)}")
+                logger.debug(
+                    f"Connection headers: {json.dumps(self._sanitize_headers(additional_headers), indent=2)}"
+                )
 
                 error_output = (
                     f"WebSocket connection rejected: HTTP {status_err.response.status_code}"
@@ -399,7 +400,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 logger.error(f"Error type: {error_type}")
                 logger.error(f"Error message: {str(e)}")
                 logger.debug(f"Connection URI: {uri}")
-                logger.debug(f"Connection headers: {json.dumps(additional_headers, indent=2)}")
+                logger.debug(
+                    f"Connection headers: {json.dumps(self._sanitize_headers(additional_headers), indent=2)}"
+                )
                 logger.debug(f"Message data: {json.dumps(message_data, indent=2, default=str)}")
 
                 # Try to get more details about the websocket error
@@ -481,7 +484,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         # Use configured headers if available, but exclude standard WebSocket headers
         # as they are handled automatically by the websockets library
         if endpoint.request_headers:
-            logger.debug(f"Configured headers: {json.dumps(endpoint.request_headers, indent=2)}")
+            logger.debug(
+                f"Configured headers: {json.dumps(self._sanitize_headers(endpoint.request_headers), indent=2)}"
+            )
             standard_ws_headers = {
                 "Upgrade",
                 "Connection",
@@ -492,7 +497,8 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             for key, value in endpoint.request_headers.items():
                 if key not in standard_ws_headers:
                     headers[key] = value
-                    logger.debug(f"Added header: {key} = {value}")
+                    # Only log header key, not value for security
+                    logger.debug(f"Added header: {key}")
                 else:
                     logger.debug(f"Skipped standard WebSocket header: {key}")
         else:
@@ -533,5 +539,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         # Inject context headers using shared base method
         self._inject_context_headers(headers, input_data)
 
-        logger.debug(f"Final headers with auth: {json.dumps(headers, indent=2)}")
+        logger.debug(
+            f"Final headers with auth: {json.dumps(self._sanitize_headers(headers), indent=2)}"
+        )
         return headers

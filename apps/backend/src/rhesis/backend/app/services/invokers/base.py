@@ -136,13 +136,42 @@ class BaseEndpointInvoker(ABC):
         error_response.update(kwargs)
         return error_response
 
+    def _sanitize_headers(self, headers: Dict[str, Any]) -> Dict[str, Any]:
+        """Sanitize headers by redacting sensitive information."""
+        if not headers:
+            return {}
+
+        sensitive_keys = {
+            "authorization",
+            "auth",
+            "x-api-key",
+            "api-key",
+            "x-auth-token",
+            "bearer",
+            "token",
+            "secret",
+            "password",
+            "x-access-token",
+            "cookie",
+        }
+
+        sanitized = {}
+        for key, value in headers.items():
+            key_lower = key.lower()
+            # Check if any sensitive keyword is in the header key
+            if any(sensitive in key_lower for sensitive in sensitive_keys):
+                sanitized[key] = "***REDACTED***"
+            else:
+                sanitized[key] = value
+        return sanitized
+
     def _safe_request_details(self, local_vars: Dict, protocol: str = "unknown") -> Dict:
         """Safely create request details from local variables."""
         return {
             "protocol": protocol,
             "method": local_vars.get("method", "UNKNOWN"),
             "url": local_vars.get("url", local_vars.get("uri", "UNKNOWN")),
-            "headers": local_vars.get("headers", {}),
+            "headers": self._sanitize_headers(local_vars.get("headers", {})),
             "body": local_vars.get("request_body", local_vars.get("message_data")),
         }
 
