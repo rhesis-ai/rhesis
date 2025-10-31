@@ -107,11 +107,11 @@ class UserSettingsManager:
             })
         """
         self._data = self._deep_merge(self._data, updates)
-        
+
         # Auto-persist if we have a user reference
         if self._user is not None:
             self._user.user_settings = self._data
-        
+
         return self._data
 
     @staticmethod

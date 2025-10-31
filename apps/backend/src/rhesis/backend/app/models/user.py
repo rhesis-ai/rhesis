@@ -167,14 +167,14 @@ class User(Base):
         """
         # Cache the manager instance to prevent creating new instances on each access
         # Pass self to enable auto-persistence when updates are made
-        if not hasattr(self, '_settings_cache') or self._settings_cache is None:
+        if not hasattr(self, "_settings_cache") or self._settings_cache is None:
             self._settings_cache = UserSettingsManager(self.user_settings, user_instance=self)
         return self._settings_cache
 
 
 # Event listener to invalidate settings cache when user_settings is modified
-@event.listens_for(User.user_settings, 'set', propagate=True)
+@event.listens_for(User.user_settings, "set", propagate=True)
 def _invalidate_settings_cache(target, value, oldvalue, initiator):
     """Invalidate the cached settings manager when user_settings changes."""
-    if hasattr(target, '_settings_cache'):
+    if hasattr(target, "_settings_cache"):
         target._settings_cache = None
