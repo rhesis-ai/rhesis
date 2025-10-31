@@ -1,0 +1,92 @@
+[project]
+name = "rhesis-penelope"
+version = "0.1.0"
+description = "Intelligent multi-turn testing agent for AI applications"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Engineering Team", email = "engineering@rhesis.ai" },
+    { name = "Harry Cruz", email = "harry@rhesis.ai" },
+    { name = "Nicolai Bohn", email = "nicolai@rhesis.ai" },
+]
+keywords = [
+    "llm",
+    "testing",
+    "ai",
+    "agents",
+    "multi-turn",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "rhesis-sdk>=0.4.0",
+    "pydantic>=2.0.0",
+    "tenacity>=8.2.3",
+    "rich>=13.0.0",
+    "tiktoken>=0.9.0",
+]
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Homepage = "https://rhesis.ai"
+Repository = "https://github.com/rhesis-ai/rhesis"
+Documentation = "https://docs.rhesis.ai"
+"Bug Tracker" = "https://github.com/rhesis-ai/rhesis/issues"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+    "hatch>=1.14.1",
+    "pytest>=8.3.4",
+    "mypy>=1.15.0",
+    "types-requests>=2.32.0",
+    "ruff>=0.11.6",
+    "pyright>=1.1.406",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rhesis"]
+include = ["src/rhesis/py.typed"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.pyright]
+typeCheckingMode = "standard"
+include = ["src/rhesis/penelope"]
+
+[tool.pytest.ini_options]
+testpaths = ["../tests/penelope"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["I", "E", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rhesis.sdk", "rhesis.penelope"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
