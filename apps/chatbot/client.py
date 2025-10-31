@@ -49,7 +49,8 @@ def get_rate_limit_identifier(request: Request) -> str:
     auth_header = request.headers.get("Authorization", "")
 
     logger.info(
-        f"🔍 Rate limit check - Has auth header: {bool(auth_header)}, API key configured: {bool(CHATBOT_API_KEY)}"
+        f"🔍 Rate limit check - Has auth header: {bool(auth_header)}, "
+        f"API key configured: {bool(CHATBOT_API_KEY)}"
     )
 
     if auth_header and CHATBOT_API_KEY:
@@ -61,7 +62,8 @@ def get_rate_limit_identifier(request: Request) -> str:
                 user_id = request.headers.get("X-User-ID", "default-user")
                 identifier = f"authenticated:{org_id}:{user_id}"
                 logger.info(
-                    f"✅ Authenticated request - Identifier: {identifier}, Rate limit: {RATE_LIMIT_AUTHENTICATED}"
+                    f"✅ Authenticated request - Identifier: {identifier}, "
+                    f"Rate limit: {RATE_LIMIT_AUTHENTICATED}"
                 )
                 return identifier
         except Exception as e:
@@ -123,7 +125,8 @@ async def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExc
     rate_limit_value = RATE_LIMIT_AUTHENTICATED if is_authenticated else RATE_LIMIT_PUBLIC
 
     logger.warning(
-        f"🚫 RATE LIMIT EXCEEDED - Type: {rate_limit_type}, Identifier: {identifier}, Limit: {rate_limit_value}"
+        f"🚫 RATE LIMIT EXCEEDED - Type: {rate_limit_type}, "
+        f"Identifier: {identifier}, Limit: {rate_limit_value}"
     )
 
     # Send email notification (async, non-blocking)
@@ -211,7 +214,8 @@ async def root(request: Request, auth: dict = Depends(verify_api_key)):
 async def chat(request: Request, chat_request: ChatRequest, auth: dict = Depends(verify_api_key)):
     try:
         logger.info(
-            f"💬 Chat request received - Auth tier: {auth['tier']}, Message: {chat_request.message[:50]}..."
+            f"💬 Chat request received - Auth tier: {auth['tier']}, "
+            f"Message: {chat_request.message[:50]}..."
         )
 
         # Get or create session_id
