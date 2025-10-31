@@ -3,7 +3,7 @@ name: Lint Check
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ main ]
+    branches: [ main, release/* ]
 
 jobs:
   lint:
@@ -109,19 +109,19 @@ jobs:
           echo ""
           echo "### What was checked:"
         } >> "$GITHUB_STEP_SUMMARY"
-        
+
         if [ "${{ steps.filter.outputs.sdk }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           echo "- **SDK**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
         else
           echo "- **SDK**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
         fi
-        
+
         # if [ "${{ steps.filter.outputs.backend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
         #   echo "- **Backend**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
         # else
         #   echo "- **Backend**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
         # fi
-        
+
         if [ "${{ steps.filter.outputs.frontend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           echo "- **Frontend**: ESLint, Prettier formatting, TypeScript type checking, and build validation ✅" >> "$GITHUB_STEP_SUMMARY"
         else
