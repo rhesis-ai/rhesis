@@ -11,63 +11,22 @@ jobs:
         id: generate-token
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ vars.RHEO_APP_ID }}
-          private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
                  
-        
-      - name: Set up Git
+      - name: Create random file
         run: |
-            git config user.name "rheo-app[bot]"
-            git config user.email "237771051+rheo-app[bot]@users.noreply.github.com"
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install uv for SDK
-        uses: astral-sh/setup-uv@v6
-        with:
-            version: latest
-          
-      - name: Run publish script
+          echo "Hello, world!" > random.txt
+      - name: Commit changes
         run: |
-          python3 .github/release --publish
-
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
-
-      - name: Close release PR and merge to main
+          git add .
+          git commit -m "Add random file"
+      - name: Push changes
         run: |
-          gh pr merge --auto --merge
-        env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          git push
 
-  backend-deploy:
-    needs: publish
-    uses: ./.github/workflows/backend.yml
-    with:
-      environment: prd
-      reason: "Release deployment to prd"
-    secrets: inherit
-
-  frontend-deploy:
-    needs: publish
-    uses: ./.github/workflows/frontend.yml
-    with:
-      environment: prd
-      reason: "Release deployment to prd"
-    secrets: inherit
-
-  worker-deploy:
-    needs: publish
-    uses: ./.github/workflows/worker.yml
-    with:
-      environment: prd
-      reason: "Release deployment to prd"
-    secrets: inherit      
