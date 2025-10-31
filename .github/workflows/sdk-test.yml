@@ -40,7 +40,7 @@ jobs:
     - name: Test SDK (fast)
       run: |
         cd sdk
-        uv run pytest --ignore=../tests/sdk/integration
+        uv run pytest -s --ignore=../tests/sdk/integration
       continue-on-error: true
 
     - name: Test SDK (full)
@@ -48,5 +48,5 @@ jobs:
       run: |
         cd sdk
         uv sync --extra all
-        uv run pytest
+        uv run pytest -s
       continue-on-error: false
