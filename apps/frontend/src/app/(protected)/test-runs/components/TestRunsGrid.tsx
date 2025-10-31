@@ -48,9 +48,14 @@ interface ProjectCache {
 interface TestRunsTableProps {
   sessionToken: string;
   onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
 }
 
-function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
+function TestRunsTable({
+  sessionToken,
+  onRefresh,
+  onTotalCountChange,
+}: TestRunsTableProps) {
   const isMounted = useRef(false);
   const router = useRouter();
   const notifications = useNotifications();
@@ -108,6 +113,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         if (isMounted.current) {
           setTestRuns(response.data);
           setTotalCount(response.pagination.totalCount);
+          onTotalCountChange?.(response.pagination.totalCount);
           setError(null);
 
           // Fetch project names for new test runs in batch to avoid multiple state updates
@@ -187,7 +193,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         }
       }
     },
-    [sessionToken, filterModel]
+    [sessionToken, filterModel, onTotalCountChange]
   );
 
   useEffect(() => {
