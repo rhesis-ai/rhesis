@@ -17,7 +17,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-                 
+      - name: Set up Git
+        run: |
+          git config user.name "arek"
+          git config user.email "a.kwasigrochsdfdsfsdf@gmail.com"
       - name: Create random file
         run: |
           echo "Hello, world!" > random.txt
