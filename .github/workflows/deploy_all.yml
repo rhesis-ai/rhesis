@@ -1,0 +1,41 @@
+name: "[Deploy] All"
+
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
+
+jobs:
+  backend-deploy:
+    uses: ./.github/workflows/backend.yml
+    with:
+      environment: ${{ inputs.environment }}
+    secrets: inherit
+
+  frontend-deploy:
+    uses: ./.github/workflows/frontend.yml
+    with:
+      environment: ${{ inputs.environment }}
+      reason: "Release deployment to staging"
+    secrets: inherit
+
+  worker-deploy:
+    uses: ./.github/workflows/worker.yml
+    with:
+      environment: ${{ inputs.environment }}
+    secrets: inherit
