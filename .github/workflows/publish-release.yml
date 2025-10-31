@@ -18,8 +18,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-                 
-        
+          token: ${{ steps.generate-token.outputs.token }}
+
       - name: Set up Git
         run: |
             git config user.name "rheo-app[bot]"
@@ -34,7 +34,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
             version: latest
-          
+
       - name: Run publish script
         run: |
           python3 .github/release --publish
@@ -70,4 +70,4 @@ jobs:
     with:
       environment: prd
       reason: "Release deployment to prd"
-    secrets: inherit      
+    secrets: inherit
