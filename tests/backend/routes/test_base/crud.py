@@ -28,6 +28,11 @@ class BaseCRUDTests(BaseEntityTests):
         sample_data = self.get_sample_data()
         response = authenticated_client.post(self.endpoints.create, json=sample_data)
         
+        # DEBUG: Print response details
+        print(f"\n🔍 Response status: {response.status_code}")
+        print(f"🔍 Response body: {response.text}")
+        print(f"🔍 Sample data: {sample_data}")
+        
         assert response.status_code == status.HTTP_200_OK
         
         data = response.json()
