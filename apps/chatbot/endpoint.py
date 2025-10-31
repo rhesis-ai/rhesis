@@ -72,53 +72,30 @@ class ResponseGenerator:
             # Combine system prompt with user prompt
             full_prompt = f"{self.use_case_system_prompt}\n\nUser: {prompt}\n\nAssistant:"
 
-            # Use SDK model's generate method with streaming
-            # Note: SDK models handle streaming internally
-            response = self.model.generate(full_prompt, stream=True)
+            # Vertex AI via LiteLLM has issues with streaming (CustomStreamWrapper)
+            # Use non-streaming response which works reliably
+            response = self.model.generate(full_prompt, stream=False)
 
-            # Stream the response
-            if hasattr(response, "__iter__"):
-                for chunk in response:
-                    if chunk:
-                        # Handle different streaming response structures
-                        try:
-                            # Standard LiteLLM structure: chunk.choices[0].delta.content
-                            if hasattr(chunk, "choices") and len(chunk.choices) > 0:
-                                delta = chunk.choices[0].delta
-                                if hasattr(delta, "content") and delta.content:
-                                    yield delta.content
-                            # Handle plain string chunks
-                            elif isinstance(chunk, str):
-                                yield chunk
-                            # Handle CustomStreamWrapper or other wrapper objects
-                            # Try to extract text content directly
-                            elif hasattr(chunk, "text"):
-                                if chunk.text:
-                                    yield chunk.text
-                            elif hasattr(chunk, "content"):
-                                if chunk.content:
-                                    yield chunk.content
-                            else:
-                                # Last resort: try to convert to string
-                                chunk_str = str(chunk) if chunk else ""
-                                if chunk_str and not chunk_str.startswith(
-                                    "<"
-                                ):  # Avoid object repr strings
-                                    yield chunk_str
-                        except (AttributeError, IndexError):
-                            # If the structure is different, try to convert to string
-                            chunk_str = str(chunk) if chunk else ""
-                            if chunk_str and not chunk_str.startswith(
-                                "<"
-                            ):  # Avoid object repr strings
-                                yield chunk_str
-            else:
-                # If streaming is not supported, yield the entire response
+            # Yield the complete response
+            if isinstance(response, str):
                 yield response
+            else:
+                # Try to extract content from response object
+                try:
+                    if hasattr(response, "choices") and len(response.choices) > 0:
+                        content = response.choices[0].message.content
+                        yield content if content else ""
+                    else:
+                        yield str(response) if response else ""
+                except Exception:
+                    yield str(response) if response else ""
 
         except Exception as e:
             logger.error(f"Error in stream_assistant_response: {str(e)}")
-            yield "I apologize, but I couldn't process your request at this time due to an unexpected error."
+            yield (
+                "I apologize, but I couldn't process your request at this time "
+                "due to an unexpected error."
+            )
 
     def generate_context(self, prompt: str) -> List[str]:
         """Generate context fragments for a prompt."""
@@ -142,7 +119,10 @@ class ResponseGenerator:
                 """
 
             # Combine system prompt with user question
-            full_prompt = f"{context_system_prompt}\n\nGenerate context fragments for this insurance question: {prompt}"
+            full_prompt = (
+                f"{context_system_prompt}\n\n"
+                f"Generate context fragments for this insurance question: {prompt}"
+            )
 
             # Get response from SDK model
             response = self.model.generate(full_prompt)
@@ -175,7 +155,7 @@ class ResponseGenerator:
                 fragments = context_data.get("fragments", [])
                 if fragments and isinstance(fragments, list):
                     return fragments[:5]
-        except:
+        except Exception:
             pass
 
         # If JSON extraction fails, try to extract just the array
@@ -186,7 +166,7 @@ class ResponseGenerator:
                 fragments = json.loads(array_str)
                 if isinstance(fragments, list):
                     return fragments[:5]
-        except:
+        except Exception:
             pass
 
         # If all structured parsing fails, extract text fragments
