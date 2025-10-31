@@ -12,8 +12,6 @@ x-database-config: &database-config
 
 x-backend-config: &backend-config
   JWT_SECRET_KEY: your-jwt-secret-key
-  JWT_ALGORITHM: HS256
-  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 1440
   LOG_LEVEL: DEBUG
 
 services:

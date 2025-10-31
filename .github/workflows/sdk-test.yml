@@ -36,11 +36,11 @@ jobs:
     #     cd sdk
     #     uv run pyright
     #   continue-on-error: false
-      
+
     - name: Test SDK (fast)
       run: |
         cd sdk
-        uv run pytest
+        uv run pytest --ignore=../tests/sdk/integration
       continue-on-error: false
 
     - name: Test SDK (full)
