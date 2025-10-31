@@ -179,7 +179,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
             # Prepare headers for WebSocket connection
             logger.debug("Preparing WebSocket headers...")
-            additional_headers = self._prepare_additional_headers_with_auth(endpoint, auth_token)
+            additional_headers = self._prepare_additional_headers_with_auth(
+                endpoint, auth_token, input_data
+            )
             logger.debug(f"Additional headers: {json.dumps(additional_headers, indent=2)}")
 
             try:
@@ -499,7 +501,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         return headers
 
     def _prepare_additional_headers_with_auth(
-        self, endpoint: Endpoint, auth_token: Optional[str]
+        self, endpoint: Endpoint, auth_token: Optional[str], input_data: Dict[str, Any] = None
     ) -> Dict[str, str]:
         """Prepare additional headers for WebSocket connection, but exclude Authorization for WebSocket handshake."""
         logger.debug("Preparing additional headers with auth...")
@@ -527,6 +529,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         headers["User-Agent"] = user_agent
         logger.debug(f"Added User-Agent header: {user_agent}")
+
+        # Inject context headers using shared base method
+        self._inject_context_headers(headers, input_data)
 
         logger.debug(f"Final headers with auth: {json.dumps(headers, indent=2)}")
         return headers

@@ -200,13 +200,8 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             if "Authorization" not in headers and auth_token:
                 headers["Authorization"] = f"Bearer {auth_token}"
 
-            # Automatically inject context headers for authenticated endpoints
-            # These come from backend context, NOT user input (SECURITY CRITICAL)
-            if input_data:
-                if "organization_id" in input_data and "X-Organization-ID" not in headers:
-                    headers["X-Organization-ID"] = str(input_data["organization_id"])
-                if "user_id" in input_data and "X-User-ID" not in headers:
-                    headers["X-User-ID"] = str(input_data["user_id"])
+        # Inject context headers using shared base method
+        self._inject_context_headers(headers, input_data)
 
         return headers
 
