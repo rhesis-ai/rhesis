@@ -32,4 +32,5 @@ jobs:
       - name: Push changes
         run: |
           git push
+          git push --tags
 
