@@ -101,7 +101,7 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
         justifyContent: 'center',
         border: 1,
         borderColor: 'divider',
-        borderRadius: 1,
+        borderRadius: theme => theme.shape.borderRadius,
         backgroundColor: 'background.default',
       }}
     >
@@ -187,7 +187,7 @@ export default function EndpointForm() {
   const editorWrapperStyle = {
     border: 1,
     borderColor: 'divider',
-    borderRadius: 1,
+    borderRadius: theme.shape.borderRadius,
     '&:hover': {
       borderColor: 'text.primary',
     },

@@ -87,7 +87,7 @@ start_server() {
         echo ""
         
         # Start the development server
-        exec npm run dev --host
+        exec NODE_ENV=development npm run dev --host
     fi
 }
 
