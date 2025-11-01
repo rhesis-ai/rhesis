@@ -10,9 +10,10 @@ import requests
 @pytest.fixture(scope="session")
 def docker_compose_test_env() -> Generator[dict, None, None]:
     compose_file = Path("../../../docker-compose.test.yml")
+    print(Path("."))
     # Test if backend is running
     max_attempts = 3
-    backend_url = "http://localhost:8080/healt"
+    backend_url = "http://localhost:8080/health"
     backend_is_running = False
 
     print("🔄 Checking if backend is running...")
