@@ -19,6 +19,7 @@ from rhesis.penelope.context import (
     TestStatus,
 )
 from rhesis.penelope.instructions import get_system_prompt
+from rhesis.penelope.schemas import ToolCall
 from rhesis.penelope.targets.base import Target
 from rhesis.penelope.tools.analysis import AnalyzeTool, ExtractTool
 from rhesis.penelope.tools.base import Tool
@@ -153,57 +154,6 @@ class PenelopeAgent:
         
         return False, ""
     
-    def _parse_agent_response(self, response: str) -> tuple[str, str, Dict[str, Any]]:
-        """
-        Parse agent response to extract reasoning, action, and parameters.
-        
-        This is a simplified parser. In production, you'd use structured output
-        or more sophisticated parsing.
-        
-        Args:
-            response: Raw LLM response
-            
-        Returns:
-            Tuple of (reasoning, action_name, action_params)
-        """
-        # For now, expect the model to return structured text
-        # In production, use structured output or function calling
-        
-        lines = response.strip().split('\n')
-        reasoning = ""
-        action_name = ""
-        action_params = {}
-        
-        current_section = None
-        
-        for line in lines:
-            line = line.strip()
-            
-            if line.lower().startswith('reasoning:'):
-                current_section = 'reasoning'
-                reasoning = line[10:].strip()
-            elif line.lower().startswith('action:'):
-                current_section = 'action'
-                action_name = line[7:].strip()
-            elif line.lower().startswith('parameters:') or line.lower().startswith('input:'):
-                current_section = 'params'
-            elif current_section == 'reasoning' and line:
-                reasoning += " " + line
-            elif current_section == 'action' and line:
-                action_name += " " + line
-            elif current_section == 'params' and line:
-                # Try to parse as JSON or key=value
-                try:
-                    if '{' in line:
-                        action_params = json.loads(line)
-                except json.JSONDecodeError:
-                    # Try key=value format
-                    if '=' in line:
-                        key, value = line.split('=', 1)
-                        action_params[key.strip()] = value.strip().strip('"\'')
-        
-        return reasoning, action_name, action_params
-    
     def _execute_turn(
         self,
         state: TestState,
@@ -250,6 +200,7 @@ class PenelopeAgent:
             response = self.model.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
+                schema=ToolCall,  # Use Pydantic schema for structured output
             )
             
         except Exception as e:
@@ -257,33 +208,18 @@ class PenelopeAgent:
             state.add_finding(f"Error: Model generation failed - {str(e)}")
             return False
         
-        # Parse response
-        reasoning, action_name, action_params = self._parse_agent_response(response)
+        # Extract values from structured response (no parsing needed!)
+        reasoning = response.get("reasoning", "")
+        action_name = response.get("tool_name", "")
+        action_params = response.get("parameters", {})
         
-        if not action_name:
-            # Try to extract tool usage from response text
-            # This is a fallback for when structured parsing fails
-            for tool in tools:
-                if tool.name.lower() in response.lower():
-                    action_name = tool.name
-                    # Try to extract parameters from context
-                    is_target_tool = isinstance(tool, TargetInteractionTool)
-                    if "message" in response.lower() and is_target_tool:
-                        # Extract message content
-                        import re
-                        
-                        msg_match = re.search(
-                            r'message["\s:]+([^"]+)',
-                            response,
-                            re.IGNORECASE
-                        )
-                        if msg_match:
-                            action_params = {"message": msg_match.group(1).strip()}
-                    break
+        # Debug: Log structured response
+        if self.verbose:
+            logger.debug(f"Structured response - Tool: {action_name}, Params: {action_params}")
         
+        # With structured output, we should always have an action
         if not action_name:
-            logger.warning("Could not determine action from response")
-            reasoning = response[:200] if not reasoning else reasoning
+            logger.warning("Structured output missing tool_name")
             action_name = "no_action"
             action_params = {}
         
