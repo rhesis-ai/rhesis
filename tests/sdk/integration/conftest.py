@@ -31,13 +31,12 @@ def docker_compose_test_env() -> Generator[dict, None, None]:
     if not backend_is_running:
         print("🔄 Backend is not running, starting backend...")
         result = subprocess.run(
-            ["docker", "compose", "-f", compose_file, "up", "-d"],
-            capture_output=True,
+            ["docker", "compose", "-f", compose_file, "up", "-d", "--build"],
             text=True,
         )
 
         if result.returncode != 0:
-            pytest.fail(f"Failed to start docker-compose: {result.stderr}")
+            pytest.fail("Failed to start docker-compose")
     else:
         print("🟢 Backend is already running, skipping startup...")
 
