@@ -1,13 +1,16 @@
 """
 Endpoint target implementation.
 
-EndpointTarget represents Rhesis endpoints accessible via the SDK.
+EndpointTarget is a thin wrapper around the Rhesis SDK's Endpoint entity.
+The interface (what can be sent/received) is defined by the Rhesis platform.
+
+All authentication, request mapping, and response parsing is handled by the
+Rhesis backend - Penelope simply uses the SDK to invoke endpoints.
 """
 
 from typing import Any, Dict, Optional
 
-import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
+from rhesis.sdk.entities import Endpoint
 
 from rhesis.penelope.targets.base import Target, TargetResponse
 
@@ -16,47 +19,55 @@ class EndpointTarget(Target):
     """
     Target implementation for Rhesis endpoints.
     
-    This target type enables Penelope to test HTTP/REST/WebSocket endpoints
-    configured in the Rhesis platform.
+    This is a thin wrapper around rhesis.sdk.entities.Endpoint that adapts
+    it to Penelope's Target interface. The Rhesis platform defines what can
+    be sent (input + optional session_id) and received (structured response).
     
-    Configuration should include:
-    - url: The endpoint URL
-    - method: HTTP method (default: POST)
-    - headers: Request headers (including auth)
-    - request_template: Template for request body
-    - response_path: JSON path to extract response text
+    All endpoint configuration, authentication, request/response mapping,
+    and protocol handling is managed by the Rhesis backend via the SDK.
     
     Usage:
-        >>> target = EndpointTarget(
-        ...     endpoint_id="chatbot-prod",
-        ...     config={
-        ...         "url": "https://api.example.com/chat",
-        ...         "method": "POST",
-        ...         "headers": {"Authorization": "Bearer token"},
-        ...         "request_template": {"message": ""},
-        ...         "response_path": "response",
-        ...     }
-        ... )
+        >>> # Using an endpoint ID (loads from Rhesis platform)
+        >>> target = EndpointTarget(endpoint_id="chatbot-prod")
+        >>> response = target.send_message("Hello!")
+        
+        >>> # Using an existing Endpoint instance
+        >>> endpoint = Endpoint(id="chatbot-prod")
+        >>> endpoint.fetch()
+        >>> target = EndpointTarget(endpoint=endpoint)
         >>> response = target.send_message("Hello!")
     """
     
-    def __init__(self, endpoint_id: str, config: Dict[str, Any]):
+    def __init__(
+        self,
+        endpoint_id: Optional[str] = None,
+        endpoint: Optional[Endpoint] = None,
+    ):
         """
         Initialize the endpoint target.
         
         Args:
-            endpoint_id: Unique identifier for the endpoint
-            config: Endpoint configuration dictionary
+            endpoint_id: Unique identifier for the endpoint (loaded from Rhesis)
+            endpoint: Pre-loaded Endpoint instance (alternative to endpoint_id)
+            
+        Note:
+            Provide either endpoint_id OR endpoint, not both.
         """
-        self.endpoint_id = endpoint_id
-        self.config = config
+        if endpoint_id is None and endpoint is None:
+            raise ValueError("Must provide either endpoint_id or endpoint")
         
-        # Extract configuration
-        self.url: str = config.get("url", "")
-        self.method: str = config.get("method", "POST")
-        self.headers: Dict[str, str] = config.get("headers", {})
-        self.request_template: Dict[str, Any] = config.get("request_template", {})
-        self.response_path: str = config.get("response_path", "response")
+        if endpoint_id is not None and endpoint is not None:
+            raise ValueError("Provide only endpoint_id OR endpoint, not both")
+        
+        if endpoint is not None:
+            self.endpoint = endpoint
+            self.endpoint_id = endpoint.id or "unknown"
+        else:
+            # Load endpoint from SDK
+            self.endpoint_id = endpoint_id  # type: ignore
+            self.endpoint = Endpoint.from_id(self.endpoint_id)
+            if self.endpoint is None:
+                raise ValueError(f"Endpoint not found: {endpoint_id}")
         
         # Validate on initialization
         is_valid, error = self.validate_configuration()
@@ -73,81 +84,28 @@ class EndpointTarget(Target):
     
     @property
     def description(self) -> str:
-        return f"Rhesis Endpoint: {self.endpoint_id} ({self.url})"
+        url = self.endpoint.fields.get("url", "")
+        name = self.endpoint.fields.get("name", self.endpoint_id)
+        return f"Rhesis Endpoint: {name} ({url})"
     
     def validate_configuration(self) -> tuple[bool, Optional[str]]:
         """Validate endpoint configuration."""
-        if not self.url:
-            return False, "Missing required 'url' in configuration"
+        if not self.endpoint:
+            return False, "Endpoint instance is None"
         
-        if not self.method:
-            return False, "Missing required 'method' in configuration"
-        
-        if self.method.upper() not in ["GET", "POST", "PUT", "PATCH", "DELETE"]:
-            return False, f"Invalid HTTP method: {self.method}"
+        if not self.endpoint.id:
+            return False, "Endpoint ID is missing"
         
         return True, None
-    
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        reraise=True,
-    )
-    def _make_http_request(
-        self,
-        message: str,
-        session_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Make HTTP request to the endpoint with retry logic.
-        
-        Args:
-            message: The message to send
-            session_id: Optional session ID
-            
-        Returns:
-            Response JSON
-        """
-        # Build request body from template
-        request_body = self.request_template.copy()
-        
-        # Replace message placeholder
-        if "message" in request_body:
-            request_body["message"] = message
-        elif "input" in request_body:
-            request_body["input"] = message
-        elif "prompt" in request_body:
-            request_body["prompt"] = message
-        elif "query" in request_body:
-            request_body["query"] = message
-        else:
-            # Default to message field
-            request_body["message"] = message
-        
-        # Add session_id if provided
-        if session_id:
-            request_body["session_id"] = session_id
-        
-        # Make request
-        response = requests.request(
-            method=self.method,
-            url=self.url,
-            headers=self.headers,
-            json=request_body,
-            timeout=30,
-        )
-        
-        response.raise_for_status()
-        return response.json()
     
     def send_message(
         self,
         message: str,
         session_id: Optional[str] = None,
-        **kwargs
+        **kwargs: Any,
     ) -> TargetResponse:
         """
-        Send a message to the endpoint.
+        Send a message to the endpoint via the Rhesis SDK.
         
         Args:
             message: The message to send
@@ -172,40 +130,51 @@ class EndpointTarget(Target):
             )
         
         try:
-            # Make request (with automatic retry)
-            response_data = self._make_http_request(message, session_id)
+            # Use SDK to invoke the endpoint
+            response_data = self.endpoint.invoke(
+                input=message,
+                session_id=session_id,
+            )
             
-            # Extract response content
-            response_text = response_data.get(self.response_path, "")
-            if not response_text and "message" in response_data:
-                response_text = response_data["message"]
-            if not response_text and "response" in response_data:
-                response_text = response_data["response"]
+            if response_data is None:
+                return TargetResponse(
+                    success=False,
+                    content="",
+                    error="Endpoint invocation returned None",
+                )
+            
+            # Extract response content from Rhesis standard response structure
+            # Standard fields: output, session_id, metadata, context
+            response_text = response_data.get("output", "")
             
             # Extract session_id
             response_session_id = response_data.get("session_id", session_id)
+            
+            # Build metadata including context if available
+            response_metadata = {
+                "raw_response": response_data,
+                "message_sent": message,
+            }
+            
+            # Include Rhesis metadata fields if present
+            if "metadata" in response_data and response_data["metadata"] is not None:
+                response_metadata["endpoint_metadata"] = response_data["metadata"]
+            
+            if "context" in response_data and response_data["context"]:
+                response_metadata["context"] = response_data["context"]
             
             return TargetResponse(
                 success=True,
                 content=str(response_text),
                 session_id=response_session_id,
-                metadata={
-                    "raw_response": response_data,
-                    "message_sent": message,
-                },
+                metadata=response_metadata,
             )
             
-        except requests.exceptions.HTTPError as e:
+        except ValueError as e:
             return TargetResponse(
                 success=False,
                 content="",
-                error=f"HTTP error: {e.response.status_code} - {e.response.text}",
-            )
-        except requests.exceptions.RequestException as e:
-            return TargetResponse(
-                success=False,
-                content="",
-                error=f"Request failed: {str(e)}",
+                error=f"Invalid request: {str(e)}",
             )
         except Exception as e:
             return TargetResponse(
@@ -216,17 +185,41 @@ class EndpointTarget(Target):
     
     def get_tool_documentation(self) -> str:
         """Get endpoint-specific documentation."""
-        return f"""
+        name = self.endpoint.fields.get("name", self.endpoint_id)
+        url = self.endpoint.fields.get("url", "N/A")
+        description = self.endpoint.fields.get("description", "")
+        protocol = self.endpoint.fields.get("protocol", "REST")
+        
+        doc = f"""
 Target Type: Rhesis Endpoint
+Name: {name}
 Endpoint ID: {self.endpoint_id}
-URL: {self.url}
-Method: {self.method}
+Protocol: {protocol}
+URL: {url}
+"""
+        
+        if description:
+            doc += f"\nDescription: {description}\n"
+        
+        doc += """
+Interface (defined by Rhesis platform):
 
-This is a Rhesis endpoint accessible via HTTP {self.method} requests.
+Input:
+  - input: Text message (string)
+  - session_id: Optional, for multi-turn conversations
+
+Output:
+  - output: The response text from the endpoint
+  - session_id: Session identifier for conversation tracking
+  - metadata: Optional endpoint-specific metadata
+  - context: Optional list of context items
+
+The Rhesis backend handles all authentication, request mapping, and
+response parsing according to the endpoint's configuration.
 
 How to interact:
 - Use send_message_to_target(message, session_id) to send messages
-- The endpoint expects conversational messages
+- Messages should be natural, conversational text
 - Maintain session_id across turns for conversation continuity
 - Session typically expires after 1 hour of inactivity
 
@@ -235,4 +228,5 @@ Best practices:
 - Check responses before deciding next actions
 - Use consistent session_id for related questions
 """
+        return doc
 
