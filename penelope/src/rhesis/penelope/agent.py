@@ -211,31 +211,23 @@ class PenelopeAgent:
         # Extract values from structured response (no parsing needed!)
         reasoning = response.get("reasoning", "")
         action_name = response.get("tool_name", "")
-        action_params = response.get("parameters", {})
+        params_obj = response.get("parameters", {})
+        
+        # Convert Pydantic model to dict if needed
+        if hasattr(params_obj, "model_dump"):
+            # It's a Pydantic model, convert to dict
+            action_params = params_obj.model_dump(exclude_none=True)
+        elif isinstance(params_obj, dict):
+            # Already a dict (shouldn't happen with proper schema, but handle it)
+            action_params = params_obj
+        else:
+            # Unexpected type
+            logger.warning(f"Unexpected parameters type: {type(params_obj)}")
+            action_params = {}
         
         # Debug: Log structured response
         if self.verbose:
             logger.debug(f"Structured response - Tool: {action_name}, Params: {action_params}")
-        
-        # Validate: Some LLMs (like Gemini) may return empty parameters despite schema
-        if action_name == "send_message_to_target" and not action_params.get("message"):
-            # Try to extract message from reasoning as fallback
-            import re
-            patterns = [
-                r'ask(?:ing)?\s+(?:about\s+)?["\']([^"\']{10,})["\']',  # "asking about 'message'"
-                r'send(?:ing)?\s+(?:a\s+)?message\s+["\']([^"\']{10,})["\']',  # "sending message 'text'"
-                r'message:\s+["\']([^"\']{10,})["\']',  # "message: 'text'"
-                r'say(?:ing)?\s+["\']([^"\']{10,})["\']',  # "saying 'message'"
-            ]
-            
-            for pattern in patterns:
-                match = re.search(pattern, reasoning, re.IGNORECASE)
-                if match:
-                    extracted_message = match.group(1).strip()
-                    action_params["message"] = extracted_message
-                    if self.verbose:
-                        logger.info(f"Extracted message from reasoning: {extracted_message[:50]}...")
-                    break
         
         # With structured output, we should always have an action
         if not action_name:
