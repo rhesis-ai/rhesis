@@ -1,6 +1,8 @@
 from typing import Any, Dict, Optional
 
-from rhesis.sdk.entities import BaseEntity
+import requests
+
+from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 
 
 class Endpoint(BaseEntity):
@@ -15,93 +17,76 @@ class Endpoint(BaseEntity):
         Load an endpoint:
         >>> endpoint = Endpoint(id='endpoint-123')
         >>> endpoint.fetch()
-        >>> print(endpoint.name)
+        >>> print(endpoint.fields.get('name'))
+        
+        Invoke an endpoint:
+        >>> response = endpoint.invoke(input="What is the weather?")
+        >>> print(response)
         
         List all endpoints:
         >>> for endpoint in Endpoint().all():
-        ...     print(endpoint.name, endpoint.url)
+        ...     print(endpoint.fields.get('name'))
     """
     
     endpoint = "endpoints"
     
-    def __init__(self, **fields: Any) -> None:
+    @handle_http_errors
+    def invoke(self, input: str, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
-        Initialize an Endpoint instance.
+        Invoke the endpoint with the given input.
+        
+        This method sends a request to the Rhesis backend, which handles
+        authentication, request mapping, and response parsing according to
+        the endpoint's configuration.
         
         Args:
-            **fields: Arbitrary keyword arguments representing endpoint fields.
-        """
-        super().__init__(**fields)
-        
-        # Core fields
-        self.name: Optional[str] = fields.get("name")
-        self.description: Optional[str] = fields.get("description")
-        self.protocol: Optional[str] = fields.get("protocol")
-        self.url: Optional[str] = fields.get("url")
-        self.auth: Optional[Dict[str, Any]] = fields.get("auth")
-        self.environment: Optional[str] = fields.get("environment")
-        
-        # Configuration source
-        self.config_source: Optional[str] = fields.get("config_source")
-        self.openapi_spec_url: Optional[str] = fields.get("openapi_spec_url")
-        self.openapi_spec: Optional[Dict[str, Any]] = fields.get("openapi_spec")
-        self.llm_suggestions: Optional[Dict[str, Any]] = fields.get("llm_suggestions")
-        
-        # Request structure
-        self.method: Optional[str] = fields.get("method")
-        self.endpoint_path: Optional[str] = fields.get("endpoint_path")
-        self.request_headers: Optional[Dict[str, str]] = fields.get("request_headers")
-        self.query_params: Optional[Dict[str, Any]] = fields.get("query_params")
-        self.request_body_template: Optional[Dict[str, Any]] = fields.get(
-            "request_body_template"
-        )
-        self.input_mappings: Optional[Dict[str, Any]] = fields.get("input_mappings")
-        
-        # Response handling
-        self.response_format: Optional[str] = fields.get("response_format")
-        self.response_mappings: Optional[Dict[str, str]] = fields.get("response_mappings")
-        self.validation_rules: Optional[Dict[str, Any]] = fields.get("validation_rules")
-        
-        # Relationships
-        self.status_id: Optional[str] = fields.get("status_id")
-        self.user_id: Optional[str] = fields.get("user_id")
-        self.organization_id: Optional[str] = fields.get("organization_id")
-        self.project_id: Optional[str] = fields.get("project_id")
-        
-        # Authentication (write-only fields are not returned)
-        self.auth_type: Optional[str] = fields.get("auth_type")
-        self.client_id: Optional[str] = fields.get("client_id")
-        self.token_url: Optional[str] = fields.get("token_url")
-        self.scopes: Optional[list[str]] = fields.get("scopes")
-        self.audience: Optional[str] = fields.get("audience")
-        self.extra_payload: Optional[Dict[str, Any]] = fields.get("extra_payload")
-    
-    def to_penelope_config(self) -> Dict[str, Any]:
-        """
-        Convert endpoint to Penelope EndpointTarget configuration.
+            input: The message or query to send to the endpoint
+            session_id: Optional session ID for multi-turn conversations
         
         Returns:
-            Dictionary suitable for EndpointTarget initialization
+            Dict containing the response from the endpoint, or None if error occurred.
             
+            Response structure (standard Rhesis format):
+            {
+                "output": "Response text from the endpoint",
+                "session_id": "Session identifier for tracking",
+                "metadata": {...},  # Optional endpoint metadata
+                "context": [...]    # Optional context items
+            }
+        
+        Raises:
+            ValueError: If endpoint ID is not set
+            requests.exceptions.HTTPError: If the API request fails
+        
         Example:
             >>> endpoint = Endpoint(id='endpoint-123')
             >>> endpoint.fetch()
-            >>> config = endpoint.to_penelope_config()
-            >>> from rhesis.penelope import EndpointTarget
-            >>> target = EndpointTarget(endpoint_id=endpoint.id, config=config)
+            >>> response = endpoint.invoke(
+            ...     input="What is the weather?",
+            ...     session_id="session-abc"
+            ... )
+            >>> print(response)
+            {
+                "output": "The weather is sunny today!",
+                "session_id": "session-abc",
+                "metadata": None,
+                "context": []
+            }
         """
-        config = {
-            "url": self.url,
-            "method": self.method or "POST",
-            "headers": self.request_headers or {},
-            "request_template": self.request_body_template or {},
-        }
+        if not self.id:
+            raise ValueError("Endpoint ID must be set before invoking")
         
-        # Add response path if available in response_mappings
-        if self.response_mappings and "response" in self.response_mappings:
-            config["response_path"] = self.response_mappings["response"]
-        else:
-            config["response_path"] = "response"
+        # Construct input_data dictionary
+        input_data: Dict[str, Any] = {"input": input}
+        if session_id is not None:
+            input_data["session_id"] = session_id
         
-        return config
+        url = f"{self.client.get_url(self.endpoint)}/{self.id}/invoke"
+        response = requests.post(
+            url,
+            json=input_data,
+            headers=self.headers,
+        )
+        response.raise_for_status()
+        return dict(response.json())
 
