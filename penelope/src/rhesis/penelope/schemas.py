@@ -34,21 +34,22 @@ class ToolCall(BaseModel):
     
     parameters: Dict[str, Any] = Field(
         description=(
-            "Parameters to pass to the tool as a dictionary. "
-            "For send_message_to_target: {'message': 'your message', 'session_id': 'optional'}"
+            "Parameters to pass to the tool as a JSON object. "
+            "REQUIRED for send_message_to_target: must include 'message' key with the text to send. "
+            "Example: {\"message\": \"What types of insurance do you offer?\", \"session_id\": null}"
         ),
         default_factory=dict
     )
     
     class Config:
         json_schema_extra = {
+            "description": "Every tool call MUST include the parameters field with appropriate values.",
             "examples": [
                 {
                     "reasoning": "I need to test the chatbot's ability to handle basic insurance questions. Starting with a general question about available types.",
                     "tool_name": "send_message_to_target",
                     "parameters": {
-                        "message": "What types of insurance do you offer?",
-                        "session_id": None
+                        "message": "What types of insurance do you offer?"
                     }
                 },
                 {
@@ -58,7 +59,16 @@ class ToolCall(BaseModel):
                         "message": "Tell me more about auto insurance",
                         "session_id": "abc-123"
                     }
+                },
+                {
+                    "reasoning": "I want to analyze the chatbot's previous response for tone and professionalism.",
+                    "tool_name": "analyze_response",
+                    "parameters": {
+                        "response_text": "The chatbot's response here...",
+                        "analysis_focus": "Evaluate tone and professionalism"
+                    }
                 }
             ]
         }
+
 
