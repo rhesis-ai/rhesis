@@ -5,9 +5,28 @@ These schemas enable structured output from LLMs, eliminating the need
 for text parsing and making tool calls more reliable.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from pydantic import BaseModel, Field
+
+
+class SendMessageParams(BaseModel):
+    """Parameters for send_message_to_target tool."""
+    message: str = Field(description="The message to send to the target")
+    session_id: Optional[str] = Field(default=None, description="Optional session ID for multi-turn conversations")
+
+
+class AnalyzeResponseParams(BaseModel):
+    """Parameters for analyze_response tool."""
+    response_text: str = Field(description="The response text to analyze")
+    analysis_focus: str = Field(description="What to focus on in the analysis")
+    context: Optional[str] = Field(default=None, description="Optional context for the analysis")
+
+
+class ExtractInformationParams(BaseModel):
+    """Parameters for extract_information tool."""
+    response_text: str = Field(description="The response text to extract information from")
+    extraction_target: str = Field(description="What specific information to extract")
 
 
 class ToolCall(BaseModel):
@@ -32,24 +51,25 @@ class ToolCall(BaseModel):
         )
     )
     
-    parameters: Dict[str, Any] = Field(
+    parameters: Union[SendMessageParams, AnalyzeResponseParams, ExtractInformationParams] = Field(
         description=(
-            "Parameters to pass to the tool as a JSON object. "
-            "REQUIRED for send_message_to_target: must include 'message' key with the text to send. "
-            "Example: {\"message\": \"What types of insurance do you offer?\", \"session_id\": null}"
-        ),
-        default_factory=dict
+            "Tool-specific parameters. Structure depends on tool_name:\n"
+            "- send_message_to_target: {message: str, session_id: Optional[str]}\n"
+            "- analyze_response: {response_text: str, analysis_focus: str, context: Optional[str]}\n"
+            "- extract_information: {response_text: str, extraction_target: str}"
+        )
     )
     
     class Config:
         json_schema_extra = {
-            "description": "Every tool call MUST include the parameters field with appropriate values.",
+            "description": "Every tool call MUST include properly structured parameters matching the tool type.",
             "examples": [
                 {
                     "reasoning": "I need to test the chatbot's ability to handle basic insurance questions. Starting with a general question about available types.",
                     "tool_name": "send_message_to_target",
                     "parameters": {
-                        "message": "What types of insurance do you offer?"
+                        "message": "What types of insurance do you offer?",
+                        "session_id": None
                     }
                 },
                 {
@@ -65,7 +85,8 @@ class ToolCall(BaseModel):
                     "tool_name": "analyze_response",
                     "parameters": {
                         "response_text": "The chatbot's response here...",
-                        "analysis_focus": "Evaluate tone and professionalism"
+                        "analysis_focus": "Evaluate tone and professionalism",
+                        "context": None
                     }
                 }
             ]

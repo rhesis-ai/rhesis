@@ -9,7 +9,12 @@ compliance, edge cases, and more.
 
 from rhesis.penelope.agent import PenelopeAgent
 from rhesis.penelope.context import TestContext, TestResult, TestState
-from rhesis.penelope.schemas import ToolCall
+from rhesis.penelope.schemas import (
+    AnalyzeResponseParams,
+    ExtractInformationParams,
+    SendMessageParams,
+    ToolCall,
+)
 from rhesis.penelope.targets import EndpointTarget, Target
 from rhesis.penelope.tools.base import Tool
 
@@ -22,6 +27,9 @@ __all__ = [
     "TestState",
     "Tool",
     "ToolCall",
+    "SendMessageParams",
+    "AnalyzeResponseParams",
+    "ExtractInformationParams",
     "Target",
     "EndpointTarget",
 ]
