@@ -8,6 +8,7 @@ compliance, edge cases, and more.
 """
 
 from rhesis.penelope.agent import PenelopeAgent
+from rhesis.penelope.config import PenelopeConfig
 from rhesis.penelope.context import TestContext, TestResult, TestState
 from rhesis.penelope.schemas import (
     AnalyzeResponseParams,
@@ -22,6 +23,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "PenelopeAgent",
+    "PenelopeConfig",
     "TestContext",
     "TestResult",
     "TestState",
