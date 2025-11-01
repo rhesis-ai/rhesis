@@ -217,6 +217,26 @@ class PenelopeAgent:
         if self.verbose:
             logger.debug(f"Structured response - Tool: {action_name}, Params: {action_params}")
         
+        # Validate: Some LLMs (like Gemini) may return empty parameters despite schema
+        if action_name == "send_message_to_target" and not action_params.get("message"):
+            # Try to extract message from reasoning as fallback
+            import re
+            patterns = [
+                r'ask(?:ing)?\s+(?:about\s+)?["\']([^"\']{10,})["\']',  # "asking about 'message'"
+                r'send(?:ing)?\s+(?:a\s+)?message\s+["\']([^"\']{10,})["\']',  # "sending message 'text'"
+                r'message:\s+["\']([^"\']{10,})["\']',  # "message: 'text'"
+                r'say(?:ing)?\s+["\']([^"\']{10,})["\']',  # "saying 'message'"
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, reasoning, re.IGNORECASE)
+                if match:
+                    extracted_message = match.group(1).strip()
+                    action_params["message"] = extracted_message
+                    if self.verbose:
+                        logger.info(f"Extracted message from reasoning: {extracted_message[:50]}...")
+                    break
+        
         # With structured output, we should always have an action
         if not action_name:
             logger.warning("Structured output missing tool_name")
