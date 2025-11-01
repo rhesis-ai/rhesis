@@ -99,22 +99,22 @@ EXAMPLE USAGE:
 >>> send_message_to_target(
 ...     message="What's your refund policy for electronics?"
 ... )
-{
+{{
   "response": "Our electronics refund policy allows...",
   "session_id": "abc123",
   "success": true
-}
+}}
 
 # Good Example 2: Natural follow-up
 >>> send_message_to_target(
 ...     message="What if I opened the box but didn't use it?",
 ...     session_id="abc123"
 ... )
-{
+{{
   "response": "If the product is unopened and in original condition...",
   "session_id": "abc123",
   "success": true
-}
+}}
 
 # Good Example 3: Testing edge case
 >>> send_message_to_target(
@@ -173,7 +173,7 @@ Good examples:
 
 Bad examples:
   ✗ "Test refund query #1" (too artificial)
-  ✗ "{user_input}" (template syntax)
+  ✗ "{{user_input}}" (template syntax)
   ✗ "" (empty message)
   ✗ "SELECT * FROM users" (SQL injection attempt - be realistic)
 
@@ -210,15 +210,15 @@ EXAMPLE FLOW:
 
   Turn 1:
   ├─ Input: message="Hi", session_id=None
-  └─ Output: {..., "session_id": "xyz789"}
+  └─ Output: {{..., "session_id": "xyz789"}}
   
   Turn 2:
   ├─ Input: message="Follow up question", session_id="xyz789"
-  └─ Output: {..., "session_id": "xyz789"}
+  └─ Output: {{..., "session_id": "xyz789"}}
   
   Turn 3:
   ├─ Input: message="Another question", session_id="xyz789"
-  └─ Output: {..., "session_id": "xyz789"}
+  └─ Output: {{..., "session_id": "xyz789"}}
 
 IMPORTANT:
   ⚠ Using wrong/expired session_id may result in errors
