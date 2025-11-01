@@ -18,9 +18,10 @@ from rhesis.penelope.context import (
     TestResult,
     TestState,
     TestStatus,
+    Turn,
 )
 from rhesis.penelope.instructions import get_system_prompt
-from rhesis.penelope.schemas import ToolCall
+from rhesis.penelope.schemas import SimpleGoalEval, ToolCall
 from rhesis.penelope.targets.base import Target
 from rhesis.penelope.tools.analysis import AnalyzeTool, ExtractTool
 from rhesis.penelope.tools.base import Tool
@@ -72,6 +73,7 @@ class PenelopeAgent:
         timeout_seconds: Optional[float] = None,
         enable_transparency: bool = True,
         verbose: bool = False,
+        goal_metric: Optional[Any] = None,
     ):
         """
         Initialize Penelope agent.
@@ -83,6 +85,9 @@ class PenelopeAgent:
             timeout_seconds: Optional timeout in seconds
             enable_transparency: Show reasoning at each step (Anthropic principle)
             verbose: Print detailed execution information
+            goal_metric: Optional SDK multi-turn metric for goal evaluation.
+                If None, uses interim LLM-based evaluation until SDK metrics are ready.
+                When SDK metrics are available: GoalAchievementJudge(model=model)
         
         Note:
             Logging is controlled via PENELOPE_LOG_LEVEL environment variable:
@@ -95,6 +100,7 @@ class PenelopeAgent:
         self.timeout_seconds = timeout_seconds
         self.enable_transparency = enable_transparency
         self.verbose = verbose
+        self.goal_metric = goal_metric
         
         # Tools will be set per test (since TargetInteractionTool needs target)
         self.custom_tools = tools or []
@@ -288,67 +294,237 @@ class PenelopeAgent:
         """
         Evaluate progress toward the test goal.
         
-        In a production system, this would use a model to evaluate progress.
-        For now, we use simple heuristics.
+        Uses SDK multi-turn metrics if available (self.goal_metric),
+        otherwise uses interim LLM-based evaluation.
         
         Args:
             state: Current test state
-            goal: Test goal
+            goal: The test goal
             
         Returns:
-            GoalProgress object
+            GoalProgress with evaluation
         """
-        # Simple evaluation based on turn count and errors
-        # In production, use model evaluation
-        
-        if not state.turns:
+        # Need at least some conversation to evaluate
+        if not state.turns or len(state.turns) < 2:
             return GoalProgress(
                 goal_achieved=False,
                 goal_impossible=False,
                 confidence=0.0,
-                reasoning="No turns executed yet",
+                reasoning="Insufficient conversation for evaluation",
             )
         
-        last_turn = state.turns[-1]
+        # === Path 1: Use SDK Metric (when available) ===
+        if self.goal_metric:
+            return self._evaluate_with_sdk_metric(state, goal)
         
-        # Check if last action was successful
-        if not last_turn.action_output.get("success", False):
-            error_count = sum(
-                1 for turn in state.turns
-                if not turn.action_output.get("success", False)
-            )
+        # === Path 2: Interim Simple LLM Evaluation ===
+        return self._evaluate_with_simple_llm(state, goal)
+    
+    def _evaluate_with_sdk_metric(
+        self,
+        state: TestState,
+        goal: str,
+    ) -> GoalProgress:
+        """
+        Use SDK multi-turn metric for evaluation.
+        
+        This path is used when self.goal_metric is provided (future SDK integration).
+        
+        Args:
+            state: Current test state
+            goal: The test goal
             
-            if error_count >= 3:
-                return GoalProgress(
-                    goal_achieved=False,
-                    goal_impossible=True,
-                    confidence=0.8,
-                    reasoning=f"Multiple failures ({error_count}) suggest goal may be impossible",
-                    findings=["Multiple tool execution failures"],
-                )
+        Returns:
+            GoalProgress converted from SDK MetricResult
+        """
+        # Convert Penelope's conversation to SDK format
+        conversation = self._to_conversation_format(state.turns)
         
-        # Simple heuristic: if we've made several successful interactions, consider progress
-        successful_turns = sum(
-            1 for turn in state.turns
-            if turn.action_output.get("success", False)
+        # Evaluate using the metric
+        result = self.goal_metric.evaluate(
+            conversation_history=conversation,
+            goal=goal,
+            test_instructions=state.context.test_instructions,
+            context=state.context.context,
         )
         
-        if successful_turns >= 3:
-            # In production, use LLM to evaluate if goal is actually achieved
-            return GoalProgress(
-                goal_achieved=False,  # Needs proper evaluation
-                goal_impossible=False,
-                confidence=0.5,
-                reasoning=f"Made progress with {successful_turns} successful turns",
-                findings=[f"Executed {successful_turns} successful actions"],
-            )
+        # Convert MetricResult to GoalProgress
+        details = result.details
+        
+        # Determine if goal is impossible
+        is_impossible = (
+            not details.get("is_successful", False)
+            and details.get("confidence", 0.0) > 0.8
+            and len(state.turns) >= 5
+        )
         
         return GoalProgress(
-            goal_achieved=False,
-            goal_impossible=False,
-            confidence=0.3,
-            reasoning="Test in progress",
+            goal_achieved=details.get("is_successful", False),
+            goal_impossible=is_impossible,
+            confidence=details.get("confidence", 0.5),
+            reasoning=details.get("reasoning", ""),
+            findings=details.get("evidence", []),
         )
+    
+    def _evaluate_with_simple_llm(
+        self,
+        state: TestState,
+        goal: str,
+    ) -> GoalProgress:
+        """
+        INTERIM: Simple LLM-based goal evaluation.
+        
+        This is a temporary solution until SDK multi-turn metrics are ready.
+        Uses a simple prompt + structured output to evaluate goal achievement.
+        
+        Args:
+            state: Current test state
+            goal: The test goal
+            
+        Returns:
+            GoalProgress with LLM evaluation
+        """
+        # Format conversation for evaluation
+        conversation = self._format_conversation_for_eval(state.turns)
+        
+        # Log the formatted conversation for debugging
+        logger.debug(f"Evaluating conversation with {len(state.turns)} Penelope turns")
+        logger.debug(f"Formatted conversation:\n{conversation}")
+        
+        # Build evaluation prompt - schema now enforces structure
+        prompt = f"""Evaluate this conversation against the stated goal.
+
+GOAL:
+{goal}
+
+TEST INSTRUCTIONS:
+{state.context.test_instructions or "None provided"}
+
+CONVERSATION:
+{conversation}
+
+INSTRUCTIONS:
+1. Count the user-assistant exchanges (USER + ASSISTANT = 1 turn)
+2. Break down the goal into specific measurable criteria
+3. Evaluate each criterion individually with evidence
+4. Determine if ALL criteria are met
+
+Your response must follow the structured format with:
+- turn_count: actual number of user-assistant exchanges
+- criteria_evaluations: each criterion evaluated separately
+- all_criteria_met: logical AND of all criteria
+- goal_achieved: final assessment"""
+        
+        try:
+            # Get structured response from LLM
+            response = self.model.generate(prompt, schema=SimpleGoalEval)
+            result = SimpleGoalEval(**response)
+            
+            # Log detailed evaluation for transparency
+            logger.debug(f"Turn count reported by LLM: {result.turn_count}")
+            logger.debug("Criterion-by-criterion evaluation:")
+            for i, criterion in enumerate(result.criteria_evaluations, 1):
+                status = "✓" if criterion.met else "✗"
+                logger.debug(f"  {i}. {status} {criterion.criterion}")
+                logger.debug(f"     Evidence: {criterion.evidence}")
+            logger.debug(f"All criteria met: {result.all_criteria_met}")
+            logger.debug(f"Goal achieved: {result.goal_achieved}")
+            
+            # Build detailed findings from criteria
+            findings = []
+            for criterion in result.criteria_evaluations:
+                status = "MET" if criterion.met else "NOT MET"
+                findings.append(f"[{status}] {criterion.criterion}: {criterion.evidence}")
+            
+            # Add overall evidence
+            findings.extend(result.evidence)
+            
+            return GoalProgress(
+                goal_achieved=result.goal_achieved,
+                goal_impossible=False,
+                confidence=result.confidence,
+                reasoning=f"Turn count: {result.turn_count}. {result.reasoning}",
+                findings=findings,
+            )
+        
+        except Exception as e:
+            logger.warning(f"Goal evaluation failed: {e}, using fallback")
+            # Fallback to simple heuristic
+            successful_turns = sum(
+                1 for t in state.turns 
+                if t.action_output.get("success", False)
+            )
+            return GoalProgress(
+                goal_achieved=False,
+                goal_impossible=False,
+                confidence=0.3,
+                reasoning=f"Evaluation failed: {e}. Observed {successful_turns} successful turns.",
+            )
+    
+    def _format_conversation_for_eval(self, turns: List[Turn]) -> str:
+        """
+        Format Penelope turns as a readable conversation for evaluation.
+        
+        Args:
+            turns: List of Turn objects from test execution
+            
+        Returns:
+            Formatted conversation string
+        """
+        lines = []
+        for turn in turns:
+            if turn.action == "send_message_to_target":
+                msg = turn.action_input.get("message", "")
+                if msg:
+                    lines.append(f"USER: {msg}")
+                
+                if turn.action_output.get("success"):
+                    resp = turn.action_output.get("output", {})
+                    resp_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+                    if resp_text:
+                        lines.append(f"ASSISTANT: {resp_text}")
+        
+        return "\n".join(lines)
+    
+    def _to_conversation_format(self, turns: List[Turn]) -> Any:
+        """
+        Convert Penelope's Turn objects to SDK ConversationHistory.
+        Only used when SDK metrics are available.
+        
+        Args:
+            turns: List of Turn objects from test execution
+            
+        Returns:
+            ConversationHistory object (when SDK is available)
+        """
+        # Lazy import to avoid dependency before SDK is ready
+        try:
+            from rhesis.sdk.metrics.types import ConversationHistory, ConversationTurn
+        except ImportError:
+            raise ImportError(
+                "SDK multi-turn metrics not available. "
+                "Install with: pip install rhesis-sdk[metrics]"
+            )
+        
+        conversation_turns = []
+        
+        for turn in turns:
+            if turn.action == "send_message_to_target":
+                message = turn.action_input.get("message", "")
+                if message:
+                    conversation_turns.append(
+                        ConversationTurn(role="user", content=message)
+                    )
+                
+                if turn.action_output.get("success"):
+                    response = turn.action_output.get("output", {})
+                    response_text = response.get("response", "") if isinstance(response, dict) else str(response)
+                    if response_text:
+                        conversation_turns.append(
+                            ConversationTurn(role="assistant", content=response_text)
+                        )
+        
+        return ConversationHistory(turns=conversation_turns)
     
     def execute_test(
         self,

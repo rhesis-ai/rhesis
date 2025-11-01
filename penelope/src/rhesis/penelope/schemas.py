@@ -29,6 +29,57 @@ class ExtractInformationParams(BaseModel):
     extraction_target: str = Field(description="What specific information to extract")
 
 
+class CriterionEvaluation(BaseModel):
+    """Evaluation of a single goal criterion."""
+    
+    criterion: str = Field(
+        description="The specific criterion being evaluated"
+    )
+    met: bool = Field(
+        description="Whether this criterion was met"
+    )
+    evidence: str = Field(
+        description="Specific evidence from the conversation for this criterion"
+    )
+
+
+class SimpleGoalEval(BaseModel):
+    """
+    Schema for interim goal achievement evaluation.
+    
+    This is a temporary schema used until SDK multi-turn metrics are available.
+    It provides structured output for LLM-based goal evaluation.
+    
+    The schema forces criterion-by-criterion evaluation for reliability.
+    """
+    turn_count: int = Field(
+        description="CRITICAL: Count the actual number of user-assistant exchanges in the conversation. "
+                    "Each USER message followed by an ASSISTANT response = 1 turn."
+    )
+    criteria_evaluations: list[CriterionEvaluation] = Field(
+        description="Evaluation of each specific criterion mentioned in the goal. "
+                    "Break down the goal into individual measurable criteria."
+    )
+    all_criteria_met: bool = Field(
+        description="True only if ALL criteria evaluations have met=True"
+    )
+    goal_achieved: bool = Field(
+        description="Overall assessment: True if all_criteria_met AND no critical issues found"
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Confidence in the assessment (0.0 to 1.0)"
+    )
+    reasoning: str = Field(
+        description="Brief summary explaining the overall assessment"
+    )
+    evidence: list[str] = Field(
+        default_factory=list,
+        description="Key quotes or observations supporting the overall assessment"
+    )
+
+
 class ToolCall(BaseModel):
     """
     Structured output schema for agent tool calls.
