@@ -11,6 +11,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
+from rhesis.penelope.config import PenelopeConfig
 from rhesis.penelope.context import (
     GoalProgress,
     TestContext,
@@ -82,6 +83,12 @@ class PenelopeAgent:
             timeout_seconds: Optional timeout in seconds
             enable_transparency: Show reasoning at each step (Anthropic principle)
             verbose: Print detailed execution information
+        
+        Note:
+            Logging is controlled via PENELOPE_LOG_LEVEL environment variable:
+            - INFO (default): Shows Penelope logs, suppresses external library debug logs
+            - DEBUG: Shows all logs including LiteLLM, httpx, httpcore for troubleshooting
+            - WARNING+: Shows only warnings and errors
         """
         self.model = model
         self.max_iterations = max_iterations
