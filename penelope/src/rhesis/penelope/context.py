@@ -140,13 +140,14 @@ class TestContext:
     Context for a test execution.
 
     Contains all information needed to execute a test, including
-    target, test instructions, and resources.
+    target, test instructions, scenario, and resources.
     """
 
     target_id: str
     target_type: str
     test_instructions: str
     goal: str
+    scenario: Optional[str] = None
     context: Dict[str, Any] = field(default_factory=dict)
     max_turns: int = 20
     timeout_seconds: Optional[float] = None

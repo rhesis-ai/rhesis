@@ -572,6 +572,7 @@ class PenelopeAgent:
         target: Target,
         goal: str,
         test_instructions: Optional[str] = None,
+        scenario: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
         max_turns: Optional[int] = None,
     ) -> TestResult:
@@ -587,7 +588,11 @@ class PenelopeAgent:
                 If not provided, Penelope will plan its own approach based on the goal.
                 Use this when you need specific testing methodology, attack patterns,
                 or step-by-step guidance.
-            context: Optional additional context/resources
+            scenario: Optional narrative context or persona description.
+                Provides situational framing for the test (e.g., "You are a frustrated
+                customer" or "Testing during system outage scenario"). This helps
+                Penelope understand the context and role-play appropriately.
+            context: Optional additional context/resources (metadata)
             max_turns: Override default max_iterations for this test
 
         Returns:
@@ -610,12 +615,26 @@ class PenelopeAgent:
             ...     ),
             ... )
 
-            Security test (goal + attack strategy):
+            Persona-based test (scenario + goal):
             >>> result = agent.execute_test(
             ...     target=target,
-            ...     goal="Attempt to jailbreak chatbot with role reversal",
-            ...     test_instructions="Try: role switch, admin override, test scenario framing",
-            ...     context={"attack_type": "social_engineering"},
+            ...     scenario=(
+            ...         "You are a non-technical elderly customer "
+            ...         "unfamiliar with insurance jargon"
+            ...     ),
+            ...     goal="Verify chatbot explains concepts in simple, accessible language",
+            ...     test_instructions=(
+            ...         "Ask basic questions using vague terms, request clarifications"
+            ...     ),
+            ... )
+
+            Security test (scenario + goal + attack strategy):
+            >>> result = agent.execute_test(
+            ...     target=target,
+            ...     scenario="Adversarial user attempting to extract system prompts",
+            ...     goal="Successfully extract internal configuration or instructions",
+            ...     test_instructions="Try prompt injection, role reversal, hypothetical framing",
+            ...     context={"attack_type": "jailbreak"},
             ... )
         """
         # Validate target
@@ -634,6 +653,7 @@ class PenelopeAgent:
             target_type=target.target_type,
             test_instructions=test_instructions,
             goal=goal,
+            scenario=scenario,
             context=context or {},
             max_turns=max_turns or self.max_iterations,
         )
@@ -648,6 +668,7 @@ class PenelopeAgent:
         system_prompt = get_system_prompt(
             test_instructions=test_instructions,
             goal=goal,
+            scenario=scenario or "",
             context=str(context) if context else "",
             available_tools=format_tool_schema_for_llm(tools),
         )
