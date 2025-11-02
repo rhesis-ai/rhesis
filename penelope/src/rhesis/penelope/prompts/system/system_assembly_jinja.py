@@ -24,7 +24,7 @@ SYSTEM_PROMPT_TEMPLATE = PromptTemplate(
 
 
 def get_system_prompt_jinja(
-    test_instructions: str,
+    instructions: str,
     goal: str,
     scenario: str = "",
     context: str = "",
@@ -37,7 +37,7 @@ def get_system_prompt_jinja(
     that uses Jinja2 for more powerful templating (conditionals, loops, etc.).
 
     Args:
-        test_instructions: Specific instructions for this test
+        instructions: Specific instructions for this test
         goal: Success criteria for the test
         scenario: Optional narrative context or persona description
         context: Additional context or resources
@@ -48,7 +48,7 @@ def get_system_prompt_jinja(
 
     Example:
         >>> prompt = get_system_prompt_jinja(
-        ...     test_instructions="Test the refund policy chatbot",
+        ...     instructions="Test the refund policy chatbot",
         ...     goal="Verify accurate refund information provided",
         ...     scenario="You are a frustrated customer seeking a refund",
         ...     context="Company offers 30-day returns",
@@ -56,10 +56,9 @@ def get_system_prompt_jinja(
         ... )
     """
     return SYSTEM_PROMPT_TEMPLATE.render(
-        test_instructions=test_instructions,
+        instructions=instructions,
         goal=goal,
         scenario=scenario if scenario else None,  # Convert empty string to None for conditionals
         context=context if context else None,  # Convert empty string to None for conditionals
         available_tools=available_tools if available_tools else None,
     )
-

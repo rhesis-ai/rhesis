@@ -158,5 +158,3 @@ def display_test_result(result):
         console.print("\n[bold]Findings:[/bold]")
         for i, finding in enumerate(result.findings, 1):
             console.print(f"  {i}. {finding}")
-
-

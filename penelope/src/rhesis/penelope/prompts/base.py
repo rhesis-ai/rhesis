@@ -6,7 +6,7 @@ Supports both simple Python string formatting and advanced Jinja2 templates.
 """
 
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from pydantic import BaseModel, Field
 
@@ -128,10 +128,12 @@ class PromptTemplate(BaseModel):
 
     def __str__(self) -> str:
         """String representation shows name and version."""
-        return f"PromptTemplate(name='{self.name}', version='{self.version}', format='{self.format.value}')"
+        return (
+            f"PromptTemplate(name='{self.name}', version='{self.version}', "
+            f"format='{self.format.value}')"
+        )
 
     class Config:
         """Pydantic configuration."""
 
         frozen = False  # Allow modification if needed
-

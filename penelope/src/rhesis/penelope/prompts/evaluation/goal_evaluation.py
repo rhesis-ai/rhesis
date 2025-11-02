@@ -24,4 +24,3 @@ GOAL_EVALUATION_PROMPT = PromptTemplate(
     },
     template="goal_evaluation.j2",  # Template file in templates/
 )
-

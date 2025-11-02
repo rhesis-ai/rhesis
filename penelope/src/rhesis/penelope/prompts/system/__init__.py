@@ -7,4 +7,3 @@ __all__ = [
     "BASE_INSTRUCTIONS_PROMPT",
     "get_system_prompt",
 ]
-

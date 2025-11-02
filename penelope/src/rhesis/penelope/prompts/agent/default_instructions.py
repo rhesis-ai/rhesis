@@ -28,4 +28,3 @@ DEFAULT_INSTRUCTIONS_TEMPLATE = PromptTemplate(
         "Be thorough but efficient. Adapt your strategy based on responses."
     ),
 )
-

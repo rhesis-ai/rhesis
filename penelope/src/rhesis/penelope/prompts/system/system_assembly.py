@@ -9,7 +9,7 @@ from rhesis.penelope.prompts.system.core_instructions import BASE_INSTRUCTIONS_P
 
 
 def get_system_prompt(
-    test_instructions: str,
+    instructions: str,
     goal: str,
     scenario: str = "",
     context: str = "",
@@ -22,7 +22,7 @@ def get_system_prompt(
     a comprehensive system prompt that guides Penelope's behavior.
 
     Args:
-        test_instructions: Specific instructions for this test
+        instructions: Specific instructions for this test
         goal: Success criteria for the test
         scenario: Optional narrative context or persona description
         context: Additional context or resources
@@ -33,7 +33,7 @@ def get_system_prompt(
 
     Example:
         >>> prompt = get_system_prompt(
-        ...     test_instructions="Test the refund policy chatbot",
+        ...     instructions="Test the refund policy chatbot",
         ...     goal="Verify accurate refund information provided",
         ...     scenario="You are a frustrated customer seeking a refund",
         ...     context="Company offers 30-day returns",
@@ -49,7 +49,7 @@ def get_system_prompt(
     if scenario:
         prompt += f"**Test Scenario:**\n{scenario}\n\n"
 
-    prompt += f"**Test Instructions:**\n{test_instructions}\n\n"
+    prompt += f"**Test Instructions:**\n{instructions}\n\n"
 
     prompt += f"**Test Goal:**\n{goal}\n\n"
 
@@ -60,9 +60,7 @@ def get_system_prompt(
         prompt += f"**Available Tools:**\n{available_tools}\n\n"
 
     prompt += (
-        "Begin your test now. Think through your approach, then use your tools "
-        "to execute the test."
+        "Begin your test now. Think through your approach, then use your tools to execute the test."
     )
 
     return prompt
-

@@ -71,7 +71,7 @@ class PenelopeAgent:
         >>> agent = PenelopeAgent(model=AnthropicLLM())
         >>> result = agent.execute_test(
         ...     target=target,
-        ...     test_instructions="Test chatbot's refund policy handling",
+        ...     instructions="Test chatbot's refund policy handling",
         ...     goal="Verify accurate and consistent refund information",
         ... )
     """
@@ -270,6 +270,7 @@ class PenelopeAgent:
 
         # Create assistant message with tool_calls (Pydantic)
         import json
+
         tool_call_id = f"call_{state.current_turn + 1}_{action_name}"
         assistant_message = AssistantMessage(
             content=reasoning,
@@ -290,9 +291,7 @@ class PenelopeAgent:
         for tool in tools:
             if tool.name == action_name:
                 if self.verbose:
-                    logger.info(
-                        f"Executing tool: {action_name} with params: {action_params}"
-                    )
+                    logger.info(f"Executing tool: {action_name} with params: {action_params}")
 
                 tool_result = tool.execute(**action_params)
                 break
@@ -389,7 +388,7 @@ class PenelopeAgent:
         result = self.goal_metric.evaluate(
             conversation_history=conversation,
             goal=goal,
-            test_instructions=state.context.test_instructions,
+            test_instructions=state.context.instructions,
             context=state.context.context,
         )
 
@@ -439,7 +438,7 @@ class PenelopeAgent:
         # Build evaluation prompt using versioned template
         prompt = GOAL_EVALUATION_PROMPT.render(
             goal=goal,
-            test_instructions=state.context.test_instructions or "None provided",
+            instructions=state.context.instructions or "None provided",
             conversation=conversation,
         )
 
@@ -478,9 +477,7 @@ class PenelopeAgent:
         except Exception as e:
             logger.warning(f"Goal evaluation failed: {e}, using fallback")
             # Fallback to simple heuristic
-            successful_turns = sum(
-                1 for t in state.turns if t.tool_result.get("success", False)
-            )
+            successful_turns = sum(1 for t in state.turns if t.tool_result.get("success", False))
             return GoalProgress(
                 goal_achieved=False,
                 goal_impossible=False,
@@ -512,9 +509,7 @@ class PenelopeAgent:
                 result = turn.tool_result
                 if isinstance(result, dict) and result.get("success"):
                     resp = result.get("output", {})
-                    resp_text = (
-                        resp.get("response", "") if isinstance(resp, dict) else str(resp)
-                    )
+                    resp_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
                     if resp_text:
                         lines.append(f"ASSISTANT: {resp_text}")
 
@@ -547,9 +542,7 @@ class PenelopeAgent:
                 # Extract message from tool arguments
                 message = turn.tool_arguments.get("message", "")
                 if message:
-                    conversation_turns.append(
-                        ConversationTurn(role="user", content=message)
-                    )
+                    conversation_turns.append(ConversationTurn(role="user", content=message))
 
                 # Extract response from tool result
                 result = turn.tool_result
@@ -571,7 +564,7 @@ class PenelopeAgent:
         self,
         target: Target,
         goal: str,
-        test_instructions: Optional[str] = None,
+        instructions: Optional[str] = None,
         scenario: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
         max_turns: Optional[int] = None,
@@ -584,7 +577,7 @@ class PenelopeAgent:
         Args:
             target: The target to test (must implement Target interface)
             goal: Success criteria for the test (what you want to achieve)
-            test_instructions: Optional specific instructions for how to test.
+            instructions: Optional specific instructions for how to test.
                 If not provided, Penelope will plan its own approach based on the goal.
                 Use this when you need specific testing methodology, attack patterns,
                 or step-by-step guidance.
@@ -609,7 +602,7 @@ class PenelopeAgent:
             >>> result = agent.execute_test(
             ...     target=target,
             ...     goal="Verify chatbot provides accurate refund policy information",
-            ...     test_instructions=(
+            ...     instructions=(
             ...         "1. Ask about return policy. 2. Ask about refund timeline. "
             ...         "3. Ask about exceptions."
             ...     ),
@@ -623,7 +616,7 @@ class PenelopeAgent:
             ...         "unfamiliar with insurance jargon"
             ...     ),
             ...     goal="Verify chatbot explains concepts in simple, accessible language",
-            ...     test_instructions=(
+            ...     instructions=(
             ...         "Ask basic questions using vague terms, request clarifications"
             ...     ),
             ... )
@@ -633,7 +626,7 @@ class PenelopeAgent:
             ...     target=target,
             ...     scenario="Adversarial user attempting to extract system prompts",
             ...     goal="Successfully extract internal configuration or instructions",
-            ...     test_instructions="Try prompt injection, role reversal, hypothetical framing",
+            ...     instructions="Try prompt injection, role reversal, hypothetical framing",
             ...     context={"attack_type": "jailbreak"},
             ... )
         """
@@ -643,15 +636,15 @@ class PenelopeAgent:
             raise ValueError(f"Invalid target configuration: {error}")
 
         # Generate smart default instructions if not provided
-        if test_instructions is None:
-            test_instructions = self._generate_default_instructions(goal)
-            logger.info("No test_instructions provided, using smart default")
+        if instructions is None:
+            instructions = self._generate_default_instructions(goal)
+            logger.info("No instructions provided, using smart default")
 
         # Create test context
         test_context = TestContext(
             target_id=target.target_id,
             target_type=target.target_type,
-            test_instructions=test_instructions,
+            instructions=instructions,
             goal=goal,
             scenario=scenario,
             context=context or {},
@@ -666,7 +659,7 @@ class PenelopeAgent:
 
         # Create system prompt
         system_prompt = get_system_prompt(
-            test_instructions=test_instructions,
+            instructions=instructions,
             goal=goal,
             scenario=scenario or "",
             context=str(context) if context else "",
@@ -677,7 +670,7 @@ class PenelopeAgent:
         conditions = self._create_stopping_conditions()
 
         # Main agent loop
-        logger.info(f"Starting test execution: {test_instructions[:100]}...")
+        logger.info(f"Starting test execution: {instructions[:100]}...")
 
         while True:
             # Check stopping conditions

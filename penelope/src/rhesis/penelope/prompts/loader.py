@@ -6,7 +6,7 @@ with support for custom filters and functions.
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from jinja2 import Environment, FileSystemLoader, Template, select_autoescape
 
@@ -57,6 +57,7 @@ class PromptLoader:
 
     def _register_filters(self) -> None:
         """Register custom Jinja2 filters for prompt rendering."""
+
         # Add a filter to truncate long text
         def truncate_text(text: str, length: int = 100, suffix: str = "...") -> str:
             """Truncate text to specified length."""
@@ -109,7 +110,7 @@ class PromptLoader:
         Example:
             >>> loader.render_template(
             ...     "system_prompt.j2",
-            ...     test_instructions="Test auth",
+            ...     instructions="Test auth",
             ...     goal="Verify login works"
             ... )
         """
@@ -169,4 +170,3 @@ def render_template(template_name: str, **kwargs: Any) -> str:
         Rendered prompt string
     """
     return get_loader().render_template(template_name, **kwargs)
-

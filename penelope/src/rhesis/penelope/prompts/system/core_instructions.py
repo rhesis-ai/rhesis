@@ -14,7 +14,9 @@ BASE_INSTRUCTIONS_PROMPT = PromptTemplate(
     metadata={
         "author": "Rhesis Team",
         "changelog": {
-            "1.0.0": "Initial version - Defines Penelope's core behavior following Anthropic principles"
+            "1.0.0": (
+                "Initial version - Defines Penelope's core behavior following Anthropic principles"
+            )
         },
     },
     template="""You are Penelope, an intelligent testing agent for AI applications.
@@ -118,4 +120,3 @@ For each test, you will receive:
 
 Now, execute the test assigned to you with diligence and precision.""",
 )
-
