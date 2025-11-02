@@ -1,6 +1,9 @@
+import asyncio
 import logging
 import os
 import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 from endpoint import generate_context, stream_assistant_response
@@ -33,6 +36,12 @@ RATE_LIMIT_PUBLIC = f"{RATE_LIMIT_PER_WORKER_PUBLIC}/day"
 
 # API Key for backend authentication (optional)
 CHATBOT_API_KEY = os.getenv("CHATBOT_API_KEY")
+
+# Session management configuration
+SESSION_TIMEOUT_HOURS = int(os.getenv("SESSION_TIMEOUT_HOURS", "24"))  # Default 24 hours
+SESSION_CLEANUP_INTERVAL_MINUTES = int(
+    os.getenv("SESSION_CLEANUP_INTERVAL_MINUTES", "60")
+)  # Default 60 minutes
 
 # HTTP Bearer token security
 security = HTTPBearer(auto_error=False)  # auto_error=False allows optional auth
@@ -80,6 +89,78 @@ def get_rate_limit_identifier(request: Request) -> str:
 limiter = Limiter(key_func=get_rate_limit_identifier)
 
 
+# Session storage with metadata
+class SessionData:
+    """Session data with metadata for garbage collection."""
+
+    def __init__(self, messages: List[dict] = None):
+        self.messages = messages or []
+        self.last_accessed = datetime.utcnow()
+        self.created_at = datetime.utcnow()
+
+    def update_access_time(self):
+        """Update the last accessed timestamp."""
+        self.last_accessed = datetime.utcnow()
+
+    def is_stale(self, timeout_hours: int) -> bool:
+        """Check if session is stale based on last access time."""
+        age = datetime.utcnow() - self.last_accessed
+        return age > timedelta(hours=timeout_hours)
+
+
+# Store chat sessions with metadata
+sessions: Dict[str, SessionData] = {}
+
+
+async def cleanup_stale_sessions():
+    """Background task to periodically clean up stale sessions."""
+    while True:
+        try:
+            await asyncio.sleep(SESSION_CLEANUP_INTERVAL_MINUTES * 60)
+            
+            # Find stale sessions
+            stale_session_ids = [
+                session_id
+                for session_id, session_data in sessions.items()
+                if session_data.is_stale(SESSION_TIMEOUT_HOURS)
+            ]
+            
+            # Remove stale sessions
+            for session_id in stale_session_ids:
+                del sessions[session_id]
+            
+            if stale_session_ids:
+                logger.info(
+                    f"🧹 Cleaned up {len(stale_session_ids)} stale sessions. "
+                    f"Active sessions: {len(sessions)}"
+                )
+            else:
+                logger.debug(f"🧹 Session cleanup: {len(sessions)} active sessions, 0 stale")
+                
+        except Exception as e:
+            logger.error(f"❌ Error in session cleanup task: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager to run background tasks."""
+    # Start cleanup task
+    cleanup_task = asyncio.create_task(cleanup_stale_sessions())
+    logger.info(
+        f"🚀 Started session cleanup task (interval: {SESSION_CLEANUP_INTERVAL_MINUTES}min, "
+        f"timeout: {SESSION_TIMEOUT_HOURS}h)"
+    )
+    
+    yield
+    
+    # Cleanup on shutdown
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        logger.info("🛑 Session cleanup task cancelled")
+
+
 def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> dict:
     """
     Verify API key for authentication.
@@ -108,6 +189,7 @@ app = FastAPI(
     title="Rhesis Insurance Chatbot API",
     description="Default insurance chatbot (Rosalind) for new user onboarding. Provides instant access to explore Rhesis AI capabilities.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 
@@ -143,9 +225,6 @@ async def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExc
 # Add rate limiter to app state
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
-
-# Store chat sessions
-sessions: Dict[str, List[dict]] = {}
 
 
 def get_available_use_cases() -> List[str]:
@@ -199,7 +278,7 @@ async def root(request: Request, auth: dict = Depends(verify_api_key)):
             "chat": "/chat (POST)",
             "health": "/health (GET)",
             "use_cases": "/use-cases (GET)",
-            "sessions": "/sessions/{session_id} (GET, DELETE)",
+            "session": "/sessions/{session_id} (GET, DELETE)",
         },
         "rate_limits": {
             "authenticated": f"{TOTAL_RATE_LIMIT_AUTHENTICATED} requests per day per user",
@@ -231,21 +310,32 @@ async def chat(request: Request, chat_request: ChatRequest, auth: dict = Depends
 
         # Initialize session if it doesn't exist
         if session_id not in sessions:
-            sessions[session_id] = []
+            sessions[session_id] = SessionData()
+            logger.info(f"📝 Created new session: {session_id}")
+        
+        # Update session access time
+        sessions[session_id].update_access_time()
+
+        # Get conversation history before adding the new message
+        conversation_history = sessions[session_id].messages.copy()
 
         # Add user message to session history
-        sessions[session_id].append({"role": "user", "content": chat_request.message})
+        sessions[session_id].messages.append({"role": "user", "content": chat_request.message})
 
         # Generate context fragments for the response with the specified use case
         context_fragments = generate_context(chat_request.message, use_case=use_case)
         logger.info(f"📚 Generated {len(context_fragments)} context fragments")
 
-        # Get response from assistant with the specified use case
-        response = "".join(stream_assistant_response(chat_request.message, use_case=use_case))
+        # Get response from assistant with the specified use case and conversation history
+        response = "".join(
+            stream_assistant_response(
+                chat_request.message, use_case=use_case, conversation_history=conversation_history
+            )
+        )
         logger.info(f"✅ Response generated successfully - Length: {len(response)} chars")
 
         # Add assistant response to session history
-        sessions[session_id].append({"role": "assistant", "content": response})
+        sessions[session_id].messages.append({"role": "assistant", "content": response})
 
         return ChatResponse(
             message=response, session_id=session_id, context=context_fragments, use_case=use_case
@@ -261,7 +351,15 @@ async def chat(request: Request, chat_request: ChatRequest, auth: dict = Depends
 async def get_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
-    return {"messages": sessions[session_id]}
+    
+    # Update access time when retrieving session
+    sessions[session_id].update_access_time()
+    
+    return {
+        "messages": sessions[session_id].messages,
+        "created_at": sessions[session_id].created_at.isoformat(),
+        "last_accessed": sessions[session_id].last_accessed.isoformat(),
+    }
 
 
 @app.delete("/sessions/{session_id}")
@@ -270,6 +368,7 @@ async def delete_session(request: Request, session_id: str, auth: dict = Depends
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     del sessions[session_id]
+    logger.info(f"🗑️ Manually deleted session: {session_id}")
     return {"message": "Session deleted"}
 
 
