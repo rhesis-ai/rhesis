@@ -71,8 +71,7 @@ exporters:
     endpoint: ${env:TELEMETRY_PROCESSOR_ENDPOINT}
     tls:
       insecure: false  # Cloud Run uses TLS/HTTPS
-    auth:
-      authenticator: oauth2client  # Use OAuth2 for Cloud Run authentication
+    # Note: No authentication needed - both services in same VPC with IAM bindings
     sending_queue:
       enabled: true
       num_consumers: 10
@@ -106,19 +105,9 @@ extensions:
   # zpages extension for debugging
   zpages:
     endpoint: 0.0.0.0:55679
-  
-  # OAuth2 client for Cloud Run service-to-service authentication
-  # Note: This gets identity tokens from GCP metadata service
-  oauth2client:
-    client_id: ""  # Not needed for GCP metadata server
-    client_secret: ""  # Not needed for GCP metadata server
-    token_url: http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity
-    endpoint_params:
-      audience: ${env:TELEMETRY_PROCESSOR_URL}
-      format: full
 
 service:
-  extensions: [health_check, pprof, zpages, oauth2client]
+  extensions: [health_check, pprof, zpages]
   
   pipelines:
     # Traces pipeline
