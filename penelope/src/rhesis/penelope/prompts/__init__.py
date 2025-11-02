@@ -44,4 +44,3 @@ __all__ = [
     # Evaluation
     "GOAL_EVALUATION_PROMPT",
 ]
-

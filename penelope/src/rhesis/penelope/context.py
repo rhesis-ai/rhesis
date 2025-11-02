@@ -29,7 +29,7 @@ class TestStatus(str, Enum):
 class Turn(BaseModel):
     """
     Represents a single turn in the test conversation.
-    
+
     Uses standard message format (OpenAI-compatible) for maximum LLM provider support.
     Each turn contains:
     - Assistant message with tool_calls (Penelope's action)
@@ -40,22 +40,18 @@ class Turn(BaseModel):
 
     turn_number: int = Field(description="The turn number (1-indexed)")
     timestamp: datetime = Field(default_factory=datetime.now)
-    
+
     # Standard message format (OpenAI-compatible)
-    assistant_message: AssistantMessage = Field(
-        description="Assistant message with tool_calls"
-    )
-    
-    tool_message: ToolMessage = Field(
-        description="Tool response message"
-    )
-    
+    assistant_message: AssistantMessage = Field(description="Assistant message with tool_calls")
+
+    tool_message: ToolMessage = Field(description="Tool response message")
+
     # Optional retrieval context (for RAG systems)
     retrieval_context: Optional[List[Dict[str, Any]]] = Field(
         default=None,
         description="Retrieved context used in this turn (e.g., from RAG systems)",
     )
-    
+
     # Penelope-specific metadata (not sent to LLM)
     reasoning: str = Field(description="Penelope's internal reasoning for this turn")
     evaluation: Optional[str] = Field(
@@ -64,14 +60,14 @@ class Turn(BaseModel):
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}
-    
+
     @property
     def tool_name(self) -> str:
         """Extract tool name from the assistant's tool_calls."""
         if self.assistant_message.tool_calls and len(self.assistant_message.tool_calls) > 0:
             return self.assistant_message.tool_calls[0].function.name
         return "unknown"
-    
+
     @property
     def tool_arguments(self) -> Dict[str, Any]:
         """Extract tool arguments from the assistant's tool_calls."""
@@ -82,7 +78,7 @@ class Turn(BaseModel):
             except json.JSONDecodeError:
                 return {}
         return {}
-    
+
     @property
     def tool_result(self) -> Any:
         """Extract tool result from the tool message."""
@@ -140,12 +136,12 @@ class TestContext:
     Context for a test execution.
 
     Contains all information needed to execute a test, including
-    target, test instructions, scenario, and resources.
+    target, instructions, scenario, and resources.
     """
 
     target_id: str
     target_type: str
-    test_instructions: str
+    instructions: str
     goal: str
     scenario: Optional[str] = None
     context: Dict[str, Any] = field(default_factory=dict)
@@ -188,12 +184,12 @@ class TestState:
 
         Returns:
             The created Turn object
-            
+
         Example:
             from rhesis.penelope.schemas import (
                 AssistantMessage, MessageToolCall, FunctionCall, ToolMessage
             )
-            
+
             assistant_message = AssistantMessage(
                 content="I will send a test message",
                 tool_calls=[
@@ -207,7 +203,7 @@ class TestState:
                     )
                 ]
             )
-            
+
             tool_message = ToolMessage(
                 tool_call_id="call_123",
                 name="send_message_to_target",
@@ -236,10 +232,10 @@ class TestState:
     def get_conversation_messages(self) -> List[Any]:
         """
         Get the conversation messages in native format.
-        
+
         Returns a flat list of AssistantMessage and ToolMessage objects
         (Pydantic models) representing the entire conversation.
-        
+
         To convert to dictionaries for API calls, use .model_dump() on each message.
 
         Returns:

@@ -13,13 +13,10 @@ FIRST_TURN_PROMPT = PromptTemplate(
     description="Prompt for the initial test turn",
     metadata={
         "author": "Rhesis Team",
-        "changelog": {
-            "1.0.0": "Initial version - Guides Penelope to plan then act on first turn"
-        },
+        "changelog": {"1.0.0": "Initial version - Guides Penelope to plan then act on first turn"},
     },
     template=(
-        "Begin executing the test. Start by planning your approach, "
-        "then take your first action."
+        "Begin executing the test. Start by planning your approach, then take your first action."
     ),
 )
 
@@ -33,9 +30,5 @@ SUBSEQUENT_TURN_PROMPT = PromptTemplate(
             "1.0.0": "Initial version - Guides Penelope to continue testing based on results"
         },
     },
-    template=(
-        "Based on the results, what is your next action? "
-        "Continue testing toward the goal."
-    ),
+    template=("Based on the results, what is your next action? Continue testing toward the goal."),
 )
-

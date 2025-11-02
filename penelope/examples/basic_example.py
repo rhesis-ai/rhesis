@@ -45,7 +45,7 @@ def detailed_test_example(agent: PenelopeAgent, target: EndpointTarget):
     - The answers are consistent and maintain context
     """
 
-    test_instructions = """
+    instructions = """
     Test the chatbot's ability to handle a customer service scenario.
     
     Specific steps:
@@ -64,7 +64,7 @@ def detailed_test_example(agent: PenelopeAgent, target: EndpointTarget):
     result = agent.execute_test(
         target=target,
         goal=goal,
-        test_instructions=test_instructions,
+        instructions=instructions,
         context=context,
     )
 

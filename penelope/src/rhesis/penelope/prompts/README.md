@@ -61,7 +61,7 @@ instructions = DEFAULT_INSTRUCTIONS_TEMPLATE.render(
 
 # Complex assembly
 system_prompt = get_system_prompt(
-    test_instructions="Test the chatbot",
+    instructions="Test the chatbot",
     goal="Verify behavior",
     context="Additional context",
     available_tools="tool1, tool2"

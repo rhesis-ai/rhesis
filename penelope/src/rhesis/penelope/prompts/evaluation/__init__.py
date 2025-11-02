@@ -5,4 +5,3 @@ from rhesis.penelope.prompts.evaluation.goal_evaluation import GOAL_EVALUATION_P
 __all__ = [
     "GOAL_EVALUATION_PROMPT",
 ]
-
