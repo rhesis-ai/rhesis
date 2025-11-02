@@ -70,7 +70,7 @@ exporters:
   otlp/postgres:
     endpoint: ${env:TELEMETRY_PROCESSOR_ENDPOINT}
     tls:
-      insecure: true
+      insecure: false  # Cloud Run uses TLS/HTTPS
     sending_queue:
       enabled: true
       num_consumers: 10
