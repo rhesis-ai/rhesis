@@ -142,6 +142,13 @@ result = agent.execute_test(
     target=target,
     goal="Verify chatbot maintains context across 5+ turns",
 )
+
+# Or with specific instructions
+result = agent.execute_test(
+    target=target,
+    goal="Verify chatbot maintains context across 5+ turns",
+    instructions="Ask related questions that build on previous answers, use pronouns to reference earlier context",
+)
 ```
 
 ### 2. Edge Case Discovery
@@ -151,6 +158,13 @@ result = agent.execute_test(
 result = agent.execute_test(
     target=target,
     goal="Find scenarios where chatbot fails gracefully with unusual inputs",
+)
+
+# Or with specific instructions
+result = agent.execute_test(
+    target=target,
+    goal="Find scenarios where chatbot fails gracefully with unusual inputs",
+    instructions="Try edge cases like empty inputs, very long inputs, special characters, emoji, different languages",
 )
 ```
 
@@ -190,6 +204,13 @@ result = agent.execute_test(
 result = agent.execute_test(
     target=target,
     goal="Verify system helps users recover from input errors",
+)
+
+# Or with specific instructions
+result = agent.execute_test(
+    target=target,
+    goal="Verify system helps users recover from input errors",
+    instructions="Make typos, provide incomplete information, ask unclear questions, then see if system helps clarify",
 )
 ```
 
@@ -321,6 +342,8 @@ Penelope follows a clean, modular architecture designed for extensibility and re
 
 ## Configuration
 
+### Agent Configuration
+
 ```python
 agent = PenelopeAgent(
     model=AnthropicLLM(),
@@ -335,6 +358,19 @@ agent = PenelopeAgent(
     
     # Custom tools
     tools=[CustomTool1(), CustomTool2()],
+)
+```
+
+### Test Execution Parameters
+
+```python
+result = agent.execute_test(
+    target=target,                    # Required: Target to test
+    goal="...",                       # Required: What to achieve
+    instructions="...",               # Optional: How to test (smart defaults if omitted)
+    scenario="...",                   # Optional: Narrative context/persona
+    context={...},                    # Optional: Resources & metadata
+    max_turns=20,                     # Optional: Override agent's max_iterations
 )
 ```
 
