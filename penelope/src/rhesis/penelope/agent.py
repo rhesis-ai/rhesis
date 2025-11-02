@@ -18,7 +18,13 @@ from rhesis.penelope.context import (
     TestStatus,
     Turn,
 )
-from rhesis.penelope.instructions import get_system_prompt
+from rhesis.penelope.prompts import (
+    DEFAULT_INSTRUCTIONS_TEMPLATE,
+    FIRST_TURN_PROMPT,
+    GOAL_EVALUATION_PROMPT,
+    SUBSEQUENT_TURN_PROMPT,
+    get_system_prompt,
+)
 from rhesis.penelope.schemas import (
     AssistantMessage,
     FunctionCall,
@@ -146,16 +152,7 @@ class PenelopeAgent:
         Returns:
             Generated test instructions
         """
-        return (
-            f"Systematically test to achieve the following goal:\n\n"
-            f"{goal}\n\n"
-            f"Plan your own testing approach based on:\n"
-            f"- What needs to be verified or achieved\n"
-            f"- The most efficient way to gather evidence\n"
-            f"- Any edge cases or variations to explore\n"
-            f"- Multi-turn conversation patterns if relevant\n\n"
-            f"Be thorough but efficient. Adapt your strategy based on responses."
-        )
+        return DEFAULT_INSTRUCTIONS_TEMPLATE.render(goal=goal)
 
     def _create_stopping_conditions(self) -> List[StoppingCondition]:
         """
@@ -218,14 +215,9 @@ class PenelopeAgent:
 
         # Create user prompt for this turn
         if state.current_turn == 0:
-            user_prompt = (
-                "Begin executing the test. Start by planning your approach, "
-                "then take your first action."
-            )
+            user_prompt = FIRST_TURN_PROMPT.render()
         else:
-            user_prompt = (
-                "Based on the results, what is your next action? Continue testing toward the goal."
-            )
+            user_prompt = SUBSEQUENT_TURN_PROMPT.render()
 
         # Get model response
         try:
@@ -444,29 +436,12 @@ class PenelopeAgent:
         logger.debug(f"Evaluating conversation with {len(state.turns)} Penelope turns")
         logger.debug(f"Formatted conversation:\n{conversation}")
 
-        # Build evaluation prompt - schema now enforces structure
-        prompt = f"""Evaluate this conversation against the stated goal.
-
-GOAL:
-{goal}
-
-TEST INSTRUCTIONS:
-{state.context.test_instructions or "None provided"}
-
-CONVERSATION:
-{conversation}
-
-INSTRUCTIONS:
-1. Count the user-assistant exchanges (USER + ASSISTANT = 1 turn)
-2. Break down the goal into specific measurable criteria
-3. Evaluate each criterion individually with evidence
-4. Determine if ALL criteria are met
-
-Your response must follow the structured format with:
-- turn_count: actual number of user-assistant exchanges
-- criteria_evaluations: each criterion evaluated separately
-- all_criteria_met: logical AND of all criteria
-- goal_achieved: final assessment"""
+        # Build evaluation prompt using versioned template
+        prompt = GOAL_EVALUATION_PROMPT.render(
+            goal=goal,
+            test_instructions=state.context.test_instructions or "None provided",
+            conversation=conversation,
+        )
 
         try:
             # Get structured response from LLM
