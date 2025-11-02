@@ -1,8 +1,8 @@
-# Penelope 🧪
+# Penelope 🦸‍♀️
 
 **Intelligent Multi-Turn Testing Agent for AI Applications**
 
-Penelope is a testing agent that executes complex, multi-turn test scenarios against AI endpoints. She combines base testing intelligence with specific test instructions to thoroughly evaluate AI systems across any dimension: security, user experience, compliance, edge cases, and more.
+Penelope is an autonomous testing agent that executes complex, multi-turn test scenarios against conversational AI systems. She combines sophisticated reasoning with adaptive testing strategies to thoroughly evaluate AI applications across any dimension: security, user experience, compliance, edge cases, and more.
 
 ## What is Penelope?
 
@@ -15,6 +15,19 @@ Penelope automates the kind of testing that requires:
 - **Resource utilization**: Leveraging context and documentation
 
 Think of Penelope as a QA engineer who can execute test plans autonomously through conversation.
+
+## What Makes Penelope Unique? 🦸‍♀️
+
+Unlike traditional testing frameworks or simple prompt testing tools, Penelope brings:
+
+- **True Multi-Turn Understanding**: Native support for stateful conversations with full context retention
+- **Provider Agnostic**: Works seamlessly with OpenAI, Anthropic, Vertex AI, and any OpenAI-compatible provider
+- **Target Flexible**: Test Rhesis endpoints, LangChain apps, CrewAI agents, or any conversational system
+- **Smart Defaults**: Specify just a goal, and Penelope plans the testing approach herself
+- **LLM-Driven Evaluation**: Goal achievement is evaluated by LLMs, not brittle heuristics
+- **Transparent Reasoning**: See Penelope's thought process at each step
+- **Prompt Engineering Built-In**: Sophisticated Jinja2 template system for customization
+- **Type-Safe Throughout**: Full Pydantic validation from config to results
 
 ## Design Philosophy
 
@@ -66,9 +79,9 @@ print(f"Goal achieved: {result.goal_achieved}")
 print(f"Turns used: {result.turns_used}")
 ```
 
-### Detailed Test (Goal + Instructions)
+### Detailed Test (Goal + Instructions + Scenario)
 
-For complex tests, provide specific instructions for testing methodology:
+For complex tests, provide specific instructions and optional scenario for testing methodology:
 
 ```python
 # Execute a detailed test with specific testing strategy
@@ -88,6 +101,7 @@ result = agent.execute_test(
     3. Request clarification on specific points
     4. Verify consistency across all answers
     """,
+    scenario="You are a confused customer trying to understand your insurance coverage",
     context={
         "policy_info": "Standard policy covers medical, surgical, and preventive care",
         "expected_behavior": "Professional, helpful tone",
@@ -254,18 +268,56 @@ agent = PenelopeAgent(
 
 ## Architecture
 
+Penelope follows a clean, modular architecture designed for extensibility and reliability:
+
 ```
-PenelopeAgent
-├── Base Instructions (pre-defined testing behavior)
-├── Test Instructions (user-provided, test-specific)
-├── Tools (extensible, well-documented)
-│   ├── EndpointTool (interact with target)
-│   ├── AnalyzeTool (analyze responses)
-│   ├── ExtractTool (extract information)
-│   └── Custom tools (user-defined)
-├── Context (test resources and state)
-└── Goal Evaluation (stopping conditions)
+┌─────────────────────────────────────────────────────┐
+│              PenelopeAgent 🦸‍♀️                      │
+│  Orchestrates multi-turn testing with intelligence  │
+└─────────────────────────────────────────────────────┘
+           │
+           ├── Base Instructions
+           │   └── Pre-defined testing intelligence
+           │
+           ├── Test Configuration
+           │   ├── Goal (what to achieve)
+           │   ├── Instructions (how to test, optional)
+           │   ├── Scenario (narrative context, optional)
+           │   └── Context (resources & metadata)
+           │
+           ├── Target Abstraction
+           │   ├── EndpointTarget (Rhesis endpoints)
+           │   ├── LangChainTarget (future)
+           │   └── CrewAITarget (future)
+           │
+           ├── Tool System
+           │   ├── TargetInteractionTool (send messages)
+           │   ├── AnalysisTool (analyze responses)
+           │   └── Custom Tools (extensible)
+           │
+           ├── Prompt Management
+           │   ├── System Prompts (Jinja2 templates)
+           │   ├── Turn Prompts (first/subsequent)
+           │   └── Evaluation Prompts (goal checking)
+           │
+           ├── Native Message Format
+           │   ├── AssistantMessage (Pydantic)
+           │   ├── ToolMessage (Pydantic)
+           │   └── Provider-agnostic (OpenAI, Anthropic, Vertex AI)
+           │
+           └── Stopping Conditions
+               ├── GoalAchievedCondition (LLM-evaluated)
+               ├── MaxIterationsCondition
+               └── TimeoutCondition
 ```
+
+### Key Design Principles
+
+1. **Provider Agnostic**: Native Pydantic schemas work across OpenAI, Anthropic, Vertex AI, and more
+2. **Target Flexible**: Abstract interface supports any conversational target (not just Rhesis)
+3. **Prompt Managed**: Centralized, versioned, testable prompt templates
+4. **Type Safe**: Full Pydantic validation throughout
+5. **Transparent**: Explicit reasoning and evaluation at each step
 
 ## Configuration
 
