@@ -92,7 +92,8 @@ function show_usage() {
   echo "  TELEMETRY_ENABLED             Telemetry enabled (true or false)"
   echo "  NEXT_PUBLIC_OTEL_ENDPOINT     OTel collector endpoint for frontend"
   echo "  NEXT_PUBLIC_DEPLOYMENT_TYPE   Deployment type for frontend"
-  echo "  TELEMETRY_PROCESSOR_ENDPOINT Telemetry processor endpoint"
+  echo ""
+  echo "  NOTE: TELEMETRY_PROCESSOR_ENDPOINT/URL are auto-detected by otel-collector workflow"
   echo ""
   echo "  # Celery worker variables"
   echo "  BROKER_URL                    Celery broker URL"
@@ -282,7 +283,7 @@ SERVICE_VARS=(
   "TELEMETRY_ENABLED"
   "NEXT_PUBLIC_OTEL_ENDPOINT"
   "NEXT_PUBLIC_DEPLOYMENT_TYPE"
-  "TELEMETRY_PROCESSOR_ENDPOINT"
+  # NOTE: TELEMETRY_PROCESSOR_ENDPOINT and TELEMETRY_PROCESSOR_URL are auto-detected
   
   # Celery worker variables
   "BROKER_URL"
