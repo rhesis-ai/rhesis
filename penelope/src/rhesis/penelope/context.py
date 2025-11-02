@@ -4,12 +4,15 @@ Context and state management for Penelope agent.
 Handles test state, conversation history, and result tracking.
 """
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+from rhesis.penelope.schemas import AssistantMessage, ToolMessage
 
 
 class TestStatus(str, Enum):
@@ -24,20 +27,70 @@ class TestStatus(str, Enum):
 
 
 class Turn(BaseModel):
-    """Represents a single turn in the test conversation."""
+    """
+    Represents a single turn in the test conversation.
+    
+    Uses standard message format (OpenAI-compatible) for maximum LLM provider support.
+    Each turn contains:
+    - Assistant message with tool_calls (Penelope's action)
+    - Tool message with results
+    - Optional retrieval context
+    - Penelope-specific metadata (reasoning, evaluation)
+    """
 
     turn_number: int = Field(description="The turn number (1-indexed)")
     timestamp: datetime = Field(default_factory=datetime.now)
-    reasoning: str = Field(description="Penelope's reasoning for this turn")
-    action: str = Field(description="The action taken (tool name)")
-    action_input: Dict[str, Any] = Field(description="Input provided to the tool")
-    action_output: Dict[str, Any] = Field(description="Output received from the tool")
+    
+    # Standard message format (OpenAI-compatible)
+    assistant_message: AssistantMessage = Field(
+        description="Assistant message with tool_calls"
+    )
+    
+    tool_message: ToolMessage = Field(
+        description="Tool response message"
+    )
+    
+    # Optional retrieval context (for RAG systems)
+    retrieval_context: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Retrieved context used in this turn (e.g., from RAG systems)",
+    )
+    
+    # Penelope-specific metadata (not sent to LLM)
+    reasoning: str = Field(description="Penelope's internal reasoning for this turn")
     evaluation: Optional[str] = Field(
         default=None, description="Evaluation of progress after this turn"
     )
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}
+    
+    @property
+    def tool_name(self) -> str:
+        """Extract tool name from the assistant's tool_calls."""
+        if self.assistant_message.tool_calls and len(self.assistant_message.tool_calls) > 0:
+            return self.assistant_message.tool_calls[0].function.name
+        return "unknown"
+    
+    @property
+    def tool_arguments(self) -> Dict[str, Any]:
+        """Extract tool arguments from the assistant's tool_calls."""
+        if self.assistant_message.tool_calls and len(self.assistant_message.tool_calls) > 0:
+            args_str = self.assistant_message.tool_calls[0].function.arguments
+            try:
+                return json.loads(args_str) if isinstance(args_str, str) else args_str
+            except json.JSONDecodeError:
+                return {}
+        return {}
+    
+    @property
+    def tool_result(self) -> Any:
+        """Extract tool result from the tool message."""
+        content = self.tool_message.content
+        try:
+            return json.loads(content) if isinstance(content, str) else content
+        except json.JSONDecodeError:
+            return content
 
 
 class TestResult(BaseModel):
@@ -117,33 +170,58 @@ class TestState:
     def add_turn(
         self,
         reasoning: str,
-        action: str,
-        action_input: Dict[str, Any],
-        action_output: Dict[str, Any],
+        assistant_message: AssistantMessage,
+        tool_message: ToolMessage,
         evaluation: Optional[str] = None,
+        retrieval_context: Optional[List[Dict[str, Any]]] = None,
     ) -> Turn:
         """
         Add a turn to the conversation history.
 
         Args:
-            reasoning: Penelope's reasoning for this turn
-            action: The action/tool used
-            action_input: Input provided to the tool
-            action_output: Output from the tool
+            reasoning: Penelope's internal reasoning for this turn
+            assistant_message: Assistant message with tool_calls (Pydantic model)
+            tool_message: Tool response message (Pydantic model)
             evaluation: Optional evaluation of progress
+            retrieval_context: Retrieved context used in this turn (e.g., from RAG)
 
         Returns:
             The created Turn object
+            
+        Example:
+            from rhesis.penelope.schemas import (
+                AssistantMessage, MessageToolCall, FunctionCall, ToolMessage
+            )
+            
+            assistant_message = AssistantMessage(
+                content="I will send a test message",
+                tool_calls=[
+                    MessageToolCall(
+                        id="call_123",
+                        type="function",
+                        function=FunctionCall(
+                            name="send_message_to_target",
+                            arguments='{"message": "Hello"}'
+                        )
+                    )
+                ]
+            )
+            
+            tool_message = ToolMessage(
+                tool_call_id="call_123",
+                name="send_message_to_target",
+                content='{"success": true, "output": "Hi there!"}'
+            )
         """
         self.current_turn += 1
 
         turn = Turn(
             turn_number=self.current_turn,
             reasoning=reasoning,
-            action=action,
-            action_input=action_input,
-            action_output=action_output,
+            assistant_message=assistant_message,
+            tool_message=tool_message,
             evaluation=evaluation,
+            retrieval_context=retrieval_context,
         )
 
         self.turns.append(turn)
@@ -154,31 +232,22 @@ class TestState:
         if finding not in self.findings:
             self.findings.append(finding)
 
-    def get_conversation_history(self) -> List[Dict[str, Any]]:
+    def get_conversation_messages(self) -> List[Any]:
         """
-        Get the conversation history in a format suitable for LLM context.
+        Get the conversation messages in native format.
+        
+        Returns a flat list of AssistantMessage and ToolMessage objects
+        (Pydantic models) representing the entire conversation.
+        
+        To convert to dictionaries for API calls, use .model_dump() on each message.
 
         Returns:
-            List of message dictionaries with role and content
+            List of AssistantMessage and ToolMessage objects (alternating)
         """
         messages = []
-
         for turn in self.turns:
-            # Add assistant's reasoning and action
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": (
-                        f"Reasoning: {turn.reasoning}\n"
-                        f"Action: {turn.action}\n"
-                        f"Input: {turn.action_input}"
-                    ),
-                }
-            )
-
-            # Add tool result
-            messages.append({"role": "user", "content": f"Tool Result: {turn.action_output}"})
-
+            messages.append(turn.assistant_message)
+            messages.append(turn.tool_message)
         return messages
 
     def to_result(self, status: TestStatus, goal_achieved: bool) -> TestResult:

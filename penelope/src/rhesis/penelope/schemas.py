@@ -3,11 +3,77 @@ Pydantic schemas for structured outputs in Penelope.
 
 These schemas enable structured output from LLMs, eliminating the need
 for text parsing and making tool calls more reliable.
+
+Includes standard message format schemas (compatible with OpenAI format)
+for maximum LLM provider compatibility.
 """
 
-from typing import Optional, Union
+from typing import List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
+
+# Standard Message Format (OpenAI-compatible)
+
+
+class FunctionCall(BaseModel):
+    """Function call specification in standard message format."""
+
+    name: str = Field(description="The name of the function to call")
+    arguments: str = Field(
+        description="The arguments to pass to the function, as a JSON string"
+    )
+
+
+class MessageToolCall(BaseModel):
+    """Tool call specification in standard message format."""
+
+    id: str = Field(description="Unique identifier for this tool call")
+    type: Literal["function"] = Field(
+        default="function", description="The type of tool call"
+    )
+    function: FunctionCall = Field(description="The function to call")
+
+
+class AssistantMessage(BaseModel):
+    """
+    Assistant message with optional tool calls.
+    
+    Compatible with OpenAI message format and other major LLM providers.
+    """
+
+    role: Literal["assistant"] = Field(
+        default="assistant", description="Message role"
+    )
+    content: Optional[str] = Field(
+        default=None, description="Text content of the message"
+    )
+    tool_calls: Optional[List[MessageToolCall]] = Field(
+        default=None, description="Tool calls made in this message"
+    )
+
+    class Config:
+        extra = "allow"  # Allow additional fields for provider-specific extensions
+
+
+class ToolMessage(BaseModel):
+    """
+    Tool response message.
+    
+    Compatible with OpenAI message format and other major LLM providers.
+    """
+
+    role: Literal["tool"] = Field(default="tool", description="Message role")
+    tool_call_id: str = Field(
+        description="The ID of the tool call this is responding to"
+    )
+    name: str = Field(description="The name of the tool that was called")
+    content: str = Field(description="The result of the tool call, as a string")
+
+    class Config:
+        extra = "allow"  # Allow additional fields for provider-specific extensions
+
+
+# Tool Parameter Schemas
 
 
 class SendMessageParams(BaseModel):
