@@ -19,7 +19,14 @@ from rhesis.penelope.context import (
     Turn,
 )
 from rhesis.penelope.instructions import get_system_prompt
-from rhesis.penelope.schemas import SimpleGoalEval, ToolCall
+from rhesis.penelope.schemas import (
+    AssistantMessage,
+    FunctionCall,
+    MessageToolCall,
+    SimpleGoalEval,
+    ToolCall,
+    ToolMessage,
+)
 from rhesis.penelope.targets.base import Target
 from rhesis.penelope.tools.analysis import AnalyzeTool, ExtractTool
 from rhesis.penelope.tools.base import Tool
@@ -206,8 +213,8 @@ class PenelopeAgent:
         Returns:
             True if turn executed successfully, False if should stop
         """
-        # Build conversation history
-        conversation_history = state.get_conversation_history()
+        # Build conversation history (native Pydantic messages)
+        conversation_messages = state.get_conversation_messages()
 
         # Create user prompt for this turn
         if state.current_turn == 0:
@@ -223,11 +230,11 @@ class PenelopeAgent:
         # Get model response
         try:
             # Build messages for the model
-            if conversation_history:
+            if conversation_messages:
                 # We have history, use it
                 prompt = user_prompt
-                for msg in conversation_history[-5:]:  # Last 5 turns for context
-                    prompt += f"\n\n{msg['role']}: {msg['content']}"
+                for msg in conversation_messages[-10:]:  # Last 10 messages (5 turns) for context
+                    prompt += f"\n\n{msg.role}: {msg.content}"
             else:
                 prompt = user_prompt
 
@@ -269,12 +276,31 @@ class PenelopeAgent:
             action_name = "no_action"
             action_params = {}
 
+        # Create assistant message with tool_calls (Pydantic)
+        import json
+        tool_call_id = f"call_{state.current_turn + 1}_{action_name}"
+        assistant_message = AssistantMessage(
+            content=reasoning,
+            tool_calls=[
+                MessageToolCall(
+                    id=tool_call_id,
+                    type="function",
+                    function=FunctionCall(
+                        name=action_name,
+                        arguments=json.dumps(action_params),
+                    ),
+                )
+            ],
+        )
+
         # Find and execute the tool
         tool_result = None
         for tool in tools:
             if tool.name == action_name:
                 if self.verbose:
-                    logger.info(f"Executing tool: {action_name} with params: {action_params}")
+                    logger.info(
+                        f"Executing tool: {action_name} with params: {action_params}"
+                    )
 
                 tool_result = tool.execute(**action_params)
                 break
@@ -293,12 +319,18 @@ class PenelopeAgent:
                 "error": tool_result.error,
             }
 
-        # Add turn to state
+        # Create tool response message (Pydantic)
+        tool_message = ToolMessage(
+            tool_call_id=tool_call_id,
+            name=action_name,
+            content=json.dumps(tool_result_dict),
+        )
+
+        # Add turn to state using native OpenAI format
         state.add_turn(
             reasoning=reasoning,
-            action=action_name,
-            action_input=action_params,
-            action_output=tool_result_dict,
+            assistant_message=assistant_message,
+            tool_message=tool_message,
         )
 
         # Display turn if verbose
@@ -471,12 +503,16 @@ Your response must follow the structured format with:
         except Exception as e:
             logger.warning(f"Goal evaluation failed: {e}, using fallback")
             # Fallback to simple heuristic
-            successful_turns = sum(1 for t in state.turns if t.action_output.get("success", False))
+            successful_turns = sum(
+                1 for t in state.turns if t.tool_result.get("success", False)
+            )
             return GoalProgress(
                 goal_achieved=False,
                 goal_impossible=False,
                 confidence=0.3,
-                reasoning=f"Evaluation failed: {e}. Observed {successful_turns} successful turns.",
+                reasoning=(
+                    f"Evaluation failed: {e}. Observed {successful_turns} successful turns."
+                ),
             )
 
     def _format_conversation_for_eval(self, turns: List[Turn]) -> str:
@@ -491,14 +527,19 @@ Your response must follow the structured format with:
         """
         lines = []
         for turn in turns:
-            if turn.action == "send_message_to_target":
-                msg = turn.action_input.get("message", "")
+            if turn.tool_name == "send_message_to_target":
+                # Extract message from tool arguments
+                msg = turn.tool_arguments.get("message", "")
                 if msg:
                     lines.append(f"USER: {msg}")
 
-                if turn.action_output.get("success"):
-                    resp = turn.action_output.get("output", {})
-                    resp_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+                # Extract response from tool result
+                result = turn.tool_result
+                if isinstance(result, dict) and result.get("success"):
+                    resp = result.get("output", {})
+                    resp_text = (
+                        resp.get("response", "") if isinstance(resp, dict) else str(resp)
+                    )
                     if resp_text:
                         lines.append(f"ASSISTANT: {resp_text}")
 
@@ -527,13 +568,18 @@ Your response must follow the structured format with:
         conversation_turns = []
 
         for turn in turns:
-            if turn.action == "send_message_to_target":
-                message = turn.action_input.get("message", "")
+            if turn.tool_name == "send_message_to_target":
+                # Extract message from tool arguments
+                message = turn.tool_arguments.get("message", "")
                 if message:
-                    conversation_turns.append(ConversationTurn(role="user", content=message))
+                    conversation_turns.append(
+                        ConversationTurn(role="user", content=message)
+                    )
 
-                if turn.action_output.get("success"):
-                    response = turn.action_output.get("output", {})
+                # Extract response from tool result
+                result = turn.tool_result
+                if isinstance(result, dict) and result.get("success"):
+                    response = result.get("output", {})
                     response_text = (
                         response.get("response", "")
                         if isinstance(response, dict)

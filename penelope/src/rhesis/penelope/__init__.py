@@ -12,11 +12,15 @@ from rhesis.penelope.config import PenelopeConfig
 from rhesis.penelope.context import TestContext, TestResult, TestState
 from rhesis.penelope.schemas import (
     AnalyzeResponseParams,
+    AssistantMessage,
     CriterionEvaluation,
     ExtractInformationParams,
+    FunctionCall,
+    MessageToolCall,
     SendMessageParams,
     SimpleGoalEval,
     ToolCall,
+    ToolMessage,
 )
 from rhesis.penelope.targets import EndpointTarget, Target
 from rhesis.penelope.tools.base import Tool
@@ -29,6 +33,10 @@ __all__ = [
     "TestContext",
     "TestResult",
     "TestState",
+    "AssistantMessage",
+    "FunctionCall",
+    "MessageToolCall",
+    "ToolMessage",
     "Tool",
     "ToolCall",
     "SendMessageParams",
