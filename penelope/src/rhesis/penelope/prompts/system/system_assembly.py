@@ -11,6 +11,7 @@ from rhesis.penelope.prompts.system.core_instructions import BASE_INSTRUCTIONS_P
 def get_system_prompt(
     test_instructions: str,
     goal: str,
+    scenario: str = "",
     context: str = "",
     available_tools: str = "",
 ) -> str:
@@ -23,6 +24,7 @@ def get_system_prompt(
     Args:
         test_instructions: Specific instructions for this test
         goal: Success criteria for the test
+        scenario: Optional narrative context or persona description
         context: Additional context or resources
         available_tools: Description of available tools
 
@@ -33,6 +35,7 @@ def get_system_prompt(
         >>> prompt = get_system_prompt(
         ...     test_instructions="Test the refund policy chatbot",
         ...     goal="Verify accurate refund information provided",
+        ...     scenario="You are a frustrated customer seeking a refund",
         ...     context="Company offers 30-day returns",
         ...     available_tools="send_message_to_target, analyze, extract"
         ... )
@@ -42,6 +45,9 @@ def get_system_prompt(
 
     # Add test-specific assignment
     prompt += "\n\n## Your Current Test Assignment\n\n"
+
+    if scenario:
+        prompt += f"**Test Scenario:**\n{scenario}\n\n"
 
     prompt += f"**Test Instructions:**\n{test_instructions}\n\n"
 
