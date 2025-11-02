@@ -31,6 +31,7 @@ dependencies = [
     "tenacity>=8.2.3",
     "rich>=13.0.0",
     "tiktoken>=0.9.0",
+    "jinja2>=3.1.0",
 ]
 
 [project.license]
