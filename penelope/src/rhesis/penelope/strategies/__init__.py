@@ -9,4 +9,3 @@ This module is a placeholder for future strategy implementations.
 
 # Strategies will be added in future versions
 __all__ = []
-

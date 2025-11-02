@@ -15,36 +15,36 @@ from rhesis.penelope.tools.base import Tool, ToolParameter, ToolResult
 class TargetInteractionTool(Tool):
     """
     Tool for sending messages to the test target and receiving responses.
-    
+
     This is your primary tool for testing. Each call represents one turn
     in a multi-turn conversation with the system under test.
-    
+
     The target can be any system that Penelope can interact with:
     - Rhesis endpoints (HTTP/REST/WebSocket)
     - Other AI agents
     - Complete applications
     - Custom target implementations
-    
+
     Following Anthropic's ACI design principles:
     - Clear, extensive documentation
     - Real-world examples
     - Edge case handling
     - Natural parameter formats
     """
-    
+
     def __init__(self, target: Target):
         """
         Initialize the tool with a target.
-        
+
         Args:
             target: The target to test (implements Target interface)
         """
         self.target = target
-    
+
     @property
     def name(self) -> str:
         return "send_message_to_target"
-    
+
     @property
     def description(self) -> str:
         return f"""Send a message to the test target and receive a response.
@@ -154,7 +154,7 @@ IMPORTANT NOTES:
 ═══════════════════════════════════════════════════════════════════════════════
 
 Remember: Each call costs time and resources. Make every interaction count."""
-    
+
     @property
     def parameters(self) -> list[ToolParameter]:
         return [
@@ -228,22 +228,18 @@ IMPORTANT:
                 examples=["abc123", "xyz789", None],
             ),
         ]
-    
-    
+
     def execute(
-        self,
-        message: str = "",
-        session_id: Optional[str] = None,
-        **kwargs: Any
+        self, message: str = "", session_id: Optional[str] = None, **kwargs: Any
     ) -> ToolResult:
         """
         Execute the target interaction tool.
-        
+
         Args:
             message: The user message to send
             session_id: Optional session ID for multi-turn conversations
             **kwargs: Additional target-specific parameters
-            
+
         Returns:
             ToolResult with the target's response
         """
@@ -255,11 +251,11 @@ IMPORTANT:
                 output={},
                 error=error,
             )
-        
+
         try:
             # Send message to target
             response = self.target.send_message(message, session_id, **kwargs)
-            
+
             # Convert TargetResponse to ToolResult
             if response.success:
                 return ToolResult(
@@ -282,11 +278,10 @@ IMPORTANT:
                     output={},
                     error=response.error or "Target interaction failed",
                 )
-            
+
         except Exception as e:
             return ToolResult(
                 success=False,
                 output={},
                 error=f"Unexpected error: {str(e)}",
             )
-

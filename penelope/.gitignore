@@ -48,3 +48,11 @@ uv.lock
 # OS
 .DS_Store
 
+# Logs
+logs/*.log
+
+# Documentation and tests (not part of package)
+docs/
+tests/
+
+
