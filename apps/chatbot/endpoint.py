@@ -62,15 +62,33 @@ class ResponseGenerator:
             logger.error(f"Error loading system prompt: {str(e)}")
             return "You are a helpful assistant. Please provide clear and helpful responses."
 
-    def get_assistant_response(self, prompt: str) -> str:
-        """Get a complete response from the assistant."""
-        return "".join(self.stream_assistant_response(prompt))
+    def get_assistant_response(
+        self, prompt: str, conversation_history: List[dict] = None
+    ) -> str:
+        """Get a complete response from the assistant with optional conversation history."""
+        return "".join(self.stream_assistant_response(prompt, conversation_history))
 
-    def stream_assistant_response(self, prompt: str) -> Generator[str, None, None]:
-        """Stream the assistant's response using SDK model."""
+    def stream_assistant_response(
+        self, prompt: str, conversation_history: List[dict] = None
+    ) -> Generator[str, None, None]:
+        """Stream the assistant's response using SDK model with conversation history.
+        
+        Args:
+            prompt: The current user message
+            conversation_history: List of previous messages in format [{"role": "user/assistant", "content": "..."}]
+        """
         try:
-            # Combine system prompt with user prompt
-            full_prompt = f"{self.use_case_system_prompt}\n\nUser: {prompt}\n\nAssistant:"
+            # Build the full prompt with conversation history
+            full_prompt = self.use_case_system_prompt + "\n\n"
+            
+            # Add conversation history if provided
+            if conversation_history:
+                for msg in conversation_history:
+                    role = "User" if msg["role"] == "user" else "Assistant"
+                    full_prompt += f"{role}: {msg['content']}\n\n"
+            
+            # Add current prompt
+            full_prompt += f"User: {prompt}\n\nAssistant:"
 
             # Vertex AI via LiteLLM has issues with streaming (CustomStreamWrapper)
             # Use non-streaming response which works reliably
@@ -217,18 +235,26 @@ def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
 
 
 # Public API functions that maintain backward compatibility
-def get_assistant_response(prompt: str, use_case: str = "insurance") -> str:
-    """Get a complete response from the assistant."""
+def get_assistant_response(
+    prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
+) -> str:
+    """Get a complete response from the assistant with optional conversation history."""
     response_generator = get_response_generator(use_case)
-    return response_generator.get_assistant_response(prompt)
+    return "".join(response_generator.stream_assistant_response(prompt, conversation_history))
 
 
 def stream_assistant_response(
-    prompt: str, use_case: str = "insurance"
+    prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
 ) -> Generator[str, None, None]:
-    """Stream the assistant's response."""
+    """Stream the assistant's response with optional conversation history.
+    
+    Args:
+        prompt: The current user message
+        use_case: The use case to use for the system prompt
+        conversation_history: List of previous messages in format [{"role": "user/assistant", "content": "..."}]
+    """
     response_generator = get_response_generator(use_case)
-    return response_generator.stream_assistant_response(prompt)
+    return response_generator.stream_assistant_response(prompt, conversation_history)
 
 
 def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
