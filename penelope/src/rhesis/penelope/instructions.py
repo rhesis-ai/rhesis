@@ -115,34 +115,32 @@ def get_system_prompt(
 ) -> str:
     """
     Constructs the complete system prompt for Penelope.
-    
+
     Args:
         test_instructions: Specific instructions for this test
         goal: Success criteria for the test
         context: Additional context or resources
         available_tools: Description of available tools
-        
+
     Returns:
         Complete system prompt combining base instructions with test specifics
     """
     prompt = BASE_INSTRUCTIONS
-    
+
     prompt += "\n\n## Your Current Test Assignment\n\n"
-    
+
     prompt += f"**Test Instructions:**\n{test_instructions}\n\n"
-    
+
     prompt += f"**Test Goal:**\n{goal}\n\n"
-    
+
     if context:
         prompt += f"**Context & Resources:**\n{context}\n\n"
-    
+
     if available_tools:
         prompt += f"**Available Tools:**\n{available_tools}\n\n"
-    
-    prompt += (
-        "Begin your test now. Think through your approach, "
-        "then use your tools to execute the test."
-    )
-    
-    return prompt
 
+    prompt += (
+        "Begin your test now. Think through your approach, then use your tools to execute the test."
+    )
+
+    return prompt

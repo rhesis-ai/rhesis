@@ -16,4 +16,3 @@ __all__ = [
     "AnalyzeTool",
     "ExtractTool",
 ]
-
