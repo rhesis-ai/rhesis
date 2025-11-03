@@ -48,6 +48,8 @@ dev = [
     "pre-commit>=4.3.0",
     "hatch>=1.14.1",
     "pytest>=8.3.4",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
     "mypy>=1.15.0",
     "types-requests>=2.32.0",
     "ruff>=0.11.6",
@@ -72,6 +74,18 @@ include = ["src/rhesis/penelope"]
 [tool.pytest.ini_options]
 testpaths = ["../tests/penelope"]
 pythonpath = ["src"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+]
+markers = [
+    "unit: Unit tests for individual components",
+    "integration: Integration tests for complete workflows",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
 
 [tool.ruff]
 line-length = 100
