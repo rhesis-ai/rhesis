@@ -257,6 +257,7 @@ async def generate_tests_endpoint(
         )
         return {"tests": test_cases}
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=400, detail=str(e))
 
 

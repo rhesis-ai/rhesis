@@ -26,6 +26,9 @@ class GenerationConfig:
     previous_messages: List[str]  # Previous messages
     rated_samples: List[str]  # Rated samples
 
+    test_type: str  # Test type
+    output_format: str  # Output format
+
 
 class ConfigSynthesizer(TestSetSynthesizer):
     """A synthesizer that generates test cases based on a generation config using LLM."""
@@ -47,7 +50,7 @@ class ConfigSynthesizer(TestSetSynthesizer):
             system_prompt: Optional custom system prompt template to override the default
         """
 
-        super().__init__(batch_size=batch_size)
+        super().__init__(batch_size=batch_size, model=model)
         self.config = config
 
     def _get_template_context(self, **generate_kwargs):
