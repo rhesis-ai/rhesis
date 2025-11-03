@@ -7,7 +7,6 @@ This example demonstrates two ways to use Penelope:
 """
 
 from rhesis.penelope import EndpointTarget, PenelopeAgent
-from rhesis.sdk.models import AnthropicLLM
 
 
 def simple_test_example(agent: PenelopeAgent, target: EndpointTarget):
@@ -74,13 +73,19 @@ def detailed_test_example(agent: PenelopeAgent, target: EndpointTarget):
 def main():
     """Run basic examples with Penelope."""
 
-    # Initialize Penelope with a model
+    # Initialize Penelope with defaults (Vertex AI / gemini-2.0-flash-exp, 10 max iterations)
     agent = PenelopeAgent(
-        model=AnthropicLLM(model_name="claude-4"),
-        max_iterations=10,
         enable_transparency=True,  # Show reasoning at each step
         verbose=True,  # Print execution details
     )
+
+    # Alternative: Use a specific model and custom max_iterations
+    # agent = PenelopeAgent(
+    #     model=AnthropicLLM(model_name="claude-4"),
+    #     max_iterations=20,
+    #     enable_transparency=True,
+    #     verbose=True,
+    # )
 
     # Create the target to test
     # EndpointTarget loads endpoint configuration from Rhesis via the SDK
