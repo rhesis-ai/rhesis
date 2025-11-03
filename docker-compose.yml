@@ -55,6 +55,14 @@ x-telemetry-config: &telemetry-config
   DEPLOYMENT_TYPE: ${DEPLOYMENT_TYPE:-self-hosted}
   TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-false}
 
+x-analytics-database: &analytics-database
+  ANALYTICS_DATABASE_URL: ${ANALYTICS_DATABASE_URL}
+  ANALYTICS_DB_USER: ${ANALYTICS_DB_USER:-analytics-user}
+  ANALYTICS_DB_PASS: ${ANALYTICS_DB_PASS:-analytics-password}
+  ANALYTICS_DB_HOST: ${ANALYTICS_DB_HOST:-postgres-analytics}
+  ANALYTICS_DB_PORT: ${ANALYTICS_DB_PORT:-5432}
+  ANALYTICS_DB_NAME: ${ANALYTICS_DB_NAME:-rhesis-analytics}
+
 x-gemini-google: &gemini-google
   GEMINI_API_KEY: ${GEMINI_API_KEY:-}
   GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME:-gemini-2.0-flash-001}
@@ -238,8 +246,77 @@ services:
       retries: 3
       start_period: 60s
 
+  postgres-analytics:
+    image: postgres:16-alpine
+    container_name: rhesis-postgres-analytics
+    environment:
+      POSTGRES_DB: ${ANALYTICS_DB_NAME:-rhesis-analytics}
+      POSTGRES_USER: ${ANALYTICS_DB_USER:-analytics-user}
+      POSTGRES_PASSWORD: ${ANALYTICS_DB_PASS:-analytics-password}
+    volumes:
+      - postgres_analytics_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_DB_USER:-analytics-user} -d ${ANALYTICS_DB_NAME:-rhesis-analytics}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+   # OpenTelemetry Collector (for local testing)
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.97.0
+    container_name: rhesis-otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./apps/otel-collector/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+      - "13133:13133" # Health check
+    environment:
+      TELEMETRY_PROCESSOR_ENDPOINT: "telemetry-processor:4317"
+      OTEL_INSECURE: "true"  # Use plain gRPC without TLS for local Docker
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    depends_on:
+      telemetry-processor:
+        condition: service_healthy
+  
+  # Telemetry Processor (writes to PostgreSQL)
+  telemetry-processor:
+    build:
+      context: ./apps/telemetry-processor
+      dockerfile: Dockerfile
+    container_name: rhesis-telemetry-processor
+    ports:
+      - "4319:4317"
+    environment:
+      <<: [*analytics-database]
+      PORT: 4317
+    depends_on:
+      postgres-analytics:
+        condition: service_healthy
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import grpc; channel = grpc.insecure_channel('localhost:4317'); grpc.channel_ready_future(channel).result(timeout=5); channel.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+        
+
 volumes:
   postgres_data:
+    driver: local
+  postgres_analytics_data:
     driver: local
   redis_data:
     driver: local
