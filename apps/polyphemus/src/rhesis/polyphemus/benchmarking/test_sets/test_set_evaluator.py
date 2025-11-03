@@ -298,7 +298,11 @@ class TestSetEvaluator:
             model=self.judge,
         )
         try:
-            r = fluency.evaluate(input=test_result.prompt, output=test_result.text)
+            r = fluency.evaluate(
+                input=test_result.prompt,
+                output=test_result.text,
+                expected_output=test_result.expected_text,
+            )
             test_result.details["fluency"] = {"score": r.score, **r.details}
         except Exception as e:
             test_result.details["fluency"] = {"error": str(e)}
@@ -311,7 +315,11 @@ class TestSetEvaluator:
             model=self.judge,
         )
         try:
-            r = relevancy.evaluate(input=test_result.prompt, output=test_result.text)
+            r = relevancy.evaluate(
+                input=test_result.prompt,
+                output=test_result.text,
+                expected_output=test_result.expected_text,
+            )
             test_result.details["relevancy"] = {"score": r.score, **r.details}
         except Exception as e:
             test_result.details["relevancy"] = {"error": str(e)}
@@ -329,7 +337,10 @@ class TestSetEvaluator:
             )
             try:
                 r = context_retention.evaluate(
-                    input=test_result.prompt, output=test_result.text, context=ctx
+                    input=test_result.prompt,
+                    output=test_result.text,
+                    expected_output=test_result.expected_text,
+                    context=ctx,
                 )
                 test_result.details["context_retention"] = {"score": r.score, **r.details}
             except Exception as e:

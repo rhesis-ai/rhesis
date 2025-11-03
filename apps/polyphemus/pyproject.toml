@@ -3,21 +3,16 @@ name = "polyphemus"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-    "accelerate>=0.29.2",
-    "bitsandbytes>=0.41.1",
-    "fastapi>=0.115.0",
-    "anyio>=4.8.0",
-    "gunicorn>=23.0.0",
-    "huggingface-hub>=0.34.0",
-    "loguru>=0.7.2",
-    "ninja>=1.11.1.4",
-    "numpy>=1.26.0",
-    "packaging>=25.0",
-    "peft>=0.6.0",
-    "safetensors>=0.4.3",
-    "torchaudio>=2.8.0",
-    "torchvision>=0.24.0",
-    "uvicorn>=0.23.2",
+    # Benchmarking dependencies
+    "torch",
+    "transformers",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+# Optional: Perspective API for toxicity evaluation
+toxicity = [
+    "google-api-python-client",
 ]
 
 [build-system]
