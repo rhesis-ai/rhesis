@@ -26,6 +26,7 @@ from rhesis.penelope.prompts.system.system_assembly_jinja import (
 from rhesis.penelope.prompts.tools import (
     ANALYZE_TOOL_DESCRIPTION,
     EXTRACT_TOOL_DESCRIPTION,
+    TARGET_INTERACTION_TOOL_DESCRIPTION_TEMPLATE,
 )
 
 __all__ = [
@@ -50,4 +51,5 @@ __all__ = [
     # Tools
     "ANALYZE_TOOL_DESCRIPTION",
     "EXTRACT_TOOL_DESCRIPTION",
+    "TARGET_INTERACTION_TOOL_DESCRIPTION_TEMPLATE",
 ]
