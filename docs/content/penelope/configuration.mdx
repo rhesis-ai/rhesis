@@ -1,0 +1,245 @@
+# Configuration
+
+Penelope provides flexible configuration options for customizing agent behavior, model selection, and testing parameters.
+
+## Agent Configuration
+
+### Basic Configuration
+
+```python
+from rhesis.sdk.models import AnthropicLLM
+from rhesis.penelope import PenelopeAgent
+
+agent = PenelopeAgent(
+    model=AnthropicLLM(),        # Optional: defaults to Vertex AI / gemini-2.0-flash-exp
+    
+    # Stopping conditions
+    max_iterations=20,           # Optional: defaults to 10
+    timeout_seconds=300,         # Optional: no timeout by default
+    
+    # Transparency (Anthropic principle)
+    enable_transparency=True,    # Show reasoning at each step
+    verbose=True,                # Print execution details
+    
+    # Custom tools
+    tools=[CustomTool1(), CustomTool2()],
+)
+```
+
+## Model Configuration
+
+### Default Model
+
+Penelope uses **Vertex AI with Gemini 2.0 Flash Experimental** by default. You can configure the default model used by all agents:
+
+<Tabs items={['Environment Variables', 'Programmatic']}>
+  <Tabs.Tab>
+    ```bash
+    export PENELOPE_DEFAULT_MODEL=anthropic
+    export PENELOPE_DEFAULT_MODEL_NAME=claude-4
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```python
+    from rhesis.penelope import PenelopeConfig
+
+    # Set default model
+    PenelopeConfig.set_default_model("anthropic", "claude-4")
+
+    # Now all agents created without explicit model will use this
+    agent = PenelopeAgent()  # Uses anthropic/claude-4
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+### Supported Providers
+
+Penelope works with any model from the Rhesis SDK:
+
+```python
+from rhesis.sdk.models import (
+    AnthropicLLM,
+    OpenAILLM,
+    GeminiLLM,
+    VertexAILLM,
+    OllamaLLM,
+    RhesisLLM,  # Native Rhesis models
+)
+
+# Use any provider
+agent = PenelopeAgent(model=AnthropicLLM(model_name="claude-4"))
+agent = PenelopeAgent(model=OpenAILLM(model_name="gpt-4"))
+agent = PenelopeAgent(model=GeminiLLM(model_name="gemini-pro"))
+agent = PenelopeAgent(model=OllamaLLM(model_name="llama2"))
+```
+
+Available providers:
+- `vertex_ai` - Google Vertex AI (default)
+- `anthropic` - Anthropic Claude
+- `openai` - OpenAI GPT
+- `gemini` - Google Gemini
+- `ollama` - Local Ollama models
+- And more... (see [SDK documentation](/sdk/models))
+
+## Max Iterations Configuration
+
+Control how many turns Penelope can execute before stopping.
+
+### Default Configuration
+
+Penelope defaults to **10 maximum iterations**. Configure this default:
+
+<Tabs items={['Environment Variable', 'Programmatic', 'Per Agent']}>
+  <Tabs.Tab>
+    ```bash
+    export PENELOPE_DEFAULT_MAX_ITERATIONS=20
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```python
+    from rhesis.penelope import PenelopeConfig
+
+    # Set default for all future agents
+    PenelopeConfig.set_default_max_iterations(20)
+
+    # Now all agents without explicit max_iterations use this
+    agent = PenelopeAgent()  # Uses 20 max iterations
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```python
+    # Explicit max_iterations overrides any defaults
+    agent = PenelopeAgent(max_iterations=30)
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+<Callout type="info">
+  **Choosing Max Iterations:** Start with 10 for simple tests. Increase to 20-30 for complex multi-turn scenarios or exploratory testing.
+</Callout>
+
+## Test Execution Parameters
+
+Configure individual test executions:
+
+```python
+result = agent.execute_test(
+    target=target,                    # Required: Target to test
+    goal="...",                       # Required: What to achieve
+    
+    # Optional parameters
+    instructions="...",               # How to test (smart defaults if omitted)
+    scenario="...",                   # Narrative context/persona
+    context={...},                    # Resources & metadata
+    max_turns=20,                     # Override agent's max_iterations
+)
+```
+
+### Parameter Details
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `target` | `Target` | Yes | The system under test (Endpoint, LangChain app, etc.) |
+| `goal` | `str` | Yes | What the test should achieve |
+| `instructions` | `str` | No | Specific testing methodology (Penelope plans if omitted) |
+| `scenario` | `str` | No | Narrative context or persona for testing |
+| `context` | `dict` | No | Additional resources, expected behaviors, domain knowledge |
+| `max_turns` | `int` | No | Override agent's max_iterations for this test |
+
+## Transparency and Debugging
+
+Enable detailed logging to understand Penelope's reasoning:
+
+```python
+agent = PenelopeAgent(
+    model=model,
+    enable_transparency=True,  # Show reasoning at each step
+    verbose=True,              # Print execution details
+)
+```
+
+**When to enable:**
+- During test development
+- Debugging failed tests
+- Understanding Penelope's decision-making
+- Validating test quality
+
+**When to disable:**
+- Production test runs
+- Batch testing
+- When output is too verbose
+
+## Stopping Conditions
+
+Penelope stops when any of these conditions are met:
+
+### Goal Achieved
+
+LLM evaluates if the test goal has been accomplished.
+
+```python
+# Automatically checked after each turn
+# When goal is achieved, test stops successfully
+```
+
+### Max Iterations
+
+Prevent infinite loops with maximum turn limit.
+
+```python
+agent = PenelopeAgent(max_iterations=20)
+
+# Or per-test override
+result = agent.execute_test(target=target, goal="...", max_turns=30)
+```
+
+### Timeout
+
+Set a maximum wall-clock time for test execution.
+
+```python
+agent = PenelopeAgent(
+    timeout_seconds=300  # 5 minutes max
+)
+```
+
+<Callout type="warning">
+  **Note:** Timeout stops the test immediately, potentially mid-turn. Use max_iterations for predictable stopping.
+</Callout>
+
+## Environment Variables
+
+Complete list of supported environment variables:
+
+```bash
+# Model Configuration
+export PENELOPE_DEFAULT_MODEL=vertex_ai
+export PENELOPE_DEFAULT_MODEL_NAME=gemini-2.0-flash-exp
+
+# Iteration Control
+export PENELOPE_DEFAULT_MAX_ITERATIONS=10
+
+# Logging (from rhesis.penelope.config)
+export PENELOPE_LOG_LEVEL=INFO
+
+# SDK Configuration (see SDK docs)
+export RHESIS_API_KEY=your-api-key
+export RHESIS_BASE_URL=https://api.rhesis.ai
+```
+
+## Reset Configuration
+
+Reset all configuration to defaults:
+
+```python
+from rhesis.penelope import PenelopeConfig
+
+PenelopeConfig.reset()
+```
+
+---
+
+<Callout type="default">
+  **Next Steps** - Explore [Custom Tools](/penelope/custom-tools) for extending Penelope - Understand the [Architecture](/penelope/architecture) for advanced use cases - Check out [Use Cases](/penelope/use-cases) for practical examples
+</Callout>
+
