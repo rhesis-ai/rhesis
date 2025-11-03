@@ -61,9 +61,10 @@ instructions = DEFAULT_INSTRUCTIONS_TEMPLATE.render(
 
 # Complex assembly
 system_prompt = get_system_prompt(
-    instructions="Test the chatbot",
-    goal="Verify behavior",
-    context="Additional context",
+    instructions="Test the chatbot's refund handling by asking about policies, then requesting a refund",  # HOW to test
+    goal="Verify chatbot provides accurate refund policy and processes requests correctly",  # WHAT to achieve
+    scenario="Frustrated customer seeking refund",  # Optional: test persona/context
+    context="Refund policy: 30 days, original payment method",  # Optional: reference information
     available_tools="tool1, tool2"
 )
 ```

@@ -22,10 +22,10 @@ def get_system_prompt(
     a comprehensive system prompt that guides Penelope's behavior.
 
     Args:
-        instructions: Specific instructions for this test
-        goal: Success criteria for the test
+        instructions: HOW to conduct the test - testing methodology and approach
+        goal: WHAT to achieve - test success criteria
         scenario: Optional narrative context or persona description
-        context: Additional context or resources
+        context: Additional context or resources (documentation, data, etc.)
         available_tools: Description of available tools
 
     Returns:
