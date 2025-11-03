@@ -237,11 +237,12 @@ async def generate_tests_endpoint(
     """
     try:
         prompt = request.prompt
+        prompt["rated_samples"] = request.rated_samples
+        prompt["previous_messages"] = request.previous_messages
         num_tests = request.num_tests
         sources = request.sources
+        # chips states would be ignored for now
         chip_states = request.chip_states
-        rated_samples = request.rated_samples
-        previous_messages = request.previous_messages
 
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
@@ -264,9 +265,6 @@ async def generate_tests_endpoint(
             prompt,
             num_tests,
             sources_sdk,
-            chip_states=chip_states,
-            rated_samples=rated_samples,
-            previous_messages=previous_messages,
         )
         return {"tests": test_cases}
     except Exception as e:
