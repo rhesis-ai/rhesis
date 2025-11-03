@@ -11,7 +11,6 @@ from rhesis.backend.app.schemas.services import SourceData
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.sdk.synthesizers import (
     ConfigSynthesizer,
-    DocumentSynthesizer,
     GenerationConfig,
 )
 from rhesis.sdk.types import Document
@@ -96,13 +95,10 @@ def process_sources_to_documents(
 async def generate_tests(
     db: Session,
     user: User,
-    prompt: Dict,
+    config: Dict,
     num_tests: int = 5,
     documents: Optional[List[Document]] = None,
-    chip_states: Optional[List[Dict]] = None,
-    rated_samples: Optional[List[Dict]] = None,
-    previous_messages: Optional[List[Dict]] = None,
-) -> Dict:
+) -> List[Dict]:
     """
     Generate tests using the appropriate synthesizer based on input.
     Uses user's configured default model if available,
@@ -133,31 +129,12 @@ async def generate_tests(
     model = get_user_generation_model(db, user)
 
     # Choose synthesizer based on whether documents are provided
-    config = GenerationConfig(**prompt)
-    if documents:
-        # For DocumentSynthesizer, we need a simple prompt string
-        # The detailed config is passed via the config parameter
-        prompt_string = str(
-            prompt.get("specific_requirements") or prompt.get("test_type", "Generate test cases")
-        )
-        synthesizer = DocumentSynthesizer(
-            prompt=prompt_string,
-            model=model,
-            config=config,
-            chip_states=chip_states,
-            rated_samples=rated_samples,
-            previous_messages=previous_messages,
-        )
-        generate_func = partial(synthesizer.generate, documents=documents, num_tests=num_tests)
-    else:
-        synthesizer = ConfigSynthesizer(
-            config=config,
-            model=model,
-            chip_states=chip_states,
-            rated_samples=rated_samples,
-            previous_messages=previous_messages,
-        )
-        generate_func = partial(synthesizer.generate, num_tests=num_tests)
+    generation_config = GenerationConfig(**config)
+    synthesizer = ConfigSynthesizer(
+        config=generation_config,
+        model=model,
+    )
+    generate_func = partial(synthesizer.generate, num_tests=num_tests)
 
     # Run the potentially blocking operation in a separate thread
     # to avoid blocking the event loop
