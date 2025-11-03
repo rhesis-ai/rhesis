@@ -1,0 +1,140 @@
+# Quick Start
+
+Get started with Penelope in minutes. This guide shows you how to run your first multi-turn test.
+
+## Simple Test (Goal Only)
+
+For straightforward tests, just specify the goal and Penelope will plan its own approach:
+
+```python
+from rhesis.penelope import PenelopeAgent, EndpointTarget
+
+# Initialize Penelope with defaults (Vertex AI / gemini-2.0-flash-exp, 10 max iterations)
+agent = PenelopeAgent()
+
+# Create target - loads endpoint configuration from Rhesis platform
+target = EndpointTarget(endpoint_id="my-chatbot-prod")
+
+# Execute a simple test - Penelope plans its own approach
+result = agent.execute_test(
+    target=target,
+    goal="Verify chatbot can answer 3 questions about insurance policies while maintaining context",
+)
+
+print(f"Goal achieved: {result.goal_achieved}")
+print(f"Turns used: {result.turns_used}")
+```
+
+## Detailed Test (Goal + Instructions)
+
+For complex tests, provide specific instructions and optional scenario for testing methodology:
+
+```python
+# Execute a detailed test with specific testing strategy
+result = agent.execute_test(
+    target=target,
+    goal="""
+    The chatbot should:
+    1. Answer the initial question correctly
+    2. Maintain context across 3+ follow-up questions
+    3. Provide consistent information throughout
+    4. Handle clarifications naturally
+    """,
+    instructions="""
+    Test the chatbot's ability to handle insurance policy questions:
+    1. Start with a basic coverage question
+    2. Ask follow-ups that reference previous answers (use pronouns like "it", "that")
+    3. Request clarification on specific points
+    4. Verify consistency across all answers
+    """,
+    scenario="You are a confused customer trying to understand your insurance coverage",
+    context={
+        "policy_info": "Standard policy covers medical, surgical, and preventive care",
+        "expected_behavior": "Professional, helpful tone",
+    }
+)
+
+# Check results
+print(f"Goal achieved: {result.goal_achieved}")
+print(f"Turns used: {result.turns_used}")
+print(f"Findings: {result.findings}")
+
+# Access full conversation history
+for turn in result.history:
+    print(f"Turn {turn.turn_number}: {turn.reasoning}")
+```
+
+## When to Use Each Approach
+
+<Callout type="info">
+**Use goal-only (simple)** for:
+- Straightforward capability tests
+- Exploratory testing
+- Basic conversation quality checks
+
+**Use goal + instructions (detailed)** for:
+- Security testing with specific attack patterns
+- Compliance verification with exact steps
+- A/B testing different approaches to same goal
+- Complex multi-phase testing scenarios
+</Callout>
+
+## Custom Model Configuration
+
+Penelope uses Vertex AI with Gemini 2.0 Flash Experimental by default. You can customize the model:
+
+```python
+from rhesis.sdk.models import AnthropicLLM
+from rhesis.penelope import PenelopeAgent
+
+# Use a specific model
+agent = PenelopeAgent(
+    model=AnthropicLLM(model_name="claude-4"),
+    max_iterations=20,
+)
+```
+
+Or set defaults:
+
+```python
+from rhesis.penelope import PenelopeConfig
+
+# Set default for all future agents
+PenelopeConfig.set_default_model("anthropic", "claude-4")
+PenelopeConfig.set_default_max_iterations(20)
+
+# Now all agents without explicit config use these defaults
+agent = PenelopeAgent()  # Uses anthropic/claude-4 with 20 max iterations
+```
+
+## Understanding Test Results
+
+The `TestResult` object provides comprehensive information:
+
+```python
+result = agent.execute_test(...)
+
+# Status information
+print(f"Status: {result.status}")
+print(f"Goal achieved: {result.goal_achieved}")
+print(f"Turns used: {result.turns_used}")
+print(f"Duration: {result.duration_seconds}s")
+
+# Key findings
+for finding in result.findings:
+    print(f"- {finding}")
+
+# Full conversation history
+for turn in result.history:
+    print(f"\nTurn {turn.turn_number}:")
+    print(f"  Reasoning: {turn.reasoning}")
+    print(f"  Action: {turn.action}")
+    print(f"  Result: {turn.action_output}")
+```
+
+---
+
+<Callout type="default">
+  **Next Steps** - Explore [Use Cases](/penelope/use-cases) for real-world testing scenarios - Learn about [Configuration](/penelope/configuration) options for advanced setup - Understand Penelope's [Architecture](/penelope/architecture)
+</Callout>
+
