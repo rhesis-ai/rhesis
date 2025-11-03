@@ -10,12 +10,12 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from rhesis.penelope.schemas import AssistantMessage, ToolMessage
 
 
-class TestStatus(str, Enum):
+class ExecutionStatus(str, Enum):
     """Status of a test execution."""
 
     IN_PROGRESS = "in_progress"
@@ -58,8 +58,10 @@ class Turn(BaseModel):
         default=None, description="Evaluation of progress after this turn"
     )
 
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat()}
+    @field_serializer('timestamp')
+    def serialize_timestamp(self, timestamp: datetime, _info):
+        """Serialize datetime to ISO format string."""
+        return timestamp.isoformat()
 
     @property
     def tool_name(self) -> str:
@@ -92,7 +94,7 @@ class Turn(BaseModel):
 class TestResult(BaseModel):
     """Result of a test execution."""
 
-    status: TestStatus = Field(description="Final status of the test")
+    status: ExecutionStatus = Field(description="Final status of the test")
     goal_achieved: bool = Field(description="Whether the test goal was achieved")
     turns_used: int = Field(description="Number of turns executed")
     findings: List[str] = Field(default_factory=list, description="Key findings from the test")
@@ -110,8 +112,10 @@ class TestResult(BaseModel):
             return (self.end_time - self.start_time).total_seconds()
         return None
 
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat()}
+    @field_serializer('start_time', 'end_time', when_used='json')
+    def serialize_datetime(self, dt: Optional[datetime], _info):
+        """Serialize datetime to ISO format string."""
+        return dt.isoformat() if dt else None
 
 
 class GoalProgress(BaseModel):
@@ -247,7 +251,7 @@ class TestState:
             messages.append(turn.tool_message)
         return messages
 
-    def to_result(self, status: TestStatus, goal_achieved: bool) -> TestResult:
+    def to_result(self, status: ExecutionStatus, goal_achieved: bool) -> TestResult:
         """
         Convert the current state to a TestResult.
 

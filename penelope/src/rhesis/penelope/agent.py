@@ -11,11 +11,11 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from rhesis.penelope.context import (
+    ExecutionStatus,
     GoalProgress,
     TestContext,
     TestResult,
     TestState,
-    TestStatus,
     Turn,
 )
 from rhesis.penelope.prompts import (
@@ -680,16 +680,16 @@ class PenelopeAgent:
 
                 # Determine status
                 if "goal achieved" in reason.lower():
-                    status = TestStatus.SUCCESS
+                    status = ExecutionStatus.SUCCESS
                     goal_achieved = True
                 elif "timeout" in reason.lower():
-                    status = TestStatus.TIMEOUT
+                    status = ExecutionStatus.TIMEOUT
                     goal_achieved = False
                 elif "max iterations" in reason.lower():
-                    status = TestStatus.MAX_ITERATIONS
+                    status = ExecutionStatus.MAX_ITERATIONS
                     goal_achieved = False
                 else:
-                    status = TestStatus.FAILURE
+                    status = ExecutionStatus.FAILURE
                     goal_achieved = False
 
                 result = state.to_result(status, goal_achieved)
@@ -704,7 +704,7 @@ class PenelopeAgent:
 
             if not success:
                 # Turn execution failed
-                result = state.to_result(TestStatus.ERROR, False)
+                result = state.to_result(ExecutionStatus.ERROR, False)
 
                 if self.verbose:
                     display_test_result(result)

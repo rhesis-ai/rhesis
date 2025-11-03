@@ -10,7 +10,7 @@ for maximum LLM provider compatibility.
 
 from typing import List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # Standard Message Format (OpenAI-compatible)
 
@@ -43,8 +43,7 @@ class AssistantMessage(BaseModel):
         default=None, description="Tool calls made in this message"
     )
 
-    class Config:
-        extra = "allow"  # Allow additional fields for provider-specific extensions
+    model_config = ConfigDict(extra="allow")  # Allow additional fields for provider-specific extensions
 
 
 class ToolMessage(BaseModel):
@@ -59,8 +58,7 @@ class ToolMessage(BaseModel):
     name: str = Field(description="The name of the tool that was called")
     content: str = Field(description="The result of the tool call, as a string")
 
-    class Config:
-        extra = "allow"  # Allow additional fields for provider-specific extensions
+    model_config = ConfigDict(extra="allow")  # Allow additional fields for provider-specific extensions
 
 
 # Tool Parameter Schemas
@@ -167,8 +165,8 @@ class ToolCall(BaseModel):
         )
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "description": (
                 "Every tool call MUST include properly structured parameters "
                 "matching the tool type."
@@ -211,3 +209,4 @@ class ToolCall(BaseModel):
                 },
             ],
         }
+    )

@@ -8,7 +8,7 @@ Supports both simple Python string formatting and advanced Jinja2 templates.
 from enum import Enum
 from typing import Any, Dict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TemplateFormat(str, Enum):
@@ -133,7 +133,4 @@ class PromptTemplate(BaseModel):
             f"format='{self.format.value}')"
         )
 
-    class Config:
-        """Pydantic configuration."""
-
-        frozen = False  # Allow modification if needed
+    model_config = ConfigDict(frozen=False)  # Allow modification if needed
