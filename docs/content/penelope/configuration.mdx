@@ -32,26 +32,24 @@ agent = PenelopeAgent(
 
 Penelope uses **Vertex AI with Gemini 2.0 Flash Experimental** by default. You can configure the default model used by all agents:
 
-<Tabs items={['Environment Variables', 'Programmatic']}>
-  <Tabs.Tab>
-    ```bash
-    export PENELOPE_DEFAULT_MODEL=anthropic
-    export PENELOPE_DEFAULT_MODEL_NAME=claude-4
-    ```
-  </Tabs.Tab>
-  <Tabs.Tab>
-    ```python
-    from rhesis.penelope import PenelopeConfig
+**Option 1: Environment Variables**
 
-    # Set default model
-    PenelopeConfig.set_default_model("anthropic", "claude-4")
+```bash
+export PENELOPE_DEFAULT_MODEL=anthropic
+export PENELOPE_DEFAULT_MODEL_NAME=claude-4
+```
 
-    # Now all agents created without explicit model will use this
-    agent = PenelopeAgent()  # Uses anthropic/claude-4
-    ```
+**Option 2: Programmatic Configuration**
 
-  </Tabs.Tab>
-</Tabs>
+```python
+from rhesis.penelope import PenelopeConfig
+
+# Set default model
+PenelopeConfig.set_default_model("anthropic", "claude-4")
+
+# Now all agents created without explicit model will use this
+agent = PenelopeAgent()  # Uses anthropic/claude-4
+```
 
 ### Supported Providers
 
@@ -91,31 +89,30 @@ Control how many turns Penelope can execute before stopping.
 
 Penelope defaults to **10 maximum iterations**. Configure this default:
 
-<Tabs items={['Environment Variable', 'Programmatic', 'Per Agent']}>
-  <Tabs.Tab>
-    ```bash
-    export PENELOPE_DEFAULT_MAX_ITERATIONS=20
-    ```
-  </Tabs.Tab>
-  <Tabs.Tab>
-    ```python
-    from rhesis.penelope import PenelopeConfig
+**Option 1: Environment Variable**
 
-    # Set default for all future agents
-    PenelopeConfig.set_default_max_iterations(20)
+```bash
+export PENELOPE_DEFAULT_MAX_ITERATIONS=20
+```
 
-    # Now all agents without explicit max_iterations use this
-    agent = PenelopeAgent()  # Uses 20 max iterations
-    ```
+**Option 2: Programmatic Configuration**
 
-  </Tabs.Tab>
-  <Tabs.Tab>
-    ```python
-    # Explicit max_iterations overrides any defaults
-    agent = PenelopeAgent(max_iterations=30)
-    ```
-  </Tabs.Tab>
-</Tabs>
+```python
+from rhesis.penelope import PenelopeConfig
+
+# Set default for all future agents
+PenelopeConfig.set_default_max_iterations(20)
+
+# Now all agents without explicit max_iterations use this
+agent = PenelopeAgent()  # Uses 20 max iterations
+```
+
+**Option 3: Per Agent Override**
+
+```python
+# Explicit max_iterations overrides any defaults
+agent = PenelopeAgent(max_iterations=30)
+```
 
 <Callout type="info">
   **Choosing Max Iterations:** Start with 10 for simple tests. Increase to 20-30
