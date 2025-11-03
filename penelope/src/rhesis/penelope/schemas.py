@@ -43,7 +43,9 @@ class AssistantMessage(BaseModel):
         default=None, description="Tool calls made in this message"
     )
 
-    model_config = ConfigDict(extra="allow")  # Allow additional fields for provider-specific extensions
+    model_config = ConfigDict(
+        extra="allow"
+    )  # Allow additional fields for provider-specific extensions
 
 
 class ToolMessage(BaseModel):
@@ -58,7 +60,9 @@ class ToolMessage(BaseModel):
     name: str = Field(description="The name of the tool that was called")
     content: str = Field(description="The result of the tool call, as a string")
 
-    model_config = ConfigDict(extra="allow")  # Allow additional fields for provider-specific extensions
+    model_config = ConfigDict(
+        extra="allow"
+    )  # Allow additional fields for provider-specific extensions
 
 
 # Tool Parameter Schemas
