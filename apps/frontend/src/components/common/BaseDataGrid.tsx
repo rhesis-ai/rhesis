@@ -42,6 +42,7 @@ import {
   GridToolbarQuickFilter,
   useGridApiRef,
   GridFilterModel,
+  GridSortModel,
 } from '@mui/x-data-grid';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -115,6 +116,10 @@ interface BaseDataGridProps {
   serverSideFiltering?: boolean;
   filterModel?: GridFilterModel;
   onFilterModelChange?: (model: GridFilterModel) => void;
+  // Server-side sorting props
+  sortingMode?: 'client' | 'server';
+  sortModel?: GridSortModel;
+  onSortModelChange?: (model: GridSortModel) => void;
   // Link related props
   linkPath?: string;
   linkField?: string;
@@ -184,6 +189,9 @@ export default function BaseDataGrid({
   serverSideFiltering = false,
   filterModel,
   onFilterModelChange,
+  sortingMode = 'client',
+  sortModel,
+  onSortModelChange,
   linkPath,
   linkField = 'id',
   serverSidePagination = false,
@@ -677,6 +685,11 @@ export default function BaseDataGrid({
             onFilterModelChange,
             slots: { toolbar: CustomToolbarWithFilters },
           })}
+          {...(sortingMode === 'server' && {
+            sortingMode: 'server',
+            sortModel,
+            onSortModelChange,
+          })}
           {...(enableQuickFilter &&
             !serverSideFiltering && {
               slots: { toolbar: CustomToolbar },
@@ -735,6 +748,11 @@ export default function BaseDataGrid({
               filterModel,
               onFilterModelChange,
               slots: { toolbar: CustomToolbarWithFilters },
+            })}
+            {...(sortingMode === 'server' && {
+              sortingMode: 'server',
+              sortModel,
+              onSortModelChange,
             })}
             {...(enableQuickFilter &&
               !serverSideFiltering && {

@@ -23,9 +23,9 @@ Thank you for your interest in contributing to Rhesis! This document provides **
 
 This is the **general contributing guide** for the Rhesis monorepo. Each component has its own detailed contributing guide:
 
-- 📦 **[SDK Contributing Guide](sdk/CONTRIBUTING.md)** 
-- 🔙 **[Backend Contributing Guide](apps/backend/CONTRIBUTING.md)** 
-- 🎨 **[Frontend Contributing Guide](apps/frontend/CONTRIBUTING.md)** 
+- 📦 **[SDK Contributing Guide](sdk/CONTRIBUTING.md)**
+- 🔙 **[Backend Contributing Guide](apps/backend/CONTRIBUTING.md)**
+- 🎨 **[Frontend Contributing Guide](apps/frontend/CONTRIBUTING.md)**
 
 **Please read this general guide first, then read the specific guide for the component you're contributing to.**
 
@@ -68,13 +68,13 @@ libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
 <a id="python-environment-setup"></a>
 ## 🐍 Python Environment Setup
 
-Both backend and SDK use Python as the primary language. We utilize the `uv` tool for Python version and package management. UV is a fast Python package installer and resolver that handles dependency management and virtual environments efficiently. 
+Both backend and SDK use Python as the primary language. We utilize the `uv` tool for Python version and package management. UV is a fast Python package installer and resolver that handles dependency management and virtual environments efficiently.
 
 UV is our recommended solution for all development tasks. While it differs from traditional package managers, it offers superior performance and ease of use. For comprehensive information, refer to the [uv documentation](https://docs.astral.sh/uv/).
 
 
 ### 🍎 macOS UV Installation
-**Prerequisites**: Ensure you have [Homebrew](https://brew.sh/) and Xcode Command Line Tools installed. Install Xcode Command Line Tools using `xcode-select --install` 
+**Prerequisites**: Ensure you have [Homebrew](https://brew.sh/) and Xcode Command Line Tools installed. Install Xcode Command Line Tools using `xcode-select --install`
 ```bash
 # Install UV via Homebrew (recommended)
 brew install uv
@@ -115,7 +115,7 @@ uv --version
 - 🏷️ Use descriptive variable and function names
 
 **Follow language-specific style guides:**
-- 🐍 **Python**: We adhere to PEP 8 standards and utilize [Ruff](https://docs.astral.sh/ruff/) for both 
+- 🐍 **Python**: We adhere to PEP 8 standards and utilize [Ruff](https://docs.astral.sh/ruff/) for both
 formatting and linting.
 - 🟨 **JavaScript/TypeScript**: We use ESLint for linting
 
@@ -147,19 +147,30 @@ Available targets include:
 - `make all` &mdash; Runs all checks (format_diff, lint_diff, test)
 
 
-> **ℹ️ Note:**  
-> You must execute all `make` commands from within either the `apps/backend/` or `sdk/` directories.  
+> **ℹ️ Note:**
+> You must execute all `make` commands from within either the `apps/backend/` or `sdk/` directories.
 > Running `make` from the repository root directory is **not supported** and will not work as expected.
 
 
 ### 📝 Pre-commit Hooks
-We implement pre-commit hooks to automatically execute formatting and linting scripts before each commit. 
+We implement pre-commit hooks to automatically execute formatting and linting scripts before each commit.
+It also checks for secrets in the code using TruffleHog.
+
+Before installing the pre-commit hooks, you need to install TruffleHog:
+```bash
+# Install TruffleHog on macOS
+brew install trufflehog
+# Install TruffleHog on Linux
+curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+```
+
+
 Installation requires the following command:
 ```bash
 uvx pre-commit install
 ```
 
-On every commit, pre-commit hooks automatically run Ruff formatting and linting on modified files. 
+On every commit, pre-commit hooks automatically run Ruff formatting and linting on modified files.
 When issues are detected, the system attempts automatic resolution. Unresolved issues appear in the commit message and require manual attention. To proceed with the commit, resolve all issues and stage the modified files using the `git add` command. You can then retry the commit or manually execute checks using `make format` and `make lint` commands.
 
 
@@ -171,7 +182,7 @@ git commit --no-verify
 To remove pre-commit hooks, execute:
 ```bash
 uvx pre-commit uninstall
-```   
+```
 
 
 
@@ -233,7 +244,7 @@ git push origin feature/your-feature-name
 6. **Generate a Pull Request** using our automated PR tool:
 ```bash
 # Navigate to the repository root first
-cd <repo_root>  
+cd <repo_root>
 
 # Then create the PR
 .github/pr
@@ -311,7 +322,7 @@ gh auth login
 
 #### 📝 `create-pr.sh`
 
-An intelligent script that automates the creation of pull requests by analyzing your current branch and generating meaningful titles and descriptions. 
+An intelligent script that automates the creation of pull requests by analyzing your current branch and generating meaningful titles and descriptions.
 
 **🔍 Enhanced Features**
 The script now includes smart detection and update capabilities:
@@ -596,4 +607,4 @@ If you have questions or need help with the contribution process:
 - Create an issue in the repository
 - Check our [documentation](https://docs.rhesis.ai)
 
-Thank you for contributing to Rhesis! 🎉 
+Thank you for contributing to Rhesis! 🎉

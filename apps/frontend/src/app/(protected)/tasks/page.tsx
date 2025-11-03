@@ -65,7 +65,6 @@ export default function TasksPage() {
         <TasksGrid
           sessionToken={session.session_token}
           onRefresh={handleRefresh}
-          key={`grid-${refreshKey}`}
         />
       </Paper>
     </PageContainer>

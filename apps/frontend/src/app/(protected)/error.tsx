@@ -51,10 +51,32 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
   const deletedEntityData = useMemo(() => getDeletedEntityData(error), [error]);
 
   useEffect(() => {
-    // TODO: Send to error tracking service in production
-    // if (process.env.NODE_ENV === 'production') {
-    //   reportErrorToService(error);
-    // }
+    // Use different log levels for expected vs unexpected states
+    if (notFoundEntityData) {
+      console.warn('Entity not found:', {
+        entity: notFoundEntityData.model_name,
+        id: notFoundEntityData.item_id,
+        message: notFoundEntityData.message,
+      });
+    } else if (deletedEntityData) {
+      console.warn('Deleted entity accessed:', {
+        entity: deletedEntityData.model_name,
+        id: deletedEntityData.item_id,
+        message: deletedEntityData.message,
+      });
+    } else {
+      console.error('Protected route error:', {
+        message: error.message,
+        status: error.status,
+        digest: error.digest,
+        stack: error.stack,
+      });
+
+      // TODO: Send to error tracking service in production
+      // if (process.env.FRONTEND_ENV === 'production') {
+      //   reportErrorToService(error);
+      // }
+    }
   }, [error, notFoundEntityData, deletedEntityData]);
 
   // Get current pathname and parse segments (reactive to navigation changes)
@@ -188,7 +210,7 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
             </Typography>
 
             {/* Show error digest in development for debugging */}
-            {process.env.NODE_ENV === 'development' && error.digest && (
+            {process.env.FRONTEND_ENV === 'development' && error.digest && (
               <Alert severity="info">
                 <Typography variant="caption" component="div">
                   <strong>Error Digest:</strong> {error.digest}

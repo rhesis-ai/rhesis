@@ -18,9 +18,17 @@ import {
   ListItemIcon,
   ListItemText,
   Chip,
+  Alert,
+  Snackbar,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import {
+  Endpoint,
+  EndpointEditData,
+} from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import {
   EditIcon,
@@ -47,6 +55,9 @@ import {
   SchoolIcon,
   ScienceIcon,
   AccountTreeIcon,
+  VisibilityIcon,
+  VisibilityOffIcon,
+  LockIcon,
 } from '@/components/icons';
 import { LoadingButton } from '@mui/lab';
 import { updateEndpoint, invokeEndpoint } from '@/actions/endpoints';
@@ -129,11 +140,6 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-const editorWrapperStyle = {
-  border: '1px solid rgba(0, 0, 0, 0.23)',
-  borderRadius: '4px',
-};
-
 interface EndpointDetailProps {
   endpoint: Endpoint;
 }
@@ -148,9 +154,10 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        border: '1px solid rgba(0, 0, 0, 0.23)',
-        borderRadius: '4px',
-        backgroundColor: 'action.hover',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: theme => theme.shape.borderRadius,
+        backgroundColor: 'background.default',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -166,11 +173,51 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 export default function EndpointDetail({
   endpoint: initialEndpoint,
 }: EndpointDetailProps) {
+  const theme = useTheme();
   const [endpoint, setEndpoint] = useState<Endpoint>(initialEndpoint);
   const [currentTab, setCurrentTab] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedValues, setEditedValues] = useState<Partial<Endpoint>>({});
+  const [editedValues, setEditedValues] = useState<EndpointEditData>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [showAuthToken, setShowAuthToken] = useState(false);
+  const [tokenFieldFocused, setTokenFieldFocused] = useState(false);
+
+  // Determine editor theme based on MUI theme
+  const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
+
+  // Theme-aware editor wrapper style
+  const editorWrapperStyle = {
+    border: 1,
+    borderColor: 'divider',
+    borderRadius: theme.shape.borderRadius,
+    '&:hover': {
+      borderColor: 'text.primary',
+    },
+    '&:focus-within': {
+      borderWidth: 2,
+      borderColor: 'primary.main',
+      margin: '-1px',
+    },
+  };
+
+  // Auto-enable edit mode when user starts typing
+  const autoEnableEditMode = () => {
+    if (!isEditing) {
+      setIsEditing(true);
+    }
+  };
+
+  // Check if endpoint has an existing token (we assume it does if this is an existing endpoint)
+  const hasExistingToken = !!endpoint.id;
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
   const [testResponse, setTestResponse] = useState<string>('');
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
   const [testInput, setTestInput] = useState<string>(`{
@@ -234,17 +281,26 @@ export default function EndpointDetail({
   const handleCancel = () => {
     setIsEditing(false);
     setEditedValues({});
+    setTokenFieldFocused(false); // Reset token field state
   };
 
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const result = await updateEndpoint(endpoint.id, editedValues);
+
+      // Clean up the payload: remove auth_token if it's empty (to keep existing token)
+      const payload = { ...editedValues };
+      if (payload.auth_token === '') {
+        delete payload.auth_token;
+      }
+
+      const result = await updateEndpoint(endpoint.id, payload);
 
       if (result.success) {
         setEndpoint({ ...endpoint, ...editedValues });
         setIsEditing(false);
         setEditedValues({});
+        setTokenFieldFocused(false); // Reset token field state
         notifications.show('Endpoint updated successfully', {
           severity: 'success',
         });
@@ -261,17 +317,19 @@ export default function EndpointDetail({
     }
   };
 
-  const handleChange = (field: keyof Endpoint, value: unknown) => {
+  const handleChange = (field: keyof EndpointEditData, value: any) => {
+    autoEnableEditMode();
     setEditedValues(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleJsonChange = (field: keyof Endpoint, value: string) => {
+  const handleJsonChange = (field: keyof EndpointEditData, value: string) => {
+    autoEnableEditMode();
     try {
       const parsedValue = JSON.parse(value);
-      handleChange(field, parsedValue);
+      setEditedValues(prev => ({ ...prev, [field]: parsedValue }));
     } catch {
       // Handle JSON parse error if needed
-      handleChange(field, value);
+      setEditedValues(prev => ({ ...prev, [field]: value }));
     }
   };
 
@@ -563,14 +621,103 @@ export default function EndpointDetail({
 
         <TabPanel value={currentTab} index={1}>
           <Grid container spacing={2}>
+            {/* Authorization Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Request Headers
+                Authorization (Optional)
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Token will be encrypted and automatically included as{' '}
+                <code>Authorization: Bearer {'<token>'}</code>. Use{' '}
+                <code>{'{{ auth_token }}'}</code> placeholder in custom headers.
+              </Typography>
+
+              <TextField
+                fullWidth
+                label="API Token"
+                type={showAuthToken ? 'text' : 'password'}
+                value={
+                  editedValues.auth_token !== undefined
+                    ? editedValues.auth_token
+                    : hasExistingToken && !tokenFieldFocused
+                      ? '••••••••••••••••••••••••'
+                      : ''
+                }
+                onChange={e => {
+                  autoEnableEditMode();
+                  setEditedValues({
+                    ...editedValues,
+                    auth_token: e.target.value,
+                  });
+                }}
+                onFocus={() => {
+                  setTokenFieldFocused(true);
+                  if (editedValues.auth_token === undefined) {
+                    setEditedValues({ ...editedValues, auth_token: '' });
+                  }
+                }}
+                onBlur={() => {
+                  // If user didn't enter anything, revert to showing existing token indicator
+                  if (editedValues.auth_token === '') {
+                    setTokenFieldFocused(false);
+                    const newEditedValues = { ...editedValues };
+                    delete newEditedValues.auth_token;
+                    setEditedValues(newEditedValues);
+                  }
+                }}
+                placeholder={
+                  hasExistingToken
+                    ? 'Enter new token or leave empty to keep existing'
+                    : 'sk-...'
+                }
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle token visibility"
+                        onClick={() => setShowAuthToken(!showAuthToken)}
+                        edge="end"
+                      >
+                        {showAuthToken ? (
+                          <VisibilityOffIcon />
+                        ) : (
+                          <VisibilityIcon />
+                        )}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+                helperText={
+                  hasExistingToken
+                    ? 'Token is encrypted and stored securely. Enter a new token to update, or leave empty to keep existing.'
+                    : 'Token will be encrypted and stored securely.'
+                }
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Request Headers (Optional)
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Custom headers for your endpoint. Authorization and Content-Type
+                are automatically provided. Example:{' '}
+                <code>{`{
+  "x-api-key": "{{ auth_token }}",
+  "x-custom-header": "value"
+}`}</code>
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
+                  key={`request-headers-${editorTheme}`}
                   height="200px"
                   defaultLanguage="json"
+                  theme={editorTheme}
                   value={JSON.stringify(
                     isEditing
                       ? editedValues.request_headers
@@ -597,8 +744,10 @@ export default function EndpointDetail({
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
+                  key={`request-body-${editorTheme}`}
                   height="300px"
                   defaultLanguage="json"
+                  theme={editorTheme}
                   value={JSON.stringify(
                     isEditing
                       ? editedValues.request_body_template
@@ -629,8 +778,10 @@ export default function EndpointDetail({
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
+                  key={`response-mappings-${editorTheme}`}
                   height="200px"
                   defaultLanguage="json"
+                  theme={editorTheme}
                   value={JSON.stringify(
                     isEditing
                       ? editedValues.response_mappings
@@ -660,13 +811,15 @@ export default function EndpointDetail({
                 Test your endpoint configuration with sample data
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Enter sample JSON data that matches your request template
-                structure
+                Enter sample JSON data. It will be matched to your request
+                template and parsed using your response mappings.
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
+                  key={`test-input-${editorTheme}`}
                   height="200px"
                   defaultLanguage="json"
+                  theme={editorTheme}
                   value={testInput}
                   onChange={value => setTestInput(value || '')}
                   options={{
@@ -730,8 +883,10 @@ export default function EndpointDetail({
                 </Typography>
                 <Box sx={editorWrapperStyle}>
                   <Editor
+                    key={`test-response-${editorTheme}`}
                     height="200px"
                     defaultLanguage="json"
+                    theme={editorTheme}
                     value={testResponse}
                     options={{
                       readOnly: true,

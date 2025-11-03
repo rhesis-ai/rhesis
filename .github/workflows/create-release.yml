@@ -3,13 +3,13 @@ name: "[Release] 2. Create and deploy (stg)"
 on:
   workflow_dispatch:  # Allows manual triggering
   schedule:
-    # The time is in UTC. 
-    # 7:04 UTC = 09:04 CEST. 
-    # 8:04 UTC = 09:04 CET. 
+    # The time is in UTC.
+    # 6:50 UTC = 08:50 CEST.
+    # 7:50 UTC = 08:50 CET.
     # Need to be adjusted after the time change to CEST or CET.
     # The workflow is scheduled not to be on the full hour, because full hours are busy
     # for GitHub Actions and delays can be expected.
-    - cron: '4 8 * * 4' 
+    - cron: '50 7 * * 4'
 
 
 jobs:
@@ -31,7 +31,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ steps.generate-token.outputs.token }}
-        
+
       - name: Set up Git
         run: |
             git config user.name "rheo-app[bot]"
@@ -46,21 +46,7 @@ jobs:
             exit 1
           fi
           echo "release_config.json found"
-          
-      - name: Read release config
-        id: read-config
-        run: |
-          # Read JSON and extract bump values
-          PLATFORM_BUMP=$(jq -r '.platform // empty' release_config.json)
-          BACKEND_BUMP=$(jq -r '.backend // empty' release_config.json)
-          FRONTEND_BUMP=$(jq -r '.frontend // empty' release_config.json)
-          
-          # Set as environment variables for this step and subsequent steps
-          echo "PLATFORM_BUMP=$PLATFORM_BUMP" >> $GITHUB_ENV
-          echo "BACKEND_BUMP=$BACKEND_BUMP" >> $GITHUB_ENV
-          echo "FRONTEND_BUMP=$FRONTEND_BUMP" >> $GITHUB_ENV
-          
-        
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -70,42 +56,53 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
             version: latest
-          
+
       - name: Run release script
         run: |
           python3 .github/release --bump-config-file release_config.json
-          uv lock --project ./apps/backend 
-          
+          uv lock --project ./apps/backend
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Run Prettier to format frontend code
+        working-directory: apps/frontend
+        run: |
+          npx --yes prettier@^3 --version
+          npx --yes prettier@^3 --write .
+
       - name: Commit changes
         run: |
           rm -rf release_config.json
           git add .
           git commit -m "Prepare release"
-          
+
       - name: Push release branch
         run: |
           git push origin $(git branch --show-current)
-          
+
       - name: Create Pull Request
         run: |
           BRANCH_NAME=$(git branch --show-current)
-          
+
           # Check if version changes JSON file exists
           if [ ! -f "/tmp/version_changes.json" ]; then
             echo "Error: /tmp/version_changes.json not found. Cannot create PR without version changes."
             exit 1
           fi
-          
+
           # Extract version changes dynamically
           VERSION_CHANGES=$(jq -r 'to_entries | map("\(.key): \(.value)") | join(", ")' /tmp/version_changes.json)
-          
+
           # Create title with dynamic version changes
           PR_TITLE="Release: $VERSION_CHANGES"
-          
+
           # Create body with dynamic version changes
           PR_BODY="This PR contains the automated release changes for:
           $(jq -r 'to_entries | map("- \(.key | ascii_upcase): \(.value)") | join("\n")' /tmp/version_changes.json)
-          
+
 
           ## How the release process works
           1. The current pull request contains the version changes in the configuration files and changelogs
@@ -122,9 +119,9 @@ jobs:
           - Version files updated
           - Changelog updated
           - Release branch created
-          
+
           "
-          
+
           gh pr create --title "$PR_TITLE" \
             --body "$PR_BODY" \
             --base main \

@@ -1,7 +1,11 @@
 """User Settings Manager - Centralized access to user preferences and settings."""
 
 import uuid
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+# Avoid circular imports
+if TYPE_CHECKING:
+    from rhesis.backend.app.models.user import User
 
 
 class UserSettingsManager:
@@ -10,6 +14,9 @@ class UserSettingsManager:
 
     Provides a clean interface for working with user preferences without
     cluttering the User model with individual getter/setter methods.
+
+    When created with a user instance reference, updates are automatically
+    persisted to the database.
 
     Usage:
         user = await get_user(db, user_id)
@@ -21,7 +28,7 @@ class UserSettingsManager:
         # Access UI settings
         theme = user.settings.ui.theme
 
-        # Update settings
+        # Update settings (auto-persists when created from User.settings)
         user.settings.update({
             "models": {
                 "generation": {"model_id": str(model.id)}
@@ -29,14 +36,16 @@ class UserSettingsManager:
         })
     """
 
-    def __init__(self, settings_dict: dict):
+    def __init__(self, settings_dict: dict, user_instance: Optional["User"] = None):
         """
         Initialize settings manager with user's settings dictionary.
 
         Args:
             settings_dict: The user_settings JSONB data from database
+            user_instance: Optional reference to User instance for auto-persistence
         """
         self._data = settings_dict or self._default_settings()
+        self._user = user_instance
 
     @staticmethod
     def _default_settings() -> dict:
@@ -80,6 +89,9 @@ class UserSettingsManager:
         """
         Deep merge updates into settings.
 
+        When the manager has a user instance reference, changes are automatically
+        persisted to the database. Otherwise, manual persistence is required.
+
         Args:
             updates: Dictionary of settings to update
 
@@ -87,6 +99,7 @@ class UserSettingsManager:
             Updated settings dictionary
 
         Example:
+            # Auto-persists when using user.settings
             user.settings.update({
                 "models": {
                     "generation": {"model_id": "uuid", "temperature": 0.7}
@@ -94,6 +107,11 @@ class UserSettingsManager:
             })
         """
         self._data = self._deep_merge(self._data, updates)
+
+        # Auto-persist if we have a user reference
+        if self._user is not None:
+            self._user.user_settings = self._data
+
         return self._data
 
     @staticmethod
