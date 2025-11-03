@@ -4,17 +4,29 @@ This directory contains examples demonstrating various use cases for Penelope.
 
 ## Running Examples
 
-All examples use `uv` to run with the proper dependencies:
+All examples use `uv` and accept command-line arguments:
 
 ```bash
-# Make sure you're in the penelope directory
-cd rhesis/penelope
+# Navigate to the examples directory
+cd rhesis/penelope/examples
 
-# Edit the example file to configure your endpoint_id
-# Then run with uv:
-cd examples
-uv run python basic_example.py
+# Run with your endpoint ID
+uv run python basic_example.py --endpoint-id <your-endpoint-id>
+
+# Or use the short form
+uv run python basic_example.py -e <your-endpoint-id>
+
+# Adjust iterations if needed
+uv run python basic_example.py -e <your-endpoint-id> --max-iterations 20
+
+# Quiet mode (suppress verbose output)
+uv run python basic_example.py -e <your-endpoint-id> --quiet
 ```
+
+**All examples require:**
+- `--endpoint-id` (or `-e`): Your Rhesis endpoint ID
+- Optional: `--max-iterations`: Maximum number of turns (default: 10)
+- Optional: `--quiet` (or `-q`): Suppress verbose output
 
 ## Basic Example
 
@@ -30,14 +42,11 @@ Demonstrates:
 
 **Prerequisites:**
 - Penelope installed (see [Installation](../README.md#installation))
-- Valid Rhesis endpoint configured
-- Set your `endpoint_id` in the example file
+- Valid Rhesis endpoint ID
 
 **Run it:**
 ```bash
-# Edit basic_example.py to set your endpoint_id
-# Then run:
-uv run python basic_example.py
+uv run python basic_example.py --endpoint-id <your-endpoint-id>
 ```
 
 ## More Examples
@@ -59,7 +68,7 @@ Demonstrates:
 
 **Run it:**
 ```bash
-uv run python security_testing.py
+uv run python security_testing.py --endpoint-id <your-endpoint-id>
 ```
 
 ### Compliance Testing
@@ -75,7 +84,7 @@ Demonstrates:
 
 **Run it:**
 ```bash
-uv run python compliance_testing.py
+uv run python compliance_testing.py --endpoint-id <your-endpoint-id>
 ```
 
 ### Edge Case Discovery
@@ -92,7 +101,7 @@ Demonstrates:
 
 **Run it:**
 ```bash
-uv run python edge_case_discovery.py
+uv run python edge_case_discovery.py --endpoint-id <your-endpoint-id>
 ```
 
 ### Platform Integration
@@ -112,7 +121,7 @@ Demonstrates:
 **Run it:**
 ```bash
 export RHESIS_API_KEY='your-api-key'
-uv run python platform_integration.py
+uv run python platform_integration.py --endpoint-id <your-endpoint-id>
 ```
 
 ### Custom Tools
@@ -128,7 +137,7 @@ Demonstrates:
 
 **Run it:**
 ```bash
-uv run python custom_tools.py
+uv run python custom_tools.py --endpoint-id <your-endpoint-id>
 ```
 
 ### Batch Testing
@@ -145,7 +154,7 @@ Demonstrates:
 
 **Run it:**
 ```bash
-uv run python batch_testing.py
+uv run python batch_testing.py --endpoint-id <your-endpoint-id>
 ```
 
 ## Contributing Examples

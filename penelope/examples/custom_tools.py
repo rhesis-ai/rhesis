@@ -3,9 +3,14 @@ Custom Tools Example with Penelope.
 
 This example demonstrates how to create and use custom tools with Penelope
 for specialized testing needs.
+
+Usage:
+    uv run python custom_tools.py --endpoint-id <your-endpoint-id>
 """
 
 from typing import Any
+
+from common_args import parse_args_with_endpoint
 
 from rhesis.penelope import EndpointTarget, PenelopeAgent
 from rhesis.penelope.tools.base import Tool, ToolResult
@@ -381,6 +386,11 @@ def display_custom_tools_results(result, test_name: str):
 
 def main():
     """Run custom tools examples with Penelope."""
+    # Parse command-line arguments
+    args = parse_args_with_endpoint(
+        "Custom tools example for Penelope",
+        "custom_tools.py"
+    )
     
     print("=" * 70)
     print("PENELOPE CUSTOM TOOLS EXAMPLES")
@@ -400,8 +410,8 @@ def main():
     # Initialize Penelope with custom tools
     agent = PenelopeAgent(
         enable_transparency=True,
-        verbose=True,
-        max_iterations=15,
+        verbose=args.verbose,
+        max_iterations=args.max_iterations,
         tools=[db_tool, monitoring_tool, security_tool],
     )
     
@@ -410,8 +420,8 @@ def main():
     print(f"  2. {monitoring_tool.name}")
     print(f"  3. {security_tool.name}")
     
-    # Create target - REPLACE WITH YOUR ENDPOINT
-    target = EndpointTarget(endpoint_id="your-endpoint-id")
+    # Create target
+    target = EndpointTarget(endpoint_id=args.endpoint_id)
     
     print(f"\nTarget: {target.description}")
     print("\nStarting tests with custom tools...")

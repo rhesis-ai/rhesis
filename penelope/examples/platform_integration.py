@@ -3,7 +3,14 @@ Platform Integration Example with Penelope.
 
 This example demonstrates how to integrate Penelope with the Rhesis platform,
 using TestSets and storing results back to the platform.
+
+Usage:
+    uv run python platform_integration.py --endpoint-id <your-endpoint-id>
+    
+Note: Requires RHESIS_API_KEY environment variable to be set.
 """
+
+from common_args import parse_args_with_endpoint
 
 from rhesis.penelope import EndpointTarget, PenelopeAgent
 from rhesis.sdk.entities import TestSet
@@ -207,6 +214,11 @@ def display_platform_integration_summary(all_results: dict):
 
 def main():
     """Run platform integration examples with Penelope."""
+    # Parse command-line arguments
+    args = parse_args_with_endpoint(
+        "Platform integration example for Penelope",
+        "platform_integration.py"
+    )
     
     print("=" * 70)
     print("PENELOPE + RHESIS PLATFORM INTEGRATION")
@@ -229,12 +241,12 @@ def main():
     # Initialize Penelope
     agent = PenelopeAgent(
         enable_transparency=True,
-        verbose=True,
-        max_iterations=15,
+        verbose=args.verbose,
+        max_iterations=args.max_iterations,
     )
     
-    # Create target - REPLACE WITH YOUR ENDPOINT
-    target = EndpointTarget(endpoint_id="your-endpoint-id")
+    # Create target
+    target = EndpointTarget(endpoint_id=args.endpoint_id)
     
     print(f"\nTarget: {target.description}")
     

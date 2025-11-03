@@ -3,12 +3,17 @@ Batch Testing Example with Penelope.
 
 This example demonstrates how to run multiple tests efficiently in batch mode,
 aggregate results, and generate comprehensive test reports.
+
+Usage:
+    uv run python batch_testing.py --endpoint-id <your-endpoint-id>
 """
 
 import json
 import time
 from datetime import datetime
 from typing import Any
+
+from common_args import parse_args_with_endpoint
 
 from rhesis.penelope import EndpointTarget, PenelopeAgent
 
@@ -295,6 +300,11 @@ def run_parallel_batch_tests(
 
 def main():
     """Run batch testing examples with Penelope."""
+    # Parse command-line arguments
+    args = parse_args_with_endpoint(
+        "Batch testing example for Penelope",
+        "batch_testing.py"
+    )
     
     print("=" * 70)
     print("PENELOPE BATCH TESTING EXAMPLES")
@@ -309,12 +319,12 @@ def main():
     # Initialize Penelope
     agent = PenelopeAgent(
         enable_transparency=False,  # Disable for batch to reduce noise
-        verbose=False,
-        max_iterations=15,
+        verbose=args.quiet if hasattr(args, 'quiet') else False,
+        max_iterations=args.max_iterations,
     )
     
-    # Create target - REPLACE WITH YOUR ENDPOINT
-    target = EndpointTarget(endpoint_id="your-endpoint-id")
+    # Create target
+    target = EndpointTarget(endpoint_id=args.endpoint_id)
     
     print(f"\nTarget: {target.description}")
     

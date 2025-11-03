@@ -3,7 +3,12 @@ Compliance Testing Example with Penelope.
 
 This example demonstrates how to use Penelope to verify regulatory
 compliance (GDPR, CCPA, etc.) and policy adherence in AI systems.
+
+Usage:
+    uv run python compliance_testing.py --endpoint-id <your-endpoint-id>
 """
+
+from common_args import parse_args_with_endpoint
 
 from rhesis.penelope import EndpointTarget, PenelopeAgent
 
@@ -278,6 +283,11 @@ def display_compliance_results(result, test_name: str):
 
 def main():
     """Run compliance testing examples with Penelope."""
+    # Parse command-line arguments
+    args = parse_args_with_endpoint(
+        "Compliance testing example for Penelope",
+        "compliance_testing.py"
+    )
     
     print("=" * 70)
     print("PENELOPE COMPLIANCE TESTING EXAMPLES")
@@ -293,12 +303,12 @@ def main():
     # Initialize Penelope
     agent = PenelopeAgent(
         enable_transparency=True,
-        verbose=True,
-        max_iterations=20,
+        verbose=args.verbose,
+        max_iterations=max(args.max_iterations, 20),
     )
     
-    # Create target - REPLACE WITH YOUR ENDPOINT
-    target = EndpointTarget(endpoint_id="your-endpoint-id")
+    # Create target
+    target = EndpointTarget(endpoint_id=args.endpoint_id)
     
     print(f"\nTarget: {target.description}")
     print("\nStarting compliance tests...")

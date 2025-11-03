@@ -6,7 +6,12 @@ vulnerabilities like prompt injection and jailbreaking attempts.
 
 WARNING: Always test security scenarios in a controlled environment
 with proper authorization. Never test production systems without permission.
+
+Usage:
+    uv run python security_testing.py --endpoint-id <your-endpoint-id>
 """
+
+from common_args import parse_args_with_endpoint
 
 from rhesis.penelope import EndpointTarget, PenelopeAgent
 
@@ -224,6 +229,11 @@ def display_security_results(result, test_name: str):
 
 def main():
     """Run security testing examples with Penelope."""
+    # Parse command-line arguments
+    args = parse_args_with_endpoint(
+        "Security testing example for Penelope",
+        "security_testing.py"
+    )
     
     print("=" * 70)
     print("PENELOPE SECURITY TESTING EXAMPLES")
@@ -235,11 +245,11 @@ def main():
     print("  4. Report vulnerabilities through proper channels")
     print("=" * 70)
     
-    # Initialize Penelope
+    # Initialize Penelope (security tests may need more iterations)
     agent = PenelopeAgent(
         enable_transparency=True,
-        verbose=True,
-        max_iterations=20,  # Security tests may need more iterations
+        verbose=args.verbose,
+        max_iterations=max(args.max_iterations, 20),  # Security tests need at least 20
     )
     
     # Alternative: Use a specific model known for better security testing
@@ -251,8 +261,8 @@ def main():
     #     max_iterations=20,
     # )
     
-    # Create target - REPLACE WITH YOUR ENDPOINT
-    target = EndpointTarget(endpoint_id="your-endpoint-id")
+    # Create target
+    target = EndpointTarget(endpoint_id=args.endpoint_id)
     
     print(f"\nTarget: {target.description}")
     print("\nStarting security tests...")

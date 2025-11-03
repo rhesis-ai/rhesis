@@ -4,7 +4,12 @@ Basic example of using Penelope to test an AI target.
 This example demonstrates two ways to use Penelope:
 1. Simple test with goal only (Penelope plans its own approach)
 2. Detailed test with goal + specific instructions
+
+Usage:
+    uv run python basic_example.py --endpoint-id <your-endpoint-id>
 """
+
+from common_args import parse_args_with_endpoint
 
 from rhesis.penelope import EndpointTarget, PenelopeAgent
 
@@ -72,14 +77,21 @@ def detailed_test_example(agent: PenelopeAgent, target: EndpointTarget):
 
 def main():
     """Run basic examples with Penelope."""
+    # Parse command-line arguments
+    args = parse_args_with_endpoint(
+        "Basic Penelope testing example",
+        "basic_example.py"
+    )
 
-    # Initialize Penelope with defaults (Vertex AI / gemini-2.0-flash-exp, 10 max iterations)
+    # Initialize Penelope with defaults (Vertex AI / gemini-2.0-flash, 10 max iterations)
     agent = PenelopeAgent(
         enable_transparency=True,  # Show reasoning at each step
-        verbose=True,  # Print execution details
+        verbose=args.verbose,  # Print execution details
+        max_iterations=args.max_iterations,
     )
 
     # Alternative: Use a specific model and custom max_iterations
+    # from rhesis.sdk.models import AnthropicLLM
     # agent = PenelopeAgent(
     #     model=AnthropicLLM(model_name="claude-4"),
     #     max_iterations=20,
@@ -90,7 +102,7 @@ def main():
     # Create the target to test
     # EndpointTarget loads endpoint configuration from Rhesis via the SDK
     # All authentication, request mapping, and response handling is managed by the platform
-    target = EndpointTarget(endpoint_id="chatbot-prod")
+    target = EndpointTarget(endpoint_id=args.endpoint_id)
 
     print("Starting Penelope test examples...")
     print(f"Target: {target.description}")
