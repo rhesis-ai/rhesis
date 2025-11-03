@@ -58,6 +58,34 @@ You are an **LLM system reviewer** tasked with generating diverse test cases bas
 ### End of Specific Requirements
 {% endif %}
 
+{% if rated_samples and rated_samples|length > 0 %}
+User Feedback and Ratings:
+The user has been iterating on test generation. Here are examples of tests they rated, which will help you understand what they're looking for:
+{% for sample in rated_samples %}
+- Test: "{{ sample.prompt }}"
+  - Rating: {{ sample.rating }}/5
+  {% if sample.feedback %}  - Feedback: {{ sample.feedback }}{% endif %}
+{% endfor %}
+
+Use this feedback to adjust the test generation to better match the user's expectations. Learn from both high-rated tests (what worked well) and low-rated tests (what to avoid or improve).
+{% endif %}
+
+{% if previous_messages and previous_messages|length > 0 %}
+Previous Conversation Context:
+The user has been refining their test requirements through conversation. Consider this context when generating the configuration:
+{% for msg in previous_messages %}
+- User: "{{ msg.content }}"
+{% endfor %}
+{% endif %}
+
+{% if chip_states and chip_states|length > 0 %}
+Current Configuration Preferences:
+The user has indicated preferences for the following:
+{% for chip in chip_states %}
+- {{ chip.label }} ({{ "Active" if chip.active else "Inactive" }}){% if chip.description %}: {{ chip.description }}{% endif %}
+{% endfor %}
+{% endif %}
+
 YOU MUST return a JSON object with a "tests" key containing EXACTLY {{ num_tests }} test cases, formatted like this:
 {
   "tests": [

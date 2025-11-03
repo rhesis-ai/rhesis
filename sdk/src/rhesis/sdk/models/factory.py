@@ -16,6 +16,7 @@ DEFAULT_PROVIDER = "rhesis"
 DEFAULT_MODELS = {
     "rhesis": "rhesis-default",
     "anthropic": "claude-4",
+    "cohere": "command-r-plus",
     "gemini": "gemini-2.0-flash",
     "groq": "llama3-8b-8192",
     "huggingface": "meta-llama/Llama-2-7b-chat-hf",
@@ -34,103 +35,111 @@ DEFAULT_MODELS = {
 # avoid circular imports
 
 
-def _create_rhesis_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_rhesis_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for RhesisLLM."""
     from rhesis.sdk.models.providers.native import RhesisLLM
 
-    return RhesisLLM(model_name=model_name, api_key=api_key)
+    return RhesisLLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
-def _create_gemini_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_gemini_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for GeminiLLM."""
     from rhesis.sdk.models.providers.gemini import GeminiLLM
 
-    return GeminiLLM(model_name=model_name, api_key=api_key)
+    return GeminiLLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
-def _create_ollama_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_ollama_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for OllamaLLM."""
     from rhesis.sdk.models.providers.ollama import OllamaLLM
 
-    return OllamaLLM(model_name=model_name)
+    return OllamaLLM(model_name=model_name, **kwargs)
 
 
-def _create_openai_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_openai_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for OpenAILLM."""
     from rhesis.sdk.models.providers.openai import OpenAILLM
 
     return OpenAILLM(model_name=model_name, api_key=api_key)
 
 
-def _create_vertex_ai_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_vertex_ai_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for VertexAILLM."""
     from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
 
     # Note: api_key is ignored for Vertex AI as it uses service account credentials
-    return VertexAILLM(model_name=model_name)
+    return VertexAILLM(model_name=model_name, **kwargs)
 
 
-def _create_anthropic_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_anthropic_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for AnthropicLLM."""
     from rhesis.sdk.models.providers.anthropic import AnthropicLLM
 
-    return AnthropicLLM(model_name=model_name, api_key=api_key)
+    return AnthropicLLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
-def _create_groq_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_cohere_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
+    """Factory function for CohereLLM."""
+    from rhesis.sdk.models.providers.cohere import CohereLLM
+
+    return CohereLLM(model_name=model_name, api_key=api_key, **kwargs)
+
+
+def _create_groq_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for GroqLLM."""
     from rhesis.sdk.models.providers.groq import GroqLLM
 
-    return GroqLLM(model_name=model_name, api_key=api_key)
+    return GroqLLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
-def _create_huggingface_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_huggingface_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for HuggingFaceLLM."""
     from rhesis.sdk.models.providers.huggingface import HuggingFaceLLM
 
     # Note: api_key is ignored for HuggingFace as it uses local models
-    return HuggingFaceLLM(model_name=model_name)
+    return HuggingFaceLLM(model_name=model_name, **kwargs)
 
 
-def _create_meta_llama_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_meta_llama_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for MetaLlamaLLM."""
     from rhesis.sdk.models.providers.meta_llama import MetaLlamaLLM
 
-    return MetaLlamaLLM(model_name=model_name, api_key=api_key)
+    return MetaLlamaLLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
-def _create_mistral_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_mistral_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for MistralLLM."""
     from rhesis.sdk.models.providers.mistral import MistralLLM
 
-    return MistralLLM(model_name=model_name, api_key=api_key)
+    return MistralLLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
-def _create_perplexity_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_perplexity_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for PerplexityLLM."""
     from rhesis.sdk.models.providers.perplexity import PerplexityLLM
 
-    return PerplexityLLM(model_name=model_name, api_key=api_key)
+    return PerplexityLLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
-def _create_replicate_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_replicate_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for ReplicateLLM."""
     from rhesis.sdk.models.providers.replicate import ReplicateLLM
 
-    return ReplicateLLM(model_name=model_name, api_key=api_key)
+    return ReplicateLLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
-def _create_together_ai_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+def _create_together_ai_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for TogetherAILLM."""
     from rhesis.sdk.models.providers.together_ai import TogetherAILLM
 
-    return TogetherAILLM(model_name=model_name, api_key=api_key)
+    return TogetherAILLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
 # Provider registry mapping provider names to their factory functions
 PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
     "rhesis": _create_rhesis_llm,
     "anthropic": _create_anthropic_llm,
+    "cohere": _create_cohere_llm,
     "gemini": _create_gemini_llm,
     "groq": _create_groq_llm,
     "huggingface": _create_huggingface_llm,
@@ -254,4 +263,4 @@ def get_model(
         raise ValueError(f"Provider {config.provider} not supported")
 
     # Use the factory function to create the model instance
-    return factory_func(config.model_name, config.api_key)
+    return factory_func(config.model_name, config.api_key, **kwargs)

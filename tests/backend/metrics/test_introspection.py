@@ -123,7 +123,7 @@ class TestMetricIntrospection:
 
         assert result.score == 1.0
 
-    @patch("rhesis.backend.metrics.adapters.create_metric_from_config")
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_introspection_with_real_deepeval_contextual_relevancy_signature(
         self, mock_create_metric
     ):
@@ -172,7 +172,7 @@ class TestMetricIntrospection:
         assert "Contextual Relevancy" in results
         assert results["Contextual Relevancy"]["score"] == 0.88
 
-    @patch("rhesis.backend.metrics.adapters.create_metric_from_config")
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_introspection_with_real_deepeval_answer_relevancy_signature(
         self, mock_create_metric
     ):

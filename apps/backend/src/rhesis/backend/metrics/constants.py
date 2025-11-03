@@ -3,7 +3,6 @@ from enum import Enum
 
 
 class ScoreType(str, Enum):
-    BINARY = "binary"
     NUMERIC = "numeric"
     CATEGORICAL = "categorical"
 
@@ -29,7 +28,6 @@ OPERATOR_MAP = {
 
 # Valid operators for different score types
 VALID_OPERATORS_BY_SCORE_TYPE = {
-    ScoreType.BINARY: {ThresholdOperator.EQUAL, ThresholdOperator.NOT_EQUAL},
     ScoreType.CATEGORICAL: {ThresholdOperator.EQUAL, ThresholdOperator.NOT_EQUAL},
     ScoreType.NUMERIC: set(ThresholdOperator),  # All operators are valid for numeric
 }

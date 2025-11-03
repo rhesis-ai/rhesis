@@ -22,7 +22,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckIcon from '@mui/icons-material/Check';
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
@@ -504,7 +504,7 @@ export default function TestsTableView({
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             {status.hasExecutionError ? (
-                              <WarningAmberIcon
+                              <ErrorOutlineIcon
                                 sx={{
                                   fontSize: 20,
                                   color: 'warning.main',

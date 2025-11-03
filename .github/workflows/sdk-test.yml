@@ -6,6 +6,10 @@ on:
     branches: [ main ]
     paths:
       - 'sdk/**'
+  push:
+    branches: [ main ]
+    paths:
+      - 'sdk/**'
 
 jobs:
   test-sdk:
@@ -33,8 +37,16 @@ jobs:
     #     uv run pyright
     #   continue-on-error: false
       
-    - name: Test SDK
+    - name: Test SDK (fast)
       run: |
         cd sdk
+        uv run pytest
+      continue-on-error: false
+
+    - name: Test SDK (full)
+      if: github.event_name == 'push'
+      run: |
+        cd sdk
+        uv sync --extra all
         uv run pytest
       continue-on-error: false

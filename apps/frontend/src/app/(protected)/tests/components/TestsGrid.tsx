@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Typography, Box, Alert, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
+import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDrawer from './TestDrawer';
 import TestSetSelectionDialog from './TestSetSelectionDialog';
@@ -221,6 +222,32 @@ export default function TestsTable({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
               <Typography variant="body2">{count}</Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'test_metadata.sources',
+        headerName: 'Sources',
+        width: 80,
+        sortable: false,
+        filterable: false,
+        align: 'center',
+        headerAlign: 'center',
+        renderCell: params => {
+          const sources = params.row.test_metadata?.sources;
+          if (!sources || sources.length === 0) return null;
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <InsertDriveFileOutlined
+                sx={{ fontSize: 16, color: 'text.secondary' }}
+              />
             </Box>
           );
         },

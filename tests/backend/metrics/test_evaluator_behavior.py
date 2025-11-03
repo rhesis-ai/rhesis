@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 from rhesis.backend.metrics import Evaluator, MetricResult
 
 
-class TestCurrentEvaluatorBehavior:
+class TestEvaluatorBehavior:
     """Test current MetricEvaluator behavior (baseline)."""
     
     def test_evaluator_initialization(self):
@@ -36,7 +36,7 @@ class TestCurrentEvaluatorBehavior:
         assert evaluator.db is test_db
         assert evaluator.organization_id == test_org_id
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluator_evaluate_single_metric(self, mock_create_metric, numeric_metric_config):
         """Test evaluating single metric."""
         # Mock the metric creation and evaluation
@@ -63,7 +63,7 @@ class TestCurrentEvaluatorBehavior:
         assert isinstance(results, dict)
         assert len(results) > 0
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluator_evaluate_multiple_metrics(self, mock_create_metric, numeric_metric_config, categorical_metric_config):
         """Test evaluating multiple metrics."""
         # Mock different results for different metrics
@@ -99,7 +99,7 @@ class TestCurrentEvaluatorBehavior:
         assert results is not None
         assert len(results) >= 2
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluator_skips_ground_truth_required(self, mock_create_metric, numeric_metric_config):
         """Test evaluator skips metrics requiring ground truth when not provided."""
         # Modify config to require ground truth
@@ -127,7 +127,7 @@ class TestCurrentEvaluatorBehavior:
         assert results is not None
         assert isinstance(results, dict)
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluator_handles_evaluation_error(self, mock_create_metric, numeric_metric_config, categorical_metric_config):
         """Test evaluator handles individual metric errors gracefully."""
         # First metric fails, second succeeds
@@ -161,7 +161,7 @@ class TestCurrentEvaluatorBehavior:
         assert results is not None
         assert isinstance(results, dict)
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluator_returns_partial_results(self, mock_create_metric, numeric_metric_config):
         """Test partial results when some metrics fail."""
         # Simulate partial failure
@@ -185,7 +185,7 @@ class TestCurrentEvaluatorBehavior:
         assert results is not None
         assert isinstance(results, dict)
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluator_with_context(self, mock_create_metric, numeric_metric_config):
         """Test evaluator with context provided."""
         mock_metric = MagicMock()
@@ -220,7 +220,7 @@ class TestCurrentEvaluatorBehavior:
         assert not hasattr(evaluator, 'factory') or evaluator.factory is None
         # Evaluator uses adapter pattern now, not factory
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluator_with_empty_metrics_list(self, mock_create_metric):
         """Test evaluator with empty metrics list."""
         evaluator = Evaluator()
@@ -236,7 +236,7 @@ class TestCurrentEvaluatorBehavior:
         assert results is not None
         assert isinstance(results, dict)
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluator_result_structure(self, mock_create_metric, numeric_metric_config):
         """Test that evaluator returns results in expected structure."""
         mock_metric = MagicMock()

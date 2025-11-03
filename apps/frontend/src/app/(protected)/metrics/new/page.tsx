@@ -48,7 +48,7 @@ interface MetricFormData {
   evaluation_prompt: string;
   evaluation_steps: string[];
   reasoning: string;
-  score_type: 'binary' | 'numeric';
+  score_type: 'categorical' | 'numeric';
   min_score?: number;
   max_score?: number;
   threshold?: number;
@@ -63,7 +63,7 @@ const initialFormData: MetricFormData = {
   evaluation_prompt: '',
   evaluation_steps: [''],
   reasoning: '',
-  score_type: 'binary',
+  score_type: 'categorical',
   explanation: '',
   model_id: '',
 };
@@ -415,12 +415,12 @@ export default function NewMetricPage() {
         </Typography>
         <FormControl fullWidth sx={{ mb: 3 }}>
           <InputLabel required>Score Type</InputLabel>
-          <Select<'binary' | 'numeric'>
+          <Select<'categorical' | 'numeric'>
             value={formData.score_type}
             label="Score Type"
             onChange={handleChange('score_type')}
           >
-            <MenuItem value="binary">Binary (Pass/Fail)</MenuItem>
+            <MenuItem value="categorical">Categorical</MenuItem>
             <MenuItem value="numeric">Numeric</MenuItem>
           </Select>
         </FormControl>
@@ -691,10 +691,7 @@ export default function NewMetricPage() {
               </Typography>
               <Box
                 sx={{
-                  bgcolor:
-                    formData.score_type === 'binary'
-                      ? 'primary.main'
-                      : 'primary.main',
+                  bgcolor: 'primary.main',
                   color: 'primary.contrastText',
                   px: 1.5,
                   py: 0.5,
@@ -704,8 +701,8 @@ export default function NewMetricPage() {
                   mt: 0.5,
                 }}
               >
-                {formData.score_type === 'binary'
-                  ? 'Binary (Pass/Fail)'
+                {formData.score_type === 'categorical'
+                  ? 'Categorical'
                   : 'Numeric'}
               </Box>
             </Box>

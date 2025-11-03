@@ -18,6 +18,8 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.documents import Document
+from rhesis.backend.app.schemas.services import SourceData
+from rhesis.backend.app.services.generation import process_sources_to_documents
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
     create_test_set_associations,
@@ -78,6 +80,7 @@ class TestSetGenerationRequest(BaseModel):
     num_tests: Optional[int] = None
     batch_size: int = 20
     documents: Optional[List[Document]] = None
+    sources: Optional[List[SourceData]] = None
     name: Optional[str] = None
 
 
@@ -243,6 +246,7 @@ def determine_test_count(config: TestSetGenerationConfig, requested_count: Optio
 async def generate_test_set(
     request: TestSetGenerationRequest,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -253,6 +257,8 @@ async def generate_test_set(
 
     Args:
         request: The generation request containing config, samples, and parameters
+            - sources contains SourceData with id
+            (name, description, content will be fetched from DB)
         db: Database session
         current_user: Current authenticated user
 
@@ -266,6 +272,24 @@ async def generate_test_set(
 
         if not request.config.description.strip():
             raise HTTPException(status_code=400, detail="Description is required")
+
+        # Prepare documents from sources if provided
+        # Fetch full source data from database if only IDs are provided
+        documents_to_use = []
+        source_ids_to_documents = {}  # Map document name to source_id
+        source_ids_list = []  # List of source_ids in the same order as documents
+        if request.documents:
+            documents_to_use = request.documents
+        elif request.sources:
+            organization_id, user_id = tenant_context
+            documents_to_use, source_ids_list, source_ids_to_documents = (
+                process_sources_to_documents(
+                    sources=request.sources,
+                    db=db,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
+            )
 
         # Build the generation prompt from config and samples
         generation_prompt = build_generation_prompt(request.config, request.samples)
@@ -284,7 +308,9 @@ async def generate_test_set(
             num_tests=test_count,
             batch_size=request.batch_size,
             prompt=generation_prompt,
-            documents=[doc.dict() for doc in request.documents] if request.documents else None,
+            documents=[doc.dict() for doc in documents_to_use] if documents_to_use else None,
+            source_ids=source_ids_list,  # Pass actual source_ids list
+            source_ids_to_documents=source_ids_to_documents,  # Pass mapping for debugging
             name=request.name,  # Pass optional test set name
         )
 

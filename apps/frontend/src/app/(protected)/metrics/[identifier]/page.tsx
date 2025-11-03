@@ -279,7 +279,7 @@ export default function MetricDetailPage() {
         });
       } else if (section === 'configuration') {
         sectionData = {
-          score_type: metric.score_type || 'binary',
+          score_type: metric.score_type || 'numeric',
           min_score: metric.min_score,
           max_score: metric.max_score,
           threshold: metric.threshold,
@@ -911,7 +911,7 @@ export default function MetricDetailPage() {
                   <FormControl fullWidth>
                     <InputLabel>Score Type</InputLabel>
                     <Select
-                      value={editData.score_type || 'binary'}
+                      value={editData.score_type || 'numeric'}
                       onChange={e =>
                         setEditData(prev => ({
                           ...prev,
@@ -920,8 +920,8 @@ export default function MetricDetailPage() {
                       }
                       label="Score Type"
                     >
-                      <MenuItem value="binary">Binary (Pass/Fail)</MenuItem>
                       <MenuItem value="numeric">Numeric</MenuItem>
+                      <MenuItem value="categorical">Categorical</MenuItem>
                     </Select>
                   </FormControl>
                 ) : (
@@ -938,8 +938,8 @@ export default function MetricDetailPage() {
                         fontWeight: 'medium',
                       }}
                     >
-                      {metric.score_type === 'binary'
-                        ? 'Binary (Pass/Fail)'
+                      {metric.score_type === 'categorical'
+                        ? 'Categorical'
                         : 'Numeric'}
                     </Typography>
                   </Box>

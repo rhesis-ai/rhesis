@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, String, Text
+from sqlalchemy import Boolean, JSON, Column, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 from rhesis.backend.app.utils.encryption import EncryptedString

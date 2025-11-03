@@ -85,9 +85,12 @@ class SynthesizerFactory:
         elif synthesizer_type == SynthesizerType.DOCUMENT:
             if "prompt" not in kwargs:
                 raise ValueError("'prompt' argument is required for DocumentSynthesizer")
-            # Pass documents through kwargs and include model
+            # Filter out prompt, batch_size, model, and documents
+            # (documents is passed to generate(), not constructor)
+            excluded_keys = ("prompt", "batch_size", "model", "documents")
+            remaining_kwargs = {k: v for k, v in kwargs.items() if k not in excluded_keys}
             return synthesizer_class(
-                prompt=kwargs["prompt"], batch_size=batch_size, model=model, **kwargs
+                prompt=kwargs["prompt"], batch_size=batch_size, model=model, **remaining_kwargs
             )
 
         # This should never be reached given the validation above, but adding for completeness

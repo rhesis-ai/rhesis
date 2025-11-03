@@ -18,7 +18,7 @@ from rhesis.backend.tasks.execution.test_execution import (
 )
 
 
-class TestCurrentTaskExecution:
+class TestTaskExecution:
     """Test current task execution flow (baseline)."""
     
     @pytest.fixture
@@ -162,54 +162,91 @@ class TestCurrentTaskExecution:
         assert isinstance(metrics, list)
         assert len(metrics) == 0  # No default metrics anymore
     
-    def test_prepare_metric_configs_with_valid_dicts(self):
-        """Test prepare_metric_configs validates and passes through valid metric dicts."""
-        # This test covers the previously untested code path that caused the production bug
-        metrics = [
-            {
-                "name": "Test Metric 1",
-                "class_name": "RhesisPromptMetric",
-                "backend": "rhesis",
-                "parameters": {"score_type": "numeric"}
-            },
-            {
-                "name": "Test Metric 2",
-                "class_name": "DeepEvalAnswerRelevancy",
-                "backend": "deepeval",
-                "threshold": 0.7
-            }
-        ]
+    def test_prepare_metric_configs_with_valid_models(self, test_db, test_org_id, authenticated_user_id):
+        """Test prepare_metric_configs validates and passes through valid Metric models."""
+        from rhesis.backend.app import models
+        from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
         
+        # Create backend type
+        backend_type = get_or_create_type_lookup(
+            test_db, "BackendType", "rhesis", test_org_id, authenticated_user_id
+        )
+        metric_type = get_or_create_type_lookup(
+            test_db, "MetricType", "custom-prompt", test_org_id, authenticated_user_id
+        )
+        
+        # Create Metric models
+        metric1 = models.Metric(
+            name="Test Metric 1",
+            class_name="NumericJudge",
+            score_type="numeric",
+            backend_type_id=backend_type.id,
+            metric_type_id=metric_type.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id
+        )
+        metric2 = models.Metric(
+            name="Test Metric 2",
+            class_name="CategoricalJudge",
+            score_type="categorical",
+            categories=["pass", "fail"],
+            passing_categories=["pass"],
+            backend_type_id=backend_type.id,
+            metric_type_id=metric_type.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id
+        )
+        
+        metrics = [metric1, metric2]
         result = prepare_metric_configs(metrics, "test-id-123")
         
         # Should return all valid metrics
         assert len(result) == 2
-        assert isinstance(result[0], dict)
-        assert isinstance(result[1], dict)
-        assert result[0]["name"] == "Test Metric 1"
-        assert result[1]["name"] == "Test Metric 2"
+        assert hasattr(result[0], "class_name")
+        assert hasattr(result[1], "class_name")
+        assert result[0].name == "Test Metric 1"
+        assert result[1].name == "Test Metric 2"
     
-    def test_prepare_metric_configs_filters_invalid(self):
-        """Test prepare_metric_configs filters out invalid metric dicts."""
-        metrics = [
-            {
-                "name": "Valid Metric",
-                "class_name": "RhesisPromptMetric",
-                "backend": "rhesis"
-            },
-            {
-                "name": "Invalid - No class_name",
-                "backend": "rhesis"
-                # Missing class_name!
-            },
-            "not a dict",  # Invalid type
-        ]
+    def test_prepare_metric_configs_filters_invalid(self, test_db, test_org_id, authenticated_user_id):
+        """Test prepare_metric_configs filters out invalid Metric models."""
+        from rhesis.backend.app import models
+        from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
         
+        backend_type = get_or_create_type_lookup(
+            test_db, "BackendType", "rhesis", test_org_id, authenticated_user_id
+        )
+        metric_type = get_or_create_type_lookup(
+            test_db, "MetricType", "custom-prompt", test_org_id, authenticated_user_id
+        )
+        
+        # Create valid metric
+        valid_metric = models.Metric(
+            name="Valid Metric",
+            class_name="NumericJudge",
+            score_type="numeric",
+            backend_type_id=backend_type.id,
+            metric_type_id=metric_type.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id
+        )
+        
+        # Create invalid metric (missing class_name)
+        invalid_metric = models.Metric(
+            name="Invalid Metric",
+            class_name=None,
+            score_type="numeric",
+            backend_type_id=backend_type.id,
+            metric_type_id=metric_type.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id
+        )
+        
+        metrics = [valid_metric, invalid_metric, "not a model"]  # Mix of valid, invalid, and wrong type
         result = prepare_metric_configs(metrics, "test-id-123")
         
         # Should only return the valid metric
         assert len(result) == 1
-        assert result[0]["name"] == "Valid Metric"
+        assert result[0].name == "Valid Metric"
     
     def test_prepare_metric_configs_empty_list(self):
         """Test prepare_metric_configs handles empty metric list."""
@@ -218,7 +255,7 @@ class TestCurrentTaskExecution:
         assert isinstance(result, list)
         assert len(result) == 0
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluate_prompt_response(self, mock_create_metric):
         """Test evaluate_prompt_response() orchestration."""
         mock_metric = MagicMock()
@@ -257,7 +294,7 @@ class TestCurrentTaskExecution:
         assert isinstance(result, dict)
         assert len(result) > 0
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluate_prompt_response_with_context(self, mock_create_metric):
         """Test evaluate_prompt_response with context."""
         mock_metric = MagicMock()
@@ -293,7 +330,7 @@ class TestCurrentTaskExecution:
         
         assert isinstance(result, dict)
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluate_prompt_response_empty_metrics(self, mock_create_metric):
         """Test evaluate_prompt_response with empty metrics list."""
         evaluator = Evaluator()
@@ -310,7 +347,7 @@ class TestCurrentTaskExecution:
         # Should return result even with no metrics
         assert isinstance(result, dict)
     
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluate_prompt_response_multiple_metrics(self, mock_create_metric):
         """Test evaluate_prompt_response with multiple metrics."""
         mock_metric1 = MagicMock()
@@ -452,10 +489,11 @@ class TestCurrentTaskExecution:
         # Should filter out invalid metrics
         assert isinstance(metrics, list)
         assert len(metrics) >= 1  # At least the valid metric
-        # All returned metrics should be valid (have class_name)
-        for metric_config in metrics:
-            assert metric_config is not None
-            assert "class_name" in metric_config
+        # All returned metrics should be Metric models with class_name
+        for metric in metrics:
+            assert metric is not None
+            assert hasattr(metric, "class_name")
+            assert metric.class_name is not None
     
     def test_evaluate_prompt_response_with_no_expected_response(self):
         """Test evaluation when no expected response is provided."""
@@ -494,81 +532,3 @@ class TestCurrentTaskExecution:
         
         assert isinstance(result, dict)
     
-    def test_full_metric_flow_without_mocks(self):
-        """
-        Integration test: Full metric flow from dict → prepare_metric_configs → evaluator → adapter.
-        
-        This test exercises the ENTIRE flow without mocking the adapter, ensuring that:
-        1. prepare_metric_configs correctly validates dicts
-        2. Evaluator accepts the dicts
-        3. Adapter properly converts dicts to SDK metrics
-        4. The full chain works end-to-end
-        
-        This would have caught the MetricConfig.from_dict() bug!
-        """
-        # Create metric configs as dicts (simulating get_test_metrics output)
-        raw_metrics = [
-            {
-                "name": "Test Numeric Metric",
-                "class_name": "RhesisPromptMetric",
-                "backend": "rhesis",
-                "description": "Test metric",
-                "threshold": 0.7,
-                "parameters": {
-                    "score_type": "numeric",
-                    "evaluation_prompt": "Rate the quality",
-                    "evaluation_steps": "1. Check accuracy\n2. Check relevance",
-                    "reasoning": "Consider completeness"
-                }
-            }
-        ]
-        
-        # Step 1: Validate with prepare_metric_configs (previously untested!)
-        validated_metrics = prepare_metric_configs(raw_metrics, "test-id-456")
-        
-        assert len(validated_metrics) == 1
-        assert isinstance(validated_metrics[0], dict)
-        
-        # Step 2: Pass to evaluator (should accept dicts)
-        evaluator = Evaluator()
-        
-        # The KEY test: this flow should NOT crash with "MetricConfig.from_dict()" error
-        # We expect it to fail with model configuration issues, but NOT dict conversion issues
-        try:
-            results = evaluator.evaluate(
-                input_text="Test input",
-                output_text="Test output",
-                expected_output="Expected output",
-                context=[],
-                metrics=validated_metrics
-            )
-            
-            # If we somehow got results, that's great! But we're really just testing
-            # that the dict → adapter → SDK flow works without MetricConfig.from_dict() errors
-            assert isinstance(results, dict)
-            
-        except (ValueError, AttributeError) as e:
-            error_msg = str(e)
-            
-            # These errors are EXPECTED (model configuration issues):
-            if any(expected in error_msg for expected in [
-                "RHESIS_API_KEY",
-                "Provider",
-                "api_key",
-                "not set"
-            ]):
-                # SUCCESS! We exercised the full chain:
-                # dict → prepare_metric_configs → evaluator → adapter → SDK metric creation
-                # The error is from model configuration, NOT from MetricConfig.from_dict()
-                pass
-            
-            # This error means we hit the bug we're testing for:
-            elif "from_dict" in error_msg:
-                raise AssertionError(
-                    f"Hit the MetricConfig.from_dict() bug! This test should prevent this: {error_msg}"
-                )
-            
-            # Any other error is unexpected
-            else:
-                raise
-

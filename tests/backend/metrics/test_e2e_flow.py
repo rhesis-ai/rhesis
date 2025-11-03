@@ -12,7 +12,7 @@ import pytest
 from rhesis.backend.metrics import MetricResult
 
 
-class TestCurrentE2EFlow:
+class TestE2EFlow:
     """Test current end-to-end flow (baseline)."""
     
     @pytest.fixture
@@ -91,7 +91,7 @@ class TestCurrentE2EFlow:
         }
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_e2e_single_test_execution(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test complete flow: task → execution → evaluation → storage."""
         # Mock endpoint invocation
@@ -134,7 +134,7 @@ class TestCurrentE2EFlow:
         assert mock_invoke.called
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_e2e_with_multiple_metrics(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test execution with multiple metrics."""
         mock_invoke.return_value = {
@@ -182,7 +182,7 @@ class TestCurrentE2EFlow:
         assert mock_invoke.called
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_e2e_handles_endpoint_error(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test flow handles endpoint errors gracefully."""
         # Endpoint fails
@@ -208,7 +208,7 @@ class TestCurrentE2EFlow:
             assert "unavailable" in str(e).lower() or "error" in str(e).lower()
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_e2e_handles_metric_evaluation_error(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test flow handles metric evaluation errors gracefully."""
         mock_invoke.return_value = {
@@ -241,7 +241,7 @@ class TestCurrentE2EFlow:
         assert result is not None
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_e2e_with_ragas_metric(self, mock_create_metric, mock_invoke, test_db, test_org_id, authenticated_user_id, db_test_with_prompt, test_endpoint, test_run):
         """Test with Ragas metric."""
         from rhesis.backend.app import models
@@ -357,7 +357,7 @@ class TestCurrentE2EFlow:
         assert result["execution_time"] >= 0
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_e2e_metric_results_structure(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test that metric results are stored in correct structure."""
         mock_invoke.return_value = {
@@ -400,7 +400,7 @@ class TestCurrentE2EFlow:
             assert "score" in metric_data or "passed" in metric_data
     
     @patch('rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint')
-    @patch('rhesis.backend.metrics.adapters.create_metric_from_config')
+    @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_e2e_result_queryable_via_api(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test that stored results are queryable."""
         mock_invoke.return_value = {
