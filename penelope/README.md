@@ -41,14 +41,21 @@ Penelope is built following [Anthropic's agent engineering principles](https://w
 
 ## Installation
 
-```bash
-# Install Penelope (also installs rhesis-sdk as dependency)
-pip install rhesis-penelope
+Penelope is currently available as part of the Rhesis monorepo and uses `uv` for dependency management.
 
-# Or install from source
+```bash
+# Clone the repository
+git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis/penelope
-pip install -e .
+
+# Install with uv (recommended)
+uv sync
+
+# Or install in development mode
+uv pip install -e .
 ```
+
+**Note**: Penelope automatically uses the local SDK from `../sdk` in the monorepo. This ensures you're always using the latest SDK features.
 
 ## Quick Start
 
@@ -541,16 +548,22 @@ See the [examples directory](./examples) for complete examples:
 ```bash
 # Install development dependencies
 cd rhesis/penelope
-pip install -e ".[dev]"
+uv sync
 
 # Run tests
-pytest
+uv run pytest
 
 # Run type checking
-mypy src/rhesis/penelope
+make type-check
 
 # Run linting
-ruff check src/rhesis/penelope
+make lint
+
+# Run formatting
+make format
+
+# Run all checks
+make all
 ```
 
 ## Contributing
