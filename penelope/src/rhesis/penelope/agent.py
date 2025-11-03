@@ -10,28 +10,18 @@ Following Anthropic's agent design principles:
 import logging
 from typing import Any, Dict, List, Optional
 
+from rhesis.penelope.config import PenelopeConfig
 from rhesis.penelope.context import (
     ExecutionStatus,
-    GoalProgress,
     TestContext,
     TestResult,
     TestState,
-    Turn,
 )
+from rhesis.penelope.evaluation import GoalEvaluator
+from rhesis.penelope.executor import TurnExecutor
 from rhesis.penelope.prompts import (
     DEFAULT_INSTRUCTIONS_TEMPLATE,
-    FIRST_TURN_PROMPT,
-    GOAL_EVALUATION_PROMPT,
-    SUBSEQUENT_TURN_PROMPT,
     get_system_prompt,
-)
-from rhesis.penelope.schemas import (
-    AssistantMessage,
-    FunctionCall,
-    MessageToolCall,
-    SimpleGoalEval,
-    ToolCall,
-    ToolMessage,
 )
 from rhesis.penelope.targets.base import Target
 from rhesis.penelope.tools.analysis import AnalyzeTool, ExtractTool
@@ -43,12 +33,30 @@ from rhesis.penelope.utils import (
     StoppingCondition,
     TimeoutCondition,
     display_test_result,
-    display_turn,
     format_tool_schema_for_llm,
 )
+from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
 
 logger = logging.getLogger(__name__)
+
+
+def _create_default_model() -> BaseLLM:
+    """
+    Create a default model instance based on configuration.
+
+    Uses PenelopeConfig.get_default_model() and get_default_model_name()
+    to determine which model to instantiate.
+
+    Returns:
+        BaseLLM instance configured with default settings
+    """
+    model_provider = PenelopeConfig.get_default_model()
+    model_name = PenelopeConfig.get_default_model_name()
+
+    logger.info(f"Creating default model: {model_provider}/{model_name}")
+
+    return get_model(provider=model_provider, model_name=model_name)
 
 
 class PenelopeAgent:
@@ -78,9 +86,9 @@ class PenelopeAgent:
 
     def __init__(
         self,
-        model: BaseLLM,
+        model: Optional[BaseLLM] = None,
         tools: Optional[List[Tool]] = None,
-        max_iterations: int = 20,
+        max_iterations: Optional[int] = None,
         timeout_seconds: Optional[float] = None,
         enable_transparency: bool = True,
         verbose: bool = False,
@@ -90,9 +98,11 @@ class PenelopeAgent:
         Initialize Penelope agent.
 
         Args:
-            model: Language model from rhesis.sdk.models
+            model: Language model from rhesis.sdk.models. If None, uses default model
+                configured via PenelopeConfig (default: Vertex AI / gemini-2.0-flash-exp)
             tools: Optional list of custom tools (default tools used if None)
-            max_iterations: Maximum number of turns before stopping
+            max_iterations: Maximum number of turns before stopping. If None, uses default
+                from PenelopeConfig (default: 10)
             timeout_seconds: Optional timeout in seconds
             enable_transparency: Show reasoning at each step (Anthropic principle)
             verbose: Print detailed execution information
@@ -101,13 +111,28 @@ class PenelopeAgent:
                 When SDK metrics are available: GoalAchievementJudge(model=model)
 
         Note:
+            Model Configuration:
+                - Default model can be set via environment variables:
+                  PENELOPE_DEFAULT_MODEL (default: "vertex_ai")
+                  PENELOPE_DEFAULT_MODEL_NAME (default: "gemini-2.0-flash-exp")
+                - Or programmatically: PenelopeConfig.set_default_model("anthropic", "claude-4")
+
+            Max Iterations Configuration:
+                - Default max iterations can be set via environment variable:
+                  PENELOPE_DEFAULT_MAX_ITERATIONS (default: 10)
+                - Or programmatically: PenelopeConfig.set_default_max_iterations(30)
+
             Logging is controlled via PENELOPE_LOG_LEVEL environment variable:
             - INFO (default): Shows Penelope logs, suppresses external library debug logs
             - DEBUG: Shows all logs including LiteLLM, httpx, httpcore for troubleshooting
             - WARNING+: Shows only warnings and errors
         """
-        self.model = model
-        self.max_iterations = max_iterations
+        self.model = model if model is not None else _create_default_model()
+        self.max_iterations = (
+            max_iterations
+            if max_iterations is not None
+            else PenelopeConfig.get_default_max_iterations()
+        )
         self.timeout_seconds = timeout_seconds
         self.enable_transparency = enable_transparency
         self.verbose = verbose
@@ -116,7 +141,11 @@ class PenelopeAgent:
         # Tools will be set per test (since TargetInteractionTool needs target)
         self.custom_tools = tools or []
 
-        logger.info(f"Initialized PenelopeAgent with {model.get_model_name()}")
+        # Initialize specialized components
+        self.evaluator = GoalEvaluator(self.model, goal_metric)
+        self.executor = TurnExecutor(self.model, verbose, enable_transparency)
+
+        logger.info(f"Initialized PenelopeAgent with {self.model.get_model_name()}")
 
     def _get_tools_for_test(self, target: Target) -> List[Tool]:
         """
@@ -192,373 +221,6 @@ class PenelopeAgent:
                 return True, reason
 
         return False, ""
-
-    def _execute_turn(
-        self,
-        state: TestState,
-        tools: List[Tool],
-        system_prompt: str,
-    ) -> bool:
-        """
-        Execute one turn of the agent loop.
-
-        Args:
-            state: Current test state
-            tools: Available tools
-            system_prompt: System prompt for the LLM
-
-        Returns:
-            True if turn executed successfully, False if should stop
-        """
-        # Build conversation history (native Pydantic messages)
-        conversation_messages = state.get_conversation_messages()
-
-        # Create user prompt for this turn
-        if state.current_turn == 0:
-            user_prompt = FIRST_TURN_PROMPT.render()
-        else:
-            user_prompt = SUBSEQUENT_TURN_PROMPT.render()
-
-        # Get model response
-        try:
-            # Build messages for the model
-            if conversation_messages:
-                # We have history, use it
-                prompt = user_prompt
-                for msg in conversation_messages[-10:]:  # Last 10 messages (5 turns) for context
-                    prompt += f"\n\n{msg.role}: {msg.content}"
-            else:
-                prompt = user_prompt
-
-            response = self.model.generate(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                schema=ToolCall,  # Use Pydantic schema for structured output
-            )
-
-        except Exception as e:
-            logger.error(f"Model generation failed: {e}")
-            state.add_finding(f"Error: Model generation failed - {str(e)}")
-            return False
-
-        # Extract values from structured response (no parsing needed!)
-        reasoning = response.get("reasoning", "")
-        action_name = response.get("tool_name", "")
-        params_obj = response.get("parameters", {})
-
-        # Convert Pydantic model to dict if needed
-        if hasattr(params_obj, "model_dump"):
-            # It's a Pydantic model, convert to dict
-            action_params = params_obj.model_dump(exclude_none=True)
-        elif isinstance(params_obj, dict):
-            # Already a dict (shouldn't happen with proper schema, but handle it)
-            action_params = params_obj
-        else:
-            # Unexpected type
-            logger.warning(f"Unexpected parameters type: {type(params_obj)}")
-            action_params = {}
-
-        # Debug: Log structured response
-        if self.verbose:
-            logger.debug(f"Structured response - Tool: {action_name}, Params: {action_params}")
-
-        # With structured output, we should always have an action
-        if not action_name:
-            logger.warning("Structured output missing tool_name")
-            action_name = "no_action"
-            action_params = {}
-
-        # Create assistant message with tool_calls (Pydantic)
-        import json
-
-        tool_call_id = f"call_{state.current_turn + 1}_{action_name}"
-        assistant_message = AssistantMessage(
-            content=reasoning,
-            tool_calls=[
-                MessageToolCall(
-                    id=tool_call_id,
-                    type="function",
-                    function=FunctionCall(
-                        name=action_name,
-                        arguments=json.dumps(action_params),
-                    ),
-                )
-            ],
-        )
-
-        # Find and execute the tool
-        tool_result = None
-        for tool in tools:
-            if tool.name == action_name:
-                if self.verbose:
-                    logger.info(f"Executing tool: {action_name} with params: {action_params}")
-
-                tool_result = tool.execute(**action_params)
-                break
-
-        if tool_result is None:
-            # Tool not found
-            tool_result_dict = {
-                "success": False,
-                "output": {},
-                "error": f"Unknown tool: {action_name}",
-            }
-        else:
-            tool_result_dict = {
-                "success": tool_result.success,
-                "output": tool_result.output,
-                "error": tool_result.error,
-            }
-
-        # Create tool response message (Pydantic)
-        tool_message = ToolMessage(
-            tool_call_id=tool_call_id,
-            name=action_name,
-            content=json.dumps(tool_result_dict),
-        )
-
-        # Add turn to state using native OpenAI format
-        state.add_turn(
-            reasoning=reasoning,
-            assistant_message=assistant_message,
-            tool_message=tool_message,
-        )
-
-        # Display turn if verbose
-        if self.verbose and self.enable_transparency:
-            display_turn(state.current_turn, reasoning, action_name, tool_result_dict)
-
-        return True
-
-    def _evaluate_goal_progress(
-        self,
-        state: TestState,
-        goal: str,
-    ) -> GoalProgress:
-        """
-        Evaluate progress toward the test goal.
-
-        Uses SDK multi-turn metrics if available (self.goal_metric),
-        otherwise uses interim LLM-based evaluation.
-
-        Args:
-            state: Current test state
-            goal: The test goal
-
-        Returns:
-            GoalProgress with evaluation
-        """
-        # Need at least some conversation to evaluate
-        if not state.turns or len(state.turns) < 2:
-            return GoalProgress(
-                goal_achieved=False,
-                goal_impossible=False,
-                confidence=0.0,
-                reasoning="Insufficient conversation for evaluation",
-            )
-
-        # === Path 1: Use SDK Metric (when available) ===
-        if self.goal_metric:
-            return self._evaluate_with_sdk_metric(state, goal)
-
-        # === Path 2: Interim Simple LLM Evaluation ===
-        return self._evaluate_with_simple_llm(state, goal)
-
-    def _evaluate_with_sdk_metric(
-        self,
-        state: TestState,
-        goal: str,
-    ) -> GoalProgress:
-        """
-        Use SDK multi-turn metric for evaluation.
-
-        This path is used when self.goal_metric is provided (future SDK integration).
-
-        Args:
-            state: Current test state
-            goal: The test goal
-
-        Returns:
-            GoalProgress converted from SDK MetricResult
-        """
-        # Convert Penelope's conversation to SDK format
-        conversation = self._to_conversation_format(state.turns)
-
-        # Evaluate using the metric
-        result = self.goal_metric.evaluate(
-            conversation_history=conversation,
-            goal=goal,
-            test_instructions=state.context.instructions,
-            context=state.context.context,
-        )
-
-        # Convert MetricResult to GoalProgress
-        details = result.details
-
-        # Determine if goal is impossible
-        is_impossible = (
-            not details.get("is_successful", False)
-            and details.get("confidence", 0.0) > 0.8
-            and len(state.turns) >= 5
-        )
-
-        return GoalProgress(
-            goal_achieved=details.get("is_successful", False),
-            goal_impossible=is_impossible,
-            confidence=details.get("confidence", 0.5),
-            reasoning=details.get("reasoning", ""),
-            findings=details.get("evidence", []),
-        )
-
-    def _evaluate_with_simple_llm(
-        self,
-        state: TestState,
-        goal: str,
-    ) -> GoalProgress:
-        """
-        INTERIM: Simple LLM-based goal evaluation.
-
-        This is a temporary solution until SDK multi-turn metrics are ready.
-        Uses a simple prompt + structured output to evaluate goal achievement.
-
-        Args:
-            state: Current test state
-            goal: The test goal
-
-        Returns:
-            GoalProgress with LLM evaluation
-        """
-        # Format conversation for evaluation
-        conversation = self._format_conversation_for_eval(state.turns)
-
-        # Log the formatted conversation for debugging
-        logger.debug(f"Evaluating conversation with {len(state.turns)} Penelope turns")
-        logger.debug(f"Formatted conversation:\n{conversation}")
-
-        # Build evaluation prompt using versioned template
-        prompt = GOAL_EVALUATION_PROMPT.render(
-            goal=goal,
-            instructions=state.context.instructions or "None provided",
-            conversation=conversation,
-        )
-
-        try:
-            # Get structured response from LLM
-            response = self.model.generate(prompt, schema=SimpleGoalEval)
-            result = SimpleGoalEval(**response)
-
-            # Log detailed evaluation for transparency
-            logger.debug(f"Turn count reported by LLM: {result.turn_count}")
-            logger.debug("Criterion-by-criterion evaluation:")
-            for i, criterion in enumerate(result.criteria_evaluations, 1):
-                status = "✓" if criterion.met else "✗"
-                logger.debug(f"  {i}. {status} {criterion.criterion}")
-                logger.debug(f"     Evidence: {criterion.evidence}")
-            logger.debug(f"All criteria met: {result.all_criteria_met}")
-            logger.debug(f"Goal achieved: {result.goal_achieved}")
-
-            # Build detailed findings from criteria
-            findings = []
-            for criterion in result.criteria_evaluations:
-                status = "MET" if criterion.met else "NOT MET"
-                findings.append(f"[{status}] {criterion.criterion}: {criterion.evidence}")
-
-            # Add overall evidence
-            findings.extend(result.evidence)
-
-            return GoalProgress(
-                goal_achieved=result.goal_achieved,
-                goal_impossible=False,
-                confidence=result.confidence,
-                reasoning=f"Turn count: {result.turn_count}. {result.reasoning}",
-                findings=findings,
-            )
-
-        except Exception as e:
-            logger.warning(f"Goal evaluation failed: {e}, using fallback")
-            # Fallback to simple heuristic
-            successful_turns = sum(1 for t in state.turns if t.tool_result.get("success", False))
-            return GoalProgress(
-                goal_achieved=False,
-                goal_impossible=False,
-                confidence=0.3,
-                reasoning=(
-                    f"Evaluation failed: {e}. Observed {successful_turns} successful turns."
-                ),
-            )
-
-    def _format_conversation_for_eval(self, turns: List[Turn]) -> str:
-        """
-        Format Penelope turns as a readable conversation for evaluation.
-
-        Args:
-            turns: List of Turn objects from test execution
-
-        Returns:
-            Formatted conversation string
-        """
-        lines = []
-        for turn in turns:
-            if turn.tool_name == "send_message_to_target":
-                # Extract message from tool arguments
-                msg = turn.tool_arguments.get("message", "")
-                if msg:
-                    lines.append(f"USER: {msg}")
-
-                # Extract response from tool result
-                result = turn.tool_result
-                if isinstance(result, dict) and result.get("success"):
-                    resp = result.get("output", {})
-                    resp_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
-                    if resp_text:
-                        lines.append(f"ASSISTANT: {resp_text}")
-
-        return "\n".join(lines)
-
-    def _to_conversation_format(self, turns: List[Turn]) -> Any:
-        """
-        Convert Penelope's Turn objects to SDK ConversationHistory.
-        Only used when SDK metrics are available.
-
-        Args:
-            turns: List of Turn objects from test execution
-
-        Returns:
-            ConversationHistory object (when SDK is available)
-        """
-        # Lazy import to avoid dependency before SDK is ready
-        try:
-            from rhesis.sdk.metrics.types import ConversationHistory, ConversationTurn
-        except ImportError:
-            raise ImportError(
-                "SDK multi-turn metrics not available. "
-                "Install with: pip install rhesis-sdk[metrics]"
-            )
-
-        conversation_turns = []
-
-        for turn in turns:
-            if turn.tool_name == "send_message_to_target":
-                # Extract message from tool arguments
-                message = turn.tool_arguments.get("message", "")
-                if message:
-                    conversation_turns.append(ConversationTurn(role="user", content=message))
-
-                # Extract response from tool result
-                result = turn.tool_result
-                if isinstance(result, dict) and result.get("success"):
-                    response = result.get("output", {})
-                    response_text = (
-                        response.get("response", "")
-                        if isinstance(response, dict)
-                        else str(response)
-                    )
-                    if response_text:
-                        conversation_turns.append(
-                            ConversationTurn(role="assistant", content=response_text)
-                        )
-
-        return ConversationHistory(turns=conversation_turns)
 
     def execute_test(
         self,
@@ -700,7 +362,7 @@ class PenelopeAgent:
                 return result
 
             # Execute one turn
-            success = self._execute_turn(state, tools, system_prompt)
+            success = self.executor.execute_turn(state, tools, system_prompt)
 
             if not success:
                 # Turn execution failed
@@ -712,7 +374,7 @@ class PenelopeAgent:
                 return result
 
             # Evaluate goal progress
-            progress = self._evaluate_goal_progress(state, goal)
+            progress = self.evaluator.evaluate_progress(state, goal)
 
             # Update goal condition
             for condition in conditions:

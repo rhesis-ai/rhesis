@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer
 
 from rhesis.penelope.schemas import AssistantMessage, ToolMessage
 
@@ -58,7 +58,7 @@ class Turn(BaseModel):
         default=None, description="Evaluation of progress after this turn"
     )
 
-    @field_serializer('timestamp')
+    @field_serializer("timestamp")
     def serialize_timestamp(self, timestamp: datetime, _info):
         """Serialize datetime to ISO format string."""
         return timestamp.isoformat()
@@ -112,7 +112,7 @@ class TestResult(BaseModel):
             return (self.end_time - self.start_time).total_seconds()
         return None
 
-    @field_serializer('start_time', 'end_time', when_used='json')
+    @field_serializer("start_time", "end_time", when_used="json")
     def serialize_datetime(self, dt: Optional[datetime], _info):
         """Serialize datetime to ISO format string."""
         return dt.isoformat() if dt else None

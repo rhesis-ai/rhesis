@@ -215,13 +215,13 @@ def main():
         print("  python test_three_scenarios.py 2d8d2060-b85a-46fa-b299-e3c940598088")
         print("\nThis will run three focused test scenarios against the specified endpoint.")
         return 1
-    
+
     endpoint_id = sys.argv[1]
-    
+
     print("=" * 80)
     print("PENELOPE: Three Scenario Test Suite")
     print("=" * 80)
-    
+
     # Initialize Penelope
     logging.info("Initializing Penelope agent...")
     agent = PenelopeAgent(
@@ -230,7 +230,7 @@ def main():
         enable_transparency=True,
         verbose=True,
     )
-    
+
     # Create target
     logging.info("Setting up test target...")
     target = EndpointTarget(endpoint_id=endpoint_id)
