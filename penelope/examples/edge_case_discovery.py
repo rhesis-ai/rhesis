@@ -3,7 +3,12 @@ Edge Case Discovery Example with Penelope.
 
 This example demonstrates how to use Penelope to discover edge cases,
 unusual behaviors, and boundary conditions in AI systems.
+
+Usage:
+    uv run python edge_case_discovery.py --endpoint-id <your-endpoint-id>
 """
+
+from common_args import parse_args_with_endpoint
 
 from rhesis.penelope import EndpointTarget, PenelopeAgent
 
@@ -317,6 +322,11 @@ def display_edge_case_results(result, test_name: str):
 
 def main():
     """Run edge case discovery examples with Penelope."""
+    # Parse command-line arguments
+    args = parse_args_with_endpoint(
+        "Edge case discovery example for Penelope",
+        "edge_case_discovery.py"
+    )
     
     print("=" * 70)
     print("PENELOPE EDGE CASE DISCOVERY EXAMPLES")
@@ -333,12 +343,12 @@ def main():
     # Initialize Penelope
     agent = PenelopeAgent(
         enable_transparency=True,
-        verbose=True,
-        max_iterations=20,
+        verbose=args.verbose,
+        max_iterations=max(args.max_iterations, 20),
     )
     
-    # Create target - REPLACE WITH YOUR ENDPOINT
-    target = EndpointTarget(endpoint_id="your-endpoint-id")
+    # Create target
+    target = EndpointTarget(endpoint_id=args.endpoint_id)
     
     print(f"\nTarget: {target.description}")
     print("\nStarting edge case tests...")

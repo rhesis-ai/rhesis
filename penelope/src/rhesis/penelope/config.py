@@ -21,13 +21,13 @@ class PenelopeConfig:
     Configuration Options:
         - Log Level: DEBUG, INFO, WARNING, ERROR, CRITICAL
         - Default Model: Model provider (default: "vertex_ai")
-        - Default Model Name: Specific model (default: "gemini-2.0-flash-exp")
+        - Default Model Name: Specific model (default: "gemini-2.0-flash")
         - Default Max Iterations: Maximum turns before stopping (default: 10)
 
     Environment Variables:
         - PENELOPE_LOG_LEVEL: Set log level (default: INFO)
         - PENELOPE_DEFAULT_MODEL: Set model provider (default: vertex_ai)
-        - PENELOPE_DEFAULT_MODEL_NAME: Set model name (default: gemini-2.0-flash-exp)
+        - PENELOPE_DEFAULT_MODEL_NAME: Set model name (default: gemini-2.0-flash)
         - PENELOPE_DEFAULT_MAX_ITERATIONS: Set max iterations (default: 10)
 
     Example:
@@ -95,15 +95,15 @@ class PenelopeConfig:
         Checks (in order):
         1. Programmatically set value
         2. PENELOPE_DEFAULT_MODEL_NAME env var
-        3. Default: "gemini-2.0-flash-exp"
+        3. Default: "gemini-2.0-flash"
 
         Returns:
-            Model name string (e.g., "gemini-2.0-flash-exp", "claude-4")
+            Model name string (e.g., "gemini-2.0-flash", "claude-4")
         """
         if cls._default_model_name is not None:
             return cls._default_model_name
 
-        return os.getenv("PENELOPE_DEFAULT_MODEL_NAME", "gemini-2.0-flash-exp")
+        return os.getenv("PENELOPE_DEFAULT_MODEL_NAME", "gemini-2.0-flash")
 
     @classmethod
     def get_default_max_iterations(cls) -> int:
@@ -153,7 +153,7 @@ class PenelopeConfig:
 
         Args:
             model: Model provider (e.g., "vertex_ai", "anthropic", "openai")
-            model_name: Specific model name (e.g., "gemini-2.0-flash-exp", "claude-4")
+            model_name: Specific model name (e.g., "gemini-2.0-flash", "claude-4")
 
         Example:
             >>> PenelopeConfig.set_default_model("anthropic", "claude-4")
