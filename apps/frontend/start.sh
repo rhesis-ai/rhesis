@@ -74,7 +74,7 @@ start_server() {
         echo ""
         
         # Start the production server
-        exec NODE_ENV=production npm run start -- --hostname 0.0.0.0
+        NODE_ENV=production exec npm run start -- --hostname 0.0.0.0
     else
         log "${BLUE}🛠️  Starting development server...${NC}"
         log "${YELLOW}📦 Framework:${NC} ${GREEN}Next.js${NC}"
@@ -87,7 +87,7 @@ start_server() {
         echo ""
         
         # Start the development server
-        exec NODE_ENV=development npm run dev --host
+        NODE_ENV=development exec npm run dev --host
     fi
 }
 
