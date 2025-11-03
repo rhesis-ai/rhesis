@@ -17,13 +17,13 @@ class Tool(ABC):
     def name(self) -> str:
         """Unique identifier for the tool"""
         pass
-    
+
     @property
     @abstractmethod
     def description(self) -> str:
         """Detailed description with usage guidance"""
         pass
-    
+
     @abstractmethod
     def execute(self, **kwargs: Any) -> ToolResult:
         """Execute the tool with validated parameters"""
@@ -31,7 +31,9 @@ class Tool(ABC):
 ```
 
 <Callout type="info">
-  **Parameter Validation:** Tool parameters are automatically validated via Pydantic schemas in the structured output. Your `execute` method receives validated inputs.
+  **Parameter Validation:** Tool parameters are automatically validated via
+  Pydantic schemas in the structured output. Your `execute` method receives
+  validated inputs.
 </Callout>
 
 ## Creating a Custom Tool
@@ -45,16 +47,16 @@ import sqlite3
 class DatabaseQueryTool(Tool):
     def __init__(self, db_path: str):
         self.db_path = db_path
-    
+
     @property
     def name(self) -> str:
         return "query_test_database"
-    
+
     @property
     def description(self) -> str:
         return """Query the test database to verify data integrity.
 
-Use this tool to check if the target system correctly stored or 
+Use this tool to check if the target system correctly stored or
 retrieved information during testing.
 
 WHEN TO USE:
@@ -79,10 +81,10 @@ IMPORTANT:
 - Query timeout is 5 seconds
 - Results limited to 100 rows
 """
-    
+
     def execute(self, query: str = "", **kwargs) -> ToolResult:
         """Execute a read-only database query."""
-        
+
         # Validate query is read-only
         if not query.strip().upper().startswith("SELECT"):
             return ToolResult(
@@ -90,24 +92,24 @@ IMPORTANT:
                 output={},
                 error="Only SELECT queries are allowed"
             )
-        
+
         try:
             conn = sqlite3.connect(self.db_path, timeout=5.0)
             cursor = conn.cursor()
             cursor.execute(query)
-            
+
             # Limit results
             rows = cursor.fetchmany(100)
             columns = [desc[0] for desc in cursor.description]
-            
+
             # Format as list of dicts
             results = [
                 dict(zip(columns, row))
                 for row in rows
             ]
-            
+
             conn.close()
-            
+
             return ToolResult(
                 success=True,
                 output={
@@ -117,7 +119,7 @@ IMPORTANT:
                 },
                 metadata={"query": query}
             )
-            
+
         except Exception as e:
             return ToolResult(
                 success=False,
@@ -133,16 +135,16 @@ class APIVerificationTool(Tool):
     def __init__(self, api_base_url: str, api_key: str):
         self.base_url = api_base_url
         self.api_key = api_key
-    
+
     @property
     def name(self) -> str:
         return "verify_api_state"
-    
+
     @property
     def description(self) -> str:
         return """Verify backend API state during testing.
 
-Check if the target system's API endpoints are returning expected 
+Check if the target system's API endpoints are returning expected
 values after interactions.
 
 WHEN TO USE:
@@ -162,29 +164,29 @@ EXAMPLE:
 ...     expected_value="active"
 ... )
 """
-    
+
     def execute(
-        self, 
-        endpoint: str = "", 
-        expected_field: str = "", 
+        self,
+        endpoint: str = "",
+        expected_field: str = "",
         expected_value: str = "",
         **kwargs
     ) -> ToolResult:
         """Verify API endpoint state."""
         import requests
-        
+
         try:
             url = f"{self.base_url}{endpoint}"
             headers = {"Authorization": f"Bearer {self.api_key}"}
-            
+
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
-            
+
             data = response.json()
             actual_value = data.get(expected_field)
-            
+
             is_match = str(actual_value) == str(expected_value)
-            
+
             return ToolResult(
                 success=True,
                 output={
@@ -198,7 +200,7 @@ EXAMPLE:
                     "status_code": response.status_code,
                 }
             )
-            
+
         except Exception as e:
             return ToolResult(
                 success=False,
@@ -250,24 +252,24 @@ Follow Anthropic's ACI principles - document thoroughly:
 def description(self) -> str:
     return """
     Brief one-line summary of what the tool does.
-    
+
     Detailed explanation of the tool's purpose and capabilities.
-    
+
     WHEN TO USE:
     ✓ Use case 1
     ✓ Use case 2
-    
+
     WHEN NOT TO USE:
     ✗ Don't use for X
     ✗ Don't use for Y
-    
+
     PARAMETERS:
     - param1: Description and constraints
     - param2: Description and constraints
-    
+
     EXAMPLE:
     >>> tool_name(param1="value1", param2="value2")
-    
+
     IMPORTANT NOTES:
     - Key consideration 1
     - Key consideration 2
@@ -371,21 +373,21 @@ class SecurityScannerTool(Tool):
     @property
     def name(self) -> str:
         return "scan_for_vulnerabilities"
-    
+
     @property
     def description(self) -> str:
         return """Scan target responses for security vulnerabilities."""
-    
+
     def execute(self, response_text: str = "", **kwargs) -> ToolResult:
         vulnerabilities = []
-        
+
         # Check for common issues
         if re.search(r'password|secret|key', response_text, re.I):
             vulnerabilities.append("Potential credential exposure")
-        
+
         if re.search(r'<script|javascript:', response_text, re.I):
             vulnerabilities.append("Potential XSS vulnerability")
-        
+
         return ToolResult(
             success=True,
             output={
@@ -399,6 +401,8 @@ class SecurityScannerTool(Tool):
 ---
 
 <Callout type="default">
-  **Next Steps** - Review the [Architecture](/penelope/architecture) to understand tool integration - Explore [Use Cases](/penelope/use-cases) for real-world applications - Check out [Configuration](/penelope/configuration) for agent setup
+  **Next Steps** - Review the [Architecture](/penelope/architecture) to
+  understand tool integration - Explore [Use Cases](/penelope/use-cases) for
+  real-world applications - Check out [Configuration](/penelope/configuration)
+  for agent setup
 </Callout>
-

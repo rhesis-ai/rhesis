@@ -12,15 +12,15 @@ from rhesis.penelope import PenelopeAgent
 
 agent = PenelopeAgent(
     model=AnthropicLLM(),        # Optional: defaults to Vertex AI / gemini-2.0-flash
-    
+
     # Stopping conditions
     max_iterations=20,           # Optional: defaults to 10
     timeout_seconds=300,         # Optional: no timeout by default
-    
+
     # Transparency (Anthropic principle)
     enable_transparency=True,    # Show reasoning at each step
     verbose=True,                # Print execution details
-    
+
     # Custom tools
     tools=[CustomTool1(), CustomTool2()],
 )
@@ -49,6 +49,7 @@ Penelope uses **Vertex AI with Gemini 2.0 Flash Experimental** by default. You c
     # Now all agents created without explicit model will use this
     agent = PenelopeAgent()  # Uses anthropic/claude-4
     ```
+
   </Tabs.Tab>
 </Tabs>
 
@@ -74,6 +75,7 @@ agent = PenelopeAgent(model=OllamaLLM(model_name="llama2"))
 ```
 
 Available providers:
+
 - `vertex_ai` - Google Vertex AI (default)
 - `anthropic` - Anthropic Claude
 - `openai` - OpenAI GPT
@@ -105,6 +107,7 @@ Penelope defaults to **10 maximum iterations**. Configure this default:
     # Now all agents without explicit max_iterations use this
     agent = PenelopeAgent()  # Uses 20 max iterations
     ```
+
   </Tabs.Tab>
   <Tabs.Tab>
     ```python
@@ -115,7 +118,8 @@ Penelope defaults to **10 maximum iterations**. Configure this default:
 </Tabs>
 
 <Callout type="info">
-  **Choosing Max Iterations:** Start with 10 for simple tests. Increase to 20-30 for complex multi-turn scenarios or exploratory testing.
+  **Choosing Max Iterations:** Start with 10 for simple tests. Increase to 20-30
+  for complex multi-turn scenarios or exploratory testing.
 </Callout>
 
 ## Test Execution Parameters
@@ -126,7 +130,7 @@ Configure individual test executions:
 result = agent.execute_test(
     target=target,                    # Required: Target to test
     goal="...",                       # Required: What to achieve
-    
+
     # Optional parameters
     instructions="...",               # How to test (smart defaults if omitted)
     scenario="...",                   # Narrative context/persona
@@ -137,14 +141,14 @@ result = agent.execute_test(
 
 ### Parameter Details
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `target` | `Target` | Yes | The system under test (Endpoint, LangChain app, etc.) |
-| `goal` | `str` | Yes | What the test should achieve |
-| `instructions` | `str` | No | Specific testing methodology (Penelope plans if omitted) |
-| `scenario` | `str` | No | Narrative context or persona for testing |
-| `context` | `dict` | No | Additional resources, expected behaviors, domain knowledge |
-| `max_turns` | `int` | No | Override agent's max_iterations for this test |
+| Parameter      | Type     | Required | Description                                                |
+| -------------- | -------- | -------- | ---------------------------------------------------------- |
+| `target`       | `Target` | Yes      | The system under test (Endpoint, LangChain app, etc.)      |
+| `goal`         | `str`    | Yes      | What the test should achieve                               |
+| `instructions` | `str`    | No       | Specific testing methodology (Penelope plans if omitted)   |
+| `scenario`     | `str`    | No       | Narrative context or persona for testing                   |
+| `context`      | `dict`   | No       | Additional resources, expected behaviors, domain knowledge |
+| `max_turns`    | `int`    | No       | Override agent's max_iterations for this test              |
 
 ## Transparency and Debugging
 
@@ -159,12 +163,14 @@ agent = PenelopeAgent(
 ```
 
 **When to enable:**
+
 - During test development
 - Debugging failed tests
 - Understanding Penelope's decision-making
 - Validating test quality
 
 **When to disable:**
+
 - Production test runs
 - Batch testing
 - When output is too verbose
@@ -204,7 +210,8 @@ agent = PenelopeAgent(
 ```
 
 <Callout type="warning">
-  **Note:** Timeout stops the test immediately, potentially mid-turn. Use max_iterations for predictable stopping.
+  **Note:** Timeout stops the test immediately, potentially mid-turn. Use
+  max_iterations for predictable stopping.
 </Callout>
 
 ## Environment Variables
@@ -240,6 +247,7 @@ PenelopeConfig.reset()
 ---
 
 <Callout type="default">
-  **Next Steps** - Explore [Custom Tools](/penelope/custom-tools) for extending Penelope - Understand the [Architecture](/penelope/architecture) for advanced use cases - Check out [Use Cases](/penelope/use-cases) for practical examples
+  **Next Steps** - Explore [Custom Tools](/penelope/custom-tools) for extending
+  Penelope - Understand the [Architecture](/penelope/architecture) for advanced
+  use cases - Check out [Use Cases](/penelope/use-cases) for practical examples
 </Callout>
-

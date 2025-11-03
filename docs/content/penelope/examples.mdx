@@ -5,17 +5,12 @@ Complete working examples demonstrating various Penelope capabilities. All examp
 ## Prerequisites
 
 <Callout type="warning">
-  **Required before running examples:**
-  
-  1. **RHESIS_API_KEY**: Set your Rhesis API key as an environment variable
-     ```bash
-     export RHESIS_API_KEY="rh-your-api-key"
-     ```
-     Get your API key from [Rhesis App](https://app.rhesis.ai) → Settings
-     
-  2. **Rhesis Endpoint ID**: Get this from your Rhesis dashboard
-  
-  📚 See the [SDK Authentication Guide](/sdk/installation#configure-the-sdk) for details.
+  **Required before running examples:** 1. **RHESIS_API_KEY**: Set your Rhesis
+  API key as an environment variable ```bash export
+  RHESIS_API_KEY="rh-your-api-key" ``` Get your API key from [Rhesis
+  App](https://app.rhesis.ai) → Settings 2. **Rhesis Endpoint ID**: Get this
+  from your Rhesis dashboard 📚 See the [SDK Authentication
+  Guide](/sdk/installation#configure-the-sdk) for details.
 </Callout>
 
 ## Running Examples
@@ -73,6 +68,7 @@ print(f"Turns used: {result.turns_used}")
 ```
 
 **What it demonstrates:**
+
 - Setting up PenelopeAgent with default configuration
 - Creating an EndpointTarget
 - Executing simple and detailed tests
@@ -80,6 +76,7 @@ print(f"Turns used: {result.turns_used}")
 - Viewing conversation history
 
 **Run it:**
+
 ```bash
 uv run python basic_example.py --endpoint-id <your-endpoint-id>
 ```
@@ -109,6 +106,7 @@ result = agent.execute_test(
 ```
 
 **Run it:**
+
 ```bash
 # All examples accept --endpoint-id as a command-line argument
 uv run python security_testing.py --endpoint-id <your-endpoint-id>
@@ -131,6 +129,7 @@ result = agent.execute_test(
 ```
 
 **Run it:**
+
 ```bash
 # All examples accept --endpoint-id as a command-line argument
 uv run python compliance_testing.py --endpoint-id <your-endpoint-id>
@@ -153,6 +152,7 @@ result = agent.execute_test(
 ```
 
 **Run it:**
+
 ```bash
 # All examples accept --endpoint-id as a command-line argument
 uv run python edge_case_discovery.py --endpoint-id <your-endpoint-id>
@@ -190,6 +190,7 @@ print(f"Passed: {passed}/{len(results)}")
 ```
 
 **Run it:**
+
 ```bash
 # Set your API key and edit platform_integration.py
 export RHESIS_API_KEY='your-api-key'
@@ -211,11 +212,11 @@ class DatabaseVerificationTool(Tool):
     @property
     def name(self) -> str:
         return "verify_database_state"
-    
+
     @property
     def description(self) -> str:
         return "Verify backend database state during testing..."
-    
+
     def execute(self, table_name: str = "", record_id: str = "", **kwargs) -> ToolResult:
         # Your implementation
         pass
@@ -227,6 +228,7 @@ agent = PenelopeAgent(
 ```
 
 **Run it:**
+
 ```bash
 # All examples accept --endpoint-id as a command-line argument
 uv run python custom_tools.py --endpoint-id <your-endpoint-id>
@@ -269,6 +271,7 @@ runner.export_results("results.json")
 ```
 
 **Run it:**
+
 ```bash
 # All examples accept --endpoint-id as a command-line argument
 uv run python batch_testing.py --endpoint-id <your-endpoint-id>
@@ -285,6 +288,7 @@ Have an interesting use case? We'd love to see it! Please contribute examples fo
 ### Document Your Example
 
 Add clear documentation at the top of the file explaining:
+
 - What the example demonstrates
 - Prerequisites needed
 - How to run it
@@ -307,6 +311,7 @@ Add clear documentation at the top of the file explaining:
 ### Test It
 
 Make sure your example:
+
 - Runs without errors
 - Works with default Penelope configuration
 - Includes clear instructions
@@ -318,6 +323,8 @@ See [CONTRIBUTING.md](https://github.com/rhesis-ai/rhesis/blob/main/CONTRIBUTING
 ---
 
 <Callout type="default">
-  **Next Steps** - Explore [Use Cases](/penelope/use-cases) for more testing scenarios - Learn about [Configuration](/penelope/configuration) for customizing behavior - Check out [Custom Tools](/penelope/custom-tools) for extending Penelope
+  **Next Steps** - Explore [Use Cases](/penelope/use-cases) for more testing
+  scenarios - Learn about [Configuration](/penelope/configuration) for
+  customizing behavior - Check out [Custom Tools](/penelope/custom-tools) for
+  extending Penelope
 </Callout>
-
