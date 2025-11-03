@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock
 from rhesis.penelope.targets.base import Target, TargetResponse
-from rhesis.penelope.tools.base import Tool, ToolParameter, ToolResult
+from rhesis.penelope.tools.base import Tool, ToolResult
 from rhesis.sdk.models.base import BaseLLM
 
 
@@ -62,17 +62,6 @@ def mock_tool():
         @property
         def description(self) -> str:
             return "Mock tool for testing"
-
-        @property
-        def parameters(self):
-            return [
-                ToolParameter(
-                    name="param1",
-                    type="string",
-                    description="Test parameter",
-                    required=True,
-                )
-            ]
 
         def execute(self, **kwargs):
             return ToolResult(success=True, output={"result": "mock result"})
