@@ -33,7 +33,6 @@ from rhesis.penelope.utils import (
     StoppingCondition,
     TimeoutCondition,
     display_test_result,
-    format_tool_schema_for_llm,
 )
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
@@ -320,12 +319,14 @@ class PenelopeAgent:
         tools = self._get_tools_for_test(target)
 
         # Create system prompt
+        # Note: Tool schemas are defined in the ToolCall Pydantic schema,
+        # so we don't need to duplicate them in the system prompt
         system_prompt = get_system_prompt(
             instructions=instructions,
             goal=goal,
             scenario=scenario or "",
             context=str(context) if context else "",
-            available_tools=format_tool_schema_for_llm(tools),
+            available_tools="",  # Schema is self-documenting via ToolCall
         )
 
         # Create stopping conditions

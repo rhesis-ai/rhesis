@@ -11,7 +11,13 @@ from typing import List
 
 from rhesis.penelope.context import TestState
 from rhesis.penelope.prompts import FIRST_TURN_PROMPT, SUBSEQUENT_TURN_PROMPT
-from rhesis.penelope.schemas import AssistantMessage, FunctionCall, MessageToolCall, ToolCall, ToolMessage
+from rhesis.penelope.schemas import (
+    AssistantMessage,
+    FunctionCall,
+    MessageToolCall,
+    ToolCall,
+    ToolMessage,
+)
 from rhesis.penelope.tools.base import Tool
 from rhesis.penelope.utils import display_turn
 from rhesis.sdk.models.base import BaseLLM
@@ -100,7 +106,7 @@ class TurnExecutor:
             logger.error(f"Expected dict response, got {type(response)}")
             state.add_finding(f"Error: Invalid model response type - {type(response)}")
             return False
-            
+
         reasoning = response.get("reasoning", "")
         action_name = response.get("tool_name", "")
         params_obj = response.get("parameters", {})
@@ -186,4 +192,3 @@ class TurnExecutor:
             display_turn(state.current_turn, reasoning, action_name, tool_result_dict)
 
         return True
-

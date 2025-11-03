@@ -5,7 +5,7 @@ Includes stopping conditions, evaluation helpers, and other utility functions.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -82,30 +82,6 @@ class GoalAchievedCondition(StoppingCondition):
             return True, f"Goal determined impossible: {self.progress.reasoning}"
 
         return False, ""
-
-
-def format_tool_schema_for_llm(tools: List) -> str:
-    """
-    Format tool schemas in a way that's clear for the LLM.
-
-    Args:
-        tools: List of Tool instances
-
-    Returns:
-        Formatted string describing available tools
-    """
-    tool_descriptions = []
-
-    for tool in tools:
-        desc = f"**{tool.name}**\n\n{tool.description}\n\n"
-        desc += "Parameters:\n"
-        for param in tool.parameters:
-            required = "REQUIRED" if param.required else "optional"
-            desc += f"  - {param.name} ({param.type}, {required}): {param.description}\n"
-        desc += "\n"
-        tool_descriptions.append(desc)
-
-    return "\n".join(tool_descriptions)
 
 
 def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):

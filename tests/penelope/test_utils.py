@@ -7,7 +7,6 @@ from rhesis.penelope.utils import (
     MaxIterationsCondition,
     TimeoutCondition,
     GoalAchievedCondition,
-    format_tool_schema_for_llm,
 )
 from rhesis.penelope.context import GoalProgress
 
@@ -188,50 +187,6 @@ def test_goal_achieved_condition_update_progress():
     assert condition.progress == new_progress
 
 
-def test_format_tool_schema_for_llm(mock_tool):
-    """Test format_tool_schema_for_llm function."""
-    tools = [mock_tool]
-
-    formatted = format_tool_schema_for_llm(tools)
-
-    assert isinstance(formatted, str)
-    assert "mock_tool" in formatted
-    assert "Mock tool for testing" in formatted
-
-
-def test_format_tool_schema_for_llm_multiple_tools(mock_tool):
-    """Test format_tool_schema_for_llm with multiple tools."""
-
-    class AnotherMockTool:
-        @property
-        def name(self):
-            return "another_tool"
-
-        @property
-        def description(self):
-            return "Another tool description"
-
-        @property
-        def parameters(self):
-            return []
-
-    tools = [mock_tool, AnotherMockTool()]
-
-    formatted = format_tool_schema_for_llm(tools)
-
-    assert "mock_tool" in formatted
-    assert "another_tool" in formatted
-    assert "Mock tool for testing" in formatted
-    assert "Another tool description" in formatted
-
-
-def test_format_tool_schema_for_llm_includes_parameters(mock_tool):
-    """Test format_tool_schema_for_llm includes parameter information."""
-    tools = [mock_tool]
-
-    formatted = format_tool_schema_for_llm(tools)
-
-    # Should include parameter name and type
-    assert "param1" in formatted
-    assert "string" in formatted
+# Tests removed: format_tool_schema_for_llm is no longer needed
+# Tool schemas are self-documenting via the ToolCall Pydantic schema
 

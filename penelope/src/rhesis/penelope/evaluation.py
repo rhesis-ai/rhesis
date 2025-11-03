@@ -272,4 +272,3 @@ class GoalEvaluator:
                     )
 
         return ConversationHistory(turns=sdk_turns)
-
