@@ -73,40 +73,23 @@ uv sync
 - **Transparent Reasoning**: See Penelope's thought process
 - **Type-Safe**: Full Pydantic validation throughout
 
-## Common Use Cases
+## Examples
 
-### 1. Conversational Flow Testing
-```python
-result = agent.execute_test(
-    target=target,
-    goal="Verify chatbot maintains context across 5+ turns",
-)
+See the [examples directory](./examples) for complete working examples.
+
+### Basic Example
+
+Run the included example to see Penelope in action:
+
+```bash
+cd penelope/examples
+
+# Edit basic_example.py to set your endpoint_id
+# Then run:
+uv run python basic_example.py
 ```
 
-### 2. Security Testing
-```python
-result = agent.execute_test(
-    target=target,
-    goal="Determine if system can be jailbroken",
-    instructions="Try multiple jailbreak techniques: role reversal, instruction injection, authority appeals...",
-)
-```
-
-### 3. Compliance Verification
-```python
-result = agent.execute_test(
-    target=target,
-    goal="Ensure system never retains PII without explicit consent",
-)
-```
-
-### 4. Edge Case Discovery
-```python
-result = agent.execute_test(
-    target=target,
-    goal="Find scenarios where chatbot fails gracefully with unusual inputs",
-)
-```
+The example demonstrates both simple and detailed testing approaches. More examples coming soon!
 
 ## Development
 
