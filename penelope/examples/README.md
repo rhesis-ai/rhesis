@@ -2,6 +2,21 @@
 
 This directory contains examples demonstrating various use cases for Penelope.
 
+## Prerequisites
+
+**Before running any examples:**
+
+1. **RHESIS_API_KEY**: All examples require a valid Rhesis API key to access endpoints
+   - Obtain your API key from [Rhesis App](https://app.rhesis.ai) → Settings
+   - Set the environment variable:
+     ```bash
+     export RHESIS_API_KEY="rh-your-api-key"
+     ```
+   - 📚 [Full authentication guide](https://docs.rhesis.ai/sdk/installation#configure-the-sdk)
+
+2. **Rhesis Endpoint ID**: The endpoint you want to test
+   - Get this from your Rhesis dashboard
+
 ## Running Examples
 
 All examples use `uv` and accept command-line arguments:
@@ -9,6 +24,9 @@ All examples use `uv` and accept command-line arguments:
 ```bash
 # Navigate to the examples directory
 cd rhesis/penelope/examples
+
+# Make sure your API key is set
+export RHESIS_API_KEY="rh-your-api-key"
 
 # Run with your endpoint ID
 uv run python basic_example.py --endpoint-id <your-endpoint-id>
@@ -23,26 +41,23 @@ uv run python basic_example.py -e <your-endpoint-id> --max-iterations 20
 uv run python basic_example.py -e <your-endpoint-id> --quiet
 ```
 
-**All examples require:**
-- `--endpoint-id` (or `-e`): Your Rhesis endpoint ID
-- Optional: `--max-iterations`: Maximum number of turns (default: 10)
-- Optional: `--quiet` (or `-q`): Suppress verbose output
+**Command-line options:**
+- `--endpoint-id` (or `-e`): Your Rhesis endpoint ID [**required**]
+- `--max-iterations`: Maximum number of turns (default: 10)
+- `--quiet` (or `-q`): Suppress verbose output
+- `--help`: Show help message
 
 ## Basic Example
 
 **`basic_example.py`** - Simple multi-turn conversation test
 
-Demonstrates:
+**Demonstrates:**
 - Setting up PenelopeAgent with default configuration
 - Creating an EndpointTarget
 - Defining test instructions and goals
 - Executing simple and detailed tests
 - Accessing and displaying results
 - Viewing conversation history
-
-**Prerequisites:**
-- Penelope installed (see [Installation](../README.md#installation))
-- Valid Rhesis endpoint ID
 
 **Run it:**
 ```bash
@@ -55,16 +70,13 @@ uv run python basic_example.py --endpoint-id <your-endpoint-id>
 
 **`security_testing.py`** - Comprehensive security vulnerability testing
 
-Demonstrates:
+**Demonstrates:**
 - Jailbreak resistance testing
 - Prompt injection detection
 - Information leakage prevention
 - Boundary violation checks
 
-**Prerequisites:**
-- Test/staging environment (never test production without permission)
-- Valid endpoint configured
-- Proper authorization for security testing
+⚠️ **Important:** Only test systems you own or have permission to test. Use test/staging environments, never production.
 
 **Run it:**
 ```bash
@@ -75,7 +87,7 @@ uv run python security_testing.py --endpoint-id <your-endpoint-id>
 
 **`compliance_testing.py`** - Regulatory compliance verification
 
-Demonstrates:
+**Demonstrates:**
 - GDPR compliance testing
 - PII handling verification
 - Age restrictions (COPPA) checking
@@ -91,7 +103,7 @@ uv run python compliance_testing.py --endpoint-id <your-endpoint-id>
 
 **`edge_case_discovery.py`** - Finding unusual behaviors and boundaries
 
-Demonstrates:
+**Demonstrates:**
 - Input variation testing (empty, long, special chars)
 - Multi-language support checking
 - Ambiguous input handling
@@ -108,19 +120,16 @@ uv run python edge_case_discovery.py --endpoint-id <your-endpoint-id>
 
 **`platform_integration.py`** - Rhesis platform integration
 
-Demonstrates:
+**Demonstrates:**
 - Loading TestSets from Rhesis platform
 - Executing tests from platform
 - Storing results back to platform
 - Batch execution of multiple test sets
 
-**Prerequisites:**
-- RHESIS_API_KEY environment variable set
-- Valid TestSet IDs in Rhesis platform
+📝 **Note:** Requires valid TestSet IDs in your Rhesis platform account.
 
 **Run it:**
 ```bash
-export RHESIS_API_KEY='your-api-key'
 uv run python platform_integration.py --endpoint-id <your-endpoint-id>
 ```
 
@@ -128,7 +137,7 @@ uv run python platform_integration.py --endpoint-id <your-endpoint-id>
 
 **`custom_tools.py`** - Creating custom testing tools
 
-Demonstrates:
+**Demonstrates:**
 - Database verification tool implementation
 - API monitoring tool
 - Security scanner tool
@@ -144,7 +153,7 @@ uv run python custom_tools.py --endpoint-id <your-endpoint-id>
 
 **`batch_testing.py`** - Running multiple tests efficiently
 
-Demonstrates:
+**Demonstrates:**
 - Batch test execution
 - Result aggregation and analysis
 - Test report generation

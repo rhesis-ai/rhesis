@@ -2,22 +2,42 @@
 
 Complete working examples demonstrating various Penelope capabilities. All examples are available in the [examples directory](https://github.com/rhesis-ai/rhesis/tree/main/penelope/examples).
 
+## Prerequisites
+
+<Callout type="warning">
+  **Required before running examples:**
+  
+  1. **RHESIS_API_KEY**: Set your Rhesis API key as an environment variable
+     ```bash
+     export RHESIS_API_KEY="rh-your-api-key"
+     ```
+     Get your API key from [Rhesis App](https://app.rhesis.ai) → Settings
+     
+  2. **Rhesis Endpoint ID**: Get this from your Rhesis dashboard
+  
+  📚 See the [SDK Authentication Guide](/sdk/installation#configure-the-sdk) for details.
+</Callout>
+
 ## Running Examples
 
-All examples use `uv` to run with the proper dependencies:
+All examples accept command-line arguments for easy execution:
 
 ```bash
 # Navigate to the examples directory
 cd rhesis/penelope/examples
 
-# Edit the example file to configure your endpoint_id
-# Then run with uv:
-uv run python basic_example.py
-```
+# Set your API key (if not already set)
+export RHESIS_API_KEY="rh-your-api-key"
 
-<Callout type="info">
-  **Prerequisites:** Make sure you have [installed Penelope](/penelope/installation) and have a valid Rhesis endpoint configured.
-</Callout>
+# Run with your endpoint ID
+uv run python basic_example.py --endpoint-id <your-endpoint-id>
+
+# Adjust iterations if needed
+uv run python basic_example.py -e <your-endpoint-id> --max-iterations 20
+
+# Use --help to see all options
+uv run python basic_example.py --help
+```
 
 ## Available Examples
 
@@ -61,13 +81,12 @@ print(f"Turns used: {result.turns_used}")
 
 **Run it:**
 ```bash
-# Edit the file to set your endpoint_id
-uv run python basic_example.py
+uv run python basic_example.py --endpoint-id <your-endpoint-id>
 ```
 
 ## More Examples
 
-All these examples are fully implemented and ready to use. Simply edit the `endpoint_id` and run with `uv`.
+All these examples are fully implemented and ready to use. Simply provide your endpoint ID via command-line arguments.
 
 ### Security Testing
 
@@ -91,8 +110,8 @@ result = agent.execute_test(
 
 **Run it:**
 ```bash
-# Edit security_testing.py to set your endpoint_id
-uv run python security_testing.py
+# All examples accept --endpoint-id as a command-line argument
+uv run python security_testing.py --endpoint-id <your-endpoint-id>
 ```
 
 **Includes:** Jailbreak resistance, prompt injection, information leakage, and boundary violation tests.
@@ -113,8 +132,8 @@ result = agent.execute_test(
 
 **Run it:**
 ```bash
-# Edit compliance_testing.py to set your endpoint_id
-uv run python compliance_testing.py
+# All examples accept --endpoint-id as a command-line argument
+uv run python compliance_testing.py --endpoint-id <your-endpoint-id>
 ```
 
 **Includes:** GDPR, PII handling, COPPA, accessibility, and content moderation tests.
@@ -135,8 +154,8 @@ result = agent.execute_test(
 
 **Run it:**
 ```bash
-# Edit edge_case_discovery.py to set your endpoint_id
-uv run python edge_case_discovery.py
+# All examples accept --endpoint-id as a command-line argument
+uv run python edge_case_discovery.py --endpoint-id <your-endpoint-id>
 ```
 
 **Includes:** Input variations, multi-language, ambiguous inputs, error recovery, boundary values, and context switching tests.
@@ -174,7 +193,7 @@ print(f"Passed: {passed}/{len(results)}")
 ```bash
 # Set your API key and edit platform_integration.py
 export RHESIS_API_KEY='your-api-key'
-uv run python platform_integration.py
+uv run python platform_integration.py --endpoint-id <your-endpoint-id>
 ```
 
 **Includes:** TestSet loading, batch execution, result storage, and platform integration examples.
@@ -209,8 +228,8 @@ agent = PenelopeAgent(
 
 **Run it:**
 ```bash
-# Edit custom_tools.py to set your endpoint_id
-uv run python custom_tools.py
+# All examples accept --endpoint-id as a command-line argument
+uv run python custom_tools.py --endpoint-id <your-endpoint-id>
 ```
 
 **Includes:** Database verification tool, API monitoring tool, and security scanner tool implementations.
@@ -251,8 +270,8 @@ runner.export_results("results.json")
 
 **Run it:**
 ```bash
-# Edit batch_testing.py to set your endpoint_id
-uv run python batch_testing.py
+# All examples accept --endpoint-id as a command-line argument
+uv run python batch_testing.py --endpoint-id <your-endpoint-id>
 ```
 
 **Includes:** Batch execution, result aggregation, reporting, JSON export, and parallel testing concepts.
