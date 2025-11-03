@@ -86,7 +86,7 @@ class Target(ABC):
     def target_type(self) -> str:
         """Type identifier (e.g., 'endpoint', 'langchain')"""
         pass
-    
+
     @abstractmethod
     def send_message(
         self,
@@ -99,9 +99,11 @@ class Target(ABC):
 ```
 
 **Current Implementations:**
+
 - `EndpointTarget` - Rhesis platform endpoints
 
 **Future Implementations:**
+
 - `LangChainTarget` - LangChain applications
 - `CrewAITarget` - CrewAI agents
 - `CustomTarget` - User-defined targets
@@ -153,6 +155,7 @@ get_system_prompt(
 ```
 
 **Benefits:**
+
 - Version controlled prompts
 - Testable prompt logic
 - Easy customization
@@ -176,6 +179,7 @@ class ToolMessage(BaseModel):
 ```
 
 **Advantages:**
+
 - Zero conversion overhead
 - Full type safety
 - Provider agnostic (OpenAI, Anthropic, Vertex AI, etc.)
@@ -268,14 +272,14 @@ for turn in result.history:
 while not should_stop():
     # 1. Execute turn
     turn_result = executor.execute_turn(state, tools, system_prompt)
-    
+
     # 2. Evaluate progress (every 2 turns)
     if turn_number % 2 == 0:
         progress = evaluator.evaluate_progress(state, goal)
-    
+
     # 3. Check stopping conditions
     should_stop = check_conditions(state)
-    
+
     # 4. Update state
     state.add_turn(turn_result, progress)
 ```
@@ -299,6 +303,8 @@ Penelope is designed for extensibility:
 ---
 
 <Callout type="default">
-  **Next Steps** - Learn about [Custom Tools](/penelope/custom-tools) for extending functionality - Check out [Use Cases](/penelope/use-cases) for practical examples - Review [Configuration](/penelope/configuration) for advanced options
+  **Next Steps** - Learn about [Custom Tools](/penelope/custom-tools) for
+  extending functionality - Check out [Use Cases](/penelope/use-cases) for
+  practical examples - Review [Configuration](/penelope/configuration) for
+  advanced options
 </Callout>
-
