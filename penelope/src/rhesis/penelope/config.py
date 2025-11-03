@@ -16,24 +16,39 @@ class PenelopeConfig:
 
     Configuration can be set via:
     1. Environment variables (PENELOPE_*)
-    2. Programmatically via set_log_level()
+    2. Programmatically via setter methods
 
-    Log Levels:
-        - DEBUG: Show all logs including from LiteLLM, httpx, httpcore
-        - INFO: Show Penelope logs, suppress external library debug logs (default)
-        - WARNING/ERROR/CRITICAL: Show only warnings and errors
+    Configuration Options:
+        - Log Level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+        - Default Model: Model provider (default: "vertex_ai")
+        - Default Model Name: Specific model (default: "gemini-2.0-flash-exp")
+        - Default Max Iterations: Maximum turns before stopping (default: 10)
+
+    Environment Variables:
+        - PENELOPE_LOG_LEVEL: Set log level (default: INFO)
+        - PENELOPE_DEFAULT_MODEL: Set model provider (default: vertex_ai)
+        - PENELOPE_DEFAULT_MODEL_NAME: Set model name (default: gemini-2.0-flash-exp)
+        - PENELOPE_DEFAULT_MAX_ITERATIONS: Set max iterations (default: 10)
 
     Example:
         # Via environment variable
         export PENELOPE_LOG_LEVEL=DEBUG
+        export PENELOPE_DEFAULT_MODEL=anthropic
+        export PENELOPE_DEFAULT_MODEL_NAME=claude-4
+        export PENELOPE_DEFAULT_MAX_ITERATIONS=30
 
         # Via code
         from rhesis.penelope import PenelopeConfig
         PenelopeConfig.set_log_level("DEBUG")
+        PenelopeConfig.set_default_model("anthropic", "claude-4")
+        PenelopeConfig.set_default_max_iterations(30)
     """
 
     # Default values
     _log_level: Optional[str] = None
+    _default_model: Optional[str] = None
+    _default_model_name: Optional[str] = None
+    _default_max_iterations: Optional[int] = None
     _initialized: bool = False
 
     @classmethod
@@ -55,6 +70,68 @@ class PenelopeConfig:
         return os.getenv("PENELOPE_LOG_LEVEL", "INFO").upper()
 
     @classmethod
+    def get_default_model(cls) -> str:
+        """
+        Get the default model provider for Penelope.
+
+        Checks (in order):
+        1. Programmatically set value
+        2. PENELOPE_DEFAULT_MODEL env var
+        3. Default: "vertex_ai"
+
+        Returns:
+            Model provider string (e.g., "vertex_ai", "anthropic", "openai")
+        """
+        if cls._default_model is not None:
+            return cls._default_model
+
+        return os.getenv("PENELOPE_DEFAULT_MODEL", "vertex_ai")
+
+    @classmethod
+    def get_default_model_name(cls) -> str:
+        """
+        Get the default model name for Penelope.
+
+        Checks (in order):
+        1. Programmatically set value
+        2. PENELOPE_DEFAULT_MODEL_NAME env var
+        3. Default: "gemini-2.0-flash-exp"
+
+        Returns:
+            Model name string (e.g., "gemini-2.0-flash-exp", "claude-4")
+        """
+        if cls._default_model_name is not None:
+            return cls._default_model_name
+
+        return os.getenv("PENELOPE_DEFAULT_MODEL_NAME", "gemini-2.0-flash-exp")
+
+    @classmethod
+    def get_default_max_iterations(cls) -> int:
+        """
+        Get the default max iterations for Penelope.
+
+        Checks (in order):
+        1. Programmatically set value
+        2. PENELOPE_DEFAULT_MAX_ITERATIONS env var
+        3. Default: 10
+
+        Returns:
+            Maximum number of iterations before stopping
+        """
+        if cls._default_max_iterations is not None:
+            return cls._default_max_iterations
+
+        env_value = os.getenv("PENELOPE_DEFAULT_MAX_ITERATIONS")
+        if env_value is not None:
+            try:
+                return int(env_value)
+            except ValueError:
+                # Invalid value in env var, use default
+                return 10
+
+        return 10
+
+    @classmethod
     def set_log_level(cls, level: str):
         """
         Programmatically set the log level.
@@ -68,6 +145,39 @@ class PenelopeConfig:
         """
         cls._log_level = level.upper()
         cls._apply_logging_config()
+
+    @classmethod
+    def set_default_model(cls, model: str, model_name: str):
+        """
+        Programmatically set the default model configuration.
+
+        Args:
+            model: Model provider (e.g., "vertex_ai", "anthropic", "openai")
+            model_name: Specific model name (e.g., "gemini-2.0-flash-exp", "claude-4")
+
+        Example:
+            >>> PenelopeConfig.set_default_model("anthropic", "claude-4")
+        """
+        cls._default_model = model
+        cls._default_model_name = model_name
+
+    @classmethod
+    def set_default_max_iterations(cls, max_iterations: int):
+        """
+        Programmatically set the default max iterations.
+
+        Args:
+            max_iterations: Maximum number of turns before stopping (must be positive)
+
+        Raises:
+            ValueError: If max_iterations is not positive
+
+        Example:
+            >>> PenelopeConfig.set_default_max_iterations(30)
+        """
+        if max_iterations <= 0:
+            raise ValueError("max_iterations must be positive")
+        cls._default_max_iterations = max_iterations
 
     @classmethod
     def initialize(cls):
@@ -131,6 +241,9 @@ class PenelopeConfig:
     def reset(cls):
         """Reset configuration to defaults (useful for testing)."""
         cls._log_level = None
+        cls._default_model = None
+        cls._default_model_name = None
+        cls._default_max_iterations = None
         cls._initialized = False
 
 
