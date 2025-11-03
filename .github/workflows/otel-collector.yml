@@ -250,7 +250,8 @@ jobs:
             --max-instances=3 \
             --min-instances=1 \
             --set-env-vars="$(cat <<EOF
-          TELEMETRY_PROCESSOR_ENDPOINT=${{ env.PROCESSOR_ENDPOINT }}
+          TELEMETRY_PROCESSOR_ENDPOINT=${{ env.PROCESSOR_ENDPOINT }},
+          OTEL_INSECURE=false
           EOF
           )"
 

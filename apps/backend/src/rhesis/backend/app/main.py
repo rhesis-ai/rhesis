@@ -11,11 +11,15 @@ import logging
 import os
 import time
 
+# Initialize OpenTelemetry FIRST, before any OpenTelemetry imports
+from rhesis.backend.telemetry import initialize_telemetry
+
+initialize_telemetry()
+
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -27,13 +31,9 @@ from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, I
 from rhesis.backend.app.utils.git_utils import get_version_info
 from rhesis.backend.local_init import initialize_local_environment
 from rhesis.backend.logging import logger
-from rhesis.backend.telemetry import initialize_telemetry
 from rhesis.backend.telemetry.middleware import TelemetryMiddleware
 
 Base.metadata.create_all(bind=engine)
-
-# Initialize OpenTelemetry
-initialize_telemetry()
 
 # Public routes don't need any authentication
 public_routes = [
@@ -121,7 +121,8 @@ app = FastAPI(
 )
 
 # Instrument FastAPI with OpenTelemetry
-FastAPIInstrumentor.instrument_app(app)
+# Temporarily disabled to avoid conflict with custom TelemetryMiddleware
+# FastAPIInstrumentor.instrument_app(app)
 
 
 # Global exception handler for soft-deleted items

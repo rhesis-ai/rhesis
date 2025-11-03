@@ -11,7 +11,7 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.trace import NoOpTracerProvider
 
 from rhesis.backend.logging.rhesis_logger import logger
@@ -53,17 +53,43 @@ _telemetry_org_id: ContextVar[Optional[str]] = ContextVar("telemetry_org_id", de
 class ConditionalSpanProcessor(BatchSpanProcessor):
     """
     Span processor that only exports spans if telemetry is enabled for the current context.
-
-    This ensures we respect user's opt-in/opt-out preferences without
-    modifying the tracer creation logic throughout the codebase.
+    Uses BatchSpanProcessor for async processing (production).
     """
 
     def on_end(self, span):
-        """Only process spans if telemetry is enabled in current context"""
-        telemetry_enabled = _telemetry_enabled.get(False)
-        logger.debug(f"Span ending: {span.name}, telemetry_enabled={telemetry_enabled}")
+        """Only process spans if telemetry is enabled (checked via span attribute)"""
+        # Check span attribute instead of context variable because BatchSpanProcessor
+        # runs in a background thread where context variables are not available
+        try:
+            telemetry_enabled = (
+                span.attributes.get("_rhesis.telemetry_enabled", False)
+                if hasattr(span.attributes, "get")
+                else span.attributes.get("_rhesis.telemetry_enabled", False)
+            )
+        except Exception as e:
+            logger.error(f"Error checking telemetry_enabled attribute: {e}")
+            telemetry_enabled = True  # Default to enabled if we can't check
+
         if telemetry_enabled:
-            logger.debug(f"Exporting span: {span.name}")
+            super().on_end(span)
+        else:
+            logger.debug(f"Skipping span: {span.name} (telemetry disabled)")
+
+
+class ConditionalSimpleSpanProcessor(SimpleSpanProcessor):
+    """
+    Span processor that only exports spans if telemetry is enabled.
+    Uses SimpleSpanProcessor for synchronous processing (local development).
+    """
+
+    def on_end(self, span):
+        """Only process spans if telemetry is enabled (can check context variable)"""
+        # SimpleSpanProcessor runs synchronously in the same thread, so we can check context variable
+        telemetry_enabled = _telemetry_enabled.get(False) or span.attributes.get(
+            "_rhesis.telemetry_enabled", False
+        )
+
+        if telemetry_enabled:
             super().on_end(span)
         else:
             logger.debug(f"Skipping span: {span.name} (telemetry disabled)")
@@ -199,8 +225,16 @@ def initialize_telemetry():
             timeout=5,  # 5 second timeout - don't block app if telemetry is slow
         )
 
-        # Use conditional processor
-        processor = ConditionalSpanProcessor(exporter)
+        # Use SimpleSpanProcessor for local development (synchronous, respects context)
+        # Use BatchSpanProcessor for production (asynchronous, better performance)
+        is_local = deployment_type in ["local", "self-hosted", "unknown"]
+        if is_local:
+            logger.info("Using ConditionalSimpleSpanProcessor for local development")
+            processor = ConditionalSimpleSpanProcessor(exporter)
+        else:
+            logger.info("Using ConditionalBatchSpanProcessor for production")
+            processor = ConditionalSpanProcessor(exporter)
+
         provider.add_span_processor(processor)
 
         # Set as global tracer provider
@@ -373,6 +407,9 @@ def track_user_activity(event_type: str, session_id: Optional[str] = None, **met
     tracer = get_tracer(__name__)
 
     with tracer.start_as_current_span("user.activity") as span:
+        # Store telemetry enabled status in span attribute for processor
+        span.set_attribute("_rhesis.telemetry_enabled", True)
+
         # Set standard attributes
         span.set_attribute("event.category", "user_activity")
         span.set_attribute("event.type", event_type)
@@ -433,6 +470,9 @@ def track_feature_usage(feature_name: str, action: str, **metadata):
     tracer = get_tracer(__name__)
 
     with tracer.start_as_current_span(f"feature.{feature_name}") as span:
+        # Store telemetry enabled status in span attribute for processor
+        span.set_attribute("_rhesis.telemetry_enabled", True)
+
         # Set standard attributes
         span.set_attribute("event.category", "feature_usage")
         span.set_attribute("feature.name", feature_name)

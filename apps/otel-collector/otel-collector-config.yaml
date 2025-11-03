@@ -70,7 +70,9 @@ exporters:
   otlp/postgres:
     endpoint: ${env:TELEMETRY_PROCESSOR_ENDPOINT}
     tls:
-      insecure: false  # Cloud Run uses TLS/HTTPS
+      # Use insecure for local Docker (plain gRPC), secure for Cloud Run (TLS)
+      # Set OTEL_INSECURE=true for local development, false for production
+      insecure: ${env:OTEL_INSECURE}
     # Note: No authentication needed - both services in same VPC with IAM bindings
     sending_queue:
       enabled: true
