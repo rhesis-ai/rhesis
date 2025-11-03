@@ -31,6 +31,12 @@ jobs:
         version: latest
         enable-cache: true
 
+    - name: Install local SDK
+      run: |
+        cd sdk
+        uv pip install --system -e .
+      continue-on-error: false
+
     # - name: Type check Penelope
     #   run: |
     #     cd penelope
