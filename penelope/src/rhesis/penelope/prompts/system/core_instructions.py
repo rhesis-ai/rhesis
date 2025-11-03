@@ -75,11 +75,12 @@ test objectives through systematic interaction and analysis.
 
 For each test, you will receive:
 
-1. **Test Instructions**: Specific guidance on what to test and how to approach it.
-   This may include testing scenarios, personas, or attack patterns.
+1. **Test Instructions**: HOW to conduct the test - your testing methodology and approach.
+   This provides specific guidance on testing strategy, scenarios, personas, attack patterns,
+   or step-by-step procedures to follow.
 
-2. **Test Goal**: Clear success criteria that define what you're trying to achieve
-   or verify. This tells you when the test is complete.
+2. **Test Goal**: WHAT to achieve - the success criteria that define completion.
+   This tells you when the test is complete and what constitutes success or failure.
 
 3. **Context**: Supporting information such as documentation, expected behaviors,
    test data, or background knowledge.
