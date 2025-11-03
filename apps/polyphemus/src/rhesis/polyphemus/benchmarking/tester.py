@@ -9,8 +9,8 @@ from .test_sets import TestResult, TestSetEvaluator
 class ModelTester:
     """
     Utility class for testing multiple LLM models with the same prompts.
-    Handles adding models and test sets, generating responses, evaluating results, and summarizing outcomes.
-    Designed for extensibility and future benchmarking needs.
+    Handles adding models and test sets, generating responses, evaluating results, and
+    summarizing outcomes. Designed for extensibility and future benchmarking needs.
     """
 
     def __init__(self, json_dir: Path):
@@ -25,7 +25,7 @@ class ModelTester:
         """
         if not json_dir.exists() or not json_dir.is_dir():
             raise ValueError(f"Invalid test sets directory: {json_dir}")
-        
+
         self.models: List[BaseLLM] = []  # Models to be tested
         self.test_sets: List[TestSetEvaluator] = []  # Test sets to use
         for json_file in json_dir.glob("**/*.json"):
@@ -103,9 +103,7 @@ class ModelTester:
         # ...existing code...
 
         if not collected:
-            print(
-                "\n=== LLM Test Summary ===\nNo results. Run generate_responses() first."
-            )
+            print("\n=== LLM Test Summary ===\nNo results. Run generate_responses() first.")
             return
 
         errors = [r for r in collected if r.error is not None]
@@ -146,7 +144,10 @@ class ModelTester:
 
         print("\n=== LLM Test Summary ===")
         print(
-            f"Total: {len(collected)} | pass: {len(passed)} | zero: {len(zero)} | errors: {len(errors)} | pending: {len(pending)}"
+            (
+                f"Total: {len(collected)} | pass: {len(passed)} | zero: {len(zero)} "
+                f"| errors: {len(errors)} | pending: {len(pending)}"
+            )
         )
         if avg_score is not None:
             print(f"Avg score: {avg_score:.3f}")
@@ -180,7 +181,10 @@ class ModelTester:
                 if (s["passed"] + s["zero"]) > 0
                 else 0
             )
-            line = f" - {mid}: pass {s['passed']} | zero {s['zero']} | err {s['errors']} | pend {s['pending']}"
+            line = (
+                f" - {mid}: pass {s['passed']} | zero {s['zero']} | err {s['errors']} "
+                f"| pend {s['pending']}"
+            )
             if mavg is not None:
                 line += f" | avg {mavg:.3f} | pass% {pass_rate:.1f}"
             print(line)

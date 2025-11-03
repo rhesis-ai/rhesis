@@ -20,7 +20,8 @@ class Test:
 
     def __eq__(self, other: Any) -> bool:
         """
-        Custom equality method to compare tests by prompt, system prompt, expected text, and additional params.
+        Custom equality method to compare tests by prompt, system prompt, expected text,
+        and additional params.
         """
         if not isinstance(other, Test):
             return False
@@ -36,10 +37,7 @@ class Test:
         if self.additional_params is None or other.additional_params is None:
             return False
         for key, value in self.additional_params.items():
-            if (
-                key not in other.additional_params
-                or value != other.additional_params[key]
-            ):
+            if key not in other.additional_params or value != other.additional_params[key]:
                 return False
         return True
 
@@ -48,7 +46,8 @@ class Test:
 class TestResult:
     """
     Stores the result of a single test case run on a model.
-    Includes model id, response text, error, invocation details, expected output, score, and metadata.
+    Includes model id, response text, error, invocation details, expected output, score,
+    and metadata.
     """
 
     # response
@@ -84,10 +83,7 @@ def results_matches_test(test_result: TestResult, test: Test) -> bool:
     if test_result.additional_params is None or test.additional_params is None:
         return False
     for key, value in test.additional_params.items():
-        if (
-            key not in test_result.additional_params
-            or value != test_result.additional_params[key]
-        ):
+        if key not in test_result.additional_params or value != test_result.additional_params[key]:
             return False
     return True
 
@@ -107,10 +103,7 @@ def update_if_result_matches_test(test_result: TestResult, test: Test) -> bool:
         test_result.score = None
         test_result.details = None
     for key, value in test.additional_params.items():
-        if (
-            key not in test_result.additional_params
-            or value != test_result.additional_params[key]
-        ):
+        if key not in test_result.additional_params or value != test_result.additional_params[key]:
             return False
     return True
 
