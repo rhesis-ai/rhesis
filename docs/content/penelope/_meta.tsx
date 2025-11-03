@@ -4,6 +4,7 @@ const meta: MetaRecord = {
   index: 'Overview',
   installation: 'Installation',
   'quick-start': 'Quick Start',
+  examples: 'Examples',
   'use-cases': 'Use Cases',
   configuration: 'Configuration',
   architecture: 'Architecture',
