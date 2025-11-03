@@ -35,7 +35,7 @@ except ImportError:
     logging.warning("python-dotenv not installed, skipping .env loading")
 
 from rhesis.penelope import EndpointTarget, PenelopeAgent  # noqa: E402
-from rhesis.sdk.models import AnthropicLLM  # noqa: E402
+from rhesis.sdk.models import VertexAILLM  # noqa: E402
 
 
 class TestScenario:
@@ -208,23 +208,32 @@ def display_summary(results: list):
 
 def main():
     """Main test execution."""
+    # Check for endpoint ID argument
+    if len(sys.argv) < 2:
+        print("Usage: python test_three_scenarios.py <endpoint_id>")
+        print("\nExample:")
+        print("  python test_three_scenarios.py 2d8d2060-b85a-46fa-b299-e3c940598088")
+        print("\nThis will run three focused test scenarios against the specified endpoint.")
+        return 1
+    
+    endpoint_id = sys.argv[1]
+    
     print("=" * 80)
     print("PENELOPE: Three Scenario Test Suite")
     print("=" * 80)
-
+    
     # Initialize Penelope
     logging.info("Initializing Penelope agent...")
     agent = PenelopeAgent(
-        model=AnthropicLLM(model_name="claude-sonnet-4-20250514"),
+        model=VertexAILLM(model_name="gemini-2.0-flash"),
         max_iterations=15,
         enable_transparency=True,
         verbose=True,
     )
-
+    
     # Create target
-    # Replace with your actual endpoint ID
     logging.info("Setting up test target...")
-    target = EndpointTarget(endpoint_id="your-endpoint-id")
+    target = EndpointTarget(endpoint_id=endpoint_id)
 
     logging.info(f"Target: {target.target_id}")
     print()
