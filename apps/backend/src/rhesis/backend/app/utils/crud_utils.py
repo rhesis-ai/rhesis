@@ -996,6 +996,7 @@ def get_or_create_type_lookup(
     organization_id: str = None,
     user_id: str = None,
     commit: bool = True,
+    description: str = None,
 ) -> TypeLookup:
     """Get or create a type lookup with the specified type_name and type_value.
 
@@ -1030,10 +1031,14 @@ def get_or_create_type_lookup(
     # Create new type lookup
     logger.debug("get_or_create_type_lookup - Creating new type lookup")
     try:
+        item_data = {"type_name": type_name, "type_value": type_value}
+        if description is not None:
+            item_data["description"] = description
+
         result = create_item(
             db=db,
             model=TypeLookup,
-            item_data={"type_name": type_name, "type_value": type_value},
+            item_data=item_data,
             organization_id=organization_id,
             user_id=user_id,
             commit=commit,

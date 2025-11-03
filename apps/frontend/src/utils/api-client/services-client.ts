@@ -13,6 +13,11 @@ interface TestPrompt {
 interface TestMetadata {
   generated_by: string;
   additional_info?: Record<string, any>;
+  sources?: Array<{
+    source: string;
+    name: string;
+    description?: string;
+  }>;
 }
 
 interface Test {
@@ -23,16 +28,19 @@ interface Test {
   metadata: TestMetadata;
 }
 
-import {
-  Document,
-  DocumentUploadResponse,
-  DocumentMetadata,
-} from './interfaces/documents';
+import { DocumentMetadata } from './interfaces/documents';
+
+interface SourceData {
+  id: string;
+  name?: string;
+  description?: string;
+  content?: string;
+}
 
 interface GenerateTestsRequest {
   prompt: object;
   num_tests?: number;
-  documents?: Document[];
+  sources?: SourceData[];
   // Iteration context - same as test config
   chip_states?: ChipState[];
   rated_samples?: RatedSample[];
@@ -172,42 +180,6 @@ export class ServicesClient extends BaseApiClient {
     );
   }
 
-  async uploadDocument(file: File): Promise<DocumentUploadResponse> {
-    const formData = new FormData();
-    formData.append('document', file);
-
-    // For multipart/form-data, we need to override the default headers
-    // Create headers object without Content-Type so browser can set it correctly
-    const headers: Record<string, string> = {};
-
-    // Add authorization if we have a session token (copied from BaseApiClient logic)
-    if (this.sessionToken) {
-      headers['Authorization'] = `Bearer ${this.sessionToken}`;
-    }
-
-    // Use direct fetch to avoid BaseApiClient's default Content-Type header
-    const path = `${this.baseUrl}/services/documents/upload`;
-    const response = await fetch(path, {
-      method: 'POST',
-      body: formData,
-      headers,
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      let errorMessage = '';
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.detail || errorData.message || 'Upload failed';
-      } catch {
-        errorMessage = await response.text();
-      }
-      throw new Error(`API error: ${response.status} - ${errorMessage}`);
-    }
-
-    return response.json() as Promise<DocumentUploadResponse>;
-  }
-
   async generateDocumentMetadata(content: string): Promise<DocumentMetadata> {
     const structuredPrompt = `
     Generate a concise name and description for this document content.
@@ -240,15 +212,5 @@ export class ServicesClient extends BaseApiClient {
         description: '',
       };
     }
-  }
-
-  async extractDocument(path: string): Promise<ExtractDocumentResponse> {
-    return this.fetch<ExtractDocumentResponse>(
-      `${API_ENDPOINTS.services}/documents/extract`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ path }),
-      }
-    );
   }
 }

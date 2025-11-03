@@ -2,8 +2,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, Field
 
-from rhesis.backend.app.schemas.documents import Document
-
 
 class PromptRequest(BaseModel):
     prompt: str
@@ -25,10 +23,51 @@ class ChatRequest(BaseModel):
     stream: bool = False
 
 
+class SourceData(BaseModel):
+    """
+    Source data for test generation.
+    Only id is required. The backend will fetch name, description, and content from the database.
+    """
+
+    id: UUID4
+    name: Optional[str] = None
+    description: Optional[str] = None
+    content: Optional[str] = None
+
+
+class ChipState(BaseModel):
+    """Chip state representing user preferences for test configuration."""
+
+    label: str
+    description: str
+    active: bool
+    category: str
+
+
+class RatedSample(BaseModel):
+    """Rated sample from user feedback."""
+
+    prompt: str
+    response: str
+    rating: int
+    feedback: Optional[str] = None
+
+
+class IterationMessage(BaseModel):
+    """Previous iteration message for context."""
+
+    content: str
+    timestamp: str
+    chip_states: Optional[List[ChipState]] = None
+
+
 class GenerateTestsRequest(BaseModel):
     prompt: dict
     num_tests: int = 5
-    documents: Optional[List[Document]] = None
+    sources: Optional[List[SourceData]] = None
+    chip_states: Optional[List[ChipState]] = None
+    rated_samples: Optional[List[RatedSample]] = None
+    previous_messages: Optional[List[IterationMessage]] = None
 
 
 class TestPrompt(BaseModel):
@@ -36,9 +75,17 @@ class TestPrompt(BaseModel):
     language_code: str = "en"
 
 
+class SourceInfo(BaseModel):
+    source: str
+    name: str
+    description: Optional[str] = None
+    content: Optional[str] = None
+
+
 class TestMetadata(BaseModel):
     generated_by: str
     additional_info: Optional[Dict[str, Any]] = None
+    sources: Optional[List[SourceInfo]] = None
 
 
 class Test(BaseModel):

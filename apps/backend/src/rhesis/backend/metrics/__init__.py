@@ -1,10 +1,9 @@
 """
-Backend metrics orchestration - uses SDK metrics via adapter layer.
+Backend metrics orchestration - uses SDK metrics directly.
 
 This module provides:
 - MetricEvaluator: Orchestrates batch evaluation with parallel execution
 - ScoreEvaluator: Evaluates scores against thresholds
-- Adapter: Bridges database models to SDK metrics
 - Re-exports: SDK metrics for convenience
 """
 
@@ -30,13 +29,6 @@ from rhesis.sdk.metrics import (
     RagasContextRelevance,
     RagasFaithfulness,
 )
-
-# Adapter layer (DB → SDK)
-from .adapters import (
-    create_metric,
-    create_metric_from_config,
-    create_metric_from_db_model,
-)
 from .constants import (
     OPERATOR_MAP,
     VALID_OPERATORS_BY_SCORE_TYPE,
@@ -53,10 +45,6 @@ __all__ = [
     "ScoreEvaluator",
     "run_evaluation",
     "diagnose_invalid_metric",
-    # Adapter layer
-    "create_metric_from_db_model",
-    "create_metric_from_config",
-    "create_metric",
     # Types and utilities
     "ScoreType",
     "ThresholdOperator",

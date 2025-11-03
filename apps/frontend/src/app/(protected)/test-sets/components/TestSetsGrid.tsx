@@ -22,6 +22,7 @@ import {
   Avatar,
 } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
+import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import AddIcon from '@mui/icons-material/Add';
@@ -156,6 +157,7 @@ export default function TestSetsGrid({
       totalTests: testSet.attributes?.metadata?.total_tests || 0,
       creator: testSet.user,
       counts: testSet.counts,
+      sources: testSet.attributes?.metadata?.sources || [],
     };
   });
 
@@ -248,6 +250,35 @@ export default function TestSetsGrid({
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography variant="body2">{count}</Typography>
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'sources',
+      headerName: 'Sources',
+      width: 80,
+      sortable: false,
+      filterable: false,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: params => {
+        const sources = params.row.sources;
+        const count = sources?.length || 0;
+        if (count === 0) return null;
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 0.5,
+            }}
+          >
+            <InsertDriveFileOutlined
+              sx={{ fontSize: 16, color: 'text.secondary' }}
+            />
             <Typography variant="body2">{count}</Typography>
           </Box>
         );

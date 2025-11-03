@@ -435,11 +435,11 @@ export default function TestSetDetailsSection({
         <MetadataField label="Topics" items={topics} />
       </Box>
 
-      {/* Source Documents Section */}
+      {/* Sources Section */}
       {sources.length > 0 && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
-            Source Documents
+            Sources
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {sources.map((source: any, index: number) => (
@@ -464,13 +464,8 @@ export default function TestSetDetailsSection({
                   }}
                 >
                   <DocumentIcon sx={{ fontSize: 'inherit' }} />
-                  {source.name || source.document || 'Unknown Document'}
+                  {source.name || source.document || 'Unknown Source'}
                 </Typography>
-                {source.description && (
-                  <Typography variant="body2" color="text.secondary">
-                    {source.description}
-                  </Typography>
-                )}
                 {source.document && source.document !== source.name && (
                   <Typography
                     variant="caption"

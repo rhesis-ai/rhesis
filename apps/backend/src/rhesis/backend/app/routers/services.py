@@ -25,14 +25,16 @@ from rhesis.backend.app.services.gemini_client import (
     get_chat_response,
     get_json_response,
 )
-from rhesis.backend.app.services.generation import generate_tests
+from rhesis.backend.app.services.generation import (
+    generate_tests,
+    process_sources_to_documents,
+)
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.handlers import DocumentHandler
 from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.extractor import DocumentExtractor
-from rhesis.sdk.types import Document
 
 router = APIRouter(
     prefix="/services",
@@ -205,21 +207,18 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Generate test cases using the prompt synthesizer.
 
     Args:
-        request: The request containing the prompt, number of tests, and optional documents
-            - Each document may contain:
-                - `name` (str): Identifier for the document.
-                - `description` (str): Short description of its purpose.
-                - `path` (str): Path to the uploaded document file.
-                - `content` (str, optional): Raw content of the document.
-                ⚠️ If both `path` and `content` are provided in a document, `content` will override
-                 `path`: the file at `path` will not be read or used.
+        request: The request containing the prompt, number of tests, and optional sources
+            - sources contains SourceData with id
+            (name, description, content will be fetched from DB)
         db: Database session
+        tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
 
     Returns:
@@ -228,15 +227,36 @@ async def generate_tests_endpoint(
     try:
         prompt = request.prompt
         num_tests = request.num_tests
-        documents = request.documents
+        sources = request.sources
+        chip_states = request.chip_states
+        rated_samples = request.rated_samples
+        previous_messages = request.previous_messages
 
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
 
-        # Convert Pydantic models to Document objects
-        documents_sdk = [Document(**doc.dict()) for doc in documents] if documents else None
+        # Prepare sources from sources if provided
+        # Fetch full source data from database if only IDs are provided
+        sources_sdk = []
+        if sources:
+            organization_id, user_id = tenant_context
+            sources_sdk, _, _ = process_sources_to_documents(
+                sources=sources,
+                db=db,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
 
-        test_cases = await generate_tests(db, current_user, prompt, num_tests, documents_sdk)
+        test_cases = await generate_tests(
+            db,
+            current_user,
+            prompt,
+            num_tests,
+            sources_sdk,
+            chip_states=chip_states,
+            rated_samples=rated_samples,
+            previous_messages=previous_messages,
+        )
         return {"tests": test_cases}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -416,11 +436,10 @@ async def generate_test_config(
             f"with sample_size: {request.sample_size} for organization: {organization_id}"
         )
 
-        service = TestConfigGeneratorService()
+        service = TestConfigGeneratorService(db=db, user=current_user)
         result = service.generate_config(
             request.prompt,
             request.sample_size,
-            db=db,
             organization_id=organization_id,
             project_id=request.project_id,
         )

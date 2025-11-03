@@ -1,6 +1,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import (
     DEFAULT_MODELS,
@@ -71,9 +72,7 @@ class TestGetModel:
 
         result = get_model("rhesis")
 
-        mock_rhesis_class.assert_called_once_with(
-            model_name=DEFAULT_MODELS["rhesis"], api_key=None
-        )
+        mock_rhesis_class.assert_called_once_with(model_name=DEFAULT_MODELS["rhesis"], api_key=None)
         assert result == mock_instance
 
     @patch("rhesis.sdk.models.providers.native.RhesisLLM")
@@ -84,9 +83,7 @@ class TestGetModel:
 
         result = get_model("rhesis", "custom-model")
 
-        mock_rhesis_class.assert_called_once_with(
-            model_name="custom-model", api_key=None
-        )
+        mock_rhesis_class.assert_called_once_with(model_name="custom-model", api_key=None)
         assert result == mock_instance
 
     @patch("rhesis.sdk.models.providers.native.RhesisLLM")
@@ -97,9 +94,7 @@ class TestGetModel:
 
         result = get_model("rhesis", "test-model", "test-api-key")
 
-        mock_rhesis_class.assert_called_once_with(
-            model_name="test-model", api_key="test-api-key"
-        )
+        mock_rhesis_class.assert_called_once_with(model_name="test-model", api_key="test-api-key")
         assert result == mock_instance
 
     @patch("rhesis.sdk.models.providers.native.RhesisLLM")
@@ -110,9 +105,7 @@ class TestGetModel:
 
         result = get_model("rhesis/custom-model")
 
-        mock_rhesis_class.assert_called_once_with(
-            model_name="custom-model", api_key=None
-        )
+        mock_rhesis_class.assert_called_once_with(model_name="custom-model", api_key=None)
         assert result == mock_instance
 
     @patch("rhesis.sdk.models.providers.native.RhesisLLM")
@@ -121,15 +114,11 @@ class TestGetModel:
         mock_instance = Mock(spec=BaseLLM)
         mock_rhesis_class.return_value = mock_instance
 
-        config = ModelConfig(
-            provider="rhesis", model_name="config-model", api_key="config-key"
-        )
+        config = ModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
 
         result = get_model(config=config)
 
-        mock_rhesis_class.assert_called_once_with(
-            model_name="config-model", api_key="config-key"
-        )
+        mock_rhesis_class.assert_called_once_with(model_name="config-model", api_key="config-key")
         assert result == mock_instance
 
     @patch("rhesis.sdk.models.providers.native.RhesisLLM")
@@ -138,15 +127,11 @@ class TestGetModel:
         mock_instance = Mock(spec=BaseLLM)
         mock_rhesis_class.return_value = mock_instance
 
-        config = ModelConfig(
-            provider="rhesis", model_name="config-model", api_key="config-key"
-        )
+        config = ModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
 
         result = get_model(config=config, model_name="override-model")
 
-        mock_rhesis_class.assert_called_once_with(
-            model_name="override-model", api_key="config-key"
-        )
+        mock_rhesis_class.assert_called_once_with(model_name="override-model", api_key="config-key")
         assert result == mock_instance
 
     @patch("rhesis.sdk.models.providers.gemini.GeminiLLM")
@@ -157,9 +142,7 @@ class TestGetModel:
 
         result = get_model("gemini", "gemini-model")
 
-        mock_gemini_class.assert_called_once_with(
-            model_name="gemini-model", api_key=None
-        )
+        mock_gemini_class.assert_called_once_with(model_name="gemini-model", api_key=None)
         assert result == mock_instance
 
     @patch("rhesis.sdk.models.providers.gemini.GeminiLLM")
@@ -170,9 +153,7 @@ class TestGetModel:
 
         result = get_model("gemini")
 
-        mock_gemini_class.assert_called_once_with(
-            model_name=DEFAULT_MODELS["gemini"], api_key=None
-        )
+        mock_gemini_class.assert_called_once_with(model_name=DEFAULT_MODELS["gemini"], api_key=None)
         assert result == mock_instance
 
     @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
@@ -194,9 +175,7 @@ class TestGetModel:
 
         result = get_model("vertex_ai")
 
-        mock_vertex_ai_class.assert_called_once_with(
-            model_name=DEFAULT_MODELS["vertex_ai"]
-        )
+        mock_vertex_ai_class.assert_called_once_with(model_name=DEFAULT_MODELS["vertex_ai"])
         assert result == mock_instance
 
     @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
@@ -212,18 +191,14 @@ class TestGetModel:
 
     def test_get_model_unsupported_provider(self):
         """Test get_model with unsupported provider raises ValueError."""
-        with pytest.raises(
-            ValueError, match="Provider unsupported-provider not supported"
-        ):
+        with pytest.raises(ValueError, match="Provider unsupported-provider not supported"):
             get_model("unsupported-provider")
 
     def test_get_model_unsupported_provider_from_config(self):
         """Test get_model with unsupported provider from config raises ValueError."""
         config = ModelConfig(provider="unsupported-provider")
 
-        with pytest.raises(
-            ValueError, match="Provider unsupported-provider not supported"
-        ):
+        with pytest.raises(ValueError, match="Provider unsupported-provider not supported"):
             get_model(config=config)
 
     @patch("rhesis.sdk.models.providers.native.RhesisLLM")
@@ -232,9 +207,7 @@ class TestGetModel:
         mock_instance = Mock(spec=BaseLLM)
         mock_rhesis_class.return_value = mock_instance
 
-        config = ModelConfig(
-            provider="rhesis", model_name="config-model", api_key="config-key"
-        )
+        config = ModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
 
         # kwargs should override config
         result = get_model(
@@ -244,9 +217,7 @@ class TestGetModel:
             api_key="kwargs-key",
         )
 
-        mock_rhesis_class.assert_called_once_with(
-            model_name="kwargs-model", api_key="kwargs-key"
-        )
+        mock_rhesis_class.assert_called_once_with(model_name="kwargs-model", api_key="kwargs-key")
         assert result == mock_instance
 
     @patch("rhesis.sdk.models.providers.native.RhesisLLM")
@@ -283,7 +254,9 @@ class TestGetModel:
         # This test documents the current behavior
         result = get_model("rhesis", "test-model", extra_params={"temperature": 0.5})
 
-        mock_rhesis_class.assert_called_once_with(model_name="test-model", api_key=None)
+        mock_rhesis_class.assert_called_once_with(
+            model_name="test-model", api_key=None, extra_params={"temperature": 0.5}
+        )
         assert result == mock_instance
 
 
@@ -302,9 +275,7 @@ class TestModelFactoryIntegration:
             get_model("rhesis"),  # provider only
             get_model("rhesis", "custom-model"),  # provider + model
             get_model("rhesis/custom-model"),  # shorthand
-            get_model(
-                config=ModelConfig(provider="rhesis", model_name="custom-model")
-            ),  # config
+            get_model(config=ModelConfig(provider="rhesis", model_name="custom-model")),  # config
         ]
 
         assert all(isinstance(model, Mock) for model in models)
@@ -321,9 +292,7 @@ class TestModelFactoryIntegration:
             get_model("gemini"),  # provider only
             get_model("gemini", "custom-model"),  # provider + model
             get_model("gemini/custom-model"),  # shorthand
-            get_model(
-                config=ModelConfig(provider="gemini", model_name="custom-model")
-            ),  # config
+            get_model(config=ModelConfig(provider="gemini", model_name="custom-model")),  # config
         ]
 
         assert all(isinstance(model, Mock) for model in models)

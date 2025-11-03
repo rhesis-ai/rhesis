@@ -8,18 +8,16 @@ using LLM and Jinja2 templates.
 from pathlib import Path
 
 import jinja2
-from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, DEFAULT_MODEL_NAME
 from rhesis.backend.app.schemas.services import TestConfigResponse
-from rhesis.sdk.models.factory import get_model
+from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 
 
 class TestConfigGeneratorService:
     """Service for generating test configurations from user prompts."""
 
-    def __init__(self, max_sample_size: int = 20):
+    def __init__(self, db, user, max_sample_size: int = 20):
         """Initialize the service with template environment.
 
         Args:
@@ -34,14 +32,16 @@ class TestConfigGeneratorService:
         )
         # Use the default generation model from constants
         # This respects the global configuration (currently vertex_ai)
-        self.llm = get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
+        self.db = db
+        self.user = user
+
+        self.llm = get_user_generation_model(self.db, self.user)
         self.max_sample_size = max_sample_size
 
     def generate_config(
         self,
         prompt: str,
         sample_size: int = 5,
-        db: Session = None,
         organization_id: str = None,
         project_id: str = None,
     ) -> TestConfigResponse:
@@ -76,12 +76,12 @@ class TestConfigGeneratorService:
         if sample_size > self.max_sample_size:
             raise ValueError(f"Sample size must be less than {self.max_sample_size}")
 
-        if db is None or organization_id is None:
+        if self.db is None or organization_id is None:
             raise ValueError("Database session and organization_id are required")
 
         # Fetch behaviors from database (limited to max 100 by validation)
         behaviors = crud.get_behaviors(
-            db=db,
+            db=self.db,
             organization_id=organization_id,
             skip=0,
             limit=100,  # Maximum allowed by validation
@@ -98,7 +98,7 @@ class TestConfigGeneratorService:
         project_description = None
         if project_id:
             project = crud.get_project(
-                db=db, project_id=project_id, organization_id=organization_id
+                db=self.db, project_id=project_id, organization_id=organization_id
             )
             if not project:
                 raise ValueError(f"Project with id {project_id} not found or not accessible")

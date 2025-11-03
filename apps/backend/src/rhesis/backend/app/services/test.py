@@ -439,6 +439,30 @@ def bulk_create_tests(
                 f"owner_id='{owner_id}'"
             )
 
+            # Extract source_id from metadata if present
+            # Note: SDK uses "metadata" but DB uses "test_metadata"
+            source_id = None
+            metadata_dict = test_data_dict.get("metadata") or test_data_dict.get("test_metadata")
+
+            if isinstance(metadata_dict, dict):
+                source_id = metadata_dict.get("_source_id")
+                if source_id:
+                    # Remove it from metadata before storing
+                    if "metadata" in test_data_dict and isinstance(
+                        test_data_dict["metadata"], dict
+                    ):
+                        test_data_dict["metadata"] = {
+                            k: v for k, v in test_data_dict["metadata"].items() if k != "_source_id"
+                        }
+                    if "test_metadata" in test_data_dict and isinstance(
+                        test_data_dict["test_metadata"], dict
+                    ):
+                        test_data_dict["test_metadata"] = {
+                            k: v
+                            for k, v in test_data_dict["test_metadata"].items()
+                            if k != "_source_id"
+                        }
+
             test_params = {
                 "prompt_id": prompt.id,
                 "test_type_id": test_type.id,
@@ -462,13 +486,13 @@ def bulk_create_tests(
                 ),
                 "assignee_id": assignee_id,
                 "owner_id": owner_id,
+                "source_id": sanitize_uuid_field(source_id) if source_id else None,
             }
 
             # Clean any remaining UUID fields from the test data dict
             logger.debug(
                 f"bulk_create_tests - Remaining test_data_dict before cleaning: {test_data_dict}"
             )
-
             for key, value in list(test_data_dict.items()):
                 if key.endswith("_id"):
                     original_value = value
@@ -478,7 +502,6 @@ def bulk_create_tests(
                             f"bulk_create_tests - Cleaned remaining field {key}: "
                             f"'{original_value}' -> '{test_data_dict[key]}'"
                         )
-
             # Add any remaining fields from test_data_dict that weren't explicitly handled
             remaining_fields = {k: v for k, v in test_data_dict.items() if k not in test_params}
             logger.debug(f"bulk_create_tests - Remaining fields to add: {remaining_fields}")
@@ -488,6 +511,9 @@ def bulk_create_tests(
             uuid_params = {k: v for k, v in test_params.items() if k.endswith("_id")}
             logger.debug(f"bulk_create_tests - Final UUID parameters: {uuid_params}")
             logger.debug(f"bulk_create_tests - All test parameters: {test_params}")
+            # Map "metadata" to "test_metadata" (SDK uses "metadata" but DB uses "test_metadata")
+            if "metadata" in test_params and "test_metadata" not in test_params:
+                test_params["test_metadata"] = test_params.pop("metadata")
 
             try:
                 test = models.Test(**test_params)

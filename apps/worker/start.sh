@@ -249,15 +249,26 @@ echo "=== Celery Worker Startup ==="
 echo "Starting Celery worker with full output..."
 
 # Build the complete command with memory optimizations
-CELERY_CMD="celery -A rhesis.backend.worker.app worker --queues=celery,execution --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-1} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500} --pool=prefork --optimization=fair ${CELERY_WORKER_OPTS}"
+# NOTE: Using --pool=solo instead of prefork to avoid process-level race conditions
+# during test execution. With prefork, multiple worker processes can interfere with
+# each other when writing test results simultaneously, causing:
+# - Test metadata to get mixed up (e.g., robustness tests showing as reliability tests)
+# - Intermittent database race conditions
+# - Inconsistent test result data
+# 
+# Solo pool processes one task at a time per worker, eliminating these issues.
+# To maintain throughput, scale horizontally by running more worker containers.
+# See: https://github.com/rhesis-ai/rhesis/pull/728
+CELERY_CMD="celery -A rhesis.backend.worker.app worker --queues=celery,execution --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-1} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500} --pool=solo --optimization=fair ${CELERY_WORKER_OPTS}"
 
 echo "Command: $CELERY_CMD"
 echo "Queues: celery,execution"
+echo "Pool: solo (sequential processing to avoid race conditions)"
 echo "Log level: ${CELERY_WORKER_LOGLEVEL}"
-echo "Concurrency: ${CELERY_WORKER_CONCURRENCY:-2}"
 echo "Prefetch multiplier: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-1}"
 echo "Max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500}"
 echo "Additional opts: ${CELERY_WORKER_OPTS:-none}"
+echo "Note: Concurrency setting ignored with solo pool (always 1 task per worker)"
 
 # Run celery worker in background
 $CELERY_CMD &
