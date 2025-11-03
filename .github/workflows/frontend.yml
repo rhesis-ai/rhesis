@@ -312,7 +312,9 @@ jobs:
           SMTP_PORT=${{ secrets.SMTP_PORT }},
           SMTP_USER=${{ secrets.SMTP_USER }},
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
-          FROM_EMAIL=${{ secrets.FROM_EMAIL }}
+          FROM_EMAIL=${{ secrets.FROM_EMAIL }},
+          NEXT_PUBLIC_OTEL_ENDPOINT=${{ secrets.NEXT_PUBLIC_OTEL_ENDPOINT }},
+          NEXT_PUBLIC_DEPLOYMENT_TYPE=${{ secrets.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'cloud' }}
           EOF
           )"
 
@@ -352,7 +354,9 @@ jobs:
           SMTP_PORT=${{ secrets.SMTP_PORT }},
           SMTP_USER=${{ secrets.SMTP_USER }},
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
-          FROM_EMAIL=${{ secrets.FROM_EMAIL }}
+          FROM_EMAIL=${{ secrets.FROM_EMAIL }},
+          NEXT_PUBLIC_OTEL_ENDPOINT=${{ secrets.NEXT_PUBLIC_OTEL_ENDPOINT }},
+          NEXT_PUBLIC_DEPLOYMENT_TYPE=${{ secrets.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'cloud' }}
           EOF
           )"
 
@@ -502,7 +506,9 @@ jobs:
           NEXT_PUBLIC_AUTH0_CLIENT_ID=${{ secrets.NEXT_PUBLIC_AUTH0_CLIENT_ID }},
           NEXT_PUBLIC_AUTH0_DOMAIN=${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN }},
           NEXT_PUBLIC_AUTH0_AUDIENCE=${{ secrets.NEXT_PUBLIC_AUTH0_AUDIENCE }},
-          NEXT_PUBLIC_AUTH0_SCOPE=${{ secrets.NEXT_PUBLIC_AUTH0_SCOPE }}
+          NEXT_PUBLIC_AUTH0_SCOPE=${{ secrets.NEXT_PUBLIC_AUTH0_SCOPE }},
+          NEXT_PUBLIC_OTEL_ENDPOINT=${{ secrets.NEXT_PUBLIC_OTEL_ENDPOINT }},
+          NEXT_PUBLIC_DEPLOYMENT_TYPE=${{ secrets.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'cloud' }}
           EOF
           )"
 
@@ -563,7 +569,9 @@ jobs:
           NEXT_PUBLIC_AUTH0_CLIENT_ID=${{ secrets.NEXT_PUBLIC_AUTH0_CLIENT_ID }},
           NEXT_PUBLIC_AUTH0_DOMAIN=${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN }},
           NEXT_PUBLIC_AUTH0_AUDIENCE=${{ secrets.NEXT_PUBLIC_AUTH0_AUDIENCE }},
-          NEXT_PUBLIC_AUTH0_SCOPE=${{ secrets.NEXT_PUBLIC_AUTH0_SCOPE }}
+          NEXT_PUBLIC_AUTH0_SCOPE=${{ secrets.NEXT_PUBLIC_AUTH0_SCOPE }},
+          NEXT_PUBLIC_OTEL_ENDPOINT=${{ secrets.NEXT_PUBLIC_OTEL_ENDPOINT }},
+          NEXT_PUBLIC_DEPLOYMENT_TYPE=${{ secrets.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'cloud' }}
           EOF
           )"
 
