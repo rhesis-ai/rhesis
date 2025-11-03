@@ -4,22 +4,16 @@ Base tool interface for Penelope.
 Tools are Penelope's primary way of interacting with the world and gathering information.
 Following Anthropic's recommendations, each tool should be extensively documented
 with clear examples and edge case handling.
+
+Note: Tool parameter validation is handled via Pydantic schemas (SendMessageParams,
+AnalyzeResponseParams, ExtractInformationParams) which are part of the ToolCall
+structured output schema.
 """
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
-
-
-class ToolParameter(BaseModel):
-    """Definition of a tool parameter."""
-
-    name: str = Field(description="Parameter name")
-    type: str = Field(description="Parameter type (string, number, boolean, object, array)")
-    description: str = Field(description="Detailed description of the parameter")
-    required: bool = Field(default=False, description="Whether the parameter is required")
-    examples: Optional[list] = Field(default=None, description="Example values")
 
 
 class ToolResult(BaseModel):
@@ -66,75 +60,18 @@ class Tool(ABC):
         """
         pass
 
-    @property
-    @abstractmethod
-    def parameters(self) -> list[ToolParameter]:
-        """
-        Parameter definitions with detailed descriptions and examples.
-
-        Each parameter should have:
-        - Clear name
-        - Specific type
-        - Detailed description with examples
-        - Edge case handling notes
-        """
-        pass
-
     @abstractmethod
     def execute(self, **kwargs: Any) -> ToolResult:
         """
         Execute the tool with the given parameters.
 
+        Parameters are validated via Pydantic schemas before reaching this method,
+        so tools can assume valid input.
+
         Args:
-            **kwargs: Tool parameters as defined in self.parameters
+            **kwargs: Tool parameters (already validated via Pydantic)
 
         Returns:
             ToolResult with execution outcome
         """
         pass
-
-    def get_schema(self) -> Dict[str, Any]:
-        """
-        Get the tool schema in a format suitable for LLM tool calling.
-
-        Returns:
-            Dictionary with name, description, and parameters
-        """
-        return {
-            "name": self.name,
-            "description": self.description,
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    p.name: {
-                        "type": p.type,
-                        "description": p.description,
-                    }
-                    for p in self.parameters
-                },
-                "required": [p.name for p in self.parameters if p.required],
-            },
-        }
-
-    def validate_input(self, **kwargs) -> tuple[bool, Optional[str]]:
-        """
-        Validate input parameters before execution.
-
-        Args:
-            **kwargs: Tool parameters to validate
-
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        # Check required parameters
-        for param in self.parameters:
-            if param.required and param.name not in kwargs:
-                return False, f"Missing required parameter: {param.name}"
-
-        # Check for unknown parameters
-        param_names = {p.name for p in self.parameters}
-        for key in kwargs:
-            if key not in param_names:
-                return False, f"Unknown parameter: {key}"
-
-        return True, None

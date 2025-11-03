@@ -9,7 +9,7 @@ clear examples and usage patterns.
 from typing import Any, Optional
 
 from rhesis.penelope.targets.base import Target
-from rhesis.penelope.tools.base import Tool, ToolParameter, ToolResult
+from rhesis.penelope.tools.base import Tool, ToolResult
 
 
 class TargetInteractionTool(Tool):
@@ -155,80 +155,6 @@ IMPORTANT NOTES:
 
 Remember: Each call costs time and resources. Make every interaction count."""
 
-    @property
-    def parameters(self) -> list[ToolParameter]:
-        return [
-            ToolParameter(
-                name="message",
-                type="string",
-                description="""The user message to send to the target.
-
-Write this as a REAL USER would write it, not as test input.
-
-Good examples:
-  ✓ "What's your refund policy?"
-  ✓ "I bought a laptop last week and it's not working"
-  ✓ "Can you help me understand my insurance coverage?"
-  ✓ "How do I reset my password?"
-
-Bad examples:
-  ✗ "Test refund query #1" (too artificial)
-  ✗ "{{user_input}}" (template syntax)
-  ✗ "" (empty message)
-  ✗ "SELECT * FROM users" (SQL injection attempt - be realistic)
-
-The message should:
-- Be natural and conversational
-- Match the domain (insurance, support, etc.)
-- Be clear about what you're asking
-- Build on previous context if this is a follow-up
-
-Length: 1-500 characters typically (longer is fine if needed)""",
-                required=True,
-                examples=[
-                    "What's your return policy?",
-                    "I need help with my account",
-                    "Can you explain the difference between these two plans?",
-                ],
-            ),
-            ToolParameter(
-                name="session_id",
-                type="string",
-                description="""Optional session ID for multi-turn conversations.
-
-HOW TO USE:
-  1. First message → Leave empty
-     You'll get a session_id in the response
-  
-  2. Follow-up messages → Use the session_id from previous response
-     This maintains conversation context
-  
-  3. New conversation → Leave empty again
-     Starts a fresh session
-
-EXAMPLE FLOW:
-
-  Turn 1:
-  ├─ Input: message="Hi", session_id=None
-  └─ Output: {{..., "session_id": "xyz789"}}
-  
-  Turn 2:
-  ├─ Input: message="Follow up question", session_id="xyz789"
-  └─ Output: {{..., "session_id": "xyz789"}}
-  
-  Turn 3:
-  ├─ Input: message="Another question", session_id="xyz789"
-  └─ Output: {{..., "session_id": "xyz789"}}
-
-IMPORTANT:
-  ⚠ Using wrong/expired session_id may result in errors
-  ⚠ Sessions typically expire after 1 hour of inactivity
-  ⚠ If you get a session error, start a new session""",
-                required=False,
-                examples=["abc123", "xyz789", None],
-            ),
-        ]
-
     def execute(
         self, message: str = "", session_id: Optional[str] = None, **kwargs: Any
     ) -> ToolResult:
@@ -236,22 +162,13 @@ IMPORTANT:
         Execute the target interaction tool.
 
         Args:
-            message: The user message to send
+            message: The user message to send (validated via Pydantic)
             session_id: Optional session ID for multi-turn conversations
             **kwargs: Additional target-specific parameters
 
         Returns:
             ToolResult with the target's response
         """
-        # Validate input
-        is_valid, error = self.validate_input(message=message, session_id=session_id)
-        if not is_valid:
-            return ToolResult(
-                success=False,
-                output={},
-                error=error,
-            )
-
         try:
             # Send message to target
             response = self.target.send_message(message, session_id, **kwargs)

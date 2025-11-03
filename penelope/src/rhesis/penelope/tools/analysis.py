@@ -8,7 +8,8 @@ following Anthropic's ACI principles with extensive documentation.
 import re
 from typing import Any
 
-from rhesis.penelope.tools.base import Tool, ToolParameter, ToolResult
+from rhesis.penelope.prompts import ANALYZE_TOOL_DESCRIPTION, EXTRACT_TOOL_DESCRIPTION
+from rhesis.penelope.tools.base import Tool, ToolResult
 
 
 class AnalyzeTool(Tool):
@@ -25,102 +26,7 @@ class AnalyzeTool(Tool):
 
     @property
     def description(self) -> str:
-        return """Analyze an endpoint response for patterns, issues, or characteristics.
-
-Use this tool to systematically evaluate responses you've received from the endpoint.
-This helps you reason about what you've learned and plan next steps.
-
-═══════════════════════════════════════════════════════════════════════════════
-
-WHEN TO USE:
-✓ After receiving a response that needs careful evaluation
-✓ To check for specific patterns or behaviors
-✓ To identify potential issues or anomalies
-✓ To extract structured insights from unstructured responses
-
-WHEN NOT TO USE:
-✗ Don't analyze before getting a response
-✗ Don't use for simple extractions (use extract_information instead)
-✗ Don't over-analyze obvious results
-
-═══════════════════════════════════════════════════════════════════════════════
-
-BEST PRACTICES:
-
-1. Be Specific
-   ├─ Clearly state what you're looking for
-   ├─ Focus on test-relevant aspects
-   └─ Avoid vague analysis requests
-
-2. Consider Context
-   ├─ Include relevant conversation history
-   ├─ Reference your test goals
-   └─ Note previous findings
-
-3. Look for Patterns
-   ├─ Consistency across turns
-   ├─ Quality indicators
-   └─ Edge case behaviors
-
-═══════════════════════════════════════════════════════════════════════════════
-
-This tool provides structured analysis to help you make informed testing decisions."""
-
-    @property
-    def parameters(self) -> list[ToolParameter]:
-        return [
-            ToolParameter(
-                name="response_text",
-                type="string",
-                description="""The response text to analyze.
-
-Typically this is the "response" field from send_message_to_endpoint output.
-
-Example:
-  "Our refund policy allows returns within 30 days of purchase..."
-
-Length: Can be any length, but focus on relevant portions for efficiency.""",
-                required=True,
-            ),
-            ToolParameter(
-                name="analysis_focus",
-                type="string",
-                description="""What to focus on in the analysis.
-
-Be specific about what you're looking for.
-
-Good examples:
-  ✓ "Check if the response contains policy details"
-  ✓ "Evaluate tone and professionalism"
-  ✓ "Look for signs of hallucination or incorrect information"
-  ✓ "Check if context from previous messages is maintained"
-  ✓ "Identify any security concerns or data leaks"
-
-Bad examples:
-  ✗ "Analyze everything" (too vague)
-  ✗ "Check response" (not specific enough)
-
-Be clear and focused for best results.""",
-                required=True,
-            ),
-            ToolParameter(
-                name="context",
-                type="string",
-                description="""Optional context to inform the analysis.
-
-Include relevant background:
-- Previous conversation turns
-- Expected behaviors
-- Test goals
-- Domain knowledge
-
-Example:
-  "User previously asked about electronics, now asking about timeframes."
-
-This helps provide more accurate analysis.""",
-                required=False,
-            ),
-        ]
+        return ANALYZE_TOOL_DESCRIPTION
 
     def execute(
         self, response_text: str = "", analysis_focus: str = "", context: str = "", **kwargs: Any
@@ -135,23 +41,14 @@ This helps provide more accurate analysis.""",
         - Score responses
 
         Args:
-            response_text: The text to analyze
-            analysis_focus: What to focus on
+            response_text: The text to analyze (validated via Pydantic)
+            analysis_focus: What to focus on (validated via Pydantic)
             context: Optional context
             **kwargs: Additional parameters
 
         Returns:
             ToolResult with analysis findings
         """
-        # Validate input
-        is_valid, error = self.validate_input(
-            response_text=response_text,
-            analysis_focus=analysis_focus,
-            context=context,
-        )
-        if not is_valid:
-            return ToolResult(success=False, output={}, error=error)
-
         # Perform basic analysis
         findings = []
 
@@ -224,60 +121,7 @@ class ExtractTool(Tool):
 
     @property
     def description(self) -> str:
-        return """Extract specific information from an endpoint response.
-
-Use this tool when you need to pull out specific data, facts, or entities from
-a response for verification or further testing.
-
-═══════════════════════════════════════════════════════════════════════════════
-
-WHEN TO USE:
-✓ To extract specific facts or data points
-✓ To pull out entities (dates, numbers, names)
-✓ To verify presence of expected information
-✓ To gather data for comparison or validation
-
-WHEN NOT TO USE:
-✗ For general response understanding (use analyze_response)
-✗ For sentiment or quality evaluation
-✗ When the information is already obvious
-
-═══════════════════════════════════════════════════════════════════════════════
-
-EXAMPLE USES:
-- Extract policy details (timeframes, conditions, exceptions)
-- Pull out specific facts or claims
-- Identify mentioned products, services, or features
-- Extract numerical values or dates
-- Find quoted regulations or rules
-
-This tool helps you gather specific data points for test verification."""
-
-    @property
-    def parameters(self) -> list[ToolParameter]:
-        return [
-            ToolParameter(
-                name="response_text",
-                type="string",
-                description="The response text to extract information from",
-                required=True,
-            ),
-            ToolParameter(
-                name="extraction_target",
-                type="string",
-                description="""What specific information to extract.
-
-Examples:
-  ✓ "refund timeframe"
-  ✓ "policy exceptions"
-  ✓ "mentioned products"
-  ✓ "dates and deadlines"
-  ✓ "contact information"
-
-Be specific about what you're looking for.""",
-                required=True,
-            ),
-        ]
+        return EXTRACT_TOOL_DESCRIPTION
 
     def execute(
         self, response_text: str = "", extraction_target: str = "", **kwargs: Any
@@ -286,21 +130,13 @@ Be specific about what you're looking for.""",
         Execute information extraction.
 
         Args:
-            response_text: The text to extract from
-            extraction_target: What to extract
+            response_text: The text to extract from (validated via Pydantic)
+            extraction_target: What to extract (validated via Pydantic)
             **kwargs: Additional parameters
 
         Returns:
             ToolResult with extracted information
         """
-        # Validate input
-        is_valid, error = self.validate_input(
-            response_text=response_text,
-            extraction_target=extraction_target,
-        )
-        if not is_valid:
-            return ToolResult(success=False, output={}, error=error)
-
         extracted = {}
 
         # Extract dates (simple pattern)

@@ -22,19 +22,6 @@ def test_target_interaction_tool_properties(mock_target):
     assert tool.name == "send_message_to_target"
     assert "send" in tool.description.lower()
     assert "message" in tool.description.lower()
-    assert len(tool.parameters) == 2
-
-    # Check parameter names
-    param_names = [p.name for p in tool.parameters]
-    assert "message" in param_names
-    assert "session_id" in param_names
-
-    # Check required parameters
-    for param in tool.parameters:
-        if param.name == "message":
-            assert param.required is True
-        elif param.name == "session_id":
-            assert param.required is False
 
 
 def test_target_interaction_tool_description_includes_target_doc(mock_target):
@@ -81,20 +68,6 @@ def test_target_interaction_tool_includes_metadata(mock_target):
     assert result.metadata["session_id_used"] == "session-456"
     assert result.metadata["target_type"] == "mock"
     assert result.metadata["target_id"] == "mock-target-123"
-
-
-def test_target_interaction_tool_missing_required_parameter(mock_target):
-    """Test TargetInteractionTool with missing required parameter."""
-    tool = TargetInteractionTool(mock_target)
-
-    # Tools have default empty string params, so we need to test validation directly
-    # This tests that validation would catch it if kwargs were used differently
-    is_valid, error = tool.validate_input()
-    
-    # Validation should fail because message is required but not provided
-    assert is_valid is False
-    assert "required parameter" in error.lower()
-    assert "message" in error.lower()
 
 
 def test_target_interaction_tool_target_returns_error(mock_target):
@@ -202,19 +175,4 @@ def test_target_interaction_tool_passes_kwargs(mock_target):
     call_kwargs = mock_target.send_message.call_args.kwargs
     assert "extra_param" in call_kwargs
     assert call_kwargs["extra_param"] == "extra_value"
-
-
-def test_target_interaction_tool_schema_includes_examples(mock_target):
-    """Test TargetInteractionTool schema includes parameter examples."""
-    tool = TargetInteractionTool(mock_target)
-
-    schema = tool.get_schema()
-
-    # Message parameter should have examples
-    message_param = next(
-        (p for p in tool.parameters if p.name == "message"), None
-    )
-    assert message_param is not None
-    assert message_param.examples is not None
-    assert len(message_param.examples) > 0
 

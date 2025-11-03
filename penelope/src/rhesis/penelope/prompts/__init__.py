@@ -23,6 +23,10 @@ from rhesis.penelope.prompts.system.system_assembly_jinja import (
     SYSTEM_PROMPT_TEMPLATE,
     get_system_prompt_jinja,
 )
+from rhesis.penelope.prompts.tools import (
+    ANALYZE_TOOL_DESCRIPTION,
+    EXTRACT_TOOL_DESCRIPTION,
+)
 
 __all__ = [
     # Base
@@ -43,4 +47,7 @@ __all__ = [
     "DEFAULT_INSTRUCTIONS_TEMPLATE",
     # Evaluation
     "GOAL_EVALUATION_PROMPT",
+    # Tools
+    "ANALYZE_TOOL_DESCRIPTION",
+    "EXTRACT_TOOL_DESCRIPTION",
 ]

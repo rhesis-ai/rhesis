@@ -11,20 +11,6 @@ def test_analyze_tool_properties():
 
     assert tool.name == "analyze_response"
     assert "analyze" in tool.description.lower()
-    assert len(tool.parameters) == 3
-
-    # Check parameter names
-    param_names = [p.name for p in tool.parameters]
-    assert "response_text" in param_names
-    assert "analysis_focus" in param_names
-    assert "context" in param_names
-
-    # Check required parameters
-    for param in tool.parameters:
-        if param.name in ["response_text", "analysis_focus"]:
-            assert param.required is True
-        elif param.name == "context":
-            assert param.required is False
 
 
 def test_analyze_tool_execute_basic():
@@ -114,20 +100,6 @@ def test_analyze_tool_detects_policy_language():
     assert "policy" in findings_text.lower()
 
 
-def test_analyze_tool_missing_required_parameter():
-    """Test AnalyzeTool with missing required parameter."""
-    tool = AnalyzeTool()
-
-    # Tools have default empty string params, so we need to explicitly not pass them
-    # This tests that validation would catch it if kwargs were used differently
-    is_valid, error = tool.validate_input(response_text="Test")
-    
-    # Validation should fail because analysis_focus is required but not provided
-    assert is_valid is False
-    assert "required parameter" in error.lower()
-    assert "analysis_focus" in error.lower()
-
-
 def test_analyze_tool_word_count():
     """Test AnalyzeTool calculates word count."""
     tool = AnalyzeTool()
@@ -147,16 +119,6 @@ def test_extract_tool_properties():
 
     assert tool.name == "extract_information"
     assert "extract" in tool.description.lower()
-    assert len(tool.parameters) == 2
-
-    # Check parameter names
-    param_names = [p.name for p in tool.parameters]
-    assert "response_text" in param_names
-    assert "extraction_target" in param_names
-
-    # Check all parameters are required
-    for param in tool.parameters:
-        assert param.required is True
 
 
 def test_extract_tool_execute_basic():
@@ -258,20 +220,6 @@ def test_extract_tool_no_matches():
     # Should have a note about manual review
     if "note" in result.output:
         assert "manual review" in result.output["note"].lower()
-
-
-def test_extract_tool_missing_required_parameter():
-    """Test ExtractTool with missing required parameter."""
-    tool = ExtractTool()
-
-    # Tools have default empty string params, so we need to explicitly not pass them
-    # This tests that validation would catch it if kwargs were used differently
-    is_valid, error = tool.validate_input(response_text="Test")
-    
-    # Validation should fail because extraction_target is required but not provided
-    assert is_valid is False
-    assert "required parameter" in error.lower()
-    assert "extraction_target" in error.lower()
 
 
 def test_extract_tool_metadata():
