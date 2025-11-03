@@ -25,16 +25,18 @@ jobs:
             - 'sdk/**'
           backend:
             - 'apps/backend/**'
+          penelope:
+            - 'penelope/**'
 
-    # SDK Linting
-    - name: Set up Python for SDK
-      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+    # Python-based linting (SDK, Backend, Penelope)
+    - name: Set up Python
+      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
-    - name: Install uv for SDK
-      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+    - name: Install uv
+      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
       uses: astral-sh/setup-uv@v6
       with:
         version: latest
@@ -63,6 +65,13 @@ jobs:
       if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
       run: |
         cd apps/backend
+        make lint
+      continue-on-error: false
+
+    - name: Run Penelope linting
+      if: steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
+      run: |
+        cd penelope
         make lint
       continue-on-error: false
 
@@ -121,6 +130,12 @@ jobs:
         # else
         #   echo "- **Backend**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
         # fi
+        
+        if [ "${{ steps.filter.outputs.penelope }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "- **Penelope**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "- **Penelope**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
+        fi
         
         if [ "${{ steps.filter.outputs.frontend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           echo "- **Frontend**: ESLint, Prettier formatting, TypeScript type checking, and build validation ✅" >> "$GITHUB_STEP_SUMMARY"
