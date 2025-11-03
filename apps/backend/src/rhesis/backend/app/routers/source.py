@@ -162,7 +162,7 @@ def update_source(
     return db_source
 
 
-@router.post("/upload", response_model=schemas.Source)
+@router.post("/upload", response_model=schemas.SourceWithContent)
 async def upload_source(
     file: UploadFile = File(...),
     title: str = Form(None),
@@ -192,7 +192,7 @@ async def upload_source(
         current_user: Current authenticated user
 
     Returns:
-        schemas.Source: Created source record with file metadata and extracted content
+        schemas.SourceWithContent: Created source record with file metadata and extracted content
 
     Raises:
         HTTPException: If file upload fails or source creation fails

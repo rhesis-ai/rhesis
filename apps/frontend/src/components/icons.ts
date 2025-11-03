@@ -61,6 +61,9 @@ export { default as ClearIcon } from '@mui/icons-material/ClearOutlined';
 export { default as RefreshIcon } from '@mui/icons-material/RefreshOutlined';
 export { default as SendIcon } from '@mui/icons-material/SendOutlined';
 export { default as EmojiIcon } from '@mui/icons-material/EmojiEmotionsOutlined';
+export { default as VisibilityIcon } from '@mui/icons-material/VisibilityOutlined';
+export { default as VisibilityOffIcon } from '@mui/icons-material/VisibilityOffOutlined';
+export { default as LockIcon } from '@mui/icons-material/LockOutlined';
 
 // Metric specific icons
 export { default as PrecisionManufacturingIcon } from '@mui/icons-material/PrecisionManufacturingOutlined';

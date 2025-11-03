@@ -13,6 +13,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-10-30
+
+### Added
+- Added Vertex AI provider with hybrid authentication support.
+- Added Cohere model support.
+- Added support for both plain and OpenAI-wrapped JSON schemas in LLM providers.
+- Added iteration context support to test generation.
+- Added source_id tracking to tests generated from documents.
+- Integrated Ragas metrics for evaluating RAG systems, including faithfulness and aspect critic metrics.
+- Integrated enhanced DeepEval metrics, including a bias metric.
+- Added DeepTeam model support.
+
+### Changed
+- Refactored metrics to use a new configuration-based initialization, improving validation and flexibility.
+- Updated DeepEval integration to be compatible with v3.6.7 API.
+- Improved LLM error logging with full traceback.
+- Optimized Vertex AI model and region defaults.
+- Enhanced AI-based test generation with improved UI and backend support.
+- Simplified schema wrapping logic in RhesisLLM.
+- Refactored the metrics module for improved organization and maintainability.
+- Updated supported file types for source extraction.
+
+### Fixed
+- Fixed Hugging Face imports.
+- Fixed `_create_ollama_llm` initialization error.
+- Corrected schema type hints in `RhesisLLM` and `VertexAILLM`.
+- Corrected type hint in `validate_llm_response`.
+- Corrected supported params for `RhesisPromptMetricCategorical`.
+- Handled OpenAI-wrapped schemas in LLM providers.
+- Fixed handling of missing DeepEval metrics in older versions.
+- Fixed line length linting errors.
+- Fixed various bugs in metrics and tests.
+- Fixed issues with Ragas metrics initialization and usage.
+- Fixed issues with DeepEval model initialization.
+- Fixed UTF-8 encoding for markitdown text extraction.
+
+### Removed
+- Removed optional DeepEval metric imports.
+- Removed unused `LLMService` class.
+- Removed unnecessary markdown stripping in `LiteLLM`.
+- Removed unused `NumericDetailedJudge` from factory.
+
+
 ## [0.3.1] - 2025-10-16
 
 ### Added

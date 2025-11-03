@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-10-30
+
+### Added
+
+- Added support for additional file formats (.pptx, .xlsx, .html, .htm, .zip) for source uploads.
+- Added drag-and-drop file upload component for sources.
+- Added source indicators to test and test set grids.
+- Added context sources to test generation and display in test samples.
+- Added project selector to test input screen.
+- Added a warning notification when content extraction fails during source upload.
+- Added Error status display for test results without metrics.
+- Added a re-run button to the test run detail page.
+- Added reviews tab to split view and conflict indicators for test runs.
+- Added creator information to test sets.
+- Added quick search with OData filtering to the test runs grid.
+- Added partial status and execution error indicators to test runs.
+- Implemented global 404 and 410 error handling with restore functionality.
+- Integrated OpenTelemetry for enhanced monitoring.
+- Added local deployment models and providers.
+
+### Changed
+
+- Replaced 'Document' terminology with 'Source' throughout the frontend.
+- Replaced ContextPreview with a document icon in grids.
+- Improved source display in test and test-set pages.
+- Updated test generation to use sources instead of documents.
+- Updated Rhesis model naming and descriptions.
+- Improved AI-based test generation with improved UI and backend support.
+- Enhanced hashing mechanism in telemetry for user and organization IDs.
+- Updated schemas and initial data for metrics.
+- Improved BaseDataGrid quick filter using an uncontrolled input.
+- Updated Rhesis Managed badge styling.
+- Improved test template usage and flows between screens.
+- Made default model indicators more subtle.
+- Implemented full editing functionality for knowledge sources.
+- Updated test generation to allow an optional test set name parameter.
+
+### Fixed
+
+- Fixed missing ContentCopyIcon import.
+- Fixed exhaustive-deps warnings in the `useComments` hook.
+- Fixed source name display in confirmation and interface screens for test generation.
+- Fixed upload endpoint URL for sources.
+- Fixed API key requirement for local deployments.
+- Fixed merge conflicts.
+- Fixed hardcoded styles.
+- Fixed misleading loading state in source preview.
+- Fixed 'Name' to 'Title' in source detail.
+- Fixed TypeScript error with Chip icon prop in TestRunsGrid.
+- Fixed incorrect status color for completed test runs.
+- Fixed display of execution time for failed and partial test runs.
+- Fixed error breadcrumbs to be reactive to navigation changes.
+- Fixed issue where the execute button was enabled when a test set had 0 tests.
+- Fixed issue where test results chart had a hardcoded limit of 5 runs.
+- Fixed issue where organisation name overlapped.
+
+### Removed
+
+- Removed unused documents section and DescriptionIcon import.
+- Removed unused documents state and import.
+- Removed undefined documents reference from TestConfigurationConfirmation.
+- Removed remaining document references from test generation components.
+- Removed scenarios from test templates config and test generation flow.
+- Removed the 'rhesis' provider from the user-selectable provider list.
+- Removed automatic content extraction during source upload.
+- Removed telemetry settings and related components.
+- Removed binary score type from new metrics page and metrics detail page.
+- Removed import button from manual test writer.
+
 ## [0.4.0] - 2025-10-16
 
 ### Added

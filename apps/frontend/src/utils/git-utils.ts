@@ -15,14 +15,14 @@ export interface VersionInfo {
 
 /**
  * Determine if git information should be shown based on environment.
- * Returns true for non-production environments.
+ * Returns true only for development environments.
  */
 export function shouldShowGitInfo(): boolean {
   const frontendEnv = process.env.FRONTEND_ENV?.toLowerCase();
   const nodeEnv = process.env.NODE_ENV?.toLowerCase();
 
-  // Don't show git info in production
-  return frontendEnv !== 'production' && nodeEnv !== 'production';
+  // Only show git info in development (not in staging or production)
+  return frontendEnv === 'development' || nodeEnv === 'development';
 }
 
 /**

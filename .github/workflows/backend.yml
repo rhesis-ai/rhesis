@@ -83,7 +83,6 @@ jobs:
 
   build:
     needs: validate-inputs
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -187,9 +186,122 @@ jobs:
             echo "Pushed regular image: ${{ env.IMAGE_NAME }}:latest"
           fi
 
-  deploy:
+  migrate:
     needs: [validate-inputs, build]
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+
+    env:
+      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+      COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+      IS_PREVIEW: ${{ needs.build.outputs.is_preview }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          REGION="${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}"
+          echo "REGION=$REGION" >> $GITHUB_ENV
+
+      - name: Setup service environment
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: backend
+          project-id: ${{ secrets.PROJECT_ID }}
+
+      - name: Set additional environment variables
+        run: |
+          echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
+
+      - name: Run database migrations
+        run: |
+          echo "🗃️ Running database migrations..."
+
+          # Determine which image to use based on preview mode
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            IMAGE_TAG="${{ env.COMMIT_SHA }}"
+          else
+            IMAGE_TAG="latest"
+          fi
+
+          echo "Using image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
+
+          # Create a unique job name for this migration run
+          MIGRATION_JOB_NAME="backend-migrate-$(date +%s)"
+
+          echo "Creating Cloud Run Job: $MIGRATION_JOB_NAME"
+
+          # Create a Cloud Run Job to run migrations (executes once)
+          gcloud run jobs create $MIGRATION_JOB_NAME \
+            --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
+            --vpc-egress=private-ranges-only \
+            --max-retries=0 \
+            --task-timeout=10m \
+            --memory=1Gi \
+            --cpu=1 \
+            --set-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
+            --set-env-vars="SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}" \
+            --args=bash,-c,./migrate.sh
+
+          echo "✅ Migration job created"
+
+          # Execute the migration job
+          echo "🚀 Executing migration job..."
+          gcloud run jobs execute $MIGRATION_JOB_NAME \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --wait
+
+          MIGRATION_EXIT_CODE=$?
+
+          # Clean up the job after execution
+          echo "🧹 Cleaning up migration job..."
+          gcloud run jobs delete $MIGRATION_JOB_NAME \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --quiet
+
+          if [ $MIGRATION_EXIT_CODE -ne 0 ]; then
+            echo "❌ Migration failed with exit code $MIGRATION_EXIT_CODE"
+            exit $MIGRATION_EXIT_CODE
+          fi
+
+          echo "✅ Database migrations completed successfully"
+
+  deploy:
+    needs: [validate-inputs, build, migrate]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -325,7 +437,8 @@ jobs:
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
-          LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
+          LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }},
+          SKIP_MIGRATIONS=true
           EOF
           )"
 
@@ -392,7 +505,8 @@ jobs:
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
-          LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
+          LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }},
+          SKIP_MIGRATIONS=true
           EOF
           )"
 
@@ -581,7 +695,8 @@ jobs:
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
-          LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
+          LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }},
+          SKIP_MIGRATIONS=true
           EOF
           )"
 
@@ -657,7 +772,8 @@ jobs:
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
-          LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
+          LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }},
+          SKIP_MIGRATIONS=true
           EOF
           )"
 

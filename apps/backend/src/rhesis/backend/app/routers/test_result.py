@@ -588,8 +588,9 @@ def add_review(
     # Mark as modified for SQLAlchemy
     flag_modified(db_test_result, "test_reviews")
 
-    # Commit changes
-    db.commit()
+    # Flush to write changes and refresh to get updated state
+    # Transaction commit is handled by the session context manager
+    db.flush()
     db.refresh(db_test_result)
 
     return new_review
@@ -665,8 +666,9 @@ def update_review(
     # Mark as modified for SQLAlchemy
     flag_modified(db_test_result, "test_reviews")
 
-    # Commit changes
-    db.commit()
+    # Flush to write changes and refresh to get updated state
+    # Transaction commit is handled by the session context manager
+    db.flush()
     db.refresh(db_test_result)
 
     return review_to_update
@@ -736,8 +738,9 @@ def delete_review(
     # Mark as modified for SQLAlchemy
     flag_modified(db_test_result, "test_reviews")
 
-    # Commit changes
-    db.commit()
+    # Flush to write changes
+    # Transaction commit is handled by the session context manager
+    db.flush()
 
     return {
         "message": "Review deleted successfully",

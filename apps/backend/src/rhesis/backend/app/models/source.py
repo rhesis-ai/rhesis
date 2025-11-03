@@ -1,5 +1,6 @@
-from sqlalchemy import Column, ForeignKey, String, Text
+from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import deferred, relationship
 
 from .base import Base
@@ -51,3 +52,27 @@ class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMix
         viewonly=True,
         uselist=True,
     )
+
+    @hybrid_property
+    def file_type(self):
+        """Extract file_type from source_metadata JSONB field"""
+        if self.source_metadata:
+            return self.source_metadata.get("file_type")
+        return None
+
+    @file_type.expression
+    def file_type(cls):
+        """SQLAlchemy expression for filtering file_type"""
+        return cls.source_metadata["file_type"].astext
+
+    @hybrid_property
+    def file_size(self):
+        """Extract file_size from source_metadata JSONB field"""
+        if self.source_metadata:
+            return self.source_metadata.get("file_size")
+        return None
+
+    @file_size.expression
+    def file_size(cls):
+        """SQLAlchemy expression for filtering file_size"""
+        return cls.source_metadata["file_size"].astext.cast(Integer)
