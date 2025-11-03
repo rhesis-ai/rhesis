@@ -57,14 +57,17 @@ pip install -e .
 For straightforward tests, just specify the goal and Penelope will plan its own approach:
 
 ```python
-from rhesis.sdk.models import AnthropicLLM
 from rhesis.penelope import PenelopeAgent, EndpointTarget
 
-# Initialize Penelope
-agent = PenelopeAgent(
-    model=AnthropicLLM(model_name="claude-4"),
-    max_iterations=20,
-)
+# Initialize Penelope with defaults (Vertex AI / gemini-2.0-flash-exp, 10 max iterations)
+agent = PenelopeAgent()
+
+# Or specify custom settings
+# from rhesis.sdk.models import AnthropicLLM
+# agent = PenelopeAgent(
+#     model=AnthropicLLM(model_name="claude-4"),
+#     max_iterations=20,
+# )
 
 # Create target - loads endpoint configuration from Rhesis platform
 target = EndpointTarget(endpoint_id="my-chatbot-prod")
@@ -345,12 +348,15 @@ Penelope follows a clean, modular architecture designed for extensibility and re
 ### Agent Configuration
 
 ```python
+from rhesis.sdk.models import AnthropicLLM
+from rhesis.penelope import PenelopeAgent
+
 agent = PenelopeAgent(
-    model=AnthropicLLM(),
+    model=AnthropicLLM(),        # Optional: defaults to Vertex AI / gemini-2.0-flash-exp
     
     # Stopping conditions
-    max_iterations=20,           # Max turns before stopping
-    timeout_seconds=300,         # Max time before stopping
+    max_iterations=20,           # Optional: defaults to 10
+    timeout_seconds=300,         # Optional: no timeout by default
     
     # Transparency (Anthropic principle)
     enable_transparency=True,    # Show reasoning at each step
@@ -359,6 +365,61 @@ agent = PenelopeAgent(
     # Custom tools
     tools=[CustomTool1(), CustomTool2()],
 )
+```
+
+### Default Model Configuration
+
+Penelope uses Vertex AI with Gemini 2.0 Flash Experimental by default. You can configure the default model:
+
+**Via Environment Variables:**
+```bash
+export PENELOPE_DEFAULT_MODEL=anthropic
+export PENELOPE_DEFAULT_MODEL_NAME=claude-4
+```
+
+**Via Code:**
+```python
+from rhesis.penelope import PenelopeConfig
+
+# Set default model
+PenelopeConfig.set_default_model("anthropic", "claude-4")
+
+# Now all agents created without explicit model will use this
+agent = PenelopeAgent()  # Uses anthropic/claude-4
+```
+
+**Supported Providers:**
+- `vertex_ai` - Google Vertex AI (default)
+- `anthropic` - Anthropic Claude
+- `openai` - OpenAI GPT
+- `gemini` - Google Gemini
+- `ollama` - Local Ollama models
+- And more... (see SDK documentation)
+
+### Default Max Iterations Configuration
+
+Penelope defaults to 10 maximum iterations. You can configure this default:
+
+**Via Environment Variable:**
+```bash
+export PENELOPE_DEFAULT_MAX_ITERATIONS=20
+```
+
+**Via Code:**
+```python
+from rhesis.penelope import PenelopeConfig
+
+# Set default max iterations for all future agents
+PenelopeConfig.set_default_max_iterations(20)
+
+# Now all agents created without explicit max_iterations will use this
+agent = PenelopeAgent()  # Uses 20 max iterations
+```
+
+**Override Per Agent:**
+```python
+# Explicit max_iterations overrides any defaults
+agent = PenelopeAgent(max_iterations=30)
 ```
 
 ### Test Execution Parameters
