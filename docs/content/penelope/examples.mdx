@@ -65,13 +65,15 @@ print(f"Turns used: {result.turns_used}")
 uv run python basic_example.py
 ```
 
-## Coming Soon
+## More Examples
 
-We're working on additional examples covering:
+All these examples are fully implemented and ready to use. Simply edit the `endpoint_id` and run with `uv`.
 
 ### Security Testing
 
-Testing for vulnerabilities like prompt injection and jailbreaking:
+**File:** `security_testing.py`
+
+Test for security vulnerabilities like prompt injection and jailbreaking:
 
 ```python
 result = agent.execute_test(
@@ -87,9 +89,19 @@ result = agent.execute_test(
 )
 ```
 
+**Run it:**
+```bash
+# Edit security_testing.py to set your endpoint_id
+uv run python security_testing.py
+```
+
+**Includes:** Jailbreak resistance, prompt injection, information leakage, and boundary violation tests.
+
 ### Compliance Testing
 
-Verifying regulatory compliance (GDPR, CCPA, etc.):
+**File:** `compliance_testing.py`
+
+Verify regulatory compliance (GDPR, CCPA, etc.):
 
 ```python
 result = agent.execute_test(
@@ -99,9 +111,19 @@ result = agent.execute_test(
 )
 ```
 
+**Run it:**
+```bash
+# Edit compliance_testing.py to set your endpoint_id
+uv run python compliance_testing.py
+```
+
+**Includes:** GDPR, PII handling, COPPA, accessibility, and content moderation tests.
+
 ### Edge Case Discovery
 
-Finding unusual behaviors and edge cases:
+**File:** `edge_case_discovery.py`
+
+Find unusual behaviors and edge cases:
 
 ```python
 result = agent.execute_test(
@@ -111,9 +133,19 @@ result = agent.execute_test(
 )
 ```
 
+**Run it:**
+```bash
+# Edit edge_case_discovery.py to set your endpoint_id
+uv run python edge_case_discovery.py
+```
+
+**Includes:** Input variations, multi-language, ambiguous inputs, error recovery, boundary values, and context switching tests.
+
 ### Integration with Rhesis Platform
 
-Using TestSets from Rhesis with Penelope:
+**File:** `platform_integration.py`
+
+Use TestSets from Rhesis platform with Penelope:
 
 ```python
 from rhesis.sdk.entities import TestSet
@@ -124,12 +156,12 @@ test_set.load()
 
 # Execute each test with Penelope
 results = []
-for test in test_set.load():
+for test in test_set.tests:
     result = agent.execute_test(
         target=target,
-        instructions=test.instructions,
-        goal=test.goal,
-        context=test.context
+        instructions=test.get('instructions', ''),
+        goal=test.get('goal', ''),
+        context=test.get('context', {})
     )
     results.append(result)
 
@@ -138,9 +170,20 @@ passed = sum(r.goal_achieved for r in results)
 print(f"Passed: {passed}/{len(results)}")
 ```
 
+**Run it:**
+```bash
+# Set your API key and edit platform_integration.py
+export RHESIS_API_KEY='your-api-key'
+uv run python platform_integration.py
+```
+
+**Includes:** TestSet loading, batch execution, result storage, and platform integration examples.
+
 ### Custom Tools
 
-Creating and using custom testing tools:
+**File:** `custom_tools.py`
+
+Create and use custom testing tools:
 
 ```python
 from rhesis.penelope.tools.base import Tool, ToolResult
@@ -148,47 +191,71 @@ from rhesis.penelope.tools.base import Tool, ToolResult
 class DatabaseVerificationTool(Tool):
     @property
     def name(self) -> str:
-        return "verify_database"
+        return "verify_database_state"
     
     @property
     def description(self) -> str:
         return "Verify backend database state during testing..."
     
-    def execute(self, query: str = "", **kwargs) -> ToolResult:
+    def execute(self, table_name: str = "", record_id: str = "", **kwargs) -> ToolResult:
         # Your implementation
         pass
 
 # Use custom tool
 agent = PenelopeAgent(
-    model=model,
     tools=[DatabaseVerificationTool()],
 )
 ```
 
+**Run it:**
+```bash
+# Edit custom_tools.py to set your endpoint_id
+uv run python custom_tools.py
+```
+
+**Includes:** Database verification tool, API monitoring tool, and security scanner tool implementations.
+
 ### Batch Testing
 
-Running multiple tests efficiently:
+**File:** `batch_testing.py`
+
+Run multiple tests efficiently:
 
 ```python
+from rhesis.penelope.examples.batch_testing import BatchTestRunner
+
+# Define test scenarios
 test_scenarios = [
-    {"goal": "Test context retention over 5 turns", "max_turns": 10},
-    {"goal": "Test error recovery", "max_turns": 8},
-    {"goal": "Test edge cases", "max_turns": 15},
+    {
+        "name": "Context Retention",
+        "goal": "Test context retention over 5 turns",
+        "max_turns": 10,
+        "category": "functional"
+    },
+    {
+        "name": "Error Recovery",
+        "goal": "Test error recovery",
+        "max_turns": 8,
+        "category": "robustness"
+    },
 ]
 
-results = []
-for scenario in test_scenarios:
-    result = agent.execute_test(
-        target=target,
-        goal=scenario["goal"],
-        max_turns=scenario["max_turns"],
-    )
-    results.append(result)
+# Run batch tests
+runner = BatchTestRunner(agent, target)
+runner.run_all_scenarios(test_scenarios)
 
-# Analyze batch results
-success_rate = sum(r.goal_achieved for r in results) / len(results)
-print(f"Overall success rate: {success_rate:.1%}")
+# Display results
+runner.display_summary()
+runner.export_results("results.json")
 ```
+
+**Run it:**
+```bash
+# Edit batch_testing.py to set your endpoint_id
+uv run python batch_testing.py
+```
+
+**Includes:** Batch execution, result aggregation, reporting, JSON export, and parallel testing concepts.
 
 ## Contributing Examples
 
