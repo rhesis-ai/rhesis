@@ -1,7 +1,7 @@
 """Utility functions for common synthesizer operations."""
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from jinja2 import Template
 
@@ -10,22 +10,13 @@ from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.utils import extract_json_from_text
 
 
-def load_prompt_template(class_name: str, custom_prompt: Optional[str] = None) -> Template:
+def load_prompt_template(prompt_template_file: str) -> Template:
     """Load prompt template from assets or use custom prompt."""
-    if custom_prompt:
-        return Template(custom_prompt)
-
-    # Convert camel case to snake case
-    snake_case = "".join(
-        ["_" + c.lower() if c.isupper() else c.lower() for c in class_name]
-    ).lstrip("_")
-
-    prompt_path = Path(__file__).parent / "assets" / f"{snake_case}.md"
+    prompt_path = Path(__file__).parent / "assets" / prompt_template_file
     try:
-        with open(prompt_path, "r") as f:
-            return Template(f.read())
+        return Template(prompt_path.read_text())
     except FileNotFoundError:
-        return Template("{{ generation_prompt }}")
+        raise FileNotFoundError(f"Prompt template file not found: {prompt_template_file}")
 
 
 def retry_llm_call(model: BaseLLM, prompt: str, max_attempts: int = 3) -> Any:
