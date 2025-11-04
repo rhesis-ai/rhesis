@@ -2,87 +2,93 @@
 
 import os
 from abc import ABC, abstractmethod
+from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List
 
 from markitdown import MarkItDown
+from pydantic import BaseModel
 
-from rhesis.sdk.types import Document
+
+class SourceType(Enum):
+    DOCUMENT = "document"
+    WEBSITE = "website"
+    NOTION = "notion"
+
+
+class SourceBase(BaseModel):
+    name: str
+    description: str
+    type: SourceType
+    metadata: dict
+
+
+class ExtractedSource(SourceBase):
+    content: str
 
 
 class Extractor(ABC):
     @abstractmethod
-    def extract(self, *args: Any, **kwargs: Any) -> Dict[str, str]:
+    def extract(self, source: SourceBase) -> ExtractedSource:
+        pass
+
+
+class NotionExtractor(Extractor):
+    def extract(self, source: SourceBase) -> ExtractedSource:
+        pass
+
+
+class WebsiteExtractor(Extractor):
+    def extract(self, source: SourceBase) -> ExtractedSource:
         pass
 
 
 class DocumentExtractor(Extractor):
     """Extract plain text from supported document files using Markitdown."""
 
+    supported_extensions: set[str] = {
+        # Office formats
+        ".docx",
+        ".pptx",
+        ".xlsx",
+        # Documents
+        ".pdf",
+        ".txt",
+        ".md",
+        ".csv",
+        ".json",
+        ".xml",
+        ".html",
+        ".htm",
+        # Archives (iterate over contents)
+        ".zip",
+        # E-books
+        ".epub",
+    }
+
     def __init__(self) -> None:
         """Initialize the DocumentExtractor."""
         # Note: Markitdown supports also other formats but may need additional dependencies
-        self.supported_extensions = {
-            # Office formats
-            ".docx",
-            ".pptx",
-            ".xlsx",
-            # Documents
-            ".pdf",
-            ".txt",
-            ".md",
-            ".csv",
-            ".json",
-            ".xml",
-            ".html",
-            ".htm",
-            # Archives (iterate over contents)
-            ".zip",
-            # E-books
-            ".epub",
-        }
-
         self.converter = MarkItDown()
 
-    def extract(self, documents: List[Document]) -> Dict[str, str]:
+    def extract(self, source: SourceBase) -> ExtractedSource:
         """
-        Extract text from a list of documents.
+        Extract text from a document source.
 
         Args:
-            documents: List of document dictionaries with the following fields:
-                - name (str): Unique identifier or label for the document
-                - description (str): Short description of the document's purpose or content
-                - path (str): Local file path (optional, can be empty if content is provided)
-                - content (str): Pre-provided document content (optional)
+            source: SourceBase object containing the document source
 
         Returns:
-            Dict[str, str]: Dictionary mapping document names to extracted text
+            ExtractedSource object containing the extracted text
 
         Raises:
-            ValueError: If neither content nor path is provided for a document
-            FileNotFoundError: If the specified file path doesn't exist
-            ValueError: If the file type is not supported
+            ValueError: If the source type is not supported
         """
-        extracted_texts = {}
+        if source.type != SourceType.DOCUMENT:
+            raise ValueError(f"Unsupported source type: {source.type}")
 
-        for document in documents:
-            name = document.name
+        extracted_text = self._extract_from_file(source.metadata["path"])
 
-            content = document.content
-            path = document.path
-
-            # If content is provided, use it directly
-            if content:
-                extracted_texts[name] = content
-                continue
-
-            # If no content but path is provided, extract from file
-            if path:
-                extracted_text = self._extract_from_file(path)
-                extracted_texts[name] = extracted_text
-                continue
-
-        return extracted_texts
+        return ExtractedSource(**source.model_dump(), content=extracted_text)
 
     def extract_from_bytes(self, file_content: bytes, filename: str) -> str:
         """
@@ -201,3 +207,15 @@ class DocumentExtractor(Extractor):
             set[str]: Set of supported file extensions (including the dot)
         """
         return self.supported_extensions.copy()
+
+
+if __name__ == "__main__":
+    extractor = DocumentExtractor()
+    source = SourceBase(
+        name="test",
+        description="test",
+        type=SourceType.DOCUMENT,
+        metadata={"path": "/Users/arek/Desktop/rhesis/CHANGELOG.md"},
+    )
+    extracted_source = extractor.extract(source)
+    print(extracted_source)
