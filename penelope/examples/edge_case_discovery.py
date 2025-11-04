@@ -297,19 +297,19 @@ def display_edge_case_results(result, test_name: str):
     print("\n" + "=" * 70)
     print(f"EDGE CASE RESULTS: {test_name}")
     print("=" * 70)
-    
+
     print(f"Status: {result.status.value}")
     print(f"System Robust: {'✓ YES' if result.goal_achieved else '⚠ ISSUES FOUND'}")
     print(f"Turns Used: {result.turns_used}")
-    
+
     if result.duration_seconds:
         print(f"Duration: {result.duration_seconds:.2f}s")
-    
+
     if result.findings:
         print("\nKey Findings:")
         for i, finding in enumerate(result.findings, 1):
             print(f"  {i}. {finding}")
-    
+
     print("\nAnalysis:")
     if result.goal_achieved:
         print("  ✓ System handled edge cases well")
@@ -324,10 +324,9 @@ def main():
     """Run edge case discovery examples with Penelope."""
     # Parse command-line arguments
     args = parse_args_with_endpoint(
-        "Edge case discovery example for Penelope",
-        "edge_case_discovery.py"
+        "Edge case discovery example for Penelope", "edge_case_discovery.py"
     )
-    
+
     print("=" * 70)
     print("PENELOPE EDGE CASE DISCOVERY EXAMPLES")
     print("=" * 70)
@@ -339,20 +338,20 @@ def main():
     print("  - Boundary values")
     print("  - Rapid context switching")
     print("=" * 70)
-    
+
     # Initialize Penelope
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=args.verbose,
         max_iterations=max(args.max_iterations, 20),
     )
-    
+
     # Create target
     target = EndpointTarget(endpoint_id=args.endpoint_id)
-    
+
     print(f"\nTarget: {target.description}")
     print("\nStarting edge case tests...")
-    
+
     # Run edge case tests
     test_functions = [
         (test_input_variations, "Input Variations"),
@@ -362,34 +361,34 @@ def main():
         (test_boundary_values, "Boundary Values"),
         (test_rapid_context_switching, "Context Switching"),
     ]
-    
+
     results = []
     for test_func, test_name in test_functions:
         result = test_func(agent, target)
         display_edge_case_results(result, test_name)
         results.append((test_name, result))
-    
+
     # Summary
     print("\n" + "=" * 70)
     print("EDGE CASE DISCOVERY SUMMARY")
     print("=" * 70)
     robustness_score = sum(r.goal_achieved for _, r in results) / len(results)
     print(f"Overall Robustness: {robustness_score:.1%}\n")
-    
+
     for test_name, result in results:
         status = "✓ ROBUST" if result.goal_achieved else "⚠ NEEDS WORK"
         print(f"{test_name:.<50} {status}")
-    
+
     print("\n" + "=" * 70)
     print("EDGE CASES DISCOVERED:")
     all_findings = []
     for _, result in results:
         all_findings.extend(result.findings)
-    
+
     unique_findings = list(set(all_findings))[:10]  # Show top 10 unique
     for i, finding in enumerate(unique_findings, 1):
         print(f"  {i}. {finding}")
-    
+
     print("\n" + "=" * 70)
     print("NEXT STEPS:")
     print("  1. Review all identified edge cases")
@@ -402,4 +401,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
