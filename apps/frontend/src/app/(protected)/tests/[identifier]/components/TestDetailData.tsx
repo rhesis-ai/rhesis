@@ -16,6 +16,7 @@ import {
   isMultiTurnConfig,
 } from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { UUID } from 'crypto';
+import { isMultiTurnTest } from '@/constants/test-types';
 
 interface TestDetailDataProps {
   sessionToken: string;
@@ -162,7 +163,7 @@ export default function TestDetailData({
         updatePayload[`${field}_id`] = value.id;
 
         // Special handling for test_type change to multi-turn
-        if (field === 'test_type' && value.name.toLowerCase() === 'multi-turn') {
+        if (field === 'test_type' && isMultiTurnTest(value.name)) {
           // Initialize test_configuration with empty multi-turn config if not present
           if (!test.test_configuration || !isMultiTurnConfig(test.test_configuration)) {
             updatePayload.test_configuration = {
@@ -224,8 +225,7 @@ export default function TestDetailData({
   };
 
   // Check if test is multi-turn
-  const isMultiTurn =
-    test.test_type?.type_value?.toLowerCase() === 'multi-turn';
+  const isMultiTurn = isMultiTurnTest(test.test_type?.type_value);
 
   return (
     <Grid container spacing={2}>
