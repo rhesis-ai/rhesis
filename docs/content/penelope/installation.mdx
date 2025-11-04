@@ -1,12 +1,14 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Installation
 
-Penelope is currently available as part of the Rhesis monorepo and uses `uv` for dependency management.
+Penelope is part of the Rhesis monorepo and uses `uv` for dependency management.
 
 ## Prerequisites
 
-- Python 3.10 or higher
-- [uv](https://github.com/astral-sh/uv) package manager
-- Git
+- **Python 3.10+**
+- **uv** package manager
+- **RHESIS_API_KEY** for accessing Rhesis endpoints ([Get your key](https://app.rhesis.ai))
 
 ## Installation Steps
 
@@ -14,98 +16,54 @@ Penelope is currently available as part of the Rhesis monorepo and uses `uv` for
 
 ### Clone the Repository
 
-```bash
-git clone https://github.com/rhesis-ai/rhesis.git
-cd rhesis/penelope
-```
+<CodeBlock filename="Terminal" language="bash">
+{`git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis/penelope`}
+</CodeBlock>
 
 ### Install Dependencies
 
-**Using uv (recommended):**
+<CodeBlock filename="Terminal" language="bash">
+{`uv sync`}
+</CodeBlock>
 
-```bash
-uv sync
-```
+This automatically installs Penelope and the local SDK from `../sdk`.
 
-This will automatically install:
+### Set Up Authentication
 
-- All Penelope dependencies
-- The local Rhesis SDK from `../sdk` (automatically linked)
-- Development tools
+<CodeBlock filename="Terminal" language="bash">
+{`export RHESIS_API_KEY="rh-your-api-key"`}
+</CodeBlock>
 
-**Or install in development mode:**
+Get your API key from [Rhesis App](https://app.rhesis.ai) → Settings. See the [SDK Authentication Guide](/sdk/installation#configure-the-sdk) for details.
 
-```bash
-uv pip install -e .
-```
+### Verify Installation
+
+<CodeBlock filename="Terminal" language="bash">
+{`cd examples
+uv run python basic_example.py --help`}
+</CodeBlock>
 
 </Steps>
 
-## Verify Installation
-
-Test that Penelope is correctly installed:
-
-```python
-from rhesis.penelope import PenelopeAgent
-
-# If this runs without errors, you're ready to go!
-agent = PenelopeAgent()
-print("Penelope is ready! 🦸‍♀️")
-```
-
-## Local SDK Integration
-
-<Callout type="info">
-  **Important:** Penelope automatically uses the local SDK from `../sdk` in the
-  monorepo. This ensures you're always using the latest SDK features without
-  version conflicts.
-</Callout>
-
-The monorepo configuration in `pyproject.toml` handles this automatically:
-
-```toml
-[tool.uv.sources]
-rhesis-sdk = \{ path = "../sdk", editable = true \}
-```
-
 ## Development Setup
 
-For contributing to Penelope, install additional development dependencies:
+<CodeBlock filename="Terminal" language="bash">
+{`# Install dev dependencies
+uv sync --extra all
 
-```bash
-cd rhesis/penelope
-uv sync
-```
-
-This installs:
-
-- Testing tools (pytest, pytest-cov, pytest-mock)
-- Linting tools (ruff, pyright)
-- All SDK dependencies
-
-### Available Commands
-
-```bash
 # Run tests
 uv run pytest
-
-# Run type checking
-make type-check
 
 # Run linting
 make lint
 
-# Run formatting
-make format
-
-# Run all checks
-make all
-```
+# Type checking
+uv run pyright`}
+</CodeBlock>
 
 ---
 
-<Callout type="default">
-  **Next Steps** - Learn how to use Penelope in the [Quick
-  Start](/penelope/quick-start) guide - Explore [Use Cases](/penelope/use-cases)
-  for real-world testing scenarios
+<Callout type="info">
+  **Next:** Try the [Quick Start](/penelope/quick-start) guide or explore [Examples](/penelope/examples) to see Penelope in action.
 </Callout>

@@ -1,14 +1,15 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Custom Tools
 
-Penelope's tool system is extensible - you can create custom tools for specialized testing needs. This guide shows you how to build and use custom tools.
+Extend Penelope's capabilities by creating custom tools for specialized testing needs.
 
 ## Tool Interface
 
-All tools must implement the `Tool` abstract base class:
+All tools implement the `Tool` abstract base class:
 
-```python
-from abc import ABC, abstractmethod
-from typing import Any
+<CodeBlock filename="tool_interface.py" language="python">
+{`from abc import ABC, abstractmethod
 from rhesis.penelope.tools.base import Tool, ToolResult
 
 class Tool(ABC):
@@ -17,392 +18,293 @@ class Tool(ABC):
     def name(self) -> str:
         """Unique identifier for the tool"""
         pass
-
+    
     @property
     @abstractmethod
     def description(self) -> str:
         """Detailed description with usage guidance"""
         pass
-
+    
     @abstractmethod
-    def execute(self, **kwargs: Any) -> ToolResult:
+    def execute(self, **kwargs) -> ToolResult:
         """Execute the tool with validated parameters"""
-        pass
-```
+        pass`}
+</CodeBlock>
 
 <Callout type="info">
-  **Parameter Validation:** Tool parameters are automatically validated via
-  Pydantic schemas in the structured output. Your `execute` method receives
-  validated inputs.
+  **Parameter Validation:** Tool parameters are automatically validated via Pydantic schemas. Your `execute` method receives validated inputs.
 </Callout>
 
 ## Creating a Custom Tool
 
-### Example: Database Query Tool
+### Example: Database Verification Tool
 
-```python
-from rhesis.penelope.tools.base import Tool, ToolResult
+<CodeBlock filename="database_tool.py" language="python">
+{`from rhesis.penelope.tools.base import Tool, ToolResult
 import sqlite3
 
-class DatabaseQueryTool(Tool):
+class DatabaseVerificationTool(Tool):
     def __init__(self, db_path: str):
         self.db_path = db_path
-
+    
     @property
     def name(self) -> str:
-        return "query_test_database"
-
+        return "verify_database_state"
+    
     @property
     def description(self) -> str:
-        return """Query the test database to verify data integrity.
-
-Use this tool to check if the target system correctly stored or
-retrieved information during testing.
+        return """Verify backend database state during testing.
 
 WHEN TO USE:
-✓ Verify data was saved correctly
-✓ Check for data consistency
+✓ Check if data was saved correctly
 ✓ Validate database state changes
+✓ Verify data consistency
+
+PARAMETERS:
+- table_name: Database table to query
+- record_id: Specific record ID to verify
+
+EXAMPLE:
+verify_database_state(
+    table_name="users",
+    record_id="user123"
+)
+
+Returns record data or error if not found."""
+    
+    def execute(self, table_name: str = "", record_id: str = "", **kwargs) -> ToolResult:
+        if not table_name or not record_id:
+            return ToolResult(
+                success=False,
+                output={"error": "table_name and record_id required"}
+            )
+        
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                f"SELECT * FROM {table_name} WHERE id = ?",
+                (record_id,)
+            )
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result:
+                return ToolResult(
+                    success=True,
+                    output={
+                        "found": True,
+                        "record": dict(result),
+                        "table": table_name
+                    }
+                )
+            else:
+                return ToolResult(
+                    success=True,
+                    output={
+                        "found": False,
+                        "message": f"No record found with id {record_id}"
+                    }
+                )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output={"error": str(e)}
+            )`}
+</CodeBlock>
+
+### Using Your Custom Tool
+
+<CodeBlock filename="use_custom_tool.py" language="python">
+{`from rhesis.penelope import PenelopeAgent, EndpointTarget
+
+# Create tool instance
+db_tool = DatabaseVerificationTool(db_path="test.db")
+
+# Initialize agent with custom tool
+agent = PenelopeAgent(
+    tools=[db_tool],
+    enable_transparency=True
+)
+
+# Execute test - Penelope can now use the database tool
+result = agent.execute_test(
+    target=EndpointTarget(endpoint_id="your-endpoint-id"),
+    goal="Verify chatbot correctly saves user preferences to database",
+    instructions="""
+    1. Ask chatbot to save a preference
+    2. Use verify_database_state to check if it was saved
+    3. Verify the saved data matches what was requested
+    """
+)`}
+</CodeBlock>
+
+## Writing Quality Tool Descriptions
+
+Good descriptions help Penelope understand when and how to use your tool:
+
+### Key Elements
+
+1. **Purpose** - What the tool does
+2. **When to Use** - Scenarios for using this tool
+3. **When NOT to Use** - Scenarios to avoid
+4. **Parameters** - Expected inputs with types
+5. **Examples** - Real usage examples
+6. **Important Notes** - Caveats and limitations
+
+<CodeBlock filename="good_description.py" language="python">
+{`@property
+def description(self) -> str:
+    return """[PURPOSE] Check API endpoint health and response times.
+
+WHEN TO USE:
+✓ Verify system is responding
+✓ Check performance degradation
+✓ Validate API availability
 
 WHEN NOT TO USE:
-✗ Don't use for modifying data
-✗ Don't use for non-test databases
+✗ Don't use for data retrieval
+✗ Don't use for authentication checks
 
 PARAMETERS:
-- query: SQL SELECT statement (read-only)
+- endpoint_url: Full URL to check (string, required)
+- timeout_seconds: Request timeout (int, default: 5)
 
 EXAMPLE:
->>> query_test_database(
-...     query="SELECT * FROM users WHERE email='test@example.com'"
-... )
+check_api_health(
+    endpoint_url="https://api.example.com/health",
+    timeout_seconds=10
+)
+
+Returns: {"status": "ok", "response_time_ms": 145}
 
 IMPORTANT:
-- Only SELECT queries are allowed
-- Query timeout is 5 seconds
-- Results limited to 100 rows
-"""
+- Only checks public endpoints
+- Does not include authentication headers"""`}
+</CodeBlock>
 
-    def execute(self, query: str = "", **kwargs) -> ToolResult:
-        """Execute a read-only database query."""
+## Multiple Custom Tools
 
-        # Validate query is read-only
-        if not query.strip().upper().startswith("SELECT"):
-            return ToolResult(
-                success=False,
-                output={},
-                error="Only SELECT queries are allowed"
-            )
+Add multiple tools for comprehensive testing:
 
-        try:
-            conn = sqlite3.connect(self.db_path, timeout=5.0)
-            cursor = conn.cursor()
-            cursor.execute(query)
+<CodeBlock filename="multiple_tools.py" language="python">
+{`# Define multiple specialized tools
+db_tool = DatabaseVerificationTool(db_path="test.db")
+api_tool = APIMonitoringTool(base_url="https://api.example.com")
+security_tool = SecurityScannerTool()
 
-            # Limit results
-            rows = cursor.fetchmany(100)
-            columns = [desc[0] for desc in cursor.description]
-
-            # Format as list of dicts
-            results = [
-                dict(zip(columns, row))
-                for row in rows
-            ]
-
-            conn.close()
-
-            return ToolResult(
-                success=True,
-                output={
-                    "rows": results,
-                    "count": len(results),
-                    "columns": columns,
-                },
-                metadata={"query": query}
-            )
-
-        except Exception as e:
-            return ToolResult(
-                success=False,
-                output={},
-                error=f"Database query failed: {str(e)}"
-            )
-```
-
-### Example: API Verification Tool
-
-```python
-class APIVerificationTool(Tool):
-    def __init__(self, api_base_url: str, api_key: str):
-        self.base_url = api_base_url
-        self.api_key = api_key
-
-    @property
-    def name(self) -> str:
-        return "verify_api_state"
-
-    @property
-    def description(self) -> str:
-        return """Verify backend API state during testing.
-
-Check if the target system's API endpoints are returning expected
-values after interactions.
-
-WHEN TO USE:
-✓ Verify API state after target interaction
-✓ Check for side effects
-✓ Validate backend data consistency
-
-PARAMETERS:
-- endpoint: API endpoint path (e.g., "/users/123")
-- expected_field: Field name to check
-- expected_value: Expected value for the field
-
-EXAMPLE:
->>> verify_api_state(
-...     endpoint="/users/123",
-...     expected_field="status",
-...     expected_value="active"
-... )
-"""
-
-    def execute(
-        self,
-        endpoint: str = "",
-        expected_field: str = "",
-        expected_value: str = "",
-        **kwargs
-    ) -> ToolResult:
-        """Verify API endpoint state."""
-        import requests
-
-        try:
-            url = f"{self.base_url}{endpoint}"
-            headers = {"Authorization": f"Bearer {self.api_key}"}
-
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-
-            data = response.json()
-            actual_value = data.get(expected_field)
-
-            is_match = str(actual_value) == str(expected_value)
-
-            return ToolResult(
-                success=True,
-                output={
-                    "matches": is_match,
-                    "expected": expected_value,
-                    "actual": actual_value,
-                    "full_response": data,
-                },
-                metadata={
-                    "endpoint": endpoint,
-                    "status_code": response.status_code,
-                }
-            )
-
-        except Exception as e:
-            return ToolResult(
-                success=False,
-                output={},
-                error=f"API verification failed: {str(e)}"
-            )
-```
-
-## Using Custom Tools
-
-Register custom tools when creating the agent:
-
-```python
-from rhesis.penelope import PenelopeAgent, EndpointTarget
-
-# Create custom tools
-db_tool = DatabaseQueryTool(db_path="/path/to/test.db")
-api_tool = APIVerificationTool(
-    api_base_url="https://api.example.com",
-    api_key="test-key"
-)
-
-# Register with agent
+# Agent can use all tools
 agent = PenelopeAgent(
-    model=model,
-    tools=[db_tool, api_tool],
+    tools=[db_tool, api_tool, security_tool],
+    enable_transparency=True,
+    max_iterations=20
 )
 
-# Penelope can now use these tools during testing
+# Complex test using multiple tools
 result = agent.execute_test(
     target=target,
-    goal="""
-    Verify that:
-    1. User registration creates database entry
-    2. API returns correct user status
-    3. All data is consistent
-    """,
-)
-```
-
-## Tool Design Best Practices
-
-### 1. Extensive Documentation
-
-Follow Anthropic's ACI principles - document thoroughly:
-
-```python
-@property
-def description(self) -> str:
-    return """
-    Brief one-line summary of what the tool does.
-
-    Detailed explanation of the tool's purpose and capabilities.
-
-    WHEN TO USE:
-    ✓ Use case 1
-    ✓ Use case 2
-
-    WHEN NOT TO USE:
-    ✗ Don't use for X
-    ✗ Don't use for Y
-
-    PARAMETERS:
-    - param1: Description and constraints
-    - param2: Description and constraints
-
-    EXAMPLE:
-    >>> tool_name(param1="value1", param2="value2")
-
-    IMPORTANT NOTES:
-    - Key consideration 1
-    - Key consideration 2
+    goal="Comprehensive system validation",
+    instructions="""
+    1. Verify API is responding (use check_api_health)
+    2. Test chatbot functionality
+    3. Check database state (use verify_database_state)
+    4. Run security scan (use run_security_scan)
     """
-```
+)`}
+</CodeBlock>
 
-### 2. Clear Parameter Names
+## Best Practices
 
-Use intuitive, self-documenting parameter names:
+### 1. Clear Naming
 
-```python
-# Good
-def execute(self, email_address: str, expected_status: str, **kwargs):
-    pass
+Use descriptive, action-oriented names:
+
+<CodeBlock filename="naming.py" language="python">
+{`# Good
+"verify_database_state"
+"check_api_health"
+"validate_user_permissions"
 
 # Bad
-def execute(self, e: str, s: str, **kwargs):
-    pass
-```
+"db_tool"
+"api"
+"check"`}
+</CodeBlock>
 
-### 3. Comprehensive Error Handling
+### 2. Handle Errors Gracefully
 
-Always return `ToolResult` with clear error messages:
-
-```python
-def execute(self, **kwargs) -> ToolResult:
+<CodeBlock filename="error_handling.py" language="python">
+{`def execute(self, **kwargs) -> ToolResult:
     try:
         # Your logic
-        return ToolResult(success=True, output={...})
-    except SpecificError as e:
+        result = perform_operation()
+        return ToolResult(success=True, output=result)
+    except ValueError as e:
         return ToolResult(
             success=False,
-            output={},
-            error=f"Descriptive error: {str(e)}"
+            output={"error": f"Invalid input: {e}"}
         )
     except Exception as e:
         return ToolResult(
             success=False,
-            output={},
-            error=f"Unexpected error: {str(e)}"
-        )
-```
+            output={"error": f"Unexpected error: {e}"}
+        )`}
+</CodeBlock>
 
-### 4. Structured Output
+### 3. Provide Rich Output
 
-Return well-structured, easily interpretable data:
+Return structured, informative data:
 
-```python
+<CodeBlock filename="rich_output.py" language="python">
+{`# Good - structured and informative
 return ToolResult(
     success=True,
     output={
-        "verification_passed": True,
-        "details": {
-            "expected": expected_value,
-            "actual": actual_value,
-            "timestamp": datetime.now().isoformat(),
-        },
-        "recommendations": ["Next step to try..."],
-    },
-    metadata={
-        "execution_time_ms": 123,
-        "resource_used": "database_primary",
+        "status": "healthy",
+        "response_time_ms": 145,
+        "timestamp": "2024-01-15T10:30:00Z",
+        "details": {"version": "1.2.3", "uptime": "5d 3h"}
     }
 )
-```
 
-### 5. Idempotency
+# Bad - minimal information
+return ToolResult(success=True, output="ok")`}
+</CodeBlock>
 
-Tools should be safe to call multiple times:
+### 4. Test Your Tools
 
-```python
-# Good: Read-only, idempotent
-def execute(self, user_id: str, **kwargs):
-    user = fetch_user(user_id)  # Safe to call multiple times
-    return ToolResult(success=True, output={"user": user})
+Write unit tests for custom tools:
 
-# Bad: Modifies state
-def execute(self, user_id: str, **kwargs):
-    delete_user(user_id)  # Dangerous if called multiple times!
-    return ToolResult(success=True, output={})
-```
+<CodeBlock filename="test_custom_tool.py" language="python">
+{`import pytest
+from my_tools import DatabaseVerificationTool
 
-## Tool Return Format
+def test_database_tool_success():
+    tool = DatabaseVerificationTool(db_path="test.db")
+    result = tool.execute(table_name="users", record_id="123")
+    
+    assert result.success is True
+    assert result.output["found"] is True
+    assert "record" in result.output
 
-The `ToolResult` class structure:
+def test_database_tool_missing_params():
+    tool = DatabaseVerificationTool(db_path="test.db")
+    result = tool.execute(table_name="", record_id="")
+    
+    assert result.success is False
+    assert "error" in result.output`}
+</CodeBlock>
 
-```python
-class ToolResult(BaseModel):
-    success: bool                    # Whether execution succeeded
-    output: Dict[str, Any]          # Tool output data
-    error: Optional[str] = None     # Error message if failed
-    metadata: Dict[str, Any] = {}   # Additional execution metadata
-```
+## Real-World Examples
 
-## Examples in Practice
+See complete custom tool implementations in the [examples directory](https://github.com/rhesis-ai/rhesis/tree/main/penelope/examples):
 
-### Security Testing Tool
-
-```python
-class SecurityScannerTool(Tool):
-    @property
-    def name(self) -> str:
-        return "scan_for_vulnerabilities"
-
-    @property
-    def description(self) -> str:
-        return """Scan target responses for security vulnerabilities."""
-
-    def execute(self, response_text: str = "", **kwargs) -> ToolResult:
-        vulnerabilities = []
-
-        # Check for common issues
-        if re.search(r'password|secret|key', response_text, re.I):
-            vulnerabilities.append("Potential credential exposure")
-
-        if re.search(r'<script|javascript:', response_text, re.I):
-            vulnerabilities.append("Potential XSS vulnerability")
-
-        return ToolResult(
-            success=True,
-            output={
-                "vulnerabilities_found": len(vulnerabilities),
-                "issues": vulnerabilities,
-                "safe": len(vulnerabilities) == 0,
-            }
-        )
-```
+- **custom_tools.py** - Database verification, API monitoring, security scanning
+- **batch_testing.py** - Batch test runner tool
+- **platform_integration.py** - TestSet loader tool
 
 ---
 
 <Callout type="default">
-  **Next Steps** - Review the [Architecture](/penelope/architecture) to
-  understand tool integration - Explore [Use Cases](/penelope/use-cases) for
-  real-world applications - Check out [Configuration](/penelope/configuration)
-  for agent setup
+  **Next:** Check out [Examples](/penelope/examples) to see custom tools in action, or review [Architecture](/penelope/architecture) to understand how tools fit into Penelope's design.
 </Callout>
