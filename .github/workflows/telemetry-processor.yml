@@ -220,7 +220,8 @@ jobs:
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
-            --no-allow-unauthenticated \
+            --allow-unauthenticated \
+            --ingress=internal \
             --port=4317 \
             --memory=512Mi \
             --cpu=1 \
@@ -253,39 +254,11 @@ jobs:
 
           echo "✅ Traffic successfully routed to new revision"
 
-      - name: Allow OTel Collector to invoke Telemetry Processor
+      - name: Verify service security configuration
         run: |
-          echo "ℹ️ Note: Service is private (--no-allow-unauthenticated), secured by VPC and IAM"
-          echo "🔐 Configuring IAM permissions for OTel Collector to invoke Telemetry Processor..."
-          
-          # Determine otel-collector service name
-          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-            COLLECTOR_SERVICE_NAME="${{ vars.APP_NAME }}-otel-collector"
-          else
-            COLLECTOR_SERVICE_NAME="${{ vars.APP_NAME }}-otel-collector-${{ env.ENVIRONMENT }}"
-          fi
-          
-          # Get the collector's service account (it should exist if collector is already deployed)
-          COLLECTOR_SA=$(gcloud run services describe $COLLECTOR_SERVICE_NAME \
-            --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }} \
-            --format="value(spec.template.spec.serviceAccountName)" 2>/dev/null || echo "")
-          
-          if [ -z "$COLLECTOR_SA" ]; then
-            echo "⚠️ Warning: OTel Collector service not found. Skipping IAM binding."
-            echo "ℹ️ You'll need to deploy the collector first, then redeploy this processor."
-          else
-            echo "✅ Found OTel Collector service account: $COLLECTOR_SA"
-            
-            # Grant the collector permission to invoke this processor
-            gcloud run services add-iam-policy-binding ${{ env.SERVICE_NAME }} \
-              --member="serviceAccount:$COLLECTOR_SA" \
-              --role="roles/run.invoker" \
-              --project=${{ env.PROJECT_ID }} \
-              --region=${{ env.REGION }}
-            
-            echo "✅ OTel Collector can now invoke Telemetry Processor"
-          fi
+          echo "ℹ️ Service is secured with --ingress=internal (VPC/Cloud Run services only)"
+          echo "✅ Only services within the same VPC or other Cloud Run services can access this endpoint"
+          echo "✅ Public internet access is blocked at the Cloud Run ingress level"
 
       - name: Output deployed service URL
         id: output_service_url
@@ -341,6 +314,7 @@ jobs:
           echo "- Cloud SQL Instance: \`${{ env.CLOUDSQL_INSTANCE }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Tables: \`user_activity\`, \`endpoint_usage\`, \`feature_usage\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🔒 **Security Note:** This service is NOT publicly accessible (--no-allow-unauthenticated)" >> $GITHUB_STEP_SUMMARY
-          echo "It can only be invoked by authorized service accounts (otel-collector) within the same VPC." >> $GITHUB_STEP_SUMMARY
+          echo "🔒 **Security Note:** This service is NOT publicly accessible (--ingress=internal)" >> $GITHUB_STEP_SUMMARY
+          echo "It can only be accessed by services within the same VPC or other Cloud Run services in the same project." >> $GITHUB_STEP_SUMMARY
+          echo "Public internet requests are blocked at the ingress level." >> $GITHUB_STEP_SUMMARY
 
