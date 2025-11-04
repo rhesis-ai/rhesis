@@ -24,6 +24,8 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestFiltersToOData } from '@/utils/odata-filter';
+import { isMultiTurnTest } from '@/constants/test-types';
+import { isMultiTurnConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -133,9 +135,27 @@ export default function TestsTable({
         headerName: 'Content',
         flex: 3,
         filterable: true,
-        valueGetter: (value, row) => row.prompt?.content || '',
+        valueGetter: (value, row) => {
+          // For multi-turn tests, show the goal
+          if (isMultiTurnTest(row.test_type?.type_value) && 
+              isMultiTurnConfig(row.test_configuration)) {
+            return row.test_configuration.goal || '';
+          }
+          // For single-turn tests, show the prompt content
+          return row.prompt?.content || '';
+        },
         renderCell: params => {
-          const content = params.row.prompt?.content || params.row.content;
+          let content = '';
+          
+          // For multi-turn tests, show the goal
+          if (isMultiTurnTest(params.row.test_type?.type_value) && 
+              isMultiTurnConfig(params.row.test_configuration)) {
+            content = params.row.test_configuration.goal || '';
+          } else {
+            // For single-turn tests, show the prompt content
+            content = params.row.prompt?.content || params.row.content || '';
+          }
+          
           if (!content) return null;
 
           return (
@@ -180,16 +200,16 @@ export default function TestsTable({
         },
       },
       {
-        field: 'category.name',
-        headerName: 'Category',
+        field: 'test_type.type_value',
+        headerName: 'Test Type',
         flex: 1,
         filterable: true,
-        valueGetter: (value, row) => row.category?.name || '',
+        valueGetter: (value, row) => row.test_type?.type_value || '',
         renderCell: params => {
-          const categoryName = params.row.category?.name;
-          if (!categoryName) return null;
+          const testType = params.row.test_type?.type_value;
+          if (!testType) return null;
 
-          return <Chip label={categoryName} size="small" variant="outlined" />;
+          return <Chip label={testType} size="small" variant="outlined" />;
         },
       },
       {
