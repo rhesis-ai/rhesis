@@ -362,21 +362,25 @@ class TestSetEvaluator:
             test_result.details["toxicity"] = {"error": str(e)}
 
         # Overall score: average of available metric scores
-        scores = [
-            test_result.details.get("fluency", {}).get("score"),
-            test_result.details.get("relevancy", {}).get("score"),
-            test_result.details.get("refusal", {}).get("score"),
-            test_result.details.get("context_retention", {}).get("score"),
-        ]
-        # Filter out None values and ensure all scores are numeric (float)
+        metric_names = ["fluency", "relevancy", "refusal", "context_retention"]
         numeric_scores = []
-        for s in scores:
-            if s is not None:
+
+        for metric_name in metric_names:
+            metric_data = test_result.details.get(metric_name, {})
+            score = metric_data.get("score")
+
+            if score is not None:
                 try:
-                    numeric_scores.append(float(s))
+                    # Try direct conversion to float
+                    numeric_scores.append(float(score))
                 except (TypeError, ValueError):
-                    # Skip non-numeric scores
-                    pass
+                    # For non-numeric scores, check if there's an is_successful field
+                    is_successful = metric_data.get("is_successful")
+                    if is_successful is not None:
+                        # Convert pass/fail to 1.0/0.0
+                        numeric_scores.append(1.0 if is_successful else 0.0)
+                    # Otherwise skip this metric (can't convert)
+
         test_result.score = sum(numeric_scores) / len(numeric_scores) if numeric_scores else None
 
     def evaluate_results(self, recompute_existing: bool = False):
