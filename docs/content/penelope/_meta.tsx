@@ -2,14 +2,10 @@ import type { MetaRecord } from 'nextra'
 
 const meta: MetaRecord = {
   index: 'Overview',
-  installation: 'Installation',
-  'quick-start': 'Quick Start',
-  examples: 'Examples',
-  'use-cases': 'Use Cases',
+  'getting-started': 'Getting Started',
+  examples: 'Examples & Use Cases',
   configuration: 'Configuration',
-  architecture: 'Architecture',
-  'custom-tools': 'Custom Tools',
+  extending: 'Extending Penelope',
 }
 
 export default meta
-
