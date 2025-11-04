@@ -81,14 +81,28 @@ export const CodeBlock = ({
       // Each step must avoid already-highlighted content
 
       // 1. Strings first (to protect content inside strings)
+      // Handle triple-quoted strings first (they can contain quotes inside)
       highlightedCode = highlightedCode.replace(
-        /"([^"\\]|\\.)*"/g,
+        /"""[\s\S]*?"""/g,
         '<span class="code-string">$&</span>'
       )
       highlightedCode = highlightedCode.replace(
-        /'([^'\\]|\\.)*'/g,
+        /'''[\s\S]*?'''/g,
         '<span class="code-string">$&</span>'
       )
+      // Then handle single-line strings (avoid already-highlighted triple-quoted strings)
+      const stringParts = highlightedCode.split(/(<span class="code-string">[\s\S]*?<\/span>)/g)
+      highlightedCode = stringParts
+        .map(part => {
+          if (part.includes('class="code-string"')) {
+            return part
+          }
+          // Apply single-line string highlighting
+          return part
+            .replace(/"([^"\\]|\\.)*"/g, '<span class="code-string">$&</span>')
+            .replace(/'([^'\\]|\\.)*'/g, '<span class="code-string">$&</span>')
+        })
+        .join('')
 
       // 2. Comments - avoid matching inside strings
       highlightedCode = highlightedCode
