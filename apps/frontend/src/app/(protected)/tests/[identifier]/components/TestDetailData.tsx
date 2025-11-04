@@ -162,20 +162,6 @@ export default function TestDetailData({
         // If it's an object with an id, use that id
         updatePayload[`${field}_id`] = value.id;
 
-        // Special handling for test_type change to multi-turn
-        if (field === 'test_type' && isMultiTurnTest(value.name)) {
-          // Initialize test_configuration with empty multi-turn config if not present
-          if (
-            !test.test_configuration ||
-            !isMultiTurnConfig(test.test_configuration)
-          ) {
-            updatePayload.test_configuration = {
-              goal: '',
-              max_turns: 10,
-            };
-          }
-        }
-
         // Update the test
         await testsClient.updateTest(test.id, updatePayload);
 
@@ -328,34 +314,10 @@ export default function TestDetailData({
           />
         </Box>
       </Grid>
-      <Grid item xs={12}>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          Test Executable
-        </Typography>
-        <TestExecutableField
-          sessionToken={sessionToken}
-          testId={test.id}
-          promptId={test.prompt_id}
-          initialContent={test.prompt?.content || ''}
-          onUpdate={refreshTest}
-        />
-      </Grid>
-      <Grid item xs={12}>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          Expected Response
-        </Typography>
-        <TestExecutableField
-          sessionToken={sessionToken}
-          testId={test.id}
-          promptId={test.prompt_id}
-          initialContent={test.prompt?.expected_response || ''}
-          onUpdate={refreshTest}
-          fieldName="expected_response"
-        />
-      </Grid>
 
-      {/* Multi-Turn Configuration Fields */}
-      {isMultiTurn && (
+      {/* Conditional rendering based on test type */}
+      {isMultiTurn ? (
+        /* Multi-Turn Configuration Fields */
         <Grid item xs={12}>
           <MultiTurnConfigFields
             sessionToken={sessionToken}
@@ -368,6 +330,53 @@ export default function TestDetailData({
             onUpdate={refreshTest}
           />
         </Grid>
+      ) : (
+        /* Standard Test Fields */
+        <>
+          <Grid item xs={12}>
+            <Box sx={{ mb: 1 }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Test Prompt
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', fontStyle: 'italic' }}
+              >
+                The input prompt that will be sent to the target system
+              </Typography>
+            </Box>
+            <TestExecutableField
+              sessionToken={sessionToken}
+              testId={test.id}
+              promptId={test.prompt_id}
+              initialContent={test.prompt?.content || ''}
+              onUpdate={refreshTest}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <Box sx={{ mb: 1 }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Expected Response
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', fontStyle: 'italic' }}
+              >
+                The expected output or behavior from the target system
+              </Typography>
+            </Box>
+            <TestExecutableField
+              sessionToken={sessionToken}
+              testId={test.id}
+              promptId={test.prompt_id}
+              initialContent={test.prompt?.expected_response || ''}
+              onUpdate={refreshTest}
+              fieldName="expected_response"
+            />
+          </Grid>
+        </>
       )}
 
       {/* Sources Section */}

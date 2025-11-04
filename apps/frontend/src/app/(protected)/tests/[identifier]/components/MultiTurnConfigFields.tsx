@@ -6,12 +6,14 @@ import {
   Grid,
   TextField,
   Typography,
-  Slider,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  Button,
+  useTheme,
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import EditIcon from '@mui/icons-material/Edit';
+import CancelIcon from '@mui/icons-material/Cancel';
+import CheckIcon from '@mui/icons-material/Check';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import {
   MultiTurnTestConfig,
   createEmptyMultiTurnConfig,
@@ -27,6 +29,199 @@ interface MultiTurnConfigFieldsProps {
   onUpdate?: () => void;
 }
 
+interface EditableFieldProps {
+  label: string;
+  value: string | number;
+  onSave: (value: string | number) => Promise<void>;
+  multiline?: boolean;
+  rows?: number;
+  type?: 'text' | 'number';
+  placeholder?: string;
+  helperText?: string;
+  onRemove?: () => void;
+}
+
+function EditableField({
+  label,
+  value,
+  onSave,
+  multiline = true,
+  rows = 3,
+  type = 'text',
+  placeholder = '',
+  helperText = '',
+  onRemove,
+}: EditableFieldProps) {
+  const theme = useTheme();
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editedValue, setEditedValue] = React.useState(value);
+  const [isUpdating, setIsUpdating] = React.useState(false);
+
+  // Update local state when prop value changes
+  React.useEffect(() => {
+    setEditedValue(value);
+  }, [value]);
+
+  const displayRows = rows;
+
+  const handleEdit = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedValue(value);
+  };
+
+  const handleConfirmEdit = async () => {
+    setIsUpdating(true);
+    try {
+      await onSave(editedValue);
+      setIsEditing(false);
+    } catch (error) {
+      // Error handling is done in parent
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const displayValue =
+    type === 'number'
+      ? value
+      : !value || value === ''
+        ? ' '
+        : String(value);
+
+  return (
+    <Grid item xs={12}>
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          {label}
+        </Typography>
+        {helperText && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', fontStyle: 'italic' }}
+          >
+            {helperText}
+          </Typography>
+        )}
+      </Box>
+      <Box sx={{ position: 'relative' }}>
+        {isEditing ? (
+          <TextField
+            fullWidth
+            multiline={multiline}
+            rows={multiline ? displayRows : undefined}
+            type={type}
+            value={editedValue}
+            onChange={e =>
+              setEditedValue(
+                type === 'number' ? parseInt(e.target.value) || 10 : e.target.value
+              )
+            }
+            placeholder={placeholder}
+            inputProps={type === 'number' ? { min: 1, max: 50 } : undefined}
+            sx={{ mb: 1 }}
+            autoFocus
+          />
+        ) : (
+          <Typography
+            component="pre"
+            variant="body2"
+            sx={theme => ({
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'monospace',
+              bgcolor: 'action.hover',
+              borderRadius: theme.shape.borderRadius * 0.25,
+              p: 1,
+              minHeight: `calc(${displayRows} * 1.4375em + ${theme.spacing(2)})`,
+              pr: onRemove ? 21 : 10,
+              wordBreak: 'break-word',
+            })}
+          >
+            {displayValue}
+          </Typography>
+        )}
+
+        {!isEditing ? (
+          <Box
+            sx={theme => ({
+              position: 'absolute',
+              top: theme.spacing(1),
+              right: theme.spacing(1),
+              zIndex: 1,
+              display: 'flex',
+              gap: 1,
+            })}
+          >
+            {onRemove && (
+              <Button
+                startIcon={<CloseIcon />}
+                onClick={onRemove}
+                sx={theme => ({
+                  backgroundColor:
+                    theme.palette.mode === 'dark'
+                      ? theme.palette.action.hover
+                      : theme.palette.background.paper,
+                  '&:hover': {
+                    backgroundColor:
+                      theme.palette.mode === 'dark'
+                        ? theme.palette.action.selected
+                        : theme.palette.action.hover,
+                  },
+                })}
+              >
+                Remove
+              </Button>
+            )}
+            <Button
+              startIcon={<EditIcon />}
+              onClick={handleEdit}
+              sx={theme => ({
+                backgroundColor:
+                  theme.palette.mode === 'dark'
+                    ? theme.palette.action.hover
+                    : theme.palette.background.paper,
+                '&:hover': {
+                  backgroundColor:
+                    theme.palette.mode === 'dark'
+                      ? theme.palette.action.selected
+                      : theme.palette.action.hover,
+                },
+              })}
+            >
+              Edit
+            </Button>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<CancelIcon />}
+              onClick={handleCancelEdit}
+              disabled={isUpdating}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<CheckIcon />}
+              onClick={handleConfirmEdit}
+              disabled={isUpdating}
+            >
+              Confirm
+            </Button>
+          </Box>
+        )}
+      </Box>
+    </Grid>
+  );
+}
+
 export default function MultiTurnConfigFields({
   sessionToken,
   testId,
@@ -36,241 +231,191 @@ export default function MultiTurnConfigFields({
   const [config, setConfig] = React.useState<MultiTurnTestConfig>(
     initialConfig || createEmptyMultiTurnConfig()
   );
-  const [isUpdating, setIsUpdating] = React.useState(false);
+  const [showInstructions, setShowInstructions] = React.useState(
+    !!initialConfig?.instructions
+  );
+  const [showRestrictions, setShowRestrictions] = React.useState(
+    !!initialConfig?.restrictions
+  );
+  const [showScenario, setShowScenario] = React.useState(
+    !!initialConfig?.scenario
+  );
+  const [showMaxTurns, setShowMaxTurns] = React.useState(
+    !!initialConfig?.max_turns && initialConfig.max_turns !== 10
+  );
   const notifications = useNotifications();
-
-  // Debounce timeout ref
-  const debounceTimeoutRef = React.useRef<NodeJS.Timeout>();
 
   // Update config when initialConfig changes
   React.useEffect(() => {
     if (initialConfig) {
       setConfig(initialConfig);
+      setShowInstructions(!!initialConfig.instructions);
+      setShowRestrictions(!!initialConfig.restrictions);
+      setShowScenario(!!initialConfig.scenario);
+      setShowMaxTurns(
+        !!initialConfig.max_turns && initialConfig.max_turns !== 10
+      );
     }
   }, [initialConfig]);
 
-  const updateTestConfiguration = async (
-    updatedConfig: MultiTurnTestConfig
+  const updateField = async (
+    field: keyof MultiTurnTestConfig,
+    value: string | number
   ) => {
-    if (isUpdating) return;
+    // Validate that goal is not empty before saving
+    if (field === 'goal' && (!value || String(value).trim().length === 0)) {
+      notifications.show('Goal cannot be empty', {
+        severity: 'error',
+        autoHideDuration: 3000,
+      });
+      throw new Error('Goal cannot be empty');
+    }
 
-    setIsUpdating(true);
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const testsClient = apiFactory.getTestsClient();
+
+      const updatedConfig = {
+        ...config,
+        [field]: value || undefined,
+      };
 
       await testsClient.updateTest(testId, {
         test_configuration: updatedConfig as any,
       });
 
-      notifications.show('Successfully updated multi-turn configuration', {
-        severity: 'success',
-        autoHideDuration: 3000,
-      });
+      setConfig(updatedConfig);
+
+      notifications.show(
+        `Successfully updated ${field.replace('_', ' ')}`,
+        {
+          severity: 'success',
+          autoHideDuration: 3000,
+        }
+      );
 
       if (onUpdate) {
         onUpdate();
       }
     } catch (error: any) {
       notifications.show(
-        `Failed to update configuration: ${error.message || 'Unknown error'}`,
+        `Failed to update ${field.replace('_', ' ')}: ${error.message || 'Unknown error'}`,
         {
           severity: 'error',
           autoHideDuration: 6000,
         }
       );
-    } finally {
-      setIsUpdating(false);
+      throw error;
     }
   };
 
-  const handleFieldChange = (
-    field: keyof MultiTurnTestConfig,
-    value: string | number | undefined
-  ) => {
-    const updatedConfig = {
-      ...config,
-      [field]: value,
-    };
-    setConfig(updatedConfig);
+  const optionalFields = [
+    {
+      key: 'instructions',
+      show: showInstructions,
+      setShow: setShowInstructions,
+      label: 'Instructions',
+    },
+    {
+      key: 'restrictions',
+      show: showRestrictions,
+      setShow: setShowRestrictions,
+      label: 'Restrictions',
+    },
+    {
+      key: 'scenario',
+      show: showScenario,
+      setShow: setShowScenario,
+      label: 'Scenario',
+    },
+    {
+      key: 'max_turns',
+      show: showMaxTurns,
+      setShow: setShowMaxTurns,
+      label: 'Max. Turns',
+    },
+  ];
 
-    // Debounce the API call
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-
-    debounceTimeoutRef.current = setTimeout(() => {
-      updateTestConfiguration(updatedConfig);
-    }, 1000); // Wait 1 second after user stops typing
-  };
-
-  // Cleanup on unmount
-  React.useEffect(() => {
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-    };
-  }, []);
+  const hiddenFields = optionalFields.filter(field => !field.show);
 
   return (
-    <Box sx={{ mt: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Multi-Turn Test Configuration
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Define how this multi-turn test should be executed. These parameters
-        guide the testing agent's behavior.
-      </Typography>
+    <Grid container spacing={2}>
+      <EditableField
+        label="Goal"
+        value={config.goal || ''}
+        onSave={value => updateField('goal', value)}
+        rows={3}
+        placeholder="What should be verified in this test"
+        helperText="What the target should do - the success criteria for this test"
+      />
 
-      <Grid container spacing={3}>
-        {/* Goal - Required */}
+      {showInstructions && (
+        <EditableField
+          label="Instructions (Optional)"
+          value={config.instructions || ''}
+          onSave={value => updateField('instructions', value)}
+          rows={3}
+          placeholder="How to conduct the test"
+          helperText="How to conduct the test - if not provided, the agent plans its own approach"
+          onRemove={() => setShowInstructions(false)}
+        />
+      )}
+
+      {showRestrictions && (
+        <EditableField
+          label="Restrictions (Optional)"
+          value={config.restrictions || ''}
+          onSave={value => updateField('restrictions', value)}
+          rows={3}
+          placeholder="What must not happen"
+          helperText="What the target must not do - forbidden behaviors or boundaries"
+          onRemove={() => setShowRestrictions(false)}
+        />
+      )}
+
+      {showScenario && (
+        <EditableField
+          label="Scenario (Optional)"
+          value={config.scenario || ''}
+          onSave={value => updateField('scenario', value)}
+          rows={3}
+          placeholder="Context and persona for the test"
+          helperText="Context and persona for the test - narrative setup or user role"
+          onRemove={() => setShowScenario(false)}
+        />
+      )}
+
+      {showMaxTurns && (
+        <EditableField
+          label="Max. Turns"
+          value={config.max_turns || 10}
+          onSave={value => updateField('max_turns', value)}
+          multiline={false}
+          type="number"
+          placeholder="10"
+          helperText="Maximum number of conversation turns allowed (default: 10)"
+          onRemove={() => setShowMaxTurns(false)}
+        />
+      )}
+
+      {hiddenFields.length > 0 && (
         <Grid item xs={12}>
-          <TextField
-            fullWidth
-            required
-            label="Goal"
-            placeholder="What the target SHOULD do - success criteria"
-            value={config.goal || ''}
-            onChange={e => handleFieldChange('goal', e.target.value)}
-            multiline
-            rows={3}
-            helperText="Required. Define what you want to verify (positive criteria). Example: 'Verify chatbot maintains context across 5 turns'"
-            disabled={isUpdating}
-          />
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {hiddenFields.map(field => (
+              <Button
+                key={field.key}
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => field.setShow(true)}
+                sx={{ textTransform: 'none' }}
+              >
+                {field.label}
+              </Button>
+            ))}
+          </Box>
         </Grid>
-
-        {/* Instructions - Optional */}
-        <Grid item xs={12}>
-          <Accordion defaultExpanded={!!config.instructions}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography>Instructions (Optional)</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <TextField
-                fullWidth
-                label="Instructions"
-                placeholder="HOW to conduct the test - methodology"
-                value={config.instructions || ''}
-                onChange={e =>
-                  handleFieldChange('instructions', e.target.value)
-                }
-                multiline
-                rows={4}
-                helperText="Optional. Specific testing methodology. If not provided, the agent plans its own approach. Example: 'Ask 3 related questions about coverage, then verify consistency'"
-                disabled={isUpdating}
-              />
-            </AccordionDetails>
-          </Accordion>
-        </Grid>
-
-        {/* Restrictions - Optional */}
-        <Grid item xs={12}>
-          <Accordion defaultExpanded={!!config.restrictions}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography>Restrictions (Optional)</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <TextField
-                fullWidth
-                label="Restrictions"
-                placeholder="What the target MUST NOT do - forbidden behaviors"
-                value={config.restrictions || ''}
-                onChange={e =>
-                  handleFieldChange('restrictions', e.target.value)
-                }
-                multiline
-                rows={4}
-                helperText="Optional. Define boundaries the target must not cross (negative criteria). Example: 'Must not mention competitors' or 'Must not provide medical diagnoses'"
-                disabled={isUpdating}
-              />
-            </AccordionDetails>
-          </Accordion>
-        </Grid>
-
-        {/* Scenario - Optional */}
-        <Grid item xs={12}>
-          <Accordion defaultExpanded={!!config.scenario}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography>Scenario (Optional)</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <TextField
-                fullWidth
-                label="Scenario"
-                placeholder="Context and persona for the test"
-                value={config.scenario || ''}
-                onChange={e => handleFieldChange('scenario', e.target.value)}
-                multiline
-                rows={3}
-                helperText="Optional. Narrative context or persona. Example: 'You are a non-technical elderly customer unfamiliar with insurance jargon'"
-                disabled={isUpdating}
-              />
-            </AccordionDetails>
-          </Accordion>
-        </Grid>
-
-        {/* Max Turns */}
-        <Grid item xs={12}>
-          <Typography gutterBottom>
-            Maximum Turns: {config.max_turns || 10}
-          </Typography>
-          <Slider
-            value={config.max_turns || 10}
-            onChange={(_, value) =>
-              handleFieldChange('max_turns', value as number)
-            }
-            min={1}
-            max={50}
-            step={1}
-            marks={[
-              { value: 1, label: '1' },
-              { value: 10, label: '10' },
-              { value: 25, label: '25' },
-              { value: 50, label: '50' },
-            ]}
-            valueLabelDisplay="auto"
-            disabled={isUpdating}
-          />
-          <Typography variant="caption" color="text.secondary">
-            Maximum number of conversation turns (default: 10)
-          </Typography>
-        </Grid>
-      </Grid>
-
-      {/* Summary Box */}
-      <Box
-        sx={{
-          mt: 3,
-          p: 2,
-          bgcolor: 'background.default',
-          borderRadius: 1,
-          border: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        <Typography variant="subtitle2" gutterBottom>
-          Configuration Summary
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          <strong>Goal:</strong>{' '}
-          {config.goal ? `${config.goal.substring(0, 100)}...` : 'Not set'}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          <strong>Instructions:</strong>{' '}
-          {config.instructions ? 'Set' : 'Not set'}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          <strong>Restrictions:</strong>{' '}
-          {config.restrictions ? 'Set' : 'Not set'}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          <strong>Scenario:</strong> {config.scenario ? 'Set' : 'Not set'}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          <strong>Max Turns:</strong> {config.max_turns || 10}
-        </Typography>
-      </Box>
-    </Box>
+      )}
+    </Grid>
   );
 }
