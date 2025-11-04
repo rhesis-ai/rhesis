@@ -362,11 +362,13 @@ class TestSetEvaluator:
             test_result.details["toxicity"] = {"error": str(e)}
 
         # Overall score: average of available metric scores
-        metric_names = ["fluency", "relevancy", "refusal", "context_retention"]
+        # Process all metrics in details automatically
         numeric_scores = []
 
-        for metric_name in metric_names:
-            metric_data = test_result.details.get(metric_name, {})
+        for metric_name, metric_data in test_result.details.items():
+            if not isinstance(metric_data, dict):
+                continue  # Skip non-dict entries
+
             score = metric_data.get("score")
 
             if score is not None:
@@ -381,7 +383,9 @@ class TestSetEvaluator:
                         numeric_scores.append(1.0 if is_successful else 0.0)
                     # Otherwise skip this metric (can't convert)
 
-        test_result.score = sum(numeric_scores) / len(numeric_scores) if numeric_scores else None
+        test_result.score = (
+            sum(numeric_scores) / len(numeric_scores) if numeric_scores else None
+        )
 
     def evaluate_results(self, recompute_existing: bool = False):
         """
