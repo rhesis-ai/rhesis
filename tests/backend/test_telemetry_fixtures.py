@@ -96,13 +96,13 @@ class TestTelemetryDeploymentTypes:
     def test_self_hosted_default_disabled(self, monkeypatch):
         """Test that self-hosted deployment has telemetry disabled by default"""
         monkeypatch.setenv("DEPLOYMENT_TYPE", "self-hosted")
-        monkeypatch.delenv("TELEMETRY_ENABLED", raising=False)
+        monkeypatch.delenv("RHESIS_TELEMETRY_ENABLED", raising=False)
         assert is_telemetry_enabled() is False
 
     def test_self_hosted_can_enable(self, monkeypatch):
         """Test that self-hosted deployment can enable telemetry via env var"""
         monkeypatch.setenv("DEPLOYMENT_TYPE", "self-hosted")
-        monkeypatch.setenv("TELEMETRY_ENABLED", "true")
+        monkeypatch.setenv("RHESIS_TELEMETRY_ENABLED", "true")
         assert is_telemetry_enabled() is True
 
     def test_unknown_deployment_disabled(self, monkeypatch):

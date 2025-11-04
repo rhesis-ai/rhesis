@@ -12,7 +12,6 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.trace import NoOpTracerProvider
 
 from rhesis.backend.logging.rhesis_logger import logger
 
@@ -84,7 +83,8 @@ class ConditionalSimpleSpanProcessor(SimpleSpanProcessor):
 
     def on_end(self, span):
         """Only process spans if telemetry is enabled (can check context variable)"""
-        # SimpleSpanProcessor runs synchronously in the same thread, so we can check context variable
+        # SimpleSpanProcessor runs synchronously in the same thread,
+        # so we can check context variable
         telemetry_enabled = _telemetry_enabled.get(False) or span.attributes.get(
             "_rhesis.telemetry_enabled", False
         )
@@ -164,11 +164,11 @@ def initialize_telemetry():
 
     Telemetry Configuration:
     - Cloud deployments: Always enabled (user consent via Terms & Conditions)
-    - Self-hosted deployments: Opt-in via TELEMETRY_ENABLED environment variable
+    - Self-hosted deployments: Opt-in via RHESIS_TELEMETRY_ENABLED environment variable
 
     Environment Variables:
         DEPLOYMENT_TYPE: "cloud" or "self-hosted"
-        TELEMETRY_ENABLED: "true" or "false" (self-hosted only, defaults to false)
+        RHESIS_TELEMETRY_ENABLED: "true" or "false" (self-hosted only, defaults to false)
         OTEL_EXPORTER_OTLP_ENDPOINT: Telemetry collector endpoint URL
         OTEL_SERVICE_NAME: Service identifier (default: "rhesis-backend")
 
@@ -183,8 +183,8 @@ def initialize_telemetry():
     if not _TELEMETRY_GLOBALLY_ENABLED:
         deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
         logger.info(f"Telemetry disabled for deployment_type={deployment_type}")
-        # Set NoOp provider to prevent span creation entirely (zero performance overhead)
-        trace.set_tracer_provider(NoOpTracerProvider())
+        # Don't set NoOpTracerProvider to avoid conflicts with other libraries (e.g., deepeval)
+        # Just return early and let OpenTelemetry use its default behavior
         return
 
     otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
@@ -192,8 +192,8 @@ def initialize_telemetry():
     if not otel_endpoint:
         logger.info("Telemetry disabled: OTEL_EXPORTER_OTLP_ENDPOINT not set")
         _TELEMETRY_GLOBALLY_ENABLED = False
-        # Set NoOp provider to prevent span creation entirely
-        trace.set_tracer_provider(NoOpTracerProvider())
+        # Don't set NoOpTracerProvider to avoid conflicts with other libraries (e.g., deepeval)
+        # Just return early and let OpenTelemetry use its default behavior
         return
 
     # Determine deployment type
@@ -253,14 +253,14 @@ def is_telemetry_enabled() -> bool:
     CLOUD DEPLOYMENTS:
     - Telemetry is always enabled
     - User consent collected via agreement to Terms & Conditions
-    - See https://rhesis.ai/terms for full details
+    - See https://www.rhesis.ai/terms-conditions for full details
 
     SELF-HOSTED DEPLOYMENTS:
     - Telemetry is disabled by default
-    - Opt-in by setting TELEMETRY_ENABLED=true
+    - Opt-in by setting RHESIS_TELEMETRY_ENABLED=true
 
     IMPORTANT FOR SELF-HOSTED ADMINISTRATORS:
-    Setting TELEMETRY_ENABLED=true opts in to anonymous usage analytics.
+    Setting RHESIS_TELEMETRY_ENABLED=true opts in to anonymous usage analytics.
 
     Data Collected:
     - Login/logout events with hashed user IDs (SHA-256, irreversible, 16-char truncated)
@@ -285,7 +285,7 @@ def is_telemetry_enabled() -> bool:
     All data is sent to Rhesis's telemetry servers for product improvement.
     For full privacy details, see: https://rhesis.ai/privacy-policy
 
-    You may disable telemetry at any time by setting TELEMETRY_ENABLED=false
+    You may disable telemetry at any time by setting RHESIS_TELEMETRY_ENABLED=false
     or omitting this variable entirely (defaults to disabled).
 
     Returns:
@@ -294,11 +294,11 @@ def is_telemetry_enabled() -> bool:
     Examples:
         # Self-hosted: Enable telemetry
         DEPLOYMENT_TYPE=self-hosted
-        TELEMETRY_ENABLED=true
+        RHESIS_TELEMETRY_ENABLED=true
 
         # Self-hosted: Disable telemetry (default)
         DEPLOYMENT_TYPE=self-hosted
-        TELEMETRY_ENABLED=false
+        RHESIS_TELEMETRY_ENABLED=false
 
         # Cloud: Always enabled
         DEPLOYMENT_TYPE=cloud
@@ -311,7 +311,7 @@ def is_telemetry_enabled() -> bool:
 
     # Self-hosted users: Check environment variable (default: disabled)
     if deployment_type == "self-hosted":
-        return os.getenv("TELEMETRY_ENABLED", "false").lower() in ("true", "1", "yes")
+        return os.getenv("RHESIS_TELEMETRY_ENABLED", "false").lower() in ("true", "1", "yes")
 
     # Unknown deployment type: Disable telemetry for safety
     return False

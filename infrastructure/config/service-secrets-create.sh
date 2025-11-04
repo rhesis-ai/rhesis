@@ -89,7 +89,7 @@ function show_usage() {
   echo "  OTEL_EXPORTER_OTLP_ENDPOINT   OTel collector endpoint"
   echo "  OTEL_SERVICE_NAME             OTel service name"
   echo "  DEPLOYMENT_TYPE               Deployment type (cloud or self-hosted)"
-  echo "  TELEMETRY_ENABLED             Telemetry enabled (true or false)"
+  echo "  RHESIS_TELEMETRY_ENABLED      Telemetry enabled (true or false)"
   echo "  NEXT_PUBLIC_OTEL_ENDPOINT     OTel collector endpoint for frontend"
   echo "  NEXT_PUBLIC_DEPLOYMENT_TYPE   Deployment type for frontend"
   echo ""
@@ -280,7 +280,7 @@ SERVICE_VARS=(
   "OTEL_EXPORTER_OTLP_ENDPOINT"
   "OTEL_SERVICE_NAME"
   "DEPLOYMENT_TYPE"
-  "TELEMETRY_ENABLED"
+  "RHESIS_TELEMETRY_ENABLED"
   "NEXT_PUBLIC_OTEL_ENDPOINT"
   "NEXT_PUBLIC_DEPLOYMENT_TYPE"
   # NOTE: TELEMETRY_PROCESSOR_ENDPOINT and TELEMETRY_PROCESSOR_URL are auto-detected
