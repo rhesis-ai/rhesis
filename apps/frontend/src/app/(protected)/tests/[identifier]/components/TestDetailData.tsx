@@ -10,6 +10,11 @@ import { TestDetail, TypeLookup } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import TestExecutableField from './TestExecutableField';
 import FilePreview from '@/components/common/FilePreview';
+import MultiTurnConfigFields from './MultiTurnConfigFields';
+import {
+  MultiTurnTestConfig,
+  isMultiTurnConfig,
+} from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { UUID } from 'crypto';
 
 interface TestDetailDataProps {
@@ -156,6 +161,17 @@ export default function TestDetailData({
         // If it's an object with an id, use that id
         updatePayload[`${field}_id`] = value.id;
 
+        // Special handling for test_type change to multi-turn
+        if (field === 'test_type' && value.name.toLowerCase() === 'multi-turn') {
+          // Initialize test_configuration with empty multi-turn config if not present
+          if (!test.test_configuration || !isMultiTurnConfig(test.test_configuration)) {
+            updatePayload.test_configuration = {
+              goal: '',
+              max_turns: 10,
+            };
+          }
+        }
+
         // Update the test
         await testsClient.updateTest(test.id, updatePayload);
 
@@ -206,6 +222,10 @@ export default function TestDetailData({
         return '';
     }
   };
+
+  // Check if test is multi-turn
+  const isMultiTurn =
+    test.test_type?.type_value?.toLowerCase() === 'multi-turn';
 
   return (
     <Grid container spacing={2}>
@@ -328,6 +348,22 @@ export default function TestDetailData({
           fieldName="expected_response"
         />
       </Grid>
+
+      {/* Multi-Turn Configuration Fields */}
+      {isMultiTurn && (
+        <Grid item xs={12}>
+          <MultiTurnConfigFields
+            sessionToken={sessionToken}
+            testId={test.id}
+            initialConfig={
+              isMultiTurnConfig(test.test_configuration)
+                ? (test.test_configuration as MultiTurnTestConfig)
+                : null
+            }
+            onUpdate={refreshTest}
+          />
+        </Grid>
+      )}
 
       {/* Sources Section */}
       {test.test_metadata?.sources && test.test_metadata.sources.length > 0 && (
