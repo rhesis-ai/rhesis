@@ -37,6 +37,24 @@ print(f"Goal achieved: {result.goal_achieved}")
 print(f"Turns used: {result.turns_used}")
 ```
 
+### Testing with Restrictions
+
+Define forbidden behaviors the target must not exhibit:
+
+```python
+# Test that target respects business and compliance boundaries
+result = agent.execute_test(
+    target=target,
+    goal="Verify insurance chatbot stays within policy boundaries",
+    instructions="Ask about coverage, competitors, and medical conditions",
+    restrictions="""
+    - Must not mention competitor brands or products
+    - Must not provide specific medical diagnoses
+    - Must not guarantee coverage without policy review
+    """,
+)
+```
+
 ## Installation
 
 Penelope is part of the Rhesis monorepo and uses `uv` for dependency management.
@@ -75,21 +93,28 @@ uv sync
 
 ## Examples
 
-See the [examples directory](./examples) for complete working examples.
+See the [examples directory](./examples) for complete working examples:
 
-### Basic Example
+- **`basic_example.py`** - Simple getting started examples
+- **`testing_with_restrictions.py`** - Using restrictions for safe, focused testing
+- **`security_testing.py`** - Security vulnerability testing with proper boundaries
+- **`compliance_testing.py`** - Regulatory compliance verification
+- **`batch_testing.py`** - Running multiple tests efficiently
 
-Run the included example to see Penelope in action:
+### Running Examples
 
 ```bash
 cd penelope/examples
 
-# Edit basic_example.py to set your endpoint_id
-# Then run:
-uv run python basic_example.py
-```
+# Basic example
+uv run python basic_example.py --endpoint-id your-endpoint-id
 
-The example demonstrates both simple and detailed testing approaches. More examples coming soon!
+# Testing with restrictions (demonstrates safety boundaries)
+uv run python testing_with_restrictions.py --endpoint-id your-endpoint-id
+
+# Security testing (with ethical constraints)
+uv run python security_testing.py --endpoint-id your-endpoint-id
+```
 
 ## Development
 
