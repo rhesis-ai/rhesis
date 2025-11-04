@@ -86,11 +86,7 @@ function EditableField({
   };
 
   const displayValue =
-    type === 'number'
-      ? value
-      : !value || value === ''
-        ? ' '
-        : String(value);
+    type === 'number' ? value : !value || value === '' ? ' ' : String(value);
 
   return (
     <Grid item xs={12}>
@@ -118,7 +114,9 @@ function EditableField({
             value={editedValue}
             onChange={e =>
               setEditedValue(
-                type === 'number' ? parseInt(e.target.value) || 10 : e.target.value
+                type === 'number'
+                  ? parseInt(e.target.value) || 10
+                  : e.target.value
               )
             }
             placeholder={placeholder}
@@ -286,13 +284,10 @@ export default function MultiTurnConfigFields({
 
       setConfig(updatedConfig);
 
-      notifications.show(
-        `Successfully updated ${field.replace('_', ' ')}`,
-        {
-          severity: 'success',
-          autoHideDuration: 3000,
-        }
-      );
+      notifications.show(`Successfully updated ${field.replace('_', ' ')}`, {
+        severity: 'success',
+        autoHideDuration: 3000,
+      });
 
       if (onUpdate) {
         onUpdate();
