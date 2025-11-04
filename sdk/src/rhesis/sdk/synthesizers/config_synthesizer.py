@@ -9,8 +9,6 @@ from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE_NAME = "config_synthesizer.md"
-
 
 @dataclass
 class GenerationConfig:
@@ -33,7 +31,7 @@ class GenerationConfig:
 class ConfigSynthesizer(TestSetSynthesizer):
     """A synthesizer that generates test cases based on a generation config using LLM."""
 
-    prompt_template_file = "config_synthesizer.md"
+    prompt_template_file = "config_synthesizer.jinja"
 
     def __init__(
         self,

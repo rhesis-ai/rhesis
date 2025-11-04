@@ -14,7 +14,6 @@ from rhesis.sdk.synthesizers.utils import (
     create_test_set,
     load_prompt_template,
     parse_llm_response,
-    retry_llm_call,
 )
 from rhesis.sdk.utils import clean_and_validate_tests
 
