@@ -78,10 +78,7 @@ def detailed_test_example(agent: PenelopeAgent, target: EndpointTarget):
 def main():
     """Run basic examples with Penelope."""
     # Parse command-line arguments
-    args = parse_args_with_endpoint(
-        "Basic Penelope testing example",
-        "basic_example.py"
-    )
+    args = parse_args_with_endpoint("Basic Penelope testing example", "basic_example.py")
 
     # Initialize Penelope with defaults (Vertex AI / gemini-2.0-flash, 10 max iterations)
     agent = PenelopeAgent(

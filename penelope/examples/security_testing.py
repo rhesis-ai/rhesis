@@ -19,7 +19,7 @@ from rhesis.penelope import EndpointTarget, PenelopeAgent
 def test_jailbreak_resistance(agent: PenelopeAgent, target: EndpointTarget):
     """
     Test if the target system can resist jailbreak attempts.
-    
+
     This test tries various techniques to make the AI ignore its instructions
     or behave in unintended ways.
     """
@@ -65,7 +65,7 @@ def test_jailbreak_resistance(agent: PenelopeAgent, target: EndpointTarget):
 def test_prompt_injection(agent: PenelopeAgent, target: EndpointTarget):
     """
     Test if the target system is vulnerable to prompt injection attacks.
-    
+
     Attempts to inject malicious instructions into normal-looking queries.
     """
     print("\n" + "=" * 70)
@@ -195,14 +195,14 @@ def display_security_results(result, test_name: str):
     print("\n" + "=" * 70)
     print(f"SECURITY RESULTS: {test_name}")
     print("=" * 70)
-    
+
     print(f"Status: {result.status.value}")
     print(f"Test Completed: {'✓' if result.goal_achieved else '✗'}")
     print(f"Turns Used: {result.turns_used}")
-    
+
     if result.duration_seconds:
         print(f"Duration: {result.duration_seconds:.2f}s")
-    
+
     # Security-specific analysis
     print("\nSecurity Analysis:")
     print("  Note: Review conversation history to identify:")
@@ -210,31 +210,28 @@ def display_security_results(result, test_name: str):
     print("  - How the system responded to each")
     print("  - Any potential vulnerabilities found")
     print("  - Recommendations for improvement")
-    
+
     if result.findings:
         print("\nKey Findings:")
         for i, finding in enumerate(result.findings, 1):
             print(f"  {i}. {finding}")
-    
+
     # Show sample of conversation for manual review
     print("\nConversation Sample (first 3 turns):")
     for turn in result.history[:3]:
         print(f"\n  Turn {turn.turn_number}:")
         print(f"    Reasoning: {turn.reasoning[:100]}...")
-        if turn.action_output.get('success'):
-            output = turn.action_output.get('output', {})
-            response = output.get('response', '')[:150] if isinstance(output, dict) else ''
+        if turn.action_output.get("success"):
+            output = turn.action_output.get("output", {})
+            response = output.get("response", "")[:150] if isinstance(output, dict) else ""
             print(f"    Response: {response}...")
 
 
 def main():
     """Run security testing examples with Penelope."""
     # Parse command-line arguments
-    args = parse_args_with_endpoint(
-        "Security testing example for Penelope",
-        "security_testing.py"
-    )
-    
+    args = parse_args_with_endpoint("Security testing example for Penelope", "security_testing.py")
+
     print("=" * 70)
     print("PENELOPE SECURITY TESTING EXAMPLES")
     print("=" * 70)
@@ -244,14 +241,14 @@ def main():
     print("  3. Document all findings responsibly")
     print("  4. Report vulnerabilities through proper channels")
     print("=" * 70)
-    
+
     # Initialize Penelope (security tests may need more iterations)
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=args.verbose,
         max_iterations=max(args.max_iterations, 20),  # Security tests need at least 20
     )
-    
+
     # Alternative: Use a specific model known for better security testing
     # from rhesis.sdk.models import AnthropicLLM
     # agent = PenelopeAgent(
@@ -260,13 +257,13 @@ def main():
     #     verbose=True,
     #     max_iterations=20,
     # )
-    
+
     # Create target
     target = EndpointTarget(endpoint_id=args.endpoint_id)
-    
+
     print(f"\nTarget: {target.description}")
     print("\nStarting security tests...")
-    
+
     # Run security tests
     test_functions = [
         (test_jailbreak_resistance, "Jailbreak Resistance"),
@@ -274,13 +271,13 @@ def main():
         (test_information_leakage, "Information Leakage"),
         (test_boundary_violations, "Boundary Violations"),
     ]
-    
+
     results = []
     for test_func, test_name in test_functions:
         result = test_func(agent, target)
         display_security_results(result, test_name)
         results.append((test_name, result))
-    
+
     # Summary
     print("\n" + "=" * 70)
     print("SECURITY TESTING SUMMARY")
@@ -288,7 +285,7 @@ def main():
     for test_name, result in results:
         status = "✓ PASSED" if result.goal_achieved else "✗ NEEDS REVIEW"
         print(f"{test_name}: {status} ({result.turns_used} turns)")
-    
+
     print("\n" + "=" * 70)
     print("NEXT STEPS:")
     print("  1. Review full conversation logs for each test")
@@ -301,4 +298,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

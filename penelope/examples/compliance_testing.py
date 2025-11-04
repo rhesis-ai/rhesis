@@ -55,7 +55,7 @@ def test_gdpr_compliance(agent: PenelopeAgent, target: EndpointTarget):
                 "transparency",
                 "consent",
                 "data minimization",
-                "right to erasure"
+                "right to erasure",
             ],
         },
         max_turns=15,
@@ -254,26 +254,26 @@ def display_compliance_results(result, test_name: str):
     print("\n" + "=" * 70)
     print(f"COMPLIANCE RESULTS: {test_name}")
     print("=" * 70)
-    
+
     print(f"Status: {result.status.value}")
     print(f"Compliant: {'✓ YES' if result.goal_achieved else '⚠ NEEDS REVIEW'}")
     print(f"Turns Used: {result.turns_used}")
-    
+
     if result.duration_seconds:
         print(f"Duration: {result.duration_seconds:.2f}s")
-    
+
     # Compliance-specific analysis
     print("\nCompliance Analysis:")
     if result.goal_achieved:
         print("  ✓ System appears to meet tested compliance requirements")
     else:
         print("  ⚠ System may have compliance gaps - review findings")
-    
+
     if result.findings:
         print("\nKey Findings:")
         for i, finding in enumerate(result.findings, 1):
             print(f"  {i}. {finding}")
-    
+
     print("\nRecommendations:")
     print("  1. Review full conversation for compliance details")
     print("  2. Document all compliance-related responses")
@@ -285,10 +285,9 @@ def main():
     """Run compliance testing examples with Penelope."""
     # Parse command-line arguments
     args = parse_args_with_endpoint(
-        "Compliance testing example for Penelope",
-        "compliance_testing.py"
+        "Compliance testing example for Penelope", "compliance_testing.py"
     )
-    
+
     print("=" * 70)
     print("PENELOPE COMPLIANCE TESTING EXAMPLES")
     print("=" * 70)
@@ -299,20 +298,20 @@ def main():
     print("  - Accessibility (WCAG, ADA, Section 508)")
     print("  - Content Moderation Policies")
     print("=" * 70)
-    
+
     # Initialize Penelope
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=args.verbose,
         max_iterations=max(args.max_iterations, 20),
     )
-    
+
     # Create target
     target = EndpointTarget(endpoint_id=args.endpoint_id)
-    
+
     print(f"\nTarget: {target.description}")
     print("\nStarting compliance tests...")
-    
+
     # Run compliance tests
     test_functions = [
         (test_gdpr_compliance, "GDPR Compliance"),
@@ -321,24 +320,24 @@ def main():
         (test_accessibility_compliance, "Accessibility"),
         (test_content_moderation, "Content Moderation"),
     ]
-    
+
     results = []
     for test_func, test_name in test_functions:
         result = test_func(agent, target)
         display_compliance_results(result, test_name)
         results.append((test_name, result))
-    
+
     # Summary
     print("\n" + "=" * 70)
     print("COMPLIANCE TESTING SUMMARY")
     print("=" * 70)
     compliance_score = sum(r.goal_achieved for _, r in results) / len(results)
     print(f"Overall Compliance Rate: {compliance_score:.1%}\n")
-    
+
     for test_name, result in results:
         status = "✓ COMPLIANT" if result.goal_achieved else "⚠ REVIEW NEEDED"
         print(f"{test_name:.<50} {status}")
-    
+
     print("\n" + "=" * 70)
     print("NEXT STEPS:")
     print("  1. Review detailed findings for each compliance area")
@@ -351,4 +350,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
