@@ -18,7 +18,7 @@ class SMTPService:
         self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
         self.smtp_user = os.getenv("SMTP_USER")
         self.smtp_password = os.getenv("SMTP_PASSWORD")
-        self.from_email = os.getenv("FROM_EMAIL", "engineering@rhesis.ai")
+        self.from_email = os.getenv("FROM_EMAIL", '"Harry from Rhesis AI" <engineering@rhesis.ai>')
 
         # Check if all required SMTP configurations are present
         self.is_configured = all([self.smtp_host, self.smtp_user, self.smtp_password])

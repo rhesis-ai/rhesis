@@ -22,7 +22,7 @@ success = email_service.send_email(
     subject="Your Task Completed Successfully",
     template_variables={
         'recipient_name': "John Doe",
-        'task_name': "API Test Suite", 
+        'task_name': "API Test Suite",
         'task_id': "task_12345",
         'status': "success",
         'execution_time': "2 minutes 30 seconds"
@@ -41,7 +41,7 @@ For general task completion notifications.
 - `recipient_name`, `task_name`, `task_id`, `status`, `completed_at`
 - `execution_time`, `error_message`, `test_run_id`, `frontend_url`
 
-### EmailTemplate.TEST_EXECUTION_SUMMARY  
+### EmailTemplate.TEST_EXECUTION_SUMMARY
 For test execution summary notifications.
 
 **Required Variables:**
@@ -91,14 +91,17 @@ Email service requires these environment variables:
 - `SMTP_PORT`: SMTP server port (465 for SSL, 587 for TLS)
 - `SMTP_USER`: SMTP username
 - `SMTP_PASSWORD`: SMTP password
-- `FROM_EMAIL`: Sender email address
+- `FROM_EMAIL`: Sender email address (defaults to `"Harry from Rhesis AI" <engineering@rhesis.ai>`)
+- `WELCOME_FROM_EMAIL`: Optional sender for welcome emails (e.g., `"Nicolai from Rhesis AI" <hello@rhesis.ai>`)
+
+**Note**: When including a sender name with spaces, wrap it in quotes: `"Sender Name" <email@domain.com>`
 
 ## Architecture
 
 ```
 notifications/email/
 ├── service.py              # EmailService - main orchestrator
-├── smtp.py                 # SMTPService - SMTP handling  
+├── smtp.py                 # SMTPService - SMTP handling
 ├── template_service.py     # TemplateService - Jinja2 rendering
 └── templates/
     ├── task_completion.html.jinja2
@@ -111,4 +114,4 @@ notifications/email/
 - **Maintainable**: Single method for all email types
 - **Robust**: Automatic handling of missing variables
 - **Developer Friendly**: Template discovery and clear error messages
-- **Future Proof**: Centralized system ready for any email template 
+- **Future Proof**: Centralized system ready for any email template
