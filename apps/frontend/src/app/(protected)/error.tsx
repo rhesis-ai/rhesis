@@ -10,8 +10,6 @@ import { usePathname } from 'next/navigation';
 import { DeletedEntityAlert } from '@/components/common/DeletedEntityAlert';
 import { NotFoundAlert } from '@/components/common/NotFoundAlert';
 import {
-  isDeletedEntityError,
-  isNotFoundError,
   getDeletedEntityData,
   getNotFoundEntityData,
   getErrorMessage,
@@ -22,7 +20,7 @@ interface ErrorProps {
   error: Error & {
     digest?: string;
     status?: number;
-    data?: any;
+    data?: Record<string, unknown>;
   };
   reset: () => void;
 }

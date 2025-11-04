@@ -151,7 +151,6 @@ export default function BaseWorkflowSection({
         setStatuses(fetchedStatuses);
         setStatusesLoaded(true);
       } catch (error) {
-        console.error('Error fetching statuses:', error);
         notifications.show('Failed to load status data', { severity: 'error' });
       } finally {
         setLoadingStatuses(false);
@@ -210,7 +209,6 @@ export default function BaseWorkflowSection({
         setUsers(transformedUsers);
         setUsersLoaded(true);
       } catch (error) {
-        console.error('Error fetching users:', error);
         notifications.show('Failed to load user data', { severity: 'error' });
       } finally {
         setLoadingUsers(false);

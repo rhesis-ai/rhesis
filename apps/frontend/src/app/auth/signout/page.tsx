@@ -9,9 +9,6 @@ export default function SignOut() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    console.log(
-      '[ERROR] [DEBUG] SignOut page loaded, calling handleClientSignOut'
-    );
     handleClientSignOut();
   }, []);
 

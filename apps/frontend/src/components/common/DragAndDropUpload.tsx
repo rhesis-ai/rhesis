@@ -49,7 +49,6 @@ export default function DragAndDropUpload({
 
   const handleFile = useCallback(
     (file: File) => {
-      console.log('DragAndDropUpload: File selected:', file.name, file.size);
       const validationError = validateFile(file);
       if (validationError) {
         setError(validationError);

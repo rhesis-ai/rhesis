@@ -107,9 +107,7 @@ const getProjectIcon = (project: Project) => {
 };
 
 // Environment chips should use neutral colors for better UX
-const getEnvironmentColor = (
-  environment: string
-):
+const getEnvironmentColor = ():
   | 'default'
   | 'primary'
   | 'secondary'
@@ -259,8 +257,8 @@ export default function EndpointDetail({
 
           setProjects(projectMap);
         }
-      } catch (err) {
-        console.error('Error fetching projects:', err);
+      } catch {
+        // Error handled silently
       } finally {
         setLoadingProjects(false);
       }
@@ -310,7 +308,6 @@ export default function EndpointDetail({
         throw new Error(result.error);
       }
     } catch (error) {
-      console.error('Failed to update endpoint:', error);
       notifications.show(
         `Failed to update endpoint: ${(error as Error).message}`,
         { severity: 'error' }
@@ -330,14 +327,10 @@ export default function EndpointDetail({
     try {
       const parsedValue = JSON.parse(value);
       setEditedValues(prev => ({ ...prev, [field]: parsedValue }));
-    } catch (error) {
+    } catch {
       // Handle JSON parse error if needed
       setEditedValues(prev => ({ ...prev, [field]: value }));
     }
-  };
-
-  const handleCloseNotification = () => {
-    notifications.show('Operation completed', { severity: 'success' });
   };
 
   return (
@@ -616,7 +609,7 @@ export default function EndpointDetail({
                   </Typography>
                   <Chip
                     label={endpoint.environment}
-                    color={getEnvironmentColor(endpoint.environment as string)}
+                    color={getEnvironmentColor()}
                     variant="outlined"
                     sx={{ textTransform: 'capitalize' }}
                   />

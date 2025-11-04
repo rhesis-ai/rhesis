@@ -123,7 +123,6 @@ export default function InviteTeamStep({
       // Proceed to next step
       onNext();
     } catch (error) {
-      console.error('Error during form submission:', error);
       setErrorMessage('Failed to submit form. Please try again.');
     } finally {
       setIsSubmitting(false);

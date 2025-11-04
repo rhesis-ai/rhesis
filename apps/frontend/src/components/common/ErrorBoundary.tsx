@@ -25,7 +25,6 @@ export class ErrorBoundary extends React.Component<
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    console.error('[ALERT] [ERROR BOUNDARY] Caught error:', error);
     return {
       hasError: true,
       error,
@@ -33,21 +32,6 @@ export class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[ALERT] [ERROR BOUNDARY] Component crashed:', {
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      },
-      errorInfo: {
-        componentStack: errorInfo.componentStack,
-      },
-      timestamp: new Date().toISOString(),
-      userAgent:
-        typeof window !== 'undefined' ? window.navigator.userAgent : 'unknown',
-      url: typeof window !== 'undefined' ? window.location.href : 'unknown',
-    });
-
     this.setState({
       error,
       errorInfo,
@@ -55,7 +39,6 @@ export class ErrorBoundary extends React.Component<
   }
 
   handleRetry = () => {
-    console.log('[DEBUG] [ERROR BOUNDARY] Retrying...');
     this.setState({ hasError: false, error: undefined, errorInfo: undefined });
   };
 
@@ -151,18 +134,7 @@ export class ErrorBoundary extends React.Component<
 // Hook version for functional components
 export function useErrorHandler() {
   return React.useCallback(
-    (error: Error, errorInfo?: { componentStack?: string }) => {
-      console.error('[ALERT] [ERROR HANDLER] Manual error report:', {
-        error: {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-        },
-        errorInfo,
-        timestamp: new Date().toISOString(),
-        url: typeof window !== 'undefined' ? window.location.href : 'unknown',
-      });
-    },
+    (error: Error, errorInfo?: { componentStack?: string }) => {},
     []
   );
 }

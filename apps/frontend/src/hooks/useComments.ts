@@ -50,7 +50,6 @@ export function useComments({
       setComments(fetchedComments);
     } catch (err) {
       setError('Failed to fetch comments');
-      console.error('Error fetching comments:', err);
       notifications.show('Failed to fetch comments', {
         severity: 'error',
         autoHideDuration: 3000,
@@ -94,7 +93,6 @@ export function useComments({
         });
         return commentWithUser;
       } catch (err) {
-        console.error('Error creating comment:', err);
         throw err;
       }
     },
@@ -146,7 +144,6 @@ export function useComments({
         });
         return commentWithUser;
       } catch (err) {
-        console.error('Error editing comment:', err);
         throw err;
       }
     },
@@ -180,7 +177,6 @@ export function useComments({
 
         return deletedComment;
       } catch (err) {
-        console.error('Error deleting comment:', err);
         throw err;
       }
     },
@@ -233,7 +229,6 @@ export function useComments({
           prev.map(c => (c.id === commentId ? commentWithUser : c))
         );
       } catch (err) {
-        console.error('Error reacting to comment:', err);
         throw err;
       }
     },

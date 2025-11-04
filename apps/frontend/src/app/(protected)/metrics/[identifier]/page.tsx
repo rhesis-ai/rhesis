@@ -123,7 +123,6 @@ export default function MetricDetailPage() {
           setModels([metricData.model]);
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
         // Use notifications without depending on it
         const notificationsContext = notifications;
         notificationsContext.show('Failed to load metric details', {
@@ -225,7 +224,6 @@ export default function MetricDetailPage() {
             );
             setMetric(updatedMetric);
           } catch (error) {
-            console.error('Error refreshing metric:', error);
             notifications.show('Failed to refresh metric data', {
               severity: 'error',
             });
@@ -271,7 +269,6 @@ export default function MetricDetailPage() {
                 });
                 setModels(modelsData.data || []);
               } catch (error) {
-                console.error('Error fetching models for editing:', error);
                 notifications.show('Failed to load models for editing', {
                   severity: 'error',
                 });
@@ -356,7 +353,6 @@ export default function MetricDetailPage() {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error updating metric:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to update metric';
       notifications.show(errorMessage, { severity: 'error' });
