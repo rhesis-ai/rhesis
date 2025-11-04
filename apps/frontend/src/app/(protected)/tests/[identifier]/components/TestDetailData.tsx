@@ -165,7 +165,10 @@ export default function TestDetailData({
         // Special handling for test_type change to multi-turn
         if (field === 'test_type' && isMultiTurnTest(value.name)) {
           // Initialize test_configuration with empty multi-turn config if not present
-          if (!test.test_configuration || !isMultiTurnConfig(test.test_configuration)) {
+          if (
+            !test.test_configuration ||
+            !isMultiTurnConfig(test.test_configuration)
+          ) {
             updatePayload.test_configuration = {
               goal: '',
               max_turns: 10,

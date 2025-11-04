@@ -35,9 +35,7 @@ export interface MultiTurnTestConfig {
 /**
  * Type guard to check if a test_configuration is a multi-turn config
  */
-export function isMultiTurnConfig(
-  config: any
-): config is MultiTurnTestConfig {
+export function isMultiTurnConfig(config: any): config is MultiTurnTestConfig {
   return config !== null && typeof config === 'object' && 'goal' in config;
 }
 
@@ -53,4 +51,3 @@ export function createEmptyMultiTurnConfig(): MultiTurnTestConfig {
     max_turns: 10,
   };
 }
-
