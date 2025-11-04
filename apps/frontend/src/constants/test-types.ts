@@ -10,20 +10,24 @@ export const TEST_TYPES = {
 /**
  * Type for test type values
  */
-export type TestTypeValue = typeof TEST_TYPES[keyof typeof TEST_TYPES];
+export type TestTypeValue = (typeof TEST_TYPES)[keyof typeof TEST_TYPES];
 
 /**
  * Check if a string value matches a known test type (case-insensitive)
  * @param value The value to check
  * @returns The matching test type constant or null if not found
  */
-export function getTestType(value: string | undefined | null): TestTypeValue | null {
+export function getTestType(
+  value: string | undefined | null
+): TestTypeValue | null {
   if (!value) return null;
-  
+
   const valueLower = value.toLowerCase();
   const entries = Object.values(TEST_TYPES);
-  
-  return entries.find(testType => testType.toLowerCase() === valueLower) || null;
+
+  return (
+    entries.find(testType => testType.toLowerCase() === valueLower) || null
+  );
 }
 
 /**
@@ -45,4 +49,3 @@ export function isSingleTurnTest(value: string | undefined | null): boolean {
   const testType = getTestType(value);
   return testType === TEST_TYPES.SINGLE_TURN;
 }
-

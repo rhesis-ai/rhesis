@@ -105,12 +105,12 @@ class TestCreate(TestBase):
     def validate_test_configuration(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
         Validate test_configuration JSON based on content.
-        
+
         For multi-turn tests (when goal is present), validates against MultiTurnTestConfig schema.
         """
         if v is None:
             return None
-        
+
         # If 'goal' is present, this is a multi-turn test configuration
         if "goal" in v:
             try:
@@ -127,7 +127,7 @@ class TestCreate(TestBase):
                 raise ValueError(
                     f"Invalid multi-turn test configuration: {'; '.join(error_messages)}"
                 )
-        
+
         # For other configurations, allow any valid JSON
         return v
 
@@ -140,12 +140,12 @@ class TestUpdate(TestBase):
     def validate_test_configuration(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
         Validate test_configuration JSON based on content.
-        
+
         For multi-turn tests (when goal is present), validates against MultiTurnTestConfig schema.
         """
         if v is None:
             return None
-        
+
         # If 'goal' is present, this is a multi-turn test configuration
         if "goal" in v:
             try:
@@ -162,7 +162,7 @@ class TestUpdate(TestBase):
                 raise ValueError(
                     f"Invalid multi-turn test configuration: {'; '.join(error_messages)}"
                 )
-        
+
         # For other configurations, allow any valid JSON
         return v
 

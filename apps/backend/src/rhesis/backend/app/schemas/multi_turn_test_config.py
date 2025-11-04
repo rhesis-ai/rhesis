@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, field_validator
 class MultiTurnTestConfig(BaseModel):
     """
     Configuration for multi-turn tests.
-    
+
     Stored in test.test_configuration JSONB column when test_type is multi-turn.
     These fields define how Penelope should execute the test.
     """
@@ -61,15 +61,14 @@ class MultiTurnTestConfig(BaseModel):
 def validate_multi_turn_config(config_dict: dict) -> MultiTurnTestConfig:
     """
     Validate a test_configuration dict for multi-turn tests.
-    
+
     Args:
         config_dict: Dictionary to validate
-        
+
     Returns:
         Validated MultiTurnTestConfig instance
-        
+
     Raises:
         ValidationError: If validation fails
     """
     return MultiTurnTestConfig.model_validate(config_dict)
-

@@ -49,7 +49,9 @@ export default function MultiTurnConfigFields({
     }
   }, [initialConfig]);
 
-  const updateTestConfiguration = async (updatedConfig: MultiTurnTestConfig) => {
+  const updateTestConfiguration = async (
+    updatedConfig: MultiTurnTestConfig
+  ) => {
     if (isUpdating) return;
 
     setIsUpdating(true);
@@ -150,7 +152,9 @@ export default function MultiTurnConfigFields({
                 label="Instructions"
                 placeholder="HOW to conduct the test - methodology"
                 value={config.instructions || ''}
-                onChange={e => handleFieldChange('instructions', e.target.value)}
+                onChange={e =>
+                  handleFieldChange('instructions', e.target.value)
+                }
                 multiline
                 rows={4}
                 helperText="Optional. Specific testing methodology. If not provided, the agent plans its own approach. Example: 'Ask 3 related questions about coverage, then verify consistency'"
@@ -253,7 +257,8 @@ export default function MultiTurnConfigFields({
           {config.goal ? `${config.goal.substring(0, 100)}...` : 'Not set'}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          <strong>Instructions:</strong> {config.instructions ? 'Set' : 'Not set'}
+          <strong>Instructions:</strong>{' '}
+          {config.instructions ? 'Set' : 'Not set'}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           <strong>Restrictions:</strong>{' '}
@@ -269,4 +274,3 @@ export default function MultiTurnConfigFields({
     </Box>
   );
 }
-
