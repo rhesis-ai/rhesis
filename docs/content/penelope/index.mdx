@@ -1,0 +1,66 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Penelope 🦸‍♀️
+
+**Intelligent Multi-Turn Testing Agent for AI Applications**
+
+Penelope is an autonomous testing agent that executes complex, multi-turn test scenarios against conversational AI systems. She combines sophisticated reasoning with adaptive testing strategies to thoroughly evaluate AI applications across security, user experience, compliance, edge cases, and more.
+
+## What is Penelope?
+
+Penelope automates testing that requires:
+
+- **Multiple interactions** - Extended conversations, not one-shot prompts
+- **Adaptive behavior** - Adjusting strategy based on responses
+- **Tool use** - Making requests, analyzing data, extracting information
+- **Goal orientation** - Knowing when the test is complete
+- **Reasoning** - Understanding context and planning next steps
+
+Think of Penelope as a QA engineer who executes test plans autonomously through conversation.
+
+## Quick Example
+
+<CodeBlock filename="basic_test.py" language="python">
+{`from rhesis.penelope import EndpointTarget, PenelopeAgent
+
+# Initialize agent
+agent = PenelopeAgent(enable_transparency=True)
+
+# Create target
+target = EndpointTarget(endpoint_id="your-endpoint-id")
+
+# Execute test - Penelope plans the approach
+result = agent.execute_test(
+    target=target,
+    goal="Verify chatbot can answer 3 questions about policies maintaining context",
+)
+
+print(f"Goal achieved: {result.goal_achieved}")
+print(f"Turns used: {result.turns_used}")`}
+</CodeBlock>
+
+## What Makes Penelope Unique?
+
+- **True Multi-Turn Understanding** - Native support for stateful conversations with full context retention
+- **Provider Agnostic** - Works with OpenAI, Anthropic, Vertex AI, and any OpenAI-compatible provider
+- **Target Flexible** - Test Rhesis endpoints, LangChain apps, CrewAI agents, or any conversational system
+- **Smart Defaults** - Specify just a goal, Penelope plans the testing approach herself
+- **LLM-Driven Evaluation** - Goal achievement evaluated by LLMs, not brittle heuristics
+- **Transparent Reasoning** - See Penelope's thought process at each step
+- **Type-Safe** - Full Pydantic validation from config to results
+
+## Design Philosophy
+
+Built following [Anthropic's agent engineering principles](https://www.anthropic.com/engineering/building-effective-agents):
+
+1. **Simplicity** - Single-purpose agent with clear responsibilities
+2. **Transparency** - Explicit reasoning at each step
+3. **Quality ACI** - Extensively documented tools with clear usage patterns
+4. **Ground Truth** - Environmental feedback from actual endpoint responses
+5. **Stopping Conditions** - Clear termination criteria
+
+---
+
+<Callout type="info">
+  **Ready to get started?** Check out the [Getting Started](/penelope/getting-started) guide to install Penelope and run your first test.
+</Callout>

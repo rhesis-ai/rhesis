@@ -1,0 +1,53 @@
+name: "[Test] Penelope"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'penelope/**'
+  push:
+    branches: [ main ]
+    paths:
+      - 'penelope/**'
+
+jobs:
+  test-penelope:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Needed for git diff
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: latest
+        enable-cache: true
+
+    # - name: Type check Penelope
+    #   run: |
+    #     cd penelope
+    #     uv run pyright
+    #   continue-on-error: false
+      
+    - name: Test Penelope (fast)
+      run: |
+        cd penelope
+        uv run pytest
+      continue-on-error: false
+
+    - name: Test Penelope (full)
+      if: github.event_name == 'push'
+      run: |
+        cd penelope
+        uv sync --extra all
+        uv run pytest
+      continue-on-error: false
+
