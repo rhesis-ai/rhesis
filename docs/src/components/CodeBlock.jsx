@@ -119,11 +119,22 @@ export const CodeBlock = ({
         })
         .join('\n')
 
-      // 4. Keywords (avoid replacing if already in a span)
-      highlightedCode = highlightedCode.replace(
-        /\b(import|from|def|class|if|else|elif|for|while|try|except|finally|with|as|return|yield|break|continue|pass|lambda|global|nonlocal|assert|del|raise|and|or|not|in|is|True|False|None)\b(?![^<]*<\/span>)/g,
-        '<span class="code-keyword">$1</span>'
-      )
+      // 4. Keywords (avoid replacing if already in a span or inside HTML tags)
+      // Split by span tags to avoid replacing keywords inside spans
+      const parts = highlightedCode.split(/(<span[^>]*>.*?<\/span>)/g)
+      highlightedCode = parts
+        .map(part => {
+          // Don't process parts that are already wrapped in spans
+          if (part.startsWith('<span')) {
+            return part
+          }
+          // Apply keyword highlighting to non-span parts
+          return part.replace(
+            /\b(import|from|def|class|if|else|elif|for|while|try|except|finally|with|as|return|yield|break|continue|pass|lambda|global|nonlocal|assert|del|raise|and|or|not|in|is|True|False|None)\b/g,
+            '<span class="code-keyword">$1</span>'
+          )
+        })
+        .join('')
     } else if (language === 'bash' || language === 'shell') {
       // 1. Strings first
       highlightedCode = highlightedCode.replace(
@@ -154,11 +165,19 @@ export const CodeBlock = ({
         })
         .join('\n')
 
-      // 3. Commands
-      highlightedCode = highlightedCode.replace(
-        /\b(cd|ls|mkdir|rm|cp|mv|git|npm|pip|docker|curl|wget|grep|find|cat|echo|export|source)\b(?![^<]*<\/span>)/g,
-        '<span class="code-keyword">$1</span>'
-      )
+      // 3. Commands (avoid replacing if already in a span)
+      const parts = highlightedCode.split(/(<span[^>]*>.*?<\/span>)/g)
+      highlightedCode = parts
+        .map(part => {
+          if (part.startsWith('<span')) {
+            return part
+          }
+          return part.replace(
+            /\b(cd|ls|mkdir|rm|cp|mv|git|npm|pip|docker|curl|wget|grep|find|cat|echo|export|source)\b/g,
+            '<span class="code-keyword">$1</span>'
+          )
+        })
+        .join('')
     }
 
     return highlightedCode
