@@ -241,7 +241,7 @@ export default function TestDetailData({
               // Find the matching behavior option by name
               if (typeof value === 'string') {
                 const matchingBehavior = behaviors.find(
-                  behavior => behavior.name === value
+                  (behavior: TestDetailOption) => behavior.name === value
                 );
                 if (matchingBehavior) {
                   handleUpdate('behavior', matchingBehavior);
@@ -263,7 +263,9 @@ export default function TestDetailData({
             onChange={value => {
               // Find the matching type option by name
               if (typeof value === 'string') {
-                const matchingType = types.find(type => type.name === value);
+                const matchingType = types.find(
+                  (type: TestDetailOption) => type.name === value
+                );
                 if (matchingType) {
                   handleUpdate('test_type', matchingType);
                 } else {
@@ -287,7 +289,7 @@ export default function TestDetailData({
               // Find the matching topic option by name
               if (typeof value === 'string') {
                 const matchingTopic = topics.find(
-                  topic => topic.name === value
+                  (topic: TestDetailOption) => topic.name === value
                 );
                 if (matchingTopic) {
                   handleUpdate('topic', matchingTopic);
@@ -310,7 +312,7 @@ export default function TestDetailData({
               // Find the matching category option by name
               if (typeof value === 'string') {
                 const matchingCategory = categories.find(
-                  category => category.name === value
+                  (category: TestDetailOption) => category.name === value
                 );
                 if (matchingCategory) {
                   handleUpdate('category', matchingCategory);
@@ -386,18 +388,19 @@ export default function TestDetailData({
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {test.test_metadata.sources.map((source: any, index: number) => (
-              <FilePreview
-                key={index}
-                title={
-                  source.name ||
-                  source.document ||
-                  source.source ||
-                  'Unknown Source'
-                }
-                content={source.content || 'No content available'}
-                showCopyButton={true}
-                defaultExpanded={false}
-              />
+              <Box key={`source-${index}`}>
+                <FilePreview
+                  title={
+                    source.name ||
+                    source.document ||
+                    source.source ||
+                    'Unknown Source'
+                  }
+                  content={source.content || 'No content available'}
+                  showCopyButton={true}
+                  defaultExpanded={false}
+                />
+              </Box>
             ))}
           </Box>
         </Grid>
