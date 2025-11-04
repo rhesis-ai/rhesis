@@ -12,6 +12,7 @@ def get_system_prompt(
     instructions: str,
     goal: str,
     scenario: str = "",
+    restrictions: str = "",
     context: str = "",
     available_tools: str = "",
 ) -> str:
@@ -25,6 +26,7 @@ def get_system_prompt(
         instructions: HOW to conduct the test - testing methodology and approach
         goal: WHAT to achieve - test success criteria
         scenario: Optional narrative context or persona description
+        restrictions: Optional constraints on what NOT to do during testing
         context: Additional context or resources (documentation, data, etc.)
         available_tools: Description of available tools
 
@@ -36,6 +38,7 @@ def get_system_prompt(
         ...     instructions="Test the refund policy chatbot",
         ...     goal="Verify accurate refund information provided",
         ...     scenario="You are a frustrated customer seeking a refund",
+        ...     restrictions="Do not use profanity or aggressive language",
         ...     context="Company offers 30-day returns",
         ...     available_tools="send_message_to_target, analyze, extract"
         ... )
@@ -52,6 +55,9 @@ def get_system_prompt(
     prompt += f"**Test Instructions:**\n{instructions}\n\n"
 
     prompt += f"**Test Goal:**\n{goal}\n\n"
+
+    if restrictions:
+        prompt += f"**Test Restrictions:**\n{restrictions}\n\n"
 
     if context:
         prompt += f"**Context & Resources:**\n{context}\n\n"

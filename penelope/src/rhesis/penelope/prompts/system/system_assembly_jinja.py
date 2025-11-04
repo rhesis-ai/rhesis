@@ -27,6 +27,7 @@ def get_system_prompt_jinja(
     instructions: str,
     goal: str,
     scenario: str = "",
+    restrictions: str = "",
     context: str = "",
     available_tools: str = "",
 ) -> str:
@@ -40,6 +41,7 @@ def get_system_prompt_jinja(
         instructions: HOW to conduct the test - testing methodology and approach
         goal: WHAT to achieve - test success criteria
         scenario: Optional narrative context or persona description
+        restrictions: Optional constraints on what NOT to do during testing
         context: Additional context or resources (documentation, data, etc.)
         available_tools: Description of available tools
 
@@ -51,6 +53,7 @@ def get_system_prompt_jinja(
         ...     instructions="Test the refund policy chatbot",
         ...     goal="Verify accurate refund information provided",
         ...     scenario="You are a frustrated customer seeking a refund",
+        ...     restrictions="Do not use profanity or aggressive language",
         ...     context="Company offers 30-day returns",
         ...     available_tools="send_message_to_target, analyze, extract"
         ... )
@@ -59,6 +62,7 @@ def get_system_prompt_jinja(
         instructions=instructions,
         goal=goal,
         scenario=scenario if scenario else None,  # Convert empty string to None for conditionals
+        restrictions=restrictions if restrictions else None,  # Convert empty string to None for conditionals
         context=context if context else None,  # Convert empty string to None for conditionals
         available_tools=available_tools if available_tools else None,
     )
