@@ -441,7 +441,7 @@ jobs:
           OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }},
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
           DEPLOYMENT_TYPE=${{ secrets.DEPLOYMENT_TYPE || 'cloud' }},
-          TELEMETRY_ENABLED=${{ secrets.TELEMETRY_ENABLED || 'true' }},
+          RHESIS_TELEMETRY_ENABLED=${{ secrets.RHESIS_TELEMETRY_ENABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -513,7 +513,7 @@ jobs:
           OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }},
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
           DEPLOYMENT_TYPE=${{ secrets.DEPLOYMENT_TYPE || 'cloud' }},
-          TELEMETRY_ENABLED=${{ secrets.TELEMETRY_ENABLED || 'true' }},
+          RHESIS_TELEMETRY_ENABLED=${{ secrets.RHESIS_TELEMETRY_ENABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -707,7 +707,7 @@ jobs:
           OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }},
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
           DEPLOYMENT_TYPE=${{ secrets.DEPLOYMENT_TYPE || 'cloud' }},
-          TELEMETRY_ENABLED=${{ secrets.TELEMETRY_ENABLED || 'true' }},
+          RHESIS_TELEMETRY_ENABLED=${{ secrets.RHESIS_TELEMETRY_ENABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -788,7 +788,7 @@ jobs:
           OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }},
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
           DEPLOYMENT_TYPE=${{ secrets.DEPLOYMENT_TYPE || 'cloud' }},
-          TELEMETRY_ENABLED=${{ secrets.TELEMETRY_ENABLED || 'true' }},
+          RHESIS_TELEMETRY_ENABLED=${{ secrets.RHESIS_TELEMETRY_ENABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"
