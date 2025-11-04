@@ -17,7 +17,6 @@ class ContextSynthesizer(TestSetSynthesizer):
     def __init__(
         self,
         prompt: str,
-        context: list[str],
         batch_size: int = 20,
         model: Optional[Union[str, BaseLLM]] = None,
     ):
@@ -32,7 +31,6 @@ class ContextSynthesizer(TestSetSynthesizer):
 
         super().__init__(batch_size=batch_size, model=model)
         self.prompt = prompt
-        self.context = context
 
     def _get_template_context(self, **generate_kwargs):
         """
@@ -47,4 +45,9 @@ class ContextSynthesizer(TestSetSynthesizer):
         Returns:
             Dict containing template context for rendering
         """
-        return {"generation_prompt": self.prompt, "context": self.context}
+        if "context" not in generate_kwargs:
+            raise ValueError("Context is required")
+        if len(generate_kwargs["context"]) == 0:
+            raise ValueError("Context cannot be empty")
+
+        return {"generation_prompt": self.prompt, "context": generate_kwargs["context"]}
