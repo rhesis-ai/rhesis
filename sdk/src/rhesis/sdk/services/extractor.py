@@ -1,15 +1,22 @@
 """Document extraction service using Markitdown."""
 
 import os
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from markitdown import MarkItDown
 
 from rhesis.sdk.types import Document
 
 
-class DocumentExtractor:
+class Extractor(ABC):
+    @abstractmethod
+    def extract(self, *args: Any, **kwargs: Any) -> Dict[str, str]:
+        pass
+
+
+class DocumentExtractor(Extractor):
     """Extract plain text from supported document files using Markitdown."""
 
     def __init__(self) -> None:

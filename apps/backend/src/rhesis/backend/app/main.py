@@ -326,3 +326,8 @@ async def health_check():
 # Configure additional FastAPI logging
 fastapi_logger = logging.getLogger("fastapi")
 fastapi_logger.setLevel(logging.DEBUG)
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("rhesis.backend.app.main:app", host="0.0.0.0", port=8080, reload=True)
