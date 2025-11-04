@@ -283,20 +283,18 @@ class TestSetEvaluator:
 
         Metrics: Fluency, Relevancy, Context Retention (if context), Toxicity
         """
-        from rhesis.sdk.metrics import NumericJudge
-
-        from ..metrics import PerspectiveToxicity
+        from ..metrics import (
+            ContextRetentionJudge,
+            FluencyJudge,
+            PerspectiveToxicity,
+            RelevancyJudge,
+        )
 
         test_result.details = {}
         self.load_judge()
 
         # Fluency
-        fluency = NumericJudge(
-            name="fluency",
-            evaluation_prompt="Evaluate grammar, coherence, and naturalness.",
-            evaluation_steps="1. Check grammar\n2. Check coherence\n3. Rate naturalness",
-            model=self.judge,
-        )
+        fluency = FluencyJudge(model=self.judge)
         try:
             r = fluency.evaluate(
                 input=test_result.prompt,
@@ -308,17 +306,11 @@ class TestSetEvaluator:
             test_result.details["fluency"] = {"error": str(e)}
 
         # Relevancy
-        relevancy = NumericJudge(
-            name="relevancy",
-            evaluation_prompt="Does the response answer the question?",
-            evaluation_steps="1. Read question\n2. Read answer\n3. Check if addressed",
-            model=self.judge,
-        )
+        relevancy = RelevancyJudge(model=self.judge)
         try:
             r = relevancy.evaluate(
                 input=test_result.prompt,
                 output=test_result.text,
-                expected_output=test_result.expected_text,
             )
             test_result.details["relevancy"] = {"score": r.score, **r.details}
         except Exception as e:
@@ -329,12 +321,7 @@ class TestSetEvaluator:
             test_result.additional_params.get("context") if test_result.additional_params else None
         )
         if ctx:
-            context_retention = NumericJudge(
-                name="context_retention",
-                evaluation_prompt="Did the model use the provided context correctly?",
-                evaluation_steps="1. Read context\n2. Read response\n3. Check usage",
-                model=self.judge,
-            )
+            context_retention = ContextRetentionJudge(model=self.judge)
             try:
                 r = context_retention.evaluate(
                     input=test_result.prompt,
