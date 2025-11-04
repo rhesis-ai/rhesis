@@ -1,10 +1,58 @@
 import { CodeBlock } from '@/components/CodeBlock'
 
-# Quick Start
+# Getting Started
 
-Get started with Penelope in minutes. This guide shows you how to run your first test against a conversational AI system.
+Get Penelope installed and run your first test in minutes.
+
+## Installation
+
+Penelope is part of the Rhesis monorepo and uses `uv` for dependency management.
+
+### Prerequisites
+
+- **Python 3.10+**
+- **uv** package manager
+- **RHESIS_API_KEY** for accessing Rhesis endpoints ([Get your key](https://app.rhesis.ai))
+
+### Install Penelope
+
+<Steps>
+
+### Clone the Repository
+
+<CodeBlock filename="Terminal" language="bash">
+{`git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis/penelope`}
+</CodeBlock>
+
+### Install Dependencies
+
+<CodeBlock filename="Terminal" language="bash">
+{`uv sync`}
+</CodeBlock>
+
+This automatically installs Penelope and the local SDK from `../sdk`.
+
+### Set Up Authentication
+
+<CodeBlock filename="Terminal" language="bash">
+{`export RHESIS_API_KEY="rh-your-api-key"`}
+</CodeBlock>
+
+Get your API key from [Rhesis App](https://app.rhesis.ai) → Settings. See the [SDK Authentication Guide](/sdk/installation#configure-the-sdk) for details.
+
+### Verify Installation
+
+<CodeBlock filename="Terminal" language="bash">
+{`cd examples
+uv run python basic_example.py --help`}
+</CodeBlock>
+
+</Steps>
 
 ## Your First Test
+
+Now let's run a simple test against a conversational AI system.
 
 <CodeBlock filename="basic_test.py" language="python">
 {`from rhesis.penelope import EndpointTarget, PenelopeAgent
@@ -107,8 +155,27 @@ agent = PenelopeAgent(
 )`}
 </CodeBlock>
 
+## Development Setup
+
+For contributing or running tests:
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Install dev dependencies
+uv sync --extra all
+
+# Run tests
+uv run pytest
+
+# Run linting
+make lint
+
+# Type checking
+uv run pyright`}
+</CodeBlock>
+
 ---
 
 <Callout type="info">
-  **Next:** Explore [Use Cases](/penelope/use-cases) for real-world testing scenarios, learn about [Configuration](/penelope/configuration) options for advanced setup, or understand Penelope's [Architecture](/penelope/architecture).
+  **Next Steps:** Explore [Examples](/penelope/examples) for real-world testing scenarios, learn about [Configuration](/penelope/configuration) options, or understand how to [Extend Penelope](/penelope/extending).
 </Callout>
+
