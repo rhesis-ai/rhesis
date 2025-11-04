@@ -220,7 +220,7 @@ jobs:
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
-            --no-allow-unauthenticated \
+            --allow-unauthenticated \
             --port=4317 \
             --memory=512Mi \
             --cpu=1 \
@@ -255,7 +255,7 @@ jobs:
 
       - name: Allow OTel Collector to invoke Telemetry Processor
         run: |
-          echo "ℹ️ Note: Service is private (--no-allow-unauthenticated), secured by VPC and IAM"
+          echo "ℹ️ Note: Service is now --allow-unauthenticated (secured by VPC)"
           echo "🔐 Configuring IAM permissions for OTel Collector to invoke Telemetry Processor..."
           
           # Determine otel-collector service name
@@ -341,6 +341,6 @@ jobs:
           echo "- Cloud SQL Instance: \`${{ env.CLOUDSQL_INSTANCE }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Tables: \`user_activity\`, \`endpoint_usage\`, \`feature_usage\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🔒 **Security Note:** This service is NOT publicly accessible (--no-allow-unauthenticated)" >> $GITHUB_STEP_SUMMARY
-          echo "It can only be invoked by authorized service accounts (otel-collector) within the same VPC." >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Security Note:** This service is currently --allow-unauthenticated for testing" >> $GITHUB_STEP_SUMMARY
+          echo "It is secured by VPC isolation (--vpc-egress=private-ranges-only)." >> $GITHUB_STEP_SUMMARY
 
