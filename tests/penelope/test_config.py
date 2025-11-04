@@ -151,9 +151,9 @@ def test_config_default_model():
     model = PenelopeConfig.get_default_model()
     assert model == "vertex_ai"
     
-    # Should default to gemini-2.0-flash-exp
+    # Should default to gemini-2.0-flash
     model_name = PenelopeConfig.get_default_model_name()
-    assert model_name == "gemini-2.0-flash-exp"
+    assert model_name == "gemini-2.0-flash"
     
     # Cleanup
     PenelopeConfig.reset()
