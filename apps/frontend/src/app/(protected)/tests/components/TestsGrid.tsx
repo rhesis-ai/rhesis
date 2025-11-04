@@ -132,7 +132,7 @@ export default function TestsTable({
     () => [
       {
         field: 'prompt.content',
-        headerName: 'Content / Goal',
+        headerName: 'Content',
         flex: 3,
         filterable: true,
         valueGetter: (value, row) => {
@@ -232,7 +232,7 @@ export default function TestsTable({
           if (count === 0) return null;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <ChatIcon sx={{ fontSize: 'small', color: 'text.secondary' }} />
               <Typography variant="body2">{count}</Typography>
             </Box>
           );
@@ -249,7 +249,7 @@ export default function TestsTable({
           if (count === 0) return null;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <DescriptionIcon sx={{ fontSize: 'small', color: 'text.secondary' }} />
               <Typography variant="body2">{count}</Typography>
             </Box>
           );
@@ -275,7 +275,7 @@ export default function TestsTable({
               }}
             >
               <InsertDriveFileOutlined
-                sx={{ fontSize: 16, color: 'text.secondary' }}
+                sx={{ fontSize: 'small', color: 'text.secondary' }}
               />
             </Box>
           );
