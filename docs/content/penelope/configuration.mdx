@@ -11,18 +11,19 @@ Configure Penelope's behavior through agent initialization, environment variable
 from rhesis.penelope import PenelopeAgent
 
 agent = PenelopeAgent(
-    model=AnthropicLLM(),        # Optional: defaults to Vertex AI / gemini-2.0-flash
+    # Optional: Model (defaults to Vertex AI / gemini-2.0-flash)
+    model=AnthropicLLM(),
     
-    # Stopping conditions
-    max_iterations=20,           # Optional: defaults to 10
-    timeout_seconds=300,         # Optional: no timeout by default
+    # Optional: Stopping conditions
+    max_iterations=20,        # Defaults to 10
+    timeout_seconds=300,      # No timeout by default
     
     # Observability
-    enable_transparency=True,    # Show reasoning at each step
-    verbose=True,                # Print execution details
+    enable_transparency=True,
+    verbose=True,
     
-    # Custom tools
-    tools=[],                    # Optional: additional tools
+    # Optional: Custom tools
+    tools=[],
 )`}
 </CodeBlock>
 
