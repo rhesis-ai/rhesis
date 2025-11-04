@@ -1,11 +1,17 @@
 import random
-from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.context_generator import ContextGenerator
-from rhesis.sdk.services.extractor import DocumentExtractor
+from rhesis.sdk.services.extractor import (
+    DocumentExtractor,
+    ExtractedSource,
+    NotionExtractor,
+    SourceBase,
+    SourceType,
+    WebsiteExtractor,
+)
 from rhesis.sdk.synthesizers.config_synthesizer import GenerationConfig
 from rhesis.sdk.synthesizers.context_synthesizer import ContextSynthesizer
 from rhesis.sdk.synthesizers.utils import create_test_set
@@ -13,13 +19,13 @@ from rhesis.sdk.types import Document
 from rhesis.sdk.utils import count_tokens
 
 
-class DocumentSynthesizer:
+class KnowledgeSynthesizer:
     """Simple synthesizer that generates test cases from documents"""
 
     def __init__(
         self,
         prompt: str,
-        documents: List[Document],
+        sources: List[SourceBase],
         batch_size: int = 20,
         max_context_tokens: int = 1000,
         strategy: Literal["sequential", "random"] = "random",
@@ -37,9 +43,8 @@ class DocumentSynthesizer:
             prompt=prompt, context=None, batch_size=batch_size, model=model
         )
 
-        self.documents = documents
+        self.sources = sources
 
-        self.document_extractor = DocumentExtractor()
         self.context_generator = ContextGenerator(max_context_tokens=max_context_tokens)
         self.max_context_tokens = max_context_tokens
         self.strategy = strategy
@@ -169,7 +174,7 @@ class DocumentSynthesizer:
 
         print()
 
-    def process_documents(self, documents: List[Document]) -> List[Dict[str, str]]:
+    def process_sources(self, sources: List[SourceBase]) -> List[ExtractedSource]:
         """
         Process documents and extract text with source tracking.
 
@@ -184,18 +189,19 @@ class DocumentSynthesizer:
                 - 'content': Raw text content of the document.
         """
         try:
-            extracted_texts = self.document_extractor.extract(documents)
-            return [
-                {
-                    "source": Path(doc.path).name if doc.path else doc.name,
-                    "name": doc.name,
-                    "description": doc.description,
-                    "content": content,
-                }
-                for doc in documents
-                for content in [extracted_texts.get(doc.name)]
-                if content
-            ]
+            extracted_sources = []
+            for source in sources:
+                if source.type == SourceType.DOCUMENT:
+                    extracted_source = DocumentExtractor().extract(source)
+                elif source.type == SourceType.WEBSITE:
+                    extracted_source = WebsiteExtractor().extract(source)
+                elif source.type == SourceType.NOTION:
+                    extracted_source = NotionExtractor().extract(source)
+                else:
+                    raise ValueError(f"Unsupported source type: {source.type}")
+                extracted_sources.append(extracted_source)
+            return extracted_sources
+
         except Exception as e:
             print(f"Warning: Failed to extract some documents: {e}")
             return []
@@ -220,10 +226,7 @@ class DocumentSynthesizer:
         """
 
         # Process documents with source tracking
-        processed_documents = self.process_documents(self.documents)
-
-        if not processed_documents:
-            raise ValueError("No content could be extracted from documents")
+        processed_sources = self.process_sources(self.sources)
 
         # Generate contexts with source tracking
         contexts_with_sources = []
