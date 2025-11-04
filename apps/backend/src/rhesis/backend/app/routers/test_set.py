@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import asdict
 from enum import Enum
 from typing import List, Optional
 
@@ -308,7 +309,7 @@ async def generate_test_set(
             num_tests=test_count,
             batch_size=request.batch_size,
             prompt=generation_prompt,
-            documents=[doc.dict() for doc in documents_to_use] if documents_to_use else None,
+            documents=[asdict(doc) for doc in documents_to_use] if documents_to_use else None,
             source_ids=source_ids_list,  # Pass actual source_ids list
             source_ids_to_documents=source_ids_to_documents,  # Pass mapping for debugging
             name=request.name,  # Pass optional test set name
