@@ -3,6 +3,7 @@ export default {
   'getting-started': 'Getting Started',
   platform: 'Platform',
   sdk: 'SDK',
+  penelope: 'Penelope',
   development: 'Development',
   telemetry: 'Telemetry',
 }

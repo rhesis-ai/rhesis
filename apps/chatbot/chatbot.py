@@ -100,7 +100,9 @@ def main():
             with st.spinner("Thinking..."):
                 # Get first chunk to ensure connection is established
                 try:
-                    stream = stream_assistant_response(prompt)
+                    # Pass conversation history (excluding the current user message we just added)
+                    conversation_history = st.session_state.messages[:-1]
+                    stream = stream_assistant_response(prompt, conversation_history=conversation_history)
                     first_chunk = next(stream)
                     full_response = first_chunk
                 except StopIteration:
