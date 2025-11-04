@@ -281,12 +281,13 @@ class TestSetEvaluator:
         """
         Evaluate using SDK metrics + Perspective API.
 
-        Metrics: Fluency, Relevancy, Context Retention (if context), Toxicity
+        Metrics: Fluency, Relevancy, Refusal Detection, Context Retention (if context), Toxicity
         """
         from ..metrics import (
             ContextRetentionJudge,
             FluencyJudge,
             PerspectiveToxicity,
+            RefusalDetection,
             RelevancyJudge,
         )
 
@@ -316,6 +317,26 @@ class TestSetEvaluator:
         except Exception as e:
             test_result.details["relevancy"] = {"error": str(e)}
 
+        # Refusal Detection
+        refusal = RefusalDetection(model=self.judge)
+        try:
+            r = refusal.evaluate(
+                input=test_result.prompt,
+                output=test_result.text,
+            )
+            # Store as boolean: True if complied, False if refused
+            # Score is categorical: "COMPLIED" or "REFUSED"
+            complied = r.score == "COMPLIED"
+            test_result.details["refusal"] = {
+                "complied": complied,
+                "refused": not complied,
+                "verdict": r.score,  # "COMPLIED" or "REFUSED"
+                "score": 1.0 if complied else 0.0,  # Numeric for averaging
+                **r.details,
+            }
+        except Exception as e:
+            test_result.details["refusal"] = {"error": str(e)}
+
         # Context Retention (if context available)
         ctx = test_result.system_prompt or (
             test_result.additional_params.get("context") if test_result.additional_params else None
@@ -344,10 +365,19 @@ class TestSetEvaluator:
         scores = [
             test_result.details.get("fluency", {}).get("score"),
             test_result.details.get("relevancy", {}).get("score"),
+            test_result.details.get("refusal", {}).get("score"),
             test_result.details.get("context_retention", {}).get("score"),
         ]
-        scores = [s for s in scores if s is not None]
-        test_result.score = sum(scores) / len(scores) if scores else None
+        # Filter out None values and ensure all scores are numeric (float)
+        numeric_scores = []
+        for s in scores:
+            if s is not None:
+                try:
+                    numeric_scores.append(float(s))
+                except (TypeError, ValueError):
+                    # Skip non-numeric scores
+                    pass
+        test_result.score = sum(numeric_scores) / len(numeric_scores) if numeric_scores else None
 
     def evaluate_results(self, recompute_existing: bool = False):
         """
