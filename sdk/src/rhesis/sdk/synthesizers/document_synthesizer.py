@@ -4,64 +4,45 @@ from typing import Dict, List, Literal, Optional, Union
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.services.context_generator import ContextGenerator
 from rhesis.sdk.services.extractor import DocumentExtractor
-from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.config_synthesizer import GenerationConfig
-from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
+from rhesis.sdk.synthesizers.context_synthesizer import ContextSynthesizer
 from rhesis.sdk.synthesizers.utils import create_test_set
 from rhesis.sdk.types import Document
 from rhesis.sdk.utils import count_tokens
 
 
-class DocumentSynthesizer(TestSetSynthesizer):
+class DocumentSynthesizer:
     """Simple synthesizer that generates test cases from documents"""
 
     def __init__(
         self,
         prompt: str,
+        documents: List[Document],
         batch_size: int = 20,
-        system_prompt: Optional[str] = None,
         max_context_tokens: int = 1000,
         strategy: Literal["sequential", "random"] = "random",
         model: Optional[Union[str, BaseLLM]] = None,
-        config: Optional[GenerationConfig] = None,
-        chip_states: Optional[List[Dict]] = None,
-        rated_samples: Optional[List[Dict]] = None,
-        previous_messages: Optional[List[Dict]] = None,
     ):
         """
         Initialize the document synthesizer.
 
         Args:
-            prompt: The generation prompt to use for test case generation
             batch_size: Maximum number of tests to generate in a single LLM call
-            system_prompt: Optional custom system prompt template to override the default
             max_context_tokens: Maximum tokens per context used by the ContextGenerator
             strategy: Context selection strategy - "sequential" (from start) or "random" (shuffled)
-            chip_states: Optional list of chip states for iteration context
-            rated_samples: Optional list of rated samples for iteration context
-            previous_messages: Optional list of previous messages for iteration context
         """
-        if isinstance(model, str) or model is None:
-            self.model = get_model(model)
-        else:
-            self.model = model
-
-        self.prompt_synthesizer = PromptSynthesizer(
-            prompt=prompt, batch_size=batch_size, model=model
+        self.context_synthesizer = ContextSynthesizer(
+            prompt=prompt, context=None, batch_size=batch_size, model=model
         )
-        super().__init__(batch_size=self.prompt_synthesizer.batch_size)
 
+        self.documents = documents
+
+        self.document_extractor = DocumentExtractor()
         self.context_generator = ContextGenerator(max_context_tokens=max_context_tokens)
         self.max_context_tokens = max_context_tokens
         self.strategy = strategy
-        self.document_extractor = DocumentExtractor()
-        self.config = config
-        self.chip_states = chip_states
-        self.rated_samples = rated_samples
-        self.previous_messages = previous_messages
 
     def _compute_tests_distribution(
         self,
@@ -221,7 +202,6 @@ class DocumentSynthesizer(TestSetSynthesizer):
 
     def generate(
         self,
-        documents: List[Document],
         num_tests: int = 5,
         tests_per_context: Optional[int] = None,
     ) -> "TestSet":
@@ -240,7 +220,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
         """
 
         # Process documents with source tracking
-        processed_documents = self.process_documents(documents)
+        processed_documents = self.process_documents(self.documents)
 
         if not processed_documents:
             raise ValueError("No content could be extracted from documents")
