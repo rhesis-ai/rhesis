@@ -25,6 +25,10 @@ class ContextWithSource(BaseModel):
     content: str
 
 
+# context is a list of chunks of text
+# and every chunk has a source, and a content
+
+
 class KnowledgeSynthesizer:
     """Simple synthesizer that generates test cases from documents"""
 

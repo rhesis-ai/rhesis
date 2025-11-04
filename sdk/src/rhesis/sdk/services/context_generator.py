@@ -6,6 +6,9 @@ from typing import List
 from rhesis.sdk.utils import count_tokens
 
 
+# chunker
+# chunker.retrieve()
+# iterator good for multiprocessing
 class ContextGenerator:
     """Service for generating context from various sources using intelligent semantic chunking."""
 

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class SimpleSynthesizer(TestSetSynthesizer):
     """A synthesizer that generates test cases based on a prompt using LLM."""
 
-    prompt_template_file = "simple_synthesizer.md"
+    prompt_template_file = "simple_synthesizer.jinja"
 
     def __init__(
         self,
@@ -45,3 +45,11 @@ class SimpleSynthesizer(TestSetSynthesizer):
             Dict containing template context for rendering
         """
         return {"generation_prompt": self.prompt}
+
+
+if __name__ == "__main__":
+    synthesizer = SimpleSynthesizer(prompt="Generate tests for car selling chatbot", model="gemini")
+    tests = synthesizer.generate(num_tests=5)
+    from pprint import pprint
+
+    pprint(tests.tests)

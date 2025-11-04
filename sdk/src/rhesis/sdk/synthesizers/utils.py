@@ -3,31 +3,19 @@
 from pathlib import Path
 from typing import Any, Dict, List
 
-from jinja2 import Template
+from jinja2 import Environment, FileSystemLoader, Template
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.utils import extract_json_from_text
 
 
-def load_prompt_template(prompt_template_file: str) -> Template:
+def load_prompt_template(prompt_template_file: str) -> "Template":
     """Load prompt template from assets or use custom prompt."""
-    prompt_path = Path(__file__).parent / "assets" / prompt_template_file
-    try:
-        return Template(prompt_path.read_text())
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Prompt template file not found: {prompt_template_file}")
-
-
-def retry_llm_call(model: BaseLLM, prompt: str, max_attempts: int = 3) -> Any:
-    """Retry LLM calls with error handling."""
-    for attempt in range(max_attempts):
-        try:
-            return model.generate(prompt=prompt)
-        except Exception as e:
-            if attempt == max_attempts - 1:
-                raise e
-            print(f"Attempt {attempt + 1} failed: {e}")
+    templates_path = Path(__file__).parent / "assets"
+    environment = Environment(loader=FileSystemLoader(templates_path))
+    template = environment.get_template(prompt_template_file)
+    return template
 
 
 def parse_llm_response(response: Any, expected_keys: List[str] = None) -> List[Dict[str, Any]]:

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
 
+from pydantic import BaseModel
 from tqdm.auto import tqdm
 
 from rhesis.sdk.entities.test_set import TestSet
@@ -8,10 +9,24 @@ from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers.utils import (
     load_prompt_template,
-    parse_llm_response,
-    retry_llm_call,
 )
-from rhesis.sdk.utils import clean_and_validate_tests
+
+
+class Prompt(BaseModel):
+    content: str
+    expected_response: str
+    language_code: str
+
+
+class Test(BaseModel):
+    prompt: Prompt
+    behavior: str
+    category: str
+    topic: str
+
+
+class Tests(BaseModel):
+    tests: List[Test]
 
 
 class TestSetSynthesizer(ABC):
@@ -149,27 +164,25 @@ class TestSetSynthesizer(ABC):
     ) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
         template_context = {"num_tests": num_tests, **kwargs}
-        formatted_prompt = self.prompt_template.render(**template_context)
+        prompt = self.prompt_template.render(**template_context)
 
         # Use utility function for retry logic
-        response = retry_llm_call(self.model, formatted_prompt)
+        response = self.model.generate(prompt=prompt, schema=Tests)
+        tests = response["tests"][:num_tests]
 
-        # Use utility function for response parsing
-        test_cases = parse_llm_response(response, expected_keys=["tests"])
+        tests = [
+            {
+                **test,
+                "metadata": {
+                    "generated_by": self._get_synthesizer_name(),
+                },
+            }
+            for test in tests
+        ]
 
-        # Clean and validate test cases using utility function
-        valid_test_cases = clean_and_validate_tests(test_cases)
+        return tests
 
-        if valid_test_cases:
-            # Add metadata to each test case
-            return [
-                {
-                    **test,
-                    "metadata": {
-                        "generated_by": self._get_synthesizer_name(),
-                    },
-                }
-                for test in valid_test_cases[:num_tests]
-            ]
 
-        return []
+if __name__ == "__main__":
+    template = load_prompt_template("simple_synthesizer.md")
+    print(template.render(num_tests=5))

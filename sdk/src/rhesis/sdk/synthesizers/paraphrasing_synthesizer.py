@@ -7,7 +7,6 @@ from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.utils import (
     create_test_set,
     load_prompt_template,
-    retry_llm_call,
 )
 
 
