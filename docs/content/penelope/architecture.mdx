@@ -1,310 +1,203 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Architecture
 
-Penelope follows a clean, modular architecture designed for extensibility and reliability. Understanding the architecture helps you make the most of Penelope's capabilities.
+Penelope follows a clean, modular architecture designed for extensibility and reliability.
 
 ## System Overview
 
-```
-┌─────────────────────────────────────────────────────┐
-│              PenelopeAgent 🦸‍♀️                      │
-│  Orchestrates multi-turn testing with intelligence  │
-└─────────────────────────────────────────────────────┘
-           │
-           ├── Base Instructions
-           │   └── Pre-defined testing intelligence
+<CodeBlock filename="Architecture" isTerminal={true}>
+{`┌─────────────────────────────────────────┐
+│         PenelopeAgent 🦸‍♀️                │
+│  Orchestrates multi-turn testing        │
+└─────────────────────────────────────────┘
            │
            ├── Test Configuration
            │   ├── Goal (what to achieve)
-           │   ├── Instructions (how to test, optional)
-           │   ├── Scenario (narrative context, optional)
-           │   └── Context (resources & metadata)
+           │   ├── Instructions (how to test)
+           │   └── Context (resources)
            │
            ├── Target Abstraction
-           │   ├── EndpointTarget (Rhesis endpoints)
-           │   ├── LangChainTarget (future)
-           │   └── CrewAITarget (future)
+           │   └── EndpointTarget (Rhesis)
            │
            ├── Tool System
-           │   ├── TargetInteractionTool (send messages)
-           │   ├── AnalysisTool (analyze responses)
-           │   └── Custom Tools (extensible)
+           │   ├── TargetInteractionTool
+           │   ├── AnalysisTool
+           │   └── Custom Tools
            │
-           ├── Prompt Management
-           │   ├── System Prompts (Jinja2 templates)
-           │   ├── Turn Prompts (first/subsequent)
-           │   └── Evaluation Prompts (goal checking)
-           │
-           ├── Native Message Format
-           │   ├── AssistantMessage (Pydantic)
-           │   ├── ToolMessage (Pydantic)
-           │   └── Provider-agnostic (OpenAI, Anthropic, Vertex AI)
-           │
-           └── Stopping Conditions
-               ├── GoalAchievedCondition (LLM-evaluated)
-               ├── MaxIterationsCondition
-               └── TimeoutCondition
-```
+           └── Evaluation & Stopping
+               ├── LLM-based goal checking
+               ├── Max iterations
+               └── Timeout`}
+</CodeBlock>
 
-## Key Components
+## Core Components
 
 ### PenelopeAgent
 
-The main orchestrator that coordinates test execution. Handles:
+Main orchestrator coordinating test execution:
 
-- Turn-by-turn execution
-- Tool calling and result processing
-- Goal evaluation
-- Stopping condition checks
-- Result compilation
+<CodeBlock filename="agent_flow.py" language="python">
+{`# Agent manages the entire test lifecycle
+agent = PenelopeAgent(model=model, max_iterations=10)
+
+result = agent.execute_test(
+    target=target,
+    goal="Test goal",
+    instructions="Optional instructions"
+)
+
+# Result contains full execution history
+print(result.status)        # success, failure, error, timeout
+print(result.goal_achieved)  # True/False
+print(result.history)       # Full conversation`}
+</CodeBlock>
 
 ### TurnExecutor
 
-Separated module responsible for executing individual turns. Features:
-
-- LLM interaction with structured output
-- Tool execution coordination
-- Error handling and retries
-- Transparency logging
+Handles individual turn execution - reasoning, tool selection, and execution.
 
 ### GoalEvaluator
 
-Evaluates progress toward test goals. Supports:
+LLM-based evaluation of goal achievement using structured output.
 
-- LLM-based evaluation (interim solution)
-- SDK multi-turn metrics (future integration)
-- Confidence scoring
-- Evidence collection
+### Targets
 
-### Target Abstraction
+Abstraction for systems under test:
 
-The `Target` interface allows testing any conversational system:
+<CodeBlock filename="targets.py" language="python">
+{`from rhesis.penelope import EndpointTarget
 
-```python
-class Target(ABC):
+# Rhesis endpoints
+target = EndpointTarget(endpoint_id="your-endpoint-id")
+
+# Future: LangChain, CrewAI, custom targets
+# target = LangChainTarget(chain=my_chain)
+# target = CrewAITarget(agent=my_agent)`}
+</CodeBlock>
+
+### Tools
+
+Penelope uses three built-in tools:
+
+**1. Send Message to Target** - Interacts with the system under test
+
+**2. Analyze Response** - Evaluates target responses for goal criteria
+
+**3. Extract Information** - Pulls specific data from responses
+
+Add custom tools for specialized testing:
+
+<CodeBlock filename="custom_tool.py" language="python">
+{`from rhesis.penelope.tools.base import Tool, ToolResult
+
+class CustomTool(Tool):
     @property
-    @abstractmethod
-    def target_type(self) -> str:
-        """Type identifier (e.g., 'endpoint', 'langchain')"""
-        pass
+    def name(self) -> str:
+        return "my_custom_tool"
+    
+    @property
+    def description(self) -> str:
+        return "Detailed description with examples..."
+    
+    def execute(self, **kwargs) -> ToolResult:
+        # Your logic
+        return ToolResult(success=True, output={...})
 
-    @abstractmethod
-    def send_message(
-        self,
-        message: str,
-        session_id: Optional[str] = None,
-        **kwargs
-    ) -> TargetResponse:
-        """Send message and receive response"""
-        pass
-```
-
-**Current Implementations:**
-
-- `EndpointTarget` - Rhesis platform endpoints
-
-**Future Implementations:**
-
-- `LangChainTarget` - LangChain applications
-- `CrewAITarget` - CrewAI agents
-- `CustomTarget` - User-defined targets
-
-### Tool System
-
-Penelope uses a sophisticated tool system following Anthropic's ACI principles:
-
-#### Built-in Tools
-
-1. **TargetInteractionTool**
-   - Primary tool for testing
-   - Sends messages to the target system
-   - Manages session continuity
-   - Handles errors gracefully
-
-2. **AnalyzeTool**
-   - Analyzes target responses
-   - Current: Regex-based pattern matching
-   - Future: LLM-powered semantic analysis
-
-3. **ExtractTool**
-   - Extracts specific information from responses
-   - Current: Regex-based entity extraction
-   - Future: LLM-powered structured extraction
-
-#### Tool Design Principles
-
-- **Extensive Documentation**: Each tool includes detailed usage guidance
-- **Clear Examples**: Shows good and bad usage patterns
-- **Edge Cases**: Documents common pitfalls
-- **Natural Parameters**: Simple, intuitive parameter formats
-
-See [Custom Tools](/penelope/custom-tools) for extending Penelope.
-
-### Prompt Management
-
-Centralized prompt system using Jinja2 templates:
-
-```python
-# System prompt template
-get_system_prompt(
-    instructions=instructions,
-    goal=goal,
-    scenario=scenario,
-    context=context,
-    available_tools=tools_description,
-)
-```
-
-**Benefits:**
-
-- Version controlled prompts
-- Testable prompt logic
-- Easy customization
-- Consistent formatting
-
-### Native Message Format
-
-Penelope uses **native Pydantic schemas** for all message handling:
-
-```python
-class AssistantMessage(BaseModel):
-    role: Literal["assistant"] = "assistant"
-    content: Optional[str] = None
-    tool_calls: Optional[List[MessageToolCall]] = None
-
-class ToolMessage(BaseModel):
-    role: Literal["tool"] = "tool"
-    tool_call_id: str
-    name: str
-    content: str
-```
-
-**Advantages:**
-
-- Zero conversion overhead
-- Full type safety
-- Provider agnostic (OpenAI, Anthropic, Vertex AI, etc.)
-- IDE autocomplete
-- No dict parsing
-
-## Design Principles
-
-### 1. Provider Agnostic
-
-Native Pydantic schemas work across all major LLM providers without conversion:
-
-```python
-# Same message format for all providers
-messages = [assistant_msg, tool_msg]
-
-# Works with any provider
-OpenAI().generate(messages)
-Anthropic().generate(messages)
-VertexAI().generate(messages)
-```
-
-### 2. Target Flexible
-
-Abstract interface supports any conversational system:
-
-```python
-# Test Rhesis endpoints
-target = EndpointTarget(endpoint_id="chatbot")
-
-# Future: Test LangChain apps
-target = LangChainTarget(chain=my_chain)
-
-# Future: Test CrewAI agents
-target = CrewAITarget(agent=my_agent)
-```
-
-### 3. Prompt Managed
-
-Centralized, versioned, testable prompt templates:
-
-```python
-# Load from templates
-template = PromptTemplate.load("system_prompt.jinja")
-
-# Render with context
-prompt = template.render(goal=goal, context=context)
-```
-
-### 4. Type Safe
-
-Full Pydantic validation throughout the system:
-
-```python
-# Configuration
-agent = PenelopeAgent(...)  # Type checked
-
-# Results
-result: TestResult = agent.execute_test(...)  # Type checked
-
-# Turn history
-turn: Turn = result.history[0]  # Type checked
-```
-
-### 5. Transparent
-
-Explicit reasoning and evaluation at each step:
-
-```python
-agent = PenelopeAgent(enable_transparency=True, verbose=True)
-
-# See Penelope's thought process
-result = agent.execute_test(...)
-for turn in result.history:
-    print(f"Turn {turn.turn_number}: {turn.reasoning}")
-```
+agent = PenelopeAgent(tools=[CustomTool()])`}
+</CodeBlock>
 
 ## Execution Flow
 
-### Test Initialization
+1. **Initialize** - Agent receives goal, instructions, and context
+2. **Turn Loop** - For each turn up to max_iterations:
+   - Agent reasons about current state
+   - Selects and executes tool
+   - Processes result
+   - Evaluates goal achievement
+   - Checks stopping conditions
+3. **Completion** - Returns TestResult with full history
 
-1. Validate configuration
-2. Load system prompt
-3. Initialize stopping conditions
-4. Prepare tools for target
+<CodeBlock filename="execution_detail.py" language="python">
+{`# Each turn produces structured output
+for turn in result.history:
+    print(f"Turn {turn.turn_number}")
+    print(f"Reasoning: {turn.reasoning}")
+    print(f"Action: {turn.action}")
+    print(f"Output: {turn.action_output}")
+    print(f"Goal Progress: {turn.goal_progress}")`}
+</CodeBlock>
 
-### Turn Execution Loop
+## Prompt System
 
-```python
-while not should_stop():
-    # 1. Execute turn
-    turn_result = executor.execute_turn(state, tools, system_prompt)
+Penelope uses Jinja2 templates for prompts:
 
-    # 2. Evaluate progress (every 2 turns)
-    if turn_number % 2 == 0:
-        progress = evaluator.evaluate_progress(state, goal)
+- **System Prompt** - Core agent instructions and capabilities
+- **Turn Prompts** - Context-aware prompting for each turn
+- **Evaluation Prompts** - Structured goal assessment
 
-    # 3. Check stopping conditions
-    should_stop = check_conditions(state)
+Located in `src/rhesis/penelope/prompts/`:
 
-    # 4. Update state
-    state.add_turn(turn_result, progress)
-```
+<CodeBlock filename="prompt_structure" isTerminal={true}>
+{`prompts/
+├── system_prompt.j2       # Agent instructions
+├── turn/
+│   ├── first_turn.j2      # Initial turn
+│   └── subsequent_turn.j2 # Follow-up turns
+├── evaluation/
+│   └── goal_eval.j2       # Goal checking
+└── tools/
+    └── tool_descriptions.py  # Tool documentation`}
+</CodeBlock>
 
-### Result Compilation
+## Stopping Conditions
 
-1. Determine final status
-2. Extract key findings
-3. Calculate metrics
-4. Serialize conversation history
+Tests stop when any condition is met:
 
-## Extension Points
+1. **Goal Achieved** - LLM evaluates goal is met
+2. **Max Iterations** - Reached iteration limit
+3. **Timeout** - Exceeded time limit
+4. **Error** - Unrecoverable error occurred
 
-Penelope is designed for extensibility:
+<CodeBlock filename="stopping.py" language="python">
+{`agent = PenelopeAgent(
+    max_iterations=20,      # Stop after 20 turns
+    timeout_seconds=300     # Stop after 5 minutes
+)
 
-- **Custom Targets**: Implement `Target` interface for new systems
-- **Custom Tools**: Implement `Tool` interface for specialized testing
-- **Custom Prompts**: Override default templates with Jinja2
-- **Custom Metrics**: Provide `BaseMultiTurnMetric` for goal evaluation (future)
+result = agent.execute_test(target=target, goal="...")
+
+# Check why it stopped
+if result.status == "success" and result.goal_achieved:
+    print("Goal achieved!")
+elif result.status == "failure":
+    print("Max iterations reached")
+elif result.status == "timeout":
+    print("Time limit exceeded")
+elif result.status == "error":
+    print(f"Error: {result.error}")`}
+</CodeBlock>
+
+## Type Safety
+
+Pydantic models ensure type safety throughout:
+
+- **TestState** - Current test state
+- **Turn** - Individual turn data
+- **TestResult** - Final test outcome
+- **ToolResult** - Tool execution result
+- **Schemas** - Structured LLM outputs
+
+## Design Principles
+
+1. **Modularity** - Clear separation of concerns (agent, executor, evaluator, tools)
+2. **Extensibility** - Easy to add custom tools and targets
+3. **Observability** - Full transparency into reasoning and execution
+4. **Type Safety** - Pydantic validation throughout
+5. **Provider Agnostic** - Works with any LLM provider
 
 ---
 
 <Callout type="default">
-  **Next Steps** - Learn about [Custom Tools](/penelope/custom-tools) for
-  extending functionality - Check out [Use Cases](/penelope/use-cases) for
-  practical examples - Review [Configuration](/penelope/configuration) for
-  advanced options
+  **Next:** Learn about [Custom Tools](/penelope/custom-tools) or check out [Use Cases](/penelope/use-cases) for practical examples.
 </Callout>
