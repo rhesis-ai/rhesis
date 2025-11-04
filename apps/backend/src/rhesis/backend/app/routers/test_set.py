@@ -12,6 +12,7 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.decorators import check_resource_permission
 from rhesis.backend.app.auth.permissions import ResourceAction
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.constants import TestType
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -125,10 +126,15 @@ def build_generation_prompt(
     Returns:
         A formatted prompt string for the synthesizer
     """
-    if config.test_type == "single_turn":
+    # Case-insensitive comparison using TestType enum
+    test_type_enum = TestType.from_string(config.test_type)
+    if test_type_enum == TestType.SINGLE_TURN:
         test_type_string = "Single interaction tests"
-    else:
+    elif test_type_enum == TestType.MULTI_TURN:
         test_type_string = "Multi-turn conversation tests"
+    else:
+        # Fallback for unknown test types
+        test_type_string = f"{config.test_type} tests"
 
     if config.response_generation == "prompt_only":
         output_format_string = "Generate only user inputs"
