@@ -1,6 +1,8 @@
 import random
 from typing import Dict, List, Literal, Optional, Union
 
+from pydantic import BaseModel
+
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.context_generator import ContextGenerator
@@ -17,6 +19,11 @@ from rhesis.sdk.synthesizers.context_synthesizer import ContextSynthesizer
 from rhesis.sdk.synthesizers.utils import create_test_set
 from rhesis.sdk.types import Document
 from rhesis.sdk.utils import count_tokens
+
+
+class ContextWithSource(BaseModel):
+    source: SourceBase
+    content: str
 
 
 class KnowledgeSynthesizer:
@@ -39,15 +46,18 @@ class KnowledgeSynthesizer:
             max_context_tokens: Maximum tokens per context used by the ContextGenerator
             strategy: Context selection strategy - "sequential" (from start) or "random" (shuffled)
         """
-        self.context_synthesizer = ContextSynthesizer(
-            prompt=prompt, context=None, batch_size=batch_size, model=model
-        )
 
         self.sources = sources
-
+        self.prompt = prompt
+        self.batch_size = batch_size
+        self.model = model
         self.context_generator = ContextGenerator(max_context_tokens=max_context_tokens)
         self.max_context_tokens = max_context_tokens
         self.strategy = strategy
+
+        self.context_synthesizer = ContextSynthesizer(
+            prompt=self.prompt, batch_size=self.batch_size, model=self.model
+        )
 
     def _compute_tests_distribution(
         self,
@@ -230,21 +240,12 @@ class KnowledgeSynthesizer:
 
         # Generate contexts with source tracking
         contexts_with_sources = []
-        for doc in processed_documents:
-            if doc["content"].strip():
-                doc_contexts = self.context_generator.generate_contexts(doc["content"])
-                for context in doc_contexts:
-                    contexts_with_sources.append(
-                        {
-                            "source": doc["source"],
-                            "name": doc["name"],
-                            "description": doc["description"],
-                            "content": context,
-                        }
-                    )
-
-        if not contexts_with_sources:
-            raise ValueError("No contexts could be generated from the documents")
+        for source in processed_sources:
+            source.content = source.content.strip()
+            source_contexts = self.context_generator.generate_contexts(source.content)
+            source = SourceBase(**source.model_dump())
+            for context in source_contexts:
+                contexts_with_sources.append(ContextWithSource(source=source, content=context))
 
         # Apply strategy: shuffle contexts if random strategy is selected
         if self.strategy == "random":
@@ -254,8 +255,6 @@ class KnowledgeSynthesizer:
 
         # Compute distribution of tests across contexts
         num_contexts = len(contexts_with_sources)
-        if num_contexts <= 0:
-            raise ValueError("No contexts available for test generation")
 
         tests_per_contexts = self._compute_tests_distribution(
             num_contexts=num_contexts,
@@ -274,39 +273,28 @@ class KnowledgeSynthesizer:
         )
 
         # Generate tests for each context
-        for i, context_doc in enumerate(contexts_with_sources):
-            per_context = tests_per_contexts[i]
-            if per_context <= 0:
+        for i, context in enumerate(contexts_with_sources):
+            num_tests_per_context = tests_per_contexts[i]
+            if num_tests_per_context <= 0:
                 continue
             print(
                 f"Generating tests for context {i + 1}/{len(contexts_with_sources)} "
-                f"({len(context_doc['content'])} characters)"
+                f"({len(context.content)} characters)"
             )
 
-            result = self.prompt_synthesizer.generate(
-                num_tests=per_context,
-                context=context_doc["content"],
-                config=self.config,
-                chip_states=self.chip_states,
-                rated_samples=self.rated_samples,
-                previous_messages=self.previous_messages,
+            result = self.context_synthesizer.generate(
+                num_tests=num_tests_per_context,
+                context=context.content,
             )
 
             # Add context and document mapping to each test
             for test in result.tests:
                 test["metadata"] = {
                     **(test.get("metadata") or {}),
-                    "sources": [
-                        {
-                            "source": context_doc["source"],
-                            "name": context_doc["name"],
-                            "description": context_doc["description"],
-                            "content": context_doc["content"],
-                        }
-                    ],
+                    "sources": context.source.model_dump(),
                     "generated_by": "DocumentSynthesizer",
                     "context_index": i,
-                    "context_length": len(context_doc["content"]),
+                    "context_length": len(context.content),
                 }
 
             all_test_cases.extend(result.tests)
@@ -317,7 +305,7 @@ class KnowledgeSynthesizer:
         )
 
         # Get document names for TestSet metadata
-        document_names = [doc["name"] for doc in processed_documents]
+        source_names = [context.source.name for context in contexts_with_sources]
 
         # Use the same approach as PromptSynthesizer
         return create_test_set(
@@ -325,10 +313,10 @@ class KnowledgeSynthesizer:
             model=self.model,
             synthesizer_name="DocumentSynthesizer",
             batch_size=self.batch_size,
-            generation_prompt=self.prompt_synthesizer.prompt,
+            generation_prompt=self.prompt
             num_tests=len(all_test_cases),
             requested_tests=num_tests,
-            documents_used=document_names,
+            documents_used=source_names,
             coverage_percent=coverage_percent,
             contexts_total=len(contexts_with_sources),
             contexts_used=used_contexts,
