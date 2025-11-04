@@ -237,13 +237,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-
-
-
 volumes:
   postgres_data:
-    driver: local
-  postgres_analytics_data:
     driver: local
   redis_data:
     driver: local
