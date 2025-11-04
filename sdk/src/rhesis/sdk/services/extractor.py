@@ -3,8 +3,10 @@
 import os
 from abc import ABC, abstractmethod
 from enum import Enum
+from io import BytesIO
 from pathlib import Path
 
+import requests
 from markitdown import MarkItDown
 from pydantic import BaseModel
 
@@ -38,8 +40,106 @@ class NotionExtractor(Extractor):
 
 
 class WebsiteExtractor(Extractor):
+    """Extract text from websites using Markitdown."""
+
+    def __init__(self) -> None:
+        """Initialize the WebsiteExtractor."""
+        self.converter = MarkItDown()
+
     def extract(self, source: SourceBase) -> ExtractedSource:
-        pass
+        """
+        Extract text from a website source.
+
+        Args:
+            source: SourceBase object containing the website source
+
+        Returns:
+            ExtractedSource object containing the extracted text
+
+        Raises:
+            ValueError: If the source type is not supported or URL is missing
+        """
+        if source.type != SourceType.WEBSITE:
+            raise ValueError(f"Unsupported source type: {source.type}")
+
+        if "url" not in source.metadata:
+            raise ValueError("URL not found in source metadata")
+
+        url = source.metadata["url"]
+        extracted_text = self._extract_from_url(url)
+
+        return ExtractedSource(**source.model_dump(), content=extracted_text)
+
+    def _extract_from_url(self, url: str) -> str:
+        """
+        Extract text from a URL using Markitdown.
+
+        Args:
+            url: URL of the webpage to extract text from
+
+        Returns:
+            str: Extracted text from the webpage
+
+        Raises:
+            ValueError: If fetching or extraction fails
+        """
+        try:
+            # Fetch the webpage content with browser-like headers
+            headers = {
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/91.0.4472.124 Safari/537.36"
+                ),
+                "Accept": (
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+                ),
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1",
+            }
+            response = requests.get(url, timeout=30, headers=headers)
+            response.raise_for_status()
+
+            # Use MarkItDown to convert HTML to text
+            html_content = BytesIO(response.content)
+
+            from markitdown._stream_info import StreamInfo
+
+            stream_info = StreamInfo(
+                filename="webpage.html",
+                extension=".html",
+                charset="utf-8",
+            )
+
+            result = self.converter.convert(html_content, stream_info=stream_info)
+            extracted_text = self._extract_text_from_result(result)
+
+            return extracted_text
+        except requests.RequestException as e:
+            raise ValueError(f"Failed to fetch webpage from {url}: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Failed to extract text from {url}: {str(e)}")
+
+    def _extract_text_from_result(self, result) -> str:
+        """
+        Extract text content from MarkItDown result object.
+
+        Args:
+            result: MarkItDown conversion result
+
+        Returns:
+            str: Extracted text content
+        """
+        if hasattr(result, "text_content") and result.text_content:
+            extracted_text = result.text_content
+        elif hasattr(result, "markdown") and result.markdown:
+            extracted_text = result.markdown
+        else:
+            extracted_text = str(result)
+
+        return extracted_text.strip() if extracted_text else ""
 
 
 class DocumentExtractor(Extractor):
@@ -216,6 +316,18 @@ if __name__ == "__main__":
         description="test",
         type=SourceType.DOCUMENT,
         metadata={"path": "/Users/arek/Desktop/rhesis/CHANGELOG.md"},
+    )
+    extracted_source = extractor.extract(source)
+    print(extracted_source)
+
+
+if __name__ == "__main__":
+    extractor = WebsiteExtractor()
+    source = SourceBase(
+        name="test",
+        description="test",
+        type=SourceType.WEBSITE,
+        metadata={"url": "https://sebastianraschka.com/blog/2025/llm-evaluation-4-approaches.html"},
     )
     extracted_source = extractor.extract(source)
     print(extracted_source)

@@ -11,7 +11,7 @@ from typing import Any, Dict, Type
 import rhesis.sdk
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
-from rhesis.sdk.synthesizers.document_synthesizer import DocumentSynthesizer
+from rhesis.sdk.synthesizers.document_synthesizer import KnowledgeSynthesizer
 from rhesis.sdk.synthesizers.paraphrasing_synthesizer import ParaphrasingSynthesizer
 from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
 
@@ -31,7 +31,7 @@ class SynthesizerFactory:
     _SYNTHESIZER_CLASSES: Dict[SynthesizerType, Type[TestSetSynthesizer]] = {
         SynthesizerType.PROMPT: PromptSynthesizer,
         SynthesizerType.PARAPHRASING: ParaphrasingSynthesizer,
-        SynthesizerType.DOCUMENT: DocumentSynthesizer,
+        SynthesizerType.DOCUMENT: KnowledgeSynthesizer,
     }
 
     @classmethod

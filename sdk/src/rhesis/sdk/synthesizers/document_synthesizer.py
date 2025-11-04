@@ -1,10 +1,11 @@
 import random
-from typing import Dict, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from pydantic import BaseModel
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.services.context_generator import ContextGenerator
 from rhesis.sdk.services.extractor import (
     DocumentExtractor,
@@ -14,10 +15,8 @@ from rhesis.sdk.services.extractor import (
     SourceType,
     WebsiteExtractor,
 )
-from rhesis.sdk.synthesizers.config_synthesizer import GenerationConfig
 from rhesis.sdk.synthesizers.context_synthesizer import ContextSynthesizer
 from rhesis.sdk.synthesizers.utils import create_test_set
-from rhesis.sdk.types import Document
 from rhesis.sdk.utils import count_tokens
 
 
@@ -46,11 +45,14 @@ class KnowledgeSynthesizer:
             max_context_tokens: Maximum tokens per context used by the ContextGenerator
             strategy: Context selection strategy - "sequential" (from start) or "random" (shuffled)
         """
+        if isinstance(model, str):
+            self.model = get_model(model)
+        else:
+            self.model = model
 
         self.sources = sources
         self.prompt = prompt
         self.batch_size = batch_size
-        self.model = model
         self.context_generator = ContextGenerator(max_context_tokens=max_context_tokens)
         self.max_context_tokens = max_context_tokens
         self.strategy = strategy
@@ -85,20 +87,18 @@ class KnowledgeSynthesizer:
 
     def _compute_coverage(
         self,
-        processed_documents: List[Dict[str, str]],
-        contexts_with_sources: List[Dict[str, str]],
+        processed_sources: List[ExtractedSource],
+        contexts_with_sources: List[ContextWithSource],
         tests_per_contexts: List[int],
     ) -> tuple[float, int]:
         """Compute coverage percent and number of used contexts based on token counts."""
-        total_tokens = sum(count_tokens(doc["content"]) for doc in processed_documents)
-        if total_tokens is None or total_tokens == 0:
-            raise ValueError("Failed to count tokens - content may be malformed or invalid")
+        total_tokens = sum([count_tokens(source.content) for source in processed_sources])
 
         used_context_tokens = 0
         used_contexts = 0
-        for i, context_doc in enumerate(contexts_with_sources):
+        for i, context in enumerate(contexts_with_sources):
             if i < len(tests_per_contexts) and tests_per_contexts[i] > 0:
-                context_tokens = count_tokens(context_doc["content"])
+                context_tokens = count_tokens(context.content)
                 if context_tokens:
                     used_context_tokens += context_tokens
                 used_contexts += 1
@@ -110,23 +110,20 @@ class KnowledgeSynthesizer:
 
     def _print_generation_info(
         self,
-        documents: List[Document],
-        processed_documents: List[Dict[str, str]],
-        contexts_with_sources: List[Dict[str, str]],
+        processed_sources: List[ExtractedSource],
+        contexts_with_sources: List[ContextWithSource],
         tests_per_contexts: List[int],
         num_tests: int,
         tests_per_context: Optional[int],
     ) -> None:
         """Print informative summary about document processing and test generation plan."""
-        total_tokens = sum(count_tokens(doc["content"]) for doc in processed_documents)
-        if total_tokens is None or total_tokens == 0:
-            raise ValueError("Failed to count tokens - content may be malformed or invalid")
+        total_tokens = sum([count_tokens(source.content) for source in processed_sources])
 
         actual_tests = sum(tests_per_contexts)
         num_contexts = len(contexts_with_sources)
 
         print("\n📄 Document Analysis:")
-        print(f"   • {len(documents)} document(s) processed")
+        print(f"   • {len(processed_sources)} source(s) processed")
         print(f"   • {total_tokens:,} total tokens extracted")
         print(f"   • {num_contexts} context(s) created (max {self.max_context_tokens} tokens each)")
         print(f"   • Strategy: {self.strategy} context selection")
@@ -186,17 +183,13 @@ class KnowledgeSynthesizer:
 
     def process_sources(self, sources: List[SourceBase]) -> List[ExtractedSource]:
         """
-        Process documents and extract text with source tracking.
+        Process sources and extract text with source tracking.
 
         Args:
-            documents: List of Document dataclass objects
+            sources: List of SourceBase objects
 
         Returns:
-            List of dictionaries with the following keys:
-                - 'source': Source identifier (filename from path or name)
-                - 'name': Name of the document.
-                - 'description': Description of the document.
-                - 'content': Raw text content of the document.
+            List of ExtractedSource objects
         """
         try:
             extracted_sources = []
@@ -264,8 +257,7 @@ class KnowledgeSynthesizer:
 
         # Inform user about test distribution
         self._print_generation_info(
-            documents=documents,
-            processed_documents=processed_documents,
+            processed_sources=processed_sources,
             contexts_with_sources=contexts_with_sources,
             tests_per_contexts=tests_per_contexts,
             num_tests=num_tests,
@@ -301,7 +293,7 @@ class KnowledgeSynthesizer:
 
         # Compute coverage of document based on tokens for used contexts
         coverage_percent, used_contexts = self._compute_coverage(
-            processed_documents, contexts_with_sources, tests_per_contexts
+            processed_sources, contexts_with_sources, tests_per_contexts
         )
 
         # Get document names for TestSet metadata
@@ -313,7 +305,7 @@ class KnowledgeSynthesizer:
             model=self.model,
             synthesizer_name="DocumentSynthesizer",
             batch_size=self.batch_size,
-            generation_prompt=self.prompt
+            generation_prompt=self.prompt,
             num_tests=len(all_test_cases),
             requested_tests=num_tests,
             documents_used=source_names,
@@ -325,21 +317,28 @@ class KnowledgeSynthesizer:
 
 
 if __name__ == "__main__":
-    config = GenerationConfig(
-        project_context="Web application that allows users to search for and book flights.",
-        behaviors=["Robustness"],
-        topics=["Flights", "Booking", "Search"],
-        categories=["Security", "Performance"],
-        specific_requirements="The LLM should be able to detect frauds",
-        test_type="config",
-        output_format="json",
+    sources = [
+        # SourceBase(
+        #     name="test",
+        #     description="test",
+        #     type=SourceType.DOCUMENT,
+        #     metadata={"path": "/Users/arek/Desktop/rhesis/README.md"},
+        # ),
+        SourceBase(
+            name="test",
+            description="test",
+            type=SourceType.WEBSITE,
+            metadata={
+                "url": "https://sebastianraschka.com/blog/2025/llm-evaluation-4-approaches.html"
+            },
+        ),
+    ]
+
+    synthesizer = KnowledgeSynthesizer(
+        prompt="generate test cases for the following document", sources=sources, model="gemini"
     )
-    synthesizer = DocumentSynthesizer(prompt=" ", config=config, model="gemini")
-    document = Document(
-        name="test",
-        description="test",
-        path="/Users/arek/Downloads/sample.pdf",
-    )
-    tests = synthesizer.generate(documents=[document], num_tests=3)
+
+    tests = synthesizer.generate(num_tests=4, tests_per_context=2)
+
     print(tests.tests)
     print("finished")
