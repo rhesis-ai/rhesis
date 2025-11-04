@@ -132,7 +132,7 @@ export default function TestsTable({
     () => [
       {
         field: 'prompt.content',
-        headerName: 'Content',
+        headerName: 'Content / Goal',
         flex: 3,
         filterable: true,
         valueGetter: (value, row) => {
@@ -209,7 +209,16 @@ export default function TestsTable({
           const testType = params.row.test_type?.type_value;
           if (!testType) return null;
 
-          return <Chip label={testType} size="small" variant="outlined" />;
+          const isMultiTurn = isMultiTurnTest(testType);
+
+          return (
+            <Chip
+              label={testType}
+              size="small"
+              variant="outlined"
+              color={isMultiTurn ? 'secondary' : 'primary'}
+            />
+          );
         },
       },
       {
