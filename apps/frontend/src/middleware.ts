@@ -22,7 +22,6 @@ async function verifySessionWithBackend(sessionToken: string) {
     const data = await response.json();
     return data.authenticated && data.user;
   } catch (error) {
-    console.error('Backend session verification failed:', error);
     return false;
   }
 }
@@ -47,9 +46,6 @@ function getSessionTokenFromRequest(request: NextRequest): string | null {
     }
   } catch (error) {
     // If JSON parsing fails, it might be a direct JWT token
-    console.log(
-      '[WARNING] [DEBUG] Session cookie is not JSON, treating as direct token'
-    );
   }
 
   // If it's not JSON or doesn't have session_token field, return as is
@@ -68,9 +64,6 @@ async function createSessionClearingResponse(
   // If requested, call backend logout first to clear server-side session
   if (shouldCallBackendLogout) {
     try {
-      console.log(
-        '🟠 [DEBUG] Middleware calling backend logout for session expiration'
-      );
       const logoutUrl = new URL('/auth/logout', process.env.BACKEND_URL);
       if (sessionToken) {
         logoutUrl.searchParams.set('session_token', sessionToken);
@@ -82,12 +75,7 @@ async function createSessionClearingResponse(
           Accept: 'application/json',
         },
       });
-      console.log('🟠 [DEBUG] Backend logout completed in middleware');
     } catch (error) {
-      console.warn(
-        '🟠 [DEBUG] Backend logout failed in middleware (continuing with frontend cleanup):',
-        error
-      );
       // Continue with frontend cleanup even if backend fails
     }
   }
@@ -144,27 +132,16 @@ async function createSessionClearingResponse(
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  console.log('🟠 [DEBUG] Middleware called for pathname:', pathname);
-
   // At the top of the middleware function, after pathname declaration
   const isPostLogout =
     request.nextUrl.searchParams.get('post_logout') === 'true';
   const isSessionExpired =
     request.nextUrl.searchParams.get('session_expired') === 'true';
 
-  console.log(
-    '🟠 [DEBUG] Is post logout:',
-    isPostLogout,
-    'Is session expired:',
-    isSessionExpired
-  );
-
   // Prevent redirect loops by always allowing access to signin page
   if (pathname.startsWith('/auth/signin')) {
-    console.log('🟠 [DEBUG] Auth signin path detected');
     // If this is a post-logout redirect, force return_to to root
     if (isPostLogout) {
-      console.log('🟠 [DEBUG] Post logout redirect, clearing session cookies');
       const signInUrl = new URL('/auth/signin', request.url);
       signInUrl.searchParams.set('return_to', '/');
       return await createSessionClearingResponse(signInUrl); // No backend logout needed (already logged out)
@@ -174,29 +151,24 @@ export async function middleware(request: NextRequest) {
 
   // Allow the logout page to function without auth checks
   if (pathname.startsWith('/auth/signout')) {
-    console.log('🟠 [DEBUG] Auth signout path detected, allowing access');
     return NextResponse.next();
   }
 
   // Allow public paths without auth checks
   if (isPublicPath(pathname)) {
-    console.log('🟠 [DEBUG] Public path detected, allowing access');
     return NextResponse.next();
   }
 
   // Allow onboarding path without organization check
   if (pathname === ONBOARDING_PATH) {
     // Still check for auth though
-    console.log('[AUTH] Onboarding path detected, checking auth only...');
   }
 
   // If not public, check for session
-  console.log('[SECURE] Protected path detected, checking session...');
   try {
     // Get session token from request
     const sessionToken = getSessionTokenFromRequest(request);
     if (!sessionToken) {
-      console.log('[ERROR] No session token found');
       // For users accessing protected routes without any authentication,
       // redirect to home page which has the unified login experience
       const homeUrl = new URL('/', request.url);
@@ -208,9 +180,6 @@ export async function middleware(request: NextRequest) {
     // Verify session token with backend
     const isValidBackendSession = await verifySessionWithBackend(sessionToken);
     if (!isValidBackendSession) {
-      console.log(
-        '[ERROR] Backend session validation failed - clearing all session data'
-      );
       // For users with expired/invalid sessions (they were previously authenticated),
       // redirect to home page with session clearing and expired flag
       const homeUrl = new URL('/', request.url);
@@ -222,34 +191,18 @@ export async function middleware(request: NextRequest) {
     // Get session data from auth
     const session = await auth();
     if (!session?.user?.organization_id && pathname !== ONBOARDING_PATH) {
-      console.log(
-        '[WARNING] No organization_id found, redirecting to onboarding'
-      );
       return NextResponse.redirect(new URL(ONBOARDING_PATH, request.url));
     }
 
     if (pathname === ONBOARDING_PATH && session?.user?.organization_id) {
-      console.log(
-        '[WARNING] User already has organization, redirecting to dashboard'
-      );
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
-    console.log('[SUCCESS] Valid session found');
     return NextResponse.next();
   } catch (error: any) {
     const err = error as Error;
 
-    console.log('[ALERT] Auth Error in middleware:', {
-      type: typeof err,
-      name: err.name,
-      message: err.message,
-      cause: err.cause,
-      stack: err.stack,
-    });
-
     if (err.message?.includes('UntrustedHost')) {
-      console.log('[ERROR] UntrustedHost error detected');
       // For untrusted host errors, redirect to home page with session clearing
       const homeUrl = new URL('/', request.url);
       homeUrl.searchParams.set('session_expired', 'true');
@@ -266,7 +219,6 @@ export async function middleware(request: NextRequest) {
       (err.cause as Error)?.message?.includes('no matching decryption secret');
 
     if (isJWTError) {
-      console.log('[ERROR] JWT Session Error detected');
       // For JWT errors (expired/invalid sessions), redirect to home page with session clearing
       const homeUrl = new URL('/', request.url);
       homeUrl.searchParams.set('session_expired', 'true');

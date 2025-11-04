@@ -348,7 +348,6 @@ export default function MetricsDirectoryTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error assigning metric to behavior:', err);
       notifications.show('Failed to assign metric to behavior', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -421,7 +420,6 @@ export default function MetricsDirectoryTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error removing metric from behavior:', err);
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -468,7 +466,6 @@ export default function MetricsDirectoryTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error deleting metric:', err);
       notifications.show('Failed to delete metric', {
         severity: 'error',
         autoHideDuration: 4000,

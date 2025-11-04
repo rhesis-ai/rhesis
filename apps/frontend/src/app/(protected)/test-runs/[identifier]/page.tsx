@@ -42,12 +42,6 @@ export default async function TestRunPage({
   const identifier = resolvedParams.identifier;
   const selectedResult = resolvedSearchParams?.selectedresult;
 
-  console.log('[TestRunPage] URL params:', {
-    identifier,
-    selectedResult,
-    allSearchParams: resolvedSearchParams,
-  });
-
   const session = await auth();
 
   // If no session, throw error - will be caught by error boundary
@@ -72,9 +66,6 @@ export default async function TestRunPage({
   let hasMore = true;
 
   while (hasMore) {
-    console.log(
-      `[SSR] Fetching test results batch: skip=${skip}, limit=${batchSize}`
-    );
     const testResultsResponse = await testResultsClient.getTestResults({
       filter: `test_run_id eq '${identifier}'`,
       limit: batchSize,
@@ -83,9 +74,6 @@ export default async function TestRunPage({
       sort_order: 'desc',
     });
 
-    console.log(
-      `[SSR] Received ${testResultsResponse.data.length} test results, total so far: ${testResults.length + testResultsResponse.data.length}`
-    );
     testResults = [...testResults, ...testResultsResponse.data];
 
     // Check if there are more results
@@ -98,9 +86,6 @@ export default async function TestRunPage({
   }
 
   // Build prompts map from nested data in test results (optimized - no separate API calls needed!)
-  console.log(
-    `[SSR] Building prompts map from ${testResults.length} test results using nested data`
-  );
   const promptsMap = testResults.reduce(
     (acc, testResult) => {
       // Use nested prompt data if available
@@ -115,16 +100,10 @@ export default async function TestRunPage({
       }
       // Fallback: if prompt_id exists but nested data is not available (backward compatibility)
       else if (testResult.prompt_id && !acc[testResult.prompt_id]) {
-        console.warn(
-          `[SSR] Prompt ${testResult.prompt_id} not found in nested data for test result ${testResult.id}`
-        );
       }
       return acc;
     },
     {} as Record<string, any>
-  );
-  console.log(
-    `[SSR] Built prompts map with ${Object.keys(promptsMap).length} unique prompts (NO separate API calls!)`
   );
 
   // Fetch behaviors with metrics for this test run
@@ -142,10 +121,6 @@ export default async function TestRunPage({
             metrics: behaviorMetrics,
           };
         } catch (error) {
-          console.warn(
-            `Failed to fetch metrics for behavior ${behavior.id}:`,
-            error
-          );
           return {
             ...behavior,
             metrics: [],
@@ -158,7 +133,6 @@ export default async function TestRunPage({
       behavior => behavior.metrics.length > 0
     );
   } catch (error) {
-    console.warn('Failed to fetch behaviors:', error);
     behaviors = [];
   }
 

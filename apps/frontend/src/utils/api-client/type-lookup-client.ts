@@ -33,8 +33,6 @@ export class TypeLookupClient extends BaseApiClient {
     const queryString = queryParams.toString();
     const url = `${API_ENDPOINTS.type_lookups}?${queryString}`;
 
-    console.log('Fetching type lookups with URL:', url);
-
     return this.fetch<TypeLookup[]>(url, {
       cache: 'no-store',
     });

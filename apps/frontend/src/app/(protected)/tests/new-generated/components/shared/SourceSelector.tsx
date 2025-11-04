@@ -70,7 +70,6 @@ export default function SourceSelector({
 
       setSources(sourcesData);
     } catch (err) {
-      console.error('Error loading sources:', err);
       setError('Failed to load sources. Please try again.');
     } finally {
       setIsLoading(false);

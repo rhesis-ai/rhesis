@@ -28,15 +28,12 @@ export class OrganizationsClient extends BaseApiClient {
   async createOrganization(
     organization: OrganizationCreate
   ): Promise<Organization> {
-    console.log('Creating organization with data:', organization);
-
     try {
       return await this.fetch<Organization>(API_ENDPOINTS.organizations, {
         method: 'POST',
         body: JSON.stringify(organization),
       });
     } catch (error: any) {
-      console.error('Failed to create organization:', error);
       // Extract useful error message or use a default
       const errorMessage =
         error.data?.detail ||
@@ -53,8 +50,6 @@ export class OrganizationsClient extends BaseApiClient {
     id: UUID | string,
     data: Partial<Organization>
   ): Promise<Organization> {
-    console.log('Updating organization with data:', data);
-
     return this.fetch<Organization>(`${API_ENDPOINTS.organizations}/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),

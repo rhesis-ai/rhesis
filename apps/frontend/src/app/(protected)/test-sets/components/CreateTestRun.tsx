@@ -66,18 +66,15 @@ export default function CreateTestRun({
   // Fetch projects and endpoints when drawer opens
   useEffect(() => {
     if (!sessionToken || !open) {
-      console.log('Skipping data fetch - drawer not open or no session token');
       return;
     }
 
     const fetchInitialData = async () => {
       try {
-        console.log('Starting to fetch initial data...');
         const clientFactory = new ApiClientFactory(sessionToken);
 
         // Fetch projects with proper response handling
         const projectsClient = clientFactory.getProjectsClient();
-        console.log('About to call getProjects...');
 
         const projectsData = await projectsClient.getProjects({
           sort_by: 'name',
@@ -85,27 +82,21 @@ export default function CreateTestRun({
           limit: 100,
         });
 
-        console.log('Projects API response:', projectsData);
-
         // Handle both response formats: direct array or {data: array}
         let projectsArray: Project[] = [];
         if (Array.isArray(projectsData)) {
           // Direct array response
           projectsArray = projectsData;
-          console.log('Using direct array response');
         } else if (projectsData && Array.isArray(projectsData.data)) {
           // Paginated response with data property
           projectsArray = projectsData.data;
-          console.log('Using paginated response data');
         } else {
-          console.warn('Invalid projects response structure:', projectsData);
         }
 
         const processedProjects = projectsArray
           .filter((p: Project) => p.id && p.name && p.name.trim() !== '')
           .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
 
-        console.log('Final processed projects:', processedProjects);
         setProjects(processedProjects);
 
         // Fetch all endpoints
@@ -132,11 +123,9 @@ export default function CreateTestRun({
             setEndpoints([]);
           }
         } catch (endpointsError) {
-          console.error('Error fetching endpoints:', endpointsError);
           setEndpoints([]);
         }
       } catch (error) {
-        console.error('Error fetching initial data:', error);
         setProjects([]); // Ensure projects remains an empty array on error
         setEndpoints([]);
         onError?.('Failed to load initial data');
@@ -206,7 +195,6 @@ export default function CreateTestRun({
 
       onSuccess?.();
     } catch (error) {
-      console.error('Error executing test sets:', error);
       onError?.('Failed to execute test sets');
     } finally {
       setLoading(false);

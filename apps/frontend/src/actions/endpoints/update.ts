@@ -32,7 +32,6 @@ export async function updateEndpoint(
       data: updatedEndpoint,
     };
   } catch (error) {
-    // Failed to update endpoint
     return {
       success: false,
       error:

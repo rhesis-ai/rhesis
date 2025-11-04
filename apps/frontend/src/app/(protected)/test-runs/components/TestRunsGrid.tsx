@@ -91,13 +91,6 @@ function TestRunsTable({
         // Convert filter model to OData filter string (handles both column filters and quick search)
         const filterString = combineTestRunFiltersToOData(filterModel);
 
-        console.log('TestRunsGrid - Filter Debug:', {
-          filterModel,
-          filterString,
-          skip,
-          limit,
-        });
-
         const apiParams = {
           skip,
           limit,
@@ -105,8 +98,6 @@ function TestRunsTable({
           sort_order: 'desc' as const,
           ...(filterString && { filter: filterString }),
         };
-
-        console.log('TestRunsGrid - API Params:', apiParams);
 
         const response = await testRunsClient.getTestRuns(apiParams);
 
@@ -142,10 +133,6 @@ function TestRunsTable({
                         await projectsClient.getProject(projectId);
                       return { projectId, name: project.name };
                     } catch (err) {
-                      console.error(
-                        `Error fetching project ${projectId}:`,
-                        err
-                      );
                       return null;
                     }
                   })
@@ -182,7 +169,6 @@ function TestRunsTable({
           }
         }
       } catch (error) {
-        console.error('Error fetching test runs:', error);
         if (isMounted.current) {
           setError('Failed to load test runs');
           setTestRuns([]);
@@ -478,7 +464,6 @@ function TestRunsTable({
       // Clear selection
       setSelectedRows([]);
     } catch (error) {
-      console.error('Error deleting test runs:', error);
       notifications.show('Failed to delete test runs', { severity: 'error' });
     } finally {
       setIsDeleting(false);
@@ -500,7 +485,6 @@ function TestRunsTable({
   // Filter change handler
   const handleFilterModelChange = useCallback(
     (newFilterModel: GridFilterModel) => {
-      console.log('Filter model changed:', newFilterModel);
       setFilterModel(newFilterModel);
       // Reset to first page when filter changes
       setPaginationModel(prev => ({ ...prev, page: 0 }));
