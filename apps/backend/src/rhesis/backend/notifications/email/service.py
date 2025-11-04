@@ -210,7 +210,7 @@ class EmailService:
 
         # Get welcome-specific from email (defaults to hello@rhesis.ai for founder emails)
         welcome_from_email = os.getenv(
-            "WELCOME_FROM_EMAIL", "Nicolai from Rhesis AI <hello@rhesis.ai>"
+            "WELCOME_FROM_EMAIL", '"Nicolai from Rhesis AI" <hello@rhesis.ai>'
         )
 
         subject = "Welcome to Rhesis AI!"
