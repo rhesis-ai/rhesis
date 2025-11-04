@@ -124,7 +124,7 @@ export const CodeBlock = ({
         .join('\n')
 
       // 3. Numbers - avoid inside strings and comments
-      let parts = highlightedCode.split(/(<span[^>]*>.*?<\/span>)/g)
+      let parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
       highlightedCode = parts
         .map(part => {
           if (part.startsWith('<span')) {
@@ -135,7 +135,7 @@ export const CodeBlock = ({
         .join('')
 
       // 4. Keywords - avoid inside strings, comments, and numbers
-      parts = highlightedCode.split(/(<span[^>]*>.*?<\/span>)/g)
+      parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
       highlightedCode = parts
         .map(part => {
           if (part.startsWith('<span')) {
@@ -181,7 +181,7 @@ export const CodeBlock = ({
         .join('\n')
 
       // 3. Commands - avoid inside strings and comments
-      const parts = highlightedCode.split(/(<span[^>]*>.*?<\/span>)/g)
+      const parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
       highlightedCode = parts
         .map(part => {
           if (part.startsWith('<span')) {
