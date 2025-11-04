@@ -335,7 +335,11 @@ export default function TestDetailData({
         <>
           <Grid item xs={12}>
             <Box sx={{ mb: 1 }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+              >
                 Test Prompt
               </Typography>
               <Typography
@@ -356,7 +360,11 @@ export default function TestDetailData({
           </Grid>
           <Grid item xs={12}>
             <Box sx={{ mb: 1 }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+              >
                 Expected Response
               </Typography>
               <Typography

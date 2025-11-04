@@ -137,8 +137,10 @@ export default function TestsTable({
         filterable: true,
         valueGetter: (value, row) => {
           // For multi-turn tests, show the goal
-          if (isMultiTurnTest(row.test_type?.type_value) && 
-              isMultiTurnConfig(row.test_configuration)) {
+          if (
+            isMultiTurnTest(row.test_type?.type_value) &&
+            isMultiTurnConfig(row.test_configuration)
+          ) {
             return row.test_configuration.goal || '';
           }
           // For single-turn tests, show the prompt content
@@ -146,16 +148,18 @@ export default function TestsTable({
         },
         renderCell: params => {
           let content = '';
-          
+
           // For multi-turn tests, show the goal
-          if (isMultiTurnTest(params.row.test_type?.type_value) && 
-              isMultiTurnConfig(params.row.test_configuration)) {
+          if (
+            isMultiTurnTest(params.row.test_type?.type_value) &&
+            isMultiTurnConfig(params.row.test_configuration)
+          ) {
             content = params.row.test_configuration.goal || '';
           } else {
             // For single-turn tests, show the prompt content
             content = params.row.prompt?.content || params.row.content || '';
           }
-          
+
           if (!content) return null;
 
           return (
@@ -249,7 +253,9 @@ export default function TestsTable({
           if (count === 0) return null;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <DescriptionIcon sx={{ fontSize: 'small', color: 'text.secondary' }} />
+              <DescriptionIcon
+                sx={{ fontSize: 'small', color: 'text.secondary' }}
+              />
               <Typography variant="body2">{count}</Typography>
             </Box>
           );
