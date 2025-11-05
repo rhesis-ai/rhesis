@@ -86,7 +86,10 @@ function EditableField({
       await onSave(editedValue);
       setIsEditing(false);
     } catch (error) {
-      // Error handling is done in parent
+      // Error notification is shown by parent
+      // Revert to original value and exit edit mode
+      setEditedValue(value);
+      setIsEditing(false);
     } finally {
       setIsUpdating(false);
     }
