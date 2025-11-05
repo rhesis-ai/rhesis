@@ -6,6 +6,7 @@ These functions are re-exported from test_execution.py for backward compatibilit
 """
 
 import copy
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -17,6 +18,41 @@ from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ResultStatus
 from rhesis.backend.tasks.execution.response_extractor import extract_response_with_fallback
+
+# ============================================================================
+# SERIALIZATION UTILITIES
+# ============================================================================
+
+
+def serialize_for_json(obj: Any) -> Any:
+    """
+    Recursively convert an object to JSON-serializable format.
+
+    Handles datetime objects by converting them to ISO format strings.
+    Recursively processes dicts, lists, and other nested structures.
+
+    Args:
+        obj: Object to serialize
+
+    Returns:
+        JSON-serializable version of the object
+
+    Example:
+        >>> data = {"timestamp": datetime.now(), "nested": {"date": datetime.now()}}
+        >>> serialized = serialize_for_json(data)
+        >>> # All datetime objects are now ISO strings
+    """
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {key: serialize_for_json(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [serialize_for_json(item) for item in obj]
+    elif hasattr(obj, "__dict__"):
+        # Handle Pydantic models and other objects with __dict__
+        return serialize_for_json(obj.__dict__)
+    else:
+        return obj
 
 
 # ============================================================================
@@ -242,4 +278,3 @@ def create_test_result_record(
     except Exception as e:
         logger.error(f"Failed to create test result: {str(e)}")
         raise
-
