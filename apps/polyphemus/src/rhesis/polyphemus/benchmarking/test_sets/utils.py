@@ -1,7 +1,9 @@
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+
+from rhesis.sdk.services.context_generator import ContextGenerator
 
 
 @dataclass
@@ -14,13 +16,14 @@ class Test:
     # invocation
     prompt: Optional[str] = None
     system_prompt: Optional[str] = None
+    context: Optional[List[str]] = None  # RAG-style context chunks
     additional_params: Optional[Dict[str, Any]] = field(default_factory=dict)
     # expectation
     expected_text: Optional[str] = None
 
     def __eq__(self, other: Any) -> bool:
         """
-        Custom equality method to compare tests by prompt, system prompt, expected text,
+        Custom equality method to compare tests by prompt, system prompt, context, expected text,
         and additional params.
         """
         if not isinstance(other, Test):
@@ -28,6 +31,8 @@ class Test:
         if self.prompt != other.prompt:
             return False
         if self.system_prompt != other.system_prompt:
+            return False
+        if self.context != other.context:
             return False
         if self.expected_text != other.expected_text:
             return False
@@ -58,6 +63,7 @@ class TestResult:
     # invocation
     prompt: Optional[str] = None
     system_prompt: Optional[str] = None
+    context: Optional[List[str]] = None  # RAG-style context chunks
     additional_params: Optional[Dict[str, Any]] = field(default_factory=dict)
     # expectation
     expected_text: Optional[str] = None
@@ -69,11 +75,13 @@ class TestResult:
 def results_matches_test(test_result: TestResult, test: Test) -> bool:
     """
     Check if a TestResult corresponds to a given Test based on key fields.
-    Returns True if prompt, system prompt, expected text, and additional params match.
+    Returns True if prompt, system prompt, context, expected text, and additional params match.
     """
     if test_result.prompt != test.prompt:
         return False
     if test_result.system_prompt != test.system_prompt:
+        return False
+    if test_result.context != test.context:
         return False
     if test_result.expected_text != test.expected_text:
         return False
@@ -92,12 +100,16 @@ def update_if_result_matches_test(test_result: TestResult, test: Test) -> bool:
     """
     Checks if a TestResult corresponds to a given Test based on key fields.
     If they match, update the TestResult with information from the Test.
-    If expected_text changes, resets score and details.
+    If expected_text or context changes, resets score and details.
     """
     if test_result.prompt != test.prompt:
         return False
     if test_result.system_prompt != test.system_prompt:
         return False
+    if test_result.context != test.context:
+        test_result.context = test.context
+        test_result.score = None
+        test_result.details = None
     if test_result.expected_text != test.expected_text:
         test_result.expected_text = test.expected_text
         test_result.score = None
@@ -108,9 +120,56 @@ def update_if_result_matches_test(test_result: TestResult, test: Test) -> bool:
     return True
 
 
-def read_tests_json(json_path) -> List[Test] | None:
+def prepare_context(
+    context: Optional[Union[str, List[str]]], max_tokens_per_chunk: int = 1500
+) -> Optional[List[str]]:
     """
-    Helper method to extract tests from a json file
+    Prepare context for SDK compatibility using ContextGenerator.
+
+    Handles three cases:
+    1. None -> returns None
+    2. List[str] -> returns as-is (already chunked)
+    3. str -> automatically chunks using SDK's ContextGenerator
+
+    Args:
+        context: Raw context (None, string, or list of strings)
+        max_tokens_per_chunk: Maximum tokens per context chunk (default: 1500)
+
+    Returns:
+        List[str] of context chunks, or None if no context
+    """
+    if context is None:
+        return None
+
+    if isinstance(context, list):
+        # Already chunked - return as-is
+        return context
+
+    if isinstance(context, str):
+        # Use SDK ContextGenerator for intelligent semantic chunking
+        generator = ContextGenerator(max_context_tokens=max_tokens_per_chunk)
+        chunks = generator.generate_contexts(context)
+        return chunks
+
+    # Fallback for unexpected types
+    return [str(context)]
+
+
+def read_tests_json(json_path, auto_chunk_context: bool = True) -> List[Test] | None:
+    """
+    Helper method to extract tests from a json file.
+
+    Args:
+        json_path: Path to the JSON file containing tests
+        auto_chunk_context: If True, automatically chunk string context using SDK ContextGenerator
+
+    Returns:
+        List of Test objects, or None if file not found
+
+    Context handling:
+    - If context is a list, it's used as-is (pre-chunked)
+    - If context is a string and auto_chunk_context=True, it's intelligently chunked
+    - If context is a string and auto_chunk_context=False, it's converted to a single-item list
     """
     test_set = []
 
@@ -120,8 +179,11 @@ def read_tests_json(json_path) -> List[Test] | None:
         with open(json_path, mode="r") as f:
             json_data = json.load(f)
             test_set = []
-            for test in json_data.get("tests", []):
-                test_set.append(Test(**test))
+            for test_data in json_data.get("tests", []):
+                # Handle context field specially if auto_chunk_context is enabled
+                if auto_chunk_context and "context" in test_data:
+                    test_data["context"] = prepare_context(test_data["context"])
+                test_set.append(Test(**test_data))
 
     except FileNotFoundError:
         return None

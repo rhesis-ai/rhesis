@@ -190,6 +190,7 @@ class TestSetEvaluator:
                     model_id=model.get_model_name(),
                     prompt=test.prompt,
                     system_prompt=test.system_prompt,
+                    context=test.context,
                     additional_params=test.additional_params,
                     expected_text=test.expected_text,
                     metadata=None,
@@ -205,9 +206,19 @@ class TestSetEvaluator:
             response = None
             error = None
             try:
+                # Prepare system prompt with context if available
+                system_prompt = test.system_prompt
+                if test.context:
+                    # Prepend context chunks to system prompt
+                    context_text = "\n\n".join(test.context)
+                    if system_prompt:
+                        system_prompt = f"{system_prompt}\n\n# Context Information:\n{context_text}"
+                    else:
+                        system_prompt = f"# Context Information:\n{context_text}"
+
                 response = model.generate(
                     prompt=test.prompt,
-                    system_prompt=test.system_prompt,
+                    system_prompt=system_prompt,
                     **test.additional_params,
                 )
             except Exception as e:
@@ -219,6 +230,7 @@ class TestSetEvaluator:
                 error=error,
                 prompt=test.prompt,
                 system_prompt=test.system_prompt,
+                context=test.context,
                 # NOTE: the model might have default params that are not listed here
                 additional_params=test.additional_params,
                 expected_text=test.expected_text,
@@ -338,17 +350,14 @@ class TestSetEvaluator:
             test_result.details["refusal"] = {"error": str(e)}
 
         # Context Retention (if context available)
-        ctx = test_result.system_prompt or (
-            test_result.additional_params.get("context") if test_result.additional_params else None
-        )
-        if ctx:
+        if test_result.context:
             context_retention = ContextRetentionJudge(model=self.judge)
             try:
                 r = context_retention.evaluate(
                     input=test_result.prompt,
                     output=test_result.text,
                     expected_output=test_result.expected_text,
-                    context=ctx,
+                    context=test_result.context,
                 )
                 test_result.details["context_retention"] = {"score": r.score, **r.details}
             except Exception as e:
