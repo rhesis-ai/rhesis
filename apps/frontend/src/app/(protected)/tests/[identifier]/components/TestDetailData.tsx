@@ -10,7 +10,14 @@ import { TestDetail, TypeLookup } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import TestExecutableField from './TestExecutableField';
 import FilePreview from '@/components/common/FilePreview';
+import MultiTurnConfigFields from './MultiTurnConfigFields';
+import {
+  MultiTurnTestConfig,
+  isMultiTurnConfig,
+} from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { UUID } from 'crypto';
+import { isMultiTurnTest } from '@/constants/test-types';
+import { useRouter } from 'next/navigation';
 
 interface TestDetailDataProps {
   sessionToken: string;
@@ -27,6 +34,7 @@ export default function TestDetailData({
   test: initialTest,
 }: TestDetailDataProps) {
   const theme = useTheme();
+  const router = useRouter();
   const [behaviors, setBehaviors] = React.useState<TestDetailOption[]>([]);
   const [types, setTypes] = React.useState<TestDetailOption[]>([]);
   const [topics, setTopics] = React.useState<TestDetailOption[]>([]);
@@ -124,8 +132,11 @@ export default function TestDetailData({
       }
 
       setTest(updatedTest);
+
+      // Refresh the server components to update the page title
+      router.refresh();
     } catch (error) {}
-  }, [sessionToken, test.id, isUpdating]);
+  }, [sessionToken, test.id, isUpdating, router]);
 
   const handleUpdate = async (
     field: string,
@@ -207,6 +218,9 @@ export default function TestDetailData({
     }
   };
 
+  // Check if test is multi-turn
+  const isMultiTurn = isMultiTurnTest(test.test_type?.type_value);
+
   return (
     <Grid container spacing={2}>
       <Grid item xs={12} md={6}>
@@ -218,7 +232,7 @@ export default function TestDetailData({
               // Find the matching behavior option by name
               if (typeof value === 'string') {
                 const matchingBehavior = behaviors.find(
-                  behavior => behavior.name === value
+                  (behavior: TestDetailOption) => behavior.name === value
                 );
                 if (matchingBehavior) {
                   handleUpdate('behavior', matchingBehavior);
@@ -237,10 +251,71 @@ export default function TestDetailData({
           <BaseFreesoloAutocomplete
             options={types}
             value={getDisplayValue('test_type')}
-            onChange={value => {
+            onChange={async value => {
+              // Validate multi-turn tests require a goal
+              let selectedType: TestDetailOption | null = null;
+              if (typeof value === 'string') {
+                selectedType =
+                  types.find((type: TestDetailOption) => type.name === value) ||
+                  null;
+              } else {
+                selectedType = value;
+              }
+
+              // Check if switching to multi-turn - initialize with placeholder goal
+              if (selectedType && isMultiTurnTest(selectedType.name)) {
+                const hasGoal =
+                  isMultiTurnConfig(test.test_configuration) &&
+                  test.test_configuration.goal &&
+                  test.test_configuration.goal.trim().length > 0;
+
+                if (!hasGoal) {
+                  // Initialize test_configuration with a placeholder goal
+                  setIsUpdating(true);
+                  try {
+                    const apiFactory = new ApiClientFactory(sessionToken);
+                    const testsClient = apiFactory.getTestsClient();
+
+                    // First, update to multi-turn type
+                    await testsClient.updateTest(test.id, {
+                      test_type_id: selectedType.id,
+                    });
+
+                    // Then, initialize test_configuration with placeholder goal
+                    await testsClient.updateTest(test.id, {
+                      test_configuration: {
+                        goal: 'Please define a goal',
+                        max_turns: 10,
+                      },
+                    });
+
+                    notifications.show(
+                      'Switched to Multi-Turn. Please provide a goal for this test.',
+                      {
+                        severity: 'info',
+                        autoHideDuration: 6000,
+                      }
+                    );
+
+                    // Refresh the test data
+                    await refreshTest();
+                  } catch (error) {
+                    notifications.show('Failed to switch to multi-turn type', {
+                      severity: 'error',
+                      autoHideDuration: 6000,
+                    });
+                  } finally {
+                    setIsUpdating(false);
+                  }
+                  return;
+                }
+              }
+
               // Find the matching type option by name
               if (typeof value === 'string') {
-                const matchingType = types.find(type => type.name === value);
+                const matchingType = types.find(
+                  (type: TestDetailOption) => type.name === value
+                );
                 if (matchingType) {
                   handleUpdate('test_type', matchingType);
                 } else {
@@ -264,7 +339,7 @@ export default function TestDetailData({
               // Find the matching topic option by name
               if (typeof value === 'string') {
                 const matchingTopic = topics.find(
-                  topic => topic.name === value
+                  (topic: TestDetailOption) => topic.name === value
                 );
                 if (matchingTopic) {
                   handleUpdate('topic', matchingTopic);
@@ -287,7 +362,7 @@ export default function TestDetailData({
               // Find the matching category option by name
               if (typeof value === 'string') {
                 const matchingCategory = categories.find(
-                  category => category.name === value
+                  (category: TestDetailOption) => category.name === value
                 );
                 if (matchingCategory) {
                   handleUpdate('category', matchingCategory);
@@ -303,31 +378,78 @@ export default function TestDetailData({
           />
         </Box>
       </Grid>
-      <Grid item xs={12}>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          Test Executable
-        </Typography>
-        <TestExecutableField
-          sessionToken={sessionToken}
-          testId={test.id}
-          promptId={test.prompt_id}
-          initialContent={test.prompt?.content || ''}
-          onUpdate={refreshTest}
-        />
-      </Grid>
-      <Grid item xs={12}>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          Expected Response
-        </Typography>
-        <TestExecutableField
-          sessionToken={sessionToken}
-          testId={test.id}
-          promptId={test.prompt_id}
-          initialContent={test.prompt?.expected_response || ''}
-          onUpdate={refreshTest}
-          fieldName="expected_response"
-        />
-      </Grid>
+
+      {/* Conditional rendering based on test type */}
+      {isMultiTurn ? (
+        /* Multi-Turn Configuration Fields */
+        <Grid item xs={12}>
+          <MultiTurnConfigFields
+            sessionToken={sessionToken}
+            testId={test.id}
+            initialConfig={
+              isMultiTurnConfig(test.test_configuration)
+                ? (test.test_configuration as MultiTurnTestConfig)
+                : null
+            }
+            onUpdate={refreshTest}
+          />
+        </Grid>
+      ) : (
+        /* Standard Test Fields */
+        <>
+          <Grid item xs={12}>
+            <Box sx={{ mb: 1 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+              >
+                Test Prompt
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', fontStyle: 'italic' }}
+              >
+                The input prompt that will be sent to the target system
+              </Typography>
+            </Box>
+            <TestExecutableField
+              sessionToken={sessionToken}
+              testId={test.id}
+              promptId={test.prompt_id}
+              initialContent={test.prompt?.content || ''}
+              onUpdate={refreshTest}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <Box sx={{ mb: 1 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+              >
+                Expected Response
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', fontStyle: 'italic' }}
+              >
+                The expected output or behavior from the target system
+              </Typography>
+            </Box>
+            <TestExecutableField
+              sessionToken={sessionToken}
+              testId={test.id}
+              promptId={test.prompt_id}
+              initialContent={test.prompt?.expected_response || ''}
+              onUpdate={refreshTest}
+              fieldName="expected_response"
+            />
+          </Grid>
+        </>
+      )}
 
       {/* Sources Section */}
       {test.test_metadata?.sources && test.test_metadata.sources.length > 0 && (
@@ -347,18 +469,19 @@ export default function TestDetailData({
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {test.test_metadata.sources.map((source: any, index: number) => (
-              <FilePreview
-                key={index}
-                title={
-                  source.name ||
-                  source.document ||
-                  source.source ||
-                  'Unknown Source'
-                }
-                content={source.content || 'No content available'}
-                showCopyButton={true}
-                defaultExpanded={false}
-              />
+              <Box key={`source-${index}`}>
+                <FilePreview
+                  title={
+                    source.name ||
+                    source.document ||
+                    source.source ||
+                    'Unknown Source'
+                  }
+                  content={source.content || 'No content available'}
+                  showCopyButton={true}
+                  defaultExpanded={false}
+                />
+              </Box>
             ))}
           </Box>
         </Grid>
