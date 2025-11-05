@@ -346,6 +346,29 @@ export default function MultiTurnConfigFields({
     }
   };
 
+  const removeField = async (
+    field: keyof MultiTurnTestConfig,
+    setShowFunction: (show: boolean) => void
+  ) => {
+    try {
+      // Determine default value based on field
+      let defaultValue: string | number;
+      if (field === 'max_turns') {
+        defaultValue = 10;
+      } else {
+        defaultValue = ''; // For text fields (instructions, restrictions, scenario)
+      }
+
+      // Update the field to its default value
+      await updateField(field, defaultValue);
+
+      // Hide the field after successful update
+      setShowFunction(false);
+    } catch (error) {
+      // Error is already handled in updateField
+    }
+  };
+
   const optionalFields = [
     {
       key: 'instructions',
@@ -395,7 +418,7 @@ export default function MultiTurnConfigFields({
           rows={3}
           placeholder="How to conduct the test"
           helperText="How to conduct the test - if not provided, the agent plans its own approach"
-          onRemove={() => setShowInstructions(false)}
+          onRemove={() => removeField('instructions', setShowInstructions)}
           maxLength={10000}
         />
       )}
@@ -408,7 +431,7 @@ export default function MultiTurnConfigFields({
           rows={3}
           placeholder="What must not happen"
           helperText="What the target must not do - forbidden behaviors or boundaries"
-          onRemove={() => setShowRestrictions(false)}
+          onRemove={() => removeField('restrictions', setShowRestrictions)}
           maxLength={10000}
         />
       )}
@@ -421,7 +444,7 @@ export default function MultiTurnConfigFields({
           rows={3}
           placeholder="Context and persona for the test"
           helperText="Context and persona for the test - narrative setup or user role"
-          onRemove={() => setShowScenario(false)}
+          onRemove={() => removeField('scenario', setShowScenario)}
           maxLength={5000}
         />
       )}
@@ -435,7 +458,7 @@ export default function MultiTurnConfigFields({
           type="number"
           placeholder="10"
           helperText="Maximum number of conversation turns allowed (default: 10, max: 50)"
-          onRemove={() => setShowMaxTurns(false)}
+          onRemove={() => removeField('max_turns', setShowMaxTurns)}
         />
       )}
 
