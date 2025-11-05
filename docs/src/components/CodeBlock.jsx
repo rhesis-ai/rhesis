@@ -193,6 +193,37 @@ export const CodeBlock = ({
           )
         })
         .join('')
+    } else if (language === 'json') {
+      // JSON syntax highlighting
+      // Apply highlighting in order: strings, numbers, keywords (true/false/null)
+
+      // 1. Strings first (including keys and values)
+      highlightedCode = highlightedCode.replace(
+        /"([^"\\]|\\.)*"/g,
+        '<span class="code-string">$&</span>'
+      )
+
+      // 2. Numbers - avoid inside strings
+      let parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      highlightedCode = parts
+        .map(part => {
+          if (part.startsWith('<span')) {
+            return part
+          }
+          return part.replace(/\b-?\d+\.?\d*([eE][+-]?\d+)?\b/g, '<span class="code-number">$&</span>')
+        })
+        .join('')
+
+      // 3. Keywords (true, false, null) - avoid inside strings and numbers
+      parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      highlightedCode = parts
+        .map(part => {
+          if (part.startsWith('<span')) {
+            return part
+          }
+          return part.replace(/\b(true|false|null)\b/g, '<span class="code-keyword">$1</span>')
+        })
+        .join('')
     }
 
     return highlightedCode
