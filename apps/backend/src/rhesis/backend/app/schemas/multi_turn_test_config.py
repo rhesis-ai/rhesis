@@ -43,7 +43,7 @@ class MultiTurnTestConfig(BaseModel):
         default=10,
         ge=1,
         le=50,
-        description="Maximum number of conversation turns (default: 10)",
+        description="Maximum number of conversation turns (default: 10, max: 50)",
     )
 
     @field_validator("goal", "instructions", "restrictions", "scenario")
