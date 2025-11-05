@@ -399,6 +399,10 @@ class PenelopeAgent:
             # Evaluate goal progress
             progress = self.evaluator.evaluate_progress(state, goal)
 
+            # Store structured evaluation if available
+            if progress.structured_evaluation:
+                state.last_evaluation = progress.structured_evaluation
+
             # Update goal condition
             for condition in conditions:
                 if isinstance(condition, GoalAchievedCondition):

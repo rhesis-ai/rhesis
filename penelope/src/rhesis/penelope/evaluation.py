@@ -8,7 +8,7 @@ or interim LLM-based evaluation.
 import logging
 from typing import Any, List, Optional
 
-from rhesis.penelope.context import GoalProgress, TestState, Turn
+from rhesis.penelope.context import GoalEvaluationResult, GoalProgress, TestState, Turn
 from rhesis.penelope.prompts import GOAL_EVALUATION_PROMPT
 from rhesis.penelope.schemas import SimpleGoalEval
 from rhesis.sdk.models.base import BaseLLM
@@ -178,12 +178,23 @@ class GoalEvaluator:
             # Add overall evidence
             findings.extend(result.evidence)
 
+            # Create structured evaluation result
+            structured_eval = GoalEvaluationResult(
+                turn_count=result.turn_count,
+                criteria_evaluations=result.criteria_evaluations,
+                all_criteria_met=result.all_criteria_met,
+                confidence=result.confidence,
+                reasoning=result.reasoning,
+                evidence=result.evidence,
+            )
+
             return GoalProgress(
                 goal_achieved=result.goal_achieved,
                 goal_impossible=False,
                 confidence=result.confidence,
                 reasoning=f"Turn count: {result.turn_count}. {result.reasoning}",
                 findings=findings,
+                structured_evaluation=structured_eval,
             )
 
         except Exception as e:
