@@ -209,25 +209,11 @@ class MCPClientManager:
 
         server_config = config["mcpServers"][server_name]
 
-        # Parse environment variables if they're JSON strings
-        env = {}
-        if "env" in server_config:
-            for key, value in server_config["env"].items():
-                # Try to parse JSON strings
-                if isinstance(value, str) and value.startswith("{"):
-                    try:
-                        # For headers like OPENAPI_MCP_HEADERS
-                        env[key] = value
-                    except json.JSONDecodeError:
-                        env[key] = value
-                else:
-                    env[key] = value
-
         client = MCPClient(
             server_name=server_name,
             command=server_config["command"],
             args=server_config["args"],
-            env=env,
+            env=server_config.get("env"),
         )
 
         self.clients[server_name] = client
