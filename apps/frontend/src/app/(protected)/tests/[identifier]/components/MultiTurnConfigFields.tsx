@@ -379,10 +379,8 @@ export default function MultiTurnConfigFields({
               p: 2,
               mb: 1,
               bgcolor: theme =>
-                theme.palette.mode === 'dark'
-                  ? 'warning.dark'
-                  : 'warning.light',
-              border: theme => `1px solid ${theme.palette.warning.main}`,
+                theme.palette.mode === 'dark' ? 'info.dark' : 'info.light',
+              border: theme => `1px solid ${theme.palette.info.main}`,
               borderRadius: 1,
             }}
           >
@@ -391,12 +389,11 @@ export default function MultiTurnConfigFields({
               sx={{
                 color: theme =>
                   theme.palette.mode === 'dark'
-                    ? theme.palette.warning.light
-                    : theme.palette.warning.dark,
+                    ? theme.palette.info.light
+                    : theme.palette.info.dark,
               }}
             >
-              ⚠️ Please provide a meaningful goal for this multi-turn test. The
-              current value is a placeholder.
+              💡 Please define a goal for this multi-turn test to continue.
             </Typography>
           </Box>
         </Grid>
