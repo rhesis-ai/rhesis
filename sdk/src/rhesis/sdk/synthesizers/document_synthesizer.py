@@ -1,11 +1,9 @@
 from typing import List, Optional, Union
 
-from pydantic import BaseModel
-
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
-from rhesis.sdk.services.context_generator import ContextGenerator
+from rhesis.sdk.services.chunker import ChunkingStrategy, SemanticChunker, SourceChunker
 from rhesis.sdk.services.extractor import (
     DocumentExtractor,
     ExtractedSource,
@@ -18,15 +16,6 @@ from rhesis.sdk.synthesizers.context_synthesizer import ContextSynthesizer
 from rhesis.sdk.synthesizers.utils import create_test_set
 
 
-class ContextWithSource(BaseModel):
-    source: SourceBase
-    content: str
-
-
-# context is a list of chunks of text
-# and every chunk has a source, and a content
-
-
 class KnowledgeSynthesizer:
     """Simple synthesizer that generates test cases from documents"""
 
@@ -35,7 +24,7 @@ class KnowledgeSynthesizer:
         prompt: str,
         sources: List[SourceBase],
         batch_size: int = 20,
-        max_context_tokens: int = 1000,
+        chunker: ChunkingStrategy = SemanticChunker(),
         model: Optional[Union[str, BaseLLM]] = None,
     ):
         """
@@ -43,7 +32,7 @@ class KnowledgeSynthesizer:
 
         Args:
             batch_size: Maximum number of tests to generate in a single LLM call
-            max_context_tokens: Maximum tokens per context used by the ContextGenerator
+            max_tokens_per_chunk: Maximum tokens per chunk used by the chunk generator
         """
         if isinstance(model, str):
             self.model = get_model(model)
@@ -53,13 +42,13 @@ class KnowledgeSynthesizer:
         self.sources = sources
         self.prompt = prompt
         self.batch_size = batch_size
-        self.context_generator = ContextGenerator(max_context_tokens=max_context_tokens)
+        self.chunker = chunker
 
         self.context_synthesizer = ContextSynthesizer(
             prompt=self.prompt, batch_size=self.batch_size, model=self.model
         )
 
-    def process_sources(self, sources: List[SourceBase]) -> List[ExtractedSource]:
+    def _process_sources(self, sources: List[SourceBase]) -> List[ExtractedSource]:
         """
         Process sources and extract text with source tracking.
 
@@ -103,74 +92,68 @@ class KnowledgeSynthesizer:
             documents: List of Document objects with 'name', 'description',
                 and either 'path' (file path) or 'content' (raw text)
             num_tests: Total number of tests to generate (hard budget)
-            tests_per_context: Target tests per context.
-                Generates tests_per_context * num_contexts total, never exceeding num_tests.
 
         Returns:
-            TestSet: Generated tests with per-test context metadata and overall coverage info
+            TestSet: Generated tests with per-test chunk metadata and overall coverage info
         """
 
         # Process documents with source tracking
-        processed_sources = self.process_sources(self.sources)
+        processed_sources = self._process_sources(self.sources)
 
-        # Generate contexts with source tracking
-        contexts_with_sources = []
+        chunks = []
         for source in processed_sources:
-            source.content = source.content.strip()
-            source_contexts = self.context_generator.generate_contexts(source.content)
-            source = SourceBase(**source.model_dump())
-            for context in source_contexts:
-                contexts_with_sources.append(ContextWithSource(source=source, content=context))
+            source_chunker = SourceChunker(source, strategy=self.chunker)
+            chunks.extend(source_chunker.chunk())
 
-        tests_per_chunk = self._compute_tests_per_chunk(num_tests, len(contexts_with_sources))
-        if num_tests < len(contexts_with_sources):
+        tests_per_chunk = self._compute_tests_per_chunk(num_tests, len(chunks))
+        if num_tests < len(chunks):
             print(
                 f"number of tests is less than number of chunks. Current number of chunks: "
-                f"{len(contexts_with_sources)} \n"
+                f"{len(chunks)} \n"
                 f"Number of tests: {num_tests}"
             )
         else:
             print(f"Generate {num_tests} tests \n ")
 
-        if num_tests >= len(contexts_with_sources):
+        if num_tests >= len(chunks):
             coverage_percent = 100
-            used_contexts = len(contexts_with_sources)
+            used_chunks = len(chunks)
         else:
-            coverage_percent = num_tests / len(contexts_with_sources)
-            used_contexts = num_tests
+            coverage_percent = num_tests / len(chunks)
+            used_chunks = num_tests
 
         all_test_cases = []
 
-        # Generate tests for each context
-        for i, context in enumerate(contexts_with_sources):
+        # Generate tests for each chunk
+        for i, chunk in enumerate(chunks):
             if tests_per_chunk[i] == 0:
                 continue
             print(
-                f"Generating tests for context "
-                f"{i + 1}/{min(num_tests, len(contexts_with_sources))} "
+                f"Generating tests for chunk "
+                f"{i + 1}/{min(num_tests, len(chunks))} "
                 f"({tests_per_chunk[i]} tests)"
-                f"({len(context.content)} characters)"
+                f"({len(chunk.content)} characters)"
             )
 
             result = self.context_synthesizer.generate(
                 num_tests=tests_per_chunk[i],
-                context=context.content,
+                context=chunk.content,
             )
 
             # Add context and document mapping to each test
             for test in result.tests:
                 test["metadata"] = {
                     **(test.get("metadata") or {}),
-                    "sources": context.source.model_dump(),
+                    "sources": chunk.source.model_dump(),
                     "generated_by": "DocumentSynthesizer",
                     "context_index": i,
-                    "context_length": len(context.content),
+                    "context_length": len(chunk.content),
                 }
 
             all_test_cases.extend(result.tests)
 
         # Get document names for TestSet metadata
-        source_names = [context.source.name for context in contexts_with_sources]
+        source_names = [chunk.source.name for chunk in chunks]
 
         # Use the same approach as PromptSynthesizer
         return create_test_set(
@@ -183,8 +166,8 @@ class KnowledgeSynthesizer:
             requested_tests=num_tests,
             documents_used=source_names,
             coverage_percent=coverage_percent,
-            contexts_total=len(contexts_with_sources),
-            contexts_used=used_contexts,
+            contexts_total=len(chunks),
+            contexts_used=used_chunks,
             tests_per_context=tests_per_chunk,
         )
 
@@ -211,7 +194,7 @@ if __name__ == "__main__":
         prompt="generate test cases for the following document", sources=sources, model="gemini"
     )
 
-    tests = synthesizer.generate(num_tests=20)
+    tests = synthesizer.generate(num_tests=5)
 
     print(tests.tests)
     print("finished")
