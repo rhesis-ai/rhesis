@@ -169,7 +169,7 @@ function EditableField({
               minHeight: multiline
                 ? `calc(${displayRows} * 1.4375em + ${theme.spacing(2)})`
                 : undefined,
-              pr: onRemove ? 21 : 10,
+              pr: multiline ? (onRemove ? 21 : 10) : onRemove ? 24 : 14,
               wordBreak: 'break-word',
             })}
           >
