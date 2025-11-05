@@ -87,10 +87,14 @@ class KnowledgeSynthesizer:
             print(f"Warning: Failed to extract some documents: {e}")
             return []
 
+    def _compute_tests_per_chunk(self, num_tests: int, num_chunks: int) -> list[int]:
+        tests_per_chunk = [(num_tests + i) // num_chunks for i in range(num_chunks)]
+        tests_per_chunk.reverse()
+        return tests_per_chunk
+
     def generate(
         self,
         num_tests: int = 5,
-        tests_per_context: Optional[int] = None,
     ) -> "TestSet":
         """
         Generate synthetic data using the complete pipeline.
@@ -118,29 +122,36 @@ class KnowledgeSynthesizer:
             for context in source_contexts:
                 contexts_with_sources.append(ContextWithSource(source=source, content=context))
 
+        tests_per_chunk = self._compute_tests_per_chunk(num_tests, len(contexts_with_sources))
         if num_tests < len(contexts_with_sources):
-            raise ValueError(
-                "num_tests must be greater than or equal to the number of chunks. Current number "
-                f"of chunks: {len(contexts_with_sources)}"
+            print(
+                f"number of tests is less than number of chunks. Current number of chunks: "
+                f"{len(contexts_with_sources)} \n"
+                f"Number of tests: {num_tests}"
             )
+        else:
+            print(f"Generate {num_tests} tests \n ")
 
-        tests_per_chunk = num_tests // len(contexts_with_sources)
-        print(
-            f"Generate {tests_per_chunk} tests per chunk. \n "
-            f"In total, {len(contexts_with_sources) * tests_per_chunk} tests will be generated."
-        )
+        if num_tests >= len(contexts_with_sources):
+            coverage_percent = 100
+            used_contexts = len(contexts_with_sources)
+        else:
+            coverage_percent = num_tests / len(contexts_with_sources)
+            used_contexts = num_tests
 
         all_test_cases = []
 
         # Generate tests for each context
         for i, context in enumerate(contexts_with_sources):
+            if tests_per_chunk[i] == 0:
+                continue
             print(
-                f"Generating tests for context {i + 1}/{len(contexts_with_sources)} "
+                f"Generating tests for context {i + 1}/{min(num_tests, len(contexts_with_sources))} "
                 f"({len(context.content)} characters)"
             )
 
             result = self.context_synthesizer.generate(
-                num_tests=tests_per_chunk,
+                num_tests=tests_per_chunk[i],
                 context=context.content,
             )
 
@@ -155,11 +166,6 @@ class KnowledgeSynthesizer:
                 }
 
             all_test_cases.extend(result.tests)
-
-        # Compute coverage of document based on tokens for used contexts
-        coverage_percent, used_contexts = self._compute_coverage(
-            processed_sources, contexts_with_sources, tests_per_contexts
-        )
 
         # Get document names for TestSet metadata
         source_names = [context.source.name for context in contexts_with_sources]
@@ -177,7 +183,7 @@ class KnowledgeSynthesizer:
             coverage_percent=coverage_percent,
             contexts_total=len(contexts_with_sources),
             contexts_used=used_contexts,
-            tests_per_context=tests_per_context,
+            tests_per_context=tests_per_chunk,
         )
 
 
@@ -203,7 +209,7 @@ if __name__ == "__main__":
         prompt="generate test cases for the following document", sources=sources, model="gemini"
     )
 
-    tests = synthesizer.generate(num_tests=4)
+    tests = synthesizer.generate(num_tests=20)
 
     print(tests.tests)
     print("finished")
