@@ -31,12 +31,12 @@
 
 Rhesis is an open-source testing platform that transforms how Gen AI teams validate their applications. Collaborative test management turns domain expertise into comprehensive automated testing: legal defines requirements, marketing sets expectations, engineers build quality, and everyone knows exactly how the Gen AI application performs before users do.
 
-<img src="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/69039cdfccde6a7b02eac36f_Release%200.4.1.gif" 
-     loading="lazy" 
-     width="1080" 
-     sizes="(max-width: 479px) 100vw, (max-width: 767px) 95vw, (max-width: 991px) 94vw, 95vw" 
-     alt="Rhesis Platform Results" 
-     srcset="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/69039cdfccde6a7b02eac36f_Release%200.4.1.gif 1080w" 
+<img src="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/69039cdfccde6a7b02eac36f_Release%200.4.1.gif"
+     loading="lazy"
+     width="1080"
+     sizes="(max-width: 479px) 100vw, (max-width: 767px) 95vw, (max-width: 991px) 94vw, 95vw"
+     alt="Rhesis Platform Results"
+     srcset="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/69039cdfccde6a7b02eac36f_Release%200.4.1.gif 1080w"
      >
 
 ## 🎯 Why Rhesis?
@@ -115,7 +115,7 @@ pip install rhesis-sdk
 ```
 
 ```python
-import rhesis 
+import rhesis
 
 rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"  # Get from app.rhesis.ai settings
 rhesis.base_url = "https://api.rhesis.ai"  # optional
@@ -152,15 +152,6 @@ Visit `http://localhost:3000` to access your local instance.
 
 **Detailed setup instructions:** See component READMEs in [Component Documentation](#-component-documentation).
 
-## 🔄 Versioning
-
-Each component follows [Semantic Versioning](https://semver.org/) with component-specific tags:
-
-- `backend-v1.0.0` - Backend releases
-- `frontend-v2.3.1` - Frontend releases  
-- `sdk-v0.5.2` - SDK releases
-
-See [CONTRIBUTING.md](CONTRIBUTING.md#versioning-and-release-process) for details.
 
 ## 👥 Contributing
 
@@ -184,7 +175,7 @@ Rhesis thrives thanks to our community. Here's how you can contribute:
 
 We review PRs regularly and maintain a welcoming environment through our code of conduct.
 
-**Detailed guidelines:** [CONTRIBUTING.md](CONTRIBUTING.md)  
+**Detailed guidelines:** [CONTRIBUTING.md](CONTRIBUTING.md)
 **Release process:** [RELEASING.md](RELEASING.md)
 
 ## 📝 License
