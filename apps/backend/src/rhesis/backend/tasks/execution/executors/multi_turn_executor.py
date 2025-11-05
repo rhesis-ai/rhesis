@@ -3,6 +3,11 @@ Multi-turn test executor using Penelope.
 
 Handles agentic multi-turn test execution where Penelope orchestrates
 conversations to achieve test goals.
+
+This executor is intentionally simple and loosely coupled:
+- It extracts only the metrics from Penelope's result
+- It stores the complete Penelope trace as-is without processing
+- This preserves all information and avoids tight coupling to Penelope's structure
 """
 
 from datetime import datetime
@@ -28,11 +33,14 @@ class MultiTurnTestExecutor(BaseTestExecutor):
     1. Initialize Penelope agent with test configuration
     2. Create BackendEndpointTarget for the endpoint
     3. Execute test using Penelope
-    4. Parse Penelope's execution trace
-    5. Store results in standard format
+    4. Extract metrics from Penelope's result
+    5. Store complete trace as-is (no processing)
 
-    Unlike single-turn tests, metrics are evaluated by Penelope during execution,
-    not by the worker afterward.
+    Design principle: Loose coupling
+    - We only extract metrics (same field used by both single and multi-turn)
+    - All other Penelope data is stored unchanged
+    - No dependencies on Penelope's internal structure
+    - Penelope can evolve without breaking this code
     """
 
     def execute(
@@ -141,9 +149,18 @@ class MultiTurnTestExecutor(BaseTestExecutor):
                 f"({penelope_result.turns_used} turns)"
             )
 
-            # Parse Penelope result into standard format
-            metrics_results = self._parse_penelope_metrics(penelope_result)
-            processed_result = self._parse_penelope_output(penelope_result)
+            # Convert Penelope result to dict to preserve all information
+            penelope_trace = (
+                penelope_result.dict()
+                if hasattr(penelope_result, 'dict')
+                else penelope_result.__dict__
+            )
+
+            # Extract metrics (pop them from the trace)
+            metrics_results = penelope_trace.pop("metrics", {})
+            
+            # Store the complete Penelope trace as-is (no processing, no loss of information)
+            processed_result = penelope_trace
 
             # Store result
             create_test_result_record(
@@ -179,93 +196,4 @@ class MultiTurnTestExecutor(BaseTestExecutor):
                 exc_info=True,
             )
             raise
-
-    def _parse_penelope_metrics(self, penelope_result) -> Dict[str, Any]:
-        """
-        Parse Penelope's TestResult into standard metrics format.
-
-        Args:
-            penelope_result: Penelope's TestResult object
-
-        Returns:
-            Dictionary of metrics in standard format matching single-turn structure
-        """
-        metrics = {}
-
-        # Add Goal Achievement metric (primary metric for multi-turn tests)
-        if (
-            hasattr(penelope_result, "goal_evaluation")
-            and penelope_result.goal_evaluation
-        ):
-            eval_data = penelope_result.goal_evaluation
-
-            metrics["Goal Achievement"] = {
-                "name": "Goal Achievement",
-                "score": 1.0 if eval_data.all_criteria_met else 0.0,
-                "is_successful": eval_data.all_criteria_met,
-                "reason": eval_data.reasoning,
-                "backend": "penelope",
-                "criteria_met": len([c for c in eval_data.criteria_evaluations if c.met]),
-                "criteria_total": len(eval_data.criteria_evaluations),
-                "confidence": eval_data.confidence,
-                "evidence": eval_data.evidence,
-            }
-
-        # Add any additional metrics from Penelope (if future versions include them)
-        if hasattr(penelope_result, "metrics") and penelope_result.metrics:
-            for metric_name, metric_data in penelope_result.metrics.items():
-                if metric_name not in metrics:  # Don't override Goal Achievement
-                    metrics[metric_name] = metric_data
-
-        return metrics
-
-    def _parse_penelope_output(self, penelope_result) -> Dict[str, Any]:
-        """
-        Parse Penelope's TestResult into standard output format.
-
-        Args:
-            penelope_result: Penelope's TestResult object
-
-        Returns:
-            Dictionary with test output in standard format
-        """
-        return {
-            "status": (
-                penelope_result.status.value
-                if hasattr(penelope_result.status, "value")
-                else str(penelope_result.status)
-            ),
-            "goal_achieved": penelope_result.goal_achieved,
-            "turns_used": penelope_result.turns_used,
-            "findings": penelope_result.findings,
-            "history": [
-                {
-                    "turn_number": turn.turn_number,
-                    "reasoning": turn.reasoning,
-                    "assistant_content": (
-                        turn.assistant_message.content if turn.assistant_message else None
-                    ),
-                    "tool_calls": (
-                        len(turn.assistant_message.tool_calls)
-                        if (
-                            turn.assistant_message
-                            and turn.assistant_message.tool_calls
-                        )
-                        else 0
-                    ),
-                    "tool_response": (
-                        turn.tool_message.content if turn.tool_message else None
-                    ),
-                }
-                for turn in penelope_result.history
-            ],
-            "execution_stats": {
-                "total_turns": penelope_result.turns_used,
-                "goal_evaluation": (
-                    penelope_result.goal_evaluation.dict()
-                    if penelope_result.goal_evaluation
-                    else None
-                ),
-            },
-        }
 
