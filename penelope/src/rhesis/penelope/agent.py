@@ -8,7 +8,7 @@ Following Anthropic's agent design principles:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from rhesis.penelope.config import PenelopeConfig
 from rhesis.penelope.context import (
@@ -85,7 +85,7 @@ class PenelopeAgent:
 
     def __init__(
         self,
-        model: Optional[BaseLLM] = None,
+        model: Optional[Union[BaseLLM, str]] = None,
         tools: Optional[List[Tool]] = None,
         max_iterations: Optional[int] = None,
         timeout_seconds: Optional[float] = None,
@@ -97,8 +97,8 @@ class PenelopeAgent:
         Initialize Penelope agent.
 
         Args:
-            model: Language model from rhesis.sdk.models. If None, uses default model
-                configured via PenelopeConfig (default: Vertex AI / gemini-2.0-flash-exp)
+            model: Language model from rhesis.sdk.models or model string (e.g. "vertex_ai/gemini-2.0-flash").
+                If None, uses default model configured via PenelopeConfig (default: Vertex AI / gemini-2.0-flash-exp)
             tools: Optional list of custom tools (default tools used if None)
             max_iterations: Maximum number of turns before stopping. If None, uses default
                 from PenelopeConfig (default: 10)
@@ -126,7 +126,14 @@ class PenelopeAgent:
             - DEBUG: Shows all logs including LiteLLM, httpx, httpcore for troubleshooting
             - WARNING+: Shows only warnings and errors
         """
-        self.model = model if model is not None else _create_default_model()
+        # Model configuration - handle None, string, or model object
+        if model is None:
+            self.model = _create_default_model()
+        elif isinstance(model, str):
+            # If model is a string, use get_model to convert it to a model instance
+            self.model = get_model(model)
+        else:
+            self.model = model
         self.max_iterations = (
             max_iterations
             if max_iterations is not None
