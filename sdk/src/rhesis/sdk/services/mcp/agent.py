@@ -118,9 +118,6 @@ Remember: You must explicitly use action="finish" when done."""
             available_tools = await self.executor.get_available_tools()
             logger.info(f"Discovered {len(available_tools)} available tools")
 
-            if self.verbose:
-                print(f"\n🔧 Discovered {len(available_tools)} available tools")
-
             # ReAct loop
             while iteration < self.max_iterations:
                 iteration += 1
