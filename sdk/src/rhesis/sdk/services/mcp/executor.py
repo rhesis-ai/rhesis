@@ -52,7 +52,10 @@ class ToolExecutor:
             logger.debug(f"Arguments: {tool_call.arguments}")
 
             # Call the MCP tool
-            result = await self.mcp_client.call_tool(tool_call.tool_name, tool_call.arguments)
+            # Ensure arguments is a dict
+            args = tool_call.arguments if isinstance(tool_call.arguments, dict) else {}
+
+            result = await self.mcp_client.call_tool(tool_call.tool_name, args)
 
             # Extract content from the result
             content = self._extract_content(result)
