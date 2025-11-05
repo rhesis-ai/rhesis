@@ -61,8 +61,9 @@ def get_system_prompt_jinja(
     return SYSTEM_PROMPT_TEMPLATE.render(
         instructions=instructions,
         goal=goal,
-        scenario=scenario if scenario else None,  # Convert empty string to None for conditionals
-        restrictions=restrictions if restrictions else None,  # Convert empty string to None for conditionals
-        context=context if context else None,  # Convert empty string to None for conditionals
+        # Convert empty string to None for conditionals
+        scenario=scenario if scenario else None,
+        restrictions=restrictions if restrictions else None,
+        context=context if context else None,
         available_tools=available_tools if available_tools else None,
     )

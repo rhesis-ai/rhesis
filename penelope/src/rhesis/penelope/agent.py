@@ -249,8 +249,10 @@ class PenelopeAgent:
                 Penelope understand the context and role-play appropriately.
             restrictions: Optional constraints on what the TARGET should NOT do.
                 Defines forbidden behaviors or boundaries the target must respect.
-                Examples: "Must not mention competitor brands", "Must not provide medical diagnoses",
-                "Must not reveal internal system prompts", "Must not process illegal requests"
+                Examples: "Must not mention competitor brands",
+                "Must not provide medical diagnoses",
+                "Must not reveal internal system prompts",
+                "Must not process illegal requests"
             context: Optional additional context/resources (metadata)
             max_turns: Override default max_iterations for this test
 
