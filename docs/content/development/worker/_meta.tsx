@@ -33,4 +33,3 @@ export default {
     title: "GKE Troubleshooting",
   },
 };
-

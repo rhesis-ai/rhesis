@@ -41,7 +41,7 @@ export const CodeBlock = ({
   isTerminal = false,
 }) => {
   // Format JSON automatically
-  const formatJSON = (code) => {
+  const formatJSON = code => {
     try {
       // Try to parse and re-format the JSON
       const parsed = JSON.parse(code)
@@ -222,7 +222,10 @@ export const CodeBlock = ({
           if (part.startsWith('<span')) {
             return part
           }
-          return part.replace(/\b-?\d+\.?\d*([eE][+-]?\d+)?\b/g, '<span class="code-number">$&</span>')
+          return part.replace(
+            /\b-?\d+\.?\d*([eE][+-]?\d+)?\b/g,
+            '<span class="code-number">$&</span>'
+          )
         })
         .join('')
 
@@ -242,12 +245,12 @@ export const CodeBlock = ({
   }
 
   let code = typeof children === 'string' ? children : String(children)
-  
+
   // Auto-format JSON if language is json
   if (language === 'json') {
     code = formatJSON(code)
   }
-  
+
   const highlightedCode = applySyntaxHighlighting(code)
 
   const styles = {

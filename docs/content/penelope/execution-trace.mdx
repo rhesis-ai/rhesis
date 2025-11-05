@@ -18,7 +18,7 @@ Every test execution produces a `TestResult` object that contains:
 ## Schema Structure
 
 <CodeBlock filename="test_result.json" language="json">
-{`{
+  {`{
   "test_id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "success",
   "goal_achieved": true,
@@ -79,7 +79,7 @@ Every test execution produces a `TestResult` object that contains:
 Structured assessment of success criteria:
 
 <CodeBlock filename="goal_evaluation.json" language="json">
-{`{
+  {`{
   "all_criteria_met": true,
   "confidence": 1.0,
   "reasoning": "Detailed explanation of evaluation",
@@ -102,7 +102,7 @@ Structured assessment of success criteria:
 Each turn contains:
 
 <CodeBlock filename="turn.json" language="json">
-{`{
+  {`{
   "turn_number": 1,
   "reasoning": "Why this action was taken",
   "assistant_message": {
@@ -132,7 +132,7 @@ Each turn contains:
 SDK-compatible format for integration with Rhesis platform:
 
 <CodeBlock filename="metrics.json" language="json">
-{`{
+  {`{
   "Goal Achievement": {
     "name": "Goal Achievement",
     "score": 1.0,
@@ -157,19 +157,24 @@ agent = PenelopeAgent()
 result = agent.execute_test(target=target, goal="Test goal")
 
 # Access trace data
+
 print(f"Status: {result.status}")
 print(f"Goal achieved: {result.goal_achieved}")
 print(f"Turns used: {result.turns_used}")
 
 # Iterate through history
+
 for turn in result.history:
-    print(f"Turn {turn.turn_number}: {turn.reasoning}")
+print(f"Turn {turn.turn_number}: {turn.reasoning}")
 
 # Export to JSON
+
 trace_json = result.dict()
 
 # Export to file
+
 result.to_json("trace.json")`}
+
 </CodeBlock>
 
 ### JSON Export
@@ -178,16 +183,20 @@ result.to_json("trace.json")`}
 {`import json
 
 # Save trace
+
 with open("execution_trace.json", "w") as f:
-    json.dump(result.dict(), f, indent=2)
+json.dump(result.dict(), f, indent=2)
 
 # Load trace
+
 with open("execution_trace.json", "r") as f:
-    trace_data = json.load(f)
-    
+trace_data = json.load(f)
+
 # Reconstruct TestResult
+
 from rhesis.penelope.context import TestResult
 result = TestResult.from_dict(trace_data)`}
+
 </CodeBlock>
 
 ## Integration with Rhesis Platform
@@ -199,17 +208,20 @@ Penelope traces integrate seamlessly with the Rhesis platform:
 from rhesis.sdk import Rhesis
 
 # Execute with Penelope
+
 agent = PenelopeAgent()
 result = agent.execute_test(target=target, goal="Test goal")
 
 # Submit to Rhesis platform
+
 client = Rhesis()
 client.create_test_result(
-    test_id="test-123",
-    metrics=result.metrics,
-    output=result.dict(),
-    execution_time=result.stats["execution_time_seconds"]
+test_id="test-123",
+metrics=result.metrics,
+output=result.dict(),
+execution_time=result.stats["execution_time_seconds"]
 )`}
+
 </CodeBlock>
 
 ## Analysis & Debugging
@@ -227,11 +239,13 @@ Findings: {', '.join(result.findings)}
 """)
 
 # Check for issues
+
 if not result.goal_achieved:
-    print("Failure reasons:")
-    for criterion in result.goal_evaluation.criteria_evaluations:
-        if not criterion.met:
-            print(f"  ❌ {criterion.criterion}: {criterion.reasoning}")`}
+print("Failure reasons:")
+for criterion in result.goal_evaluation.criteria_evaluations:
+if not criterion.met:
+print(f" ❌ {criterion.criterion}: {criterion.reasoning}")`}
+
 </CodeBlock>
 
 ### Debugging Failed Tests
@@ -248,13 +262,17 @@ for turn in result.history:
         print(f"  Response: {turn.tool_message.content[:100]}...")
 
 # Check token usage
+
 stats = result.stats
 if stats["total_tokens"] > 50000:
-    print(f"⚠️ High token usage: {stats['total_tokens']}")`}
+print(f"⚠️ High token usage: {stats['total_tokens']}")`}
+
 </CodeBlock>
 
 ---
 
 <Callout type="info">
-  **Complete Schema**: See the [Penelope GitHub repository](https://github.com/rhesis-ai/rhesis/tree/main/penelope) for the complete TestResult schema definition and examples.
+  **Complete Schema**: See the [Penelope GitHub
+  repository](https://github.com/rhesis-ai/rhesis/tree/main/penelope) for the
+  complete TestResult schema definition and examples.
 </Callout>

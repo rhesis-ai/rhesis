@@ -77,26 +77,29 @@ The `test_reviews` field is stored as a JSON object with two parts:
 ## Field Reference
 
 ### **metadata**
-| Field | Type | Description |
-|--------|------|-------------|
-| `last_updated_at` | string (ISO 8601) | Timestamp when any review was last modified. |
-| `last_updated_by` | object | Contains the user ID and name of the last editor. |
-| `total_reviews` | integer | Total number of reviews in the list. |
-| `latest_status` | object | Status of the most recent review (for quick summaries). |
-| `summary` | string | Optional short description or aggregated summary. |
+
+| Field             | Type              | Description                                             |
+| ----------------- | ----------------- | ------------------------------------------------------- |
+| `last_updated_at` | string (ISO 8601) | Timestamp when any review was last modified.            |
+| `last_updated_by` | object            | Contains the user ID and name of the last editor.       |
+| `total_reviews`   | integer           | Total number of reviews in the list.                    |
+| `latest_status`   | object            | Status of the most recent review (for quick summaries). |
+| `summary`         | string            | Optional short description or aggregated summary.       |
 
 ### **reviews[]**
-| Field | Type | Description |
-|--------|------|-------------|
-| `review_id` | UUID | Unique ID for this review entry. |
-| `status` | object | Contains a `status_id` (UUID) and `name` (string). |
-| `user` | object | Contains a `user_id` (UUID) and `name` (string). |
-| `comments` | string | Free-text explanation from the reviewer. |
-| `created_at` | string (ISO 8601) | Timestamp when the review was first created. |
-| `updated_at` | string (ISO 8601) | Timestamp when the review was last modified. |
-| `target` | object | Defines whether the review applies to a metric or the whole test. |
+
+| Field        | Type              | Description                                                       |
+| ------------ | ----------------- | ----------------------------------------------------------------- |
+| `review_id`  | UUID              | Unique ID for this review entry.                                  |
+| `status`     | object            | Contains a `status_id` (UUID) and `name` (string).                |
+| `user`       | object            | Contains a `user_id` (UUID) and `name` (string).                  |
+| `comments`   | string            | Free-text explanation from the reviewer.                          |
+| `created_at` | string (ISO 8601) | Timestamp when the review was first created.                      |
+| `updated_at` | string (ISO 8601) | Timestamp when the review was last modified.                      |
+| `target`     | object            | Defines whether the review applies to a metric or the whole test. |
 
 #### Example `target` values
+
 ```json
 { "type": "test", "reference": null }
 { "type": "metric", "reference": "Refusal Detection" }
@@ -133,6 +136,7 @@ class TestResult(Base, ...):
 ```
 
 **Derived Properties:**
+
 - `last_review`: Returns the most recent review by `updated_at` timestamp
 - `matches_review`: Boolean indicating if the test result's status_id matches the latest review's status_id
 
@@ -177,6 +181,7 @@ All endpoints follow REST conventions and automatically manage metadata.
 **Endpoint**: `POST /test_results/{test_result_id}/reviews`
 
 **Request Body**:
+
 ```json
 {
   "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
@@ -189,6 +194,7 @@ All endpoints follow REST conventions and automatically manage metadata.
 ```
 
 **Response** (201 Created):
+
 ```json
 {
   "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
@@ -211,6 +217,7 @@ All endpoints follow REST conventions and automatically manage metadata.
 ```
 
 **Features**:
+
 - Auto-generates unique `review_id`
 - Sets both `created_at` and `updated_at` to current time
 - Auto-populates user info from authenticated user
@@ -222,6 +229,7 @@ All endpoints follow REST conventions and automatically manage metadata.
 **Endpoint**: `PUT /test_results/{test_result_id}/reviews/{review_id}`
 
 **Request Body** (all fields optional):
+
 ```json
 {
   "comments": "UPDATED: After further review, this test passes all criteria"
@@ -229,6 +237,7 @@ All endpoints follow REST conventions and automatically manage metadata.
 ```
 
 **Response** (200 OK):
+
 ```json
 {
   "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
@@ -251,6 +260,7 @@ All endpoints follow REST conventions and automatically manage metadata.
 ```
 
 **Features**:
+
 - Preserves `created_at` timestamp
 - Updates `updated_at` to current time
 - Updates only provided fields
@@ -261,6 +271,7 @@ All endpoints follow REST conventions and automatically manage metadata.
 **Endpoint**: `DELETE /test_results/{test_result_id}/reviews/{review_id}`
 
 **Response** (200 OK):
+
 ```json
 {
   "message": "Review deleted successfully",
@@ -278,6 +289,7 @@ All endpoints follow REST conventions and automatically manage metadata.
 ```
 
 **Features**:
+
 - Removes review from reviews array
 - Updates metadata automatically
 - Handles empty state (when last review deleted, sets `latest_status: null`)
@@ -288,6 +300,7 @@ All endpoints follow REST conventions and automatically manage metadata.
 **Endpoint**: `GET /test_results/{test_result_id}`
 
 **Response** includes:
+
 ```json
 {
   "id": "fe647ace-5364-4158-b634-9bc7c53d7905",
@@ -332,6 +345,7 @@ All endpoints follow REST conventions and automatically manage metadata.
 ```
 
 **Derived Properties**:
+
 - `last_review`: Most recent review by `updated_at` timestamp
 - `matches_review`: Boolean indicating if test result status matches latest review status
 
@@ -340,18 +354,23 @@ All endpoints follow REST conventions and automatically manage metadata.
 ## Use Cases
 
 ### 1. **Override Automated Metrics**
+
 A human reviewer disagrees with an automated pass/fail and adds a review with a different status.
 
 ### 2. **Multi-Reviewer Workflow**
+
 Multiple team members review the same test result, each adding their perspective.
 
 ### 3. **Metric-Specific Reviews**
+
 Review specific metrics (e.g., "Answer Relevancy") separately from overall test.
 
 ### 4. **Audit Trail**
+
 Track who reviewed what and when, with full edit history via timestamps.
 
 ### 5. **Status Conflict Detection**
+
 Use `matches_review` to identify cases where human review disagrees with automated result.
 
 ---
@@ -361,6 +380,7 @@ Use `matches_review` to identify cases where human review disagrees with automat
 ### Metadata Management
 
 The `metadata` section is automatically updated on every review operation:
+
 - **Create**: Initializes metadata with first review's information
 - **Update**: Updates `last_updated_at`, `last_updated_by`, and `latest_status`
 - **Delete**: Updates metadata or clears `latest_status` if no reviews remain
@@ -380,6 +400,7 @@ db.commit()
 ### Empty State Handling
 
 When the last review is deleted:
+
 - `reviews` array becomes empty
 - `total_reviews` = 0
 - `latest_status` = null
@@ -407,6 +428,7 @@ All functionality has been tested and verified:
 ## Future Extensions
 
 Potential enhancements:
+
 - `confidence`: Reviewer confidence score (0–1)
 - `attachments`: File attachments for evidence
 - `review_type`: Categorize reviews (approval, rejection, follow-up)

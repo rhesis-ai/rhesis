@@ -3,8 +3,9 @@
 Welcome to the Rhesis Backend documentation. This section covers the FastAPI-based backend service that powers the Rhesis platform.
 
 <Callout type="default">
-  **Backend Overview** The Rhesis backend is built with **FastAPI** and provides REST APIs,
-  authentication, business logic, and data management for the entire platform.
+  **Backend Overview** The Rhesis backend is built with **FastAPI** and provides
+  REST APIs, authentication, business logic, and data management for the entire
+  platform.
 </Callout>
 
 ## Quick Start
@@ -14,8 +15,9 @@ Welcome to the Rhesis Backend documentation. This section covers the FastAPI-bas
 Before working with the backend, ensure you have:
 
 <Callout type="default">
-  **System Requirements** - **Python 3.8+** with [uv](https://docs.astral.sh/uv/) package manager -
-  **PostgreSQL** database (for production) - **Redis** (for caching and background tasks) -
+  **System Requirements** - **Python 3.8+** with
+  [uv](https://docs.astral.sh/uv/) package manager - **PostgreSQL** database
+  (for production) - **Redis** (for caching and background tasks) -
   **Environment variables** configured
 </Callout>
 
@@ -26,22 +28,29 @@ Before working with the backend, ensure you have:
 cd apps/backend
 
 # Install dependencies
+
 uv sync
 
 # Set up environment
+
 cp ../../.env.example .env
+
 # Edit .env with your configuration
 
 # Run database migrations
+
 uv run alembic upgrade head
 
 # Start development server
+
 ./start.sh`}
+
 </CodeBlock>
 
 <Callout type="default">
-  **Development Server** - **URL**: http://localhost:8080 - **API Docs**: http://localhost:8080/docs
-  - **ReDoc**: http://localhost:8080/redoc - **Health Check**: http://localhost:8080/health
+  **Development Server** - **URL**: http://localhost:8080 - **API Docs**:
+  http://localhost:8080/docs - **ReDoc**: http://localhost:8080/redoc - **Health
+  Check**: http://localhost:8080/health
 </Callout>
 
 ## Architecture
@@ -51,7 +60,9 @@ uv run alembic upgrade head
 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
   <div>
     <h3>FastAPI Application</h3>
-    <p>Modern, fast web framework for building APIs with automatic documentation.</p>
+    <p>
+      Modern, fast web framework for building APIs with automatic documentation.
+    </p>
   </div>
   <div>
     <h3>SQLAlchemy ORM</h3>
@@ -80,7 +91,7 @@ uv run alembic upgrade head
 **Application Structure:**
 
 <CodeBlock filename="backend-structure.txt" language="text">
-{`apps/backend/
+  {`apps/backend/
 ├── src/rhesis/backend/
 │   ├── app/
 │   │   ├── main.py          # FastAPI application entry point
@@ -135,10 +146,11 @@ The backend provides comprehensive REST APIs organized by functionality:
 - **OpenAPI Schema**: http://localhost:8080/openapi.json
 
 <Callout type="default">
-  **API Features** - **Automatic Documentation** - Generated from code and type hints - **Request
-  Validation** - Built-in Pydantic validation - **Response Serialization** - Automatic JSON
-  serialization - **Error Handling** - Consistent error responses - **Rate Limiting** - API rate
-  limiting and throttling
+  **API Features** - **Automatic Documentation** - Generated from code and type
+  hints - **Request Validation** - Built-in Pydantic validation - **Response
+  Serialization** - Automatic JSON serialization - **Error Handling** -
+  Consistent error responses - **Rate Limiting** - API rate limiting and
+  throttling
 </Callout>
 
 ## Authentication & Security
@@ -148,7 +160,7 @@ The backend provides comprehensive REST APIs organized by functionality:
 The backend uses JWT (JSON Web Tokens) for stateless authentication:
 
 <CodeBlock filename="jwt-token.json" language="javascript">
-{`// Example JWT token structure
+  {`// Example JWT token structure
 {
   "sub": "user_id",
   "org_id": "organization_id",
@@ -187,7 +199,7 @@ The backend uses JWT (JSON Web Tokens) for stateless authentication:
 Organizations provide data isolation and user management:
 
 <CodeBlock filename="organization-access.py" language="python">
-{`# Organization-based data access
+  {`# Organization-based data access
 @router.get("/tests/")
 async def get_tests(
     current_user: User = Depends(get_current_user),
@@ -228,7 +240,7 @@ The backend uses SQLAlchemy ORM with the following core models:
 Long-running operations are handled by Celery workers:
 
 <CodeBlock filename="celery-task.py" language="python">
-{`# Example background task
+  {`# Example background task
 @celery_app.task
 def process_test_results(test_id: int):
     """Process and analyze test results asynchronously."""
@@ -271,13 +283,17 @@ cd apps/backend
 ./start.sh
 
 # Run tests
+
 uv run pytest
 
 # Run linting
+
 uv run ruff check .
 
 # Format code
+
 uv run ruff format .`}
+
 </CodeBlock>
 
 ### Environment Configuration
@@ -289,14 +305,18 @@ Key environment variables:
 DATABASE_URL=postgresql://user:pass@localhost/rhesis
 
 # Authentication
+
 SECRET_KEY=your-secret-key
 JWT_ALGORITHM=HS256
 
 # Redis (for Celery)
+
 REDIS_URL=redis://localhost:6379
 
 # External Services
+
 OPENAI_API_KEY=your-openai-key`}
+
 </CodeBlock>
 
 ## Deployment
@@ -327,10 +347,11 @@ The backend supports multiple deployment strategies:
 ### Performance Considerations
 
 <Callout type="default">
-  **Performance Tips** - **Database Indexing** - Optimize query performance - **Caching** - Redis
-  caching for frequently accessed data - **Connection Pooling** - Database connection management -
-  **Load Balancing** - Distribute traffic across multiple instances - **Monitoring** - Comprehensive
-  logging and metrics
+  **Performance Tips** - **Database Indexing** - Optimize query performance -
+  **Caching** - Redis caching for frequently accessed data - **Connection
+  Pooling** - Database connection management - **Load Balancing** - Distribute
+  traffic across multiple instances - **Monitoring** - Comprehensive logging and
+  metrics
 </Callout>
 
 ## Testing
@@ -344,11 +365,14 @@ The backend includes comprehensive testing:
 uv run pytest
 
 # Run with coverage
+
 uv run pytest --cov=rhesis.backend
 
 # Run specific test categories
+
 uv run pytest tests/api/
 uv run pytest tests/services/`}
+
 </CodeBlock>
 
 ### Test Categories
@@ -403,8 +427,9 @@ logger.info("User authenticated", extra={"user_id": user.id})
 ---
 
 <Callout type="default">
-  **Next Steps** - Explore the [API Reference](/docs/backend/api) for detailed endpoint
-  documentation - Check out [Authentication Guide](/docs/backend/auth) for security implementation -
-  Review [Deployment Guide](/docs/backend/deployment) for production setup - Learn about [Background
-  Tasks](/docs/backend/tasks) for async processing
+  **Next Steps** - Explore the [API Reference](/docs/backend/api) for detailed
+  endpoint documentation - Check out [Authentication Guide](/docs/backend/auth)
+  for security implementation - Review [Deployment
+  Guide](/docs/backend/deployment) for production setup - Learn about
+  [Background Tasks](/docs/backend/tasks) for async processing
 </Callout>

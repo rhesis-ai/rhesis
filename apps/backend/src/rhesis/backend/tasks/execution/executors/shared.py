@@ -129,7 +129,10 @@ def check_existing_result(
     user_id: str = None,
 ) -> Optional[Dict[str, Any]]:
     """Check if a result already exists for this test configuration."""
-    filter_str = f"test_configuration_id eq {test_config_id} and test_run_id eq {test_run_id} and test_id eq {test_id}"
+    filter_str = (
+        f"test_configuration_id eq {test_config_id} and "
+        f"test_run_id eq {test_run_id} and test_id eq {test_id}"
+    )
     existing_results = crud.get_test_results(
         db, limit=1, filter=filter_str, organization_id=organization_id, user_id=user_id
     )
@@ -272,9 +275,8 @@ def create_test_result_record(
             organization_id=organization_id,
             user_id=user_id,
         )
-        logger.debug(
-            f"Successfully created test result with ID: {result.id if hasattr(result, 'id') else 'UNKNOWN'}"
-        )
+        result_id = result.id if hasattr(result, "id") else "UNKNOWN"
+        logger.debug(f"Successfully created test result with ID: {result_id}")
     except Exception as e:
         logger.error(f"Failed to create test result: {str(e)}")
         raise

@@ -20,6 +20,7 @@ All models inherit from a common `Base` class that provides standard fields:
 Represents a user in the system, with authentication and authorization details.
 
 Key fields:
+
 - `email`: User's email address (unique)
 - `name`: User's display name
 - `is_active`: Whether the user account is active
@@ -31,6 +32,7 @@ Key fields:
 Represents a tenant organization in the multi-tenant architecture.
 
 Key fields:
+
 - `name`: Organization name
 - `slug`: URL-friendly identifier
 - `is_active`: Whether the organization is active
@@ -40,6 +42,7 @@ Key fields:
 Represents an individual test case for AI model evaluation.
 
 Key fields:
+
 - `name`: Test name
 - `description`: Test description
 - `prompt_id`: Foreign key to the prompt
@@ -49,6 +52,7 @@ Key fields:
 A collection of tests grouped for evaluation purposes.
 
 Key fields:
+
 - `name`: Test set name
 - `description`: Test set description
 - `organization_id`: Foreign key to the organization
@@ -58,6 +62,7 @@ Key fields:
 Templates for inputs to AI models.
 
 Key fields:
+
 - `content`: The prompt text
 - `name`: Prompt name
 - `description`: Prompt description
@@ -67,6 +72,7 @@ Key fields:
 Represents an AI model configuration.
 
 Key fields:
+
 - `name`: Model name
 - `provider`: Model provider (e.g., OpenAI)
 - `version`: Model version

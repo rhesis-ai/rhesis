@@ -9,16 +9,20 @@ A test result's status reflects whether the test **passed all its metric evaluat
 ## Status Types
 
 ### Pass
+
 **Definition:** All metrics evaluated successfully
 
 **When assigned:**
+
 - Every metric in `test_metrics.metrics` has `is_successful: true`
 - At least one metric exists
 
 ### Fail
+
 **Definition:** One or more metrics failed
 
 **When assigned:**
+
 - At least one metric in `test_metrics.metrics` has `is_successful: false`
 - Metrics exist but not all passed
 
@@ -53,11 +57,13 @@ status = "Pass" if all_metrics_passed else "Fail"
 - **API responses** use the stored status field
 
 **Do NOT recalculate status from metrics in these contexts.** The metrics remain available for:
+
 - Per-metric statistics and breakdowns
 - Detailed analysis of which specific metrics failed
 - Debugging and audit purposes
 
 This design ensures:
+
 - **Consistency:** All parts of the system agree on test status
 - **Performance:** Avoid re-parsing JSONB metrics repeatedly
 - **Historical accuracy:** Status reflects the evaluation logic at execution time
@@ -76,25 +82,26 @@ Test results contain a `test_metrics` field with the following structure:
     "Answer Relevancy": {
       "is_successful": true,
       "score": 0.85,
-      "threshold": 0.70,
+      "threshold": 0.7,
       "reason": "Answer is relevant to the question"
     },
     "Contextual Recall": {
       "is_successful": false,
       "score": 0.65,
-      "threshold": 0.70,
+      "threshold": 0.7,
       "reason": "Failed to recall sufficient context"
     },
     "Answer Fluency": {
       "is_successful": true,
       "score": 0.92,
-      "threshold": 0.70
+      "threshold": 0.7
     }
   }
 }
 ```
 
 In this example:
+
 - 2 metrics passed (`is_successful: true`)
 - 1 metric failed (`is_successful: false`)
 - **Result:** Test status = **Fail**
@@ -104,6 +111,7 @@ In this example:
 ## Examples
 
 ### Example 1: All Metrics Pass
+
 ```json
 {
   "test_metrics": {
@@ -115,10 +123,12 @@ In this example:
   }
 }
 ```
+
 **Status:** Pass  
 **Reason:** All 3 metrics passed
 
 ### Example 2: One Metric Fails
+
 ```json
 {
   "test_metrics": {
@@ -130,10 +140,12 @@ In this example:
   }
 }
 ```
+
 **Status:** Fail  
 **Reason:** 1 out of 3 metrics failed
 
 ### Example 3: All Metrics Fail
+
 ```json
 {
   "test_metrics": {
@@ -145,10 +157,12 @@ In this example:
   }
 }
 ```
+
 **Status:** Fail  
 **Reason:** All metrics failed
 
 ### Example 4: Single Metric Test
+
 ```json
 {
   "test_metrics": {
@@ -158,6 +172,7 @@ In this example:
   }
 }
 ```
+
 **Status:** Pass  
 **Reason:** The only metric passed
 
@@ -168,6 +183,7 @@ In this example:
 The test result status is automatically set in three scenarios:
 
 ### 1. Automated Test Execution
+
 When tests run automatically via the worker:
 
 ```python
@@ -179,11 +195,12 @@ def create_test_result_record(..., metrics_results, ...):
         for metric_data in metrics_results.values()
         if isinstance(metric_data, dict)
     )
-    
+
     status_value = "Pass" if all_metrics_passed else "Fail"
 ```
 
 ### 2. API POST /test_results
+
 When creating a test result via API:
 
 ```python
@@ -199,6 +216,7 @@ def create_test_result(test_result: schemas.TestResultCreate, ...):
 ```
 
 ### 3. API PUT /test_results/\{id\}
+
 When updating test metrics via API:
 
 ```python
@@ -221,7 +239,9 @@ def update_test_result(test_result: schemas.TestResultUpdate, ...):
 All statistics and reporting use the **stored `status` field** as the source of truth:
 
 ### Email Notifications
+
 Counts tests by using stored status:
+
 ```python
 # apps/backend/src/rhesis/backend/tasks/execution/result_processor.py
 from rhesis.backend.app.constants import (
@@ -239,7 +259,9 @@ for result in test_results:
 ```
 
 ### Test Result Stats API
+
 Returns pass/fail counts based on stored status:
+
 ```python
 # apps/backend/src/rhesis/backend/app/services/stats/test_result.py
 from rhesis.backend.app.constants import (
@@ -265,6 +287,7 @@ GET /test_results/stats
 **Note:** Per-metric statistics still analyze the `test_metrics` field to show which specific metrics passed or failed.
 
 ### Frontend Display
+
 The frontend also analyzes `test_metrics` to determine pass/fail:
 
 ```typescript
@@ -280,11 +303,12 @@ If a test has no metrics or empty metrics, it's counted as an **execution error*
 
 ```json
 {
-  "test_metrics": null  // or missing entirely
+  "test_metrics": null // or missing entirely
 }
 ```
 
 **Treatment:**
+
 - **In test run stats:** Counted as `execution_errors`
 - **In email:** May show as "Execution Errors" if any exist
 - **Run status impact:** May cause test run to be "Partial" or "Failed"
@@ -295,20 +319,20 @@ If a test has no metrics or empty metrics, it's counted as an **execution error*
 
 ### Test Result Status vs Test Run Status
 
-| Aspect | Test Result Status | Test Run Status |
-|--------|-------------------|-----------------|
-| **Scope** | Individual test | Entire test run |
-| **Question** | Did this test pass? | Did tests execute? |
-| **Values** | Pass, Fail | COMPLETED, PARTIAL, FAILED |
-| **Based on** | Metric success | Execution completion |
+| Aspect       | Test Result Status  | Test Run Status            |
+| ------------ | ------------------- | -------------------------- |
+| **Scope**    | Individual test     | Entire test run            |
+| **Question** | Did this test pass? | Did tests execute?         |
+| **Values**   | Pass, Fail          | COMPLETED, PARTIAL, FAILED |
+| **Based on** | Metric success      | Execution completion       |
 
 ### Pass/Fail vs Execution Success
 
-| Scenario | Test Result Status | Execution Status |
-|----------|-------------------|------------------|
-| All metrics pass | Pass | Executed successfully |
-| Some metrics fail | Fail | Executed successfully |
-| No metrics (error) | (none) | Execution error |
+| Scenario           | Test Result Status | Execution Status      |
+| ------------------ | ------------------ | --------------------- |
+| All metrics pass   | Pass               | Executed successfully |
+| Some metrics fail  | Fail               | Executed successfully |
+| No metrics (error) | (none)             | Execution error       |
 
 A test that **failed** (some metrics didn't pass) still **executed successfully** (it ran and returned results).
 
@@ -357,10 +381,9 @@ The `test_metrics` field should still be accessed for:
 
 ## Implementation Files
 
-| File | Purpose |
-|------|---------|
-| `tasks/execution/test_execution.py` | Automated test execution & status setting |
-| `app/routers/test_result.py` | API endpoints with auto-status setting |
-| `app/constants.py` | Status mapping constants |
-| `tasks/execution/result_processor.py` | Statistics calculation from metrics |
-
+| File                                  | Purpose                                   |
+| ------------------------------------- | ----------------------------------------- |
+| `tasks/execution/test_execution.py`   | Automated test execution & status setting |
+| `app/routers/test_result.py`          | API endpoints with auto-status setting    |
+| `app/constants.py`                    | Status mapping constants                  |
+| `tasks/execution/result_processor.py` | Statistics calculation from metrics       |

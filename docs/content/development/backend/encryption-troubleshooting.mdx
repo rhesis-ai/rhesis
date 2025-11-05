@@ -38,6 +38,7 @@ FROM token WHERE token IS NOT NULL;
 ### Issue: "DB_ENCRYPTION_KEY environment variable is not set"
 
 **Solution:**
+
 ```bash
 # Generate key
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
@@ -55,6 +56,7 @@ export DB_ENCRYPTION_KEY="<generated-key>"
 **Cause:** Using different encryption key than when data was encrypted
 
 **Solution:**
+
 - Verify same key across all instances: `echo $DB_ENCRYPTION_KEY | md5sum`
 - Check if key was recently changed - restore correct key from backup
 - Ensure Kubernetes secrets match across environments
@@ -66,6 +68,7 @@ export DB_ENCRYPTION_KEY="<generated-key>"
 **Cause:** Token not decrypting properly
 
 **Diagnosis:**
+
 ```python
 # Check if value is encrypted in DB
 from rhesis.backend.app.utils.encryption import is_encrypted
@@ -73,6 +76,7 @@ print(is_encrypted(endpoint.auth_token))  # Should be False (auto-decrypted by O
 ```
 
 **Solution:**
+
 - Verify encryption key is correct
 - Check logs for decryption errors: `kubectl logs -l app=rhesis-backend | grep -i decrypt`
 - Re-save the record to re-encrypt with current key
@@ -82,6 +86,7 @@ print(is_encrypted(endpoint.auth_token))  # Should be False (auto-decrypted by O
 ### Issue: Migration Failed Partway Through
 
 **Solution:**
+
 - Migration is idempotent - safe to re-run: `alembic upgrade head`
 - Already encrypted values will be skipped
 - Check database connection and timeout settings
@@ -93,6 +98,7 @@ print(is_encrypted(endpoint.auth_token))  # Should be False (auto-decrypted by O
 **Expected:** ~1-2ms overhead per encrypt/decrypt operation
 
 **Check:**
+
 - Monitor CPU usage: `kubectl top pods -l app=rhesis-backend`
 - Verify connection pool settings (pool_size=10, max_overflow=20)
 - Check for N+1 query patterns
@@ -102,6 +108,7 @@ print(is_encrypted(endpoint.auth_token))  # Should be False (auto-decrypted by O
 ### Issue: "Found unencrypted value" Warnings
 
 **Solution:**
+
 - Re-run migration: `alembic upgrade head`
 - Or manually re-save affected records to trigger encryption
 
@@ -145,12 +152,14 @@ SELECT COUNT(*) FROM token WHERE token IS NOT NULL AND NOT token LIKE 'gAAAAA%';
 ## Getting Help
 
 ### Log Collection
+
 ```bash
 # Collect encryption-related logs
 kubectl logs -l app=rhesis-backend -n rhesis-prod --since=1h | grep -i "encrypt\|decrypt" > logs.txt
 ```
 
 ### Support
+
 - Review [Database Field Encryption](./database-field-encryption.mdx)
 - Check [Security Documentation](./security.mdx)
 - Create GitHub issue with `encryption` label

@@ -8,28 +8,21 @@ Helper functions are re-exported from executors.shared for backward compatibilit
 with existing tests and code.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.models.test import Test
 from rhesis.backend.logging.rhesis_logger import logger
+
+# Import factory for executor creation
+from rhesis.backend.tasks.execution.executors import create_executor
 
 # Re-export helper functions for backward compatibility with existing tests
 # These functions are now properly located in executors.shared but are available
 # here for any code that imports them from test_execution
 from rhesis.backend.tasks.execution.executors.shared import (
-    check_existing_result,
-    create_test_result_record,
     get_test_and_prompt,
-    get_test_metrics,
-    prepare_metric_configs,
-    process_endpoint_result,
 )
-
-# Import factory for executor creation
-from rhesis.backend.tasks.execution.executors import create_executor
-
 
 # ============================================================================
 # MAIN EXECUTION FUNCTION (Strategy Pattern Entry Point)

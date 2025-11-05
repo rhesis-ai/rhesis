@@ -13,7 +13,7 @@ Traditional request-response tests with a single prompt. The endpoint receives o
 ### Use Cases
 
 - **API Validation**: Testing specific API endpoints and responses
-- **Regression Testing**: Ensuring consistent behavior across releases  
+- **Regression Testing**: Ensuring consistent behavior across releases
 - **Functional Testing**: Verifying specific features or capabilities
 - **Performance Benchmarks**: Measuring response time and quality
 
@@ -27,6 +27,7 @@ Traditional request-response tests with a single prompt. The endpoint receives o
 ### Configuration
 
 Single-turn tests use the `Test` model with a `Prompt` containing:
+
 - `content`: The input text
 - `expected_response`: Optional expected output
 - Associated `Behavior` with metrics for evaluation
@@ -47,6 +48,7 @@ test = Test(
 ### Metric Evaluation
 
 Metrics are evaluated by the worker using the `MetricEvaluator`:
+
 - Runs after endpoint responds
 - Each metric gets prompt, response, and optional context
 - Results stored with pass/fail status
@@ -121,12 +123,14 @@ test = Test(
 ### Metric Evaluation
 
 Metrics are evaluated by Penelope during execution:
+
 - **Goal Achievement**: Primary metric (did test achieve its goal?)
 - **Criteria Evaluation**: Individual success criteria checked
 - **Confidence Score**: How confident Penelope is in the evaluation
 - **Evidence**: Conversation excerpts supporting the evaluation
 
 The complete Penelope trace is stored, including:
+
 - All conversation turns
 - Agent reasoning at each step
 - Tool calls and responses
@@ -174,15 +178,19 @@ The complete Penelope trace is stored, including:
 The system is designed to easily support additional test types:
 
 ### Image/Multimodal Tests
+
 Testing vision-capable models with images, diagrams, or mixed media.
 
 ### Adversarial Tests
+
 Security and robustness testing with jailbreak attempts and edge cases.
 
-### Synthetic Tests  
+### Synthetic Tests
+
 Automatically generated test cases for broader coverage.
 
 ### Performance Tests
+
 Load testing and stress testing endpoints under various conditions.
 
 ---
@@ -213,6 +221,7 @@ if test_type == TestType.MULTI_TURN:
 ## Choosing a Test Type
 
 ### Use Single-Turn When:
+
 - ✅ Testing specific API responses
 - ✅ Simple input-output validation needed
 - ✅ Running regression tests at scale
@@ -220,6 +229,7 @@ if test_type == TestType.MULTI_TURN:
 - ✅ Testing isolated functionality
 
 ### Use Multi-Turn When:
+
 - ✅ Testing conversational interfaces
 - ✅ Validating complex user journeys
 - ✅ Checking context retention
@@ -234,4 +244,3 @@ if test_type == TestType.MULTI_TURN:
 - [Execution Modes](/development/worker/execution-modes) - Sequential vs Parallel
 - [Penelope](/penelope) - Multi-turn testing agent
 - [Metrics](/platform/metrics) - Evaluation metrics
-
