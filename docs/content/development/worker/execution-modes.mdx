@@ -12,15 +12,13 @@ Tests are executed simultaneously using multiple Celery workers. This is the def
 
 ### How It Works
 
-```mermaid
-graph LR
-    A[Test Configuration] --> B[Celery Chord]
-    B --> C[Worker 1: Test A]
-    B --> D[Worker 2: Test B]
-    B --> E[Worker 3: Test C]
-    C --> F[Collect Results]
-    D --> F
-    E --> F
+```
+Test Configuration
+    ↓
+Celery Chord (parallel dispatch)
+    ├─→ Worker 1: Test A ─┐
+    ├─→ Worker 2: Test B ─┼─→ Collect Results
+    └─→ Worker 3: Test C ─┘
 ```
 
 - Tests are dispatched to available workers
@@ -79,12 +77,16 @@ Tests are executed one after another in sequence. Each test must complete before
 
 ### How It Works
 
-```mermaid
-graph LR
-    A[Test Configuration] --> B[Test 1]
-    B --> C[Test 2]
-    C --> D[Test 3]
-    D --> E[Collect Results]
+```
+Test Configuration
+    ↓
+Test 1
+    ↓
+Test 2
+    ↓
+Test 3
+    ↓
+Collect Results
 ```
 
 - Tests execute in order

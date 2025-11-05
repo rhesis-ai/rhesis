@@ -38,15 +38,20 @@ Test → Factory → Executor → Results
 
 ### Standard Execution Flow
 
-```mermaid
-graph LR
-    A[Test Configuration] --> B[Retrieve Test]
-    B --> C{Test Type?}
-    C -->|Single-Turn| D[SingleTurnExecutor]
-    C -->|Multi-Turn| E[MultiTurnExecutor]
-    D --> F[Store Results]
-    E --> F
-    F --> G[Return Summary]
+```
+Test Configuration
+    ↓
+Retrieve Test
+    ↓
+Determine Test Type
+    ↓
+    ├─→ Single-Turn → SingleTurnExecutor
+    │
+    └─→ Multi-Turn → MultiTurnExecutor
+    ↓
+Store Results
+    ↓
+Return Summary
 ```
 
 ### Parallel vs Sequential
