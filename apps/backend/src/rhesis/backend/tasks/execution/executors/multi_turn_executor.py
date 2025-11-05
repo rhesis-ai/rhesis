@@ -21,6 +21,7 @@ from rhesis.backend.tasks.execution.executors.shared import (
     check_existing_result,
     create_test_result_record,
     get_test_and_prompt,
+    serialize_for_json,
 )
 from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
 
@@ -155,6 +156,9 @@ class MultiTurnTestExecutor(BaseTestExecutor):
                 if hasattr(penelope_result, "dict")
                 else penelope_result.__dict__
             )
+
+            # Serialize datetime objects to ISO strings for JSON storage
+            penelope_trace = serialize_for_json(penelope_trace)
 
             # Extract metrics (pop them from the trace)
             metrics_results = penelope_trace.pop("metrics", {})
