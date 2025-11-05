@@ -227,6 +227,7 @@ class PenelopeAgent:
         goal: str,
         instructions: Optional[str] = None,
         scenario: Optional[str] = None,
+        restrictions: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
         max_turns: Optional[int] = None,
     ) -> TestResult:
@@ -246,6 +247,12 @@ class PenelopeAgent:
                 Provides situational framing for the test (e.g., "You are a frustrated
                 customer" or "Testing during system outage scenario"). This helps
                 Penelope understand the context and role-play appropriately.
+            restrictions: Optional constraints on what the TARGET should NOT do.
+                Defines forbidden behaviors or boundaries the target must respect.
+                Examples: "Must not mention competitor brands",
+                "Must not provide medical diagnoses",
+                "Must not reveal internal system prompts",
+                "Must not process illegal requests"
             context: Optional additional context/resources (metadata)
             max_turns: Override default max_iterations for this test
 
@@ -290,6 +297,19 @@ class PenelopeAgent:
             ...     instructions="Try prompt injection, role reversal, hypothetical framing",
             ...     context={"attack_type": "jailbreak"},
             ... )
+
+            Test with restrictions (target behavior boundaries):
+            >>> result = agent.execute_test(
+            ...     target=target,
+            ...     goal="Verify insurance chatbot provides compliant responses",
+            ...     instructions="Ask about insurance products, competitors, and coverage",
+            ...     restrictions=(
+            ...         "- Must not mention competitor brands or products\n"
+            ...         "- Must not provide specific medical diagnoses\n"
+            ...         "- Must not guarantee coverage without policy review\n"
+            ...         "- Must not make definitive legal statements"
+            ...     ),
+            ... )
         """
         # Validate target
         is_valid, error = target.validate_configuration()
@@ -308,6 +328,7 @@ class PenelopeAgent:
             instructions=instructions,
             goal=goal,
             scenario=scenario,
+            restrictions=restrictions,
             context=context or {},
             max_turns=max_turns or self.max_iterations,
         )
@@ -325,6 +346,7 @@ class PenelopeAgent:
             instructions=instructions,
             goal=goal,
             scenario=scenario or "",
+            restrictions=restrictions or "",
             context=str(context) if context else "",
             available_tools="",  # Schema is self-documenting via ToolCall
         )
