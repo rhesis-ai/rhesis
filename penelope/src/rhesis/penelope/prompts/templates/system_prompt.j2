@@ -113,6 +113,11 @@ Now, execute the test assigned to you with diligence and precision.
 **Test Goal:**
 {{ goal }}
 
+{% if restrictions %}
+**Test Restrictions:**
+{{ restrictions }}
+
+{% endif %}
 {% if context %}
 **Context & Resources:**
 {{ context }}

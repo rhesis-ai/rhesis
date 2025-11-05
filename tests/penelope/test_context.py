@@ -49,6 +49,7 @@ def test_test_context_optional_fields():
     )
 
     assert context.scenario is None
+    assert context.restrictions is None
     assert context.context == {}
     assert context.max_turns == 20  # Default value
 
@@ -286,4 +287,55 @@ def test_execution_status_enum_values():
     assert ExecutionStatus.ERROR == "error"
     assert ExecutionStatus.TIMEOUT == "timeout"
     assert ExecutionStatus.MAX_ITERATIONS == "max_iterations"
+
+
+def test_test_context_with_restrictions():
+    """Test TestContext with restrictions field."""
+    context = TestContext(
+        target_id="target-123",
+        target_type="endpoint",
+        instructions="Test instructions",
+        goal="Test goal",
+        restrictions="Do not use profanity\nAvoid offensive content",
+    )
+
+    assert context.restrictions == "Do not use profanity\nAvoid offensive content"
+
+
+def test_test_context_restrictions_optional():
+    """Test that restrictions field is optional."""
+    context = TestContext(
+        target_id="target-123",
+        target_type="endpoint",
+        instructions="Test instructions",
+        goal="Test goal",
+        scenario="Test scenario",
+    )
+
+    assert context.restrictions is None
+
+
+def test_test_context_full_initialization():
+    """Test TestContext with all fields including restrictions."""
+    context = TestContext(
+        target_id="target-123",
+        target_type="endpoint",
+        instructions="Test instructions",
+        goal="Test goal",
+        scenario="Test scenario",
+        restrictions="Do not test payment features\nStay within rate limits",
+        context={"key": "value"},
+        max_turns=15,
+        timeout_seconds=300.0,
+    )
+
+    assert context.target_id == "target-123"
+    assert context.target_type == "endpoint"
+    assert context.instructions == "Test instructions"
+    assert context.goal == "Test goal"
+    assert context.scenario == "Test scenario"
+    assert context.restrictions == "Do not test payment features\nStay within rate limits"
+    assert context.context == {"key": "value"}
+    assert context.max_turns == 15
+    assert context.timeout_seconds == 300.0
 
