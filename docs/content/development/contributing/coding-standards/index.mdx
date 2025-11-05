@@ -3,8 +3,9 @@
 This document outlines the coding standards and best practices for the Rhesis project. Following these standards ensures code quality, maintainability, and consistency across the codebase.
 
 <Callout type="default">
-  **Code Quality Matters** Consistent coding standards help us maintain high-quality code, improve
-  collaboration, and reduce bugs. Please follow these guidelines for all contributions.
+  **Code Quality Matters** Consistent coding standards help us maintain
+  high-quality code, improve collaboration, and reduce bugs. Please follow these
+  guidelines for all contributions.
 </Callout>
 
 ## Python Standards
@@ -240,48 +241,50 @@ Use TypeScript for all new code with strict configuration:
 ```typescript
 // Define interfaces for data structures
 interface User {
-  id: string
-  email: string
-  name: string
-  organizationId: string
-  createdAt: Date
-  updatedAt: Date
+  id: string;
+  email: string;
+  name: string;
+  organizationId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface UserCreateRequest {
-  email: string
-  name: string
-  password: string
-  organizationId?: string
+  email: string;
+  name: string;
+  password: string;
+  organizationId?: string;
 }
 
 interface ApiResponse<T> {
-  data: T
-  message: string
-  success: boolean
+  data: T;
+  message: string;
+  success: boolean;
 }
 
 // Use proper typing for functions
-const createUser = async (userData: UserCreateRequest): Promise<ApiResponse<User>> => {
+const createUser = async (
+  userData: UserCreateRequest,
+): Promise<ApiResponse<User>> => {
   try {
-    const response = await fetch('/api/users', {
-      method: 'POST',
+    const response = await fetch("/api/users", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(userData),
-    })
+    });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const result = await response.json()
-    return result
+    const result = await response.json();
+    return result;
   } catch (error) {
-    throw new Error(`Failed to create user: ${error.message}`)
+    throw new Error(`Failed to create user: ${error.message}`);
   }
-}
+};
 ```
 
 ### React Components
@@ -378,61 +381,64 @@ export const UserForm: React.FC<UserFormProps> = ({
 Create reusable custom hooks for common functionality:
 
 ```typescript
-import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export const useUsers = (organizationId: string) => {
   return useQuery({
-    queryKey: ['users', organizationId],
+    queryKey: ["users", organizationId],
     queryFn: () => api.getUsers(organizationId),
     enabled: !!organizationId,
     staleTime: 5 * 60 * 1000, // 5 minutes
-  })
-}
+  });
+};
 
 export const useCreateUser = () => {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: api.createUser,
-    onSuccess: newUser => {
+    onSuccess: (newUser) => {
       // Invalidate and refetch users list
-      queryClient.invalidateQueries(['users', newUser.organizationId])
+      queryClient.invalidateQueries(["users", newUser.organizationId]);
 
       // Add new user to cache
-      queryClient.setQueryData(['users', newUser.organizationId], (oldUsers: User[] = []) => [
-        ...oldUsers,
-        newUser,
-      ])
+      queryClient.setQueryData(
+        ["users", newUser.organizationId],
+        (oldUsers: User[] = []) => [...oldUsers, newUser],
+      );
     },
-    onError: error => {
-      console.error('Failed to create user:', error)
+    onError: (error) => {
+      console.error("Failed to create user:", error);
     },
-  })
-}
+  });
+};
 
-export const useLocalStorage = <T>(key: string, initialValue: T): [T, (value: T) => void] => {
+export const useLocalStorage = <T>(
+  key: string,
+  initialValue: T,
+): [T, (value: T) => void] => {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
-      const item = window.localStorage.getItem(key)
-      return item ? JSON.parse(item) : initialValue
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error)
-      return initialValue
+      console.error(`Error reading localStorage key "${key}":`, error);
+      return initialValue;
     }
-  })
+  });
 
   const setValue = (value: T) => {
     try {
-      setStoredValue(value)
-      window.localStorage.setItem(key, JSON.stringify(value))
+      setStoredValue(value);
+      window.localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
-      console.error(`Error setting localStorage key "${key}":`, error)
+      console.error(`Error setting localStorage key "${key}":`, error);
     }
-  }
+  };
 
-  return [storedValue, setValue]
-}
+  return [storedValue, setValue];
+};
 ```
 
 ### Error Handling
@@ -536,10 +542,10 @@ const handleClick = useCallback(() => {
 ### Security Best Practices
 
 <Callout type="default">
-  **Security Guidelines** - Always validate and sanitize user input - Use parameterized queries to
-  prevent SQL injection - Implement proper authentication and authorization - Keep dependencies
-  updated and scan for vulnerabilities - Never expose sensitive information in logs or error
-  messages
+  **Security Guidelines** - Always validate and sanitize user input - Use
+  parameterized queries to prevent SQL injection - Implement proper
+  authentication and authorization - Keep dependencies updated and scan for
+  vulnerabilities - Never expose sensitive information in logs or error messages
 </Callout>
 
 ### Documentation Standards
@@ -623,7 +629,8 @@ When reviewing code, check for:
 ---
 
 <Callout type="default">
-  **Questions?** If you have questions about these coding standards: - Check our [Development Setup
-  Guide](/docs/development/contributing/development-setup) - Ask in [GitHub
-  Discussions](https://github.com/rhesis-ai/rhesis/discussions) - Review existing code for examples
+  **Questions?** If you have questions about these coding standards: - Check our
+  [Development Setup Guide](/docs/development/contributing/development-setup) -
+  Ask in [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions) -
+  Review existing code for examples
 </Callout>

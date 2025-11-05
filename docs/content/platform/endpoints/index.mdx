@@ -1,13 +1,13 @@
-import { CodeBlock } from '@/components/CodeBlock'
+import { CodeBlock } from "@/components/CodeBlock";
 
 # Endpoints
 
 Configure and manage API endpoints that your tests execute against.
 
 <Callout type="default">
-  **What are Endpoints?** Endpoints represent the AI services or APIs that you want to test. They
-  define how Rhesis connects to your application, sends test inputs, and receives responses for
-  evaluation.
+  **What are Endpoints?** Endpoints represent the AI services or APIs that you
+  want to test. They define how Rhesis connects to your application, sends test
+  inputs, and receives responses for evaluation.
 </Callout>
 
 ## Why Endpoints?
@@ -44,11 +44,8 @@ Configure the endpoint name, description, project assignment, and environment. T
 
 Define authentication and other required headers in JSON format:
 
-<CodeBlock
-  filename="headers.json"
-  language="json"
->
-{`{
+<CodeBlock filename="headers.json" language="json">
+  {`{
   "Authorization": "Bearer {API_KEY}",
   "Content-Type": "application/json"
 }`}
@@ -58,11 +55,8 @@ Define authentication and other required headers in JSON format:
 
 Create a template with placeholders for dynamic values. Rhesis will replace `{input}` with your test prompt:
 
-<CodeBlock
-  filename="request-body.json"
-  language="json"
->
-{`{
+<CodeBlock filename="request-body.json" language="json">
+  {`{
   "model": "gpt-4",
   "messages": [
     {
@@ -78,11 +72,8 @@ Create a template with placeholders for dynamic values. Rhesis will replace `{in
 
 Extract specific values from API responses using JSONPath syntax:
 
-<CodeBlock
-  filename="response-mappings.json"
-  language="json"
->
-{`{
+<CodeBlock filename="response-mappings.json" language="json">
+  {`{
   "output": "$.choices[0].message.content",
   "model_used": "$.model",
   "tokens": "$.usage.total_tokens"
@@ -118,9 +109,9 @@ Open the endpoint details page, click **Edit**, modify any configuration fields,
 Select one or more endpoints from the grid and click **Delete**.
 
 <Callout type="warning">
-  **Important**: Deleting an endpoint does not delete associated test configurations or historical
-  test results. Your test data remains intact, but you cannot execute new tests with a deleted
-  endpoint.
+  **Important**: Deleting an endpoint does not delete associated test
+  configurations or historical test results. Your test data remains intact, but
+  you cannot execute new tests with a deleted endpoint.
 </Callout>
 
 ## Using Endpoints in Tests
@@ -148,8 +139,9 @@ Environment tags help you quickly identify which endpoints are production-critic
 ---
 
 <Callout type="default">
-  **Next Steps** - Test your endpoint configuration using the Test Connection tab - Generate
-  [Tests](/docs/platform/tests-generation) with AI to create comprehensive coverage - Create
-  multiple endpoints to compare models or environments - Define [Metrics](/docs/platform/metrics) to
-  evaluate response quality
+  **Next Steps** - Test your endpoint configuration using the Test Connection
+  tab - Generate [Tests](/docs/platform/tests-generation) with AI to create
+  comprehensive coverage - Create multiple endpoints to compare models or
+  environments - Define [Metrics](/docs/platform/metrics) to evaluate response
+  quality
 </Callout>

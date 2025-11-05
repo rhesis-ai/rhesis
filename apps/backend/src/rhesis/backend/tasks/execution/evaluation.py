@@ -8,8 +8,8 @@ from endpoint invocations.
 from typing import Any, Dict, List, Union
 
 from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.sdk.metrics import MetricConfig
 from rhesis.backend.metrics.evaluator import MetricEvaluator
+from rhesis.sdk.metrics import MetricConfig
 
 from .response_extractor import extract_response_with_fallback
 

@@ -90,8 +90,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 db, test_id, organization_id
             )
             logger.debug(
-                f"[SingleTurnExecutor] Retrieved test data - "
-                f"prompt length: {len(prompt_content)}"
+                f"[SingleTurnExecutor] Retrieved test data - prompt length: {len(prompt_content)}"
             )
 
             # Prepare metrics

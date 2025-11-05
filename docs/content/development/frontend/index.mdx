@@ -3,9 +3,9 @@
 Welcome to the Rhesis Frontend documentation. This section covers the React-based frontend application that provides the user interface for the Rhesis platform.
 
 <Callout type="default">
-  **Frontend Overview** The Rhesis frontend is built with **React 18**, **TypeScript**, and
-  **Next.js 15**, providing a modern, responsive user interface with real-time collaboration
-  features.
+  **Frontend Overview** The Rhesis frontend is built with **React 18**,
+  **TypeScript**, and **Next.js 15**, providing a modern, responsive user
+  interface with real-time collaboration features.
 </Callout>
 
 ## Quick Start
@@ -15,8 +15,9 @@ Welcome to the Rhesis Frontend documentation. This section covers the React-base
 Before working with the frontend, ensure you have:
 
 <Callout type="default">
-  **System Requirements** - **Node.js 18+** and npm - **Backend service** running on port 8080 -
-  **Modern browser** with ES6+ support - **Environment variables** configured
+  **System Requirements** - **Node.js 18+** and npm - **Backend service**
+  running on port 8080 - **Modern browser** with ES6+ support - **Environment
+  variables** configured
 </Callout>
 
 ### Development Setup
@@ -26,20 +27,25 @@ Before working with the frontend, ensure you have:
 cd apps/frontend
 
 # Install dependencies
+
 npm install
 
 # Set up environment
+
 cp ../../.env.example .env.local
+
 # Edit .env.local with your configuration
 
 # Start development server
+
 npm run dev`}
+
 </CodeBlock>
 
 <Callout type="default">
-  **Development Server** - **URL**: http://localhost:3000 - **Hot Reload**: Enabled for instant
-  updates - **TypeScript**: Full type checking and IntelliSense - **ESLint**: Code quality and style
-  enforcement
+  **Development Server** - **URL**: http://localhost:3000 - **Hot Reload**:
+  Enabled for instant updates - **TypeScript**: Full type checking and
+  IntelliSense - **ESLint**: Code quality and style enforcement
 </Callout>
 
 ## Architecture
@@ -94,19 +100,19 @@ npm run dev`}
                 {
                   name: "(protected)",
                   type: "folder",
-                  description: "Authenticated routes"
+                  description: "Authenticated routes",
                 },
                 {
                   name: "auth",
                   type: "folder",
-                  description: "Authentication pages"
+                  description: "Authentication pages",
                 },
                 {
                   name: "layout.tsx",
                   type: "file",
-                  description: "Root layout"
-                }
-              ]
+                  description: "Root layout",
+                },
+              ],
             },
             {
               name: "components",
@@ -116,59 +122,59 @@ npm run dev`}
                 {
                   name: "common",
                   type: "folder",
-                  description: "Shared components"
+                  description: "Shared components",
                 },
                 {
                   name: "forms",
                   type: "folder",
-                  description: "Form components"
+                  description: "Form components",
                 },
                 {
                   name: "layout",
                   type: "folder",
-                  description: "Layout components"
-                }
-              ]
+                  description: "Layout components",
+                },
+              ],
             },
             {
               name: "hooks",
               type: "folder",
-              description: "Custom React hooks"
+              description: "Custom React hooks",
             },
             {
               name: "lib",
               type: "folder",
-              description: "Utility libraries"
+              description: "Utility libraries",
             },
             {
               name: "stores",
               type: "folder",
-              description: "Zustand state stores"
+              description: "Zustand state stores",
             },
             {
               name: "types",
               type: "folder",
-              description: "TypeScript type definitions"
-            }
-          ]
+              description: "TypeScript type definitions",
+            },
+          ],
         },
         {
           name: "public",
           type: "folder",
-          description: "Static assets"
+          description: "Static assets",
         },
         {
           name: "tailwind.config.js",
           type: "file",
-          description: "Tailwind CSS configuration"
+          description: "Tailwind CSS configuration",
         },
         {
           name: "package.json",
           type: "file",
-          description: "Dependencies and scripts"
-        }
-      ]
-    }
+          description: "Dependencies and scripts",
+        },
+      ],
+    },
   ]}
 />
 
@@ -183,6 +189,7 @@ The frontend implements a comprehensive authentication system:
 const { user, login, logout, isLoading } = useAuth();
 
 // Protected route wrapper
+
 <ProtectedRoute>
   <Dashboard />
 </ProtectedRoute>`}
@@ -218,18 +225,18 @@ Using Zustand for lightweight, scalable state management:
 ```typescript
 // Example store
 interface AppState {
-  user: User | null
-  organization: Organization | null
-  setUser: (user: User) => void
-  setOrganization: (org: Organization) => void
+  user: User | null;
+  organization: Organization | null;
+  setUser: (user: User) => void;
+  setOrganization: (org: Organization) => void;
 }
 
-const useAppStore = create<AppState>(set => ({
+const useAppStore = create<AppState>((set) => ({
   user: null,
   organization: null,
-  setUser: user => set({ user }),
-  setOrganization: org => set({ organization: org }),
-}))
+  setUser: (user) => set({ user }),
+  setOrganization: (org) => set({ organization: org }),
+}));
 ```
 
 ### Data Fetching
@@ -237,7 +244,7 @@ const useAppStore = create<AppState>(set => ({
 React Query for efficient data fetching and caching:
 
 <CodeBlock filename="useQuery.ts" language="typescript">
-{`// Example query
+  {`// Example query
 const {
   data: tests,
   isLoading,
@@ -292,6 +299,7 @@ The frontend includes a comprehensive component library:
 </Button>
 
 // Form component
+
 <Form
   schema={testSchema}
   onSubmit={handleSubmit}
@@ -328,13 +336,13 @@ app/
 ```typescript
 // Middleware for route protection
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get('auth-token')
+  const token = request.cookies.get("auth-token");
 
-  if (!token && request.nextUrl.pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/auth/signin', request.url))
+  if (!token && request.nextUrl.pathname.startsWith("/dashboard")) {
+    return NextResponse.redirect(new URL("/auth/signin", request.url));
   }
 
-  return NextResponse.next()
+  return NextResponse.next();
 }
 ```
 
@@ -349,16 +357,16 @@ Centralized API client with automatic error handling:
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   timeout: 10000,
-})
+});
 
 // Request interceptor for authentication
-apiClient.interceptors.request.use(config => {
-  const token = getAuthToken()
+apiClient.interceptors.request.use((config) => {
+  const token = getAuthToken();
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+    config.headers.Authorization = `Bearer ${token}`;
   }
-  return config
-})
+  return config;
+});
 ```
 
 ### API Hooks
@@ -369,10 +377,10 @@ Custom hooks for API integration:
 // Custom hook for tests
 export function useTests(organizationId: string) {
   return useQuery({
-    queryKey: ['tests', organizationId],
+    queryKey: ["tests", organizationId],
     queryFn: () => api.getTests(organizationId),
     enabled: !!organizationId,
-  })
+  });
 }
 
 // Mutation hook
@@ -380,9 +388,9 @@ export function useCreateTest() {
   return useMutation({
     mutationFn: api.createTest,
     onSuccess: () => {
-      queryClient.invalidateQueries(['tests'])
+      queryClient.invalidateQueries(["tests"]);
     },
-  })
+  });
 }
 ```
 
@@ -408,19 +416,19 @@ Consistent design tokens and components:
 // Design tokens
 const colors = {
   primary: {
-    50: '#eff6ff',
-    500: '#3b82f6',
-    900: '#1e3a8a',
+    50: "#eff6ff",
+    500: "#3b82f6",
+    900: "#1e3a8a",
   },
   // ... more colors
-}
+};
 
 // Component variants
 const buttonVariants = {
-  primary: 'bg-primary-500 text-white hover:bg-primary-600',
-  secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200',
-  danger: 'bg-red-500 text-white hover:bg-red-600',
-}
+  primary: "bg-primary-500 text-white hover:bg-primary-600",
+  secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",
+  danger: "bg-red-500 text-white hover:bg-red-600",
+};
 ```
 
 ## Performance Optimization
@@ -591,8 +599,9 @@ npm run export
 ---
 
 <Callout type="default">
-  **Next Steps** - Explore the [Component Library](/docs/frontend/components) for available UI
-  components - Check out [Authentication Guide](/docs/frontend/auth) for security implementation -
-  Review [State Management](/docs/frontend/state) for data flow patterns - Learn about [API
+  **Next Steps** - Explore the [Component Library](/docs/frontend/components)
+  for available UI components - Check out [Authentication
+  Guide](/docs/frontend/auth) for security implementation - Review [State
+  Management](/docs/frontend/state) for data flow patterns - Learn about [API
   Integration](/docs/frontend/api) for backend communication
 </Callout>

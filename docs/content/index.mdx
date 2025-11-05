@@ -44,7 +44,7 @@ Get started in minutes at [app.rhesis.ai](https://app.rhesis.ai):
 Install and configure the Python SDK:
 
 <CodeBlock filename="terminal" language="bash">
-{`pip install rhesis-sdk`}
+  {`pip install rhesis-sdk`}
 </CodeBlock>
 
 <details>
@@ -55,28 +55,35 @@ Install and configure the Python SDK:
 from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
 
 # Configuration
-rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"  # Get from app.rhesis.ai settings
-rhesis.base_url = "https://api.rhesis.ai"  # optional
+
+rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX" # Get from app.rhesis.ai settings
+rhesis.base_url = "https://api.rhesis.ai" # optional
 
 synthesizer = PromptSynthesizer(
-  "Generate test cases for a doctor appointment scheduling chatbot"
+"Generate test cases for a doctor appointment scheduling chatbot"
 )
 
 test_set = synthesizer.generate(num_tests=4)
 
 for test in test_set.tests:
-  print("-" * 40)
-  print(f"Prompt: {test['prompt']['content']}")
-  print(f"Behavior: {test['behavior']}")
-  print(f"Category: {test['category']}")
-  print(f"Topic: {test['topic']}")
+print("-" \* 40)
+print(f"Prompt: {test['prompt']['content']}")
+print(f"Behavior: {test['behavior']}")
+print(f"Category: {test['category']}")
+print(f"Topic: {test['topic']}")
 
 # Example output:
+
 # ----------------------------------------
+
 # Prompt: Schedule an appointment for me next week with Dr. Smith.
+
 # Behavior: Reliability
+
 # Category: Harmless
+
 # Topic: Appointment Scheduling`}
+
 </CodeBlock>
 
 </details>
@@ -86,7 +93,7 @@ for test in test_set.tests:
 Clone and run the full platform locally:
 
 <CodeBlock filename="terminal" language="bash">
-{`git clone https://github.com/rhesis-ai/rhesis.git
+  {`git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 cp .env.example .env.docker
 docker compose --env-file .env.docker up -d`}

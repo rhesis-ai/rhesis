@@ -11,7 +11,7 @@ The Rhesis backend implements a robust multi-tenancy model that ensures complete
 The foundation of multi-tenancy is the `Organization` model:
 
 <CodeBlock filename="organization-model.py" language="python">
-{`class Organization(Base):
+  {`class Organization(Base):
     name = Column(String, nullable=False)
     slug = Column(String, unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
@@ -23,7 +23,7 @@ The foundation of multi-tenancy is the `Organization` model:
 Most models include a reference to the organization they belong to:
 
 <CodeBlock filename="organization-reference.py" language="python">
-{`class SomeModel(Base):
+  {`class SomeModel(Base):
     # ...other fields
     organization_id = Column(GUID(), ForeignKey("organization.id"))
     organization = relationship("Organization")`}
@@ -38,7 +38,7 @@ The application uses **direct parameter passing** for tenant context instead of 
 Tenant context is extracted from authenticated users and passed directly to CRUD operations:
 
 <CodeBlock filename="tenant-context.py" language="python">
-{`def get_tenant_context(current_user: User = Depends(require_current_user_or_token)):
+  {`def get_tenant_context(current_user: User = Depends(require_current_user_or_token)):
     """Extract tenant context from authenticated user."""
     return current_user.organization_id, current_user.id`}
 </CodeBlock>
@@ -137,6 +137,7 @@ def get_db_with_tenant_context(tenant_context: tuple = Depends(get_tenant_contex
 ### Usage Patterns
 
 **For multi-entity operations (recommended):**
+
 ```python
 # Use get_db and pass tenant context directly to CRUD operations
 def load_initial_data(organization_id: str, user_id: str):
@@ -148,6 +149,7 @@ def load_initial_data(organization_id: str, user_id: str):
 ```
 
 **For API request handling:**
+
 ```python
 # Standard dependency injection for regular API endpoints
 async def get_tests(

@@ -55,4 +55,3 @@ def create_executor(test: Test) -> BaseTestExecutor:
 
         logger.info(f"Routing test {test.id} to SingleTurnTestExecutor")
         return SingleTurnTestExecutor()
-

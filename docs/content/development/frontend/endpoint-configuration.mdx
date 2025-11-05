@@ -7,11 +7,13 @@ This guide explains how to configure endpoints in the system for both REST and W
 The system uses special placeholders that are automatically replaced with actual values during request execution. These placeholders must be wrapped in double curly braces: `{{ placeholder }}`.
 
 ### Available Placeholders
+
 - `{{ input }}`: The main input/query from the user
 - `{{ auth_token }}`: The current authentication token (used in both bearer token and client credentials auth)
 - `{{ session_id }}`: Unique session identifier
 
 ⚠️ **Important Notes**:
+
 - Placeholders are case-sensitive
 - Do not modify the placeholder names as they are reserved by the system
 - Always use double curly braces syntax
@@ -20,6 +22,7 @@ The system uses special placeholders that are automatically replaced with actual
 ## Core Configuration Fields
 
 ### Basic Information
+
 - `name`: A descriptive name for the endpoint (e.g., "Scavenger NL-to-SQL")
 - `description`: Detailed description of the endpoint's purpose
 - `url`: Full URL of the endpoint
@@ -34,11 +37,13 @@ The system uses special placeholders that are automatically replaced with actual
 ### Request Configuration Fields
 
 #### Common Fields
+
 - `request_body_template`: String containing the JSON template for the request body
 - `request_headers`: String containing the JSON template for request headers
 - `query_params`: String containing URL query parameters (optional)
 
 #### REST Example
+
 ```json
 // request_body_template
 {
@@ -53,6 +58,7 @@ The system uses special placeholders that are automatically replaced with actual
 ```
 
 #### WebSocket Example
+
 ```json
 // request_body_template
 {
@@ -75,6 +81,7 @@ The system uses special placeholders that are automatically replaced with actual
 - `response_mappings`: String containing JSON mapping of response fields
 
 #### REST Example
+
 ```json
 // response_mappings
 {
@@ -83,6 +90,7 @@ The system uses special placeholders that are automatically replaced with actual
 ```
 
 #### WebSocket Example
+
 ```json
 // response_mappings
 {
@@ -95,10 +103,12 @@ The system uses special placeholders that are automatically replaced with actual
 ### Authentication Fields
 
 #### Bearer Token
+
 - `auth_type`: "bearer"
 - No additional fields required, uses `{{ auth_token }}` in headers
 
 #### Client Credentials
+
 - `auth_type`: "client_credentials"
 - `client_id`: OAuth client ID
 - `client_secret`: OAuth client secret
@@ -109,6 +119,7 @@ The system uses special placeholders that are automatically replaced with actual
 ## Configuration Examples
 
 ### REST Endpoint
+
 ```json
 {
   "name": "Data Query API",
@@ -126,6 +137,7 @@ The system uses special placeholders that are automatically replaced with actual
 ```
 
 ### WebSocket Endpoint
+
 ```json
 {
   "name": "Real-time Chat API",

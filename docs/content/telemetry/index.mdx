@@ -3,7 +3,9 @@
 Rhesis includes a privacy-focused telemetry system to collect and analyze usage patterns from both cloud-hosted and self-hosted instances. This helps us understand how the platform is used and improve it for everyone.
 
 <Callout type="info">
-**Privacy First**: All telemetry is optional, privacy-focused, and transparent. User and organization IDs are hashed using SHA-256, and sensitive data like passwords and API keys are automatically filtered out.
+  **Privacy First**: All telemetry is optional, privacy-focused, and
+  transparent. User and organization IDs are hashed using SHA-256, and sensitive
+  data like passwords and API keys are automatically filtered out.
 </Callout>
 
 ## Architecture Overview
@@ -48,22 +50,26 @@ The telemetry system consists of three main components working together:
 ## What Data We Collect
 
 <Callout type="default">
-The telemetry system collects **usage patterns** to help us understand how Rhesis is used and identify areas for improvement.
+  The telemetry system collects **usage patterns** to help us understand how
+  Rhesis is used and identify areas for improvement.
 </Callout>
 
 ### User Activity
+
 - Login/logout events
 - Session duration
 - Deployment type (cloud or self-hosted)
 - Hashed user and organization IDs (SHA-256, irreversible)
 
 ### Endpoint Usage
+
 - API endpoint paths and HTTP methods
 - Response status codes
 - Request duration (performance metrics)
 - Timestamp of requests
 
 ### Feature Usage
+
 - Feature interactions (created, viewed, updated, deleted)
 - Feature names (e.g., "test-run", "test-set", "endpoint")
 - Usage timestamps
@@ -72,7 +78,8 @@ The telemetry system collects **usage patterns** to help us understand how Rhesi
 ## What We DON'T Collect
 
 <Callout type="warning">
-**Privacy Protection**: The following data is automatically filtered and NEVER stored:
+  **Privacy Protection**: The following data is automatically filtered and NEVER
+  stored:
 </Callout>
 
 - ❌ Passwords or password hashes
@@ -96,6 +103,7 @@ hash = hashlib.sha256(id_str.encode()).hexdigest()[:16]
 ```
 
 **Properties:**
+
 - ✅ **One-way**: Cannot recover original IDs
 - ✅ **Consistent**: Same ID always produces the same hash for analytics
 - ✅ **Anonymous**: No PII stored
@@ -104,17 +112,20 @@ hash = hashlib.sha256(id_str.encode()).hexdigest()[:16]
 ## Privacy & Security
 
 ### Opt-In/Opt-Out
+
 - Telemetry respects user preferences
 - Can be disabled entirely for self-hosted instances
 - No data collection without explicit configuration
 
 ### Data Isolation
+
 - Analytics database is **completely separate** from operational data
 - Different access controls and backup policies
 - Can be managed independently
 - No impact on application performance
 
 ### Security Measures
+
 - Sensitive attributes filtered at the collector level
 - Batch processing with retry logic for reliability
 - Memory limits to prevent resource exhaustion
@@ -139,48 +150,51 @@ hash = hashlib.sha256(id_str.encode()).hexdigest()[:16]
 The analytics database uses three tables with consistent structure:
 
 ### `user_activity`
+
 Tracks user engagement events
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `user_id` | VARCHAR(32) | Hashed user ID |
-| `organization_id` | VARCHAR(32) | Hashed org ID |
-| `event_type` | VARCHAR(50) | Event type (login, logout) |
-| `timestamp` | TIMESTAMP | Event time |
-| `session_id` | VARCHAR(255) | Session identifier |
-| `deployment_type` | VARCHAR(50) | cloud / self-hosted |
-| `event_metadata` | JSONB | Additional context |
+| Column            | Type         | Description                |
+| ----------------- | ------------ | -------------------------- |
+| `id`              | UUID         | Primary key                |
+| `user_id`         | VARCHAR(32)  | Hashed user ID             |
+| `organization_id` | VARCHAR(32)  | Hashed org ID              |
+| `event_type`      | VARCHAR(50)  | Event type (login, logout) |
+| `timestamp`       | TIMESTAMP    | Event time                 |
+| `session_id`      | VARCHAR(255) | Session identifier         |
+| `deployment_type` | VARCHAR(50)  | cloud / self-hosted        |
+| `event_metadata`  | JSONB        | Additional context         |
 
 ### `endpoint_usage`
+
 Tracks API usage and performance
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `endpoint` | VARCHAR(255) | API endpoint path |
-| `method` | VARCHAR(10) | HTTP method |
-| `user_id` | VARCHAR(32) | Hashed user ID |
-| `organization_id` | VARCHAR(32) | Hashed org ID |
-| `status_code` | INTEGER | HTTP status |
-| `duration_ms` | DOUBLE PRECISION | Request duration |
-| `timestamp` | TIMESTAMP | Request time |
-| `deployment_type` | VARCHAR(50) | cloud / self-hosted |
-| `event_metadata` | JSONB | Additional context |
+| Column            | Type             | Description         |
+| ----------------- | ---------------- | ------------------- |
+| `id`              | UUID             | Primary key         |
+| `endpoint`        | VARCHAR(255)     | API endpoint path   |
+| `method`          | VARCHAR(10)      | HTTP method         |
+| `user_id`         | VARCHAR(32)      | Hashed user ID      |
+| `organization_id` | VARCHAR(32)      | Hashed org ID       |
+| `status_code`     | INTEGER          | HTTP status         |
+| `duration_ms`     | DOUBLE PRECISION | Request duration    |
+| `timestamp`       | TIMESTAMP        | Request time        |
+| `deployment_type` | VARCHAR(50)      | cloud / self-hosted |
+| `event_metadata`  | JSONB            | Additional context  |
 
 ### `feature_usage`
+
 Tracks feature-specific interactions
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `feature_name` | VARCHAR(100) | Feature identifier |
-| `user_id` | VARCHAR(32) | Hashed user ID |
-| `organization_id` | VARCHAR(32) | Hashed org ID |
-| `action` | VARCHAR(100) | Action type |
-| `timestamp` | TIMESTAMP | Action time |
-| `deployment_type` | VARCHAR(50) | cloud / self-hosted |
-| `event_metadata` | JSONB | Additional context |
+| Column            | Type         | Description         |
+| ----------------- | ------------ | ------------------- |
+| `id`              | UUID         | Primary key         |
+| `feature_name`    | VARCHAR(100) | Feature identifier  |
+| `user_id`         | VARCHAR(32)  | Hashed user ID      |
+| `organization_id` | VARCHAR(32)  | Hashed org ID       |
+| `action`          | VARCHAR(100) | Action type         |
+| `timestamp`       | TIMESTAMP    | Action time         |
+| `deployment_type` | VARCHAR(50)  | cloud / self-hosted |
+| `event_metadata`  | JSONB        | Additional context  |
 
 ## Configuration
 
@@ -189,6 +203,7 @@ Tracks feature-specific interactions
 Configured via `apps/otel-collector/otel-collector-config.yaml`:
 
 **Key Features:**
+
 - OTLP gRPC and HTTP receivers with CORS support
 - Batch processing for efficiency
 - Memory limits to prevent OOM
@@ -197,6 +212,7 @@ Configured via `apps/otel-collector/otel-collector-config.yaml`:
 - Event categorization for analytics
 
 **Environment Variables:**
+
 ```bash
 TELEMETRY_PROCESSOR_ENDPOINT=telemetry-processor:4317
 ```
@@ -204,6 +220,7 @@ TELEMETRY_PROCESSOR_ENDPOINT=telemetry-processor:4317
 ### Telemetry Processor
 
 **Required Environment Variables:**
+
 ```bash
 # Analytics Database (separate from main database)
 ANALYTICS_DB_USER=your-db-username
@@ -281,8 +298,9 @@ open http://localhost:55679/debug/tracez
 ### Sample Queries
 
 **Recent Activity Summary:**
+
 ```sql
-SELECT 
+SELECT
     event_type,
     COUNT(*) as count,
     MAX(timestamp) as latest
@@ -292,8 +310,9 @@ GROUP BY event_type;
 ```
 
 **Top Endpoints by Usage:**
+
 ```sql
-SELECT 
+SELECT
     endpoint,
     method,
     COUNT(*) as hits,
@@ -306,8 +325,9 @@ LIMIT 10;
 ```
 
 **Feature Adoption:**
+
 ```sql
-SELECT 
+SELECT
     feature_name,
     action,
     COUNT(*) as count
@@ -318,10 +338,11 @@ ORDER BY count DESC;
 ```
 
 **Overall Statistics:**
+
 ```sql
-SELECT 
-    'user_activity' as table_name, 
-    COUNT(*) as count 
+SELECT
+    'user_activity' as table_name,
+    COUNT(*) as count
 FROM user_activity
 UNION ALL
 SELECT 'endpoint_usage', COUNT(*) FROM endpoint_usage
@@ -334,6 +355,7 @@ SELECT 'feature_usage', COUNT(*) FROM feature_usage;
 ### No Data Appearing
 
 1. **Check telemetry is enabled:**
+
    ```bash
    # In your .env file
    TELEMETRY_ENABLED=true
@@ -341,12 +363,14 @@ SELECT 'feature_usage', COUNT(*) FROM feature_usage;
    ```
 
 2. **Verify OTel Collector is receiving data:**
+
    ```bash
    docker-compose logs otel-collector
    # Look for "Traces received" messages
    ```
 
 3. **Check Telemetry Processor logs:**
+
    ```bash
    docker-compose logs telemetry-processor
    # Look for "Processing span" messages
@@ -360,6 +384,7 @@ SELECT 'feature_usage', COUNT(*) FROM feature_usage;
 ### Connection Issues
 
 **OTel Collector can't reach Telemetry Processor:**
+
 ```bash
 # Check if processor is running
 docker-compose ps telemetry-processor
@@ -369,6 +394,7 @@ docker-compose exec otel-collector ping telemetry-processor
 ```
 
 **Processor can't reach database:**
+
 ```bash
 # Verify database is running
 docker-compose ps postgres-analytics
@@ -380,16 +406,18 @@ docker-compose logs postgres-analytics
 ### Performance Issues
 
 1. **Check database indexes:**
+
    ```sql
-   SELECT tablename, indexname 
-   FROM pg_indexes 
+   SELECT tablename, indexname
+   FROM pg_indexes
    WHERE tablename IN ('user_activity', 'endpoint_usage', 'feature_usage');
    ```
 
 2. **Monitor active connections:**
+
    ```sql
-   SELECT COUNT(*), state 
-   FROM pg_stat_activity 
+   SELECT COUNT(*), state
+   FROM pg_stat_activity
    WHERE datname = 'rhesis_analytics'
    GROUP BY state;
    ```
@@ -406,10 +434,12 @@ docker-compose logs postgres-analytics
 Both services can be deployed to Cloud Run with Cloud SQL for the analytics database.
 
 **Deployment workflows:**
+
 - `.github/workflows/otel-collector.yml` - OTel Collector deployment
 - `.github/workflows/telemetry-processor.yml` - Processor deployment
 
 **Cloud SQL Connection:**
+
 ```bash
 ANALYTICS_DATABASE_URL=postgresql://user:pass@/dbname?host=/cloudsql/PROJECT:REGION:INSTANCE
 ```
@@ -417,6 +447,7 @@ ANALYTICS_DATABASE_URL=postgresql://user:pass@/dbname?host=/cloudsql/PROJECT:REG
 ### Kubernetes
 
 Kubernetes manifests are available:
+
 ```
 infrastructure/k8s/manifests/otel-collector-deployment.yaml
 ```
@@ -450,6 +481,7 @@ docker run -p 4317:4317 \
 ### Project Structure
 
 **OpenTelemetry Collector:**
+
 ```
 apps/otel-collector/
 ├── otel-collector-config.yaml    # Collector configuration
@@ -458,6 +490,7 @@ apps/otel-collector/
 ```
 
 **Telemetry Processor:**
+
 ```
 apps/telemetry-processor/
 ├── src/processor/
@@ -478,6 +511,7 @@ apps/telemetry-processor/
 ### Adding New Analytics
 
 1. **Add model** to `models/analytics.py`:
+
    ```python
    class NewFeatureAnalytics(AnalyticsBase):
        __tablename__ = "new_feature_analytics"
@@ -485,12 +519,14 @@ apps/telemetry-processor/
    ```
 
 2. **Create migration**:
+
    ```bash
    cd apps/telemetry-processor
    alembic revision -m "add new feature analytics"
    ```
 
 3. **Add processor service** in `services/`:
+
    ```python
    class NewFeatureProcessor(BaseSpanProcessor):
        def process_span(self, span, resource, session):
@@ -507,7 +543,8 @@ apps/telemetry-processor/
 ## Why Separate Analytics Database?
 
 <Callout type="default">
-The telemetry processor uses a **dedicated PostgreSQL database** separate from the main application database.
+  The telemetry processor uses a **dedicated PostgreSQL database** separate from
+  the main application database.
 </Callout>
 
 **Benefits:**
@@ -522,7 +559,7 @@ The telemetry processor uses a **dedicated PostgreSQL database** separate from t
 ## Learn More
 
 For implementation details, see:
+
 - `apps/otel-collector/otel-collector-config.yaml` - Collector configuration
 - `apps/telemetry-processor/src/` - Processor source code
 - `apps/telemetry-processor/alembic/versions/` - Database migrations
-

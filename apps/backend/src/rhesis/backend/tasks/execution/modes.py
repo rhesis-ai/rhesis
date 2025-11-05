@@ -37,7 +37,8 @@ def get_execution_mode(test_config: TestConfiguration) -> ExecutionMode:
             return ExecutionMode(execution_mode)
         except ValueError:
             logger.warning(
-                f"Invalid execution_mode '{execution_mode}' in test config {test_config.id}, defaulting to Parallel"
+                f"Invalid execution_mode '{execution_mode}' in test config "
+                f"{test_config.id}, defaulting to Parallel"
             )
             return ExecutionMode.PARALLEL
 

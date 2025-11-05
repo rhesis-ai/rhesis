@@ -6,9 +6,9 @@ This guide will help you set up and run the Rhesis frontend application locally 
 
 Before you begin, ensure you have the following installed:
 
-* [Node.js](https://nodejs.org/) >=18.x.x
-* [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/)
-* Git
+- [Node.js](https://nodejs.org/) >=18.x.x
+- [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/)
+- Git
 
 ## Installation Steps
 
@@ -37,11 +37,11 @@ cp .env.example .env.local
 
 Update `.env.local` with the necessary configurations:
 
-* `NEXTAUTH_SECRET`: Generate one using `npx auth secret` or `openssl rand -hex 32`.
-* `NEXT_PUBLIC_API_BASE_URL`: The base URL for your backend API.
-* `GOOGLE_CLIENT_ID`: Your Google OAuth Client ID.
-* `GOOGLE_CLIENT_SECRET`: Your Google OAuth Client Secret.
-* `AUTH_SECRET`: Should be the same as `NEXTAUTH_SECRET`.
+- `NEXTAUTH_SECRET`: Generate one using `npx auth secret` or `openssl rand -hex 32`.
+- `NEXT_PUBLIC_API_BASE_URL`: The base URL for your backend API.
+- `GOOGLE_CLIENT_ID`: Your Google OAuth Client ID.
+- `GOOGLE_CLIENT_SECRET`: Your Google OAuth Client Secret.
+- `AUTH_SECRET`: Should be the same as `NEXTAUTH_SECRET`.
 
 ### 4. Run the Development Server
 
@@ -55,22 +55,22 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to see the a
 
 ### Available Scripts
 
-* `npm run dev`: Starts the development server with Turbo.
-* `npm run build`: Builds the application for production (runs type-check and lint first).
-* `npm run start`: Starts a production server (after building).
-* `npm run lint`: Lints the codebase using Next.js's built-in ESLint configuration.
-* `npm run type-check`: Validates TypeScript types.
-* `npm run clean`: Removes the .next directory.
+- `npm run dev`: Starts the development server with Turbo.
+- `npm run build`: Builds the application for production (runs type-check and lint first).
+- `npm run start`: Starts a production server (after building).
+- `npm run lint`: Lints the codebase using Next.js's built-in ESLint configuration.
+- `npm run type-check`: Validates TypeScript types.
+- `npm run clean`: Removes the .next directory.
 
 ### Code Editor Setup
 
 We recommend using Visual Studio Code with the following extensions:
 
-* ESLint
-* Prettier
-* TypeScript and JavaScript Language Features
-* Material Icon Theme (optional)
-* GitLens (optional)
+- ESLint
+- Prettier
+- TypeScript and JavaScript Language Features
+- Material Icon Theme (optional)
+- GitLens (optional)
 
 ### Recommended VSCode Settings
 
@@ -102,16 +102,19 @@ After setting up your development environment:
 ### Common Issues
 
 #### "Module not found" errors
+
 - Ensure all dependencies are installed
 - Check for typos in import paths
 - Verify that the module exists in `node_modules`
 
 #### Authentication Issues
+
 - Verify environment variables are correctly set
 - Check browser console for errors
 - Ensure the backend API is running and accessible
 
 #### Build Errors
+
 - Run `npm run clean` to clear the build cache
 - Verify TypeScript types with `npm run type-check`
 - Check for ESLint errors with `npm run lint`

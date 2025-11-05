@@ -95,6 +95,7 @@ class CustomTestExecutor(BaseTestExecutor):
 ### Return Format
 
 All executors must return a dictionary with:
+
 - `test_id` (str): The test identifier
 - `execution_time` (float): Execution time in milliseconds
 - `metrics` (Dict[str, Any]): Metric evaluation results
@@ -161,7 +162,7 @@ class ImageTestExecutor(BaseTestExecutor):
 # executors/factory.py
 def create_executor(test: Test) -> BaseTestExecutor:
     test_type = get_test_type(test)
-    
+
     if test_type == TestType.IMAGE:
         from .image_test_executor import ImageTestExecutor
         return ImageTestExecutor()
@@ -182,19 +183,23 @@ class TestType(str, Enum):
 ## Design Principles
 
 ### Modularity
+
 Each executor is self-contained (~150-200 lines) and handles one test type.
 
 ### Loose Coupling
+
 - Executors don't depend on each other
 - Multi-turn executor preserves Penelope trace as-is
 - No tight coupling to external frameworks
 
 ### Backward Compatibility
+
 - Public API (`execute_test()`) unchanged
 - Helper functions re-exported for existing code
 - All existing tests work without modifications
 
 ### Extensibility (Open/Closed Principle)
+
 - Add new test types without modifying existing code
 - Factory pattern enables clean routing
 - Easy to test executors independently
@@ -202,12 +207,15 @@ Each executor is self-contained (~150-200 lines) and handles one test type.
 ## Performance Considerations
 
 ### Execution Time Tracking
+
 All executors track execution time in milliseconds for monitoring and optimization.
 
 ### Caching
+
 The system checks for existing results to avoid duplicate test execution.
 
 ### Parallel Processing
+
 Use parallel execution mode for independent tests to maximize throughput.
 
 ## Module Location
@@ -237,4 +245,3 @@ apps/backend/src/rhesis/backend/tasks/execution/
 - [Execution Modes](/development/worker/execution-modes) - Sequential vs Parallel
 - [Background Tasks](/development/worker/background-tasks) - Celery task system
 - [Architecture](/development/worker/architecture) - Worker system overview
-
