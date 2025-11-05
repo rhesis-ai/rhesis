@@ -39,6 +39,7 @@ interface EditableFieldProps {
   placeholder?: string;
   helperText?: string;
   onRemove?: () => void;
+  maxLength?: number;
 }
 
 function EditableField({
@@ -51,6 +52,7 @@ function EditableField({
   placeholder = '',
   helperText = '',
   onRemove,
+  maxLength,
 }: EditableFieldProps) {
   const theme = useTheme();
   const [isEditing, setIsEditing] = React.useState(false);
@@ -63,6 +65,11 @@ function EditableField({
   }, [value]);
 
   const displayRows = rows;
+
+  // Calculate character count for text fields
+  const charCount = type === 'text' ? String(editedValue || '').length : 0;
+  const isNearLimit = Boolean(maxLength && charCount > maxLength * 0.8);
+  const isOverLimit = Boolean(maxLength && charCount > maxLength);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -106,24 +113,49 @@ function EditableField({
       </Box>
       <Box sx={{ position: 'relative' }}>
         {isEditing ? (
-          <TextField
-            fullWidth
-            multiline={multiline}
-            rows={multiline ? displayRows : undefined}
-            type={type}
-            value={editedValue}
-            onChange={e =>
-              setEditedValue(
+          <>
+            <TextField
+              fullWidth
+              multiline={multiline}
+              rows={multiline ? displayRows : undefined}
+              type={type}
+              value={editedValue}
+              onChange={e =>
+                setEditedValue(
+                  type === 'number'
+                    ? parseInt(e.target.value) || 10
+                    : e.target.value
+                )
+              }
+              placeholder={placeholder}
+              inputProps={
                 type === 'number'
-                  ? parseInt(e.target.value) || 10
-                  : e.target.value
-              )
-            }
-            placeholder={placeholder}
-            inputProps={type === 'number' ? { min: 1, max: 50 } : undefined}
-            sx={{ mb: 1 }}
-            autoFocus
-          />
+                  ? { min: 1, max: 50 }
+                  : maxLength
+                    ? { maxLength }
+                    : undefined
+              }
+              error={isOverLimit}
+              sx={{ mb: 1 }}
+              autoFocus
+            />
+            {type === 'text' && maxLength && (
+              <Typography
+                variant="caption"
+                color={
+                  isOverLimit
+                    ? 'error'
+                    : isNearLimit
+                      ? 'warning.main'
+                      : 'text.secondary'
+                }
+                sx={{ display: 'block', mb: 1 }}
+              >
+                {charCount} / {maxLength} characters
+                {isOverLimit && ' (exceeds maximum)'}
+              </Typography>
+            )}
+          </>
         ) : (
           <Typography
             component="pre"
@@ -342,6 +374,7 @@ export default function MultiTurnConfigFields({
         rows={3}
         placeholder="What should be verified in this test"
         helperText="What the target should do - the success criteria for this test"
+        maxLength={5000}
       />
 
       {showInstructions && (
@@ -353,6 +386,7 @@ export default function MultiTurnConfigFields({
           placeholder="How to conduct the test"
           helperText="How to conduct the test - if not provided, the agent plans its own approach"
           onRemove={() => setShowInstructions(false)}
+          maxLength={10000}
         />
       )}
 
@@ -365,6 +399,7 @@ export default function MultiTurnConfigFields({
           placeholder="What must not happen"
           helperText="What the target must not do - forbidden behaviors or boundaries"
           onRemove={() => setShowRestrictions(false)}
+          maxLength={10000}
         />
       )}
 
@@ -377,6 +412,7 @@ export default function MultiTurnConfigFields({
           placeholder="Context and persona for the test"
           helperText="Context and persona for the test - narrative setup or user role"
           onRemove={() => setShowScenario(false)}
+          maxLength={5000}
         />
       )}
 
