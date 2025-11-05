@@ -29,18 +29,19 @@ class ChunkingStrategy(ABC):
 class SourceChunker:
     """Chunk source using a selected chunking strategy."""
 
-    def __init__(self, source: ExtractedSource, strategy: ChunkingStrategy):
-        self.source = source
+    def __init__(self, sources: list[ExtractedSource], strategy: ChunkingStrategy):
+        self.sources = sources
         self.strategy = strategy
 
     def chunk(self) -> List[Chunk]:
-        text_chunks = self.strategy.chunk(self.source.content)
-
-        source = SourceBase(**self.source.model_dump())
-
         chunks = []
-        for chunk in text_chunks:
-            chunks.append(Chunk(source=source, content=chunk))
+        for source in self.sources:
+            text_chunks = self.strategy.chunk(source.content)
+
+            source_metadata = SourceBase(**source.model_dump())
+
+            for chunk in text_chunks:
+                chunks.append(Chunk(source=source_metadata, content=chunk))
         return chunks
 
 
