@@ -14,6 +14,11 @@ import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { isMultiTurnTest } from '@/constants/test-types';
+import {
+  getTestContentValue,
+  renderTestContentCell,
+} from '@/app/(protected)/tests/components/test-grid-helpers';
 
 interface TestSetTestsGridProps {
   sessionToken: string;
@@ -93,27 +98,11 @@ export default function TestSetTestsGrid({
   const columns: GridColDef[] = React.useMemo(
     () => [
       {
-        field: 'prompt',
-        headerName: 'Prompt',
+        field: 'prompt.content',
+        headerName: 'Content',
         flex: 3,
-        renderCell: params => {
-          const prompt = params.row.prompt;
-          if (!prompt) return null;
-
-          return (
-            <Typography
-              variant="body2"
-              sx={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: '100%',
-              }}
-            >
-              {prompt.content}
-            </Typography>
-          );
-        },
+        valueGetter: getTestContentValue,
+        renderCell: renderTestContentCell,
       },
       {
         field: 'behavior',
@@ -149,6 +138,36 @@ export default function TestSetTestsGrid({
               color="default"
             />
           );
+        },
+      },
+      {
+        field: 'category',
+        headerName: 'Category',
+        flex: 1,
+        renderCell: params => {
+          const categoryName = params.row.category?.name;
+          if (!categoryName) return null;
+
+          return (
+            <Chip
+              label={categoryName}
+              variant="outlined"
+              size="small"
+              color="default"
+            />
+          );
+        },
+      },
+      {
+        field: 'test_type.type_value',
+        headerName: 'Test Type',
+        flex: 1,
+        valueGetter: (value, row) => row.test_type?.type_value || '',
+        renderCell: params => {
+          const testType = params.row.test_type?.type_value;
+          if (!testType) return null;
+
+          return <Chip label={testType} size="small" variant="outlined" />;
         },
       },
     ],

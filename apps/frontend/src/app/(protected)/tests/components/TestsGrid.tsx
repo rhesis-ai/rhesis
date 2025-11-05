@@ -24,6 +24,11 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestFiltersToOData } from '@/utils/odata-filter';
+import { isMultiTurnTest } from '@/constants/test-types';
+import {
+  getTestContentValue,
+  renderTestContentCell,
+} from './test-grid-helpers';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -133,25 +138,8 @@ export default function TestsTable({
         headerName: 'Content',
         flex: 3,
         filterable: true,
-        valueGetter: (value, row) => row.prompt?.content || '',
-        renderCell: params => {
-          const content = params.row.prompt?.content || params.row.content;
-          if (!content) return null;
-
-          return (
-            <Typography
-              variant="body2"
-              title={content}
-              sx={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {content}
-            </Typography>
-          );
-        },
+        valueGetter: getTestContentValue,
+        renderCell: renderTestContentCell,
       },
       {
         field: 'behavior.name',
@@ -193,6 +181,19 @@ export default function TestsTable({
         },
       },
       {
+        field: 'test_type.type_value',
+        headerName: 'Test Type',
+        flex: 1,
+        filterable: true,
+        valueGetter: (value, row) => row.test_type?.type_value || '',
+        renderCell: params => {
+          const testType = params.row.test_type?.type_value;
+          if (!testType) return null;
+
+          return <Chip label={testType} size="small" variant="outlined" />;
+        },
+      },
+      {
         field: 'counts.comments',
         headerName: 'Comments',
         width: 100,
@@ -203,7 +204,7 @@ export default function TestsTable({
           if (count === 0) return null;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <ChatIcon sx={{ fontSize: 'small', color: 'text.secondary' }} />
               <Typography variant="body2">{count}</Typography>
             </Box>
           );
@@ -220,7 +221,9 @@ export default function TestsTable({
           if (count === 0) return null;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <DescriptionIcon
+                sx={{ fontSize: 'small', color: 'text.secondary' }}
+              />
               <Typography variant="body2">{count}</Typography>
             </Box>
           );
@@ -246,7 +249,7 @@ export default function TestsTable({
               }}
             >
               <InsertDriveFileOutlined
-                sx={{ fontSize: 16, color: 'text.secondary' }}
+                sx={{ fontSize: 'small', color: 'text.secondary' }}
               />
             </Box>
           );
