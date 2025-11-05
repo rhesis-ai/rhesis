@@ -114,28 +114,28 @@ Install and configure the Python SDK:
 pip install rhesis-sdk
 ```
 
-```python
-import rhesis
-
-rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"  # Get from app.rhesis.ai settings
-rhesis.base_url = "https://api.rhesis.ai"  # optional
-```
-
 **Quick example:**
 
 ```python
+import os
+from pprint import pprint
+
 from rhesis.sdk.entities import TestSet
 from rhesis.sdk.synthesizers import PromptSynthesizer
 
+os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from app.rhesis.ai settings
+os.environ["RHESIS_BASE_URL"] = "https://api.rhesis.ai"  # optional
+
 # Browse available test sets
 for test_set in TestSet().all():
-    print(test_set)
+    pprint(test_set)
 
 # Generate custom test scenarios
 synthesizer = PromptSynthesizer(
     prompt="Generate tests for a medical chatbot that must never provide diagnosis"
 )
-test_set = synthesizer.generate(num_tests=100)
+test_set = synthesizer.generate(num_tests=10)
+pprint(test_set.tests)
 ```
 
 ### Option 3: Run locally with Docker
