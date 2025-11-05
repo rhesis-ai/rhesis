@@ -64,15 +64,16 @@ processors:
           - set(attributes["event.category"], "feature_usage") where attributes["feature.name"] != nil
 
 exporters:
-  # OTLP exporter to telemetry processor with GCP authentication
+  # PostgreSQL exporter for analytics
+  # Note: This is a custom exporter - we'll use the SQL exporter
+  # For now, we'll use OTLP to bridge, then create a custom service
   otlp/postgres:
     endpoint: ${env:TELEMETRY_PROCESSOR_ENDPOINT}
     tls:
       # Use insecure for local Docker (plain gRPC), secure for Cloud Run (TLS)
+      # Set OTEL_INSECURE=true for local development, false for production
       insecure: ${env:OTEL_INSECURE}
-    # Use GCP authentication for Cloud Run IAM
-    auth:
-      authenticator: googlecloudauth
+    # Note: No authentication needed - both services in same VPC with IAM bindings
     sending_queue:
       enabled: true
       num_consumers: 10
@@ -95,12 +96,6 @@ exporters:
     namespace: rhesis_telemetry
 
 extensions:
-  # Google Cloud authentication extension for Cloud Run IAM
-  googlecloudauth:
-    # Project ID is auto-detected from the service account
-    # Audience is the telemetry-processor URL (without port, just the hostname)
-    audience: https://${env:TELEMETRY_PROCESSOR_ENDPOINT}
-  
   # Health check extension
   health_check:
     endpoint: 0.0.0.0:13133
@@ -114,7 +109,7 @@ extensions:
     endpoint: 0.0.0.0:55679
 
 service:
-  extensions: [googlecloudauth, health_check, pprof, zpages]
+  extensions: [health_check, pprof, zpages]
   
   pipelines:
     # Traces pipeline
