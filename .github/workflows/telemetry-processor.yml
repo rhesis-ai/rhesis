@@ -220,7 +220,8 @@ jobs:
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
-            --allow-unauthenticated \
+            --ingress=internal \
+            --no-allow-unauthenticated \
             --port=4317 \
             --memory=512Mi \
             --cpu=1 \
@@ -253,39 +254,28 @@ jobs:
 
           echo "✅ Traffic successfully routed to new revision"
 
-      - name: Allow OTel Collector to invoke Telemetry Processor
+      - name: Grant OTel Collector access to Telemetry Processor
         run: |
-          echo "ℹ️ Note: Service is now --allow-unauthenticated (secured by VPC)"
           echo "🔐 Configuring IAM permissions for OTel Collector to invoke Telemetry Processor..."
           
-          # Determine otel-collector service name
-          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-            COLLECTOR_SERVICE_NAME="${{ vars.APP_NAME }}-otel-collector"
-          else
-            COLLECTOR_SERVICE_NAME="${{ vars.APP_NAME }}-otel-collector-${{ env.ENVIRONMENT }}"
-          fi
-          
-          # Get the collector's service account (it should exist if collector is already deployed)
-          COLLECTOR_SA=$(gcloud run services describe $COLLECTOR_SERVICE_NAME \
+          # Get the service account from the deployed telemetry-processor service
+          SERVICE_ACCOUNT=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
-            --format="value(spec.template.spec.serviceAccountName)" 2>/dev/null || echo "")
+            --format="value(spec.template.spec.serviceAccountName)")
           
-          if [ -z "$COLLECTOR_SA" ]; then
-            echo "⚠️ Warning: OTel Collector service not found. Skipping IAM binding."
-            echo "ℹ️ You'll need to deploy the collector first, then redeploy this processor."
-          else
-            echo "✅ Found OTel Collector service account: $COLLECTOR_SA"
-            
-            # Grant the collector permission to invoke this processor
-            gcloud run services add-iam-policy-binding ${{ env.SERVICE_NAME }} \
-              --member="serviceAccount:$COLLECTOR_SA" \
-              --role="roles/run.invoker" \
-              --project=${{ env.PROJECT_ID }} \
-              --region=${{ env.REGION }}
-            
-            echo "✅ OTel Collector can now invoke Telemetry Processor"
-          fi
+          echo "✅ Found service account: $SERVICE_ACCOUNT"
+          
+          # Grant this service account permission to invoke the processor
+          # This allows otel-collector (using same SA) to invoke telemetry-processor
+          gcloud run services add-iam-policy-binding ${{ env.SERVICE_NAME }} \
+            --member="serviceAccount:$SERVICE_ACCOUNT" \
+            --role="roles/run.invoker" \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }}
+          
+          echo "✅ Service account can now invoke Telemetry Processor"
+          echo "ℹ️ Service is secured: --no-allow-unauthenticated + --ingress=internal"
 
       - name: Output deployed service URL
         id: output_service_url
@@ -341,6 +331,11 @@ jobs:
           echo "- Cloud SQL Instance: \`${{ env.CLOUDSQL_INSTANCE }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Tables: \`user_activity\`, \`endpoint_usage\`, \`feature_usage\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "⚠️ **Security Note:** This service is currently --allow-unauthenticated for testing" >> $GITHUB_STEP_SUMMARY
-          echo "It is secured by VPC isolation (--vpc-egress=private-ranges-only)." >> $GITHUB_STEP_SUMMARY
+          echo "🔒 **Security Configuration:**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ingress:** \`--ingress=internal\` (blocks public internet access)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Authentication:** \`--no-allow-unauthenticated\` (requires IAM authentication)" >> $GITHUB_STEP_SUMMARY
+          echo "- **VPC:** Connected via \`redis-connector\` with \`--vpc-egress=private-ranges-only\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Service is only accessible by authorized service accounts within the VPC." >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Note:** Requires otel-collector to have \`--vpc-egress=all-traffic\` for internal routing." >> $GITHUB_STEP_SUMMARY
 

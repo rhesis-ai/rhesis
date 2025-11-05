@@ -238,7 +238,7 @@ jobs:
             --image=${{ env.IMAGE_NAME }}:latest \
             --project=${{ env.PROJECT_ID }} \
             --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
-            --vpc-egress=private-ranges-only \
+            --vpc-egress=all-traffic \
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
