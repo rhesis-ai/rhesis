@@ -147,7 +147,7 @@ Then run the following command to start the platform:
 ```bash
 git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
-docker-compose -f docker-compose.yml up
+docker-compose --env-file .env.docker up
 ```
 
 Visit `http://localhost:3000` to access your local instance.
