@@ -57,6 +57,7 @@ Remember: You must explicitly use action="finish" when done."""
         system_prompt: Optional[str] = None,
         max_iterations: int = 10,
         verbose: bool = False,
+        stop_on_error: bool = True,
     ):
         """
         Initialize the MCP Agent.
@@ -67,6 +68,7 @@ Remember: You must explicitly use action="finish" when done."""
             system_prompt: Optional custom system prompt. Uses DEFAULT_SYSTEM_PROMPT if not provided
             max_iterations: Maximum number of ReAct iterations (default: 10)
             verbose: If True, prints detailed execution information to stdout
+            stop_on_error: If True, raises exception immediately on any error (default: True)
 
         Raises:
             ValueError: If mcp_client is not provided
@@ -79,6 +81,7 @@ Remember: You must explicitly use action="finish" when done."""
         self.system_prompt = system_prompt or self.DEFAULT_SYSTEM_PROMPT
         self.max_iterations = max_iterations
         self.verbose = verbose
+        self.stop_on_error = stop_on_error
 
         # Create tool executor
         self.executor = ToolExecutor(mcp_client)
@@ -333,6 +336,8 @@ Remember: You must explicitly use action="finish" when done."""
                 # Check for errors - abort if any tool fails
                 if not result.success:
                     logger.error(f"Tool execution failed: {result.error}")
+                    if self.stop_on_error:
+                        raise RuntimeError(f"Tool '{result.tool_name}' failed: {result.error}")
                     return (
                         ExecutionStep(
                             iteration=iteration,
@@ -423,11 +428,7 @@ Remember: You must explicitly use action="finish" when done."""
                     history_parts.append("  Results:")
                     for tr in step.tool_results:
                         if tr.success:
-                            # Truncate long content for history
-                            content_preview = (
-                                tr.content[:200] + "..." if len(tr.content) > 200 else tr.content
-                            )
-                            history_parts.append(f"    • {tr.tool_name}: {content_preview}")
+                            history_parts.append(f"    • {tr.tool_name}: {tr.content}")
                         else:
                             history_parts.append(f"    • {tr.tool_name}: ERROR - {tr.error}")
 

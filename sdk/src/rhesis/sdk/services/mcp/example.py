@@ -46,19 +46,19 @@ def main():
 
     # Create autonomous agent
     # The agent will figure out what tools to use based on the query
+    # It's trained to be efficient: search first, get metadata, then selectively retrieve content
     agent = MCPAgent(
         llm=llm,
         mcp_client=mcp_client,
         max_iterations=10,  # Maximum number of reasoning iterations
         verbose=True,  # Show detailed execution information
+        stop_on_error=True,  # Stop immediately on any error (default: True)
     )
 
     # User query - the agent figures out the rest autonomously!
     user_query = """
-    Find the page titled 'PRD: MCP Integration' and extract information about:
-    - The main concept and architecture
-    - Available MCP servers
-    - Implementation steps
+    I remember that Asad wrote a blog post about hosting Rhesis locally.
+    I cannot find it now. Can you give me the full content of the blog post?
     """
 
     print(f"\nUser Query: {user_query.strip()}\n")
@@ -90,7 +90,7 @@ def main():
             for step in result.execution_history:
                 print(f"\nIteration {step.iteration}:")
                 print(f"  Action: {step.action}")
-                print(f"  Reasoning: {step.reasoning[:100]}...")  # First 100 chars
+                print(f"  Reasoning: {step.reasoning}...")  # First 100 chars
                 if step.tool_calls:
                     print(f"  Tools called: {[tc.tool_name for tc in step.tool_calls]}")
 
