@@ -1,4 +1,5 @@
 import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs'
+import { Callout, Steps } from 'nextra/components'
 import { FeatureOverview } from './components/FeatureOverview'
 import { ArchitectureOverview } from './components/ArchitectureOverview'
 import { IndustryExamples } from './components/IndustryExamples'
@@ -11,7 +12,7 @@ import { InfoCardHorizontal } from './components/InfoCardHorizontal'
 import { PlatformFeatures } from './components/PlatformFeatures'
 import { AdvancedCapabilities } from './components/AdvancedCapabilities'
 
-// Get the default MDX components (includes Callout, Steps, etc.)
+// Get the default MDX components
 const themeComponents = getThemeComponents()
 
 // Merge components
@@ -19,6 +20,9 @@ export function useMDXComponents(components) {
   return {
     ...themeComponents,
     ...components,
+    // Add Nextra components
+    Callout,
+    Steps,
     // Add custom Rhesis components
     FeatureOverview,
     ArchitectureOverview,
