@@ -152,8 +152,11 @@ def test_test_state_to_result(sample_test_state):
     assert result.status == ExecutionStatus.SUCCESS
     assert result.goal_achieved is True
     assert result.turns_used == 0
-    assert len(result.findings) == 1
+    # Findings now include summary information (status + turn count) plus findings
+    assert len(result.findings) == 3
     assert "Finding 1" in result.findings
+    assert any("Test success" in f for f in result.findings)
+    assert any("Completed in 0 turn" in f for f in result.findings)
 
 
 def test_turn_properties():
