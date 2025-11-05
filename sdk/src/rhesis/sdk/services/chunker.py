@@ -27,7 +27,7 @@ class ChunkingStrategy(ABC):
 
 
 class SourceChunker:
-    """Chunk source using a selected chunking strategy."""
+    """Chunk sources using a selected chunking strategy."""
 
     def __init__(self, sources: list[ExtractedSource], strategy: ChunkingStrategy):
         self.sources = sources
@@ -43,6 +43,14 @@ class SourceChunker:
             for chunk in text_chunks:
                 chunks.append(Chunk(source=source_metadata, content=chunk))
         return chunks
+
+
+class IdentityChunker(ChunkingStrategy):
+    """No chunking strategy."""
+
+    def chunk(self, text: str) -> List[str]:
+        """No chunking."""
+        return [text]
 
 
 class SemanticChunker(ChunkingStrategy):
