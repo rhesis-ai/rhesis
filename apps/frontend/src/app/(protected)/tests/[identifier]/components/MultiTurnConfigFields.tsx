@@ -367,7 +367,8 @@ export default function MultiTurnConfigFields({
 
   // Check if goal is a placeholder
   const isPlaceholderGoal =
-    config.goal?.startsWith('TODO:') || config.goal?.includes('Add goal');
+    config.goal?.startsWith('Please define') ||
+    config.goal?.includes('define a goal');
 
   return (
     <Grid container spacing={2}>

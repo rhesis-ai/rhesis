@@ -284,7 +284,7 @@ export default function TestDetailData({
                     // Then, initialize test_configuration with placeholder goal
                     await testsClient.updateTest(test.id, {
                       test_configuration: {
-                        goal: 'TODO: Add goal for this test',
+                        goal: 'Please define a goal',
                         max_turns: 10,
                       },
                     });
