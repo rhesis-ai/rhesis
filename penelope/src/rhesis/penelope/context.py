@@ -149,7 +149,7 @@ class TestResult(BaseModel):
         default_factory=dict,
         description=(
             "Complete test configuration including goal, instructions, scenario, "
-            "context, max_turns, and other parameters used for this test execution."
+            "restrictions, context, max_turns, and other parameters used for this test execution."
         ),
     )
 
@@ -372,6 +372,7 @@ class TestState:
             "goal": self.context.goal,
             "instructions": self.context.instructions,
             "scenario": self.context.scenario,
+            "restrictions": self.context.restrictions,
             "context": self.context.context,
             "max_turns": self.context.max_turns,
         }
