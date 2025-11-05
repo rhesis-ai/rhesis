@@ -363,10 +363,10 @@ class TestState:
         """
         # Generate concise findings summary from final evaluation
         findings = self._generate_findings_summary(status, goal_achieved)
-        
+
         # Generate metrics in standard format
         metrics = self._generate_metrics(goal_achieved)
-        
+
         # Build test configuration
         test_configuration = {
             "goal": self.context.goal,
@@ -375,7 +375,7 @@ class TestState:
             "context": self.context.context,
             "max_turns": self.context.max_turns,
         }
-        
+
         # Build model info (if model provided)
         model_info = None
         if model:
@@ -385,7 +385,7 @@ class TestState:
                 "temperature": getattr(model, "temperature", None),
                 "max_tokens": getattr(model, "max_tokens", None),
             }
-        
+
         # Build target info (if target provided)
         target_info = None
         if target:
@@ -396,7 +396,7 @@ class TestState:
             # Add endpoint_id if it's an EndpointTarget
             if hasattr(target, "endpoint_id"):
                 target_info["endpoint_id"] = target.endpoint_id
-        
+
         # Build execution statistics
         execution_stats = self._generate_execution_stats()
 
@@ -539,49 +539,54 @@ class TestState:
         # metrics["Safety"] = {...}
 
         return metrics
-    
+
     def _generate_execution_stats(self) -> Dict[str, Any]:
         """
         Generate execution statistics from turn history.
-        
+
         Calculates performance metrics including:
         - Per-turn timing (duration of each turn)
         - Total token usage (if available from LLM responses)
         - Tool usage statistics
         - Success rates
-        
+
         Returns:
             Dictionary with execution statistics
         """
         stats = {}
-        
+
         # Per-turn timing
         turn_timings = []
         for i, turn in enumerate(self.turns):
             # Calculate turn duration if we have subsequent turn
             if i + 1 < len(self.turns):
                 duration = (self.turns[i + 1].timestamp - turn.timestamp).total_seconds()
-                turn_timings.append({
-                    "turn_number": turn.turn_number,
-                    "duration_seconds": round(duration, 3),
-                    "timestamp": turn.timestamp.isoformat(),
-                })
-        
+                turn_timings.append(
+                    {
+                        "turn_number": turn.turn_number,
+                        "duration_seconds": round(duration, 3),
+                        "timestamp": turn.timestamp.isoformat(),
+                    }
+                )
+
         # For the last turn, calculate from turn timestamp to end
         if self.turns:
             last_turn = self.turns[-1]
             if self.start_time:
                 # Use current time as approximate end for last turn
                 from datetime import datetime
+
                 duration = (datetime.now() - last_turn.timestamp).total_seconds()
-                turn_timings.append({
-                    "turn_number": last_turn.turn_number,
-                    "duration_seconds": round(duration, 3),
-                    "timestamp": last_turn.timestamp.isoformat(),
-                })
-        
+                turn_timings.append(
+                    {
+                        "turn_number": last_turn.turn_number,
+                        "duration_seconds": round(duration, 3),
+                        "timestamp": last_turn.timestamp.isoformat(),
+                    }
+                )
+
         stats["turn_timings"] = turn_timings
-        
+
         # Tool usage statistics
         tool_calls = {}
         for turn in self.turns:
@@ -593,40 +598,37 @@ class TestState:
                         "successful_calls": 0,
                         "failed_calls": 0,
                     }
-                
+
                 tool_calls[tool_name]["total_calls"] += 1
-                
+
                 # Check if tool call was successful
                 if isinstance(turn.tool_result, dict):
                     if turn.tool_result.get("success", False):
                         tool_calls[tool_name]["successful_calls"] += 1
                     else:
                         tool_calls[tool_name]["failed_calls"] += 1
-        
+
         stats["tool_usage"] = tool_calls
-        
+
         # Overall statistics
         stats["total_turns"] = len(self.turns)
         stats["successful_interactions"] = sum(
-            1 for t in self.turns 
+            1
+            for t in self.turns
             if isinstance(t.tool_result, dict) and t.tool_result.get("success", False)
         )
-        
+
         # Token usage (placeholder for when LLM responses include token counts)
         # This will be populated when we add token tracking to LLM responses
         stats["token_usage"] = {
             "note": (
-                "Token usage tracking to be implemented "
-                "when LLM responses include token metadata"
+                "Token usage tracking to be implemented when LLM responses include token metadata"
             )
         }
-        
+
         # Cost estimation (placeholder)
         stats["estimated_cost"] = {
-            "note": (
-                "Cost estimation to be implemented based on "
-                "token usage and model pricing"
-            )
+            "note": ("Cost estimation to be implemented based on token usage and model pricing")
         }
-        
+
         return stats
