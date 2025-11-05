@@ -365,8 +365,41 @@ export default function MultiTurnConfigFields({
 
   const hiddenFields = optionalFields.filter(field => !field.show);
 
+  // Check if goal is a placeholder
+  const isPlaceholderGoal =
+    config.goal?.startsWith('TODO:') || config.goal?.includes('Add goal');
+
   return (
     <Grid container spacing={2}>
+      {isPlaceholderGoal && (
+        <Grid item xs={12}>
+          <Box
+            sx={{
+              p: 2,
+              mb: 1,
+              bgcolor: theme =>
+                theme.palette.mode === 'dark'
+                  ? 'warning.dark'
+                  : 'warning.light',
+              border: theme => `1px solid ${theme.palette.warning.main}`,
+              borderRadius: 1,
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                color: theme =>
+                  theme.palette.mode === 'dark'
+                    ? theme.palette.warning.light
+                    : theme.palette.warning.dark,
+              }}
+            >
+              ⚠️ Please provide a meaningful goal for this multi-turn test. The
+              current value is a placeholder.
+            </Typography>
+          </Box>
+        </Grid>
+      )}
       <EditableField
         label="Goal"
         value={config.goal || ''}
