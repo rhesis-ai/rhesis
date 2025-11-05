@@ -377,7 +377,7 @@ class PenelopeAgent:
                     status = ExecutionStatus.FAILURE
                     goal_achieved = False
 
-                result = state.to_result(status, goal_achieved)
+                result = state.to_result(status, goal_achieved, target=target, model=self.model)
 
                 if self.verbose:
                     display_test_result(result)
