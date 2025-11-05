@@ -146,7 +146,9 @@ class KnowledgeSynthesizer:
             if tests_per_chunk[i] == 0:
                 continue
             print(
-                f"Generating tests for context {i + 1}/{min(num_tests, len(contexts_with_sources))} "
+                f"Generating tests for context "
+                f"{i + 1}/{min(num_tests, len(contexts_with_sources))} "
+                f"({tests_per_chunk[i]} tests)"
                 f"({len(context.content)} characters)"
             )
 

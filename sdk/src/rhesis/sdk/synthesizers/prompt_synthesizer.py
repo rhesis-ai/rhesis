@@ -20,6 +20,10 @@ from rhesis.sdk.utils import clean_and_validate_tests
 logger = logging.getLogger(__name__)
 
 
+def retry_llm_call():
+    pass
+
+
 class PromptSynthesizer(TestSetSynthesizer):
     """A synthesizer that generates test cases based on a prompt using LLM."""
 
