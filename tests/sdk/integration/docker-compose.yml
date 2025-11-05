@@ -57,10 +57,10 @@ services:
       retries: 3
       start_period: 60s
     env_file: []
-    command: ["/app/start.test.sh"]
+    command: ["/app/start.sh"]
     volumes:
       - ../../../apps/backend/src:/app/src
-      - ../../../apps/backend/start.test.sh:/app/start.test.sh
+      - ../../../apps/backend/start.sh:/app/start.sh
 
 networks:
   rhesis-network:
