@@ -1,0 +1,235 @@
+# Test Execution System
+
+## Overview
+
+The Rhesis test execution system provides a flexible and extensible architecture for running tests against endpoints. It supports multiple test types and execution modes, enabling you to test everything from simple API responses to complex multi-turn conversations.
+
+## Architecture
+
+The system uses the **Strategy Pattern** to route tests to appropriate executors based on their type:
+
+```
+Test → Factory → Executor → Results
+         ↓
+    SingleTurnExecutor (traditional tests)
+    MultiTurnExecutor (Penelope-based)
+    [Future: ImageTestExecutor, etc.]
+```
+
+### Key Components
+
+1. **Test Execution Entry Point** (`test_execution.py`)
+   - Main `execute_test()` function
+   - Routes to appropriate executor via factory pattern
+   - Maintains backward compatibility
+
+2. **Executors** (`executors/`)
+   - `BaseTestExecutor` - Abstract base class
+   - `SingleTurnTestExecutor` - Traditional request/response tests
+   - `MultiTurnTestExecutor` - Agentic multi-turn tests using Penelope
+   - `factory.py` - Routing logic based on test type
+
+3. **Shared Utilities** (`executors/shared.py`)
+   - Common helper functions
+   - Data retrieval and validation
+   - Result storage
+
+## Test Flow
+
+### Standard Execution Flow
+
+```mermaid
+graph LR
+    A[Test Configuration] --> B[Retrieve Test]
+    B --> C{Test Type?}
+    C -->|Single-Turn| D[SingleTurnExecutor]
+    C -->|Multi-Turn| E[MultiTurnExecutor]
+    D --> F[Store Results]
+    E --> F
+    F --> G[Return Summary]
+```
+
+### Parallel vs Sequential
+
+Test configurations can execute multiple tests in two modes:
+
+- **Parallel** (default): Tests run simultaneously using Celery workers
+- **Sequential**: Tests run one after another
+
+See [Execution Modes](/development/worker/execution-modes) for details.
+
+## Executor Pattern
+
+### Creating an Executor
+
+All executors must implement the `BaseTestExecutor` interface:
+
+```python
+from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
+
+class CustomTestExecutor(BaseTestExecutor):
+    def execute(
+        self,
+        db: Session,
+        test_config_id: str,
+        test_run_id: str,
+        test_id: str,
+        endpoint_id: str,
+        organization_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        model: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        # Your execution logic here
+        return {
+            "test_id": test_id,
+            "execution_time": execution_time_ms,
+            "metrics": metrics_dict,
+        }
+```
+
+### Return Format
+
+All executors must return a dictionary with:
+- `test_id` (str): The test identifier
+- `execution_time` (float): Execution time in milliseconds
+- `metrics` (Dict[str, Any]): Metric evaluation results
+
+## Usage Examples
+
+### Running a Test
+
+```python
+from rhesis.backend.tasks.execution.test_execution import execute_test
+
+# Execute test (automatically routes to correct executor)
+result = execute_test(
+    db=db,
+    test_config_id="config-uuid",
+    test_run_id="run-uuid",
+    test_id="test-uuid",
+    endpoint_id="endpoint-uuid",
+    organization_id="org-uuid",
+    user_id="user-uuid"
+)
+
+print(f"Execution time: {result['execution_time']}ms")
+print(f"Metrics: {result['metrics']}")
+```
+
+### Using Executors Directly
+
+```python
+from rhesis.backend.tasks.execution.executors import (
+    create_executor,
+    SingleTurnTestExecutor,
+    MultiTurnTestExecutor,
+)
+
+# Get test and create appropriate executor
+test = get_test(db, test_id)
+executor = create_executor(test)
+
+# Or use a specific executor directly
+executor = MultiTurnTestExecutor()
+result = executor.execute(db, test_config_id, ...)
+```
+
+## Extending the System
+
+### Adding a New Test Type
+
+1. **Create the Executor**
+
+```python
+# executors/image_test_executor.py
+from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
+
+class ImageTestExecutor(BaseTestExecutor):
+    def execute(self, ...):
+        # Image-specific test logic
+        pass
+```
+
+2. **Update the Factory**
+
+```python
+# executors/factory.py
+def create_executor(test: Test) -> BaseTestExecutor:
+    test_type = get_test_type(test)
+    
+    if test_type == TestType.IMAGE:
+        from .image_test_executor import ImageTestExecutor
+        return ImageTestExecutor()
+    elif test_type == TestType.MULTI_TURN:
+        # ...existing code
+```
+
+3. **Add Test Type Enum**
+
+```python
+# tasks/enums.py
+class TestType(str, Enum):
+    SINGLE_TURN = "Single-Turn"
+    MULTI_TURN = "Multi-Turn"
+    IMAGE = "Image"  # New type
+```
+
+## Design Principles
+
+### Modularity
+Each executor is self-contained (~150-200 lines) and handles one test type.
+
+### Loose Coupling
+- Executors don't depend on each other
+- Multi-turn executor preserves Penelope trace as-is
+- No tight coupling to external frameworks
+
+### Backward Compatibility
+- Public API (`execute_test()`) unchanged
+- Helper functions re-exported for existing code
+- All existing tests work without modifications
+
+### Extensibility (Open/Closed Principle)
+- Add new test types without modifying existing code
+- Factory pattern enables clean routing
+- Easy to test executors independently
+
+## Performance Considerations
+
+### Execution Time Tracking
+All executors track execution time in milliseconds for monitoring and optimization.
+
+### Caching
+The system checks for existing results to avoid duplicate test execution.
+
+### Parallel Processing
+Use parallel execution mode for independent tests to maximize throughput.
+
+## Module Location
+
+The test execution code is located in the backend repository but is primarily executed by workers:
+
+```
+apps/backend/src/rhesis/backend/tasks/execution/
+├── executors/
+│   ├── __init__.py
+│   ├── base.py                    # BaseTestExecutor ABC
+│   ├── shared.py                  # Shared utilities
+│   ├── single_turn_executor.py    # Single-turn tests
+│   ├── multi_turn_executor.py     # Multi-turn tests (Penelope)
+│   └── factory.py                 # Routing logic
+├── test_execution.py              # Main entry point
+├── modes.py                       # Execution mode utilities
+├── orchestration.py               # Task orchestration
+├── parallel.py                    # Parallel execution
+├── sequential.py                  # Sequential execution
+└── penelope_target.py             # Backend target for Penelope
+```
+
+## Related Documentation
+
+- [Test Types](/development/worker/test-types) - Single-turn vs Multi-turn tests
+- [Execution Modes](/development/worker/execution-modes) - Sequential vs Parallel
+- [Background Tasks](/development/worker/background-tasks) - Celery task system
+- [Architecture](/development/worker/architecture) - Worker system overview
+

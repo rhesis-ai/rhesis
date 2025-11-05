@@ -98,7 +98,7 @@ class MultiTurnTestExecutor(BaseTestExecutor):
 
             # Extract multi-turn configuration from test
             test_config = test.test_configuration or {}
-            
+
             # Get test parameters from configuration
             goal = test_config.get("goal", prompt_content)  # Use prompt as fallback goal
             instructions = test_config.get("instructions")
@@ -152,13 +152,13 @@ class MultiTurnTestExecutor(BaseTestExecutor):
             # Convert Penelope result to dict to preserve all information
             penelope_trace = (
                 penelope_result.dict()
-                if hasattr(penelope_result, 'dict')
+                if hasattr(penelope_result, "dict")
                 else penelope_result.__dict__
             )
 
             # Extract metrics (pop them from the trace)
             metrics_results = penelope_trace.pop("metrics", {})
-            
+
             # Store the complete Penelope trace as-is (no processing, no loss of information)
             processed_result = penelope_trace
 
@@ -196,4 +196,3 @@ class MultiTurnTestExecutor(BaseTestExecutor):
                 exc_info=True,
             )
             raise
-
