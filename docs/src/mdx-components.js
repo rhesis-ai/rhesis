@@ -1,5 +1,4 @@
-import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs'
-import { Callout, Steps } from 'nextra/components'
+import { useMDXComponents as getThemeComponents, Callout, Steps } from 'nextra-theme-docs'
 import { FeatureOverview } from './components/FeatureOverview'
 import { ArchitectureOverview } from './components/ArchitectureOverview'
 import { IndustryExamples } from './components/IndustryExamples'
