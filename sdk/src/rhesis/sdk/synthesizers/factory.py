@@ -13,13 +13,11 @@ from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.document_synthesizer import KnowledgeSynthesizer
 from rhesis.sdk.synthesizers.paraphrasing_synthesizer import ParaphrasingSynthesizer
-from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
 
 
 class SynthesizerType(str, Enum):
     """Enum for available synthesizer types."""
 
-    PROMPT = "prompt"
     PARAPHRASING = "paraphrasing"
     DOCUMENT = "document"
 
@@ -29,7 +27,6 @@ class SynthesizerFactory:
 
     # Mapping of synthesizer types to their corresponding classes
     _SYNTHESIZER_CLASSES: Dict[SynthesizerType, Type[TestSetSynthesizer]] = {
-        SynthesizerType.PROMPT: PromptSynthesizer,
         SynthesizerType.PARAPHRASING: ParaphrasingSynthesizer,
         SynthesizerType.DOCUMENT: KnowledgeSynthesizer,
     }
@@ -70,12 +67,8 @@ class SynthesizerFactory:
         synthesizer_class = cls._SYNTHESIZER_CLASSES[synthesizer_type]
 
         # Validate and prepare arguments based on synthesizer type
-        if synthesizer_type == SynthesizerType.PROMPT:
-            if "prompt" not in kwargs:
-                raise ValueError("'prompt' argument is required for PromptSynthesizer")
-            return synthesizer_class(prompt=kwargs["prompt"], batch_size=batch_size, model=model)
 
-        elif synthesizer_type == SynthesizerType.PARAPHRASING:
+        if synthesizer_type == SynthesizerType.PARAPHRASING:
             if "test_set" not in kwargs:
                 raise ValueError("'test_set' argument is required for ParaphrasingSynthesizer")
             return synthesizer_class(
