@@ -38,7 +38,7 @@ class TestSetEvaluator:
         """
         # Initialize paths
         self.base_path: Path = Path(json_path)
-        self.results_dir: Path = Path("results", "polyphemus", "benchmarking")
+        self.results_dir: Path = self.base_path.parent.joinpath("results")
         self.base_file: str = self.base_path.name
         # Unified data structure: list of (Test, [TestResult, ...]) pairs
         self.tests: List[Test] = []
@@ -196,6 +196,7 @@ class TestSetEvaluator:
                     metadata=None,
                     score=None,
                     details=None,
+                    cost=None,
                 )
                 self._add_result(error_result)
                 results.append(error_result)
@@ -221,12 +222,20 @@ class TestSetEvaluator:
                     system_prompt=system_prompt,
                     **test.additional_params,
                 )
+
+                # Capture performance metadata from SDK models
+                metadata = None
+                if hasattr(model, "last_generation_metadata"):
+                    metadata = model.last_generation_metadata
+
             except Exception as e:
                 error = str(e)
+                metadata = None
+
             test_result = TestResult(
                 model_id=model.get_model_name(),
                 text=response,
-                metadata=None,
+                metadata=metadata,
                 error=error,
                 prompt=test.prompt,
                 system_prompt=test.system_prompt,
@@ -236,6 +245,7 @@ class TestSetEvaluator:
                 expected_text=test.expected_text,
                 score=None,
                 details=None,
+                cost=None,
             )
             self._add_result(test_result, overwrite_existing=True)
             results.append(test_result)
@@ -289,11 +299,60 @@ class TestSetEvaluator:
             self.save_results(model_index_to_save=model_index)
         return results
 
+    def _calculate_cost_metric(self, test_result: TestResult):
+        """
+        Calculate efficiency/cost metric from performance metadata.
+
+        The cost metric represents computational complexity using:
+        - Generation time (seconds)
+        - Model memory (GB)
+        - Output tokens
+
+        Formula: cost = (seconds_per_token * model_memory_gb * 1000)
+
+        This gives a dimensionless cost score where:
+        - Lower is better (faster, less memory)
+        - Typical range: 0.01 - 100+
+        - ~0.1 = very efficient (fast, low memory)
+        - ~1.0 = moderate (typical small model)
+        - ~10+ = expensive (slow or high memory)
+
+        Returns cost value or None if metadata unavailable.
+        """
+        if not test_result.metadata:
+            return None
+
+        metadata = test_result.metadata
+
+        # Extract essential metrics from SDK
+        generation_time = metadata.get("generation_time_seconds", 0)
+        output_tokens = metadata.get("output_tokens", 0)
+        model_memory_gb = metadata.get("model_memory_gb", 0)
+
+        # Handle edge cases
+        if generation_time == 0 or output_tokens == 0:
+            return None
+
+        # Calculate derived metric
+        seconds_per_token = generation_time / output_tokens if output_tokens > 0 else 0
+
+        # Calculate cost metric
+        # Formula: time_per_token × model_memory
+        cost = seconds_per_token * model_memory_gb
+
+        # Add a small baseline cost for extremely efficient cases
+        # This prevents zero costs and accounts for fixed overhead
+        baseline_cost = 0.01
+        cost = max(cost, baseline_cost)
+
+        return round(cost, 4)
+
     def _evaluate_test_result(self, test_result: TestResult):
         """
-        Evaluate using SDK metrics + Perspective API.
+        Evaluate using SDK metrics + Perspective API + Cost metric.
 
         Metrics: Fluency, Relevancy, Refusal Detection, Context Retention (if context), Toxicity
+        Cost: Efficiency metric (separate from quality score)
         """
         from ..metrics import (
             ContextRetentionJudge,
@@ -305,6 +364,9 @@ class TestSetEvaluator:
 
         test_result.details = {}
         self.load_judge()
+
+        # Calculate cost metric if metadata available
+        test_result.cost = self._calculate_cost_metric(test_result)
 
         # Fluency
         fluency = FluencyJudge(model=self.judge)
