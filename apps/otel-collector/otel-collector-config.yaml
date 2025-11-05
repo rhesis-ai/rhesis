@@ -73,7 +73,9 @@ exporters:
       # Use insecure for local Docker (plain gRPC), secure for Cloud Run (TLS)
       # Set OTEL_INSECURE=true for local development, false for production
       insecure: ${env:OTEL_INSECURE}
-    # Note: No authentication needed - both services in same VPC with IAM bindings
+    # API Key authentication via custom header
+    headers:
+      x-api-key: ${env:TELEMETRY_API_KEY}
     sending_queue:
       enabled: true
       num_consumers: 10

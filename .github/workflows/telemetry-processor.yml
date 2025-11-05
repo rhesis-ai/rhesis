@@ -220,6 +220,7 @@ jobs:
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
+            --ingress=all \
             --allow-unauthenticated \
             --port=4317 \
             --memory=512Mi \
@@ -236,6 +237,7 @@ jobs:
           ANALYTICS_DB_HOST=${{ secrets.ANALYTICS_DB_HOST }},
           ANALYTICS_DB_PORT=${{ secrets.ANALYTICS_DB_PORT || '5432' }},
           ANALYTICS_DB_NAME=${{ secrets.ANALYTICS_DB_NAME }},
+          TELEMETRY_API_KEY=${{ secrets.TELEMETRY_API_KEY }},
           LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }},
           DEPLOYMENT_TYPE=${{ secrets.DEPLOYMENT_TYPE || 'cloud' }},
           ENVIRONMENT=${{ env.ENVIRONMENT }}
@@ -255,7 +257,7 @@ jobs:
 
       - name: Allow OTel Collector to invoke Telemetry Processor
         run: |
-          echo "ℹ️ Note: Service is now --allow-unauthenticated (secured by VPC)"
+          echo "ℹ️ Note: Service is --allow-unauthenticated but secured by TELEMETRY_API_KEY (x-api-key header)"
           echo "🔐 Configuring IAM permissions for OTel Collector to invoke Telemetry Processor..."
           
           # Determine otel-collector service name
@@ -341,6 +343,6 @@ jobs:
           echo "- Cloud SQL Instance: \`${{ env.CLOUDSQL_INSTANCE }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Tables: \`user_activity\`, \`endpoint_usage\`, \`feature_usage\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "⚠️ **Security Note:** This service is currently --allow-unauthenticated for testing" >> $GITHUB_STEP_SUMMARY
-          echo "It is secured by VPC isolation (--vpc-egress=private-ranges-only)." >> $GITHUB_STEP_SUMMARY
+          echo "🔐 **Security:** Service is protected by TELEMETRY_API_KEY authentication (x-api-key header)" >> $GITHUB_STEP_SUMMARY
+          echo "Requests without a valid API key are rejected with UNAUTHENTICATED error." >> $GITHUB_STEP_SUMMARY
 

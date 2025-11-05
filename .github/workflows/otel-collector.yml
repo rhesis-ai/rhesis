@@ -251,6 +251,7 @@ jobs:
             --min-instances=1 \
             --set-env-vars="$(cat <<EOF
           TELEMETRY_PROCESSOR_ENDPOINT=${{ env.PROCESSOR_ENDPOINT }},
+          TELEMETRY_API_KEY=${{ secrets.TELEMETRY_API_KEY }},
           OTEL_INSECURE=false
           EOF
           )"
