@@ -34,9 +34,24 @@ class Extractor(ABC):
         pass
 
 
+class SourceExtractor:
+    def __call__(self, sources: list[SourceBase]) -> list[ExtractedSource]:
+        extracted_sources = []
+        for source in sources:
+            if source.type == SourceType.DOCUMENT:
+                extracted_sources.append(DocumentExtractor().extract(source))
+            elif source.type == SourceType.WEBSITE:
+                extracted_sources.append(WebsiteExtractor().extract(source))
+            elif source.type == SourceType.NOTION:
+                extracted_sources.append(NotionExtractor().extract(source))
+            else:
+                raise ValueError(f"Unsupported source type: {source.type}")
+        return extracted_sources
+
+
 class NotionExtractor(Extractor):
     def extract(self, source: SourceBase) -> ExtractedSource:
-        pass
+        raise NotImplementedError("Notion extraction is not implemented")
 
 
 class WebsiteExtractor(Extractor):
