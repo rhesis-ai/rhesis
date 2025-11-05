@@ -17,6 +17,7 @@ import {
 } from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { UUID } from 'crypto';
 import { isMultiTurnTest } from '@/constants/test-types';
+import { useRouter } from 'next/navigation';
 
 interface TestDetailDataProps {
   sessionToken: string;
@@ -33,6 +34,7 @@ export default function TestDetailData({
   test: initialTest,
 }: TestDetailDataProps) {
   const theme = useTheme();
+  const router = useRouter();
   const [behaviors, setBehaviors] = React.useState<TestDetailOption[]>([]);
   const [types, setTypes] = React.useState<TestDetailOption[]>([]);
   const [topics, setTopics] = React.useState<TestDetailOption[]>([]);
@@ -130,8 +132,11 @@ export default function TestDetailData({
       }
 
       setTest(updatedTest);
+
+      // Refresh the server components to update the page title
+      router.refresh();
     } catch (error) {}
-  }, [sessionToken, test.id, isUpdating]);
+  }, [sessionToken, test.id, isUpdating, router]);
 
   const handleUpdate = async (
     field: string,
