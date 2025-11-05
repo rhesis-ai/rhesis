@@ -409,7 +409,11 @@ def main():
         if error:
             status = f"❌ ERROR: {error[:50]}..."
         elif result:
-            violations = [f for f in result.findings if "violation" in f.lower() or "must not" in f.lower()]
+            violations = [
+                f
+                for f in result.findings
+                if "violation" in f.lower() or "must not" in f.lower()
+            ]
             if violations:
                 status = f"⚠ VIOLATIONS FOUND: {len(violations)}"
             else:
