@@ -37,7 +37,7 @@ services:
   # Backend API
   backend:
     build:
-      context: .
+      context: ../../..
       dockerfile: apps/backend/Dockerfile
     container_name: rhesis-backend-test
     environment:
@@ -59,8 +59,8 @@ services:
     env_file: []
     command: ["/app/start.test.sh"]
     volumes:
-      - ./apps/backend/src:/app/src
-      - ./apps/backend/start.test.sh:/app/start.test.sh
+      - ../../../apps/backend/src:/app/src
+      - ../../../apps/backend/start.test.sh:/app/start.test.sh
 
 networks:
   rhesis-network:
