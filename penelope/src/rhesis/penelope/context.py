@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_serializer
 
-from rhesis.penelope.schemas import AssistantMessage, ToolMessage
+from rhesis.penelope.schemas import AssistantMessage, CriterionEvaluation, ToolMessage
 
 
 class ExecutionStatus(str, Enum):
@@ -91,6 +91,34 @@ class Turn(BaseModel):
             return content
 
 
+class GoalEvaluationResult(BaseModel):
+    """
+    Structured goal evaluation results.
+
+    Preserves the criterion-by-criterion evaluation from the LLM in machine-readable format,
+    enabling programmatic analysis, filtering, and aggregation of test results.
+    """
+
+    turn_count: int = Field(description="Number of turns at evaluation time")
+    criteria_evaluations: List[CriterionEvaluation] = Field(
+        description="Detailed evaluation of each criterion"
+    )
+    all_criteria_met: bool = Field(description="Whether all criteria were met")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence in the evaluation")
+    reasoning: str = Field(description="Summary explanation of the evaluation")
+    evidence: List[str] = Field(
+        default_factory=list, description="Supporting evidence from the conversation"
+    )
+    evaluated_at: datetime = Field(
+        default_factory=datetime.now, description="When the evaluation was performed"
+    )
+
+    @field_serializer("evaluated_at", when_used="json")
+    def serialize_evaluated_at(self, dt: datetime, _info):
+        """Serialize datetime to ISO format string."""
+        return dt.isoformat()
+
+
 class TestResult(BaseModel):
     """Result of a test execution."""
 
@@ -99,6 +127,13 @@ class TestResult(BaseModel):
     turns_used: int = Field(description="Number of turns executed")
     findings: List[str] = Field(default_factory=list, description="Key findings from the test")
     history: List[Turn] = Field(default_factory=list, description="Complete conversation history")
+
+    # Structured evaluation data (machine-readable)
+    goal_evaluation: Optional[GoalEvaluationResult] = Field(
+        default=None,
+        description="Structured goal evaluation with criterion-by-criterion results",
+    )
+
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata about the test execution"
     )
@@ -131,6 +166,12 @@ class GoalProgress(BaseModel):
     reasoning: str = Field(description="Explanation of the evaluation")
     findings: List[str] = Field(
         default_factory=list, description="Specific findings supporting this evaluation"
+    )
+
+    # Structured evaluation data (optional, when available from LLM evaluation)
+    structured_evaluation: Optional[GoalEvaluationResult] = Field(
+        default=None,
+        description="Structured criterion-by-criterion evaluation results",
     )
 
 
@@ -168,6 +209,9 @@ class TestState:
     session_id: Optional[str] = None
     findings: List[str] = field(default_factory=list)
     start_time: datetime = field(default_factory=datetime.now)
+
+    # Store the last goal evaluation result (structured)
+    last_evaluation: Optional[GoalEvaluationResult] = None
 
     def add_turn(
         self,
@@ -261,7 +305,7 @@ class TestState:
             goal_achieved: Whether the goal was achieved
 
         Returns:
-            TestResult object
+            TestResult object with complete execution data including structured evaluation
         """
         return TestResult(
             status=status,
@@ -269,6 +313,7 @@ class TestState:
             turns_used=self.current_turn,
             findings=self.findings,
             history=self.turns,
+            goal_evaluation=self.last_evaluation,
             start_time=self.start_time,
             end_time=datetime.now(),
         )
