@@ -40,6 +40,18 @@ export const CodeBlock = ({
   language = 'text',
   isTerminal = false,
 }) => {
+  // Format JSON automatically
+  const formatJSON = (code) => {
+    try {
+      // Try to parse and re-format the JSON
+      const parsed = JSON.parse(code)
+      return JSON.stringify(parsed, null, 2)
+    } catch (e) {
+      // If parsing fails, return original (might already be formatted or invalid)
+      return code
+    }
+  }
+
   // Apply syntax highlighting based on language
   const applySyntaxHighlighting = code => {
     if (isTerminal) {
@@ -228,6 +240,15 @@ export const CodeBlock = ({
 
     return highlightedCode
   }
+
+  let code = typeof children === 'string' ? children : String(children)
+  
+  // Auto-format JSON if language is json
+  if (language === 'json') {
+    code = formatJSON(code)
+  }
+  
+  const highlightedCode = applySyntaxHighlighting(code)
 
   const styles = {
     container: {
