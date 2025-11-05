@@ -24,7 +24,7 @@ class KnowledgeSynthesizer:
         prompt: str,
         sources: List[SourceBase],
         batch_size: int = 20,
-        chunker: ChunkingStrategy = SemanticChunker(),
+        chunking_strategy: ChunkingStrategy = SemanticChunker(max_tokens_per_chunk=1000),
         model: Optional[Union[str, BaseLLM]] = None,
     ):
         """
@@ -42,7 +42,7 @@ class KnowledgeSynthesizer:
         self.sources = sources
         self.prompt = prompt
         self.batch_size = batch_size
-        self.chunker = chunker
+        self.chunker = chunking_strategy
 
         self.context_synthesizer = ContextSynthesizer(
             prompt=self.prompt, batch_size=self.batch_size, model=self.model
@@ -100,10 +100,7 @@ class KnowledgeSynthesizer:
         # Process documents with source tracking
         processed_sources = self._process_sources(self.sources)
 
-        chunks = []
-        for source in processed_sources:
-            source_chunker = SourceChunker(source, strategy=self.chunker)
-            chunks.extend(source_chunker.chunk())
+        chunks = SourceChunker(processed_sources, strategy=self.chunker).chunk()
 
         tests_per_chunk = self._compute_tests_per_chunk(num_tests, len(chunks))
         if num_tests < len(chunks):
