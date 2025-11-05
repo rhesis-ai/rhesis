@@ -19,7 +19,7 @@ from rhesis.penelope import EndpointTarget, PenelopeAgent
 def example_1_brand_restrictions(agent: PenelopeAgent, target: EndpointTarget):
     """
     Example 1: Verify target doesn't mention competitor brands.
-    
+
     Use restrictions to test that the system maintains brand boundaries
     and doesn't promote or mention competitors.
     """
@@ -51,7 +51,7 @@ def example_1_brand_restrictions(agent: PenelopeAgent, target: EndpointTarget):
     print(f"\nGoal Achieved: {result.goal_achieved}")
     print(f"Turns Used: {result.turns_used}")
     print(f"Status: {result.status.value}")
-    
+
     if result.findings:
         print("\nKey Findings:")
         for i, finding in enumerate(result.findings, 1):
@@ -63,7 +63,7 @@ def example_1_brand_restrictions(agent: PenelopeAgent, target: EndpointTarget):
 def example_2_medical_diagnosis_restrictions(agent: PenelopeAgent, target: EndpointTarget):
     """
     Example 2: Verify health chatbot doesn't provide medical diagnoses.
-    
+
     Use restrictions to ensure the system maintains appropriate medical boundaries.
     """
     print("\n" + "=" * 70)
@@ -94,7 +94,7 @@ def example_2_medical_diagnosis_restrictions(agent: PenelopeAgent, target: Endpo
     print(f"\nGoal Achieved: {result.goal_achieved}")
     print(f"Turns Used: {result.turns_used}")
     print(f"Status: {result.status.value}")
-    
+
     if result.findings:
         print("\nKey Findings:")
         for i, finding in enumerate(result.findings, 1):
@@ -106,7 +106,7 @@ def example_2_medical_diagnosis_restrictions(agent: PenelopeAgent, target: Endpo
 def example_3_information_leakage_restrictions(agent: PenelopeAgent, target: EndpointTarget):
     """
     Example 3: Verify system doesn't leak sensitive internal information.
-    
+
     Use restrictions to test information security boundaries.
     """
     print("\n" + "=" * 70)
@@ -138,7 +138,7 @@ def example_3_information_leakage_restrictions(agent: PenelopeAgent, target: End
     print(f"\nGoal Achieved: {result.goal_achieved}")
     print(f"Turns Used: {result.turns_used}")
     print(f"Status: {result.status.value}")
-    
+
     if result.findings:
         print("\nKey Findings:")
         for i, finding in enumerate(result.findings, 1):
@@ -150,7 +150,7 @@ def example_3_information_leakage_restrictions(agent: PenelopeAgent, target: End
 def example_4_legal_advice_restrictions(agent: PenelopeAgent, target: EndpointTarget):
     """
     Example 4: Verify system doesn't provide unauthorized legal advice.
-    
+
     Use restrictions to ensure compliance with legal advice boundaries.
     """
     print("\n" + "=" * 70)
@@ -182,7 +182,7 @@ def example_4_legal_advice_restrictions(agent: PenelopeAgent, target: EndpointTa
     print(f"\nGoal Achieved: {result.goal_achieved}")
     print(f"Turns Used: {result.turns_used}")
     print(f"Status: {result.status.value}")
-    
+
     if result.findings:
         print("\nKey Findings:")
         for i, finding in enumerate(result.findings, 1):
@@ -194,7 +194,7 @@ def example_4_legal_advice_restrictions(agent: PenelopeAgent, target: EndpointTa
 def example_5_financial_guarantee_restrictions(agent: PenelopeAgent, target: EndpointTarget):
     """
     Example 5: Verify insurance chatbot doesn't make unauthorized guarantees.
-    
+
     Use restrictions to test that system maintains proper disclaimers and limits.
     """
     print("\n" + "=" * 70)
@@ -226,7 +226,7 @@ def example_5_financial_guarantee_restrictions(agent: PenelopeAgent, target: End
     print(f"\nGoal Achieved: {result.goal_achieved}")
     print(f"Turns Used: {result.turns_used}")
     print(f"Status: {result.status.value}")
-    
+
     if result.findings:
         print("\nKey Findings:")
         for i, finding in enumerate(result.findings, 1):
@@ -238,7 +238,7 @@ def example_5_financial_guarantee_restrictions(agent: PenelopeAgent, target: End
 def example_6_harmful_content_restrictions(agent: PenelopeAgent, target: EndpointTarget):
     """
     Example 6: Verify system refuses to generate harmful content.
-    
+
     Use restrictions to test content safety boundaries.
     """
     print("\n" + "=" * 70)
@@ -270,7 +270,7 @@ def example_6_harmful_content_restrictions(agent: PenelopeAgent, target: Endpoin
     print(f"\nGoal Achieved: {result.goal_achieved}")
     print(f"Turns Used: {result.turns_used}")
     print(f"Status: {result.status.value}")
-    
+
     if result.findings:
         print("\nKey Findings:")
         for i, finding in enumerate(result.findings, 1):
@@ -282,7 +282,7 @@ def example_6_harmful_content_restrictions(agent: PenelopeAgent, target: Endpoin
 def example_7_combined_restrictions(agent: PenelopeAgent, target: EndpointTarget):
     """
     Example 7: Multiple restriction categories combined.
-    
+
     Show how different types of restrictions can work together to define
     comprehensive behavioral boundaries for the target system.
     """
@@ -328,7 +328,7 @@ def example_7_combined_restrictions(agent: PenelopeAgent, target: EndpointTarget
     print(f"\nGoal Achieved: {result.goal_achieved}")
     print(f"Turns Used: {result.turns_used}")
     print(f"Status: {result.status.value}")
-    
+
     if result.findings:
         print("\nKey Findings:")
         for i, finding in enumerate(result.findings, 1):
@@ -341,8 +341,7 @@ def main():
     """Run all restriction examples with Penelope."""
     # Parse command-line arguments
     args = parse_args_with_endpoint(
-        "Testing with restrictions examples for Penelope",
-        "testing_with_restrictions.py"
+        "Testing with restrictions examples for Penelope", "testing_with_restrictions.py"
     )
 
     print("=" * 70)
@@ -399,20 +398,18 @@ def main():
     print("\n" + "=" * 70)
     print("SUMMARY: Testing with Restrictions")
     print("=" * 70)
-    
+
     success_count = sum(1 for _, r, e in results if r and r.goal_achieved and not e)
     total_count = len(results)
-    
+
     print(f"\nSuccessful Tests: {success_count}/{total_count}\n")
-    
+
     for example_name, result, error in results:
         if error:
             status = f"❌ ERROR: {error[:50]}..."
         elif result:
             violations = [
-                f
-                for f in result.findings
-                if "violation" in f.lower() or "must not" in f.lower()
+                f for f in result.findings if "violation" in f.lower() or "must not" in f.lower()
             ]
             if violations:
                 status = f"⚠ VIOLATIONS FOUND: {len(violations)}"
@@ -420,7 +417,7 @@ def main():
                 status = "✓ NO VIOLATIONS" if result.goal_achieved else "⚠ INCOMPLETE"
         else:
             status = "❌ FAILED"
-        
+
         print(f"{example_name:.<50} {status}")
 
     print("\n" + "=" * 70)
