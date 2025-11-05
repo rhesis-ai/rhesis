@@ -9,7 +9,7 @@ import requests
 
 @pytest.fixture(scope="session")
 def docker_compose_test_env() -> Generator[dict, None, None]:
-    compose_file = Path(__file__).parents[3] / "docker-compose.test.yml"
+    compose_file = Path(__file__).parent / "docker-compose.test.yml"
     # Test if backend is running
     max_attempts = 3
     backend_url = "http://localhost:8080/health"
