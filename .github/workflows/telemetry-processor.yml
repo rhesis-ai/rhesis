@@ -258,10 +258,17 @@ jobs:
         run: |
           echo "🔐 Configuring IAM permissions for OTel Collector to invoke Telemetry Processor..."
           
-          # Both services use the same default compute service account
+          # Get the service account from the deployed telemetry-processor service
+          SERVICE_ACCOUNT=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --format="value(spec.template.spec.serviceAccountName)")
+          
+          echo "✅ Found service account: $SERVICE_ACCOUNT"
+          
           # Grant this service account permission to invoke the processor
           gcloud run services add-iam-policy-binding ${{ env.SERVICE_NAME }} \
-            --member="serviceAccount:${{ env.PROJECT_ID }}-compute@developer.gserviceaccount.com" \
+            --member="serviceAccount:$SERVICE_ACCOUNT" \
             --role="roles/run.invoker" \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }}
