@@ -3,7 +3,12 @@ from typing import List, Optional, Union
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
-from rhesis.sdk.services.chunker import ChunkingStrategy, SemanticChunker, SourceChunker
+from rhesis.sdk.services.chunker import (
+    ChunkingStrategy,
+    IdentityChunker,
+    SemanticChunker,
+    SourceChunker,
+)
 from rhesis.sdk.services.extractor import (
     DocumentExtractor,
     ExtractedSource,
@@ -188,7 +193,10 @@ if __name__ == "__main__":
     ]
 
     synthesizer = KnowledgeSynthesizer(
-        prompt="generate test cases for the following document", sources=sources, model="gemini"
+        prompt="generate test cases for the following document",
+        sources=sources,
+        model="gemini",
+        chunking_strategy=IdentityChunker(),
     )
 
     tests = synthesizer.generate(num_tests=5)
