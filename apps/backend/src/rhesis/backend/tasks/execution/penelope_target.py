@@ -86,6 +86,7 @@ class BackendEndpointTarget(Target):
                 self.db,
                 UUID(self.endpoint_id),
                 organization_id=self.organization_id,
+                user_id=self.user_id,
             )
             if endpoint:
                 self._endpoint_name = endpoint.name
@@ -131,6 +132,7 @@ class BackendEndpointTarget(Target):
                 self.db,
                 UUID(self.endpoint_id),
                 organization_id=self.organization_id,
+                user_id=self.user_id,
             )
             if not endpoint:
                 return False, f"Endpoint {self.endpoint_id} not found or not accessible"
