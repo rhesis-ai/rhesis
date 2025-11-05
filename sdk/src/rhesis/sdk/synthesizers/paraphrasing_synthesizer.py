@@ -10,6 +10,10 @@ from rhesis.sdk.synthesizers.utils import (
 )
 
 
+def retry_llm_call():
+    pass
+
+
 class ParaphrasingSynthesizer(TestSetSynthesizer):
     """A synthesizer that generates paraphrased versions of existing test cases."""
 
