@@ -177,6 +177,24 @@ export default function TestSetTestsGrid({
         },
       },
       {
+        field: 'category',
+        headerName: 'Category',
+        flex: 1,
+        renderCell: params => {
+          const categoryName = params.row.category?.name;
+          if (!categoryName) return null;
+
+          return (
+            <Chip
+              label={categoryName}
+              variant="outlined"
+              size="small"
+              color="default"
+            />
+          );
+        },
+      },
+      {
         field: 'test_type.type_value',
         headerName: 'Test Type',
         flex: 1,
