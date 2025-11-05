@@ -1,3 +1,4 @@
+from pprint import pprint
 from typing import List, Optional, Union
 
 from rhesis.sdk.entities.test_set import TestSet
@@ -10,12 +11,10 @@ from rhesis.sdk.services.chunker import (
     SourceChunker,
 )
 from rhesis.sdk.services.extractor import (
-    DocumentExtractor,
     ExtractedSource,
-    NotionExtractor,
     SourceBase,
+    SourceExtractor,
     SourceType,
-    WebsiteExtractor,
 )
 from rhesis.sdk.synthesizers.context_synthesizer import ContextSynthesizer
 from rhesis.sdk.synthesizers.utils import create_test_set
@@ -63,23 +62,7 @@ class KnowledgeSynthesizer:
         Returns:
             List of ExtractedSource objects
         """
-        try:
-            extracted_sources = []
-            for source in sources:
-                if source.type == SourceType.DOCUMENT:
-                    extracted_source = DocumentExtractor().extract(source)
-                elif source.type == SourceType.WEBSITE:
-                    extracted_source = WebsiteExtractor().extract(source)
-                elif source.type == SourceType.NOTION:
-                    extracted_source = NotionExtractor().extract(source)
-                else:
-                    raise ValueError(f"Unsupported source type: {source.type}")
-                extracted_sources.append(extracted_source)
-            return extracted_sources
-
-        except Exception as e:
-            print(f"Warning: Failed to extract some documents: {e}")
-            return []
+        return SourceExtractor()(sources)
 
     def _compute_tests_per_chunk(self, num_tests: int, num_chunks: int) -> list[int]:
         tests_per_chunk = [(num_tests + i) // num_chunks for i in range(num_chunks)]
@@ -200,6 +183,5 @@ if __name__ == "__main__":
     )
 
     tests = synthesizer.generate(num_tests=5)
-
-    print(tests.tests)
+    pprint(tests.tests)
     print("finished")
