@@ -42,11 +42,12 @@ ENV UV_NO_MANAGED_PYTHON=1
 # Skip the installation of the dev dependencies
 ENV UV_NO_DEV=1
 
-# Copy the SDK directory
+# Copy the SDK and Penelope directories
 COPY sdk /app/sdk/
+COPY penelope /app/penelope/
 
-# Add SDK and install dependencies
-RUN uv add /app/sdk && uv sync
+# Add SDK and Penelope, then install dependencies
+RUN uv add /app/sdk && uv add /app/penelope && uv sync
 
 # Now copy ALL source code including migrations - this layer will invalidate when any source changes
 # This ensures migration files are always up-to-date in the final image
@@ -79,6 +80,7 @@ COPY --from=builder --chown=rhesis-user:rhesis-user /app/.venv /app/.venv
 # Copy source code and scripts with proper ownership and permissions
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/src /app/src
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
+COPY --from=builder --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh /app/migrate.sh
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh /app/start.sh
 
