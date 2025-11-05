@@ -5,6 +5,7 @@ const meta: MetaRecord = {
   'getting-started': 'Getting Started',
   examples: 'Examples & Use Cases',
   configuration: 'Configuration',
+  'execution-trace': 'Execution Trace Format',
   extending: 'Extending Penelope',
 }
 
