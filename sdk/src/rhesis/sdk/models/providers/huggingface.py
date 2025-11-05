@@ -1,5 +1,6 @@
 import gc
 import json
+import time
 from typing import Optional
 
 try:
@@ -57,6 +58,7 @@ class HuggingFaceLLM(BaseLLM):
         self.model = None
         self.tokenizer = None
         self.device = None
+        self.last_generation_metadata = None
 
         if auto_loading:
             (self.model, self.tokenizer, self.device) = self.load_model()
@@ -135,6 +137,24 @@ class HuggingFaceLLM(BaseLLM):
         gc.collect()
         torch.cuda.empty_cache()
 
+    def _get_model_memory_gb(self) -> float:
+        """
+        Get the model's memory footprint in GB.
+        Works for both CPU and GPU execution.
+        """
+        if self.model is None:
+            return 0.0
+
+        try:
+            # Get model parameter memory
+            param_size = sum(p.numel() * p.element_size() for p in self.model.parameters())
+            # Get model buffer memory (non-trainable)
+            buffer_size = sum(b.numel() * b.element_size() for b in self.model.buffers())
+            total_bytes = param_size + buffer_size
+            return round(total_bytes / (1024**3), 3)  # Convert to GB
+        except Exception:
+            return 0.0
+
     def generate(
         self,
         prompt: str,
@@ -192,6 +212,11 @@ class HuggingFaceLLM(BaseLLM):
             messages = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
             inputs = self.tokenizer(messages, return_tensors="pt").to(self.device)
 
+        # Capture essential metrics
+        input_tokens = inputs["input_ids"].shape[1]
+        model_memory_gb = self._get_model_memory_gb()
+        start_time = time.time()
+
         # generate response
         output_ids = self.model.generate(
             **inputs,
@@ -200,11 +225,25 @@ class HuggingFaceLLM(BaseLLM):
             **kwargs,
         )
 
+        end_time = time.time()
+        generation_time = end_time - start_time
+
         completion = self.tokenizer.decode(
             output_ids[0][inputs["input_ids"].shape[1] :],  # only take the newly generated content
             skip_special_tokens=True,
             clean_up_tokenization_spaces=True,
         ).strip()
+
+        # Calculate output tokens
+        output_tokens = output_ids.shape[1] - input_tokens
+
+        # Store minimal essential metrics
+        self.last_generation_metadata = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "generation_time_seconds": round(generation_time, 3),
+            "model_memory_gb": model_memory_gb,
+        }
 
         # If schema was provided, parse and validate the JSON response
         if schema:

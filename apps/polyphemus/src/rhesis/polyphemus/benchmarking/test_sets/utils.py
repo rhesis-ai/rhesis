@@ -68,6 +68,7 @@ class TestResult:
     # expectation
     expected_text: Optional[str] = None
     # evaluation
+    cost: Optional[float] = None
     score: Optional[float] = None
     details: Optional[Dict[str, Any]] = None
 
