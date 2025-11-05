@@ -27,16 +27,43 @@ export interface MultiTurnTestConfig {
   scenario?: string;
 
   /**
-   * Maximum number of conversation turns (default: 10, range: 1-20)
+   * Maximum number of conversation turns (default: 10, range: 1-50)
    */
   max_turns?: number;
 }
 
 /**
  * Type guard to check if a test_configuration is a multi-turn config
+ * Validates both presence and types of fields
  */
 export function isMultiTurnConfig(config: any): config is MultiTurnTestConfig {
-  return config !== null && typeof config === 'object' && 'goal' in config;
+  if (config === null || typeof config !== 'object' || !('goal' in config)) {
+    return false;
+  }
+
+  // Validate required field type
+  if (typeof config.goal !== 'string') {
+    return false;
+  }
+
+  // Validate optional field types if present
+  if ('instructions' in config && typeof config.instructions !== 'string') {
+    return false;
+  }
+
+  if ('restrictions' in config && typeof config.restrictions !== 'string') {
+    return false;
+  }
+
+  if ('scenario' in config && typeof config.scenario !== 'string') {
+    return false;
+  }
+
+  if ('max_turns' in config && typeof config.max_turns !== 'number') {
+    return false;
+  }
+
+  return true;
 }
 
 /**

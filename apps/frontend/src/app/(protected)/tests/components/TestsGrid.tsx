@@ -25,7 +25,10 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestFiltersToOData } from '@/utils/odata-filter';
 import { isMultiTurnTest } from '@/constants/test-types';
-import { isMultiTurnConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
+import {
+  getTestContentValue,
+  renderTestContentCell,
+} from './test-grid-helpers';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -135,47 +138,8 @@ export default function TestsTable({
         headerName: 'Content',
         flex: 3,
         filterable: true,
-        valueGetter: (value, row) => {
-          // For multi-turn tests, show the goal
-          if (
-            isMultiTurnTest(row.test_type?.type_value) &&
-            isMultiTurnConfig(row.test_configuration)
-          ) {
-            return row.test_configuration.goal || '';
-          }
-          // For single-turn tests, show the prompt content
-          return row.prompt?.content || '';
-        },
-        renderCell: params => {
-          let content = '';
-
-          // For multi-turn tests, show the goal
-          if (
-            isMultiTurnTest(params.row.test_type?.type_value) &&
-            isMultiTurnConfig(params.row.test_configuration)
-          ) {
-            content = params.row.test_configuration.goal || '';
-          } else {
-            // For single-turn tests, show the prompt content
-            content = params.row.prompt?.content || params.row.content || '';
-          }
-
-          if (!content) return null;
-
-          return (
-            <Typography
-              variant="body2"
-              title={content}
-              sx={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {content}
-            </Typography>
-          );
-        },
+        valueGetter: getTestContentValue,
+        renderCell: renderTestContentCell,
       },
       {
         field: 'behavior.name',

@@ -15,7 +15,10 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { isMultiTurnTest } from '@/constants/test-types';
-import { isMultiTurnConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
+import {
+  getTestContentValue,
+  renderTestContentCell,
+} from '@/app/(protected)/tests/components/test-grid-helpers';
 
 interface TestSetTestsGridProps {
   sessionToken: string;
@@ -98,47 +101,8 @@ export default function TestSetTestsGrid({
         field: 'prompt.content',
         headerName: 'Content',
         flex: 3,
-        valueGetter: (value, row) => {
-          // For multi-turn tests, show the goal
-          if (
-            isMultiTurnTest(row.test_type?.type_value) &&
-            isMultiTurnConfig(row.test_configuration)
-          ) {
-            return row.test_configuration.goal || '';
-          }
-          // For single-turn tests, show the prompt content
-          return row.prompt?.content || '';
-        },
-        renderCell: params => {
-          let content = '';
-
-          // For multi-turn tests, show the goal
-          if (
-            isMultiTurnTest(params.row.test_type?.type_value) &&
-            isMultiTurnConfig(params.row.test_configuration)
-          ) {
-            content = params.row.test_configuration.goal || '';
-          } else {
-            // For single-turn tests, show the prompt content
-            content = params.row.prompt?.content || '';
-          }
-
-          if (!content) return null;
-
-          return (
-            <Typography
-              variant="body2"
-              title={content}
-              sx={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {content}
-            </Typography>
-          );
-        },
+        valueGetter: getTestContentValue,
+        renderCell: renderTestContentCell,
       },
       {
         field: 'behavior',
