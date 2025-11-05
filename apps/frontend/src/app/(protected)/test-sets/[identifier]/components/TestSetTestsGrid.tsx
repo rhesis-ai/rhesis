@@ -185,16 +185,7 @@ export default function TestSetTestsGrid({
           const testType = params.row.test_type?.type_value;
           if (!testType) return null;
 
-          const isMultiTurn = isMultiTurnTest(testType);
-
-          return (
-            <Chip
-              label={testType}
-              size="small"
-              variant="outlined"
-              color={isMultiTurn ? 'secondary' : 'primary'}
-            />
-          );
+          return <Chip label={testType} size="small" variant="outlined" />;
         },
       },
     ],
