@@ -98,7 +98,7 @@ class PenelopeAgent:
 
         Args:
             model: Language model from rhesis.sdk.models or model string (e.g. "vertex_ai/gemini-2.0-flash").
-                If None, uses default model configured via PenelopeConfig (default: Vertex AI / gemini-2.0-flash-exp)
+                If None, uses default model configured via PenelopeConfig (default: Vertex AI / gemini-2.0-flash)
             tools: Optional list of custom tools (default tools used if None)
             max_iterations: Maximum number of turns before stopping. If None, uses default
                 from PenelopeConfig (default: 10)
@@ -113,7 +113,7 @@ class PenelopeAgent:
             Model Configuration:
                 - Default model can be set via environment variables:
                   PENELOPE_DEFAULT_MODEL (default: "vertex_ai")
-                  PENELOPE_DEFAULT_MODEL_NAME (default: "gemini-2.0-flash-exp")
+                  PENELOPE_DEFAULT_MODEL_NAME (default: "gemini-2.0-flash")
                 - Or programmatically: PenelopeConfig.set_default_model("anthropic", "claude-4")
 
             Max Iterations Configuration:
