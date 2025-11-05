@@ -204,6 +204,19 @@ export default function TestsTable({
         },
       },
       {
+        field: 'category.name',
+        headerName: 'Category',
+        flex: 1,
+        filterable: true,
+        valueGetter: (value, row) => row.category?.name || '',
+        renderCell: params => {
+          const categoryName = params.row.category?.name;
+          if (!categoryName) return null;
+
+          return <Chip label={categoryName} size="small" variant="outlined" />;
+        },
+      },
+      {
         field: 'test_type.type_value',
         headerName: 'Test Type',
         flex: 1,
