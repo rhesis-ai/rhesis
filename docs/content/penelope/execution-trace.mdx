@@ -14,450 +14,247 @@ Every test execution produces a `TestResult` object that contains:
 - **Standardized metrics** - SDK-compatible metric format
 - **Test configuration** - Full reproducibility information
 - **Performance statistics** - Timing, tool usage, token consumption
-- **Model and target metadata** - For comparison and analytics
 
 ## Schema Structure
 
-The execution trace follows a well-defined Pydantic schema for type safety and validation.
-
-### Top-Level Fields
-
-<CodeBlock language="python">
-{`class TestResult(BaseModel):
-    """Complete execution trace of a Penelope test."""
-    
-    # Test Outcomes
-    status: ExecutionStatus              # success | failure | error | timeout | max_iterations
-    goal_achieved: bool                  # Whether test goal was met
-    turns_used: int                      # Number of conversation turns
-    findings: List[str]                  # Human-readable findings summary
-    
-    # Conversation History
-    history: List[Turn]                  # Complete turn-by-turn record
-    
-    # Structured Evaluation (Machine-Readable)
-    goal_evaluation: Optional[GoalEvaluationResult]
-    
-    # Standardized Metrics (SDK-Compatible)
-    metrics: Dict[str, Dict[str, Any]]
-    
-    # Test Configuration (Reproducibility)
-    test_configuration: Dict[str, Any]
-    
-    # Model Information (Analytics)
-    model_info: Optional[Dict[str, Any]]
-    
-    # Target Information (Analytics)
-    target_info: Optional[Dict[str, Any]]
-    
-    # Performance Statistics
-    execution_stats: Dict[str, Any]
-    
-    # Timestamps
-    start_time: Optional[datetime]
-    end_time: Optional[datetime]
-    
-    # Additional Context
-    metadata: Dict[str, Any]`}
+<CodeBlock filename="test_result.json" language="json">
+{`{
+  "test_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "success",
+  "goal_achieved": true,
+  "turns_used": 3,
+  "findings": ["All success criteria met"],
+  
+  "goal_evaluation": {
+    "all_criteria_met": true,
+    "confidence": 1.0,
+    "reasoning": "All criteria satisfied",
+    "evidence": ["Turn 2: User confirmed coverage details"],
+    "criteria_evaluations": [...]
+  },
+  
+  "history": [
+    {
+      "turn_number": 1,
+      "reasoning": "Need to gather information",
+      "assistant_message": {...},
+      "tool_message": {...}
+    }
+  ],
+  
+  "metrics": {
+    "Goal Achievement": {
+      "score": 1.0,
+      "is_successful": true,
+      "reason": "All criteria met"
+    }
+  },
+  
+  "config": {
+    "goal": "Test goal",
+    "max_turns": 10,
+    "model_name": "gemini-2.0-flash"
+  },
+  
+  "stats": {
+    "total_turns": 3,
+    "tools_used": 2,
+    "total_tokens": 1250,
+    "execution_time_seconds": 5.2
+  }
+}`}
 </CodeBlock>
 
-## Detailed Field Descriptions
+## Key Fields
 
-### Test Outcomes
+### Status & Outcome
 
-#### `status`
-Test execution status with possible values:
-- `success` - Test completed, goal achieved
-- `failure` - Test completed, goal not achieved
-- `error` - Execution error occurred
-- `timeout` - Test exceeded time limit
-- `max_iterations` - Reached maximum turn limit
+- **status**: `"success"`, `"failure"`, `"timeout"`, or `"error"`
+- **goal_achieved**: Boolean indicating if test objective was met
+- **turns_used**: Number of conversation turns executed
+- **findings**: List of key observations from the test
 
-#### `goal_achieved`
-Boolean indicating whether the test goal was met based on LLM evaluation.
+### Goal Evaluation
 
-#### `turns_used`
-Number of conversation turns executed (1-indexed).
+Structured assessment of success criteria:
 
-#### `findings`
-High-level summary of test results in human-readable format:
-<CodeBlock language="python">
-{`[
-  "✓ All criteria met (2/2)",
-  "Test completed in 3 turn(s)",
-  "Confidence: 0.95 (High)"
-]`}
+<CodeBlock filename="goal_evaluation.json" language="json">
+{`{
+  "all_criteria_met": true,
+  "confidence": 1.0,
+  "reasoning": "Detailed explanation of evaluation",
+  "evidence": ["Supporting evidence from conversation"],
+  "criteria_evaluations": [
+    {
+      "criterion": "Criterion description",
+      "met": true,
+      "evidence": "Evidence for this criterion",
+      "reasoning": "Why this criterion was met/not met"
+    }
+  ],
+  "turn_count": 3,
+  "evaluated_at": "2024-01-15T10:30:00Z"
+}`}
 </CodeBlock>
 
 ### Conversation History
 
-#### `history`
-Complete turn-by-turn record of the test execution.
+Each turn contains:
 
-<CodeBlock language="python">
-{`class Turn(BaseModel):
-    turn_number: int                        # 1-indexed turn number
-    timestamp: datetime                     # ISO 8601 timestamp
-    
-    # Standard OpenAI-compatible messages
-    assistant_message: AssistantMessage     # Penelope's reasoning + tool_calls
-    tool_message: ToolMessage               # Tool execution results
-    
-    # Optional RAG context
-    retrieval_context: Optional[List[Dict[str, Any]]]
-    
-    # Penelope metadata
-    reasoning: str                          # Internal reasoning for this turn
-    evaluation: Optional[str]               # Progress assessment`}
-</CodeBlock>
-
-**Example Turn:**
-<CodeBlock language="json">
+<CodeBlock filename="turn.json" language="json">
 {`{
   "turn_number": 1,
-  "timestamp": "2025-11-05T16:49:51.932316",
+  "reasoning": "Why this action was taken",
   "assistant_message": {
     "role": "assistant",
-    "content": "I need to test the chatbot's coverage information...",
-    "tool_calls": [{
-      "id": "call_1_send_message_to_target",
-      "type": "function",
-      "function": {
-        "name": "send_message_to_target",
-        "arguments": "{\\"message\\": \\"What coverage do you offer?\\"}"
+    "content": "Reasoning about next step",
+    "tool_calls": [
+      {
+        "id": "call_123",
+        "type": "function",
+        "function": {
+          "name": "send_message_to_target",
+          "arguments": "{\"message\":\"Hello\"}"
+        }
       }
-    }]
+    ]
   },
   "tool_message": {
     "role": "tool",
-    "tool_call_id": "call_1_send_message_to_target",
-    "name": "send_message_to_target",
-    "content": "{\\"success\\": true, \\"output\\": {...}}"
-  },
-  "reasoning": "First step: ask about coverage to assess capabilities",
-  "evaluation": null
+    "tool_call_id": "call_123",
+    "content": "Tool response"
+  }
 }`}
 </CodeBlock>
 
-### Structured Evaluation
+### Metrics
 
-#### `goal_evaluation`
-Criterion-by-criterion evaluation results in machine-readable format.
+SDK-compatible format for integration with Rhesis platform:
 
-<CodeBlock language="python">
-{`class GoalEvaluationResult(BaseModel):
-    turn_count: int                             # Turns at evaluation time
-    criteria_evaluations: List[CriterionEvaluation]
-    all_criteria_met: bool                      # Overall result
-    confidence: float                           # 0.0 to 1.0
-    reasoning: str                              # Summary explanation
-    evidence: List[str]                         # Supporting quotes
-    evaluated_at: datetime                      # Evaluation timestamp
-
-class CriterionEvaluation(BaseModel):
-    criterion: str                              # Specific criterion tested
-    met: bool                                   # Pass/fail for this criterion
-    evidence: str                               # Supporting evidence
-    relevant_turns: List[int]                   # Turn numbers with evidence`}
-</CodeBlock>
-
-**Example Evaluation:**
-<CodeBlock language="json">
-{`{
-  "turn_count": 2,
-  "criteria_evaluations": [
-    {
-      "criterion": "Chatbot answers 2 questions about insurance coverage",
-      "met": true,
-      "evidence": "User asked about coverage and auto insurance, both answered",
-      "relevant_turns": [1, 2]
-    }
-  ],
-  "all_criteria_met": true,
-  "confidence": 1.0,
-  "reasoning": "Successfully answered both coverage questions",
-  "evidence": [
-    "USER: What coverage do you offer?",
-    "ASSISTANT: We provide auto, home, life, and health insurance...",
-    "USER: What about auto insurance?",
-    "ASSISTANT: Auto insurance includes liability, collision..."
-  ],
-  "evaluated_at": "2025-11-05T16:50:02.923902"
-}`}
-</CodeBlock>
-
-<Callout type="info">
-**Traceability:** The `relevant_turns` field allows you to trace which specific conversation turns contributed to each criterion's pass/fail result.
-</Callout>
-
-### Standardized Metrics
-
-#### `metrics`
-Evaluation metrics in SDK-compatible format for platform consistency.
-
-<CodeBlock language="python">
+<CodeBlock filename="metrics.json" language="json">
 {`{
   "Goal Achievement": {
     "name": "Goal Achievement",
-    "score": 1.0,                        # 0.0 to 1.0
-    "reason": "Successfully completed test objective",
-    "backend": "penelope",
-    "threshold": null,
-    "class_name": "GoalAchievementMetric",
-    "description": "Multi-turn goal achievement evaluation",
+    "score": 1.0,
     "is_successful": true,
-    "criteria_met": 2,
-    "criteria_total": 2,
-    "turn_count": 2,
-    "evaluated_at": "2025-11-05T16:50:02.923902"
+    "reason": "All success criteria met",
+    "backend": "penelope",
+    "confidence": 1.0,
+    "criteria_met": 3,
+    "criteria_total": 3
   }
 }`}
 </CodeBlock>
 
-### Test Configuration
+## Accessing Traces
 
-#### `test_configuration`
-Complete test parameters for reproducibility.
-
-<CodeBlock language="json">
-{`{
-  "goal": "Verify chatbot can answer insurance questions",
-  "instructions": "Ask about coverage types, then specific products",
-  "scenario": "You are a potential customer",
-  "restrictions": "Must not mention competitor brands",
-  "context": {
-    "test_type": "functional",
-    "domain": "insurance"
-  },
-  "max_turns": 10
-}`}
-</CodeBlock>
-
-### Model Information
-
-#### `model_info`
-LLM configuration used by Penelope.
-
-<CodeBlock language="json">
-{`{
-  "model_name": "vertex_ai/gemini-2.0-flash",
-  "provider": "vertex_ai",
-  "temperature": 0.7,
-  "max_tokens": 4096
-}`}
-</CodeBlock>
-
-### Target Information
-
-#### `target_info`
-Details about the system under test.
-
-<CodeBlock language="json">
-{`{
-  "target_id": "2d8d2060-b85a-46fa-b299-e3c940598088",
-  "target_type": "endpoint",
-  "endpoint_id": "2d8d2060-b85a-46fa-b299-e3c940598088"
-}`}
-</CodeBlock>
-
-### Execution Statistics
-
-#### `execution_stats`
-Performance metrics and resource usage.
-
-<CodeBlock language="json">
-{`{
-  "turn_timings": [
-    {
-      "turn_number": 1,
-      "duration_seconds": 7.475,
-      "timestamp": "2025-11-05T16:49:51.932316"
-    },
-    {
-      "turn_number": 2,
-      "duration_seconds": 3.517,
-      "timestamp": "2025-11-05T16:49:59.406847"
-    }
-  ],
-  "tool_usage": {
-    "send_message_to_target": {
-      "total_calls": 2,
-      "successful_calls": 2,
-      "failed_calls": 0
-    }
-  },
-  "total_turns": 2,
-  "successful_interactions": 2,
-  "token_usage": {
-    "note": "Token tracking to be implemented"
-  },
-  "estimated_cost": {
-    "note": "Cost estimation to be implemented"
-  }
-}`}
-</CodeBlock>
-
-## Working with Traces
-
-### Accessing Trace Data
+### Python API
 
 <CodeBlock filename="access_trace.py" language="python">
-{`from rhesis.penelope import PenelopeAgent, EndpointTarget
+{`from rhesis.penelope import PenelopeAgent
 
 agent = PenelopeAgent()
-target = EndpointTarget(endpoint_id="your-endpoint-id")
-
-# Execute test
-result = agent.execute_test(
-    target=target,
-    goal="Test goal",
-    restrictions="Forbidden behaviors"
-)
+result = agent.execute_test(target=target, goal="Test goal")
 
 # Access trace data
 print(f"Status: {result.status}")
 print(f"Goal achieved: {result.goal_achieved}")
-print(f"Turns: {result.turns_used}")
-print(f"Duration: {result.duration_seconds:.2f}s")
+print(f"Turns used: {result.turns_used}")
 
-# Access structured evaluation
-if result.goal_evaluation:
-    for criterion in result.goal_evaluation.criteria_evaluations:
-        print(f"Criterion: {criterion.criterion}")
-        print(f"  Met: {criterion.met}")
-        print(f"  Evidence: {criterion.evidence}")
-        print(f"  Relevant turns: {criterion.relevant_turns}")
-
-# Access conversation history
+# Iterate through history
 for turn in result.history:
-    print(f"Turn {turn.turn_number}:")
-    print(f"  Tool: {turn.tool_name}")
-    print(f"  Reasoning: {turn.reasoning}")`}
+    print(f"Turn {turn.turn_number}: {turn.reasoning}")
+
+# Export to JSON
+trace_json = result.dict()
+
+# Export to file
+result.to_json("trace.json")`}
 </CodeBlock>
 
-### Exporting to JSON
+### JSON Export
 
-<CodeBlock filename="export_trace.py" language="python">
+<CodeBlock filename="export.py" language="python">
 {`import json
 
-# Export complete trace
-trace_json = result.model_dump_json(indent=2)
-
-# Save to file
+# Save trace
 with open("execution_trace.json", "w") as f:
-    f.write(trace_json)
+    json.dump(result.dict(), f, indent=2)
 
-# Or as Python dict
-trace_dict = result.model_dump()
-print(json.dumps(trace_dict, indent=2))`}
-</CodeBlock>
-
-### Schema Validation
-
-The trace format is validated using Pydantic:
-
-<CodeBlock filename="validate_trace.py" language="python">
-{`from rhesis.penelope.context import TestResult
-import json
-
-# Load trace from file
+# Load trace
 with open("execution_trace.json", "r") as f:
-    data = json.load(f)
-
-# Validate against schema
-try:
-    result = TestResult(**data)
-    print("✅ Trace validates successfully")
-except Exception as e:
-    print(f"❌ Validation error: {e}")`}
-</CodeBlock>
-
-## Analysis Examples
-
-### Filter Failed Criteria
-
-<CodeBlock filename="find_failures.py" language="python">
-{`# Find criteria that failed
-if result.goal_evaluation:
-    failed = [
-        c for c in result.goal_evaluation.criteria_evaluations 
-        if not c.met
-    ]
+    trace_data = json.load(f)
     
-    for criterion in failed:
-        print(f"Failed: {criterion.criterion}")
-        print(f"Evidence: {criterion.evidence}")
-        print(f"Check turns: {criterion.relevant_turns}")`}
+# Reconstruct TestResult
+from rhesis.penelope.context import TestResult
+result = TestResult.from_dict(trace_data)`}
 </CodeBlock>
 
-### Performance Analysis
+## Integration with Rhesis Platform
 
-<CodeBlock filename="analyze_performance.py" language="python">
-{`# Analyze timing per turn
-timings = result.execution_stats.get("turn_timings", [])
-for timing in timings:
-    print(f"Turn {timing['turn_number']}: {timing['duration_seconds']:.2f}s")
+Penelope traces integrate seamlessly with the Rhesis platform:
 
-# Total execution time
-print(f"Total duration: {result.duration_seconds:.2f}s")
+<CodeBlock filename="platform_integration.py" language="python">
+{`from rhesis.penelope import PenelopeAgent
+from rhesis.sdk import Rhesis
 
-# Average turn duration
-avg_duration = result.duration_seconds / result.turns_used
-print(f"Average per turn: {avg_duration:.2f}s")`}
+# Execute with Penelope
+agent = PenelopeAgent()
+result = agent.execute_test(target=target, goal="Test goal")
+
+# Submit to Rhesis platform
+client = Rhesis()
+client.create_test_result(
+    test_id="test-123",
+    metrics=result.metrics,
+    output=result.dict(),
+    execution_time=result.stats["execution_time_seconds"]
+)`}
 </CodeBlock>
 
-### Extract Conversation Flow
+## Analysis & Debugging
 
-<CodeBlock filename="extract_conversation.py" language="python">
-{`# Build conversation transcript
+### Quick Summary
+
+<CodeBlock filename="summary.py" language="python">
+{`# Print concise summary
+print(f"""
+Test ID: {result.test_id}
+Status: {result.status.value}
+Goal Achieved: {result.goal_achieved}
+Turns: {result.turns_used}/{result.config.max_turns}
+Findings: {', '.join(result.findings)}
+""")
+
+# Check for issues
+if not result.goal_achieved:
+    print("Failure reasons:")
+    for criterion in result.goal_evaluation.criteria_evaluations:
+        if not criterion.met:
+            print(f"  ❌ {criterion.criterion}: {criterion.reasoning}")`}
+</CodeBlock>
+
+### Debugging Failed Tests
+
+<CodeBlock filename="debug.py" language="python">
+{`# Analyze conversation flow
 for turn in result.history:
-    # User message (from tool arguments)
-    if turn.tool_name == "send_message_to_target":
-        user_msg = turn.tool_arguments.get("message", "")
-        print(f"USER: {user_msg}")
-        
-        # Assistant response (from tool result)
-        tool_result = turn.tool_result
-        if isinstance(tool_result, dict) and "output" in tool_result:
-            response = tool_result["output"].get("response", "")
-            print(f"ASSISTANT: {response}")
-    
-    print()`}
+    print(f"\nTurn {turn.turn_number}:")
+    print(f"  Reasoning: {turn.reasoning}")
+    if turn.assistant_message.tool_calls:
+        for call in turn.assistant_message.tool_calls:
+            print(f"  Tool: {call.function.name}")
+    if turn.tool_message:
+        print(f"  Response: {turn.tool_message.content[:100]}...")
+
+# Check token usage
+stats = result.stats
+if stats["total_tokens"] > 50000:
+    print(f"⚠️ High token usage: {stats['total_tokens']}")`}
 </CodeBlock>
-
-## Integration with Backend
-
-When a Rhesis API key is configured, execution traces are automatically logged to the backend:
-
-<CodeBlock filename="auto_logging.py" language="python">
-{`import os
-
-# Set API key
-os.environ["RHESIS_API_KEY"] = "your-api-key"
-
-# Traces automatically logged
-result = agent.execute_test(
-    target=target,
-    goal="Test goal"
-)
-# Complete trace sent to backend for storage and analysis`}
-</CodeBlock>
-
-## Best Practices
-
-1. **Save Important Traces** - Export traces for significant test runs
-2. **Use Relevant Turns** - Leverage `relevant_turns` to debug failures quickly
-3. **Monitor Performance** - Track `execution_stats` for optimization opportunities
-4. **Validate Schemas** - Use Pydantic validation when loading traces programmatically
-5. **Archive Test Configs** - The `test_configuration` field enables exact reproduction
-
-<Callout type="tip">
-**Pro Tip:** The execution trace format is designed to be forward-compatible. New fields may be added in future versions, but existing fields will maintain backward compatibility.
-</Callout>
 
 ---
 
 <Callout type="info">
-  For more examples of working with execution traces, see the [Examples](/penelope/examples) section.
+  **Complete Schema**: See the [Penelope GitHub repository](https://github.com/rhesis-ai/rhesis/tree/main/penelope) for the complete TestResult schema definition and examples.
 </Callout>
-
