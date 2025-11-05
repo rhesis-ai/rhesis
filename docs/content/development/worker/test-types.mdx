@@ -1,0 +1,237 @@
+# Test Types
+
+## Overview
+
+Rhesis supports multiple test types, each designed for different testing scenarios. The test type determines how the test is executed and evaluated.
+
+## Single-Turn Tests
+
+### Description
+
+Traditional request-response tests with a single prompt. The endpoint receives one message and returns one response, which is then evaluated against configured metrics.
+
+### Use Cases
+
+- **API Validation**: Testing specific API endpoints and responses
+- **Regression Testing**: Ensuring consistent behavior across releases  
+- **Functional Testing**: Verifying specific features or capabilities
+- **Performance Benchmarks**: Measuring response time and quality
+
+### How It Works
+
+1. Send single prompt to endpoint
+2. Receive response
+3. Evaluate response using configured metrics
+4. Store results
+
+### Configuration
+
+Single-turn tests use the `Test` model with a `Prompt` containing:
+- `content`: The input text
+- `expected_response`: Optional expected output
+- Associated `Behavior` with metrics for evaluation
+
+### Example
+
+```python
+# Create a single-turn test
+test = Test(
+    prompt=prompt,
+    behavior=behavior,  # Contains metrics
+    test_type="Single-Turn",
+    organization_id=org_id,
+    user_id=user_id
+)
+```
+
+### Metric Evaluation
+
+Metrics are evaluated by the worker using the `MetricEvaluator`:
+- Runs after endpoint responds
+- Each metric gets prompt, response, and optional context
+- Results stored with pass/fail status
+
+---
+
+## Multi-Turn Tests
+
+### Description
+
+Agentic conversation tests where [Penelope](/penelope) orchestrates multi-turn interactions to achieve a specific goal. Instead of a single request-response, Penelope conducts an entire conversation strategy.
+
+### Use Cases
+
+- **Conversational AI Testing**: Testing chatbots and virtual assistants
+- **Goal-Based Scenarios**: Verifying complex user journeys
+- **Context Maintenance**: Testing conversation memory and coherence
+- **Dialogue Flow Testing**: Ensuring proper conversation handling
+- **User Intent Testing**: Verifying the system understands and handles user goals
+
+### How It Works
+
+1. Initialize Penelope agent with test goal
+2. Penelope plans conversation strategy
+3. Agent interacts with endpoint over multiple turns
+4. Penelope evaluates if goal was achieved
+5. Complete trace stored (including all turns)
+
+### Configuration
+
+Multi-turn tests store configuration in the `test_configuration` JSONB field:
+
+```json
+{
+  "goal": "Verify the chatbot can answer 2 questions about insurance coverage",
+  "instructions": "Ask about coverage, then ask a follow-up question",
+  "scenario": "You are a customer seeking information",
+  "restrictions": "The chatbot must not mention competitor brands",
+  "context": {
+    "additional_info": "..."
+  },
+  "max_turns": 10
+}
+```
+
+### Configuration Fields
+
+- **goal** (required): What the test should achieve
+- **instructions** (optional): How to approach the goal
+- **scenario** (optional): Role/context for the agent
+- **restrictions** (optional): Boundaries the target must respect
+- **context** (optional): Additional metadata
+- **max_turns** (optional): Maximum conversation turns (default: 10)
+
+### Example
+
+```python
+# Create a multi-turn test
+test = Test(
+    prompt=prompt,  # Used as fallback goal if not in config
+    test_type="Multi-Turn",
+    test_configuration={
+        "goal": "Verify chatbot maintains context across 3 turns",
+        "instructions": "Ask related questions building on previous responses",
+        "max_turns": 5
+    },
+    organization_id=org_id,
+    user_id=user_id
+)
+```
+
+### Metric Evaluation
+
+Metrics are evaluated by Penelope during execution:
+- **Goal Achievement**: Primary metric (did test achieve its goal?)
+- **Criteria Evaluation**: Individual success criteria checked
+- **Confidence Score**: How confident Penelope is in the evaluation
+- **Evidence**: Conversation excerpts supporting the evaluation
+
+The complete Penelope trace is stored, including:
+- All conversation turns
+- Agent reasoning at each step
+- Tool calls and responses
+- Goal evaluation details
+- Execution statistics
+
+### Penelope Trace Structure
+
+```json
+{
+  "status": "success",
+  "goal_achieved": true,
+  "turns_used": 3,
+  "findings": ["✓ All criteria met"],
+  "history": [
+    {
+      "turn_number": 1,
+      "reasoning": "...",
+      "assistant_message": {...},
+      "tool_message": {...}
+    }
+  ],
+  "goal_evaluation": {
+    "all_criteria_met": true,
+    "criteria_evaluations": [...],
+    "confidence": 1.0,
+    "reasoning": "...",
+    "evidence": [...]
+  },
+  "execution_stats": {...},
+  "metrics": {
+    "Goal Achievement": {
+      "score": 1.0,
+      "is_successful": true,
+      "confidence": 1.0
+    }
+  }
+}
+```
+
+---
+
+## Future Test Types
+
+The system is designed to easily support additional test types:
+
+### Image/Multimodal Tests
+Testing vision-capable models with images, diagrams, or mixed media.
+
+### Adversarial Tests
+Security and robustness testing with jailbreak attempts and edge cases.
+
+### Synthetic Tests  
+Automatically generated test cases for broader coverage.
+
+### Performance Tests
+Load testing and stress testing endpoints under various conditions.
+
+---
+
+## Test Type Detection
+
+The system automatically routes tests to the appropriate executor:
+
+```python
+from rhesis.backend.tasks.execution.modes import get_test_type, is_multi_turn_test
+from rhesis.backend.tasks.enums import TestType
+
+# Get test type
+test_type = get_test_type(test)
+
+# Check specific type
+if is_multi_turn_test(test):
+    # Multi-turn specific logic
+    pass
+
+# Or use enum
+if test_type == TestType.MULTI_TURN:
+    # ...
+```
+
+---
+
+## Choosing a Test Type
+
+### Use Single-Turn When:
+- ✅ Testing specific API responses
+- ✅ Simple input-output validation needed
+- ✅ Running regression tests at scale
+- ✅ Performance benchmarking required
+- ✅ Testing isolated functionality
+
+### Use Multi-Turn When:
+- ✅ Testing conversational interfaces
+- ✅ Validating complex user journeys
+- ✅ Checking context retention
+- ✅ Testing goal-oriented behavior
+- ✅ Evaluating dialogue quality
+
+---
+
+## Related Documentation
+
+- [Test Execution System](/development/worker/test-execution) - Overall architecture
+- [Execution Modes](/development/worker/execution-modes) - Sequential vs Parallel
+- [Penelope](/penelope) - Multi-turn testing agent
+- [Metrics](/platform/metrics) - Evaluation metrics
+
