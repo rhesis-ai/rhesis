@@ -8,7 +8,6 @@ import {
   Typography,
   Button,
   useTheme,
-  Slider,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -382,64 +381,16 @@ export default function MultiTurnConfigFields({
       )}
 
       {showMaxTurns && (
-        <Grid item xs={12}>
-          <Box
-            sx={{
-              mb: 1,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-            }}
-          >
-            <Box>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                gutterBottom
-              >
-                Max. Turns
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', fontStyle: 'italic' }}
-              >
-                Maximum number of conversation turns allowed (default: 10)
-              </Typography>
-            </Box>
-            <Button
-              size="small"
-              startIcon={<CloseIcon />}
-              onClick={() => setShowMaxTurns(false)}
-              sx={{
-                textTransform: 'none',
-                minWidth: 'auto',
-                px: 1,
-              }}
-            >
-              Remove
-            </Button>
-          </Box>
-          <Box sx={{ px: 1 }}>
-            <Typography gutterBottom>
-              Turns: {config.max_turns || 10}
-            </Typography>
-            <Slider
-              value={config.max_turns || 10}
-              onChange={(_, value) => updateField('max_turns', value as number)}
-              min={1}
-              max={50}
-              step={1}
-              marks={[
-                { value: 1, label: '1' },
-                { value: 10, label: '10' },
-                { value: 25, label: '25' },
-                { value: 50, label: '50' },
-              ]}
-              valueLabelDisplay="auto"
-            />
-          </Box>
-        </Grid>
+        <EditableField
+          label="Max. Turns"
+          value={config.max_turns || 10}
+          onSave={value => updateField('max_turns', value)}
+          multiline={false}
+          type="number"
+          placeholder="10"
+          helperText="Maximum number of conversation turns allowed (default: 10, max: 50)"
+          onRemove={() => setShowMaxTurns(false)}
+        />
       )}
 
       {hiddenFields.length > 0 && (
