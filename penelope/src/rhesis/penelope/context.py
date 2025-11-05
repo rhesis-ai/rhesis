@@ -307,13 +307,73 @@ class TestState:
         Returns:
             TestResult object with complete execution data including structured evaluation
         """
+        # Generate concise findings summary from final evaluation
+        findings = self._generate_findings_summary(status, goal_achieved)
+        
         return TestResult(
             status=status,
             goal_achieved=goal_achieved,
             turns_used=self.current_turn,
-            findings=self.findings,
+            findings=findings,
             history=self.turns,
             goal_evaluation=self.last_evaluation,
             start_time=self.start_time,
             end_time=datetime.now(),
         )
+    
+    def _generate_findings_summary(
+        self, status: ExecutionStatus, goal_achieved: bool
+    ) -> List[str]:
+        """
+        Generate concise findings summary from the final evaluation state.
+        
+        This avoids duplication with goal_evaluation.criteria_evaluations by
+        providing only a high-level summary. Detailed criterion data is in
+        goal_evaluation.criteria_evaluations.
+        
+        Returns:
+            List of high-level summary strings
+        """
+        findings = []
+        
+        # If we have structured evaluation, use it for summary
+        if self.last_evaluation:
+            eval_result = self.last_evaluation
+            met_count = sum(1 for c in eval_result.criteria_evaluations if c.met)
+            total_count = len(eval_result.criteria_evaluations)
+            
+            # Overall status
+            if eval_result.all_criteria_met:
+                findings.append(f"✓ All criteria met ({met_count}/{total_count})")
+            else:
+                findings.append(
+                    f"✗ Partial success: {met_count}/{total_count} criteria met"
+                )
+            
+            # Completion info
+            findings.append(f"Test completed in {eval_result.turn_count} turn(s)")
+            
+            # Confidence level
+            confidence_label = (
+                "High" if eval_result.confidence >= 0.8
+                else "Medium" if eval_result.confidence >= 0.5
+                else "Low"
+            )
+            findings.append(f"Confidence: {eval_result.confidence:.1f} ({confidence_label})")
+            
+            # Add failed criteria summary if any
+            failed = [c for c in eval_result.criteria_evaluations if not c.met]
+            if failed:
+                findings.append(f"Failed criteria: {len(failed)}")
+                for criterion in failed:
+                    findings.append(f"  • {criterion.criterion}")
+        else:
+            # Fallback for tests without structured evaluation
+            status_icon = "✓" if goal_achieved else "✗"
+            findings.append(f"{status_icon} Test {status.value}")
+            findings.append(f"Completed in {self.current_turn} turn(s)")
+            
+            # Include any findings that were added during execution
+            findings.extend(self.findings)
+        
+        return findings
