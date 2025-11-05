@@ -27,7 +27,7 @@ export interface MultiTurnTestConfig {
   scenario?: string;
 
   /**
-   * Maximum number of conversation turns (default: 10, range: 1-50)
+   * Maximum number of conversation turns (default: 10, range: 1-20)
    */
   max_turns?: number;
 }
