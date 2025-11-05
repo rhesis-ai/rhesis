@@ -1,20 +1,56 @@
 """Context generator service for creating context from various sources."""
 
 import re
+from abc import ABC, abstractmethod
 from typing import List
 
+from pydantic import BaseModel
+
+from rhesis.sdk.services.extractor import ExtractedSource, SourceBase
 from rhesis.sdk.utils import count_tokens
 
 
-# chunker
-# chunker.retrieve()
-# iterator good for multiprocessing
-class ContextGenerator:
-    """Service for generating context from various sources using intelligent semantic chunking."""
+class Chunk(BaseModel):
+    """A chunk of text with a source metadata and a content"""
+
+    source: SourceBase
+    content: str
+
+
+class ChunkingStrategy(ABC):
+    """Abstract base class for chunkers."""
+
+    @abstractmethod
+    def chunk(self, text: str) -> List[str]:
+        """Chunk the text into a list of chunks."""
+        pass
+
+
+class SourceChunker:
+    """Chunk source using a selected chunking strategy."""
+
+    def __init__(self, source: ExtractedSource, strategy: ChunkingStrategy):
+        self.source = source
+        self.strategy = strategy
+
+    def chunk(self) -> List[Chunk]:
+        text_chunks = self.strategy.chunk(self.source.content)
+
+        source = SourceBase(**self.source.model_dump())
+
+        chunks = []
+        for chunk in text_chunks:
+            chunks.append(Chunk(source=source, content=chunk))
+        return chunks
+
+
+class SemanticChunker(ChunkingStrategy):
+    """Service for generating chunks of text from various sources using intelligent semantic
+    chunking."""
 
     def __init__(
         self,
-        max_context_tokens: int = 1500,
+        max_tokens_per_chunk: int = 1500,
     ):
         """
         Initialize the context generator.
@@ -22,12 +58,12 @@ class ContextGenerator:
         Args:
             max_context_tokens: Maximum tokens per context (user preference)
         """
-        self.max_context_tokens = min(max_context_tokens, 3000)
+        self.max_context_tokens = min(max_tokens_per_chunk, 3000)
 
-        if max_context_tokens > 3000:
-            print(f"⚠️  Context size capped at 3000 tokens (you requested {max_context_tokens})")
+        if max_tokens_per_chunk > 3000:
+            print(f"⚠️  Context size capped at 3000 tokens (you requested {max_tokens_per_chunk})")
 
-    def generate_contexts(self, text: str) -> List[str]:
+    def chunk(self, text: str) -> List[str]:
         """
         Generate contexts using intelligent semantic chunking with hard size limits.
 
@@ -40,6 +76,7 @@ class ContextGenerator:
         if not text:
             raise ValueError("Cannot generate contexts from empty text")
 
+        text = text.strip()
         semantic_boundaries = self._identify_semantic_boundaries(text)
 
         # If no internal boundaries (just [0, len(text)]), slice linearly
