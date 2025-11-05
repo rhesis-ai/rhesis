@@ -166,7 +166,9 @@ function EditableField({
               bgcolor: 'action.hover',
               borderRadius: theme.shape.borderRadius * 0.25,
               p: 1,
-              minHeight: `calc(${displayRows} * 1.4375em + ${theme.spacing(2)})`,
+              minHeight: multiline
+                ? `calc(${displayRows} * 1.4375em + ${theme.spacing(2)})`
+                : undefined,
               pr: onRemove ? 21 : 10,
               wordBreak: 'break-word',
             })}
