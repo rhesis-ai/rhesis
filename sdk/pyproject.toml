@@ -80,6 +80,7 @@ dev = [
     "myst-parser>=4.0.0",
     "ruff>=0.11.6",
     "pyright>=1.1.406",
+    "psycopg2-binary==2.9.9", # to match the version in the backend
 ]
 
 [build-system]
@@ -108,7 +109,7 @@ testpaths = [
     "../tests/sdk",
 
 ]
-addopts = "--ignore=../tests/sdk/synthesizers --ignore=../tests/sdk/tests --ignore=../tests/sdk/services --ignore=../tests/sdk/entities"
+addopts = "--ignore=../tests/sdk/synthesizers  --ignore=../tests/sdk/services --ignore=../tests/sdk/entities"
 
 pythonpath = [
     "src",
