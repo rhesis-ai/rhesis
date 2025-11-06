@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@mui/material/styles';
 import {
   Box,
@@ -25,7 +25,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import BaseTag from '@/components/common/BaseTag';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { MetricDetail, ScoreType } from '@/utils/api-client/interfaces/metric';
@@ -68,6 +68,7 @@ export default function MetricDetailPage() {
   const identifier = params.identifier as string;
   const { data: session } = useSession();
   const theme = useTheme();
+  const router = useRouter();
   const [metric, setMetric] = useState<MetricDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const notifications = useNotifications();
@@ -122,6 +123,19 @@ export default function MetricDetailPage() {
         if (metricData.model) {
           setModels([metricData.model]);
         }
+
+        // Check if this is NOT a rhesis or custom metric - redirect other metrics
+        const backendType = metricData.backend_type?.type_value?.toLowerCase();
+        if (backendType !== 'rhesis' && backendType !== 'custom') {
+          notifications.show(
+            'This metric type cannot be viewed through the detail page',
+            {
+              severity: 'warning',
+            }
+          );
+          router.push('/metrics');
+          return;
+        }
       } catch (error) {
         // Use notifications without depending on it
         const notificationsContext = notifications;
@@ -134,7 +148,7 @@ export default function MetricDetailPage() {
     };
 
     fetchData();
-  }, [identifier, session?.session_token, notifications]);
+  }, [identifier, session?.session_token, notifications, router]);
 
   // Helper function to collect current field values without triggering re-renders
   const collectFieldValues = React.useCallback((): Partial<EditData> => {
