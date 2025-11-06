@@ -8,12 +8,12 @@ import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined'
 import WebOutlined from '@mui/icons-material/WebOutlined'
 import StorageOutlined from '@mui/icons-material/StorageOutlined'
 import IntegrationInstructionsOutlined from '@mui/icons-material/IntegrationInstructionsOutlined'
-import { InfoCard } from './InfoCard'
+import { ResourceCard } from './ResourceCard'
 
 /**
  * DevelopmentResourcesGrid Component
  *
- * Displays development resources in a grid layout with icons and links.
+ * Displays development resources in a grid layout with squared cards.
  *
  * Usage in MDX files:
  * ```mdx
@@ -27,61 +27,68 @@ const resources = [
   {
     icon: CodeOutlined,
     title: 'Development Setup',
-    description:
-      'Complete guide to setting up your development environment for contributing to Rhesis.',
+    description: 'Complete guide to setting up your development environment.',
     link: '/docs/development/contributing/development-setup',
     linkText: 'Setup Guide →',
   },
   {
-    icon: ApiOutlined,
-    title: 'API Structure',
-    description: 'Backend REST API architecture, endpoints, and implementation details.',
-    link: '/docs/development/backend/api-structure',
-    linkText: 'View API Docs →',
-  },
-  {
-    icon: GroupAddOutlined,
-    title: 'Contributing',
-    description: 'Guidelines and processes for contributing to the Rhesis project.',
-    link: '/docs/development/contributing',
-    linkText: 'Contribute →',
-  },
-  {
-    icon: CheckCircleOutlined,
-    title: 'Coding Standards',
-    description:
-      'Code style guidelines and best practices for Python, TypeScript, and other languages.',
-    link: '/docs/development/contributing/coding-standards',
-    linkText: 'View Standards →',
-  },
-  {
-    icon: WebOutlined,
-    title: 'Frontend (Platform)',
-    description: 'React-based frontend architecture, components, and development patterns.',
-    link: '/docs/development/frontend',
-    linkText: 'Frontend Docs →',
-  },
-  {
     icon: StorageOutlined,
     title: 'Backend',
-    description: 'FastAPI backend service architecture, database models, and API implementation.',
+    description: 'FastAPI backend service architecture.',
     link: '/docs/development/backend',
     linkText: 'Backend Docs →',
   },
   {
+    icon: WebOutlined,
+    title: 'Frontend',
+    description: 'React-based frontend architecture.',
+    link: '/docs/development/frontend',
+    linkText: 'Frontend Docs →',
+  },
+  {
+    icon: ApiOutlined,
+    title: 'API Structure',
+    description: 'Backend REST API architecture and endpoints.',
+    link: '/docs/development/backend/api-structure',
+    linkText: 'View API Docs →',
+  },
+  {
     icon: IntegrationInstructionsOutlined,
     title: 'SDK',
-    description: 'Python SDK documentation for integrating Rhesis into your applications.',
+    description: 'Python SDK documentation.',
     link: '/docs/sdk',
     linkText: 'SDK Docs →',
+  },
+  {
+    icon: CheckCircleOutlined,
+    title: 'Coding Standards',
+    description: 'Code style guidelines and best practices.',
+    link: '/docs/development/contributing/coding-standards',
+    linkText: 'View Standards →',
+  },
+  {
+    icon: GroupAddOutlined,
+    title: 'Contributing',
+    description: 'Guidelines for contributing to Rhesis.',
+    link: '/docs/development/contributing',
+    linkText: 'Contribute →',
   },
 ]
 
 export const DevelopmentResourcesGrid = () => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 not-prose">
+    <div
+      className="not-prose"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+        gap: '1rem',
+        marginTop: '1.5rem',
+        marginBottom: '1.5rem',
+      }}
+    >
       {resources.map(resource => (
-        <InfoCard
+        <ResourceCard
           key={resource.title}
           icon={resource.icon}
           title={resource.title}
