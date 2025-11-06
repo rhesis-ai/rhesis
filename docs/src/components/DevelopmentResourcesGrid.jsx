@@ -77,7 +77,7 @@ const resources = [
 
 export const DevelopmentResourcesGrid = () => {
   return (
-    <div 
+    <div
       className="not-prose"
       style={{
         display: 'grid',
