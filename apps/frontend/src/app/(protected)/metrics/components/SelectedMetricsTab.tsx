@@ -389,20 +389,25 @@ export default function SelectedMetricsTab({
                     zIndex: 1,
                   }}
                 >
-                  <IconButton
-                    size="small"
-                    onClick={() => handleMetricDetail(metric.id)}
-                    sx={{
-                      padding: '2px',
-                      '& .MuiSvgIcon-root': {
-                        fontSize:
-                          theme?.typography?.helperText?.fontSize || '0.75rem',
-                        color: 'currentColor',
-                      },
-                    }}
-                  >
-                    <OpenInNewIcon fontSize="inherit" />
-                  </IconButton>
+                  {/* Only show detail button for rhesis metrics */}
+                  {metric.backend_type?.type_value?.toLowerCase() ===
+                    'rhesis' && (
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMetricDetail(metric.id)}
+                      sx={{
+                        padding: '2px',
+                        '& .MuiSvgIcon-root': {
+                          fontSize:
+                            theme?.typography?.helperText?.fontSize ||
+                            '0.75rem',
+                          color: 'currentColor',
+                        },
+                      }}
+                    >
+                      <OpenInNewIcon fontSize="inherit" />
+                    </IconButton>
+                  )}
                   <IconButton
                     size="small"
                     onClick={e => {
