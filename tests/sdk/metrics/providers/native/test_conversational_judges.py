@@ -33,7 +33,10 @@ def sample_conversation():
                 "content": "Great! I can help you compare our auto insurance plans. "
                 "We offer liability, collision, and comprehensive coverage.",
             },
-            {"role": "user", "content": "What's the difference between collision and comprehensive?"},
+            {
+                "role": "user",
+                "content": "What's the difference between collision and comprehensive?",
+            },
             {
                 "role": "assistant",
                 "content": "Collision covers damage from accidents with other vehicles or objects. "
@@ -127,7 +130,7 @@ def test_goal_achievement_judge_validation(mock_model, sample_conversation):
 
 
 def test_goal_achievement_judge_prompt_generation(mock_model, sample_conversation):
-    """Test that the prompt template is generated correctly with defaults."""
+    """Test that the goal-achievement-specific template is generated correctly with defaults."""
     judge = GoalAchievementJudge(model=mock_model)
 
     # Generate prompt (evaluation_prompt is None, so template uses defaults)
@@ -136,15 +139,20 @@ def test_goal_achievement_judge_prompt_generation(mock_model, sample_conversatio
         goal="Customer finds suitable auto insurance",
     )
 
-    # Check that prompt contains template default elements (from conditional rendering)
-    assert "Evaluate how well the conversation achieves its stated goal" in prompt
+    # Check that prompt contains goal-achievement-specific template elements
+    assert "evaluate whether the conversation successfully achieved its stated goal" in prompt
     assert "Customer finds suitable auto insurance" in prompt
     assert "6 turns" in prompt  # Sample conversation has 6 turns
     assert "Turn 1 [user]" in prompt
     assert "Turn 2 [assistant]" in prompt
-    # Verify template defaults are rendered
-    assert "Identify the stated or implied goal" in prompt  # From default evaluation_steps
-    assert "Goal clarity" in prompt  # From default reasoning
+    # Verify goal-achievement-specific defaults are rendered
+    assert "Break down the goal into specific measurable criteria" in prompt
+    assert "Understanding" in prompt  # From default evaluation criteria
+    assert "Relevance" in prompt  # From default evaluation criteria
+    assert "Progress" in prompt  # From default evaluation criteria
+    assert "Completeness" in prompt  # From default evaluation criteria
+    assert "Goal Clarity" in prompt  # From default reasoning guidelines
+    assert "Criterion-based Assessment" in prompt  # From default reasoning guidelines
 
 
 def test_goal_achievement_judge_format_conversation(mock_model, sample_conversation):
@@ -254,4 +262,3 @@ def test_goal_achievement_judge_evaluate_error_handling(mock_model, sample_conve
     assert result.details["is_successful"] is False
     assert "error" in result.details
     assert "LLM API error" in result.details["error"]
-

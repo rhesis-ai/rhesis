@@ -1,0 +1,108 @@
+You will be given a conversation between a user and an AI assistant.
+
+Your task is to evaluate whether the conversation successfully achieved its stated goal.
+
+Please make sure you read and understand these instructions carefully.
+
+CONVERSATION GOAL (what should be achieved):
+{{ goal if goal|trim else "Infer the goal from the conversation context" }}
+
+FULL CONVERSATION ({{ turn_count }} turns):
+{{ conversation_text }}
+
+EVALUATION INSTRUCTIONS:
+1. Identify or confirm the goal of the conversation (either stated explicitly or inferred from context)
+2. Break down the goal into specific measurable criteria
+3. Evaluate each criterion individually with evidence from specific turns
+4. For EACH criterion, note which turn numbers demonstrate progress toward or achievement of that criterion
+5. Determine if the overall goal was achieved based on all criteria
+
+EVALUATION CRITERIA:
+{% if evaluation_prompt %}
+{{ evaluation_prompt }}
+{% else %}
+Consider these aspects when evaluating goal achievement:
+
+**Understanding**: Did the assistant correctly understand the user's objective?
+- Evidence: Look for acknowledgment, clarifying questions, or direct responses to the stated need
+
+**Relevance**: Were the assistant's responses relevant and helpful toward achieving the goal?
+- Evidence: Each response should advance the conversation toward the goal, not diverge
+
+**Progress**: Did the conversation make steady, logical progress toward the goal?
+- Evidence: Track how each exchange moves closer to goal completion
+
+**Completeness**: Was the goal fully achieved by the end of the conversation?
+- Evidence: The user's original need should be satisfied, not partially addressed
+
+**Quality**: Were the responses accurate, clear, and actionable?
+- Evidence: Information should be correct and useful for the user's needs
+{% endif %}
+
+EVALUATION STEPS:
+{% if evaluation_steps %}
+{{ evaluation_steps }}
+{% else %}
+1. Count the total number of user-assistant exchanges (user message + assistant response = 1 turn)
+2. Identify the primary goal and break it into 2-4 specific measurable criteria
+3. For each criterion:
+   - Determine if it was met (yes/no)
+   - Provide specific evidence (quotes or observations from the conversation)
+   - Note which turn numbers (1, 2, 3, etc.) are relevant to this criterion
+4. Evaluate whether ALL criteria are met
+5. Make a final determination: was the overall goal achieved?
+6. Provide a numerical score reflecting goal achievement
+{% endif %}
+
+REASONING GUIDELINES:
+{% if reasoning %}
+{{ reasoning }}
+{% else %}
+When evaluating, consider:
+
+- **Goal Clarity**: Is the goal clearly defined or easily inferred from the conversation?
+  * If ambiguous, state your interpretation of the goal
+  * A clear goal should be evident within the first 1-2 turns
+
+- **Criterion-based Assessment**: Each criterion should be evaluated independently
+  * Use specific turn references (e.g., "Turn 3 shows...")
+  * Quote relevant portions when possible
+  * Partial achievement should be clearly noted
+
+- **Progress Tracking**: Goal achievement is cumulative across turns
+  * Early turns establish context and understanding
+  * Middle turns typically contain the core information exchange
+  * Final turns should show resolution or completion
+
+- **Efficiency Consideration**: Could the goal have been achieved more quickly?
+  * Excellent: Goal achieved efficiently with no unnecessary detours
+  * Good: Goal achieved but with some inefficiency
+  * Poor: Goal not achieved or significant wasted turns
+
+- **Quality of Achievement**: Meeting the goal doesn't mean it was done well
+  * Consider accuracy, completeness, and usefulness of information
+  * Partial or unclear information reduces the score
+{% endif %}
+
+{% if evaluation_examples %}
+EXAMPLES:
+{{ evaluation_examples }}
+{% endif %}
+
+SCORING SCALE ({{ min_score }} to {{ max_score }}):
+- {{ max_score }}: Goal fully achieved with high quality, efficient conversation
+- {{ (min_score + max_score) / 2 }}: Goal partially achieved or achieved with quality issues
+- {{ min_score }}: Goal not achieved or conversation went off-track
+
+IMPORTANT NOTES:
+- Always provide specific turn references in your reasoning
+- Quote relevant portions of the conversation as evidence
+- If the goal is ambiguous, state your interpretation clearly
+- Distinguish between "goal achieved poorly" (low score) vs "goal not achieved" ({{ min_score }} score)
+
+Your response must be a valid JSON object with:
+{
+  "score": <float between {{ min_score }} and {{ max_score }}>,
+  "reason": "<detailed explanation with turn references and evidence>"
+}
+

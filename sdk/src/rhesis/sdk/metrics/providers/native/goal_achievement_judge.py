@@ -161,7 +161,11 @@ class GoalAchievementJudge(ConversationalJudge):
         **additional_template_vars,
     ) -> str:
         """
-        Generate the prompt using the base class with numeric-specific variables.
+        Generate the prompt using the goal-achievement-specific template.
+
+        This overrides the base class to use a specialized template with
+        excellent defaults for goal achievement evaluation, incorporating
+        best practices from Penelope's goal evaluation system.
 
         Args:
             conversation_history: The conversation to evaluate
@@ -170,14 +174,42 @@ class GoalAchievementJudge(ConversationalJudge):
 
         Returns:
             The rendered prompt template
+
+        Raises:
+            ValueError: If template loading or rendering fails
         """
-        return super()._get_prompt_template(
-            conversation_history=conversation_history,
-            goal=goal,
-            min_score=self.min_score,
-            max_score=self.max_score,
-            **additional_template_vars,
-        )
+        try:
+            # Load the goal-achievement-specific template
+            template = self.jinja_env.get_template("goal_achievement_prompt.jinja")
+        except Exception as e:
+            raise ValueError(f"Failed to load goal_achievement_prompt template: {e}") from e
+
+        # Format conversation as readable text
+        conversation_text = self._format_conversation(conversation_history)
+
+        # Prepare template variables with goal-achievement-specific context
+        template_vars = {
+            "evaluation_prompt": self.evaluation_prompt,
+            "evaluation_steps": self.evaluation_steps,
+            "reasoning": self.reasoning,
+            "evaluation_examples": self.evaluation_examples,
+            "conversation_text": conversation_text,
+            "goal": goal or "Infer from conversation",
+            "turn_count": len(conversation_history),
+            "min_score": self.min_score,
+            "max_score": self.max_score,
+        }
+
+        # Add any additional template variables
+        template_vars.update(additional_template_vars)
+
+        try:
+            # Render the template with all required variables
+            prompt = template.render(**template_vars)
+        except Exception as e:
+            raise ValueError(f"Failed to render goal_achievement_prompt template: {e}") from e
+
+        return prompt
 
     def evaluate(
         self,
@@ -297,4 +329,3 @@ class GoalAchievementJudge(ConversationalJudge):
         filtered_config = {k: v for k, v in config.items() if k in valid_fields}
 
         return cls.from_config(GoalAchievementJudgeConfig(**filtered_config))
-
