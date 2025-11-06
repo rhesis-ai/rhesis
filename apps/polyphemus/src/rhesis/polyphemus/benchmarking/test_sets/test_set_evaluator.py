@@ -38,7 +38,7 @@ class TestSetEvaluator:
         """
         # Initialize paths
         self.base_path: Path = Path(json_path)
-        self.results_dir: Path = self.base_path.parent.joinpath("results")
+        self.results_dir: Path = self.base_path.parent.parent.joinpath("results")
         self.base_file: str = self.base_path.name
         # Unified data structure: list of (Test, [TestResult, ...]) pairs
         self.tests: List[Test] = []
