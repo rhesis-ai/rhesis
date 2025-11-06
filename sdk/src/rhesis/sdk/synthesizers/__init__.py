@@ -3,11 +3,9 @@ from rhesis.sdk.synthesizers.config_synthesizer import ConfigSynthesizer, Genera
 from rhesis.sdk.synthesizers.document_synthesizer import KnowledgeSynthesizer
 from rhesis.sdk.synthesizers.factory import SynthesizerFactory, SynthesizerType
 from rhesis.sdk.synthesizers.paraphrasing_synthesizer import ParaphrasingSynthesizer
-from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
 
 __all__ = [
     "TestSetSynthesizer",
-    "PromptSynthesizer",
     "ParaphrasingSynthesizer",
     "KnowledgeSynthesizer",
     "SynthesizerFactory",

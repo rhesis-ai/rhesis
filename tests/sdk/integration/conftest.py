@@ -163,7 +163,7 @@ def docker_compose_test_env() -> Generator[dict, None, None]:
     if not backend_is_running:
         print("🔄 Backend is not running, starting backend...")
         result = subprocess.run(
-            ["docker", "compose", "-f", compose_file, "up", "-d", "--build"],
+            ["docker", "compose", "-f", compose_file, "up", "--build"],
             text=True,
         )
 
