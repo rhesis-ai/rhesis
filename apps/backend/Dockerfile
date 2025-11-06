@@ -46,8 +46,12 @@ ENV UV_NO_DEV=1
 COPY sdk /app/sdk/
 COPY penelope /app/penelope/
 
-# Add SDK and Penelope, then install dependencies
-RUN uv add /app/sdk && uv add /app/penelope && uv sync
+# Fix paths in pyproject.toml to point to the correct locations in Docker
+RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
+
+# Install dependencies
+RUN uv sync
 
 # Now copy ALL source code including migrations - this layer will invalidate when any source changes
 # This ensures migration files are always up-to-date in the final image
