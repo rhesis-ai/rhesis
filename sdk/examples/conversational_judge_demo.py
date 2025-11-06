@@ -221,7 +221,9 @@ def main():
     )
 
     print(f"◐ Score: {partial_result.score}/{goal_judge.max_score}")
-    print(f"◐ Successful: {partial_result.details['is_successful']} (threshold: {goal_judge.threshold})")
+    print(
+        f"◐ Successful: {partial_result.details['is_successful']} (threshold: {goal_judge.threshold})"
+    )
     print(f"◐ Turn Count: {partial_result.details['turn_count']}")
     print(f"◐ Reason: {partial_result.details['reason'][:200]}...")
     print()
@@ -256,7 +258,9 @@ def main():
     )
 
     print(f"✗ Score: {offtopic_result.score}/{goal_judge.max_score}")
-    print(f"✗ Successful: {offtopic_result.details['is_successful']} (threshold: {goal_judge.threshold})")
+    print(
+        f"✗ Successful: {offtopic_result.details['is_successful']} (threshold: {goal_judge.threshold})"
+    )
     print(f"✗ Turn Count: {offtopic_result.details['turn_count']}")
     print(f"✗ Reason: {offtopic_result.details['reason'][:200]}...")
     print()

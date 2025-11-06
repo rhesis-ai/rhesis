@@ -11,6 +11,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.metrics.base import MetricConfig, MetricResult, ScoreType
+from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.conversational.base import ConversationalMetricBase
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to_backend_config
@@ -22,15 +23,61 @@ T = TypeVar("T", bound="ConversationalJudge")
 
 @dataclass
 class ConversationalJudgeConfig(MetricConfig):
-    """Configuration for native conversational judges."""
+    """
+    Configuration for native conversational judges.
+
+    By default, conversational judges use numeric scoring with thresholds.
+    For rare categorical cases, child classes can override evaluation logic.
+    """
 
     evaluation_prompt: Optional[str] = None
     evaluation_steps: Optional[str] = None
     reasoning: Optional[str] = None
     evaluation_examples: Optional[str] = None
 
+    # Numeric scoring fields (standard for conversational judges)
+    min_score: Optional[float] = None
+    max_score: Optional[float] = None
+    threshold: Optional[float] = None
+    threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL
+
     def __post_init__(self):
+        # Convert string to enum if needed
+        if isinstance(self.threshold_operator, str):
+            self.threshold_operator = ThresholdOperator(self.threshold_operator)
+        self._validate_score_range(self.min_score, self.max_score)
+        self._set_score_parameters(self.min_score, self.max_score, self.threshold)
         return super().__post_init__()
+
+    def _validate_score_range(self, min_score: Optional[float], max_score: Optional[float]) -> None:
+        """Validate that min_score and max_score are provided together."""
+        if min_score is not None and max_score is None:
+            raise ValueError("Only min_score was set, please set max_score")
+
+        if min_score is None and max_score is not None:
+            raise ValueError("Only max_score was set, please set min_score")
+
+        if min_score is not None and max_score is not None and min_score == max_score:
+            raise ValueError("min_score and max_score cannot be the same")
+
+        if min_score is not None and max_score is not None and min_score > max_score:
+            raise ValueError("min_score cannot be greater than max_score")
+
+    def _set_score_parameters(
+        self, min_score: Optional[float], max_score: Optional[float], threshold: Optional[float]
+    ) -> None:
+        """Set up score parameters with validation."""
+        # For numeric scores, we need min_score, max_score, and threshold
+        self.min_score = min_score if min_score is not None else 0
+        self.max_score = max_score if max_score is not None else 1
+
+        if threshold is None:
+            self.threshold = self.min_score + (self.max_score - self.min_score) / 2
+        else:
+            self.threshold = threshold
+
+        if not (self.min_score <= self.threshold <= self.max_score):
+            raise ValueError(f"Threshold must be between {self.min_score} and {self.max_score}")
 
 
 class ConversationalJudge(ConversationalMetricBase):
@@ -40,11 +87,17 @@ class ConversationalJudge(ConversationalMetricBase):
     Provides:
     - Jinja template rendering for conversation evaluation prompts
     - Structured output support
+    - Numeric scoring with threshold-based success criteria (default)
     - Error handling
     - Common evaluation patterns
 
     This mirrors the JudgeBase class pattern for single-turn metrics, adapted
-    for conversational (multi-turn) evaluation.
+    for conversational (multi-turn) evaluation. By default, all conversational
+    judges use numeric scoring (0-1 scale with thresholds), following the
+    DeepEval pattern.
+
+    For rare categorical cases, child classes can override the evaluate() method
+    to implement categorical scoring logic.
     """
 
     def __init__(
@@ -63,6 +116,12 @@ class ConversationalJudge(ConversationalMetricBase):
         self.evaluation_steps = self.config.evaluation_steps
         self.reasoning = self.config.reasoning
         self.evaluation_examples = self.config.evaluation_examples
+
+        # Numeric scoring fields (available to all conversational judges)
+        self.min_score = self.config.min_score
+        self.max_score = self.config.max_score
+        self.threshold = self.config.threshold
+        self.threshold_operator = self.config.threshold_operator
 
     def __repr__(self) -> str:
         return str(self.to_config())
@@ -249,6 +308,29 @@ class ConversationalJudge(ConversationalMetricBase):
             formatted_turns.append(f"Turn {i} [{role}]: {content}")
 
         return "\n\n".join(formatted_turns)
+
+    def _evaluate_score(self, score: float) -> bool:
+        """
+        Evaluate if a numeric score meets the success criteria.
+
+        This method is available to all conversational judges for threshold-based
+        evaluation. Uses the threshold and threshold_operator from the configuration.
+
+        Args:
+            score: The numeric score to evaluate
+
+        Returns:
+            True if the score meets the threshold criteria, False otherwise
+        """
+        # Ensure threshold_operator is ThresholdOperator enum
+        operator = (
+            self.threshold_operator
+            if isinstance(self.threshold_operator, ThresholdOperator)
+            else ThresholdOperator(self.threshold_operator)
+        )
+        threshold_func = OPERATOR_MAP[operator]
+        result = threshold_func(score, self.threshold)
+        return result
 
     def to_config(self) -> MetricConfig:
         """Convert the metric to a MetricConfig."""
