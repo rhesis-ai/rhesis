@@ -6,10 +6,10 @@ from .categorical_judge import (
 from .conversational_judge import (
     ConversationalJudge,
 )
-from .conversational_judges import (
+from .factory import RhesisMetricFactory
+from .goal_achievement_judge import (
     GoalAchievementJudge,
 )
-from .factory import RhesisMetricFactory
 from .numeric_judge import (
     NumericJudge,
     NumericScoreResponse,

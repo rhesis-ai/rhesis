@@ -1,4 +1,4 @@
-"""Native conversational judges for evaluating multi-turn conversations."""
+"""Goal Achievement Judge for evaluating conversation goal completion."""
 
 from dataclasses import dataclass, fields
 from typing import Any, Dict, Optional, Union
@@ -297,3 +297,4 @@ class GoalAchievementJudge(ConversationalJudge):
         filtered_config = {k: v for k, v in config.items() if k in valid_fields}
 
         return cls.from_config(GoalAchievementJudgeConfig(**filtered_config))
+
