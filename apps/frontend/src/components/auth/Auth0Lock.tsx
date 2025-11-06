@@ -12,8 +12,6 @@ import {
 // Brand icons - keeping filled versions as outlined variants may not exist for all brands
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
-import AppleIcon from '@mui/icons-material/Apple';
-import MicrosoftIcon from '@mui/icons-material/Window';
 import { useState, useEffect } from 'react';
 import { getClientApiBaseUrl } from '../../utils/url-resolver';
 
@@ -130,32 +128,6 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             }}
           >
             Continue with GitHub
-          </Button>
-
-          <Button
-            variant="outlined"
-            fullWidth
-            size="medium"
-            startIcon={<AppleIcon />}
-            onClick={() => handleLogin('apple')}
-            sx={{
-              color: theme => theme.palette.text.primary,
-            }}
-          >
-            Continue with Apple
-          </Button>
-
-          <Button
-            variant="outlined"
-            fullWidth
-            size="medium"
-            startIcon={<MicrosoftIcon />}
-            onClick={() => handleLogin('windowslive')}
-            sx={{
-              color: theme => theme.palette.text.primary,
-            }}
-          >
-            Continue with Microsoft
           </Button>
 
           {showTermsWarning && (
