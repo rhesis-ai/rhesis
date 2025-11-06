@@ -7,17 +7,16 @@ This demonstrates:
 3. Using the conversational judge architecture with real LLMs
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.metrics import (
-    ConversationHistory,
     ConversationalJudge,
+    ConversationHistory,
     GoalAchievementJudge,
 )
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
-from rhesis.sdk.metrics.constants import ThresholdOperator
 from rhesis.sdk.metrics.providers.native.conversational_judge import (
     ConversationalJudgeConfig,
 )
@@ -133,6 +132,7 @@ def main():
     # Example 1: Using the built-in GoalAchievementJudge
     print("1. Built-in Judge: GoalAchievementJudge")
     print("-" * 70)
+    print()
 
     goal_judge = GoalAchievementJudge(
         name="insurance_goal_judge",
@@ -140,14 +140,19 @@ def main():
         model=model,
     )
 
-    print(f"Judge: {goal_judge.name}")
+    print(f"Judge Name: {goal_judge.name}")
     print(f"Base Class: {goal_judge.__class__.__bases__[0].__name__}")
     print(f"Metric Type: {goal_judge.metric_type}")
     print(f"Score Type: {goal_judge.score_type}")
+    print(f"Score Range: {goal_judge.min_score} - {goal_judge.max_score}")
+    print(f"Threshold: {goal_judge.threshold}")
     print()
 
-    # Create a sample conversation
-    conversation = ConversationHistory.from_messages(
+    # Test Case 1a: Goal Fully Achieved
+    print("Test 1a: Goal Fully Achieved")
+    print("~" * 50)
+
+    successful_conversation = ConversationHistory.from_messages(
         [
             {"role": "user", "content": "I need help understanding my insurance coverage."},
             {
@@ -167,18 +172,124 @@ def main():
         ]
     )
 
-    print(f"Evaluating conversation ({len(conversation)} messages)...")
-    print(f"Goal: Customer understands collision insurance coverage")
+    print(f"Conversation: {len(successful_conversation)} messages")
+    print("Goal: Customer understands collision insurance coverage")
     print()
 
     result = goal_judge.evaluate(
-        conversation_history=conversation,
+        conversation_history=successful_conversation,
         goal="Customer understands collision insurance coverage",
     )
 
-    print(f"Score: {result.score}")
-    print(f"Successful: {result.details['is_successful']}")
-    print(f"Reason: {result.details['reason'][:150]}...")
+    print(f"✓ Score: {result.score}/{goal_judge.max_score}")
+    print(f"✓ Successful: {result.details['is_successful']} (threshold: {goal_judge.threshold})")
+    print(f"✓ Turn Count: {result.details['turn_count']}")
+    print(f"✓ Reason: {result.details['reason'][:200]}...")
+    print()
+
+    # Test Case 1b: Goal Partially Achieved
+    print("Test 1b: Goal Partially Achieved")
+    print("~" * 50)
+
+    partial_conversation = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Can you help me file a claim?"},
+            {
+                "role": "assistant",
+                "content": "Sure! I can help with that. First, I need some information.",
+            },
+            {"role": "user", "content": "What information do you need?"},
+            {
+                "role": "assistant",
+                "content": "I'll need your policy number and the date of the incident.",
+            },
+            {"role": "user", "content": "My policy is #123456."},
+            {
+                "role": "assistant",
+                "content": "Thanks! And when did the incident occur?",
+            },
+        ]
+    )
+
+    print(f"Conversation: {len(partial_conversation)} messages")
+    print("Goal: Customer successfully files insurance claim")
+    print()
+
+    partial_result = goal_judge.evaluate(
+        conversation_history=partial_conversation,
+        goal="Customer successfully files insurance claim",
+    )
+
+    print(f"◐ Score: {partial_result.score}/{goal_judge.max_score}")
+    print(f"◐ Successful: {partial_result.details['is_successful']} (threshold: {goal_judge.threshold})")
+    print(f"◐ Turn Count: {partial_result.details['turn_count']}")
+    print(f"◐ Reason: {partial_result.details['reason'][:200]}...")
+    print()
+
+    # Test Case 1c: Goal Not Achieved (Off-topic)
+    print("Test 1c: Goal Not Achieved (Off-topic conversation)")
+    print("~" * 50)
+
+    offtopic_conversation = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "I need to file a claim for my car accident."},
+            {
+                "role": "assistant",
+                "content": "I can help! But first, have you considered our life insurance products?",
+            },
+            {"role": "user", "content": "No, I just need help with my car claim."},
+            {
+                "role": "assistant",
+                "content": "Life insurance is really important for your family's financial security. We have great rates!",
+            },
+            {"role": "user", "content": "This is frustrating. Can someone else help me?"},
+        ]
+    )
+
+    print(f"Conversation: {len(offtopic_conversation)} messages")
+    print("Goal: Customer successfully files car accident claim")
+    print()
+
+    offtopic_result = goal_judge.evaluate(
+        conversation_history=offtopic_conversation,
+        goal="Customer successfully files car accident claim",
+    )
+
+    print(f"✗ Score: {offtopic_result.score}/{goal_judge.max_score}")
+    print(f"✗ Successful: {offtopic_result.details['is_successful']} (threshold: {goal_judge.threshold})")
+    print(f"✗ Turn Count: {offtopic_result.details['turn_count']}")
+    print(f"✗ Reason: {offtopic_result.details['reason'][:200]}...")
+    print()
+
+    # Test Case 1d: Inferred Goal
+    print("Test 1d: Inferred Goal (no explicit goal provided)")
+    print("~" * 50)
+
+    inferred_conversation = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "What's your refund policy?"},
+            {
+                "role": "assistant",
+                "content": "We offer a 30-day money-back guarantee on all policies.",
+            },
+            {"role": "user", "content": "Perfect, thank you!"},
+        ]
+    )
+
+    print(f"Conversation: {len(inferred_conversation)} messages")
+    print("Goal: (Inferred from conversation)")
+    print()
+
+    inferred_result = goal_judge.evaluate(
+        conversation_history=inferred_conversation
+        # No goal parameter - judge will infer
+    )
+
+    print(f"✓ Score: {inferred_result.score}/{goal_judge.max_score}")
+    print(f"✓ Successful: {inferred_result.details['is_successful']}")
+    print(f"✓ Turn Count: {inferred_result.details['turn_count']}")
+    print(f"✓ Inferred Goal: {inferred_result.details['goal']}")
+    print(f"✓ Reason: {inferred_result.details['reason'][:150]}...")
     print()
     print()
 
@@ -319,4 +430,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
