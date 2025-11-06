@@ -96,8 +96,52 @@ class ConversationalJudge(ConversationalMetricBase):
     judges use numeric scoring (0-1 scale with thresholds), following the
     DeepEval pattern.
 
-    For rare categorical cases, child classes can override the evaluate() method
-    to implement categorical scoring logic.
+    **Numeric Scoring (Default)**:
+    All conversational judges are numeric by default. Use the inherited
+    `_evaluate_score()` method to check if a score meets the threshold:
+
+    ```python
+    class MyNumericJudge(ConversationalJudge):
+        def evaluate(self, conversation_history, **kwargs):
+            # Get numeric score from LLM
+            score = self._get_llm_score(conversation_history)
+
+            # Use inherited method for threshold comparison
+            is_successful = self._evaluate_score(score)
+
+            return MetricResult(
+                score=score,
+                details={"is_successful": is_successful, ...}
+            )
+    ```
+
+    **Categorical Scoring (Future Extension)**:
+    For rare categorical cases, override the `evaluate()` method and ignore
+    the numeric fields. The numeric fields (min_score, max_score, threshold)
+    will still be present but unused:
+
+    ```python
+    class SafetyJudge(ConversationalJudge):
+        def __init__(self, categories=None, passing_categories=None, **kwargs):
+            super().__init__(**kwargs)
+            # Don't use min_score, max_score, threshold
+            self.categories = categories or ["safe", "risky", "unsafe"]
+            self.passing_categories = passing_categories or ["safe"]
+
+        def evaluate(self, conversation_history, **kwargs):
+            # Return categorical score - don't use _evaluate_score()
+            category = self._get_llm_category(conversation_history)
+            is_successful = category in self.passing_categories
+
+            return MetricResult(
+                score=category,
+                details={"is_successful": is_successful, ...}
+            )
+    ```
+
+    Note: Most conversational metrics are naturally numeric (goal achievement,
+    coherence, fluency, turn quality). Categorical scoring should only be used
+    when truly necessary.
     """
 
     def __init__(
