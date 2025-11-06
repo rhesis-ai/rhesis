@@ -119,6 +119,25 @@ class GoalEvaluationResult(BaseModel):
         return dt.isoformat()
 
 
+class ConversationTurn(BaseModel):
+    """
+    Simplified conversation turn for easy reading and UI display.
+
+    Extracts the key conversation elements from the detailed history
+    with clear role names (penelope/target) for better understanding.
+    """
+
+    turn: int = Field(description="Turn number (1-indexed)")
+    timestamp: str = Field(description="ISO timestamp when the turn occurred")
+    penelope_reasoning: str = Field(description="Penelope's reasoning for this turn")
+    penelope_message: str = Field(description="Message sent by Penelope to the target")
+    target_response: str = Field(description="Response received from the target endpoint")
+    session_id: Optional[str] = Field(
+        default=None, description="Session ID for multi-turn conversations"
+    )
+    success: bool = Field(description="Whether the tool call was successful")
+
+
 class TestResult(BaseModel):
     """Result of a test execution."""
 
@@ -127,6 +146,16 @@ class TestResult(BaseModel):
     turns_used: int = Field(description="Number of turns executed")
     findings: List[str] = Field(default_factory=list, description="Key findings from the test")
     history: List[Turn] = Field(default_factory=list, description="Complete conversation history")
+
+    # Easy-to-read conversation summary (for UI display and quick understanding)
+    conversation_summary: List[ConversationTurn] = Field(
+        default_factory=list,
+        description=(
+            "Simplified conversation flow with clear penelope/target roles. "
+            "Provides easy-to-read turn-by-turn summary for UI display and quick analysis. "
+            "Complements the detailed 'history' field which contains full technical data."
+        ),
+    )
 
     # Structured evaluation data (machine-readable)
     goal_evaluation: Optional[GoalEvaluationResult] = Field(
@@ -401,12 +430,16 @@ class TestState:
         # Build execution statistics
         execution_stats = self._generate_execution_stats()
 
+        # Generate conversation summary
+        conversation_summary = self._generate_conversation_summary()
+
         return TestResult(
             status=status,
             goal_achieved=goal_achieved,
             turns_used=self.current_turn,
             findings=findings,
             history=self.turns,
+            conversation_summary=conversation_summary,
             goal_evaluation=self.last_evaluation,
             metrics=metrics,
             test_configuration=test_configuration,
@@ -633,3 +666,66 @@ class TestState:
         }
 
         return stats
+
+    def _generate_conversation_summary(self) -> List[ConversationTurn]:
+        """
+        Generate a simplified conversation summary from the detailed history.
+
+        Extracts key conversation elements with clear penelope/target roles
+        for easy reading and UI display.
+
+        Returns:
+            List of ConversationTurn objects with simplified conversation flow
+        """
+        summary = []
+
+        for turn in self.turns:
+            # Extract Penelope's message from the tool call arguments
+            penelope_message = ""
+            session_id = None
+
+            if turn.assistant_message.tool_calls:
+                tool_call = turn.assistant_message.tool_calls[0]
+                if tool_call.function.name == "send_message_to_target":
+                    try:
+                        args = json.loads(tool_call.function.arguments)
+                        penelope_message = args.get("message", "")
+                        session_id = args.get("session_id")
+                    except (json.JSONDecodeError, KeyError):
+                        penelope_message = "Unable to parse message"
+
+            # Extract target response from tool message
+            target_response = ""
+            success = False
+
+            try:
+                tool_content = json.loads(turn.tool_message.content)
+                success = tool_content.get("success", False)
+
+                if success and "output" in tool_content:
+                    output = tool_content["output"]
+                    if isinstance(output, dict):
+                        target_response = output.get("response", "")
+                    else:
+                        target_response = str(output)
+                else:
+                    error = tool_content.get("error", "Unknown error")
+                    target_response = f"Error: {error}"
+
+            except (json.JSONDecodeError, KeyError, AttributeError):
+                target_response = "Unable to parse response"
+
+            # Create conversation turn
+            conversation_turn = ConversationTurn(
+                turn=turn.turn_number,
+                timestamp=turn.timestamp.isoformat(),
+                penelope_reasoning=turn.reasoning,
+                penelope_message=penelope_message,
+                target_response=target_response,
+                session_id=session_id,
+                success=success,
+            )
+
+            summary.append(conversation_turn)
+
+        return summary

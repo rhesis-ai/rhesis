@@ -10,6 +10,7 @@ Every test execution produces a `TestResult` object that contains:
 
 - **Test outcomes** - Status, goal achievement, findings
 - **Complete conversation history** - Every turn with full message context
+- **Easy-to-read conversation summary** - Simplified turn-by-turn flow with clear roles
 - **Structured evaluation data** - Criterion-by-criterion results with traceability
 - **Standardized metrics** - SDK-compatible metric format
 - **Test configuration** - Full reproducibility information
@@ -39,6 +40,18 @@ Every test execution produces a `TestResult` object that contains:
       "reasoning": "Need to gather information",
       "assistant_message": {...},
       "tool_message": {...}
+    }
+  ],
+  
+  "conversation_summary": [
+    {
+      "turn": 1,
+      "timestamp": "2024-01-15T10:30:00Z",
+      "penelope_reasoning": "Need to gather information about coverage",
+      "penelope_message": "What insurance coverage do you offer?",
+      "target_response": "We offer auto, home, life, and health insurance...",
+      "session_id": "abc123",
+      "success": true
     }
   ],
   
@@ -97,9 +110,42 @@ Structured assessment of success criteria:
 }`}
 </CodeBlock>
 
+### Conversation Summary
+
+For easy reading and UI display, each test includes a simplified conversation summary with clear role names:
+
+<CodeBlock filename="conversation_summary.json" language="json">
+  {`[
+  {
+    "turn": 1,
+    "timestamp": "2024-01-15T10:30:00Z",
+    "penelope_reasoning": "Need to gather information about coverage options",
+    "penelope_message": "What insurance coverage do you offer?",
+    "target_response": "We offer auto, home, life, and health insurance with various coverage levels...",
+    "session_id": "abc123-def456",
+    "success": true
+  },
+  {
+    "turn": 2,
+    "timestamp": "2024-01-15T10:30:15Z",
+    "penelope_reasoning": "Follow up on auto insurance specifics",
+    "penelope_message": "Can you tell me more about auto insurance coverage?",
+    "target_response": "Auto insurance includes liability, collision, comprehensive, and uninsured motorist coverage...",
+    "session_id": "abc123-def456",
+    "success": true
+  }
+]`}
+</CodeBlock>
+
+**Key Benefits:**
+- **Clear roles**: "penelope" for the agent, "target" for the endpoint
+- **Easy tracking**: Turn-by-turn conversation flow
+- **UI-friendly**: Perfect for frontend display and analysis
+- **Complements history**: Simplified view while detailed `history` remains available
+
 ### Conversation History
 
-Each turn contains:
+Each turn in the detailed history contains:
 
 <CodeBlock filename="turn.json" language="json">
   {`{
@@ -166,6 +212,12 @@ print(f"Turns used: {result.turns_used}")
 
 for turn in result.history:
 print(f"Turn {turn.turn_number}: {turn.reasoning}")
+
+# Access conversation summary (easy-to-read format)
+
+for turn in result.conversation_summary:
+    print(f"Turn {turn.turn}: {turn.penelope_message}")
+    print(f"  → {turn.target_response}")
 
 # Export to JSON
 
