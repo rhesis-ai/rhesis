@@ -138,21 +138,23 @@ test_set = synthesizer.generate(num_tests=10)
 pprint(test_set.tests)
 ```
 
-### Option 3: Run locally with Docker
+### Option 3: Run locally with Docker (zero configuration)
 
-Clone and run the full platform locally. First you need to set up the config file.
-Copy the `.env.example` file to `.env.docker` and fill in the values.
-Then run the following command to start the platform:
+Get the full platform running locally with a single command - no configuration needed:
 
 ```bash
 git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
-docker-compose --env-file .env.docker up
+docker-compose -f docker-compose.local.yml up
 ```
 
-Visit `http://localhost:3000` to access your local instance.
+Visit `http://localhost:3000` and click "Local Development Login" to get started immediately.
 
-**Detailed setup instructions:** See [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
+**Default API token:** `rh-local-dev-token`
+
+> **Note:** This is a simplified setup for local testing and development only. For production deployments, see the [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
+
+**Detailed local setup:** [Local Development Guide](https://docs.rhesis.ai/getting-started/local-development)
 
 
 ## 👥 Contributing

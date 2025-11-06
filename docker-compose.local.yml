@@ -1,0 +1,276 @@
+# Docker Compose configuration for LOCAL DEVELOPMENT ONLY
+# 
+# ⚠️ WARNING: This configuration uses hardcoded secrets and is NOT secure for production use!
+# 
+# This file provides a zero-configuration setup for local development by:
+# - Using dummy Auth0 credentials
+# - Including a default encryption key
+# - Enabling local authentication bypass
+# - Creating a default admin user (admin@local.dev)
+#
+# Quick Start:
+#   docker-compose -f docker-compose.local.yml up
+#
+# Default Credentials:
+#   Email: admin@local.dev
+#   Use the "Local Development Login" button in the UI
+#   API Token: rh-local-dev-token
+#
+# For production deployment, see: docs/content/getting-started/self-hosting.mdx
+
+# Define configurations using YAML anchors with hardcoded local values
+x-common-database: &common-database
+  SQLALCHEMY_DATABASE_URL: postgresql://rhesis-user:rhesis-local-password@postgres:5432/rhesis-db
+  SQLALCHEMY_DB_DRIVER: postgresql
+  SQLALCHEMY_DB_PORT: 5432
+  SQLALCHEMY_DB_USER: rhesis-user
+  SQLALCHEMY_DB_PASS: rhesis-local-password
+  SQLALCHEMY_DB_HOST: postgres
+  SQLALCHEMY_DB_NAME: rhesis-db
+  # ⚠️ LOCAL DEVELOPMENT ENCRYPTION KEY - DO NOT USE IN PRODUCTION
+  # This is a valid Fernet key generated specifically for local development
+  DB_ENCRYPTION_KEY: "your-32-byte-url-safe-base64-encoded-key"
+
+x-common-redis: &common-redis
+  REDIS_URL: redis://:rhesis-redis-pass@redis:6379/0
+  BROKER_URL: redis://:rhesis-redis-pass@redis:6379/0
+  CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@redis:6379/1
+
+x-common-auth0: &common-auth0
+  # ⚠️ DUMMY AUTH0 CONFIGURATION - FOR LOCAL DEVELOPMENT ONLY
+  AUTH0_DOMAIN: local.rhesis.dev
+  AUTH0_AUDIENCE: local-audience
+  AUTH0_CLIENT_ID: local-client-id
+  AUTH0_CLIENT_SECRET: local-client-secret
+  AUTH0_SECRET_KEY: local-auth0-secret-key
+
+x-common-smtp: &common-smtp
+  # SMTP is optional for local development - omitting allows code defaults to work
+  # Uncomment and set these if you need email functionality:
+  # SMTP_HOST: smtp.example.com
+  # SMTP_PORT: 587
+  # SMTP_USER: user@example.com
+  # SMTP_PASSWORD: your-password
+  # FROM_EMAIL: noreply@example.com
+  {}
+
+x-common-jwt: &common-jwt
+  # ⚠️ JWT CONFIGURATION - CHANGE IN PRODUCTION
+  JWT_SECRET_KEY: local-jwt-secret-key-change-in-production
+  JWT_ALGORITHM: HS256
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 10080
+
+x-common-environment: &common-environment
+  ENVIRONMENT: local
+  BACKEND_ENV: local
+  FRONTEND_ENV: local
+  WORKER_ENV: local
+  LOG_LEVEL: DEBUG
+
+x-rhesis-config: &rhesis-config
+  RHESIS_BASE_URL: http://backend:8080
+  RHESIS_API_KEY: ""
+  FRONTEND_URL: http://localhost:3000
+  BACKEND_URL: http://backend:8080
+
+x-telemetry-config: &telemetry-config
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/
+  OTEL_SERVICE_NAME: rhesis
+  DEPLOYMENT_TYPE: self-hosted
+  TELEMETRY_ENABLED: false
+
+x-gemini-google: &gemini-google
+  GEMINI_API_KEY: ""
+  GEMINI_MODEL_NAME: ""
+  GOOGLE_API_KEY: ""
+
+x-nextjs-frontend: &nextjs-frontend
+  # ⚠️ NEXTAUTH CONFIGURATION - CHANGE IN PRODUCTION
+  NEXTAUTH_SECRET: local-nextauth-secret-change-in-production
+  NEXTAUTH_URL: http://localhost:3000
+  NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  NEXT_PUBLIC_AUTH0_DOMAIN: local.rhesis.dev
+  NEXT_PUBLIC_AUTH0_CLIENT_ID: local-client-id
+  NEXT_TELEMETRY_DISABLED: 1
+  # ⚠️ ENABLE LOCAL AUTHENTICATION
+  NEXT_PUBLIC_LOCAL_AUTH_ENABLED: "true"
+
+x-google-client: &google-client
+  # ⚠️ DUMMY GOOGLE OAUTH - FOR LOCAL DEVELOPMENT ONLY
+  GOOGLE_CLIENT_ID: local-google-client-id
+  GOOGLE_CLIENT_SECRET: local-google-client-secret
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: rhesis-postgres
+    environment:
+      POSTGRES_DB: rhesis-db
+      POSTGRES_USER: rhesis-user
+      POSTGRES_PASSWORD: rhesis-local-password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./apps/backend/src/rhesis/backend/alembic/create_user.sql:/docker-entrypoint-initdb.d/01-create-user.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rhesis-network
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    container_name: rhesis-redis
+    command: redis-server --requirepass rhesis-redis-pass
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_PASSWORD=rhesis-redis-pass
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "rhesis-redis-pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rhesis-network
+
+  # Backend API with local development defaults
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: rhesis-backend
+    environment:
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *gemini-google, *telemetry-config]
+      LOG_LEVEL: DEBUG
+      # ⚠️ ENABLE LOCAL AUTHENTICATION BYPASS
+      LOCAL_AUTH_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./apps/backend/src:/app/src
+      - ./sdk:/app/sdk
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Celery Worker
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: rhesis-worker
+    environment:
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
+      LOG_LEVEL: INFO
+      CELERY_WORKER_CONCURRENCY: 8
+      CELERY_WORKER_PREFETCH_MULTIPLIER: 4
+      CELERY_WORKER_MAX_TASKS_PER_CHILD: 1000
+      CELERY_WORKER_LOGLEVEL: INFO
+      USE_TCP_DATABASE: true
+      ENABLE_FLOWER: no
+    ports:
+      - "8081:8081"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./sdk:/app/sdk
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health/basic"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Frontend with local development configuration
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+      args:
+        FRONTEND_ENV: local
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+        NEXT_PUBLIC_APP_URL: http://localhost:3000
+        NEXT_PUBLIC_AUTH0_DOMAIN: local.rhesis.dev
+        NEXT_PUBLIC_AUTH0_CLIENT_ID: local-client-id
+        NEXT_PUBLIC_LOCAL_AUTH_ENABLED: "true"
+    container_name: rhesis-frontend
+    environment:
+      <<: [*common-auth0, *nextjs-frontend, *google-client, *common-environment, *rhesis-config]
+      PORT: 3000
+      NEXT_PUBLIC_OTEL_ENDPOINT: ""
+      NEXT_PUBLIC_DEPLOYMENT_TYPE: self-hosted
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/auth/session"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Documentation
+  docs:
+    build:
+      context: ./docs
+      dockerfile: src/Dockerfile
+    container_name: rhesis-docs
+    environment:
+      <<: [*common-environment]
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  rhesis-network:
+    driver: bridge

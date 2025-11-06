@@ -1,11 +1,20 @@
-import { CodeBlock } from "@/components/CodeBlock";
-import { Table } from "@/components/Table";
+import { CodeBlock } from '@/components/CodeBlock'
+import { Table } from '@/components/Table'
+import { Callout } from 'nextra/components'
 
 # Self-hosting
 
 You can self-host Rhesis on your own infrastructure.
 
 This guide will help you run the entire Rhesis platform using Docker Compose for self-hosted deployments.
+
+<Callout type="info">
+**Looking for a Quick Start?**
+
+If you want to test Rhesis locally without any configuration, check out our [Local Development Setup](/getting-started/local-development) guide. It provides a zero-configuration setup that works out of the box.
+
+This guide is for **production** or **production-like** deployments where you need to configure authentication, security, and other production concerns.
+</Callout>
 
 > **Important**: This guide uses Docker Compose V2 syntax (`docker compose` without hyphen). If you're using an older version of Docker, you may need to install Docker Compose V2 or use the legacy `docker compose` command.
 

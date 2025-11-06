@@ -8,12 +8,15 @@ import {
   Divider,
   Checkbox,
   FormControlLabel,
+  Alert,
 } from '@mui/material';
 // Brand icons - keeping filled versions as outlined variants may not exist for all brands
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
+import DeveloperModeIcon from '@mui/icons-material/DeveloperMode';
 import { useState, useEffect } from 'react';
 import { getClientApiBaseUrl } from '../../utils/url-resolver';
+import { signIn } from 'next-auth/react';
 
 interface Props {
   clientId: string;
@@ -24,6 +27,11 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsWarning, setShowTermsWarning] = useState(false);
   const [previouslyAccepted, setPreviouslyAccepted] = useState(false);
+  const [localAuthLoading, setLocalAuthLoading] = useState(false);
+  const [localAuthError, setLocalAuthError] = useState<string | null>(null);
+  
+  // Check if local auth is enabled
+  const isLocalAuthEnabled = process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true';
 
   // Check local storage for previous acceptance on component mount
   useEffect(() => {
@@ -73,6 +81,43 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
     window.location.href = loginUrl.toString();
   };
 
+  const handleLocalLogin = async () => {
+    setLocalAuthLoading(true);
+    setLocalAuthError(null);
+
+    try {
+      // Call the backend local-login endpoint
+      const response = await fetch(`${getClientApiBaseUrl()}/auth/local-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Local login failed');
+      }
+
+      const data = await response.json();
+      
+      // Sign in with NextAuth using the session token
+      const result = await signIn('credentials', {
+        session_token: data.session_token,
+        redirect: true,
+        callbackUrl: '/dashboard',
+      });
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      console.error('Local login error:', error);
+      setLocalAuthError(error.message || 'Failed to login in development mode');
+      setLocalAuthLoading(false);
+    }
+  };
+
   return (
     <Box sx={{ width: '100%' }}>
       <Paper
@@ -87,6 +132,40 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
         <Typography variant="h6" align="center">
           All paws on deck for testing!
         </Typography>
+
+        {isLocalAuthEnabled && (
+          <>
+            <Alert severity="warning" sx={{ mb: 1 }}>
+              <Typography variant="body2" fontWeight="bold">
+                ⚠️ Local Development Mode
+              </Typography>
+              <Typography variant="caption">
+                Authentication bypass is enabled. Not for production use!
+              </Typography>
+            </Alert>
+            <Button
+              variant="contained"
+              color="warning"
+              fullWidth
+              size="medium"
+              startIcon={<DeveloperModeIcon />}
+              onClick={handleLocalLogin}
+              disabled={localAuthLoading}
+            >
+              {localAuthLoading ? 'Logging in...' : 'Local Development Login'}
+            </Button>
+            {localAuthError && (
+              <Alert severity="error" sx={{ mt: 1 }}>
+                {localAuthError}
+              </Alert>
+            )}
+            <Divider>
+              <Typography color="textSecondary" variant="body2">
+                Or use standard login
+              </Typography>
+            </Divider>
+          </>
+        )}
 
         <Button
           variant="contained"
