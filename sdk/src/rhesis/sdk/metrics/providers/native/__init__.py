@@ -3,6 +3,9 @@
 from .categorical_judge import (
     CategoricalJudge,
 )
+from .conversational_judge import (
+    ConversationalJudge,
+)
 from .conversational_judges import (
     GoalAchievementJudge,
 )
@@ -17,5 +20,6 @@ __all__ = [
     "NumericJudge",
     "NumericScoreResponse",
     "CategoricalJudge",
+    "ConversationalJudge",
     "GoalAchievementJudge",
 ]

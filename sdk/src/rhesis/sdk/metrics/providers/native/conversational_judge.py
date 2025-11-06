@@ -1,4 +1,4 @@
-"""Base class for native conversational (multi-turn) metrics."""
+"""Base class for native Rhesis conversational metrics using LLM-as-judge."""
 
 import inspect
 import logging
@@ -17,7 +17,7 @@ from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to
 from rhesis.sdk.models import BaseLLM
 
 # Type variable for generic return types
-T = TypeVar("T", bound="NativeConversationalBase")
+T = TypeVar("T", bound="ConversationalJudge")
 
 
 @dataclass
@@ -33,23 +33,29 @@ class ConversationalJudgeConfig(MetricConfig):
         return super().__post_init__()
 
 
-class NativeConversationalBase(ConversationalMetricBase):
+class ConversationalJudge(ConversationalMetricBase):
     """
-    Base class for native conversational metrics that use LLM-as-a-Judge.
+    Base class for native Rhesis conversational metrics using LLM-as-judge.
 
-    This class provides the infrastructure for evaluating entire conversations
-    using custom prompt templates and Jinja2 rendering.
+    Provides:
+    - Jinja template rendering for conversation evaluation prompts
+    - Structured output support
+    - Error handling
+    - Common evaluation patterns
+
+    This mirrors the JudgeBase class pattern for single-turn metrics, adapted
+    for conversational (multi-turn) evaluation.
     """
 
     def __init__(
         self, config: ConversationalJudgeConfig, model: Optional[Union[BaseLLM, str]] = None
     ):
         """
-        Initialize the native conversational base.
+        Initialize conversational judge.
 
         Args:
-            config: The judge configuration
-            model: The LLM model to use for evaluation
+            config: Metric configuration with judge-specific fields
+            model: LLM model for evaluation
         """
         self.config = config
         super().__init__(config=self.config, model=model)
@@ -129,7 +135,7 @@ class NativeConversationalBase(ConversationalMetricBase):
         logger = logging.getLogger(__name__)
         error_msg = f"Error evaluating with {self.name}: {str(e)}"
 
-        logger.error(f"Exception in NativeConversationalBase.evaluate: {error_msg}")
+        logger.error(f"Exception in ConversationalJudge.evaluate: {error_msg}")
         logger.error(f"Exception type: {type(e).__name__}")
         logger.error(f"Exception details: {str(e)}")
         logger.error(f"Full traceback:\n{traceback.format_exc()}")
@@ -281,7 +287,7 @@ class NativeConversationalBase(ConversationalMetricBase):
     @classmethod
     def pull(
         cls, name: Optional[str] = None, nano_id: Optional[str] = None
-    ) -> "NativeConversationalBase":
+    ) -> "ConversationalJudge":
         """
         Pull the metric from the backend.
 
