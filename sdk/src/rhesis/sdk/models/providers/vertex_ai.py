@@ -145,11 +145,14 @@ class VertexAILLM(LiteLLM):
 
         # Write credentials to the persistent temp file (idempotent)
         # If file already exists, we'll just overwrite it (safe since content is the same)
-        with open(temp_file_path, "w") as f:
-            json.dump(credentials_json, f)
+        try:
+            with open(temp_file_path, "w") as f:
+                json.dump(credentials_json, f)
 
-        # Track this file for cleanup at process exit
-        _temp_credential_files.add(str(temp_file_path))
+            # Track this file for cleanup at process exit
+            _temp_credential_files.add(str(temp_file_path))
+        except (OSError, PermissionError) as e:
+            raise ValueError(f"Failed to create temporary credentials file: {e}")
 
         return {
             "credentials_path": str(temp_file_path),
@@ -172,8 +175,11 @@ class VertexAILLM(LiteLLM):
         if not os.path.exists(credentials):
             raise ValueError(f"Credentials file not found: {credentials}")
 
-        with open(credentials, "r") as f:
-            credentials_json = json.load(f)
+        try:
+            with open(credentials, "r") as f:
+                credentials_json = json.load(f)
+        except (FileNotFoundError, PermissionError, json.JSONDecodeError) as e:
+            raise ValueError(f"Failed to read credentials file {credentials}: {e}")
 
         return {
             "credentials_path": credentials,
@@ -321,9 +327,25 @@ class VertexAILLM(LiteLLM):
         kwargs["vertex_ai_project"] = self.model["project"]
         kwargs["vertex_ai_location"] = self.model["location"]
 
+        # Ensure credentials file exists before setting environment variable
+        credentials_path = self.model["credentials_path"]
+        if not os.path.exists(credentials_path):
+            # If temp file was deleted, try to recreate it from original credentials
+            if hasattr(self, "_original_credentials_env") and self._original_credentials_env:
+                try:
+                    # Try to recreate from base64 if it was originally base64
+                    config = self._load_credentials(self._original_credentials_env)
+                    credentials_path = config["credentials_path"]
+                    # Update model config with new path
+                    self.model["credentials_path"] = credentials_path
+                except Exception as e:
+                    raise ValueError(f"Credentials file missing and could not be recreated: {e}")
+            else:
+                raise ValueError(f"Credentials file not found: {credentials_path}")
+
         # Set credentials via environment variable for LiteLLM
         original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.model["credentials_path"]
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
 
         try:
             # Call parent generate method
