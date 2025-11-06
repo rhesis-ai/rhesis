@@ -12,8 +12,6 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-# Additional backward compatibility imports for functions moved during refactoring
-# Additional backward compatibility imports for functions moved during refactoring
 from rhesis.backend.logging.rhesis_logger import logger
 
 # Import factory for executor creation
