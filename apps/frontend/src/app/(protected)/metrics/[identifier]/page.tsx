@@ -124,8 +124,9 @@ export default function MetricDetailPage() {
           setModels([metricData.model]);
         }
 
-        // Check if this is NOT a rhesis metric - redirect non-rhesis metrics
-        if (metricData.backend_type?.type_value?.toLowerCase() !== 'rhesis') {
+        // Check if this is NOT a rhesis or custom metric - redirect other metrics
+        const backendType = metricData.backend_type?.type_value?.toLowerCase();
+        if (backendType !== 'rhesis' && backendType !== 'custom') {
           notifications.show(
             'This metric type cannot be viewed through the detail page',
             {
