@@ -8,6 +8,14 @@ from rhesis.sdk.metrics.constants import (
     ScoreType,
     ThresholdOperator,
 )
+from rhesis.sdk.metrics.conversational import (
+    AssistantMessage,
+    ConversationalMetricBase,
+    ConversationHistory,
+    SystemMessage,
+    ToolMessage,
+    UserMessage,
+)
 from rhesis.sdk.metrics.factory import MetricFactory
 from rhesis.sdk.metrics.providers.deepeval.factory import DeepEvalMetricFactory
 from rhesis.sdk.metrics.providers.deepeval.metrics import (
@@ -45,6 +53,13 @@ __all__ = [
     "MetricResult",
     "MetricConfigLoader",
     "MetricFactory",
+    # Conversational metrics
+    "ConversationalMetricBase",
+    "ConversationHistory",
+    "UserMessage",
+    "AssistantMessage",
+    "ToolMessage",
+    "SystemMessage",
     # Evaluation
     # Types and utilities
     "ScoreType",
