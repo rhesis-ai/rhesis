@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from rhesis.sdk.models import BaseLLM
 
+from .results_curator import ResultsCurator
 from .test_sets import TestResult, TestSetEvaluator
 
 
@@ -19,19 +20,20 @@ class ModelTester:
 
         Parameters
         ----------
-        results_path : Path, optional
-            Directory where the results folder structure should be built.
-            Defaults to rhesis/polyphemus/benchmarking/results.
+        json_dir : Path
+            Directory containing test set JSON files.
         """
         if not json_dir.exists() or not json_dir.is_dir():
             raise ValueError(f"Invalid test sets directory: {json_dir}")
 
+        self.json_dir = json_dir
         self.models: List[BaseLLM] = []  # Models to be tested
         self.test_sets: List[TestSetEvaluator] = []  # Test sets to use
-        for json_file in json_dir.glob("**/*.json"):
+        for json_file in json_dir.glob("*.json"):
             test_set = TestSetEvaluator(json_file)
             self.test_sets.append(test_set)
         self.test_results: List[TestResult] = []  # Collected test results
+        self._current_run_results: List[TestResult] = []  # Results from current run
 
     def add_model(self, model: BaseLLM):
         """
@@ -43,18 +45,26 @@ class ModelTester:
         """
         self.models.append(model)
 
-    def generate_responses(self, recompute_existing=False):
+    def generate(self, recompute_existing=False, print_summary=True):
         """
-        Generate responses for all models and test cases in the tester.
-        Responses are generated if not present, or recomputed if requested.
-        Results are saved to disk and updated in memory.
-        If a test is removed from the base test set, its result is deleted.
+        Generate responses for all models and test cases.
+
+        This is step 1 of the benchmarking workflow.
 
         Parameters
         ----------
-        recompute_existing : bool
-            If True, recompute all responses even if they exist.
+        recompute_existing : bool, optional
+            If True, recompute all responses even if they exist. Default: False.
+        print_summary : bool, optional
+            If True, print generation summary. Default: True.
+
+        Returns
+        -------
+        List[TestResult]
+            Results from this generation run.
         """
+        self._current_run_results = []
+
         for test_set in self.test_sets:
             for model in self.models:
                 test_set.add_model(model)
@@ -64,14 +74,25 @@ class ModelTester:
             else:
                 results = test_set.generate_pending_responses()
             self.test_results.extend(results)
+            self._current_run_results.extend(results)
 
-    def evaluate_model_responses(self, recompute_existing=False):
+        if print_summary:
+            self.print_generation_summary()
+
+        return self._current_run_results
+
+    def evaluate(self, recompute_existing=False, print_summary=True):
         """
         Evaluate all model responses in all test sets.
+
+        This is step 2 of the benchmarking workflow.
+
         Parameters
         ----------
-        recompute_existing : bool
-            If True, recompute scores even for results that already have scores.
+        recompute_existing : bool, optional
+            If True, recompute scores even for results that already have scores. Default: False.
+        print_summary : bool, optional
+            If True, print evaluation summary. Default: True.
         """
         for test_set in self.test_sets:
             test_set.load_results()
@@ -79,121 +100,356 @@ class ModelTester:
         if test_set:
             test_set.unload_judge()  # Reset judge for next evaluation
 
-    def print_summary(self):
-        """
-        Print a concise summary of evaluated scores from attached test sets.
+        if print_summary:
+            self.print_evaluation_summary()
 
-        Categories:
-          pass    -> score > 0
-          zero    -> score == 0 (evaluated fail)
-          error   -> generation error (error != None)
-          pending -> generated (no error) but not yet evaluated (score is None)
+    def print_generation_summary(self):
         """
-        # Prefer the evaluated objects stored inside each test set (they get updated there)
-        collected: List[TestResult] = []
+        Print a summary after generation (before evaluation).
+        Shows statistics for newly generated tests and overall status.
+        """
+        # Get all results (including preexisting)
+        all_results: List[TestResult] = []
         for ts in self.test_sets:
             for model_results in getattr(ts, "results", []):
                 for r in model_results:
                     if r is not None:
-                        collected.append(r)
-        # Fallback to self.test_results if nothing collected (e.g. evaluation not run yet)
-        if not collected:
-            collected = self.test_results
-        # ...existing code...
+                        all_results.append(r)
 
-        if not collected:
-            print("\n=== LLM Test Summary ===\nNo results. Run generate_responses() first.")
+        # Get newly generated results
+        new_results = self._current_run_results if self._current_run_results else []
+
+        if not all_results and not new_results:
+            print("\n=== Generation Summary ===\nNo results found.")
             return
 
-        errors = [r for r in collected if r.error is not None]
-        evaluated = [r for r in collected if r.error is None and r.score is not None]
-        zero = [r for r in evaluated if (r.score or 0) == 0]
-        passed = [r for r in evaluated if (r.score or 0) > 0]
-        pending = [r for r in collected if r.error is None and r.score is None]
+        print("\n=== Generation Summary ===")
 
-        scores = [r.score for r in evaluated if r.score is not None]
-        avg_score = (sum(scores) / len(scores)) if scores else None
+        # Overall status (all results including preexisting)
+        if all_results:
+            total_all = len(all_results)
+            successful_all = [r for r in all_results if r.error is None and r.text]
+            errors_all = [r for r in all_results if r.error is not None]
+            pending_all = [r for r in all_results if r.error is None and r.text and r.score is None]
 
-        # Per-model aggregates
-        per_model = {}
-        for r in collected:
-            mid = r.model_id or "<unknown>"
-            m = per_model.setdefault(
-                mid,
-                {
-                    "total": 0,
-                    "errors": 0,
-                    "pending": 0,
-                    "zero": 0,
-                    "passed": 0,
-                    "scores": [],
-                },
-            )
-            m["total"] += 1
-            if r.error is not None:
-                m["errors"] += 1
-            elif r.score is None:
-                m["pending"] += 1
-            else:
-                if r.score == 0:
-                    m["zero"] += 1
-                elif r.score > 0:
-                    m["passed"] += 1
-                m["scores"].append(r.score)
+            print(f"Overall: {total_all} total responses")
+            if successful_all:
+                success_pct = len(successful_all) / total_all * 100
+                print(f"  {len(successful_all)} successful ({success_pct:.1f}%)")
+            if errors_all:
+                error_pct = len(errors_all) / total_all * 100
+                print(f"  {len(errors_all)} errors ({error_pct:.1f}%)")
+            if pending_all:
+                print(f"  {len(pending_all)} pending evaluation")
 
-        print("\n=== LLM Test Summary ===")
-        print(
-            (
-                f"Total: {len(collected)} | pass: {len(passed)} | zero: {len(zero)} "
-                f"| errors: {len(errors)} | pending: {len(pending)}"
-            )
-        )
-        if avg_score is not None:
-            print(f"Avg score: {avg_score:.3f}")
+        # Newly generated results
+        if new_results:
+            print(f"\nNewly Generated: {len(new_results)} responses")
+            new_successful = [r for r in new_results if r.error is None and r.text]
+            new_errors = [r for r in new_results if r.error is not None]
 
-        # Optional timing / token info
-        times = [
-            r.metadata.get("response_time")
-            for r in collected
-            if r.metadata and "response_time" in r.metadata
-        ]
-        tokens = [
-            r.metadata.get("tokens_used")
-            for r in collected
-            if r.metadata and "tokens_used" in r.metadata
-        ]
-        if times:
-            line = f"Avg time: {sum(times) / len(times):.2f}s"
-            if tokens:
-                line += f" | Tokens: {sum(tokens)}"
-            print(line)
-        elif tokens:
-            print(f"Tokens: {sum(tokens)}")
+            if len(new_results) > 0:
+                if new_successful:
+                    new_success_pct = len(new_successful) / len(new_results) * 100
+                    print(f"  {len(new_successful)} successful ({new_success_pct:.1f}%)")
+                if new_errors:
+                    new_error_pct = len(new_errors) / len(new_results) * 100
+                    print(f"  {len(new_errors)} errors ({new_error_pct:.1f}%)")
 
-        if len(per_model) > 1:
-            print("Models:")
-        for mid, s in per_model.items():
-            mscores = s["scores"]
-            mavg = sum(mscores) / len(mscores) if mscores else None
-            pass_rate = (
-                (s["passed"] / (s["passed"] + s["zero"])) * 100
-                if (s["passed"] + s["zero"]) > 0
-                else 0
-            )
-            line = (
-                f" - {mid}: pass {s['passed']} | zero {s['zero']} | err {s['errors']} "
-                f"| pend {s['pending']}"
-            )
-            if mavg is not None:
-                line += f" | avg {mavg:.3f} | pass% {pass_rate:.1f}"
-            print(line)
+            # Detailed metrics for newly generated only
+            if new_successful:
+                gen_times = [
+                    r.metadata.get("generation_time_seconds", 0)
+                    for r in new_successful
+                    if r.metadata and "generation_time_seconds" in r.metadata
+                ]
+                input_tokens = [
+                    r.metadata.get("input_tokens", 0)
+                    for r in new_successful
+                    if r.metadata and "input_tokens" in r.metadata
+                ]
+                output_tokens = [
+                    r.metadata.get("output_tokens", 0)
+                    for r in new_successful
+                    if r.metadata and "output_tokens" in r.metadata
+                ]
 
-        if errors:
-            print("Errors (first 5):")
-            for r in errors[:5]:
-                print(f" * {r.model_id or '<unknown>'}: {r.error}")
-            if len(errors) > 5:
-                print(f"   ... {len(errors) - 5} more")
+                if gen_times:
+                    avg_time = sum(gen_times) / len(gen_times)
+                    total_time = sum(gen_times)
+                    print(f"  Generation time: avg {avg_time:.2f}s, total {total_time:.2f}s")
 
-        if pending and not evaluated:
-            print("(Hint: Run evaluate_model_responses() to score pending results.)")
+                if input_tokens and output_tokens:
+                    avg_input = sum(input_tokens) / len(input_tokens)
+                    avg_output = sum(output_tokens) / len(output_tokens)
+                    total_input = sum(input_tokens)
+                    total_output = sum(output_tokens)
+                    print(
+                        f"  Tokens: avg {avg_input:.0f} in / {avg_output:.0f} out, "
+                        f"total {total_input} in / {total_output} out"
+                    )
+
+            # Per-model breakdown for newly generated
+            if len(new_results) > 0:
+                per_model = {}
+                for r in new_results:
+                    mid = r.model_id or "<unknown>"
+                    m = per_model.setdefault(
+                        mid, {"total": 0, "successful": 0, "errors": 0, "gen_times": []}
+                    )
+                    m["total"] += 1
+                    if r.error is not None:
+                        m["errors"] += 1
+                    elif r.text:
+                        m["successful"] += 1
+                        if r.metadata and "generation_time_seconds" in r.metadata:
+                            m["gen_times"].append(r.metadata["generation_time_seconds"])
+
+                if len(per_model) > 1:
+                    print("\n  Per-model (newly generated):")
+                    for mid, s in per_model.items():
+                        if s["total"] > 0:
+                            model_success_pct = (
+                                s["successful"] / s["total"] * 100 if s["total"] > 0 else 0
+                            )
+                            line = (
+                                f"    {mid}: {s['successful']}/{s['total']} "
+                                f"successful ({model_success_pct:.1f}%)"
+                            )
+                            if s["gen_times"]:
+                                avg_time = sum(s["gen_times"]) / len(s["gen_times"])
+                                line += f", avg {avg_time:.2f}s"
+                            if s["errors"] > 0:
+                                line += f", {s['errors']} errors"
+                            print(line)
+
+            # Show first few errors if any
+            if new_errors:
+                print("\n  Errors (first 3):")
+                for r in new_errors[:3]:
+                    error_msg = str(r.error)[:100]
+                    print(f"    {r.model_id or '<unknown>'}: {error_msg}")
+                if len(new_errors) > 3:
+                    print(f"    ... {len(new_errors) - 3} more errors")
+        else:
+            print("\nNo new responses generated (all tests already had responses)")
+
+        print("\n(Next: Run evaluate() to score pending results)\n")
+
+    def print_evaluation_summary(self):
+        """
+        Print a detailed summary after evaluation.
+        Shows comprehensive metrics for all evaluated results (main focus)
+        and brief summary for newly evaluated results.
+        """
+        # Get all results (including preexisting)
+        all_results: List[TestResult] = []
+        for ts in self.test_sets:
+            for model_results in getattr(ts, "results", []):
+                for r in model_results:
+                    if r is not None:
+                        all_results.append(r)
+
+        # Get newly evaluated results from current run
+        new_results = self._current_run_results if self._current_run_results else []
+
+        # Split into evaluated and not evaluated
+        all_evaluated = [r for r in all_results if r.error is None and r.score is not None]
+        new_evaluated = [r for r in new_results if r.error is None and r.score is not None]
+
+        if not all_evaluated and not new_evaluated:
+            print("\n=== Evaluation Summary ===\nNo evaluations found.")
+            return
+
+        print("\n=== Evaluation Summary ===")
+
+        # Overall Evaluation (DETAILED - main section)
+        if all_evaluated:
+            print(f"Overall: {len(all_evaluated)} evaluated responses")
+
+            # Overall quality metrics
+            scores = [r.score for r in all_evaluated if r.score is not None]
+            if scores:
+                avg_score = sum(scores) / len(scores)
+                min_score = min(scores)
+                max_score = max(scores)
+                print(f"  Average Score: {avg_score:.3f} (range: {min_score:.3f}-{max_score:.3f})")
+
+                # Score distribution
+                excellent = [s for s in scores if s >= 0.8]
+                good = [s for s in scores if 0.6 <= s < 0.8]
+                fair = [s for s in scores if 0.4 <= s < 0.6]
+                poor = [s for s in scores if s < 0.4]
+
+                excellent_pct = len(excellent) / len(scores) * 100
+                good_pct = len(good) / len(scores) * 100
+                fair_pct = len(fair) / len(scores) * 100
+                poor_pct = len(poor) / len(scores) * 100
+
+                dist_parts = []
+                if excellent:
+                    dist_parts.append(f"{len(excellent)} excellent ({excellent_pct:.0f}%)")
+                if good:
+                    dist_parts.append(f"{len(good)} good ({good_pct:.0f}%)")
+                if fair:
+                    dist_parts.append(f"{len(fair)} fair ({fair_pct:.0f}%)")
+                if poor:
+                    dist_parts.append(f"{len(poor)} poor ({poor_pct:.0f}%)")
+
+                if dist_parts:
+                    print(f"  Distribution: {', '.join(dist_parts)}")
+
+            # Per-model breakdown
+            per_model = {}
+            for r in all_evaluated:
+                mid = r.model_id or "<unknown>"
+                if mid not in per_model:
+                    per_model[mid] = {"scores": [], "costs": []}
+                per_model[mid]["scores"].append(r.score)
+                if r.cost is not None:
+                    per_model[mid]["costs"].append(r.cost)
+
+            if len(per_model) > 1:
+                print("\n  Per-model:")
+                sorted_models = sorted(
+                    per_model.items(),
+                    key=lambda x: sum(x[1]["scores"]) / len(x[1]["scores"]),
+                    reverse=True,
+                )
+                for mid, data in sorted_models:
+                    model_avg = sum(data["scores"]) / len(data["scores"])
+                    line = f"    {mid}: {model_avg:.3f}"
+                    if data["costs"]:
+                        model_avg_cost = sum(data["costs"]) / len(data["costs"])
+                        line += f" (cost: {model_avg_cost:.4f})"
+                    print(line)
+
+        # Newly Evaluated (BRIEF - short summary)
+        if new_evaluated:
+            print(f"\nNewly Evaluated: {len(new_evaluated)} responses")
+
+            new_scores = [r.score for r in new_evaluated if r.score is not None]
+            if new_scores:
+                new_avg = sum(new_scores) / len(new_scores)
+                print(f"  Average Score: {new_avg:.3f}")
+
+            # Brief per-model summary for newly evaluated
+            new_per_model = {}
+            for r in new_evaluated:
+                mid = r.model_id or "<unknown>"
+                if mid not in new_per_model:
+                    new_per_model[mid] = []
+                new_per_model[mid].append(r.score)
+
+            if len(new_per_model) > 1:
+                print("  By Model:")
+                for mid, model_scores in sorted(new_per_model.items()):
+                    if model_scores:
+                        model_avg = sum(model_scores) / len(model_scores)
+                        new_model_msg = (
+                            f"    {mid}: {model_avg:.3f} ({len(model_scores)} tests)"
+                        )
+                        print(new_model_msg)
+        else:
+            print("\nNo new evaluations (all tests already evaluated)")
+
+        print("\n(Next: Run report() for detailed analysis)\n")
+
+    def report(self, output_path: Optional[Path] = None, print_summary=True) -> Path:
+        """
+        Generate a comprehensive curated report.
+
+        This is step 3 of the benchmarking workflow. Creates a detailed JSON report with:
+        - Per-model statistics and metrics
+        - Comparative analysis across all models
+        - Use-case specific recommendations
+
+        Parameters
+        ----------
+        output_path : Path, optional
+            Path to save the report. If None, saves to "report.json"
+        print_summary : bool, optional
+            If True, print a summary of the report. Default: True.
+
+        Returns
+        -------
+        Path
+            Path to the generated report
+
+        Example
+        -------
+        >>> tester = ModelTester(test_sets_path)
+        >>> tester.add_model(model1)
+        >>> tester.generate()
+        >>> tester.evaluate()
+        >>> report_path = tester.report()
+        """
+        # Determine results base path
+        results_base_path = self.json_dir.parent.joinpath("results")
+
+        curator = ResultsCurator(results_base_path)
+        if output_path is None:
+            output_path = results_base_path.joinpath("report.json")
+
+        report_path = curator.save_report(output_path)
+
+        if print_summary:
+            import json
+
+            with open(report_path) as f:
+                report = json.load(f)
+
+            metadata = report.get("metadata", {})
+            print(f"\nReport generated: {report_path}")
+            print(f"Total models: {metadata.get('total_models', 0)}")
+            print(f"Total result files: {metadata.get('total_result_files', 0)}")
+
+            best = report.get("comparisons", {}).get("best_models", {})
+            if best.get("overall_quality", {}).get("model"):
+                print(f"Best overall: {best['overall_quality']['model']}")
+            print()
+
+        return report_path
+
+    def full_run(self, recompute_existing=False):
+        """
+        Execute the complete benchmarking workflow: generate, evaluate, and report.
+
+        This is a convenience method that runs all three steps in sequence.
+
+        Parameters
+        ----------
+        recompute_existing : bool, optional
+            If True, recompute all responses and scores even if they exist. Default: False.
+
+        Returns
+        -------
+        Path
+            Path to the generated report
+
+        Example
+        -------
+        >>> tester = ModelTester(test_sets_path)
+        >>> tester.add_model(model1)
+        >>> tester.add_model(model2)
+        >>> report_path = tester.full_run()
+        """
+        print("\n" + "=" * 60)
+        print("FULL BENCHMARKING RUN")
+        print("=" * 60)
+
+        print("\nStep 1/3: Generating responses...")
+        self.generate(recompute_existing=recompute_existing)
+
+        print("\nStep 2/3: Evaluating responses...")
+        self.evaluate(recompute_existing=recompute_existing)
+
+        print("\nStep 3/3: Generating report...")
+        report_path = self.report()
+
+        print("=" * 60)
+        print("BENCHMARKING COMPLETE")
+        print("=" * 60)
+        print(f"Report: {report_path}\n")
+
+        return report_path
