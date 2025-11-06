@@ -97,8 +97,9 @@ class PenelopeAgent:
         Initialize Penelope agent.
 
         Args:
-            model: Language model from rhesis.sdk.models or model string (e.g. "vertex_ai/gemini-2.0-flash").
-                If None, uses default model configured via PenelopeConfig (default: Vertex AI / gemini-2.0-flash)
+            model: Language model from rhesis.sdk.models or model string
+                (e.g. "vertex_ai/gemini-2.0-flash"). If None, uses default model
+                configured via PenelopeConfig (default: Vertex AI / gemini-2.0-flash)
             tools: Optional list of custom tools (default tools used if None)
             max_iterations: Maximum number of turns before stopping. If None, uses default
                 from PenelopeConfig (default: 10)
