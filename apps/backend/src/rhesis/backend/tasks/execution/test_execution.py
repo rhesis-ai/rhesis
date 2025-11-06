@@ -22,7 +22,14 @@ from rhesis.backend.tasks.execution.executors import create_executor
 # here for any code that imports them from test_execution
 from rhesis.backend.tasks.execution.executors.shared import (
     get_test_and_prompt,
+    get_test_metrics,
+    prepare_metric_configs,
 )
+
+# Additional backward compatibility imports for functions moved during refactoring
+from rhesis.backend.app.dependencies import get_endpoint_service
+from rhesis.backend.tasks.execution.response_extractor import extract_response_with_fallback
+from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
 # ============================================================================
 # MAIN EXECUTION FUNCTION (Strategy Pattern Entry Point)
