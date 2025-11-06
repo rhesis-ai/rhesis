@@ -79,17 +79,23 @@ export default function TestDetailMetricsTab({
     // Handle direct metrics (multi-turn tests) - metrics not associated with behaviors
     if (allMetrics.length === 0 && Object.keys(testMetrics).length > 0) {
       // If no behavior-based metrics found but test has metrics, treat them as direct metrics
-      Object.entries(testMetrics).forEach(([metricName, metricResult]: [string, any]) => {
-        if (metricResult && typeof metricResult === 'object' && 'is_successful' in metricResult) {
-          allMetrics.push({
-            name: metricName,
-            description: metricResult.description || undefined,
-            passed: metricResult.is_successful,
-            fullMetricData: metricResult,
-            behaviorName: 'Multi-Turn Test', // Default behavior name for multi-turn tests
-          });
+      Object.entries(testMetrics).forEach(
+        ([metricName, metricResult]: [string, any]) => {
+          if (
+            metricResult &&
+            typeof metricResult === 'object' &&
+            'is_successful' in metricResult
+          ) {
+            allMetrics.push({
+              name: metricName,
+              description: metricResult.description || undefined,
+              passed: metricResult.is_successful,
+              fullMetricData: metricResult,
+              behaviorName: 'Multi-Turn Test', // Default behavior name for multi-turn tests
+            });
+          }
         }
-      });
+      );
     }
 
     return allMetrics;
@@ -119,7 +125,7 @@ export default function TestDetailMetricsTab({
 
     // Group metrics by behavior name (works for both behavior-based and direct metrics)
     const behaviorNames = [...new Set(metricsData.map(m => m.behaviorName))];
-    
+
     behaviorNames.forEach(behaviorName => {
       const behaviorMetrics = metricsData.filter(
         m => m.behaviorName === behaviorName
