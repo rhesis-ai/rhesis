@@ -389,9 +389,11 @@ export default function SelectedMetricsTab({
                     zIndex: 1,
                   }}
                 >
-                  {/* Only show detail button for rhesis metrics */}
-                  {metric.backend_type?.type_value?.toLowerCase() ===
-                    'rhesis' && (
+                  {/* Only show detail button for rhesis and custom metrics */}
+                  {(metric.backend_type?.type_value?.toLowerCase() ===
+                    'rhesis' ||
+                    metric.backend_type?.type_value?.toLowerCase() ===
+                      'custom') && (
                     <IconButton
                       size="small"
                       onClick={() => handleMetricDetail(metric.id)}
