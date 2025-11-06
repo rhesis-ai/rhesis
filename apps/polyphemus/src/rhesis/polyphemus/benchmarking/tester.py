@@ -14,22 +14,29 @@ class ModelTester:
     summarizing outcomes. Designed for extensibility and future benchmarking needs.
     """
 
-    def __init__(self, json_dir: Path):
+    def __init__(self, base_dir: Path):
         """
         Initialize the ModelTester.
 
         Parameters
         ----------
-        json_dir : Path
-            Directory containing test set JSON files.
+        base_dir : Path
+            Base directory for benchmarking (e.g., results/polyphemus/benchmarking/).
+            Should contain a 'test_sets' subdirectory with test JSON files.
         """
-        if not json_dir.exists() or not json_dir.is_dir():
-            raise ValueError(f"Invalid test sets directory: {json_dir}")
+        base_dir = Path(base_dir)
+        if not base_dir.exists() or not base_dir.is_dir():
+            raise ValueError(f"Invalid base directory: {base_dir}")
 
-        self.json_dir = json_dir
+        self.base_dir = base_dir
+        self.test_sets_dir = base_dir / "test_sets"
+
+        if not self.test_sets_dir.exists() or not self.test_sets_dir.is_dir():
+            raise ValueError(f"Test sets directory not found: {self.test_sets_dir}")
+
         self.models: List[BaseLLM] = []  # Models to be tested
         self.test_sets: List[TestSetEvaluator] = []  # Test sets to use
-        for json_file in json_dir.glob("*.json"):
+        for json_file in self.test_sets_dir.glob("*.json"):
             test_set = TestSetEvaluator(json_file)
             self.test_sets.append(test_set)
         self.test_results: List[TestResult] = []  # Collected test results
@@ -378,14 +385,14 @@ class ModelTester:
 
         Example
         -------
-        >>> tester = ModelTester(test_sets_path)
+        >>> tester = ModelTester(Path("results/polyphemus/benchmarking"))
         >>> tester.add_model(model1)
         >>> tester.generate()
         >>> tester.evaluate()
         >>> report_path = tester.report()
         """
         # Determine results base path
-        results_base_path = self.json_dir.parent.joinpath("results")
+        results_base_path = self.base_dir.joinpath("results")
 
         curator = ResultsCurator(results_base_path)
         if output_path is None:
@@ -429,7 +436,7 @@ class ModelTester:
 
         Example
         -------
-        >>> tester = ModelTester(test_sets_path)
+        >>> tester = ModelTester(Path("results/polyphemus/benchmarking"))
         >>> tester.add_model(model1)
         >>> tester.add_model(model2)
         >>> report_path = tester.full_run()
