@@ -3,6 +3,9 @@
 from .categorical_judge import (
     CategoricalJudge,
 )
+from .conversational_judges import (
+    GoalAchievementJudge,
+)
 from .factory import RhesisMetricFactory
 from .numeric_judge import (
     NumericJudge,
@@ -14,4 +17,5 @@ __all__ = [
     "NumericJudge",
     "NumericScoreResponse",
     "CategoricalJudge",
+    "GoalAchievementJudge",
 ]

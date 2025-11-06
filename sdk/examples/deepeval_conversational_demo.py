@@ -23,7 +23,7 @@ def main():
     metric = DeepEvalTurnRelevancy(
         threshold=0.7,
         window_size=10,
-        model=VertexAILLM(model_name="gemini-2.0-flash-exp"),
+        model=VertexAILLM(model_name="gemini-2.0-flash"),
     )
 
     print(f"Metric: {metric.name}")
@@ -36,23 +36,25 @@ def main():
     print("2. Evaluating a Relevant Conversation:")
     print("-" * 60)
 
-    relevant_conversation = ConversationHistory.from_messages([
-        {"role": "user", "content": "What types of insurance do you offer?"},
-        {
-            "role": "assistant",
-            "content": "We offer three main types: auto, home, and life insurance.",
-        },
-        {"role": "user", "content": "Tell me more about auto insurance."},
-        {
-            "role": "assistant",
-            "content": "Auto insurance covers your vehicle with liability and collision coverage. It protects you financially in case of accidents.",
-        },
-        {"role": "user", "content": "What does liability coverage include?"},
-        {
-            "role": "assistant",
-            "content": "Liability coverage pays for damage you cause to others, including bodily injury and property damage. It's typically required by law.",
-        },
-    ])
+    relevant_conversation = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "What types of insurance do you offer?"},
+            {
+                "role": "assistant",
+                "content": "We offer three main types: auto, home, and life insurance.",
+            },
+            {"role": "user", "content": "Tell me more about auto insurance."},
+            {
+                "role": "assistant",
+                "content": "Auto insurance covers your vehicle with liability and collision coverage. It protects you financially in case of accidents.",
+            },
+            {"role": "user", "content": "What does liability coverage include?"},
+            {
+                "role": "assistant",
+                "content": "Liability coverage pays for damage you cause to others, including bodily injury and property damage. It's typically required by law.",
+            },
+        ]
+    )
 
     print(f"Conversation: {len(relevant_conversation)} messages")
     print()
@@ -69,10 +71,12 @@ def main():
     print("-" * 60)
 
     # Show how standard format gets converted
-    test_conv = ConversationHistory.from_messages([
-        {"role": "user", "content": "Hello"},
-        {"role": "assistant", "content": "Hi!", "tool_calls": [{"id": "1"}]},
-    ])
+    test_conv = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi!", "tool_calls": [{"id": "1"}]},
+        ]
+    )
 
     deepeval_format = metric._to_deepeval_format(test_conv)
     print(f"Original: {len(test_conv)} messages (with tool_calls)")
@@ -123,4 +127,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
