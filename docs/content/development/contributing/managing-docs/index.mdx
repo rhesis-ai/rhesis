@@ -3,8 +3,8 @@
 This guide explains how to manage and maintain the Rhesis documentation site built with Nextra.
 
 <Callout type="default">
-  **Documentation Management** Learn how to run the documentation site, add new pages, configure
-  search, and maintain the documentation effectively.
+  **Documentation Management** Learn how to run the documentation site, add new
+  pages, configure search, and maintain the documentation effectively.
 </Callout>
 
 ## Quick Start
@@ -100,8 +100,9 @@ npm install
 ```
 
 <Callout type="default">
-  **Documentation URLs** - **Development**: http://localhost:3001 - **Production**: After build,
-  served on configured domain - **Search**: Available after build (Pagefind indexing)
+  **Documentation URLs** - **Development**: http://localhost:3001 -
+  **Production**: After build, served on configured domain - **Search**:
+  Available after build (Pagefind indexing)
 </Callout>
 
 ## Project Structure
@@ -145,7 +146,8 @@ touch apps/documentation/app/docs/backend/api.mdx
 Welcome to the Rhesis API reference documentation.
 
 <Callout type="default">
-  **API Overview** This page provides comprehensive documentation for all Rhesis API endpoints.
+  **API Overview** This page provides comprehensive documentation for all Rhesis
+  API endpoints.
 </Callout>
 
 ## Authentication
@@ -288,13 +290,13 @@ def create_user(user_data: UserCreate, db: Session) -> User:
 
 ```typescript
 const createUser = async (userData: UserCreate): Promise<User> => {
-  const response = await fetch('/api/users', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const response = await fetch("/api/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(userData),
-  })
-  return response.json()
-}
+  });
+  return response.json();
+};
 ```
 
 ````
@@ -341,17 +343,16 @@ export default {
 Customize MDX rendering in `mdx-components.js`:
 
 ```javascript
-import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs'
-import { Callout } from 'nextra/components'
+import { useMDXComponents as getThemeComponents } from "nextra-theme-docs";
 
-const themeComponents = getThemeComponents()
+const themeComponents = getThemeComponents();
 
 export function useMDXComponents(components) {
   return {
     ...themeComponents,
     ...components,
     Callout,
-  }
+  };
 }
 ```
 
@@ -362,8 +363,9 @@ export function useMDXComponents(components) {
 Nextra 4 uses Pagefind for full-text search:
 
 <Callout type="default">
-  **Search Note** Search is only available after building the documentation. During development,
-  you'll see a message indicating that search requires a build.
+  **Search Note** Search is only available after building the documentation.
+  During development, you'll see a message indicating that search requires a
+  build.
 </Callout>
 
 ### Building for Search
@@ -424,7 +426,7 @@ name: Deploy Documentation
 on:
   push:
     branches: [main]
-    paths: ['apps/documentation/**']
+    paths: ["apps/documentation/**"]
 
 jobs:
   deploy:
@@ -433,7 +435,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
       - run: cd apps/documentation && npm install
       - run: cd apps/documentation && npm run build
       - name: Deploy to hosting platform
@@ -496,7 +498,7 @@ def example():
 
 # Use images with alt text
 
-![Rhesis Logo](/logo/rhesis-Logo-rgb-main-logo.png 'Rhesis Logo')
+![Rhesis Logo](/logo/rhesis-Logo-rgb-main-logo.png "Rhesis Logo")
 
 ````
 
@@ -561,8 +563,9 @@ npm run dev
 ### Regular Tasks
 
 <Callout type="default">
-  **Maintenance Checklist** - Update dependencies regularly - Review and update outdated content -
-  Check for broken links - Optimize images and assets - Monitor search functionality
+  **Maintenance Checklist** - Update dependencies regularly - Review and update
+  outdated content - Check for broken links - Optimize images and assets -
+  Monitor search functionality
 </Callout>
 
 ### Content Updates
@@ -597,6 +600,7 @@ git push origin docs/update-api-reference
 
 <Callout type="default">
   **Need Help?** If you need assistance with documentation: - Check the [Nextra
-  documentation](https://nextra.site/docs) - Review existing pages for examples - Ask questions in
-  [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions)
+  documentation](https://nextra.site/docs) - Review existing pages for examples
+  - Ask questions in [GitHub
+  Discussions](https://github.com/rhesis-ai/rhesis/discussions)
 </Callout>

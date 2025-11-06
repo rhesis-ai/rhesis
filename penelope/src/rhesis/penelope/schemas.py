@@ -98,6 +98,13 @@ class CriterionEvaluation(BaseModel):
     criterion: str = Field(description="The specific criterion being evaluated")
     met: bool = Field(description="Whether this criterion was met")
     evidence: str = Field(description="Specific evidence from the conversation for this criterion")
+    relevant_turns: List[int] = Field(
+        default_factory=list,
+        description=(
+            "List of turn numbers (1-indexed) that are relevant to this criterion. "
+            "Include all turns where evidence for or against this criterion was observed."
+        ),
+    )
 
 
 class SimpleGoalEval(BaseModel):

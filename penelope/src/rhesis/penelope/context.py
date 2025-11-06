@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_serializer
 
-from rhesis.penelope.schemas import AssistantMessage, ToolMessage
+from rhesis.penelope.schemas import AssistantMessage, CriterionEvaluation, ToolMessage
 
 
 class ExecutionStatus(str, Enum):
@@ -91,6 +91,53 @@ class Turn(BaseModel):
             return content
 
 
+class GoalEvaluationResult(BaseModel):
+    """
+    Structured goal evaluation results.
+
+    Preserves the criterion-by-criterion evaluation from the LLM in machine-readable format,
+    enabling programmatic analysis, filtering, and aggregation of test results.
+    """
+
+    turn_count: int = Field(description="Number of turns at evaluation time")
+    criteria_evaluations: List[CriterionEvaluation] = Field(
+        description="Detailed evaluation of each criterion"
+    )
+    all_criteria_met: bool = Field(description="Whether all criteria were met")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence in the evaluation")
+    reasoning: str = Field(description="Summary explanation of the evaluation")
+    evidence: List[str] = Field(
+        default_factory=list, description="Supporting evidence from the conversation"
+    )
+    evaluated_at: datetime = Field(
+        default_factory=datetime.now, description="When the evaluation was performed"
+    )
+
+    @field_serializer("evaluated_at", when_used="json")
+    def serialize_evaluated_at(self, dt: datetime, _info):
+        """Serialize datetime to ISO format string."""
+        return dt.isoformat()
+
+
+class ConversationTurn(BaseModel):
+    """
+    Simplified conversation turn for easy reading and UI display.
+
+    Extracts the key conversation elements from the detailed history
+    with clear role names (penelope/target) for better understanding.
+    """
+
+    turn: int = Field(description="Turn number (1-indexed)")
+    timestamp: str = Field(description="ISO timestamp when the turn occurred")
+    penelope_reasoning: str = Field(description="Penelope's reasoning for this turn")
+    penelope_message: str = Field(description="Message sent by Penelope to the target")
+    target_response: str = Field(description="Response received from the target endpoint")
+    session_id: Optional[str] = Field(
+        default=None, description="Session ID for multi-turn conversations"
+    )
+    success: bool = Field(description="Whether the tool call was successful")
+
+
 class TestResult(BaseModel):
     """Result of a test execution."""
 
@@ -99,6 +146,69 @@ class TestResult(BaseModel):
     turns_used: int = Field(description="Number of turns executed")
     findings: List[str] = Field(default_factory=list, description="Key findings from the test")
     history: List[Turn] = Field(default_factory=list, description="Complete conversation history")
+
+    # Easy-to-read conversation summary (for UI display and quick understanding)
+    conversation_summary: List[ConversationTurn] = Field(
+        default_factory=list,
+        description=(
+            "Simplified conversation flow with clear penelope/target roles. "
+            "Provides easy-to-read turn-by-turn summary for UI display and quick analysis. "
+            "Complements the detailed 'history' field which contains full technical data."
+        ),
+    )
+
+    # Structured evaluation data (machine-readable)
+    goal_evaluation: Optional[GoalEvaluationResult] = Field(
+        default=None,
+        description="Structured goal evaluation with criterion-by-criterion results",
+    )
+
+    # Metrics in standard format (compatible with SDK single-turn metrics)
+    metrics: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict,
+        description=(
+            "Evaluation metrics in standard format. Includes goal achievement metric "
+            "and any additional SDK metrics that were computed. Format matches single-turn "
+            "metrics for consistency across the platform."
+        ),
+    )
+
+    # Test configuration (for reproducibility and analysis)
+    test_configuration: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Complete test configuration including goal, instructions, scenario, "
+            "restrictions, context, max_turns, and other parameters used for this test execution."
+        ),
+    )
+
+    # Model information (for model comparison and analytics)
+    model_info: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Information about the LLM model used: name, provider, version, "
+            "temperature, and other model-specific configuration."
+        ),
+    )
+
+    # Target information (for endpoint analytics)
+    target_info: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Information about the target being tested: endpoint_id, type, URL, "
+            "and other target-specific details."
+        ),
+    )
+
+    # Execution statistics (for performance analysis)
+    execution_stats: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Execution statistics including token usage, costs, timing per turn, "
+            "tool usage statistics, and other performance metrics."
+        ),
+    )
+
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata about the test execution"
     )
@@ -131,6 +241,12 @@ class GoalProgress(BaseModel):
     reasoning: str = Field(description="Explanation of the evaluation")
     findings: List[str] = Field(
         default_factory=list, description="Specific findings supporting this evaluation"
+    )
+
+    # Structured evaluation data (optional, when available from LLM evaluation)
+    structured_evaluation: Optional[GoalEvaluationResult] = Field(
+        default=None,
+        description="Structured criterion-by-criterion evaluation results",
     )
 
 
@@ -168,6 +284,9 @@ class TestState:
     session_id: Optional[str] = None
     findings: List[str] = field(default_factory=list)
     start_time: datetime = field(default_factory=datetime.now)
+
+    # Store the last goal evaluation result (structured)
+    last_evaluation: Optional[GoalEvaluationResult] = None
 
     def add_turn(
         self,
@@ -252,23 +371,361 @@ class TestState:
             messages.append(turn.tool_message)
         return messages
 
-    def to_result(self, status: ExecutionStatus, goal_achieved: bool) -> TestResult:
+    def to_result(
+        self,
+        status: ExecutionStatus,
+        goal_achieved: bool,
+        target: Optional[Any] = None,
+        model: Optional[Any] = None,
+    ) -> TestResult:
         """
         Convert the current state to a TestResult.
 
         Args:
             status: Final status of the test
             goal_achieved: Whether the goal was achieved
+            target: Optional target object for extracting target_info
+            model: Optional model object for extracting model_info
 
         Returns:
-            TestResult object
+            TestResult object with complete execution data including structured evaluation
         """
+        # Generate concise findings summary from final evaluation
+        findings = self._generate_findings_summary(status, goal_achieved)
+
+        # Generate metrics in standard format
+        metrics = self._generate_metrics(goal_achieved)
+
+        # Build test configuration
+        test_configuration = {
+            "goal": self.context.goal,
+            "instructions": self.context.instructions,
+            "scenario": self.context.scenario,
+            "restrictions": self.context.restrictions,
+            "context": self.context.context,
+            "max_turns": self.context.max_turns,
+        }
+
+        # Build model info (if model provided)
+        model_info = None
+        if model:
+            model_info = {
+                "model_name": getattr(model, "model_name", "unknown"),
+                "provider": getattr(model, "provider", "unknown"),
+                "temperature": getattr(model, "temperature", None),
+                "max_tokens": getattr(model, "max_tokens", None),
+            }
+
+        # Build target info (if target provided)
+        target_info = None
+        if target:
+            target_info = {
+                "target_id": getattr(target, "target_id", "unknown"),
+                "target_type": getattr(target, "target_type", "unknown"),
+            }
+            # Add endpoint_id if it's an EndpointTarget
+            if hasattr(target, "endpoint_id"):
+                target_info["endpoint_id"] = target.endpoint_id
+
+        # Build execution statistics
+        execution_stats = self._generate_execution_stats()
+
+        # Generate conversation summary
+        conversation_summary = self._generate_conversation_summary()
+
         return TestResult(
             status=status,
             goal_achieved=goal_achieved,
             turns_used=self.current_turn,
-            findings=self.findings,
+            findings=findings,
             history=self.turns,
+            conversation_summary=conversation_summary,
+            goal_evaluation=self.last_evaluation,
+            metrics=metrics,
+            test_configuration=test_configuration,
+            model_info=model_info,
+            target_info=target_info,
+            execution_stats=execution_stats,
             start_time=self.start_time,
             end_time=datetime.now(),
         )
+
+    def _generate_findings_summary(self, status: ExecutionStatus, goal_achieved: bool) -> List[str]:
+        """
+        Generate concise findings summary from the final evaluation state.
+
+        This avoids duplication with goal_evaluation.criteria_evaluations by
+        providing only a high-level summary. Detailed criterion data is in
+        goal_evaluation.criteria_evaluations.
+
+        Returns:
+            List of high-level summary strings
+        """
+        findings = []
+
+        # If we have structured evaluation, use it for summary
+        if self.last_evaluation:
+            eval_result = self.last_evaluation
+            met_count = sum(1 for c in eval_result.criteria_evaluations if c.met)
+            total_count = len(eval_result.criteria_evaluations)
+
+            # Overall status
+            if eval_result.all_criteria_met:
+                findings.append(f"✓ All criteria met ({met_count}/{total_count})")
+            else:
+                findings.append(f"✗ Partial success: {met_count}/{total_count} criteria met")
+
+            # Completion info
+            findings.append(f"Test completed in {eval_result.turn_count} turn(s)")
+
+            # Confidence level
+            confidence_label = (
+                "High"
+                if eval_result.confidence >= 0.8
+                else "Medium"
+                if eval_result.confidence >= 0.5
+                else "Low"
+            )
+            findings.append(f"Confidence: {eval_result.confidence:.1f} ({confidence_label})")
+
+            # Add failed criteria summary if any
+            failed = [c for c in eval_result.criteria_evaluations if not c.met]
+            if failed:
+                findings.append(f"Failed criteria: {len(failed)}")
+                for criterion in failed:
+                    findings.append(f"  • {criterion.criterion}")
+        else:
+            # Fallback for tests without structured evaluation
+            status_icon = "✓" if goal_achieved else "✗"
+            findings.append(f"{status_icon} Test {status.value}")
+            findings.append(f"Completed in {self.current_turn} turn(s)")
+
+            # Include any findings that were added during execution
+            findings.extend(self.findings)
+
+        return findings
+
+    def _generate_metrics(self, goal_achieved: bool) -> Dict[str, Dict[str, Any]]:
+        """
+        Generate metrics in standard format (compatible with SDK single-turn metrics).
+
+        Converts the goal_evaluation into the platform's standard metrics format.
+        Future SDK metrics will be added to this dictionary.
+
+        Args:
+            goal_achieved: Whether the goal was achieved
+
+        Returns:
+            Dictionary mapping metric names to their results in standard format
+        """
+        metrics = {}
+
+        # Convert goal evaluation to standard metric format
+        if self.last_evaluation:
+            eval_result = self.last_evaluation
+            met_count = sum(1 for c in eval_result.criteria_evaluations if c.met)
+            total_count = len(eval_result.criteria_evaluations)
+
+            # Build detailed reason including criterion breakdown
+            reason_parts = [eval_result.reasoning]
+            if not eval_result.all_criteria_met:
+                failed = [c for c in eval_result.criteria_evaluations if not c.met]
+                reason_parts.append(f"\nFailed criteria ({len(failed)}/{total_count}):")
+                for criterion in failed:
+                    reason_parts.append(f"  • {criterion.criterion}")
+
+            metrics["Goal Achievement"] = {
+                "name": "Goal Achievement",
+                "score": eval_result.confidence,
+                "reason": "\n".join(reason_parts),
+                "backend": "penelope",
+                "threshold": None,  # No fixed threshold, uses LLM judgment
+                "class_name": "GoalAchievementMetric",
+                "description": (
+                    "Evaluates whether the multi-turn conversation achieved its stated goal "
+                    "through criterion-by-criterion assessment."
+                ),
+                "is_successful": eval_result.all_criteria_met,
+                # Additional Penelope-specific fields
+                "criteria_met": met_count,
+                "criteria_total": total_count,
+                "turn_count": eval_result.turn_count,
+                "evaluated_at": eval_result.evaluated_at.isoformat(),
+            }
+        else:
+            # Fallback if no evaluation available
+            metrics["Goal Achievement"] = {
+                "name": "Goal Achievement",
+                "score": 0.5,
+                "reason": "No detailed evaluation available",
+                "backend": "penelope",
+                "threshold": None,
+                "class_name": "GoalAchievementMetric",
+                "description": "Goal achievement evaluation was not performed",
+                "is_successful": goal_achieved,
+                "turn_count": self.current_turn,
+            }
+
+        # Placeholder for future SDK metrics
+        # When SDK metrics are computed, they will be added here:
+        # metrics["Context Retention"] = {...}
+        # metrics["Conversation Coherence"] = {...}
+        # metrics["Safety"] = {...}
+
+        return metrics
+
+    def _generate_execution_stats(self) -> Dict[str, Any]:
+        """
+        Generate execution statistics from turn history.
+
+        Calculates performance metrics including:
+        - Per-turn timing (duration of each turn)
+        - Total token usage (if available from LLM responses)
+        - Tool usage statistics
+        - Success rates
+
+        Returns:
+            Dictionary with execution statistics
+        """
+        stats = {}
+
+        # Per-turn timing
+        turn_timings = []
+        for i, turn in enumerate(self.turns):
+            # Calculate turn duration if we have subsequent turn
+            if i + 1 < len(self.turns):
+                duration = (self.turns[i + 1].timestamp - turn.timestamp).total_seconds()
+                turn_timings.append(
+                    {
+                        "turn_number": turn.turn_number,
+                        "duration_seconds": round(duration, 3),
+                        "timestamp": turn.timestamp.isoformat(),
+                    }
+                )
+
+        # For the last turn, calculate from turn timestamp to end
+        if self.turns:
+            last_turn = self.turns[-1]
+            if self.start_time:
+                # Use current time as approximate end for last turn
+                from datetime import datetime
+
+                duration = (datetime.now() - last_turn.timestamp).total_seconds()
+                turn_timings.append(
+                    {
+                        "turn_number": last_turn.turn_number,
+                        "duration_seconds": round(duration, 3),
+                        "timestamp": last_turn.timestamp.isoformat(),
+                    }
+                )
+
+        stats["turn_timings"] = turn_timings
+
+        # Tool usage statistics
+        tool_calls = {}
+        for turn in self.turns:
+            tool_name = turn.tool_name
+            if tool_name:
+                if tool_name not in tool_calls:
+                    tool_calls[tool_name] = {
+                        "total_calls": 0,
+                        "successful_calls": 0,
+                        "failed_calls": 0,
+                    }
+
+                tool_calls[tool_name]["total_calls"] += 1
+
+                # Check if tool call was successful
+                if isinstance(turn.tool_result, dict):
+                    if turn.tool_result.get("success", False):
+                        tool_calls[tool_name]["successful_calls"] += 1
+                    else:
+                        tool_calls[tool_name]["failed_calls"] += 1
+
+        stats["tool_usage"] = tool_calls
+
+        # Overall statistics
+        stats["total_turns"] = len(self.turns)
+        stats["successful_interactions"] = sum(
+            1
+            for t in self.turns
+            if isinstance(t.tool_result, dict) and t.tool_result.get("success", False)
+        )
+
+        # Token usage (placeholder for when LLM responses include token counts)
+        # This will be populated when we add token tracking to LLM responses
+        stats["token_usage"] = {
+            "note": (
+                "Token usage tracking to be implemented when LLM responses include token metadata"
+            )
+        }
+
+        # Cost estimation (placeholder)
+        stats["estimated_cost"] = {
+            "note": ("Cost estimation to be implemented based on token usage and model pricing")
+        }
+
+        return stats
+
+    def _generate_conversation_summary(self) -> List[ConversationTurn]:
+        """
+        Generate a simplified conversation summary from the detailed history.
+
+        Extracts key conversation elements with clear penelope/target roles
+        for easy reading and UI display.
+
+        Returns:
+            List of ConversationTurn objects with simplified conversation flow
+        """
+        summary = []
+
+        for turn in self.turns:
+            # Extract Penelope's message from the tool call arguments
+            penelope_message = ""
+            session_id = None
+
+            if turn.assistant_message.tool_calls:
+                tool_call = turn.assistant_message.tool_calls[0]
+                if tool_call.function.name == "send_message_to_target":
+                    try:
+                        args = json.loads(tool_call.function.arguments)
+                        penelope_message = args.get("message", "")
+                        session_id = args.get("session_id")
+                    except (json.JSONDecodeError, KeyError):
+                        penelope_message = "Unable to parse message"
+
+            # Extract target response from tool message
+            target_response = ""
+            success = False
+
+            try:
+                tool_content = json.loads(turn.tool_message.content)
+                success = tool_content.get("success", False)
+
+                if success and "output" in tool_content:
+                    output = tool_content["output"]
+                    if isinstance(output, dict):
+                        target_response = output.get("response", "")
+                    else:
+                        target_response = str(output)
+                else:
+                    error = tool_content.get("error", "Unknown error")
+                    target_response = f"Error: {error}"
+
+            except (json.JSONDecodeError, KeyError, AttributeError):
+                target_response = "Unable to parse response"
+
+            # Create conversation turn
+            conversation_turn = ConversationTurn(
+                turn=turn.turn_number,
+                timestamp=turn.timestamp.isoformat(),
+                penelope_reasoning=turn.reasoning,
+                penelope_message=penelope_message,
+                target_response=target_response,
+                session_id=session_id,
+                success=success,
+            )
+
+            summary.append(conversation_turn)
+
+        return summary

@@ -1,20 +1,20 @@
 """Tests for Penelope context and state management."""
 
-import pytest
 from datetime import datetime
+
 from rhesis.penelope.context import (
     ExecutionStatus,
+    GoalProgress,
     TestContext,
+    TestResult,
     TestState,
     Turn,
-    TestResult,
-    GoalProgress,
 )
 from rhesis.penelope.schemas import (
     AssistantMessage,
-    ToolMessage,
-    MessageToolCall,
     FunctionCall,
+    MessageToolCall,
+    ToolMessage,
 )
 
 
@@ -73,9 +73,7 @@ def test_test_state_add_turn(sample_test_state):
             MessageToolCall(
                 id="call_1",
                 type="function",
-                function=FunctionCall(
-                    name="test_tool", arguments='{"param": "value"}'
-                ),
+                function=FunctionCall(name="test_tool", arguments='{"param": "value"}'),
             )
         ],
     )
@@ -125,9 +123,7 @@ def test_test_state_get_conversation_messages(sample_test_state):
         ],
     )
 
-    tool_msg = ToolMessage(
-        tool_call_id="call_1", name="test_tool", content='{"success": true}'
-    )
+    tool_msg = ToolMessage(tool_call_id="call_1", name="test_tool", content='{"success": true}')
 
     sample_test_state.add_turn(
         reasoning="Test reasoning",
@@ -152,8 +148,11 @@ def test_test_state_to_result(sample_test_state):
     assert result.status == ExecutionStatus.SUCCESS
     assert result.goal_achieved is True
     assert result.turns_used == 0
-    assert len(result.findings) == 1
+    # Findings now include summary information (status + turn count) plus findings
+    assert len(result.findings) == 3
     assert "Finding 1" in result.findings
+    assert any("Test success" in f for f in result.findings)
+    assert any("Completed in 0 turn" in f for f in result.findings)
 
 
 def test_turn_properties():
@@ -164,9 +163,7 @@ def test_turn_properties():
             MessageToolCall(
                 id="call_1",
                 type="function",
-                function=FunctionCall(
-                    name="test_tool", arguments='{"param": "value"}'
-                ),
+                function=FunctionCall(name="test_tool", arguments='{"param": "value"}'),
             )
         ],
     )
@@ -197,9 +194,7 @@ def test_turn_properties_with_no_tool_calls():
     """Test Turn properties when no tool_calls are present."""
     assistant_msg = AssistantMessage(content="Test reasoning", tool_calls=None)
 
-    tool_msg = ToolMessage(
-        tool_call_id="call_1", name="test_tool", content='{"success": true}'
-    )
+    tool_msg = ToolMessage(tool_call_id="call_1", name="test_tool", content='{"success": true}')
 
     turn = Turn(
         turn_number=1,
@@ -338,4 +333,3 @@ def test_test_context_full_initialization():
     assert context.context == {"key": "value"}
     assert context.max_turns == 15
     assert context.timeout_seconds == 300.0
-

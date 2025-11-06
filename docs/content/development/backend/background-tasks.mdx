@@ -14,30 +14,35 @@ from celery import Celery
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
+
 load_dotenv()
 
 # Create the Celery app
+
 app = Celery("rhesis")
 
 # Configure Celery
+
 app.conf.update(
-    broker_url=os.getenv("BROKER_URL"),
-    result_backend=os.getenv("CELERY_RESULT_BACKEND"),
-    task_serializer="json",
-    result_serializer="json",
-    accept_content=["json"],
-    timezone="UTC",
-    enable_utc=True,
+broker_url=os.getenv("BROKER_URL"),
+result_backend=os.getenv("CELERY_RESULT_BACKEND"),
+task_serializer="json",
+result_serializer="json",
+accept_content=["json"],
+timezone="UTC",
+enable_utc=True,
 )
 
 # Auto-discover tasks without loading config files
+
 app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)`}
+
 </CodeBlock>
 
 The application uses PostgreSQL as both the broker and result backend:
 
 <CodeBlock filename=".env" language="bash">
-{`BROKER_URL=sqla+postgresql://celery-user:password@/celery?host=/cloudsql/project-id:region:instance
+  {`BROKER_URL=sqla+postgresql://celery-user:password@/celery?host=/cloudsql/project-id:region:instance
 CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@/celery?host=/cloudsql/project-id:region:instance`}
 </CodeBlock>
 
@@ -118,6 +123,7 @@ class BaseTask(Task):
 ```
 
 This enhanced `BaseTask` ensures that:
+
 - Tasks have access to organization_id and user_id for proper multi-tenant operations
 - Context is automatically propagated through the task execution
 - Error handling and retry logic are standardized
@@ -318,7 +324,7 @@ ENV CELERY_WORKER_CONCURRENCY=8 \
 The worker startup script applies these configurations:
 
 <CodeBlock filename="start-worker.sh" language="bash">
-{`# Start Celery worker with configuration from environment variables
+  {`# Start Celery worker with configuration from environment variables
 celery -A rhesis.backend.worker.app worker \
     --loglevel=\${CELERY_WORKER_LOGLEVEL:-INFO} \
     --concurrency=\${CELERY_WORKER_CONCURRENCY:-8} \

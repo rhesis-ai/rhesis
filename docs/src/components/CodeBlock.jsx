@@ -40,6 +40,18 @@ export const CodeBlock = ({
   language = 'text',
   isTerminal = false,
 }) => {
+  // Format JSON automatically
+  const formatJSON = code => {
+    try {
+      // Try to parse and re-format the JSON
+      const parsed = JSON.parse(code)
+      return JSON.stringify(parsed, null, 2)
+    } catch (e) {
+      // If parsing fails, return original (might already be formatted or invalid)
+      return code
+    }
+  }
+
   // Apply syntax highlighting based on language
   const applySyntaxHighlighting = code => {
     if (isTerminal) {
@@ -193,10 +205,53 @@ export const CodeBlock = ({
           )
         })
         .join('')
+    } else if (language === 'json') {
+      // JSON syntax highlighting
+      // Apply highlighting in order: strings, numbers, keywords (true/false/null)
+
+      // 1. Strings first (including keys and values)
+      highlightedCode = highlightedCode.replace(
+        /"([^"\\]|\\.)*"/g,
+        '<span class="code-string">$&</span>'
+      )
+
+      // 2. Numbers - avoid inside strings
+      let parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      highlightedCode = parts
+        .map(part => {
+          if (part.startsWith('<span')) {
+            return part
+          }
+          return part.replace(
+            /\b-?\d+\.?\d*([eE][+-]?\d+)?\b/g,
+            '<span class="code-number">$&</span>'
+          )
+        })
+        .join('')
+
+      // 3. Keywords (true, false, null) - avoid inside strings and numbers
+      parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      highlightedCode = parts
+        .map(part => {
+          if (part.startsWith('<span')) {
+            return part
+          }
+          return part.replace(/\b(true|false|null)\b/g, '<span class="code-keyword">$1</span>')
+        })
+        .join('')
     }
 
     return highlightedCode
   }
+
+  let code = typeof children === 'string' ? children : String(children)
+
+  // Auto-format JSON if language is json
+  if (language === 'json') {
+    code = formatJSON(code)
+  }
+
+  const highlightedCode = applySyntaxHighlighting(code)
 
   const styles = {
     container: {

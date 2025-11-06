@@ -1,4 +1,4 @@
-import { CodeBlock } from '@/components/CodeBlock'
+import { CodeBlock } from "@/components/CodeBlock";
 
 # Extending Penelope
 
@@ -9,7 +9,7 @@ Understand Penelope's architecture and learn how to extend it with custom tools 
 Penelope follows a clean, modular architecture designed for extensibility and reliability.
 
 <CodeBlock filename="Architecture" isTerminal={true}>
-{`┌─────────────────────────────────────────┐
+  {`┌─────────────────────────────────────────┐
 │         PenelopeAgent 🦸‍♀️                │
 │  Orchestrates multi-turn testing        │
 └─────────────────────────────────────────┘
@@ -43,15 +43,17 @@ Main orchestrator coordinating test execution:
 {`agent = PenelopeAgent(model=model, max_iterations=10)
 
 result = agent.execute_test(
-    target=target,
-    goal="Test goal",
-    instructions="Optional instructions"
+target=target,
+goal="Test goal",
+instructions="Optional instructions"
 )
 
 # Result contains full execution history
-print(result.status)        # success, failure, error, timeout
-print(result.goal_achieved)  # True/False
-print(result.history)       # Full conversation`}
+
+print(result.status) # success, failure, error, timeout
+print(result.goal_achieved) # True/False
+print(result.history) # Full conversation`}
+
 </CodeBlock>
 
 ### TurnExecutor
@@ -70,11 +72,15 @@ Abstraction for systems under test:
 {`from rhesis.penelope import EndpointTarget
 
 # Rhesis endpoints
+
 target = EndpointTarget(endpoint_id="your-endpoint-id")
 
 # Future: LangChain, CrewAI, custom targets
+
 # target = LangChainTarget(chain=my_chain)
+
 # target = CrewAITarget(agent=my_agent)`}
+
 </CodeBlock>
 
 ### Built-in Tools
@@ -97,7 +103,7 @@ Penelope includes three core tools:
 3. **Completion** - Returns TestResult with full history
 
 <CodeBlock filename="execution_detail.py" language="python">
-{`# Each turn produces structured output
+  {`# Each turn produces structured output
 for turn in result.history:
     print(f"Turn {turn.turn_number}")
     print(f"Reasoning: {turn.reasoning}")
@@ -119,12 +125,14 @@ Tests stop when any condition is met:
 result = agent.execute_test(target=target, goal="...")
 
 # Check why it stopped
+
 if result.status == "success" and result.goal_achieved:
-    print("Goal achieved!")
+print("Goal achieved!")
 elif result.status == "failure":
-    print("Max iterations reached")
+print("Max iterations reached")
 elif result.status == "timeout":
-    print("Time limit exceeded")`}
+print("Time limit exceeded")`}
+
 </CodeBlock>
 
 ## Custom Tools
@@ -140,26 +148,28 @@ All tools implement the `Tool` abstract base class:
 from rhesis.penelope.tools.base import Tool, ToolResult
 
 class Tool(ABC):
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Unique identifier for the tool"""
-        pass
-    
+@property
+@abstractmethod
+def name(self) -> str:
+"""Unique identifier for the tool"""
+pass
+
     @property
     @abstractmethod
     def description(self) -> str:
         """Detailed description with usage guidance"""
         pass
-    
+
     @abstractmethod
     def execute(self, **kwargs) -> ToolResult:
         """Execute the tool with validated parameters"""
         pass`}
+
 </CodeBlock>
 
 <Callout type="info">
-  **Parameter Validation:** Tool parameters are automatically validated via Pydantic schemas. Your `execute` method receives validated inputs.
+  **Parameter Validation:** Tool parameters are automatically validated via
+  Pydantic schemas. Your `execute` method receives validated inputs.
 </Callout>
 
 ### Creating a Custom Tool
@@ -171,13 +181,13 @@ Example: Database verification tool for testing data persistence.
 import sqlite3
 
 class DatabaseVerificationTool(Tool):
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-    
+def **init**(self, db_path: str):
+self.db_path = db_path
+
     @property
     def name(self) -> str:
         return "verify_database_state"
-    
+
     @property
     def description(self) -> str:
         return """Verify backend database state during testing.
@@ -188,24 +198,25 @@ WHEN TO USE:
 ✓ Verify data consistency
 
 PARAMETERS:
+
 - table_name: Database table to query
 - record_id: Specific record ID to verify
 
 EXAMPLE:
 verify_database_state(
-    table_name="users",
-    record_id="user123"
+table_name="users",
+record_id="user123"
 )
 
 Returns record data or error if not found."""
-    
+
     def execute(self, table_name: str = "", record_id: str = "", **kwargs) -> ToolResult:
         if not table_name or not record_id:
             return ToolResult(
                 success=False,
                 output={"error": "table_name and record_id required"}
             )
-        
+
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -215,7 +226,7 @@ Returns record data or error if not found."""
             )
             result = cursor.fetchone()
             conn.close()
-            
+
             if result:
                 return ToolResult(
                     success=True,
@@ -228,6 +239,7 @@ Returns record data or error if not found."""
                 )
         except Exception as e:
             return ToolResult(success=False, output={"error": str(e)})`}
+
 </CodeBlock>
 
 ### Using Custom Tools
@@ -236,24 +248,25 @@ Returns record data or error if not found."""
 {`from rhesis.penelope import PenelopeAgent, EndpointTarget
 
 # Create tool instance
+
 db_tool = DatabaseVerificationTool(db_path="test.db")
 
 # Initialize agent with custom tool
+
 agent = PenelopeAgent(
-    tools=[db_tool],
-    enable_transparency=True
+tools=[db_tool],
+enable_transparency=True
 )
 
 # Execute test - Penelope can now use the database tool
+
 result = agent.execute_test(
-    target=EndpointTarget(endpoint_id="your-endpoint-id"),
-    goal="Verify chatbot correctly saves user preferences to database",
-    instructions="""
-    1. Ask chatbot to save a preference
-    2. Use verify_database_state to check if it was saved
-    3. Verify the saved data matches what was requested
-    """
+target=EndpointTarget(endpoint_id="your-endpoint-id"),
+goal="Verify chatbot correctly saves user preferences to database",
+instructions=""" 1. Ask chatbot to save a preference 2. Use verify_database_state to check if it was saved 3. Verify the saved data matches what was requested
+"""
 )`}
+
 </CodeBlock>
 
 ## Writing Quality Tool Descriptions
@@ -282,21 +295,23 @@ WHEN NOT TO USE:
 ✗ Don't use for authentication checks
 
 PARAMETERS:
+
 - endpoint_url: Full URL to check (string, required)
 - timeout_seconds: Request timeout (int, default: 5)
 
 EXAMPLE:
 check_api_health(
-    endpoint_url="https://api.example.com/health",
-    timeout_seconds=10
+endpoint_url="https://api.example.com/health",
+timeout_seconds=10
 )
 
 Returns: {"status": "ok", "response_time_ms": 145}
 
 IMPORTANT:
+
 - Only checks public endpoints
 - Does not include authentication headers"""`}
-</CodeBlock>
+  </CodeBlock>
 
 ## Multiple Custom Tools
 
@@ -308,22 +323,20 @@ api_tool = APIMonitoringTool(base_url="https://api.example.com")
 security_tool = SecurityScannerTool()
 
 # Agent can use all tools
+
 agent = PenelopeAgent(
-    tools=[db_tool, api_tool, security_tool],
-    enable_transparency=True,
-    max_iterations=20
+tools=[db_tool, api_tool, security_tool],
+enable_transparency=True,
+max_iterations=20
 )
 
 result = agent.execute_test(
-    target=target,
-    goal="Comprehensive system validation",
-    instructions="""
-    1. Verify API is responding (use check_api_health)
-    2. Test chatbot functionality
-    3. Check database state (use verify_database_state)
-    4. Run security scan (use run_security_scan)
-    """
+target=target,
+goal="Comprehensive system validation",
+instructions=""" 1. Verify API is responding (use check_api_health) 2. Test chatbot functionality 3. Check database state (use verify_database_state) 4. Run security scan (use run_security_scan)
+"""
 )`}
+
 </CodeBlock>
 
 ## Best Practices
@@ -337,15 +350,17 @@ result = agent.execute_test(
 "validate_user_permissions"
 
 # Bad: vague, unclear
+
 "db_tool"
 "api"
 "check"`}
+
 </CodeBlock>
 
 ### Handle Errors Gracefully
 
 <CodeBlock filename="error_handling.py" language="python">
-{`def execute(self, **kwargs) -> ToolResult:
+  {`def execute(self, **kwargs) -> ToolResult:
     try:
         result = perform_operation()
         return ToolResult(success=True, output=result)
@@ -376,7 +391,9 @@ return ToolResult(
 )
 
 # Bad: minimal information
+
 return ToolResult(success=True, output="ok")`}
+
 </CodeBlock>
 
 ### Test Your Tools
@@ -386,18 +403,19 @@ return ToolResult(success=True, output="ok")`}
 from my_tools import DatabaseVerificationTool
 
 def test_database_tool_success():
-    tool = DatabaseVerificationTool(db_path="test.db")
-    result = tool.execute(table_name="users", record_id="123")
-    
+tool = DatabaseVerificationTool(db_path="test.db")
+result = tool.execute(table_name="users", record_id="123")
+
     assert result.success is True
     assert result.output["found"] is True
 
 def test_database_tool_missing_params():
-    tool = DatabaseVerificationTool(db_path="test.db")
-    result = tool.execute(table_name="", record_id="")
-    
+tool = DatabaseVerificationTool(db_path="test.db")
+result = tool.execute(table_name="", record_id="")
+
     assert result.success is False
     assert "error" in result.output`}
+
 </CodeBlock>
 
 ## Design Principles
@@ -419,6 +437,6 @@ See complete implementations in the [examples directory](https://github.com/rhes
 ---
 
 <Callout type="default">
-  **Next:** Check out [Examples](/penelope/examples) to see custom tools in action, or learn about [Configuration](/penelope/configuration) options.
+  **Next:** Check out [Examples](/penelope/examples) to see custom tools in
+  action, or learn about [Configuration](/penelope/configuration) options.
 </Callout>
-

@@ -16,7 +16,7 @@ The Rhesis backend is built with FastAPI, a modern Python web framework designed
 ## Directory Structure
 
 <CodeBlock filename="backend-directory-structure.txt" language="text">
-{`apps/backend/
+  {`apps/backend/
 ├── src/
 │   └── rhesis/
 │       └── backend/
@@ -44,6 +44,7 @@ The Rhesis backend is built with FastAPI, a modern Python web framework designed
 ### 1. Model-View-Controller (MVC)
 
 The backend follows an MVC-like pattern:
+
 - **Models**: SQLAlchemy models in `app/models/`
 - **Views**: FastAPI route handlers in `app/routers/`
 - **Controllers**: Business logic in `app/services/` and CRUD operations in `app/crud.py`
@@ -55,6 +56,7 @@ The CRUD operations are abstracted into a repository layer, allowing for clean s
 ### 3. Dependency Injection
 
 FastAPI's dependency injection system is used extensively for:
+
 - Database session management
 - Authentication and authorization
 - Feature toggles and configuration
@@ -64,6 +66,7 @@ FastAPI's dependency injection system is used extensively for:
 ### FastAPI Application
 
 The main application is defined in `app/main.py`, which:
+
 - Creates the FastAPI application
 - Configures middleware (CORS, authentication)
 - Registers all routers
@@ -72,6 +75,7 @@ The main application is defined in `app/main.py`, which:
 ### Database Layer
 
 The database layer consists of:
+
 - Connection management in `app/database.py`
 - SQLAlchemy models in `app/models/`
 - Pydantic schemas for request/response validation in `app/schemas/`

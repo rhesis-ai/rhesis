@@ -121,6 +121,7 @@ You can customize the email subject using template variables:
 ### Task Types
 
 #### 1. **Tasks with Email Notifications** - Using Decorator
+
 Use the decorator for tasks that users directly submit and want to be notified about:
 
 ```python
@@ -141,6 +142,7 @@ def user_facing_task(self, params, db=None):
 ```
 
 #### 2. **Silent Tasks** - No Decorator
+
 Tasks without the decorator will not send email notifications:
 
 ```python
@@ -156,6 +158,7 @@ def background_task(self, params, db=None):
 ```
 
 #### 3. **Legacy EmailEnabledTask** - Still Supported
+
 The old `EmailEnabledTask` is still supported for backward compatibility:
 
 ```python
@@ -317,6 +320,7 @@ When users submit tasks through the API (e.g., test configurations), they automa
 ### Email Examples
 
 #### Success Email
+
 ```
 Subject: Task Completed: Execute Test Configuration - Success
 
@@ -380,12 +384,14 @@ print(f"Email sent: {success}")
 #### No Emails Being Sent
 
 1. **Check SMTP configuration**:
+
    ```bash
    # In worker logs, look for:
    "SMTP configuration incomplete. Email notifications will be disabled."
    ```
 
 2. **Verify environment variables**:
+
    ```bash
    kubectl exec -it deployment/rhesis-worker -- env | grep SMTP
    ```
@@ -419,11 +425,13 @@ print(f"Email sent: {success}")
 Monitor email notifications through:
 
 1. **Worker logs**:
+
    ```bash
    kubectl logs deployment/rhesis-worker | grep "email"
    ```
 
 2. **Success indicators**:
+
    ```
    Task completion email sent successfully to user@example.com for task 12345
    ```
@@ -436,16 +444,19 @@ Monitor email notifications through:
 ## Security Considerations
 
 ### Email Content
+
 - **No sensitive data**: Task results are not included in emails
 - **Secure links**: Frontend URLs use HTTPS
 - **User privacy**: Only the task owner receives notifications
 
 ### SMTP Security
+
 - **TLS encryption**: All SMTP connections use STARTTLS
 - **Credential protection**: SMTP passwords stored as Kubernetes secrets
 - **Network security**: SMTP traffic encrypted in transit
 
 ### Access Control
+
 - **User context**: Emails only sent to the user who submitted the task
 - **Organization isolation**: Multi-tenant architecture prevents cross-organization emails
 
@@ -469,31 +480,31 @@ Ensure your worker deployment includes the SMTP environment variables:
 ```yaml
 # apps/worker/k8s/deployment.yaml
 env:
-- name: SMTP_HOST
-  valueFrom:
-    secretKeyRef:
-      name: rhesis-worker-secrets
-      key: SMTP_HOST
-- name: SMTP_PORT
-  valueFrom:
-    secretKeyRef:
-      name: rhesis-worker-secrets
-      key: SMTP_PORT
-- name: SMTP_USER
-  valueFrom:
-    secretKeyRef:
-      name: rhesis-worker-secrets
-      key: SMTP_USER
-- name: SMTP_PASSWORD
-  valueFrom:
-    secretKeyRef:
-      name: rhesis-worker-secrets
-      key: SMTP_PASSWORD
-- name: FRONTEND_URL
-  valueFrom:
-    secretKeyRef:
-      name: rhesis-worker-secrets
-      key: FRONTEND_URL
+  - name: SMTP_HOST
+    valueFrom:
+      secretKeyRef:
+        name: rhesis-worker-secrets
+        key: SMTP_HOST
+  - name: SMTP_PORT
+    valueFrom:
+      secretKeyRef:
+        name: rhesis-worker-secrets
+        key: SMTP_PORT
+  - name: SMTP_USER
+    valueFrom:
+      secretKeyRef:
+        name: rhesis-worker-secrets
+        key: SMTP_USER
+  - name: SMTP_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: rhesis-worker-secrets
+        key: SMTP_PASSWORD
+  - name: FRONTEND_URL
+    valueFrom:
+      secretKeyRef:
+        name: rhesis-worker-secrets
+        key: FRONTEND_URL
 ```
 
 ### CI/CD Pipeline
