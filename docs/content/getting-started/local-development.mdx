@@ -1,0 +1,280 @@
+---
+title: Local Development Setup
+description: Zero-configuration local development setup for Rhesis
+---
+
+import { Callout } from 'nextra/components'
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Local Development Setup
+
+Get started with Rhesis in under 5 minutes with our zero-configuration local development setup. Perfect for testing, development, and exploring the platform.
+
+<Callout type="warning">
+**Warning: Development Only**
+
+This setup uses hardcoded credentials and bypasses authentication. **Never use this configuration in production environments.**
+
+For production deployments, see the [Self-Hosting Guide](/getting-started/self-hosting).
+</Callout>
+
+## Quick Start
+
+Start Rhesis with a single command:
+
+<CodeBlock filename="terminal" language="bash">
+{`docker-compose -f docker-compose.local.yml up`}
+</CodeBlock>
+
+That's it! The application will:
+- Start all required services (PostgreSQL, Redis, Backend, Worker, Frontend, Docs)
+- Run database migrations automatically
+- Create a default organization ("Local Development")
+- Create a default admin user (`admin@local.dev`)
+- Generate a default API token (`rh-local-dev-token`)
+- Be accessible at `http://localhost:3000`
+
+The first startup may take a few minutes while Docker builds the images and the backend runs migrations. Subsequent startups will be much faster.
+
+## Default Credentials
+
+### Web UI Access
+
+1. Navigate to `http://localhost:3000`
+2. Click the **"Local Development Login"** button (orange button with warning)
+3. You'll be automatically logged in as the admin user
+
+**Default User:**
+- **Email:** `admin@local.dev`
+- **Name:** Local Admin
+- **Role:** Super Admin
+- **Organization:** Local Development
+
+### API Access
+
+Use the default API token for programmatic access:
+
+<CodeBlock filename="terminal" language="bash">
+{`# Using curl
+curl -H "Authorization: Bearer rh-local-dev-token" \\
+  http://localhost:8080/api/test_sets
+
+# Using Python SDK
+from rhesis import RhesisClient
+
+client = RhesisClient(
+    api_key="rh-local-dev-token",
+    base_url="http://localhost:8080"
+)
+
+# Now you can use the client
+test_sets = client.test_sets.list()`}
+</CodeBlock>
+
+**Default API Token:** `rh-local-dev-token`
+
+## What's Included
+
+The local development setup includes:
+
+### Services
+
+- **Frontend** (Port 3000): Next.js web application
+- **Backend** (Port 8080): FastAPI application
+- **Worker** (Port 8081): Celery worker for background tasks
+- **PostgreSQL** (Port 5432): Database
+- **Redis** (Port 6379): Cache and message broker
+- **Docs** (Port 3001): Documentation site
+
+### Default Configuration
+
+All required configuration is pre-set:
+
+- **Database Encryption:** Pre-configured encryption key
+- **Auth0:** Dummy credentials (bypassed in local mode)
+- **JWT:** Pre-configured secret keys
+- **Google OAuth:** Dummy credentials (not functional)
+- **Session Management:** Configured for local development
+
+## Accessing Services
+
+### Web Application
+```
+http://localhost:3000
+```
+
+### API Endpoints
+```
+http://localhost:8080
+```
+
+### API Documentation
+```
+http://localhost:8080/docs
+```
+
+### Documentation Site
+```
+http://localhost:3001
+```
+
+## Testing AI Features
+
+To test AI features (generation, evaluation), you'll need to add your own API keys:
+
+### Option 1: Environment Variables
+
+Stop the services and set your API keys:
+
+<CodeBlock filename="terminal" language="bash">
+{`# Stop services
+docker-compose -f docker-compose.local.yml down
+
+# Set environment variables
+export GEMINI_API_KEY="your-gemini-api-key"
+export GEMINI_MODEL_NAME="gemini-2.0-flash-001"
+export GOOGLE_API_KEY="your-google-api-key"
+
+# Restart services
+docker-compose -f docker-compose.local.yml up`}
+</CodeBlock>
+
+### Option 2: Modify docker-compose.local.yml
+
+Edit the file and uncomment the AI configuration section:
+
+<CodeBlock filename="docker-compose.local.yml" language="yaml">
+{`backend:
+  environment:
+    # Uncomment and add your keys
+    GEMINI_API_KEY: your-gemini-api-key
+    GEMINI_MODEL_NAME: gemini-2.0-flash-001
+    GOOGLE_API_KEY: your-google-api-key`}
+</CodeBlock>
+
+## Stopping Services
+
+<CodeBlock filename="terminal" language="bash">
+{`# Stop services
+docker-compose -f docker-compose.local.yml down
+
+# Stop and remove volumes (deletes all data)
+docker-compose -f docker-compose.local.yml down -v`}
+</CodeBlock>
+
+## Resetting the Environment
+
+To start fresh:
+
+<CodeBlock filename="terminal" language="bash">
+{`# Remove all data and rebuild
+docker-compose -f docker-compose.local.yml down -v
+docker-compose -f docker-compose.local.yml up --build`}
+</CodeBlock>
+
+## Troubleshooting
+
+### Port Already in Use
+
+If you see errors about ports being in use:
+
+<CodeBlock filename="terminal" language="bash">
+{`# Find what's using the port
+lsof -i :3000  # or :8080, :5432, etc.
+
+# Kill the process or change the port in docker-compose.local.yml`}
+</CodeBlock>
+
+### Database Connection Errors
+
+Wait a few seconds for PostgreSQL to fully initialize:
+
+<CodeBlock filename="terminal" language="bash">
+{`# Check PostgreSQL logs
+docker-compose -f docker-compose.local.yml logs postgres
+
+# Restart backend if needed
+docker-compose -f docker-compose.local.yml restart backend`}
+</CodeBlock>
+
+### Local Login Button Not Visible
+
+The local login button only appears when `NEXT_PUBLIC_LOCAL_AUTH_ENABLED=true`. This should be set automatically in `docker-compose.local.yml`. If not visible:
+
+<CodeBlock filename="terminal" language="bash">
+{`# Check frontend environment
+docker-compose -f docker-compose.local.yml exec frontend env | grep LOCAL_AUTH
+
+# Rebuild frontend if needed
+docker-compose -f docker-compose.local.yml up --build frontend`}
+</CodeBlock>
+
+### Cannot Login - User Not Found
+
+If the default user wasn't created:
+
+<CodeBlock filename="terminal" language="bash">
+{`# Check if database was initialized
+docker-compose -f docker-compose.local.yml logs postgres | grep "Local development"
+
+# If not, recreate database volume
+docker-compose -f docker-compose.local.yml down -v
+docker-compose -f docker-compose.local.yml up`}
+</CodeBlock>
+
+## Transitioning to Production
+
+When you're ready to deploy to production:
+
+1. **Never use `docker-compose.local.yml` in production**
+2. Follow the [Self-Hosting Guide](/getting-started/self-hosting) for production setup
+3. Set up proper Auth0 configuration
+4. Generate secure encryption keys
+5. Configure proper secrets management
+6. Set up SSL/TLS certificates
+7. Configure proper backup strategies
+
+<Callout type="info">
+**Key Differences: Local vs Production**
+
+| Feature | Local Development | Production |
+|---------|------------------|------------|
+| Authentication | Bypassed | Auth0 required |
+| Encryption Key | Hardcoded | Securely generated |
+| JWT Secret | Hardcoded | Securely generated |
+| HTTPS | Not required | Required |
+| Database | Local volume | Managed database |
+| Backups | Manual | Automated |
+| Secrets | In compose file | Secret manager |
+</Callout>
+
+## Next Steps
+
+- [Explore the API Documentation](/sdk/overview)
+- [Learn about Test Sets](/platform/test-sets)
+- [Understand Evaluation Metrics](/platform/metrics)
+- [Set up Production Deployment](/getting-started/self-hosting)
+
+## Security Reminders
+
+<Callout type="error">
+**Critical Security Information**
+
+- The local development setup uses **hardcoded secrets**
+- Authentication is **bypassed entirely**
+- The encryption key is **publicly known**
+- All data is stored in **unencrypted Docker volumes**
+- The default API token is **publicly known**
+
+**NEVER:**
+- Use this setup in production
+- Use these credentials in production
+- Expose this setup to the internet
+- Store sensitive data in this environment
+- Share data created in this environment
+</Callout>
+
+---
+
+Need help? Join our [community](https://github.com/rhesis-ai/rhesis/discussions) or [open an issue](https://github.com/rhesis-ai/rhesis/issues).
+
