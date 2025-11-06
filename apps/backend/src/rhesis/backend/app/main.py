@@ -120,10 +120,6 @@ app = FastAPI(
     route_class=AuthenticatedAPIRoute,
 )
 
-# Instrument FastAPI with OpenTelemetry
-# Temporarily disabled to avoid conflict with custom TelemetryMiddleware
-# FastAPIInstrumentor.instrument_app(app)
-
 
 # Global exception handler for soft-deleted items
 @app.exception_handler(ItemDeletedException)
