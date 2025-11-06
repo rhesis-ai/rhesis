@@ -1,12 +1,12 @@
 """Goal Achievement Judge for evaluating conversation goal completion."""
 
-from dataclasses import dataclass, fields
+from dataclasses import fields
 from typing import Any, Dict, Optional, Union
 
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
-from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
+from rhesis.sdk.metrics.constants import ThresholdOperator
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.conversational_judge import (
     ConversationalJudge,
@@ -15,54 +15,6 @@ from rhesis.sdk.metrics.providers.native.conversational_judge import (
 from rhesis.sdk.models import BaseLLM
 
 SCORE_TYPE = ScoreType.NUMERIC
-
-
-@dataclass
-class GoalAchievementJudgeConfig(ConversationalJudgeConfig):
-    """Configuration for Goal Achievement Judge."""
-
-    min_score: Optional[float] = None
-    max_score: Optional[float] = None
-    threshold: Optional[float] = None
-    threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL
-
-    def __post_init__(self):
-        # Convert string to enum if needed
-        if isinstance(self.threshold_operator, str):
-            self.threshold_operator = ThresholdOperator(self.threshold_operator)
-        self._validate_score_range(self.min_score, self.max_score)
-        self._set_score_parameters(self.min_score, self.max_score, self.threshold)
-        super().__post_init__()
-
-    def _validate_score_range(self, min_score: Optional[float], max_score: Optional[float]) -> None:
-        """Validate that min_score and max_score are provided together."""
-        if min_score is not None and max_score is None:
-            raise ValueError("Only min_score was set, please set max_score")
-
-        if min_score is None and max_score is not None:
-            raise ValueError("Only max_score was set, please set min_score")
-
-        if min_score is not None and max_score is not None and min_score == max_score:
-            raise ValueError("min_score and max_score cannot be the same")
-
-        if min_score is not None and max_score is not None and min_score > max_score:
-            raise ValueError("min_score cannot be greater than max_score")
-
-    def _set_score_parameters(
-        self, min_score: Optional[float], max_score: Optional[float], threshold: Optional[float]
-    ) -> None:
-        """Set up score parameters with validation."""
-        # For numeric scores, we need min_score, max_score, and threshold
-        self.min_score = min_score if min_score is not None else 0
-        self.max_score = max_score if max_score is not None else 1
-
-        if threshold is None:
-            self.threshold = self.min_score + (self.max_score - self.min_score) / 2
-        else:
-            self.threshold = threshold
-
-        if not (self.min_score <= self.threshold <= self.max_score):
-            raise ValueError(f"Threshold must be between {self.min_score} and {self.max_score}")
 
 
 class GoalAchievementScoreResponse(BaseModel):
@@ -129,7 +81,8 @@ class GoalAchievementJudge(ConversationalJudge):
             for quick setup while still supporting full customization.
         """
 
-        self.config = GoalAchievementJudgeConfig(
+        # Use parent ConversationalJudgeConfig which now includes numeric fields
+        self.config = ConversationalJudgeConfig(
             evaluation_prompt=evaluation_prompt,
             evaluation_steps=evaluation_steps,
             reasoning=reasoning,
@@ -144,12 +97,8 @@ class GoalAchievementJudge(ConversationalJudge):
             score_type=SCORE_TYPE,
             class_name=self.__class__.__name__,
         )
+        # Numeric fields are automatically initialized by ConversationalJudge parent
         super().__init__(config=self.config, model=model)
-
-        self.min_score = self.config.min_score
-        self.max_score = self.config.max_score
-        self.threshold = self.config.threshold
-        self.threshold_operator = self.config.threshold_operator
 
         # Set up Jinja environment
         self._setup_jinja_environment()
@@ -299,33 +248,13 @@ class GoalAchievementJudge(ConversationalJudge):
         except Exception as e:
             return self._handle_evaluation_error(e, details, 0.0)
 
-    def _evaluate_score(self, score: float) -> bool:
-        """
-        Evaluate if a score meets the success criteria.
-
-        Args:
-            score: The score to evaluate
-
-        Returns:
-            True if the score meets the threshold criteria, False otherwise
-        """
-        # Ensure threshold_operator is ThresholdOperator enum
-        operator = (
-            self.threshold_operator
-            if isinstance(self.threshold_operator, ThresholdOperator)
-            else ThresholdOperator(self.threshold_operator)
-        )
-        threshold_func = OPERATOR_MAP[operator]
-        result = threshold_func(score, self.threshold)
-        return result
-
     @classmethod
     def from_dict(cls, config: Dict[str, Any]) -> "GoalAchievementJudge":
         """Create a metric from a dictionary."""
         # Get all field names from the dataclass
-        valid_fields = {field.name for field in fields(GoalAchievementJudgeConfig)}
+        valid_fields = {field.name for field in fields(ConversationalJudgeConfig)}
 
         # Filter config to only include keys that exist in the dataclass
         filtered_config = {k: v for k, v in config.items() if k in valid_fields}
 
-        return cls.from_config(GoalAchievementJudgeConfig(**filtered_config))
+        return cls.from_config(ConversationalJudgeConfig(**filtered_config))
