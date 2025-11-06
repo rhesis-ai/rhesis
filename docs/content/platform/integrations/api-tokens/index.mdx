@@ -1,4 +1,4 @@
-import { CodeBlock } from '@/components/CodeBlock'
+import { CodeBlock } from "@/components/CodeBlock";
 
 # API Tokens
 
@@ -32,8 +32,8 @@ Generate new tokens for API access:
 ### Important Notes
 
 <Callout type="warning">
-  **Store Securely**: The access token is shown only once during creation. If you lose it, you must
-  generate a new token.
+  **Store Securely**: The access token is shown only once during creation. If
+  you lose it, you must generate a new token.
 </Callout>
 
 Copy the token immediately and store it securely using environment variables or secret management systems. Never commit tokens to version control. Remember that each token is unique and cannot be recovered if lost—you'll need to generate a new one.
@@ -60,11 +60,8 @@ Click the delete icon on the token row and confirm. The token is permanently del
 
 Include the token in the Authorization header:
 
-<CodeBlock
-  filename="Terminal"
-  language="bash"
->
-{`curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \\
+<CodeBlock filename="Terminal" language="bash">
+  {`curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \\
   https://api.rhesis.com/v1/tests`}
 </CodeBlock>
 
@@ -79,6 +76,7 @@ Initialize the SDK with your token:
 {`from rhesis import RhesisClient
 
 client = RhesisClient(api_token="YOUR_TOKEN_HERE")`}
+
 </CodeBlock>
 
 See [Python SDK](/docs/development/sdk) for complete usage documentation.
@@ -99,7 +97,8 @@ See [Python SDK](/docs/development/sdk) for complete usage documentation.
 ---
 
 <Callout type="default">
-  **Next Steps** - Use tokens with the [Python SDK](/docs/development/sdk) - Learn about [LLM
-  Provider](/docs/platform/integrations/llm-providers) integrations - Set up
-  [Endpoints](/docs/platform/endpoints) for your AI application
+  **Next Steps** - Use tokens with the [Python SDK](/docs/development/sdk) -
+  Learn about [LLM Provider](/docs/platform/integrations/llm-providers)
+  integrations - Set up [Endpoints](/docs/platform/endpoints) for your AI
+  application
 </Callout>

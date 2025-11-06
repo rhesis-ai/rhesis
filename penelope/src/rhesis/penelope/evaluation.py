@@ -8,7 +8,7 @@ or interim LLM-based evaluation.
 import logging
 from typing import Any, List, Optional
 
-from rhesis.penelope.context import GoalProgress, TestState, Turn
+from rhesis.penelope.context import GoalEvaluationResult, GoalProgress, TestState, Turn
 from rhesis.penelope.prompts import GOAL_EVALUATION_PROMPT
 from rhesis.penelope.schemas import SimpleGoalEval
 from rhesis.sdk.models.base import BaseLLM
@@ -169,21 +169,25 @@ class GoalEvaluator:
             logger.debug(f"All criteria met: {result.all_criteria_met}")
             logger.debug(f"Goal achieved: {result.goal_achieved}")
 
-            # Build detailed findings from criteria
-            findings = []
-            for criterion in result.criteria_evaluations:
-                status = "MET" if criterion.met else "NOT MET"
-                findings.append(f"[{status}] {criterion.criterion}: {criterion.evidence}")
-
-            # Add overall evidence
-            findings.extend(result.evidence)
+            # Create structured evaluation result
+            # Note: Findings summary is now generated once at the end in TestState.to_result()
+            # to avoid duplication, since goal evaluation happens multiple times during execution
+            structured_eval = GoalEvaluationResult(
+                turn_count=result.turn_count,
+                criteria_evaluations=result.criteria_evaluations,
+                all_criteria_met=result.all_criteria_met,
+                confidence=result.confidence,
+                reasoning=result.reasoning,
+                evidence=result.evidence,
+            )
 
             return GoalProgress(
                 goal_achieved=result.goal_achieved,
                 goal_impossible=False,
                 confidence=result.confidence,
                 reasoning=f"Turn count: {result.turn_count}. {result.reasoning}",
-                findings=findings,
+                findings=[],  # Empty - summary generated at end in TestState.to_result()
+                structured_evaluation=structured_eval,
             )
 
         except Exception as e:

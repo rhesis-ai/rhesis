@@ -1,4 +1,3 @@
 export default {
-  index: 'Telemetry System',
-}
-
+  index: "Telemetry System",
+};

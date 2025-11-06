@@ -30,8 +30,9 @@ RUN apt-get update && apt-get install -y \
     && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy SDK directory
+# Copy SDK and Penelope directories
 COPY sdk /app/sdk/
+COPY penelope /app/penelope/
 
 # Copy backend directory
 COPY apps/backend /app/backend/
@@ -75,7 +76,7 @@ ENV PYTHONPATH=/app:/app/backend/src \
     CELERY_TASK_ALWAYS_EAGER=False \
     CELERY_TASK_EAGER_PROPAGATES=False
 
-RUN uv add /app/sdk 
+RUN uv add /app/sdk && uv add /app/penelope
 
 RUN uv sync 
 

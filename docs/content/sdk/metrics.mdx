@@ -2,18 +2,15 @@
 
 ## Overview
 
-The Rhesis SDK provides a comprehensive metrics system for evaluating LLM-based systems. The metrics module supports multiple evaluation frameworks and allows you to create custom metrics tailored to your specific use cases. 
+The Rhesis SDK provides a comprehensive metrics system for evaluating LLM-based systems. The metrics module supports multiple evaluation frameworks and allows you to create custom metrics tailored to your specific use cases.
 The metrics module is integrated with the backend, allowing you to work with metrics directly from the platform.
-
 
 <Callout type="info">
 
 Rhesis integrates with the following open-source evaluation frameworks:
 
-
 - **[DeepEval](https://github.com/confident-ai/deepeval)** - Apache License 2.0  
   The LLM Evaluation Framework by Confident AI
-  
 - **[DeepTeam](https://github.com/confident-ai/deepteam)** - Apache License 2.0  
   The LLM Read Teaming Framework by Confident AI
 
@@ -21,41 +18,41 @@ Rhesis integrates with the following open-source evaluation frameworks:
   Supercharge Your LLM Application Evaluations by Exploding Gradients
 
 These tools are used through their public APIs. The original licenses and copyright notices can be found in their respective repositories. Rhesis is not affiliated with these projects.
+
 </Callout>
 
 ## Supported metrics
 
 ### DeepEval metrics
 
-| Metric | Description | Requires Context | Requires Ground Truth |
-|--------|-------------|------------------|----------------------|
-| `DeepEvalAnswerRelevancy` | Measures answer relevance to the question | No | No |
-| `DeepEvalFaithfulness` | Checks if answer is grounded in context | Yes | No |
-| `DeepEvalContextualRelevancy` | Evaluates context relevance to question | Yes | No |
-| `DeepEvalContextualPrecision` | Measures precision of retrieved context | Yes | Yes |
-| `DeepEvalContextualRecall` | Measures recall of retrieved context | Yes | Yes |
-| `DeepEvalBias` | Detects biased content | No | No |
-| `DeepEvalToxicity` | Detects toxic content | No | No |
-| `DeepEvalPIILeakage` | Detects personally identifiable information | No | No |
+| Metric                        | Description                                 | Requires Context | Requires Ground Truth |
+| ----------------------------- | ------------------------------------------- | ---------------- | --------------------- |
+| `DeepEvalAnswerRelevancy`     | Measures answer relevance to the question   | No               | No                    |
+| `DeepEvalFaithfulness`        | Checks if answer is grounded in context     | Yes              | No                    |
+| `DeepEvalContextualRelevancy` | Evaluates context relevance to question     | Yes              | No                    |
+| `DeepEvalContextualPrecision` | Measures precision of retrieved context     | Yes              | Yes                   |
+| `DeepEvalContextualRecall`    | Measures recall of retrieved context        | Yes              | Yes                   |
+| `DeepEvalBias`                | Detects biased content                      | No               | No                    |
+| `DeepEvalToxicity`            | Detects toxic content                       | No               | No                    |
+| `DeepEvalPIILeakage`          | Detects personally identifiable information | No               | No                    |
 
 ### Ragas metrics
 
-| Metric | Description | Requires Context | Requires Ground Truth |
-|--------|-------------|------------------|----------------------|
-| `RagasAnswerAccuracy` | Measures answer accuracy | No | Yes |
-| `RagasContextRelevance` | Evaluates context relevance | Yes | No |
-| `RagasFaithfulness` | Checks answer groundedness | Yes | No |
-| `RagasAspectCritic` | Custom aspect-based evaluation | No | No |
+| Metric                  | Description                    | Requires Context | Requires Ground Truth |
+| ----------------------- | ------------------------------ | ---------------- | --------------------- |
+| `RagasAnswerAccuracy`   | Measures answer accuracy       | No               | Yes                   |
+| `RagasContextRelevance` | Evaluates context relevance    | Yes              | No                    |
+| `RagasFaithfulness`     | Checks answer groundedness     | Yes              | No                    |
+| `RagasAspectCritic`     | Custom aspect-based evaluation | No               | No                    |
 
 ### Rhesis custom metrics
 
-| Metric | Description | Configuration |
-|--------|-------------|--------------|
-| `NumericJudge` | LLM-based numeric scoring | Min/max score, threshold, custom prompts |
+| Metric             | Description                          | Configuration                                  |
+| ------------------ | ------------------------------------ | ---------------------------------------------- |
+| `NumericJudge`     | LLM-based numeric scoring            | Min/max score, threshold, custom prompts       |
 | `CategoricalJudge` | LLM-based categorical classification | Categories, passing categories, custom prompts |
 
-
-If any metrics are missing from the list, or you would like to use a different provider, please let us know 
+If any metrics are missing from the list, or you would like to use a different provider, please let us know
 by creating an issue on [GitHub](https://github.com/rhesis-ai/rhesis/issues).
 
 ## Quick Start
@@ -91,7 +88,7 @@ result = metric.evaluate(
     input="What is photosynthesis?",
     output="Photosynthesis is the process by which plants convert light "
           "into energy.",
-    context=["Photosynthesis occurs in chloroplasts...", 
+    context=["Photosynthesis occurs in chloroplasts...",
              "Plants use sunlight..."]
 )
 
@@ -200,6 +197,7 @@ metric = DeepEvalAnswerRelevancy(threshold=0.7, model="gpt-4")
 ## Advanced configuration
 
 ### Serialization
+
 Custom metrics can be serialized or deserialized. To do so, use the `from_config` and `to_config` methods, which operate using a config dataclass. You can also use the `from_dict` and `to_dict` methods.
 
 ```python
@@ -220,7 +218,7 @@ metric = NumericJudge.from_config(config)
 
 ### Platform Integration
 
-Metrics can be managed both in the platform and in the SDK. To facilitate this workflow, the SDK provides 
+Metrics can be managed both in the platform and in the SDK. To facilitate this workflow, the SDK provides
 `push` and `pull` methods to synchronize metrics with the platform.
 
 #### Pushing Metrics

@@ -27,12 +27,12 @@ The Rhesis frontend integrates with the Rhesis backend for authentication, which
 The authentication is configured in `src/auth.ts`:
 
 ```tsx
-import { jwtDecode } from 'jwt-decode';
+import { jwtDecode } from "jwt-decode";
 
 // Token storage keys
-const ACCESS_TOKEN_KEY = 'rhesis_access_token';
-const REFRESH_TOKEN_KEY = 'rhesis_refresh_token';
-const USER_KEY = 'rhesis_user';
+const ACCESS_TOKEN_KEY = "rhesis_access_token";
+const REFRESH_TOKEN_KEY = "rhesis_refresh_token";
+const USER_KEY = "rhesis_user";
 
 // Auth API endpoints
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -70,7 +70,7 @@ export function isTokenExpired(token: string): boolean {
 
 // Get stored tokens
 export function getTokens(): AuthTokens | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
   const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
@@ -98,7 +98,7 @@ export function clearTokens(): void {
 
 // Get current user
 export function getUser(): User | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   const userJson = localStorage.getItem(USER_KEY);
   if (!userJson) return null;
@@ -118,7 +118,7 @@ export function storeUser(user: User): void {
 // Login redirect
 export function loginWithRedirect(): void {
   // Store current location for redirect after login
-  localStorage.setItem('auth_redirect', window.location.pathname);
+  localStorage.setItem("auth_redirect", window.location.pathname);
 
   // Redirect to backend login endpoint which will redirect to Auth0
   window.location.href = AUTH_ENDPOINTS.login;
@@ -131,20 +131,20 @@ export async function logout(): Promise<void> {
     if (tokens) {
       // Call backend logout endpoint
       await fetch(AUTH_ENDPOINTS.logout, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tokens.accessToken}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokens.accessToken}`,
         },
       });
     }
   } catch (error) {
-    console.error('Logout error:', error);
+    console.error("Logout error:", error);
   } finally {
     // Clear local storage
     clearTokens();
     // Redirect to home
-    window.location.href = '/';
+    window.location.href = "/";
   }
 }
 
@@ -155,22 +155,22 @@ export async function refreshTokens(): Promise<AuthTokens | null> {
 
   try {
     const response = await fetch(AUTH_ENDPOINTS.refresh, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ refreshToken: tokens.refreshToken }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to refresh token');
+      throw new Error("Failed to refresh token");
     }
 
     const newTokens = await response.json();
     storeTokens(newTokens);
     return newTokens;
   } catch (error) {
-    console.error('Token refresh error:', error);
+    console.error("Token refresh error:", error);
     clearTokens();
     return null;
   }
@@ -189,19 +189,19 @@ export async function fetchUser(): Promise<User | null> {
   try {
     const response = await fetch(AUTH_ENDPOINTS.user, {
       headers: {
-        'Authorization': `Bearer ${tokens.accessToken}`,
+        Authorization: `Bearer ${tokens.accessToken}`,
       },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch user');
+      throw new Error("Failed to fetch user");
     }
 
     const user = await response.json();
     storeUser(user);
     return user;
   } catch (error) {
-    console.error('Fetch user error:', error);
+    console.error("Fetch user error:", error);
     return null;
   }
 }
@@ -212,54 +212,44 @@ export async function fetchUser(): Promise<User | null> {
 Routes are protected using a custom middleware in `src/middleware.ts`:
 
 ```tsx
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { isTokenExpired } from './auth';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { isTokenExpired } from "./auth";
 
 // Routes that require authentication
-const protectedRoutes = [
-  '/dashboard',
-  '/projects',
-  '/tests',
-  '/admin',
-];
+const protectedRoutes = ["/dashboard", "/projects", "/tests", "/admin"];
 
 // Routes that are public
-const publicRoutes = [
-  '/',
-  '/auth/callback',
-  '/login',
-  '/register',
-];
+const publicRoutes = ["/", "/auth/callback", "/login", "/register"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Check if the route is public
-  if (publicRoutes.some(route => pathname.startsWith(route))) {
+  if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();
   }
 
   // Check if the route is protected
-  if (protectedRoutes.some(route => pathname.startsWith(route))) {
+  if (protectedRoutes.some((route) => pathname.startsWith(route))) {
     // Get the token from cookies
-    const accessToken = request.cookies.get('rhesis_access_token')?.value;
+    const accessToken = request.cookies.get("rhesis_access_token")?.value;
 
     // If no token or token is expired, redirect to login
     if (!accessToken || isTokenExpired(accessToken)) {
-      const url = new URL('/login', request.url);
-      url.searchParams.set('redirect', pathname);
+      const url = new URL("/login", request.url);
+      url.searchParams.set("redirect", pathname);
       return NextResponse.redirect(url);
     }
 
     // For admin routes, check if user has admin role
-    if (pathname.startsWith('/admin')) {
+    if (pathname.startsWith("/admin")) {
       // Get user roles from token or another cookie
-      const userRoles = request.cookies.get('rhesis_user_roles')?.value;
+      const userRoles = request.cookies.get("rhesis_user_roles")?.value;
       const roles = userRoles ? JSON.parse(userRoles) : [];
 
-      if (!roles.includes('admin')) {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
+      if (!roles.includes("admin")) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
       }
     }
   }
@@ -268,7 +258,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/auth).*)'],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth).*)"],
 };
 ```
 
@@ -278,10 +268,18 @@ A React context is used to manage authentication state on the client:
 
 ```tsx
 // src/components/providers/AuthProvider.tsx
-'use client';
+"use client";
 
-import { createContext, useContext, useState, useEffect } from 'react';
-import { User, getUser, fetchUser, loginWithRedirect, logout, getTokens, refreshTokens } from '@/auth';
+import { createContext, useContext, useState, useEffect } from "react";
+import {
+  User,
+  getUser,
+  fetchUser,
+  loginWithRedirect,
+  logout,
+  getTokens,
+  refreshTokens,
+} from "@/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -332,7 +330,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (tokens) {
       const refreshTime = Math.max(tokens.expiresIn - 5 * 60 * 1000, 0); // 5 minutes before expiry
       const refreshInterval = setInterval(() => {
-        refreshTokens().then(newTokens => {
+        refreshTokens().then((newTokens) => {
           if (!newTokens) {
             clearInterval(refreshInterval);
           }
@@ -362,7 +360,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
@@ -374,11 +372,11 @@ The callback from Auth0 is handled by a dedicated page:
 
 ```tsx
 // app/auth/callback/page.tsx
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { storeTokens, storeUser } from '@/auth';
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { storeTokens, storeUser } from "@/auth";
 
 export default function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
@@ -387,9 +385,9 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const handleCallback = async () => {
-      const code = searchParams.get('code');
-      const state = searchParams.get('state');
-      const error = searchParams.get('error');
+      const code = searchParams.get("code");
+      const state = searchParams.get("state");
+      const error = searchParams.get("error");
 
       if (error) {
         setError(error);
@@ -397,22 +395,25 @@ export default function AuthCallback() {
       }
 
       if (!code || !state) {
-        setError('Invalid callback parameters');
+        setError("Invalid callback parameters");
         return;
       }
 
       try {
         // Exchange code for tokens with backend
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/callback`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/callback`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ code, state }),
           },
-          body: JSON.stringify({ code, state }),
-        });
+        );
 
         if (!response.ok) {
-          throw new Error('Failed to exchange code for tokens');
+          throw new Error("Failed to exchange code for tokens");
         }
 
         const data = await response.json();
@@ -427,11 +428,14 @@ export default function AuthCallback() {
         storeUser(data.user);
 
         // Redirect to the stored redirect URL or dashboard
-        const redirectUrl = localStorage.getItem('auth_redirect') || '/dashboard';
-        localStorage.removeItem('auth_redirect');
+        const redirectUrl =
+          localStorage.getItem("auth_redirect") || "/dashboard";
+        localStorage.removeItem("auth_redirect");
         router.push(redirectUrl);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+        setError(
+          err instanceof Error ? err.message : "An unexpected error occurred",
+        );
       }
     };
 
@@ -443,7 +447,7 @@ export default function AuthCallback() {
       <div className="auth-error">
         <h2>Authentication Error</h2>
         <p>{error}</p>
-        <button onClick={() => router.push('/login')}>Try Again</button>
+        <button onClick={() => router.push("/login")}>Try Again</button>
       </div>
     );
   }
@@ -463,18 +467,15 @@ The login component redirects to Auth0:
 
 ```tsx
 // src/components/auth/LoginButton.tsx
-'use client';
+"use client";
 
-import { useAuth } from '@/components/providers/AuthProvider';
+import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function LoginButton() {
   const { login } = useAuth();
 
   return (
-    <button
-      className="login-button"
-      onClick={login}
-    >
+    <button className="login-button" onClick={login}>
       Log In with Auth0
     </button>
   );
@@ -487,9 +488,9 @@ export default function LoginButton() {
 
 ```tsx
 // src/components/common/ProtectedComponent.tsx
-'use client';
+"use client";
 
-import { useAuth } from '@/components/providers/AuthProvider';
+import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function ProtectedComponent({
   children,
@@ -516,9 +517,9 @@ export default function ProtectedComponent({
 
 ```tsx
 // src/components/auth/UserProfile.tsx
-'use client';
+"use client";
 
-import { useAuth } from '@/components/providers/AuthProvider';
+import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function UserProfile() {
   const { user, logout } = useAuth();
@@ -546,9 +547,9 @@ Role-based access control is implemented using the user's roles:
 
 ```tsx
 // src/components/common/RoleBasedAccess.tsx
-'use client';
+"use client";
 
-import { useAuth } from '@/components/providers/AuthProvider';
+import { useAuth } from "@/components/providers/AuthProvider";
 
 interface RoleBasedAccessProps {
   children: React.ReactNode;
@@ -567,7 +568,9 @@ export default function RoleBasedAccess({
     return null;
   }
 
-  const hasRequiredRole = requiredRoles.some(role => user.roles.includes(role));
+  const hasRequiredRole = requiredRoles.some((role) =>
+    user.roles.includes(role),
+  );
 
   if (!hasRequiredRole) {
     return fallback;
@@ -583,7 +586,7 @@ The auth provider is set up in the root layout:
 
 ```tsx
 // app/layout.tsx
-import { AuthProvider } from '@/components/providers/AuthProvider';
+import { AuthProvider } from "@/components/providers/AuthProvider";
 
 export default function RootLayout({
   children,

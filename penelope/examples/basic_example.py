@@ -135,8 +135,12 @@ def display_results(result, test_name: str):
     print("\nConversation Summary:")
     for turn in result.history[:3]:  # Show first 3 turns
         print(f"\nTurn {turn.turn_number}:")
-        print(f"  Action: {turn.action}")
-        print(f"  Success: {turn.action_output.get('success', False)}")
+        print(f"  Tool: {turn.tool_name}")
+        tool_result = turn.tool_result
+        if isinstance(tool_result, dict):
+            print(f"  Success: {tool_result.get('success', 'N/A')}")
+        else:
+            print(f"  Result: {str(tool_result)[:100]}...")
     if len(result.history) > 3:
         print(f"  ... and {len(result.history) - 3} more turns")
 

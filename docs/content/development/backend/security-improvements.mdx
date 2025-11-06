@@ -14,6 +14,7 @@ The Rhesis backend implements a robust multi-tenancy model with organization-bas
 ## Critical Security Fixes Implemented
 
 ### 1. Task Management Security
+
 **Files**: `app/services/task_management.py`, `app/crud.py`
 **Issue**: Task queries lacked organization filtering, allowing cross-tenant access
 **Fix**: Added `organization_id` parameters and filtering to all task operations
@@ -31,6 +32,7 @@ def get_task(db: Session, task_id: UUID, organization_id: str = None) -> Optiona
 ```
 
 ### 2. CRUD Operations Security
+
 **Files**: `app/crud.py`
 **Issue**: `remove_tag`, task queries without organization filtering
 **Fix**: Added organization filtering to prevent cross-tenant tag manipulation
@@ -48,6 +50,7 @@ def remove_tag(db: Session, tag_id: UUID, entity_id: UUID, entity_type: str, org
 ```
 
 ### 3. User Router Security
+
 **Files**: `app/routers/user.py`
 **Issue**: User update queries without organization filtering
 **Fix**: Added organization filtering with superuser exceptions
@@ -64,16 +67,19 @@ db_user = user_query.first()
 ```
 
 ### 4. Auth Permissions Security
+
 **Files**: `app/auth/permissions.py`
 **Issue**: Resource permission checks without organization filtering
 **Fix**: Applied organization filtering before permission validation
 
 ### 5. Status Utility Security
+
 **Files**: `app/utils/status.py`
 **Issue**: Status queries without organization filtering
 **Fix**: Added organization-aware status creation and lookup
 
 ### 6. Statistics Security
+
 **Files**: `app/services/stats/`
 **Issue**: Statistics queries without organization filtering
 **Fix**: Added organization context to `StatsCalculator` constructor
@@ -81,6 +87,7 @@ db_user = user_query.first()
 ## Security Test Suite
 
 ### Comprehensive Test Coverage
+
 **File**: `tests/backend/test_security_fixes.py`
 
 The security test suite includes:
@@ -100,14 +107,17 @@ pytest -m security
 ```
 
 ### Test Results
+
 ✅ **9/9 security tests passing** - All critical vulnerabilities are properly fixed
 
 ## CI/CD Security Integration
 
 ### Automated Security Scanning
+
 **File**: `scripts/check_organization_filtering.py`
 
 The security check script automatically scans the codebase for:
+
 - Database queries missing organization filtering
 - HIGH severity issues (queries on organization-aware models)
 - MEDIUM severity issues (potentially unsafe queries)
@@ -121,12 +131,15 @@ python scripts/check_organization_filtering.py --setup-ci
 ```
 
 ### Current Security Status
+
 - **90 HIGH severity issues** identified for future remediation
 - **28 MEDIUM severity issues** requiring review
 - **Critical vulnerabilities fixed** and tested
 
 ### GitHub Actions Integration
+
 The script can generate GitHub Actions workflows for:
+
 - Pull request security checks
 - Automated security test execution
 - Security issue reporting in PR comments
@@ -134,23 +147,27 @@ The script can generate GitHub Actions workflows for:
 ## Query-Level Organization Filtering Middleware
 
 ### Experimental Middleware Solution
+
 **File**: `app/middleware/organization_filter.py`
 
 Provides automatic organization filtering through:
 
 1. **Context Manager Approach** (Recommended)
+
 ```python
 with with_organization_context("org-123"):
     tests = db.query(Test).all()  # Automatically filtered
 ```
 
 2. **Organization-Aware Session Wrapper** (Recommended)
+
 ```python
 org_session = get_organization_aware_session(db, "org-123")
 tests = org_session.query(Test).all()  # Automatically filtered
 ```
 
 3. **Decorator Approach**
+
 ```python
 @organization_aware_query
 def get_user_tests(db: Session, user_id: str, organization_id: str):
@@ -158,6 +175,7 @@ def get_user_tests(db: Session, user_id: str, organization_id: str):
 ```
 
 ### Safety Features
+
 - **Disabled by default** for safety
 - **Bypass mechanisms** for administrative operations
 - **Comprehensive logging** for monitoring
@@ -168,6 +186,7 @@ def get_user_tests(db: Session, user_id: str, organization_id: str):
 ### 1. Understanding Query Safety Levels
 
 **✅ SAFE QUERIES (No organization filtering needed):**
+
 ```python
 # ID-based queries are SAFE - UUIDs are globally unique
 def get_entity_by_id(db: Session, entity_id: UUID) -> Optional[Entity]:
@@ -181,6 +200,7 @@ user = db.query(User).filter(User.id == user_id).first()
 ```
 
 **🚨 CRITICAL QUERIES (Organization filtering required):**
+
 ```python
 # List queries without filters - DANGEROUS
 def get_all_entities(db: Session, organization_id: str) -> List[Entity]:
@@ -197,6 +217,7 @@ def get_entities_by_name(db: Session, name: str, organization_id: str) -> List[E
 ```
 
 ### 2. Direct Parameter Passing (Current Approach)
+
 ```python
 # RECOMMENDED: Explicit organization filtering for list/search queries
 def get_entities(db: Session, organization_id: str) -> List[Entity]:
@@ -206,6 +227,7 @@ def get_entities(db: Session, organization_id: str) -> List[Entity]:
 ```
 
 ### 3. Always Validate Organization Context
+
 ```python
 # Verify organization context is provided
 if not organization_id:
@@ -213,6 +235,7 @@ if not organization_id:
 ```
 
 ### 3. Use Security Tests
+
 ```python
 # Test cross-tenant access prevention
 def test_cross_tenant_prevention(self, test_db: Session):
@@ -221,6 +244,7 @@ def test_cross_tenant_prevention(self, test_db: Session):
 ```
 
 ### 4. Apply Defense in Depth
+
 - **Application-level filtering**: Direct parameter passing
 - **Database-level constraints**: Foreign key relationships
 - **Middleware-level filtering**: Automatic query interception
@@ -229,12 +253,14 @@ def test_cross_tenant_prevention(self, test_db: Session):
 ## Migration Guide
 
 ### For Existing Code
+
 1. **Add organization_id parameters** to functions querying organization-aware models
 2. **Apply organization filtering** to all relevant database queries
 3. **Update function calls** to pass organization_id explicitly
 4. **Add security tests** for cross-tenant access prevention
 
 ### For New Code
+
 1. **Always include organization_id** in functions querying multi-tenant data
 2. **Use the security check script** to validate new code
 3. **Write security tests** for new functionality
@@ -243,11 +269,13 @@ def test_cross_tenant_prevention(self, test_db: Session):
 ## Performance Considerations
 
 ### Query Performance
+
 - **Indexed organization_id fields** ensure fast filtering
 - **Composite indexes** on (organization_id, other_fields) for complex queries
 - **Query plan analysis** to verify efficient execution
 
 ### Security vs. Performance Trade-offs
+
 - **Direct parameter passing**: Best performance, explicit security
 - **Middleware solutions**: Slight overhead, automatic security
 - **Choose based on**: Team expertise, maintenance requirements, performance needs
@@ -255,21 +283,25 @@ def test_cross_tenant_prevention(self, test_db: Session):
 ## Future Improvements
 
 ### 1. Complete StatsCalculator Refactoring
+
 - Apply organization filtering to all statistical queries
 - Update all query methods in the calculator
 - Maintain backward compatibility
 
 ### 2. Database-Level Security
+
 - Row-level security (RLS) policies
 - Database views with built-in filtering
 - Trigger-based security enforcement
 
 ### 3. Advanced Middleware Features
+
 - Query rewriting capabilities
 - Performance optimization
 - Integration with ORM events
 
 ### 4. Automated Remediation
+
 - Auto-fix suggestions in security check script
 - Code transformation tools
 - IDE integration for real-time security feedback
@@ -286,6 +318,7 @@ The implemented security improvements provide comprehensive protection against c
 Creates a robust multi-tenant security model that can scale with the application's growth while maintaining data isolation between organizations.
 
 **Key Metrics**:
+
 - ✅ **10+ critical vulnerabilities fixed**
 - ✅ **9/9 security tests passing**
 - ✅ **Automated CI/CD security checks**

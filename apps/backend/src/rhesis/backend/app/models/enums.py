@@ -23,6 +23,7 @@ class EndpointEnvironment(str, Enum):
     PRODUCTION = "production"
     STAGING = "staging"
     DEVELOPMENT = "development"
+    LOCAL = "local"
 
 
 class EndpointAuthType(str, Enum):

@@ -48,3 +48,16 @@ class ExecutionMode(str, Enum):
 
     SEQUENTIAL = "Sequential"
     PARALLEL = "Parallel"
+
+
+class TestType(str, Enum):
+    """
+    Enum for test types.
+
+    These are reserved test type values in the TypeLookup table:
+    - SINGLE_TURN: Traditional single request-response tests
+    - MULTI_TURN: Agentic multi-turn conversation tests using Penelope
+    """
+
+    SINGLE_TURN = "Single-Turn"
+    MULTI_TURN = "Multi-Turn"

@@ -20,7 +20,7 @@ export function useMDXComponents(components) {
   return {
     ...themeComponents,
     ...components,
-    // Add Nextra components for Nextra 4
+    // Add Nextra components
     Callout,
     Steps,
     // Add custom Rhesis components
