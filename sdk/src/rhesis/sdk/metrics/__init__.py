@@ -18,6 +18,9 @@ from rhesis.sdk.metrics.conversational import (
 )
 from rhesis.sdk.metrics.factory import MetricFactory
 from rhesis.sdk.metrics.providers.deepeval.factory import DeepEvalMetricFactory
+from rhesis.sdk.metrics.providers.deepeval.conversational_metrics import (
+    DeepEvalTurnRelevancy,
+)
 from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepEvalAnswerRelevancy,
     DeepEvalBias,
@@ -82,6 +85,8 @@ __all__ = [
     "DeepEvalToxicity",
     "DeepTeamSafety",
     "DeepTeamIllegal",
+    # DeepEval conversational metrics
+    "DeepEvalTurnRelevancy",
     # Rhesis
     "RhesisMetricFactory",
     # Rhesis metrics
