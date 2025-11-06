@@ -579,7 +579,30 @@ OPENAI_MODEL_NAME=gpt-4o`}
 
 > **Note**: At least one AI provider configuration is recommended for full platform functionality. You can choose between Gemini, Azure OpenAI, or OpenAI based on your preferences and requirements.
 
-### Management Commands
+#### Telemetry Configuration (Optional)
+Configure OpenTelemetry for monitoring and observability of your Rhesis deployment:
+
+<CodeBlock filename=".env.docker" language="bash">
+{`# OpenTelemetry Configuration (Optional)
+# Used for collecting telemetry data (traces, metrics) for monitoring
+
+# OTel Collector endpoint (where telemetry data is sent)
+OTEL_EXPORTER_OTLP_ENDPOINT=https://rhesis-otel-collector-dev-235yqdecwq-uc.a.run.app/
+
+# Service name for telemetry identification
+OTEL_SERVICE_NAME=rhesis
+
+# Deployment type: "self-hosted" or "cloud"
+DEPLOYMENT_TYPE=self-hosted
+
+# Enable/disable telemetry collection
+# self-hosted: opt-in (set to true to enable)
+# Cloud: typically enabled by default
+RHESIS_TELEMETRY_ENABLED=true
+}
+</CodeBlock>
+
+## Management Commands
 
 #### Service Management
 

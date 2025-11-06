@@ -267,18 +267,6 @@ jobs:
 
           echo "✅ Traffic successfully routed to new revision"
 
-      - name: Output deployed service URL
-        id: output_service_url
-        run: |
-          DEPLOYED_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }} \
-            --format="value(status.url)")
-          
-          echo "📍 OTel Collector URL: $DEPLOYED_URL"
-          echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
-          echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
-
       - name: Set actual service name
         id: set_service_name
         run: |
@@ -302,15 +290,3 @@ jobs:
           env-display: ${{ env.ENV_DISPLAY }}
           service-url: ''
           actual-service-name: ${{ env.ACTUAL_SERVICE_NAME }}
-
-      - name: Display important endpoints
-        run: |
-          echo "## 📡 OTel Collector Endpoints" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **OTLP/HTTP:** ${{ env.DEPLOYED_URL }}:4318" >> $GITHUB_STEP_SUMMARY
-          echo "- **OTLP/gRPC:** ${{ env.DEPLOYED_URL }}:4317" >> $GITHUB_STEP_SUMMARY
-          echo "- **Health Check:** ${{ env.DEPLOYED_URL }}:13133/health" >> $GITHUB_STEP_SUMMARY
-          echo "- **Prometheus Metrics:** ${{ env.DEPLOYED_URL }}:8889/metrics" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "⚠️ **Note:** Update backend/frontend \`OTEL_EXPORTER_OTLP_ENDPOINT\` to point to this collector" >> $GITHUB_STEP_SUMMARY
-

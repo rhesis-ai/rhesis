@@ -289,18 +289,6 @@ jobs:
             echo "✅ OTel Collector can now invoke Telemetry Processor"
           fi
 
-      - name: Output deployed service URL
-        id: output_service_url
-        run: |
-          DEPLOYED_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }} \
-            --format="value(status.url)")
-          
-          echo "📍 Telemetry Processor URL: $DEPLOYED_URL"
-          echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
-          echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
-
       - name: Set actual service name
         id: set_service_name
         run: |
@@ -324,25 +312,3 @@ jobs:
           env-display: ${{ env.ENV_DISPLAY }}
           service-url: ''
           actual-service-name: ${{ env.ACTUAL_SERVICE_NAME }}
-
-      - name: Next steps reminder
-        run: |
-          echo "## 🔄 Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. **Deploy/Redeploy OTel Collector** to use this processor URL:" >> $GITHUB_STEP_SUMMARY
-          echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "   TELEMETRY_PROCESSOR_ENDPOINT=${{ env.DEPLOYED_URL }}" >> $GITHUB_STEP_SUMMARY
-          echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "2. **Update Backend/Frontend** to use the collector URL" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📊 Database Configuration" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "This service connects to a **separate analytics database** (not the main application database):" >> $GITHUB_STEP_SUMMARY
-          echo "- Database: \`${{ secrets.ANALYTICS_DB_NAME || 'rhesis-analytics' }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Cloud SQL Instance: \`${{ env.CLOUDSQL_INSTANCE }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Tables: \`user_activity\`, \`endpoint_usage\`, \`feature_usage\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🔐 **Security:** Service is protected by TELEMETRY_API_KEY authentication (x-api-key header)" >> $GITHUB_STEP_SUMMARY
-          echo "Requests without a valid API key are rejected with UNAUTHENTICATED error." >> $GITHUB_STEP_SUMMARY
-

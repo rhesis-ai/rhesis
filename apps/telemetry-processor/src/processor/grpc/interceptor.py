@@ -92,21 +92,22 @@ class APIKeyInterceptor(grpc.ServerInterceptor):
             return continuation(handler_call_details)
 
         except Exception as e:
-            logger.error(f"Error in API key interceptor: {e}", exc_info=True)
+            logger.error(f"Unexpected error in authentication interceptor: {e}", exc_info=True)
             # On error, deny access by default (fail-secure)
+            # Use UNAUTHENTICATED to be safe - if we can't validate auth, deny access
             handler = continuation(handler_call_details)
 
             if handler is None:
                 return None
 
-            def abort_error(request, context: grpc.ServicerContext):
+            def abort_auth_error(request, context: grpc.ServicerContext):
                 context.abort(
-                    grpc.StatusCode.INTERNAL,
-                    "Authentication error occurred",
+                    grpc.StatusCode.UNAUTHENTICATED,
+                    "Authentication validation failed due to internal error",
                 )
 
             return grpc.unary_unary_rpc_method_handler(
-                abort_error,
+                abort_auth_error,
                 request_deserializer=handler.request_deserializer,
                 response_serializer=handler.response_serializer,
             )
