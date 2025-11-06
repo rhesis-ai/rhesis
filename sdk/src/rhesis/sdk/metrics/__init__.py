@@ -38,6 +38,7 @@ from rhesis.sdk.metrics.providers.deepeval.metrics import (
 )
 from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
     CategoricalJudge,
+    ConversationalJudge,
     GoalAchievementJudge,
     NumericJudge,
     RhesisMetricFactory,
@@ -94,6 +95,7 @@ __all__ = [
     "CategoricalJudge",
     "NumericJudge",
     # Rhesis conversational metrics
+    "ConversationalJudge",
     "GoalAchievementJudge",
     # Ragas
     "RagasMetricBase",

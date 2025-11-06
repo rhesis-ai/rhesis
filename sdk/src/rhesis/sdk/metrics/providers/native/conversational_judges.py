@@ -8,9 +8,9 @@ from pydantic import BaseModel, Field
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
-from rhesis.sdk.metrics.providers.native.conversational_base import (
+from rhesis.sdk.metrics.providers.native.conversational_judge import (
+    ConversationalJudge,
     ConversationalJudgeConfig,
-    NativeConversationalBase,
 )
 from rhesis.sdk.models import BaseLLM
 
@@ -72,13 +72,17 @@ class GoalAchievementScoreResponse(BaseModel):
     reason: str = Field(description="Explanation for the score", default="")
 
 
-class GoalAchievementJudge(NativeConversationalBase):
+class GoalAchievementJudge(ConversationalJudge):
     """
     Native conversational metric that evaluates goal achievement in conversations.
 
     This judge evaluates whether a conversation successfully achieves its stated goal,
     providing a numeric score based on how well the assistant helped the user reach
     their objective.
+
+    The default prompt template includes built-in goal achievement criteria that are
+    used when custom prompts are not provided. These defaults can be overridden by
+    passing custom values for evaluation_prompt, evaluation_steps, or reasoning.
     """
 
     def __init__(
@@ -101,9 +105,10 @@ class GoalAchievementJudge(NativeConversationalBase):
         Initialize the Goal Achievement Judge.
 
         Args:
-            evaluation_prompt: The main evaluation criteria. Defaults to goal achievement criteria.
-            evaluation_steps: Step-by-step evaluation process. Defaults to standard steps.
-            reasoning: Guidelines for reasoning. Defaults to standard guidelines.
+            evaluation_prompt: The main evaluation criteria. If None, uses template defaults
+                for goal achievement evaluation.
+            evaluation_steps: Step-by-step evaluation process. If None, uses template defaults.
+            reasoning: Guidelines for reasoning. If None, uses template defaults.
             evaluation_examples: Examples to guide evaluation. Defaults to None.
             min_score: Minimum possible score. Defaults to 0.0.
             max_score: Maximum possible score. Defaults to 1.0.
@@ -117,32 +122,12 @@ class GoalAchievementJudge(NativeConversationalBase):
 
         Raises:
             ValueError: If score range or threshold is invalid.
+
+        Note:
+            When evaluation_prompt, evaluation_steps, or reasoning are None, the Jinja2
+            template will use built-in defaults for goal achievement evaluation. This allows
+            for quick setup while still supporting full customization.
         """
-        # Set default evaluation prompt if not provided
-        if evaluation_prompt is None:
-            evaluation_prompt = """Evaluate how well the conversation achieves its stated goal.
-Consider:
-- Did the assistant understand the user's objective?
-- Were the responses relevant and helpful?
-- Did the conversation progress logically toward the goal?
-- Was the goal ultimately achieved or close to being achieved?"""
-
-        # Set default evaluation steps if not provided
-        if evaluation_steps is None:
-            evaluation_steps = """1. Identify the stated or implied goal of the conversation
-2. Analyze each turn to see how it contributes to achieving the goal
-3. Evaluate the final state: was the goal achieved, partially achieved, or not achieved?
-4. Consider the quality and relevance of the assistant's contributions
-5. Assign a score reflecting the overall goal achievement"""
-
-        # Set default reasoning if not provided
-        if reasoning is None:
-            reasoning = """When evaluating, consider:
-- Goal clarity: Is the goal clearly defined or easily inferred?
-- Progress: Does the conversation make steady progress toward the goal?
-- Completeness: Is the goal fully achieved by the end?
-- Efficiency: Could the goal have been achieved more quickly?
-- Quality: Are the responses accurate and helpful?"""
 
         self.config = GoalAchievementJudgeConfig(
             evaluation_prompt=evaluation_prompt,

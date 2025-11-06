@@ -53,8 +53,10 @@ def test_goal_achievement_judge_initialization(mock_model):
     assert judge.min_score == 0.0
     assert judge.max_score == 1.0
     assert judge.threshold == 0.5
-    assert judge.evaluation_prompt is not None
-    assert "goal" in judge.evaluation_prompt.lower()
+    # When evaluation_prompt is None, template uses conditional rendering for defaults
+    assert judge.evaluation_prompt is None
+    assert judge.evaluation_steps is None
+    assert judge.reasoning is None
 
 
 def test_goal_achievement_judge_custom_initialization(mock_model):
@@ -125,21 +127,24 @@ def test_goal_achievement_judge_validation(mock_model, sample_conversation):
 
 
 def test_goal_achievement_judge_prompt_generation(mock_model, sample_conversation):
-    """Test that the prompt template is generated correctly."""
+    """Test that the prompt template is generated correctly with defaults."""
     judge = GoalAchievementJudge(model=mock_model)
 
-    # Generate prompt
+    # Generate prompt (evaluation_prompt is None, so template uses defaults)
     prompt = judge._get_prompt_template(
         conversation_history=sample_conversation,
         goal="Customer finds suitable auto insurance",
     )
 
-    # Check that prompt contains key elements
+    # Check that prompt contains template default elements (from conditional rendering)
     assert "Evaluate how well the conversation achieves its stated goal" in prompt
     assert "Customer finds suitable auto insurance" in prompt
     assert "6 turns" in prompt  # Sample conversation has 6 turns
     assert "Turn 1 [user]" in prompt
     assert "Turn 2 [assistant]" in prompt
+    # Verify template defaults are rendered
+    assert "Identify the stated or implied goal" in prompt  # From default evaluation_steps
+    assert "Goal clarity" in prompt  # From default reasoning
 
 
 def test_goal_achievement_judge_format_conversation(mock_model, sample_conversation):
