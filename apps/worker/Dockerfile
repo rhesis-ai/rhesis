@@ -76,7 +76,9 @@ ENV PYTHONPATH=/app:/app/backend/src \
     CELERY_TASK_ALWAYS_EAGER=False \
     CELERY_TASK_EAGER_PROPAGATES=False
 
-RUN uv add /app/sdk && uv add /app/penelope
+# Fix paths in pyproject.toml to point to the correct locations in Docker
+RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
 
 RUN uv sync 
 
