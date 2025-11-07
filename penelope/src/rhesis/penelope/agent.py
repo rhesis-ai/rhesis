@@ -420,6 +420,9 @@ class PenelopeAgent:
 
             # Evaluate goal progress using SDK metric
             result = self.evaluator.evaluate(state, goal)
+            
+            # Store SDK evaluation result for reporting
+            state.last_evaluation = result
 
             # Update goal-achieved stopping condition with SDK result
             for condition in conditions:
