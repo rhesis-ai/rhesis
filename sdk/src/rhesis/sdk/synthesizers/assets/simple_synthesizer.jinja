@@ -1,1 +1,9 @@
-{% extends "base.md" %}
+{% extends "base.jinja" %}
+
+
+{% if context %}
+### Take into account the following context:
+{% for item in context %}
+- {{ item }}
+{% endfor %}
+{% endif %}

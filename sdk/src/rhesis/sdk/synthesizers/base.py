@@ -7,7 +7,17 @@ from tqdm.auto import tqdm
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.services.chunker import (
+    ChunkingStrategy,
+    SemanticChunker,
+    SourceChunker,
+)
+from rhesis.sdk.services.extractor import (
+    SourceBase,
+    SourceExtractor,
+)
 from rhesis.sdk.synthesizers.utils import (
+    create_test_set,
     load_prompt_template,
 )
 
@@ -34,7 +44,13 @@ class TestSetSynthesizer(ABC):
 
     prompt_template_file: str
 
-    def __init__(self, batch_size: int = 5, model: Optional[Union[str, BaseLLM]] = None):
+    def __init__(
+        self,
+        batch_size: int = 5,
+        model: Optional[Union[str, BaseLLM]] = None,
+        sources: Optional[List[SourceBase]] = None,
+        chunking_strategy: Optional[ChunkingStrategy] = SemanticChunker(max_tokens_per_chunk=100),
+    ):
         """
         Initialize the base synthesizer.
 
@@ -43,6 +59,8 @@ class TestSetSynthesizer(ABC):
         """
         self.batch_size = batch_size
         self.prompt_template = load_prompt_template(self.prompt_template_file)
+        self.sources = sources
+        self.chunker = chunking_strategy
 
         if isinstance(model, str) or model is None:
             self.model = get_model(model)
@@ -95,7 +113,95 @@ class TestSetSynthesizer(ABC):
         """
         return self.__class__.__name__
 
-    def generate(self, num_tests: int = 5, **kwargs: Any) -> TestSet:
+    def _compute_tests_per_chunk(self, num_tests: int, num_chunks: int) -> list[int]:
+        tests_per_chunk = [(num_tests + i) // num_chunks for i in range(num_chunks)]
+        tests_per_chunk.reverse()
+        return tests_per_chunk
+
+    def _generate_with_sources(
+        self, num_tests: int, **kwargs: Any
+    ) -> tuple[List[Dict[str, Any]], dict[str, Any]]:
+        # Process documents with source tracking
+        if not isinstance(self.sources, list) or not all(
+            isinstance(source, SourceBase) for source in self.sources
+        ):
+            raise ValueError("sources must be a list of SourceBase objects")
+
+        if self.chunker is None or not isinstance(self.chunker, ChunkingStrategy):
+            raise ValueError("chunker must be a ChunkingStrategy object")
+
+        processed_sources = SourceExtractor()(self.sources)
+
+        chunks = SourceChunker(processed_sources, strategy=self.chunker).chunk()
+
+        tests_per_chunk = self._compute_tests_per_chunk(num_tests, len(chunks))
+        if num_tests < len(chunks):
+            print(
+                f"number of tests is less than number of chunks. Current number of chunks: "
+                f"{len(chunks)} \n"
+                f"Number of tests: {num_tests}"
+            )
+        else:
+            print(f"Generate {num_tests} tests \n ")
+
+        if num_tests >= len(chunks):
+            coverage_percent = 100
+            used_chunks = len(chunks)
+        else:
+            coverage_percent = num_tests / len(chunks)
+            used_chunks = num_tests
+
+        all_test_cases = []
+
+        # Generate tests for each chunk
+        for i, chunk in enumerate(chunks):
+            if tests_per_chunk[i] == 0:
+                continue
+            print(
+                f"Generating tests for chunk "
+                f"{i + 1}/{min(num_tests, len(chunks))} "
+                f"({tests_per_chunk[i]} tests)"
+                f"({len(chunk.content)} characters)"
+            )
+
+            result = self._generate_without_sources(
+                num_tests=tests_per_chunk[i],
+                **kwargs,
+                source=chunk.content,
+            )
+
+            # Add context and document mapping to each test
+            for test in result:
+                test["metadata"] = {
+                    **(test.get("metadata") or {}),
+                    "sources": [
+                        {
+                            "source": chunk.source.name,
+                            "name": chunk.source.name,
+                            "description": chunk.source.description,
+                            "content": chunk.content,
+                        }
+                    ],
+                    "generated_by": self._get_synthesizer_name(),
+                    "context_index": i,
+                    "context_length": len(chunk.content),
+                }
+
+            all_test_cases.extend(result)
+
+        # Get document names for TestSet metadata
+
+        source_names = [chunk.source.name for chunk in chunks]
+        test_set_metadata = {
+            "documents_used": source_names,
+            "coverage_percent": coverage_percent,
+            "contexts_total": len(chunks),
+            "contexts_used": used_chunks,
+            "tests_per_context": tests_per_chunk,
+        }
+        return all_test_cases, test_set_metadata
+
+    def _generate_without_sources(self, num_tests: int = 5, **kwargs: Any) -> List[Dict[str, Any]]:
         """
         Generate test cases with automatic chunking.
 
@@ -106,14 +212,13 @@ class TestSetSynthesizer(ABC):
         Returns:
             TestSet: A TestSet entity containing the generated test cases
         """
-        from rhesis.sdk.synthesizers.utils import create_test_set
 
         if not isinstance(num_tests, int):
             raise TypeError("num_tests must be an integer")
 
-        all_test_cases = []
         template_context = self._get_template_context(**kwargs)
 
+        all_test_cases = []
         # For large numbers, use chunking to avoid JSON parsing issues
         if num_tests > self.batch_size:
             # Generate in chunks
@@ -146,16 +251,7 @@ class TestSetSynthesizer(ABC):
         if not all_test_cases:
             raise ValueError("Failed to generate any valid test cases")
 
-        # Use utility function to create TestSet
-        return create_test_set(
-            all_test_cases,
-            model=self.model,
-            synthesizer_name=self._get_synthesizer_name(),
-            batch_size=self.batch_size,
-            num_tests=len(all_test_cases),
-            requested_tests=num_tests,
-            **kwargs,
-        )
+        return all_test_cases
 
     def _generate_batch(
         self,
@@ -181,6 +277,25 @@ class TestSetSynthesizer(ABC):
         ]
 
         return tests
+
+    def generate(self, num_tests: int = 5, **kwargs: Any) -> TestSet:
+        """Generate test cases."""
+        test_set_metadata = {}
+        if self.sources is not None:
+            tests, test_set_metadata = self._generate_with_sources(num_tests, **kwargs)
+        else:
+            tests = self._generate_without_sources(num_tests, **kwargs)
+
+        # Use utility function to create TestSet
+        return create_test_set(
+            tests,
+            model=self.model,
+            synthesizer_name=self._get_synthesizer_name(),
+            batch_size=self.batch_size,
+            num_tests=len(tests),
+            requested_tests=num_tests,
+            **test_set_metadata,
+        )
 
 
 if __name__ == "__main__":

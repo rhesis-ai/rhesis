@@ -2,9 +2,10 @@
 
 import logging
 from dataclasses import asdict, dataclass
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.services.extractor import SourceBase, SourceType
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ class ConfigSynthesizer(TestSetSynthesizer):
         config: GenerationConfig,
         batch_size: int = 20,
         model: Optional[Union[str, BaseLLM]] = None,
+        **kwargs: dict[str, Any],
     ):
         """
         Initialize the ConfigSynthesizer.
@@ -48,8 +50,39 @@ class ConfigSynthesizer(TestSetSynthesizer):
             system_prompt: Optional custom system prompt template to override the default
         """
 
-        super().__init__(batch_size=batch_size, model=model)
+        super().__init__(batch_size=batch_size, model=model, **kwargs)
         self.config = config
 
     def _get_template_context(self, **generate_kwargs):
         return {**asdict(self.config), **generate_kwargs}
+
+
+if __name__ == "__main__":
+    sources = [
+        SourceBase(
+            name="Germany knowledge",
+            description="Knowledge about Germany",
+            type=SourceType.DOCUMENT,
+            metadata={"path": "/Users/arek/Desktop/rhesis/test.md"},
+        )
+    ]
+    config = GenerationConfig(
+        behaviors=["the chatbot about the knowledge of Germany"],
+        categories=["knowledge"],
+        topics=["Germany"],
+        project_context="The chatbot is a chatbot that sells cars",
+        specific_requirements="The chatbot should be able to answer questions about Germany",
+        previous_messages=[],
+        rated_samples=[],
+        test_type="unit",
+        output_format="json",
+    )
+    synthesizer = ConfigSynthesizer(
+        config=config,
+        model="gemini",
+        sources=sources,
+    )
+    tests = synthesizer.generate(num_tests=5)
+    from pprint import pprint
+
+    pprint(tests.tests)

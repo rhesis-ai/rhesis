@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
+from typing import Optional
 
 import requests
 from markitdown import MarkItDown
@@ -15,13 +16,14 @@ class SourceType(Enum):
     DOCUMENT = "document"
     WEBSITE = "website"
     NOTION = "notion"
+    TEXT = "text"
 
 
 class SourceBase(BaseModel):
-    name: str
-    description: str
     type: SourceType
-    metadata: dict
+    name: Optional[str] = None
+    description: Optional[str] = None
+    metadata: Optional[dict] = None
 
 
 class ExtractedSource(SourceBase):
@@ -38,7 +40,9 @@ class SourceExtractor:
     def __call__(self, sources: list[SourceBase]) -> list[ExtractedSource]:
         extracted_sources = []
         for source in sources:
-            if source.type == SourceType.DOCUMENT:
+            if source.type == SourceType.TEXT:
+                extracted_sources.append(TextExtractor().extract(source))
+            elif source.type == SourceType.DOCUMENT:
                 extracted_sources.append(DocumentExtractor().extract(source))
             elif source.type == SourceType.WEBSITE:
                 extracted_sources.append(WebsiteExtractor().extract(source))
@@ -52,6 +56,13 @@ class SourceExtractor:
 class NotionExtractor(Extractor):
     def extract(self, source: SourceBase) -> ExtractedSource:
         raise NotImplementedError("Notion extraction is not implemented")
+
+
+class TextExtractor(Extractor):
+    def extract(self, source: SourceBase) -> ExtractedSource:
+        return ExtractedSource(
+            **source.model_dump(exclude={"medatadata"}), content=source.metadata["content"]
+        )
 
 
 class WebsiteExtractor(Extractor):

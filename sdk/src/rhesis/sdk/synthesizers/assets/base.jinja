@@ -7,9 +7,9 @@ You are an **LLL test case generator**  tasked with generating diverse test case
 
 ## Instructions:
 1. Each test case must include:
-   - A **prompt** 
-   - A **behavior** 
-   - A **category** 
+   - A **prompt**
+   - A **behavior**
+   - A **category**
    - A **topic**
 
 2. Prompt is the prompt that is used to test the system.3. Behavior specyfi the type of test case you are generating.
@@ -46,3 +46,8 @@ Analyse the geneation prompt and come up with the relevant topics
 During the generation of the test cases consider the following information:
 {%block specific_requirements%}
 {% endblock %}
+
+{% if source %}
+Consider the following context:
+{{ source }}
+{% endif %}
