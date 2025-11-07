@@ -246,8 +246,8 @@ class TestState:
     findings: List[str] = field(default_factory=list)
     start_time: datetime = field(default_factory=datetime.now)
 
-    # Store the last SDK metric evaluation result
-    last_evaluation: Optional[Any] = None  # SDK MetricResult with structured criteria
+    # Store SDK metric evaluation results (supports multiple metrics)
+    metric_results: List[Any] = field(default_factory=list)  # List of SDK MetricResults
 
     def add_turn(
         self,
@@ -435,7 +435,8 @@ class TestState:
             findings=findings,
             history=self.turns,
             conversation_summary=conversation_summary,
-            goal_evaluation=self.last_evaluation,
+            # Use first metric result for backward compatibility with goal_evaluation field
+            goal_evaluation=self.metric_results[0] if self.metric_results else None,
             metrics=metrics,
             test_configuration=test_configuration,
             model_info=model_info,
@@ -458,9 +459,10 @@ class TestState:
         """
         findings = []
 
-        # If we have SDK metric evaluation, use it for summary
-        if self.last_evaluation:
-            details = self.last_evaluation.details
+        # If we have SDK metric evaluations, use first one (goal achievement) for summary
+        if self.metric_results:
+            first_metric = self.metric_results[0]
+            details = first_metric.details
             criteria_evals = details.get("criteria_evaluations", [])
 
             if criteria_evals:
@@ -507,8 +509,8 @@ class TestState:
         """
         Generate metrics in standard format (compatible with SDK single-turn metrics).
 
-        Converts the goal_evaluation into the platform's standard metrics format.
-        Future SDK metrics will be added to this dictionary.
+        Processes all SDK metric results and converts them to platform's standard format.
+        Supports arbitrary number of metrics passed as a list.
 
         Args:
             goal_achieved: Whether the goal was achieved
@@ -516,8 +518,8 @@ class TestState:
         Returns:
             Dictionary mapping metric names to their results in standard format
         """
-        # Fallback if no evaluation available
-        if not self.last_evaluation:
+        # Fallback if no metrics available
+        if not self.metric_results:
             return {
                 "Goal Achievement": {
                     "name": "Goal Achievement",
@@ -532,31 +534,31 @@ class TestState:
                 }
             }
 
-        # Use Pydantic's model_dump to serialize the MetricResult
-        metric_dict = self.last_evaluation.model_dump()
+        # Process all SDK metric results
+        metrics = {}
 
-        # Enhance with Penelope-specific summary fields
-        details = metric_dict.get("details", {})
-        criteria_evals = details.get("criteria_evaluations", [])
+        for metric_result in self.metric_results:
+            # Use Pydantic's model_dump to serialize the MetricResult
+            metric_dict = metric_result.model_dump()
 
-        # Add criterion counts for quick analysis
-        if criteria_evals:
-            met_count = sum(1 for c in criteria_evals if c.get("met", False))
-            metric_dict["criteria_met"] = met_count
-            metric_dict["criteria_total"] = len(criteria_evals)
+            # Enhance with Penelope-specific summary fields (if applicable)
+            details = metric_dict.get("details", {})
+            criteria_evals = details.get("criteria_evaluations", [])
 
-        # Use metric name from details, or fallback to "goal_achievement"
-        metric_name = details.get("name", "goal_achievement")
-        # Convert snake_case to Title Case for display
-        display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
+            # Add criterion counts for quick analysis (for criterion-based metrics)
+            if criteria_evals:
+                met_count = sum(1 for c in criteria_evals if c.get("met", False))
+                metric_dict["criteria_met"] = met_count
+                metric_dict["criteria_total"] = len(criteria_evals)
 
-        # Placeholder for future SDK metrics
-        # When SDK metrics are computed, they will be added here:
-        # metrics["Context Retention"] = {...}
-        # metrics["Conversation Coherence"] = {...}
-        # metrics["Safety"] = {...}
+            # Use metric name from details, or fallback to generic name
+            metric_name = details.get("name", "unnamed_metric")
+            # Convert snake_case to Title Case for display
+            display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
 
-        return {display_name: metric_dict}
+            metrics[display_name] = metric_dict
+
+        return metrics
 
     def _generate_execution_stats(self) -> Dict[str, Any]:
         """
