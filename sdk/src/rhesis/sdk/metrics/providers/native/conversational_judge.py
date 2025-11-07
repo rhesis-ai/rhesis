@@ -5,9 +5,6 @@ from typing import Any, Dict, Optional, TypeVar, Union
 
 from rhesis.sdk.metrics.base import MetricResult, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
-
-# Default value when goal is not specified
-GOAL_DEFAULT = "Infer from conversation"
 from rhesis.sdk.metrics.conversational.base import ConversationalMetricBase
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
@@ -18,6 +15,9 @@ from rhesis.sdk.metrics.providers.native.shared_utils import (
     setup_jinja_environment,
 )
 from rhesis.sdk.models import BaseLLM
+
+# Default value when goal is not specified
+GOAL_DEFAULT = "Infer from conversation"
 
 # Type variable for generic return types
 T = TypeVar("T", bound="ConversationalJudge")

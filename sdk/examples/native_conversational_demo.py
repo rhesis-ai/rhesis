@@ -63,7 +63,7 @@ def main():
     ])
 
     print(f"Conversation: {len(conversation)} messages")
-    print(f"Goal: Customer learns about auto insurance options")
+    print("Goal: Customer learns about auto insurance options")
     print()
     print("Evaluating goal achievement...")
     result = judge.evaluate(
@@ -124,7 +124,7 @@ def main():
     ])
 
     print(f"Conversation: {len(poor_conversation)} messages")
-    print(f"Goal: Customer successfully files accident claim")
+    print("Goal: Customer successfully files accident claim")
     print()
 
     result_poor = judge.evaluate(
