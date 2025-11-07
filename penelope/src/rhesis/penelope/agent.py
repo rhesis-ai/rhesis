@@ -148,8 +148,22 @@ class PenelopeAgent:
         # Tools will be set per test (since TargetInteractionTool needs target)
         self.custom_tools = tools or []
 
+        # Initialize SDK goal metric if not provided
+        if goal_metric is None:
+            from rhesis.sdk.metrics.providers.native import GoalAchievementJudge
+
+            goal_metric = GoalAchievementJudge(
+                name="penelope_goal_evaluation",
+                description="Evaluates goal achievement in Penelope test conversations",
+                model=self.model,
+                threshold=0.7,  # 70% threshold for goal achievement
+            )
+            logger.info("✓ Initialized GoalAchievementJudge for goal evaluation")
+        
+        self.goal_metric = goal_metric
+
         # Initialize specialized components
-        self.evaluator = GoalEvaluator(self.model, goal_metric)
+        self.evaluator = GoalEvaluator(goal_metric=goal_metric)
         self.executor = TurnExecutor(self.model, verbose, enable_transparency)
 
         logger.info(f"Initialized PenelopeAgent with {self.model.get_model_name()}")
@@ -404,18 +418,10 @@ class PenelopeAgent:
 
                 return result
 
-            # Evaluate goal progress
-            progress = self.evaluator.evaluate_progress(state, goal)
+            # Evaluate goal progress using SDK metric
+            result = self.evaluator.evaluate(state, goal)
 
-            # Store structured evaluation if available
-            if progress.structured_evaluation:
-                state.last_evaluation = progress.structured_evaluation
-
-            # Update goal condition
+            # Update goal-achieved stopping condition with SDK result
             for condition in conditions:
                 if isinstance(condition, GoalAchievedCondition):
-                    condition.update_progress(progress)
-
-            # Add findings from progress
-            for finding in progress.findings:
-                state.add_finding(finding)
+                    condition.update_result(result)

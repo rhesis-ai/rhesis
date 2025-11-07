@@ -5,13 +5,16 @@ Includes stopping conditions, evaluation helpers, and other utility functions.
 """
 
 import logging
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from rhesis.penelope.context import GoalProgress, TestState
+from rhesis.penelope.context import TestState
+
+if TYPE_CHECKING:
+    from rhesis.sdk.metrics.base import MetricResult
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -64,22 +67,33 @@ class TimeoutCondition(StoppingCondition):
 class GoalAchievedCondition(StoppingCondition):
     """Stop when goal is achieved or determined impossible."""
 
-    def __init__(self, progress: Optional[GoalProgress] = None):
-        self.progress = progress
+    def __init__(self, result: Optional["MetricResult"] = None):
+        """Initialize with SDK MetricResult."""
+        self.result = result
 
-    def update_progress(self, progress: GoalProgress):
-        """Update the current progress."""
-        self.progress = progress
+    def update_result(self, result: "MetricResult"):
+        """Update with new SDK evaluation result."""
+        self.result = result
 
     def should_stop(self, state: TestState) -> tuple[bool, str]:
-        if not self.progress:
+        """Check if we should stop based on SDK evaluation."""
+        if not self.result:
             return False, ""
 
-        if self.progress.goal_achieved:
-            return True, f"Goal achieved: {self.progress.reasoning}"
+        # Check if goal achieved (from SDK)
+        if self.result.details.get("is_successful", False):
+            reason = self.result.details.get("reason", "Goal achieved")
+            return True, f"Goal achieved: {reason}"
 
-        if self.progress.goal_impossible:
-            return True, f"Goal determined impossible: {self.progress.reasoning}"
+        # Check if goal is impossible (Penelope's stopping logic)
+        # Give up after 5+ turns with very low score
+        if (
+            len(state.turns) >= 5
+            and isinstance(self.result.score, (int, float))
+            and self.result.score < 0.3
+        ):
+            reason = self.result.details.get("reason", "Low score after multiple attempts")
+            return True, f"Goal determined impossible: {reason}"
 
         return False, ""
 

@@ -300,7 +300,43 @@ class TestState:
         )
 
         self.turns.append(turn)
+        
+        # Also update conversation for SDK metrics (zero-conversion)
+        self._update_conversation_from_turn(turn)
+        
         return turn
+    
+    def _update_conversation_from_turn(self, turn: Turn) -> None:
+        """
+        Update the conversation history from a turn's tool interaction.
+        
+        For send_message_to_target turns, extracts the user-assistant exchange
+        and adds it to the conversation using SDK's message types.
+        
+        Args:
+            turn: The turn to extract conversation from
+        """
+        from rhesis.penelope.schemas import UserMessage
+        from rhesis.sdk.metrics.conversational import AssistantMessage as SDKAssistantMessage
+        
+        # Only process send_message_to_target turns
+        if turn.tool_name == "send_message_to_target":
+            # Extract user message from tool arguments
+            msg = turn.tool_arguments.get("message", "")
+            if msg:
+                self.conversation.messages.append(
+                    UserMessage(role="user", content=msg)
+                )
+            
+            # Extract assistant response from tool result
+            result = turn.tool_result
+            if isinstance(result, dict) and result.get("success"):
+                resp = result.get("output", {})
+                resp_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+                if resp_text:
+                    self.conversation.messages.append(
+                        SDKAssistantMessage(role="assistant", content=resp_text)
+                    )
 
     def add_finding(self, finding: str) -> None:
         """Add a finding to the findings list."""
