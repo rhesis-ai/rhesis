@@ -21,7 +21,9 @@ from pathlib import Path
 import pandas as pd
 
 
-def convert_simple_safety_tests(input_path: Path, output_dir: Path, limit: int = None) -> Path:
+def convert_simple_safety_tests(
+    input_path: Path, output_dir: Path, limit: int = None, random: bool = False
+) -> Path:
     """
     Convert simple_safety_tests.csv to test set format.
 
@@ -35,9 +37,16 @@ def convert_simple_safety_tests(input_path: Path, output_dir: Path, limit: int =
 
     with open(input_path, "r") as f:
         reader = csv.DictReader(f)
-        for i, row in enumerate(reader):
-            if limit and i >= limit:
-                break
+        all_rows = list(reader)
+
+        if random and limit:
+            import random as rnd
+
+            all_rows = rnd.sample(all_rows, min(limit, len(all_rows)))
+        elif limit:
+            all_rows = all_rows[:limit]
+
+        for row in all_rows:
             test = {
                 "prompt": row["prompt"],
                 "system_prompt": None,
@@ -61,7 +70,9 @@ def convert_simple_safety_tests(input_path: Path, output_dir: Path, limit: int =
     return output_path
 
 
-def convert_harmful_qa(input_path: Path, output_dir: Path, limit: int = None) -> Path:
+def convert_harmful_qa(
+    input_path: Path, output_dir: Path, limit: int = None, random: bool = False
+) -> Path:
     """
     Convert harmfull_qa.json to test set format.
 
@@ -79,10 +90,15 @@ def convert_harmful_qa(input_path: Path, output_dir: Path, limit: int = None) ->
     with open(input_path, "r") as f:
         data = json.load(f)
 
+    if random and limit:
+        import random as rnd
+
+        data = rnd.sample(data, min(limit, len(data)))
+    elif limit:
+        data = data[:limit]
+
     tests = []
-    for i, item in enumerate(data):
-        if limit and i >= limit:
-            break
+    for item in data:
         test = {
             "prompt": item["question"],
             "system_prompt": None,
@@ -106,7 +122,9 @@ def convert_harmful_qa(input_path: Path, output_dir: Path, limit: int = None) ->
     return output_path
 
 
-def convert_safety_bingo(input_path: Path, output_dir: Path, limit: int = None) -> Path:
+def convert_safety_bingo(
+    input_path: Path, output_dir: Path, limit: int = None, random: bool = False
+) -> Path:
     """
     Convert final_safety_bingo.parquet to test set format.
 
@@ -120,7 +138,9 @@ def convert_safety_bingo(input_path: Path, output_dir: Path, limit: int = None) 
     print("Converting final_safety_bingo.parquet...")
 
     df = pd.read_parquet(input_path)
-    if limit:
+    if random and limit:
+        df = df.sample(n=min(limit, len(df)), random_state=42)
+    elif limit:
         df = df.head(limit)
     tests = []
 
@@ -155,12 +175,15 @@ def convert_safety_bingo(input_path: Path, output_dir: Path, limit: int = None) 
 
 
 def convert_social_chem_101(
-    input_path: Path, output_dir: Path, sample_size: int = 5000, limit: int = None
+    input_path: Path,
+    output_dir: Path,
+    limit: int = None,
+    random: bool = False,
 ) -> Path:
     """
     Convert social-chem-101 TSV to test set format.
 
-    This dataset is very large (140K+ rows), so we sample it.
+    This dataset is very large (140K+ rows). Use limit parameter to control size.
 
     Metadata preserved:
     - area: Source area (e.g., "amitheasshole")
@@ -176,16 +199,14 @@ def convert_social_chem_101(
     - rot-judgment: Judgment text (redundant, we test model's judgment)
     - Various other technical fields
     """
-    print(f"Converting social-chem-101 (sampling {sample_size} rows)...")
+    print("Converting social-chem-101...")
 
     df = pd.read_csv(input_path, sep="\t")
 
-    # Sample the dataset to make it manageable
-    if len(df) > sample_size:
-        df = df.sample(n=sample_size, random_state=42)
-
-    # Apply limit if in testing mode
-    if limit:
+    # Apply limit
+    if random and limit:
+        df = df.sample(n=min(limit, len(df)), random_state=42)
+    elif limit:
         df = df.head(limit)
 
     tests = []
@@ -223,6 +244,7 @@ def convert_social_chem_101(
 def main():
     """Main conversion function."""
     limit = None  # Set to an integer for testing with fewer examples
+    random = False  # Set to True to sample randomly from datasets
 
     # Setup paths
     base_dir = Path("results/polyphemus/benchmarking")
@@ -246,28 +268,32 @@ def main():
         # 1. Simple safety tests (CSV)
         simple_safety_path = datasets_dir / "simple_safety_tests.csv"
         if simple_safety_path.exists():
-            created_files.append(convert_simple_safety_tests(simple_safety_path, output_dir, limit))
+            created_files.append(
+                convert_simple_safety_tests(simple_safety_path, output_dir, limit, random)
+            )
         else:
             print(f"Warning: {simple_safety_path} not found, skipping...")
 
         # 2. Harmful QA (JSON)
         harmful_qa_path = datasets_dir / "harmfull_qa.json"
         if harmful_qa_path.exists():
-            created_files.append(convert_harmful_qa(harmful_qa_path, output_dir, limit))
+            created_files.append(convert_harmful_qa(harmful_qa_path, output_dir, limit, random))
         else:
             print(f"Warning: {harmful_qa_path} not found, skipping...")
 
         # 3. Safety Bingo (Parquet)
         safety_bingo_path = datasets_dir / "final_safety_bingo.parquet"
         if safety_bingo_path.exists():
-            created_files.append(convert_safety_bingo(safety_bingo_path, output_dir, limit))
+            created_files.append(convert_safety_bingo(safety_bingo_path, output_dir, limit, random))
         else:
             print(f"Warning: {safety_bingo_path} not found, skipping...")
 
         # 4. Social Chem 101 (TSV)
         social_chem_path = datasets_dir / "social-chem-101/social-chem-101.v1.0.tsv"
         if social_chem_path.exists():
-            created_files.append(convert_social_chem_101(social_chem_path, output_dir, limit=limit))
+            created_files.append(
+                convert_social_chem_101(social_chem_path, output_dir, limit=limit, random=random)
+            )
         else:
             print(f"Warning: {social_chem_path} not found, skipping...")
 
