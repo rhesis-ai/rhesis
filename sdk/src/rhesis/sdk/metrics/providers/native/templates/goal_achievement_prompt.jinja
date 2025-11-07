@@ -100,9 +100,25 @@ IMPORTANT NOTES:
 - If the goal is ambiguous, state your interpretation clearly
 - Distinguish between "goal achieved poorly" (low score) vs "goal not achieved" ({{ min_score }} score)
 
-Your response must be a valid JSON object with:
+Your response must be a valid JSON object with the following structure:
 {
   "score": <float between {{ min_score }} and {{ max_score }}>,
-  "reason": "<detailed explanation with turn references and evidence>"
+  "reason": "<overall explanation of the assessment>",
+  "criteria_evaluations": [
+    {
+      "criterion": "<specific measurable criterion>",
+      "met": <true/false>,
+      "evidence": "<specific evidence from conversation with quotes>",
+      "relevant_turns": [<list of turn numbers, e.g. [1, 3, 5]>]
+    }
+  ],
+  "all_criteria_met": <true if ALL criteria have met=true, false otherwise>,
+  "confidence": <float between 0.0 and 1.0 indicating confidence in assessment>
 }
+
+IMPORTANT: 
+- Include 2-4 criteria in criteria_evaluations (break down the goal into measurable parts)
+- Each criterion must have specific evidence and relevant turn numbers
+- all_criteria_met should be true ONLY if every single criterion has met=true
+- The score should reflect the overall achievement, with confidence indicating assessment certainty
 

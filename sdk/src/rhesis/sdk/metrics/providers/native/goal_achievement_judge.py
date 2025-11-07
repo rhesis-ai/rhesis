@@ -1,7 +1,7 @@
 """Goal Achievement Judge for evaluating conversation goal completion."""
 
 from dataclasses import fields
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -16,11 +16,46 @@ from rhesis.sdk.models import BaseLLM
 SCORE_TYPE = ScoreType.NUMERIC
 
 
-class GoalAchievementScoreResponse(BaseModel):
-    """Model for structured response from LLM evaluation."""
+class CriterionEvaluation(BaseModel):
+    """Evaluation of a single goal criterion."""
 
-    score: float = Field(description="Goal achievement score")
-    reason: str = Field(description="Explanation for the score", default="")
+    criterion: str = Field(description="The specific criterion being evaluated")
+    met: bool = Field(description="Whether this criterion was met")
+    evidence: str = Field(description="Specific evidence from the conversation for this criterion")
+    relevant_turns: List[int] = Field(
+        default_factory=list,
+        description=(
+            "List of turn numbers (1-indexed) that are relevant to this criterion. "
+            "Include all turns where evidence for or against this criterion was observed."
+        ),
+    )
+
+
+class GoalAchievementScoreResponse(BaseModel):
+    """
+    Structured response from LLM goal evaluation.
+
+    Includes criterion-by-criterion breakdown for programmatic analysis.
+    """
+
+    score: float = Field(description="Goal achievement score (0.0 to 1.0)")
+    reason: str = Field(description="Overall explanation for the score")
+
+    # Structured criterion evaluation
+    criteria_evaluations: List[CriterionEvaluation] = Field(
+        description=(
+            "Break down the goal into individual measurable criteria and evaluate each one. "
+            "This enables detailed analysis of exactly what was/wasn't achieved."
+        )
+    )
+    all_criteria_met: bool = Field(
+        description="True only if ALL criteria evaluations have met=True"
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Confidence in the overall assessment (0.0 to 1.0)",
+    )
 
 
 class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
@@ -187,6 +222,9 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
                     - threshold: The threshold value for success
                     - turn_count: Number of turns in the conversation
                     - goal: The goal that was evaluated
+                    - criteria_evaluations: List of CriterionEvaluation objects (structured breakdown)
+                    - all_criteria_met: Whether all criteria were met
+                    - confidence: Confidence level (0.0 to 1.0)
 
         Raises:
             ValueError: If validation fails
