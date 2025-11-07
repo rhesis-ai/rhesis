@@ -538,8 +538,11 @@ class TestState:
         metrics = {}
 
         for metric_result in self.metric_results:
-            # Use Pydantic's model_dump to serialize the MetricResult
-            metric_dict = metric_result.model_dump()
+            # Convert MetricResult to dict (it's not a Pydantic model)
+            metric_dict = {
+                "score": metric_result.score,
+                "details": metric_result.details,
+            }
 
             # Enhance with Penelope-specific summary fields (if applicable)
             details = metric_dict.get("details", {})
