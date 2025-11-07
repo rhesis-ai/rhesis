@@ -9,6 +9,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import SourceData
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
+from rhesis.sdk.services.extractor import SourceBase, SourceType
 from rhesis.sdk.synthesizers import (
     ConfigSynthesizer,
     GenerationConfig,
@@ -21,7 +22,7 @@ def process_sources_to_documents(
     db: Session,
     organization_id: str,
     user_id: str,
-) -> Tuple[List[Document], List[str], Dict[str, str]]:
+) -> Tuple[List[SourceBase], List[str], Dict[str, str]]:
     """
     Process SourceData list into SDK Document objects with source tracking.
 
@@ -51,6 +52,7 @@ def process_sources_to_documents(
     if not sources:
         return documents_sdk, source_ids_list, source_ids_to_documents
 
+    sources_sdk: List[SourceBase] = []
     for source_data in sources:
         # Fetch source from database if id is provided
         if source_data.id:
@@ -75,13 +77,15 @@ def process_sources_to_documents(
             source_content = source_data.content or ""
 
         # Create Document object from SourceData
-        document_sdk = Document(
+        source_sdk = SourceBase(
             name=source_name,
             description=source_description or (f"Source document: {source_name}"),
-            content=source_content or (f"No content available for source: {source_name}"),
-            path=None,  # Sources don't have file paths
+            type=SourceType.TEXT,
+            metadata={
+                "content": source_content or (f"No content available for source: {source_name}")
+            },
         )
-        documents_sdk.append(document_sdk)
+        sources_sdk.append(source_sdk)
 
         # Track source IDs only if an ID was provided
         if source_data.id:
@@ -89,7 +93,7 @@ def process_sources_to_documents(
             # Store mapping: document name -> source_id for later lookup
             source_ids_to_documents[source_name] = str(source_data.id)
 
-    return documents_sdk, source_ids_list, source_ids_to_documents
+    return sources_sdk, source_ids_list, source_ids_to_documents
 
 
 async def generate_tests(
@@ -133,6 +137,7 @@ async def generate_tests(
     synthesizer = ConfigSynthesizer(
         config=generation_config,
         model=model,
+        sources=documents,
     )
     generate_func = partial(synthesizer.generate, num_tests=num_tests)
 
