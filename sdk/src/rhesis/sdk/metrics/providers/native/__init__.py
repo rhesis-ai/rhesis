@@ -8,6 +8,7 @@ from .conversational_judge import (
 )
 from .factory import RhesisMetricFactory
 from .goal_achievement_judge import (
+    CriterionEvaluation,
     GoalAchievementJudge,
 )
 from .numeric_judge import (
@@ -22,4 +23,5 @@ __all__ = [
     "CategoricalJudge",
     "ConversationalJudge",
     "GoalAchievementJudge",
+    "CriterionEvaluation",
 ]
