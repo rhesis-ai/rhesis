@@ -10,6 +10,7 @@ from rhesis.sdk.metrics.constants import ThresholdOperator
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
 from rhesis.sdk.metrics.providers.native.conversational_judge import ConversationalJudge
+from rhesis.sdk.metrics.providers.native.evaluation_patterns import NumericEvaluationMixin
 from rhesis.sdk.models import BaseLLM
 
 SCORE_TYPE = ScoreType.NUMERIC
@@ -22,7 +23,7 @@ class GoalAchievementScoreResponse(BaseModel):
     reason: str = Field(description="Explanation for the score", default="")
 
 
-class GoalAchievementJudge(ConversationalJudge):
+class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
     """
     Native conversational metric that evaluates goal achievement in conversations.
 
@@ -196,55 +197,15 @@ class GoalAchievementJudge(ConversationalJudge):
         # Generate the evaluation prompt
         prompt = self._get_prompt_template(conversation_history, goal)
 
-        # Base details dictionary
-        details = self._get_base_details(prompt)
-
-        threshold_operator_value = (
-            (
-                self.threshold_operator.value
-                if isinstance(self.threshold_operator, ThresholdOperator)
-                else str(self.threshold_operator)
-            )
-            if self.threshold_operator
-            else None
-        )
-
-        details.update(
-            {
-                "threshold_operator": threshold_operator_value,
-                "min_score": self.min_score,
-                "max_score": self.max_score,
-                "threshold": self.threshold,
+        # Use the shared numeric evaluation pattern with conversational-specific details
+        return self._execute_numeric_evaluation(
+            prompt=prompt,
+            response_schema=GoalAchievementScoreResponse,
+            additional_details={
                 "turn_count": len(conversation_history),
                 "goal": goal or "Infer from conversation",
-            }
+            },
         )
-
-        try:
-            # Run the evaluation with structured response model
-            response = self.model.generate(prompt, schema=GoalAchievementScoreResponse)
-            response = GoalAchievementScoreResponse(**response)  # type: ignore
-
-            # Get the score and reason from the response
-            score = response.score
-            reason = response.reason
-
-            # Check if the evaluation meets the threshold
-            is_successful = self._evaluate_score(score=score)
-
-            # Update details with success-specific fields
-            details.update(
-                {
-                    "score": score,
-                    "reason": reason,
-                    "is_successful": is_successful,
-                }
-            )
-
-            return MetricResult(score=score, details=details)
-
-        except Exception as e:
-            return self._handle_evaluation_error(e, details, 0.0)
 
     @classmethod
     def from_dict(cls, config: Dict[str, Any]) -> "GoalAchievementJudge":
