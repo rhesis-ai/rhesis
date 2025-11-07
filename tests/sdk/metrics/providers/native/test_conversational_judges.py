@@ -193,11 +193,27 @@ def test_goal_achievement_judge_evaluate_with_mock(mock_model, sample_conversati
     """Test evaluate method with mocked LLM response."""
     judge = GoalAchievementJudge(model=mock_model, threshold=0.7)
 
-    # Mock the LLM response
+    # Mock the LLM response with all required fields
     mock_model.generate.return_value = {
         "score": 0.85,
         "reason": "The conversation successfully achieves the goal. "
         "The assistant provides clear information about auto insurance options.",
+        "criteria_evaluations": [
+            {
+                "criterion": "Understanding customer needs",
+                "met": True,
+                "evidence": "Assistant asked clarifying questions about insurance needs",
+                "relevant_turns": [1, 2],
+            },
+            {
+                "criterion": "Providing comprehensive information",
+                "met": True,
+                "evidence": "Assistant explained auto insurance options clearly",
+                "relevant_turns": [3, 4, 5],
+            },
+        ],
+        "all_criteria_met": True,
+        "confidence": 0.9,
     }
 
     result = judge.evaluate(
@@ -219,10 +235,26 @@ def test_goal_achievement_judge_evaluate_below_threshold(mock_model, sample_conv
     """Test evaluation when score is below threshold."""
     judge = GoalAchievementJudge(model=mock_model, threshold=0.9)
 
-    # Mock a lower score
+    # Mock a lower score with partial criteria met
     mock_model.generate.return_value = {
         "score": 0.6,
         "reason": "The goal was only partially achieved.",
+        "criteria_evaluations": [
+            {
+                "criterion": "Information provided",
+                "met": True,
+                "evidence": "Basic insurance information was provided",
+                "relevant_turns": [1, 2],
+            },
+            {
+                "criterion": "Purchase completion",
+                "met": False,
+                "evidence": "Customer did not complete the purchase process",
+                "relevant_turns": [3, 4],
+            },
+        ],
+        "all_criteria_met": False,
+        "confidence": 0.8,
     }
 
     result = judge.evaluate(
@@ -241,6 +273,16 @@ def test_goal_achievement_judge_evaluate_without_goal(mock_model, sample_convers
     mock_model.generate.return_value = {
         "score": 0.75,
         "reason": "The conversation shows good progress toward an implicit goal.",
+        "criteria_evaluations": [
+            {
+                "criterion": "Conversational flow",
+                "met": True,
+                "evidence": "Natural conversation progression",
+                "relevant_turns": [1, 2, 3],
+            },
+        ],
+        "all_criteria_met": True,
+        "confidence": 0.7,
     }
 
     result = judge.evaluate(conversation_history=sample_conversation)
