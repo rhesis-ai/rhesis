@@ -1,13 +1,14 @@
 """Tests for Penelope utils module."""
 
-import pytest
 from datetime import datetime, timedelta
 from unittest.mock import Mock
+
+import pytest
 from rhesis.penelope.utils import (
-    StoppingCondition,
-    MaxIterationsCondition,
-    TimeoutCondition,
     GoalAchievedCondition,
+    MaxIterationsCondition,
+    StoppingCondition,
+    TimeoutCondition,
 )
 
 
@@ -146,32 +147,30 @@ def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
 def test_goal_achieved_condition_should_stop_goal_impossible(sample_test_state):
     """Test GoalAchievedCondition stops when goal is impossible (low score after 5+ turns)."""
     from rhesis.penelope.context import Turn
-    from rhesis.penelope.schemas import AssistantMessage, ToolMessage, FunctionCall, MessageToolCall
-    
+    from rhesis.penelope.schemas import AssistantMessage, FunctionCall, MessageToolCall, ToolMessage
+
     mock_result = Mock()
     mock_result.score = 0.2  # Low score
     mock_result.details = {"is_successful": False, "reason": "Cannot achieve goal"}
 
     condition = GoalAchievedCondition(result=mock_result)
-    
+
     # Simulate 5+ turns by adding turns to state
     for i in range(5):
         turn = Turn(
-            turn_number=i+1,
+            turn_number=i + 1,
             assistant_message=AssistantMessage(
-                content=f"Turn {i+1}",
-                tool_calls=[MessageToolCall(
-                    id=f"call_{i}",
-                    type="function",
-                    function=FunctionCall(name="test", arguments="{}")
-                )]
+                content=f"Turn {i + 1}",
+                tool_calls=[
+                    MessageToolCall(
+                        id=f"call_{i}",
+                        type="function",
+                        function=FunctionCall(name="test", arguments="{}"),
+                    )
+                ],
             ),
-            tool_message=ToolMessage(
-                tool_call_id=f"call_{i}",
-                name="test",
-                content="result"
-            ),
-            reasoning="test"
+            tool_message=ToolMessage(tool_call_id=f"call_{i}", name="test", content="result"),
+            reasoning="test",
         )
         sample_test_state.turns.append(turn)
 
@@ -198,4 +197,3 @@ def test_goal_achieved_condition_update_result():
 
 # Tests removed: format_tool_schema_for_llm is no longer needed
 # Tool schemas are self-documenting via the ToolCall Pydantic schema
-
