@@ -533,7 +533,12 @@ class TestState:
                 metric_dict["criteria_met"] = met_count
                 metric_dict["criteria_total"] = len(criteria_evals)
 
-            metrics["Goal Achievement"] = metric_dict
+            # Use metric name from details, or fallback to "Goal Achievement"
+            metric_name = details.get("name", "goal_achievement")
+            # Convert snake_case to Title Case for display
+            display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
+
+            metrics[display_name] = metric_dict
         else:
             # Fallback if no evaluation available
             metrics["Goal Achievement"] = {
