@@ -318,7 +318,6 @@ def _build_task_result(
 )
 def generate_and_save_test_set(
     self,
-    synthesizer_type: str,
     num_tests: int = 5,
     batch_size: int = 20,
     model: Union[str, BaseLLM, None] = None,

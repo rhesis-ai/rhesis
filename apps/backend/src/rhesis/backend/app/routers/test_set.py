@@ -1,5 +1,4 @@
 import uuid
-from dataclasses import asdict
 from enum import Enum
 from typing import List, Optional
 
@@ -38,7 +37,6 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
-from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 # Create the detailed schema for TestSet and Test
@@ -46,7 +44,7 @@ TestSetDetailSchema = create_detailed_schema(schemas.TestSet, models.TestSet)
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
 router = APIRouter(
-    prefix="/test_sets", tags=["test_sets"], responses={404: {"description": "Not found"}}
+    prefix="/test_sets", tags=["test_sets"], responses={404: {"description": "Not found the page"}}
 )
 
 
@@ -302,20 +300,20 @@ async def generate_test_set(
         generation_prompt = build_generation_prompt(request.config, request.samples)
 
         # Determine test count
-        test_count = determine_test_count(request.config, request.num_tests)
+        test_count = request.num_tests
 
         # Launch the generation task
         # Note: The task will fetch the user's configured model itself
         # using get_user_generation_model. This avoids trying to serialize
         # BaseLLM objects which are not JSON serializable
-        task_result = task_launcher(
-            generate_and_save_test_set,
-            request.synthesizer_type,  # First positional argument
+        # task_result = task_launcher(
+        generate_and_save_test_set(
+            None,
             current_user=current_user,
             num_tests=test_count,
             batch_size=request.batch_size,
             prompt=generation_prompt,
-            documents=[asdict(doc) for doc in documents_to_use] if documents_to_use else None,
+            documents=documents_to_use,
             source_ids=source_ids_list,  # Pass actual source_ids list
             source_ids_to_documents=source_ids_to_documents,  # Pass mapping for debugging
             name=request.name,  # Pass optional test set name
