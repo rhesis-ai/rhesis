@@ -29,7 +29,7 @@ x-common-database: &common-database
   SQLALCHEMY_DB_NAME: rhesis-db
   # ⚠️ LOCAL DEVELOPMENT ENCRYPTION KEY - DO NOT USE IN PRODUCTION
   # This is a valid Fernet key generated specifically for local development
-  DB_ENCRYPTION_KEY: "your-32-byte-url-safe-base64-encoded-key"
+  DB_ENCRYPTION_KEY: "Q1TXkiXw7aV-lPkGRqNHxmIjSuySERFD2T6bDjdaW8Q="
 
 x-common-redis: &common-redis
   REDIS_URL: redis://:rhesis-redis-pass@redis:6379/0
@@ -61,17 +61,20 @@ x-common-jwt: &common-jwt
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 10080
 
 x-common-environment: &common-environment
-  ENVIRONMENT: local
-  BACKEND_ENV: local
-  FRONTEND_ENV: local
-  WORKER_ENV: local
+  ENVIRONMENT: development  # Must be 'production', 'staging', or 'development' (not 'local')
+  BACKEND_ENV: development
+  FRONTEND_ENV: development
+  WORKER_ENV: development
   LOG_LEVEL: DEBUG
 
 x-rhesis-config: &rhesis-config
-  RHESIS_BASE_URL: http://backend:8080
-  RHESIS_API_KEY: ""
+  RHESIS_BASE_URL: https://api.rhesis.ai/ #http://backend:8080
+  RHESIS_API_KEY: "rh-EjwVhgSk_0_ovnFLPoCZKdAxe1n5MZutUmWk8s5JP9A" # "rh-H4rV_exzO308Kbreoab26o9VC23IpmBKUIghwdQaAsE"  # ⚠️ Local development API token (generated on first run - check backend logs)
   FRONTEND_URL: http://localhost:3000
   BACKEND_URL: http://backend:8080
+  # ⚠️ DEFAULT MODEL CONFIGURATION FOR LOCAL DEVELOPMENT
+  DEFAULT_GENERATION_MODEL: "rhesis"  # Use Rhesis model instead of vertex_ai
+  DEFAULT_MODEL_NAME: "gemini-2.0-flash"
 
 x-telemetry-config: &telemetry-config
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/
@@ -153,6 +156,9 @@ services:
       LOG_LEVEL: DEBUG
       # ⚠️ ENABLE LOCAL AUTHENTICATION BYPASS
       LOCAL_AUTH_ENABLED: "true"
+      # ⚠️ MODEL CONFIGURATION - Uses Rhesis model for local development
+      DEFAULT_GENERATION_MODEL: "rhesis"
+      DEFAULT_MODEL_NAME: "gemini-2.0-flash"
     ports:
       - "8080:8080"
     extra_hosts:
@@ -190,6 +196,9 @@ services:
       CELERY_WORKER_LOGLEVEL: INFO
       USE_TCP_DATABASE: true
       ENABLE_FLOWER: no
+      # ⚠️ MODEL CONFIGURATION - Uses Rhesis model for local development
+      DEFAULT_GENERATION_MODEL: "rhesis"
+      DEFAULT_MODEL_NAME: "gemini-2.0-flash"
     ports:
       - "8081:8081"
     extra_hosts:
