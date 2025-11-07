@@ -20,7 +20,7 @@ def example_multiple_metrics():
     
     # Configure multiple metrics for evaluation
     metrics = [
-        # Metric 1: Goal Achievement (used for stopping condition)
+        # Metric 1: Goal Achievement (auto-detected for stopping condition)
         GoalAchievementJudge(
             name="goal_achievement",
             description="Evaluates if conversation achieves stated goal",
@@ -44,6 +44,7 @@ def example_multiple_metrics():
     ]
     
     # Initialize Penelope with multiple metrics
+    # GoalAchievementJudge is auto-detected for stopping condition
     agent = PenelopeAgent(
         model=model,
         metrics=metrics,  # Pass list of metrics
@@ -167,16 +168,114 @@ def example_custom_metric():
     return result
 
 
+def example_explicit_goal_metric():
+    """Example: Explicit goal_metric separate from evaluation metrics."""
+    
+    model = VertexAILLM(model_name="gemini-2.0-flash")
+    
+    # Configure evaluation metrics (no GoalAchievementJudge)
+    metrics = [
+        DeepEvalTurnRelevancy(
+            name="turn_relevancy",
+            model=model,
+            threshold=0.6,
+            window_size=3,
+        ),
+    ]
+    
+    # Explicitly provide goal metric for stopping condition
+    goal_metric = GoalAchievementJudge(
+        name="stopping_metric",
+        model=model,
+        threshold=0.8,  # Higher threshold for stopping
+    )
+    
+    # Initialize with explicit goal_metric
+    # The goal_metric will be auto-added to metrics list
+    agent = PenelopeAgent(
+        model=model,
+        metrics=metrics,
+        goal_metric=goal_metric,  # Explicit stopping metric
+        verbose=True
+    )
+    
+    target = EndpointTarget(
+        endpoint_id="support-bot",
+        url="https://api.example.com/chat",
+    )
+    
+    result = agent.execute_test(
+        target=target,
+        goal="Verify chatbot handles complex multi-step inquiries",
+    )
+    
+    # Result will contain both metrics:
+    # - Turn Relevancy (from metrics list)
+    # - Stopping Metric (from goal_metric, auto-added to metrics)
+    print(f"\nTotal metrics evaluated: {len(result.metrics)}")
+    print(f"Metrics: {list(result.metrics.keys())}")
+    
+    return result
+
+
+def example_auto_create_goal_metric():
+    """Example: Auto-create GoalAchievementJudge when none provided."""
+    
+    model = VertexAILLM(model_name="gemini-2.0-flash")
+    
+    # Only provide evaluation metrics (no GoalAchievementJudge)
+    metrics = [
+        DeepEvalTurnRelevancy(
+            name="turn_relevancy",
+            model=model,
+            threshold=0.6,
+            window_size=3,
+        ),
+    ]
+    
+    # Penelope will auto-create GoalAchievementJudge for stopping
+    agent = PenelopeAgent(
+        model=model,
+        metrics=metrics,  # No GoalAchievementJudge here
+        # goal_metric=None (default)
+        verbose=True
+    )
+    # Result: metrics = [TurnRelevancy, GoalAchievementJudge (auto-created)]
+    
+    target = EndpointTarget(
+        endpoint_id="support-bot",
+        url="https://api.example.com/chat",
+    )
+    
+    result = agent.execute_test(
+        target=target,
+        goal="Test chatbot responsiveness",
+    )
+    
+    # GoalAchievementJudge was auto-created and added to metrics
+    print(f"\nAuto-created metrics: {list(result.metrics.keys())}")
+    
+    return result
+
+
 if __name__ == "__main__":
-    print("Example 1: Multiple Built-in Metrics")
-    print("=" * 50)
+    print("Example 1: Multiple Built-in Metrics (Auto-Detect GoalAchievementJudge)")
+    print("=" * 70)
     example_multiple_metrics()
     
     print("\n\nExample 2: Single Metric (Default Behavior)")
-    print("=" * 50)
+    print("=" * 70)
     example_single_metric()
     
     print("\n\nExample 3: Custom Metric")
-    print("=" * 50)
+    print("=" * 70)
     example_custom_metric()
+    
+    print("\n\nExample 4: Explicit goal_metric Parameter")
+    print("=" * 70)
+    example_explicit_goal_metric()
+    
+    print("\n\nExample 5: Auto-Create GoalAchievementJudge")
+    print("=" * 70)
+    example_auto_create_goal_metric()
 
