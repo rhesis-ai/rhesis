@@ -1,8 +1,11 @@
-"""Mixins for native judge metrics.
+"""Serialization and backend sync functionality for native judge metrics.
 
-This module provides common functionality for judge metrics through mixins:
-- SerializationMixin: Methods for serialization (to_config, from_config, etc.)
+This module provides common serialization and backend synchronization functionality:
+- SerializationMixin: Methods for serialization (to_config, from_config, to_dict, from_dict)
 - BackendSyncMixin: Methods for backend synchronization (push, pull)
+
+These mixins are used by all judge classes to provide consistent serialization
+and backend interaction capabilities.
 """
 
 import inspect

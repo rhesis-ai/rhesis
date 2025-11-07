@@ -8,7 +8,7 @@ from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.conversational.base import ConversationalMetricBase
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
-from rhesis.sdk.metrics.providers.native.mixins import BackendSyncMixin, SerializationMixin
+from rhesis.sdk.metrics.providers.native.serialization import BackendSyncMixin, SerializationMixin
 from rhesis.sdk.metrics.providers.native.shared_utils import (
     get_base_details,
     handle_evaluation_error,

@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, TypeVar, Union
 
 from rhesis.sdk.metrics.base import BaseMetric, MetricResult
 from rhesis.sdk.metrics.providers.native.configs import BaseJudgeConfig
-from rhesis.sdk.metrics.providers.native.mixins import BackendSyncMixin, SerializationMixin
+from rhesis.sdk.metrics.providers.native.serialization import BackendSyncMixin, SerializationMixin
 from rhesis.sdk.metrics.providers.native.shared_utils import (
     get_base_details,
     handle_evaluation_error,
