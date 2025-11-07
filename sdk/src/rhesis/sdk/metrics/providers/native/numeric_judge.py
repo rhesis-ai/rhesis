@@ -7,6 +7,7 @@ from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
 from rhesis.sdk.metrics.providers.native.configs import NumericJudgeConfig
+from rhesis.sdk.metrics.providers.native.evaluation_patterns import NumericEvaluationMixin
 from rhesis.sdk.models import BaseLLM
 
 SCORE_TYPE = ScoreType.NUMERIC
@@ -19,7 +20,7 @@ class NumericScoreResponse(BaseModel):
     reason: str = Field(description="Explanation for the score", default="")
 
 
-class NumericJudge(JudgeBase):
+class NumericJudge(JudgeBase, NumericEvaluationMixin):
     """
     A numeric metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
@@ -179,44 +180,11 @@ class NumericJudge(JudgeBase):
         # Generate the evaluation prompt
         prompt = self._get_prompt_template(input, output, expected_output or "", context or [])
 
-        # Base details dictionary with common fields
-        details = self._get_base_details(prompt)
-        details.update(
-            {
-                "threshold_operator": (
-                    self.threshold_operator.value if self.threshold_operator else None
-                ),
-                "min_score": self.min_score,
-                "max_score": self.max_score,
-                "threshold": self.threshold,
-            }
+        # Use the shared numeric evaluation pattern
+        return self._execute_numeric_evaluation(
+            prompt=prompt,
+            response_schema=NumericScoreResponse,
         )
-
-        try:
-            # Run the evaluation with structured response model
-            response = self.model.generate(prompt, schema=NumericScoreResponse)
-            response = NumericScoreResponse(**response)  # type: ignore
-
-            # Get the score directly from the response
-            score = response.score
-            reason = response.reason
-
-            # Check if the evaluation meets the threshold using the base class method
-            is_successful = self._evaluate_score(score=score)
-
-            # Update details with success-specific fields
-            details.update(
-                {
-                    "score": score,
-                    "reason": reason,
-                    "is_successful": is_successful,
-                }
-            )
-
-            return MetricResult(score=score, details=details)
-
-        except Exception as e:
-            return self._handle_evaluation_error(e, details, 0.0)
 
     def _evaluate_score(self, score: float) -> bool:
         """
