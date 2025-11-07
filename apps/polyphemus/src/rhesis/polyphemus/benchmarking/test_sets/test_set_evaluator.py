@@ -1,3 +1,4 @@
+import gc
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -76,8 +77,12 @@ class TestSetEvaluator:
         """
         Unload the shared judge model to free up resources.
         """
+        global JUDGE
         if self.judge is not None:
             self.judge.unload_model()
+        JUDGE = None
+        self.judge = None
+        gc.collect()
 
     def add_model(self, model: BaseLLM):
         """

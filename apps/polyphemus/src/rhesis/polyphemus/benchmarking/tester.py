@@ -101,11 +101,16 @@ class ModelTester:
         print_summary : bool, optional
             If True, print evaluation summary. Default: True.
         """
-        for test_set in self.test_sets:
-            test_set.load_results()
-            test_set.evaluate_results(recompute_existing=recompute_existing)
-        if test_set:
-            test_set.unload_judge()  # Reset judge for next evaluation
+        if self.test_sets:
+            self.test_sets[0].load_judge()
+
+        try:
+            for test_set in self.test_sets:
+                test_set.load_results()
+                test_set.evaluate_results(recompute_existing=recompute_existing)
+        finally:
+            if self.test_sets:
+                self.test_sets[0].unload_judge()
 
         if print_summary:
             self.print_evaluation_summary()
