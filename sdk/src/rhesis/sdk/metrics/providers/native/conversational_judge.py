@@ -145,7 +145,7 @@ class ConversationalJudge(ConversationalMetricBase, SerializationMixin, BackendS
         Returns:
             Base details dictionary
         """
-        return get_base_details(self.score_type, prompt)
+        return get_base_details(self.score_type, prompt, metric_name=self.name)
 
     def _handle_evaluation_error(
         self, e: Exception, details: Dict[str, Any], default_score: Any

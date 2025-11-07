@@ -14,13 +14,16 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from rhesis.sdk.metrics.base import MetricResult, ScoreType
 
 
-def get_base_details(score_type: ScoreType, prompt: str) -> Dict[str, Any]:
+def get_base_details(
+    score_type: ScoreType, prompt: str, metric_name: str = None
+) -> Dict[str, Any]:
     """
     Get base details dictionary common to all metric types.
 
     Args:
         score_type: The score type of the metric
         prompt: The evaluation prompt
+        metric_name: Optional name of the metric
 
     Returns:
         Dict[str, Any]: Base details dictionary
@@ -32,10 +35,15 @@ def get_base_details(score_type: ScoreType, prompt: str) -> Dict[str, Any]:
         raise ValueError("score_type must be set before calling get_base_details")
 
     score_type_value = score_type.value if isinstance(score_type, ScoreType) else str(score_type)
-    return {
+    details = {
         "score_type": score_type_value,
         "prompt": prompt,
     }
+    
+    if metric_name:
+        details["name"] = metric_name
+    
+    return details
 
 
 def handle_evaluation_error(
