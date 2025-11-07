@@ -1,87 +1,15 @@
-from dataclasses import dataclass, fields
+from dataclasses import fields
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
-from rhesis.sdk.metrics.providers.native.base import (
-    JudgeBase,
-    JudgeConfig,
-)
+from rhesis.sdk.metrics.providers.native.base import JudgeBase
+from rhesis.sdk.metrics.providers.native.configs import NumericJudgeConfig
 from rhesis.sdk.models import BaseLLM
 
 SCORE_TYPE = ScoreType.NUMERIC
-
-
-@dataclass
-class NumericJudgeConfig(JudgeConfig):
-    min_score: Optional[float] = None
-    max_score: Optional[float] = None
-    threshold: Optional[float] = None
-    threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL
-
-    def __post_init__(self):
-        # Convert string to enum if needed
-        if isinstance(self.threshold_operator, str):
-            self.threshold_operator = ThresholdOperator(self.threshold_operator)
-        self._validate_score_range(self.min_score, self.max_score)
-        self._set_score_parameters(self.min_score, self.max_score, self.threshold)
-        super().__post_init__()
-
-    def _validate_score_range(self, min_score: Optional[float], max_score: Optional[float]) -> None:
-        """
-        Validate that min_score and max_score are provided together.
-
-        Args:
-            min_score (Optional[float]): Minimum score value
-            max_score (Optional[float]): Maximum score value
-
-        Raises:
-            ValueError: If only one of min_score or max_score is provided
-            ValueError: If min_score and max_score are the same
-            ValueError: If min_score is greater than max_score
-        """
-        if min_score is not None and max_score is None:
-            raise ValueError("Only min_score was set, please set max_score")
-
-        if min_score is None and max_score is not None:
-            raise ValueError("Only max_score was set, please set min_score")
-
-        if min_score is not None and max_score is not None and min_score == max_score:
-            raise ValueError("min_score and max_score cannot be the same")
-
-        if min_score is not None and max_score is not None and min_score > max_score:
-            raise ValueError("min_score cannot be greater than max_score")
-
-    def _set_score_parameters(
-        self, min_score: Optional[float], max_score: Optional[float], threshold: Optional[float]
-    ) -> None:
-        """
-        Set up score parameters with validation.
-
-        This method sets the min_score, max_score, and threshold values with appropriate
-        defaults and validation.
-
-        Args:
-            min_score (Optional[float]): Minimum possible score (defaults to 0.0)
-            max_score (Optional[float]): Maximum possible score (defaults to 1.0)
-            threshold (Optional[float]): Success threshold (defaults to midpoint)
-
-        Raises:
-            ValueError: If threshold is outside the [min_score, max_score] range
-        """
-        # For numeric scores, we need min_score, max_score, and threshold
-        self.min_score = min_score if min_score is not None else 0
-        self.max_score = max_score if max_score is not None else 1
-
-        if threshold is None:
-            self.threshold = self.min_score + (self.max_score - self.min_score) / 2
-        else:
-            self.threshold = threshold
-
-        if not (self.min_score <= self.threshold <= self.max_score):
-            raise ValueError(f"Threshold must be between {self.min_score} and {self.max_score}")
 
 
 class NumericScoreResponse(BaseModel):

@@ -1,16 +1,14 @@
 import pytest
 
 from rhesis.sdk.metrics.base import MetricType, ScoreType
-from rhesis.sdk.metrics.providers.native.base import (
-    JudgeBase,
-    JudgeConfig,
-)
+from rhesis.sdk.metrics.providers.native.base import JudgeBase
+from rhesis.sdk.metrics.providers.native.configs import BaseJudgeConfig
 from rhesis.sdk.models.providers.gemini import GeminiLLM
 
 
 @pytest.fixture
 def config():
-    config = JudgeConfig(
+    config = BaseJudgeConfig(
         name="test_metric",
         description="test_description",
         score_type="numeric",
