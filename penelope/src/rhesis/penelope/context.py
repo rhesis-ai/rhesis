@@ -516,42 +516,39 @@ class TestState:
         Returns:
             Dictionary mapping metric names to their results in standard format
         """
-        metrics = {}
-
-        # Convert SDK metric evaluation to standard metric format
-        if self.last_evaluation:
-            # Use Pydantic's model_dump to serialize the MetricResult
-            metric_dict = self.last_evaluation.model_dump()
-
-            # Enhance with Penelope-specific summary fields
-            details = metric_dict.get("details", {})
-            criteria_evals = details.get("criteria_evaluations", [])
-
-            # Add criterion counts for quick analysis
-            if criteria_evals:
-                met_count = sum(1 for c in criteria_evals if c.get("met", False))
-                metric_dict["criteria_met"] = met_count
-                metric_dict["criteria_total"] = len(criteria_evals)
-
-            # Use metric name from details, or fallback to "Goal Achievement"
-            metric_name = details.get("name", "goal_achievement")
-            # Convert snake_case to Title Case for display
-            display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
-
-            metrics[display_name] = metric_dict
-        else:
-            # Fallback if no evaluation available
-            metrics["Goal Achievement"] = {
-                "name": "Goal Achievement",
-                "score": 0.5,
-                "reason": "No detailed evaluation available",
-                "backend": "penelope",
-                "threshold": None,
-                "class_name": "GoalAchievementMetric",
-                "description": "Goal achievement evaluation was not performed",
-                "is_successful": goal_achieved,
-                "turn_count": self.current_turn,
+        # Fallback if no evaluation available
+        if not self.last_evaluation:
+            return {
+                "Goal Achievement": {
+                    "name": "Goal Achievement",
+                    "score": 0.5,
+                    "reason": "No detailed evaluation available",
+                    "backend": "penelope",
+                    "threshold": None,
+                    "class_name": "GoalAchievementMetric",
+                    "description": "Goal achievement evaluation was not performed",
+                    "is_successful": goal_achieved,
+                    "turn_count": self.current_turn,
+                }
             }
+
+        # Use Pydantic's model_dump to serialize the MetricResult
+        metric_dict = self.last_evaluation.model_dump()
+
+        # Enhance with Penelope-specific summary fields
+        details = metric_dict.get("details", {})
+        criteria_evals = details.get("criteria_evaluations", [])
+
+        # Add criterion counts for quick analysis
+        if criteria_evals:
+            met_count = sum(1 for c in criteria_evals if c.get("met", False))
+            metric_dict["criteria_met"] = met_count
+            metric_dict["criteria_total"] = len(criteria_evals)
+
+        # Use metric name from details, or fallback to "goal_achievement"
+        metric_name = details.get("name", "goal_achievement")
+        # Convert snake_case to Title Case for display
+        display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
 
         # Placeholder for future SDK metrics
         # When SDK metrics are computed, they will be added here:
@@ -559,7 +556,7 @@ class TestState:
         # metrics["Conversation Coherence"] = {...}
         # metrics["Safety"] = {...}
 
-        return metrics
+        return {display_name: metric_dict}
 
     def _generate_execution_stats(self) -> Dict[str, Any]:
         """
