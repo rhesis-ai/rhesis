@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_serializer
 
-from rhesis.penelope.schemas import AssistantMessage, CriterionEvaluation, ToolMessage
+from rhesis.penelope.schemas import AssistantMessage, ConversationHistory, ToolMessage
 
 
 class ExecutionStatus(str, Enum):
@@ -89,34 +89,6 @@ class Turn(BaseModel):
             return json.loads(content) if isinstance(content, str) else content
         except json.JSONDecodeError:
             return content
-
-
-class GoalEvaluationResult(BaseModel):
-    """
-    Structured goal evaluation results.
-
-    Preserves the criterion-by-criterion evaluation from the LLM in machine-readable format,
-    enabling programmatic analysis, filtering, and aggregation of test results.
-    """
-
-    turn_count: int = Field(description="Number of turns at evaluation time")
-    criteria_evaluations: List[CriterionEvaluation] = Field(
-        description="Detailed evaluation of each criterion"
-    )
-    all_criteria_met: bool = Field(description="Whether all criteria were met")
-    confidence: float = Field(ge=0.0, le=1.0, description="Confidence in the evaluation")
-    reasoning: str = Field(description="Summary explanation of the evaluation")
-    evidence: List[str] = Field(
-        default_factory=list, description="Supporting evidence from the conversation"
-    )
-    evaluated_at: datetime = Field(
-        default_factory=datetime.now, description="When the evaluation was performed"
-    )
-
-    @field_serializer("evaluated_at", when_used="json")
-    def serialize_evaluated_at(self, dt: datetime, _info):
-        """Serialize datetime to ISO format string."""
-        return dt.isoformat()
 
 
 class ConversationTurn(BaseModel):
@@ -228,28 +200,6 @@ class TestResult(BaseModel):
         return dt.isoformat() if dt else None
 
 
-class GoalProgress(BaseModel):
-    """Evaluation of progress toward the test goal."""
-
-    goal_achieved: bool = Field(description="Whether the goal is achieved")
-    goal_impossible: bool = Field(
-        default=False, description="Whether the goal is determined to be impossible"
-    )
-    confidence: float = Field(
-        ge=0.0, le=1.0, description="Confidence in the evaluation (0.0 to 1.0)"
-    )
-    reasoning: str = Field(description="Explanation of the evaluation")
-    findings: List[str] = Field(
-        default_factory=list, description="Specific findings supporting this evaluation"
-    )
-
-    # Structured evaluation data (optional, when available from LLM evaluation)
-    structured_evaluation: Optional[GoalEvaluationResult] = Field(
-        default=None,
-        description="Structured criterion-by-criterion evaluation results",
-    )
-
-
 @dataclass
 class TestContext:
     """
@@ -276,17 +226,21 @@ class TestState:
     Current state of a test execution.
 
     Tracks conversation history, turn count, and session information.
+    Uses SDK's ConversationHistory for zero-conversion metric evaluation.
     """
 
     context: TestContext
     turns: List[Turn] = field(default_factory=list)
+    
+    # Native SDK conversation tracking - built incrementally as tools execute
+    conversation: ConversationHistory = field(
+        default_factory=lambda: ConversationHistory.from_messages([])
+    )
+    
     current_turn: int = 0
     session_id: Optional[str] = None
     findings: List[str] = field(default_factory=list)
     start_time: datetime = field(default_factory=datetime.now)
-
-    # Store the last goal evaluation result (structured)
-    last_evaluation: Optional[GoalEvaluationResult] = None
 
     def add_turn(
         self,
