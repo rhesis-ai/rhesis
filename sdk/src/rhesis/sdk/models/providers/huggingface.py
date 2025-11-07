@@ -217,6 +217,9 @@ class HuggingFaceLLM(BaseLLM):
         model_memory_gb = self._get_model_memory_gb()
         start_time = time.time()
 
+        # Set default max_new_tokens (HuggingFace defaults to only 20 tokens)
+        kwargs.setdefault("max_new_tokens", 2048)
+
         # generate response
         output_ids = self.model.generate(
             **inputs,
