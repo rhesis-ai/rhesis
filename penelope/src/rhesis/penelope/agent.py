@@ -83,6 +83,69 @@ class PenelopeAgent:
         ... )
     """
 
+    @staticmethod
+    def _determine_goal_metric(
+        goal_metric: Optional[Any],
+        metrics: List[Any],
+        model: BaseLLM,
+    ) -> tuple[Any, List[Any]]:
+        """
+        Determine the goal metric to use for stopping condition.
+
+        Strategy:
+        1. If explicit goal_metric provided: validate and use it
+        2. Else search metrics for GoalAchievementJudge
+        3. Else create default GoalAchievementJudge
+
+        Args:
+            goal_metric: Optional explicit goal metric
+            metrics: List of evaluation metrics
+            model: LLM model for creating default judge if needed
+
+        Returns:
+            Tuple of (goal_metric, updated_metrics_list)
+
+        Raises:
+            ValueError: If explicit goal_metric lacks evaluate() method
+        """
+        from rhesis.sdk.metrics.providers.native import GoalAchievementJudge
+
+        # Case 1: Explicit goal_metric provided
+        if goal_metric is not None:
+            if not hasattr(goal_metric, "evaluate"):
+                raise ValueError(
+                    f"goal_metric must have an 'evaluate' method. Got: {type(goal_metric).__name__}"
+                )
+
+            logger.info(f"Using explicit goal metric: {goal_metric.name}")
+
+            # Ensure it's in metrics list
+            if goal_metric not in metrics:
+                metrics.append(goal_metric)
+                logger.info("Added goal_metric to metrics list")
+
+            return goal_metric, metrics
+
+        # Case 2: Search for existing GoalAchievementJudge
+        goal_judges = [m for m in metrics if isinstance(m, GoalAchievementJudge)]
+
+        if goal_judges:
+            selected = goal_judges[0]
+            logger.info(f"Auto-selected GoalAchievementJudge for stopping: {selected.name}")
+            return selected, metrics
+
+        # Case 3: Create default GoalAchievementJudge
+        default_judge = GoalAchievementJudge(
+            name="penelope_goal_evaluation",
+            description="Evaluates goal achievement in Penelope test conversations",
+            model=model,
+            threshold=0.7,
+        )
+        metrics.append(default_judge)
+        logger.info("✓ Created default GoalAchievementJudge for stopping and evaluation")
+
+        return default_judge, metrics
+
     def __init__(
         self,
         model: Optional[Union[BaseLLM, str]] = None,
@@ -170,49 +233,12 @@ class PenelopeAgent:
         if metrics is None:
             metrics = []
 
-        self.metrics = metrics
-
-        # Determine goal metric for stopping condition
-        if goal_metric is not None:
-            # User explicitly provided goal metric - validate it
-            if not hasattr(goal_metric, "evaluate"):
-                raise ValueError(
-                    f"goal_metric must have an 'evaluate' method. Got: {type(goal_metric).__name__}"
-                )
-            self.goal_metric = goal_metric
-            logger.info(f"Using explicit goal metric: {goal_metric.name}")
-
-            # Ensure it's in the metrics list for evaluation
-            if goal_metric not in self.metrics:
-                self.metrics.append(goal_metric)
-                logger.info("Added goal_metric to metrics list")
-        else:
-            # No explicit goal_metric - find or create GoalAchievementJudge
-            from rhesis.sdk.metrics.providers.native import GoalAchievementJudge
-
-            # Search for existing GoalAchievementJudge in metrics
-            goal_judges = [m for m in self.metrics if isinstance(m, GoalAchievementJudge)]
-
-            if goal_judges:
-                # Found existing GoalAchievementJudge
-                self.goal_metric = goal_judges[0]
-                logger.info(
-                    f"Auto-selected GoalAchievementJudge for stopping: {self.goal_metric.name}"
-                )
-            else:
-                # No GoalAchievementJudge found - create default
-                self.goal_metric = GoalAchievementJudge(
-                    name="penelope_goal_evaluation",
-                    description="Evaluates goal achievement in Penelope test conversations",
-                    model=self.model,
-                    threshold=0.7,
-                )
-                self.metrics.append(self.goal_metric)
-                logger.info("✓ Created default GoalAchievementJudge for stopping and evaluation")
-
-        # Ensure we have at least one metric (the goal metric)
-        if not self.metrics:
-            self.metrics = [self.goal_metric]
+        # Determine goal metric for stopping condition (with smart defaults)
+        self.goal_metric, self.metrics = self._determine_goal_metric(
+            goal_metric=goal_metric,
+            metrics=metrics,
+            model=self.model,
+        )
 
         # Initialize specialized components
         self.evaluator = GoalEvaluator(goal_metric=self.goal_metric)
