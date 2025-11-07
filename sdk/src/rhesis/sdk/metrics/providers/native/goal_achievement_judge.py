@@ -9,7 +9,10 @@ from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import ThresholdOperator
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
-from rhesis.sdk.metrics.providers.native.conversational_judge import ConversationalJudge
+from rhesis.sdk.metrics.providers.native.conversational_judge import (
+    ConversationalJudge,
+    GOAL_DEFAULT,
+)
 from rhesis.sdk.metrics.providers.native.evaluation_patterns import NumericEvaluationMixin
 from rhesis.sdk.models import BaseLLM
 
@@ -84,7 +87,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         name: Optional[str] = None,
         description: Optional[str] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
-        model: Optional[Union[str, BaseLLM]] = None,
+        model: Optional[Union[BaseLLM, str]] = None,
         **kwargs,
     ):
         """
@@ -177,7 +180,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             "reasoning": self.reasoning,
             "evaluation_examples": self.evaluation_examples,
             "conversation_text": conversation_text,
-            "goal": goal or "Infer from conversation",
+            "goal": goal or GOAL_DEFAULT,
             "turn_count": len(conversation_history),
             "min_score": self.min_score,
             "max_score": self.max_score,
@@ -241,7 +244,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             response_schema=GoalAchievementScoreResponse,
             additional_details={
                 "turn_count": len(conversation_history),
-                "goal": goal or "Infer from conversation",
+                "goal": goal or GOAL_DEFAULT,
             },
         )
 

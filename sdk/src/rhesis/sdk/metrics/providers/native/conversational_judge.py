@@ -5,6 +5,9 @@ from typing import Any, Dict, Optional, TypeVar, Union
 
 from rhesis.sdk.metrics.base import MetricResult, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
+
+# Default value when goal is not specified
+GOAL_DEFAULT = "Infer from conversation"
 from rhesis.sdk.metrics.conversational.base import ConversationalMetricBase
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
@@ -218,7 +221,7 @@ class ConversationalJudge(ConversationalMetricBase, SerializationMixin, BackendS
             "reasoning": self.reasoning,
             "evaluation_examples": self.evaluation_examples,
             "conversation_text": conversation_text,
-            "goal": goal or "No specific goal provided",
+            "goal": goal or GOAL_DEFAULT,
             "turn_count": len(conversation_history),
             "score_type": score_type_value,
         }
