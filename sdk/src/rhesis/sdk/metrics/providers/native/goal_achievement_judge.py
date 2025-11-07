@@ -10,8 +10,8 @@ from rhesis.sdk.metrics.constants import ThresholdOperator
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
 from rhesis.sdk.metrics.providers.native.conversational_judge import (
-    ConversationalJudge,
     GOAL_DEFAULT,
+    ConversationalJudge,
 )
 from rhesis.sdk.metrics.providers.native.evaluation_patterns import NumericEvaluationMixin
 from rhesis.sdk.models import BaseLLM
@@ -225,7 +225,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
                     - threshold: The threshold value for success
                     - turn_count: Number of turns in the conversation
                     - goal: The goal that was evaluated
-                    - criteria_evaluations: List of CriterionEvaluation objects (structured breakdown)
+                    - criteria_evaluations: List of CriterionEvaluation objects (breakdown)
                     - all_criteria_met: Whether all criteria were met
                     - confidence: Confidence level (0.0 to 1.0)
 
