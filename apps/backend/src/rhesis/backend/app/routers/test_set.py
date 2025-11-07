@@ -37,6 +37,7 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
+from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 # Create the detailed schema for TestSet and Test
@@ -306,14 +307,13 @@ async def generate_test_set(
         # Note: The task will fetch the user's configured model itself
         # using get_user_generation_model. This avoids trying to serialize
         # BaseLLM objects which are not JSON serializable
-        # task_result = task_launcher(
-        generate_and_save_test_set(
-            None,
+        task_result = task_launcher(
+            generate_and_save_test_set,
             current_user=current_user,
             num_tests=test_count,
             batch_size=request.batch_size,
             prompt=generation_prompt,
-            documents=documents_to_use,
+            documents=[document.model_dump(mode="json") for document in documents_to_use],
             source_ids=source_ids_list,  # Pass actual source_ids list
             source_ids_to_documents=source_ids_to_documents,  # Pass mapping for debugging
             name=request.name,  # Pass optional test set name
