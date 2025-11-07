@@ -1,7 +1,7 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
 import logging
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
@@ -19,6 +19,7 @@ class SimpleSynthesizer(TestSetSynthesizer):
         prompt: str,
         batch_size: int = 20,
         model: Optional[Union[str, BaseLLM]] = None,
+        **kwargs: dict[str, Any],
     ):
         """
         Initialize the simple synthesizer.
@@ -28,7 +29,7 @@ class SimpleSynthesizer(TestSetSynthesizer):
             for stability)
         """
 
-        super().__init__(batch_size=batch_size, model=model)
+        super().__init__(batch_size=batch_size, model=model, **kwargs)
         self.prompt = prompt
 
     def _get_template_context(self, **generate_kwargs):
@@ -44,12 +45,4 @@ class SimpleSynthesizer(TestSetSynthesizer):
         Returns:
             Dict containing template context for rendering
         """
-        return {"generation_prompt": self.prompt}
-
-
-if __name__ == "__main__":
-    synthesizer = SimpleSynthesizer(prompt="Generate tests for car selling chatbot", model="gemini")
-    tests = synthesizer.generate(num_tests=5)
-    from pprint import pprint
-
-    pprint(tests.tests)
+        return {"generation_prompt": self.prompt, **generate_kwargs}
