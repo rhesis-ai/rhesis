@@ -20,6 +20,8 @@ class Test:
     additional_params: Optional[Dict[str, Any]] = field(default_factory=dict)
     # expectation
     expected_text: Optional[str] = None
+    # metadata
+    test_metadata: Optional[Dict[str, Any]] = None
 
     def __eq__(self, other: Any) -> bool:
         """
@@ -67,6 +69,8 @@ class TestResult:
     additional_params: Optional[Dict[str, Any]] = field(default_factory=dict)
     # expectation
     expected_text: Optional[str] = None
+    # test metadata
+    test_metadata: Optional[Dict[str, Any]] = None
     # evaluation
     cost: Optional[float] = None
     score: Optional[float] = None

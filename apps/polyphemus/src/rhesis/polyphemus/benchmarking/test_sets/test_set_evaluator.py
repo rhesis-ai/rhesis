@@ -193,6 +193,7 @@ class TestSetEvaluator:
                     context=test.context,
                     additional_params=test.additional_params,
                     expected_text=test.expected_text,
+                    test_metadata=test.test_metadata,
                     metadata=None,
                     score=None,
                     details=None,
@@ -243,6 +244,7 @@ class TestSetEvaluator:
                 # NOTE: the model might have default params that are not listed here
                 additional_params=test.additional_params,
                 expected_text=test.expected_text,
+                test_metadata=test.test_metadata,
                 score=None,
                 details=None,
                 cost=None,
