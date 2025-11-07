@@ -520,43 +520,20 @@ class TestState:
 
         # Convert SDK metric evaluation to standard metric format
         if self.last_evaluation:
-            details = self.last_evaluation.details
+            # Use Pydantic's model_dump to serialize the MetricResult
+            metric_dict = self.last_evaluation.model_dump()
+
+            # Enhance with Penelope-specific summary fields
+            details = metric_dict.get("details", {})
             criteria_evals = details.get("criteria_evaluations", [])
 
-            # Count met vs total criteria
-            met_count = sum(1 for c in criteria_evals if c.get("met", False))
-            total_count = len(criteria_evals)
+            # Add criterion counts for quick analysis
+            if criteria_evals:
+                met_count = sum(1 for c in criteria_evals if c.get("met", False))
+                metric_dict["criteria_met"] = met_count
+                metric_dict["criteria_total"] = len(criteria_evals)
 
-            # Build detailed reason including criterion breakdown
-            reason = details.get("reason", "")
-            reason_parts = [reason]
-
-            all_met = details.get("all_criteria_met", False)
-            if not all_met and criteria_evals:
-                failed = [c for c in criteria_evals if not c.get("met", False)]
-                reason_parts.append(f"\nFailed criteria ({len(failed)}/{total_count}):")
-                for criterion in failed:
-                    reason_parts.append(f"  • {criterion.get('criterion', 'Unknown')}")
-
-            metrics["Goal Achievement"] = {
-                "name": "Goal Achievement",
-                "score": details.get("confidence", self.last_evaluation.score),
-                "reason": "\n".join(reason_parts),
-                "backend": "sdk",  # Now using SDK metric
-                "threshold": details.get("threshold"),
-                "class_name": "GoalAchievementJudge",
-                "description": (
-                    "SDK-based evaluation of multi-turn conversation goal achievement "
-                    "with criterion-by-criterion assessment."
-                ),
-                "is_successful": details.get("is_successful", False),
-                # Additional fields from SDK
-                "criteria_met": met_count,
-                "criteria_total": total_count,
-                "turn_count": details.get("turn_count", self.current_turn),
-                "all_criteria_met": all_met,
-                "confidence": details.get("confidence", 0.5),
-            }
+            metrics["Goal Achievement"] = metric_dict
         else:
             # Fallback if no evaluation available
             metrics["Goal Achievement"] = {
