@@ -1,86 +1,15 @@
-from dataclasses import dataclass, fields
+from dataclasses import fields
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import create_model
 
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
-from rhesis.sdk.metrics.providers.native.base import (
-    JudgeBase,
-    JudgeConfig,
-)
+from rhesis.sdk.metrics.providers.native.base import JudgeBase
+from rhesis.sdk.metrics.providers.native.configs import CategoricalJudgeConfig
 from rhesis.sdk.models.base import BaseLLM
 
 METRIC_TYPE = MetricType.RAG
 SCORE_TYPE = ScoreType.CATEGORICAL
-
-
-@dataclass
-class CategoricalJudgeConfig(JudgeConfig):
-    categories: Optional[List[str]] = None
-    passing_categories: Optional[Union[str, List[str]]] = None
-
-    def __post_init__(self):
-        self._validate_categories()
-        self._validate_passing_categories()
-        self._normalize_passing_categories()
-        self._validate_passing_categories_subset()
-
-    def _validate_categories(self) -> None:
-        """
-        Validate that categories is a valid list with at least 2 scores.
-
-        Raises:
-            ValueError: If categories is not a list or has fewer than 2 items
-        """
-        if not isinstance(self.categories, list) or len(self.categories) < 2:
-            raise ValueError(
-                f"categories must be a list with at least 2 scores, got: {self.categories}"
-            )
-
-    def _validate_passing_categories(self) -> None:
-        """
-        Validate that passing_categories is a string or list.
-
-        Raises:
-            ValueError: If passing_categories is not a string or list
-        """
-        if not isinstance(self.passing_categories, (str, list)):
-            raise ValueError(
-                f"passing_categories must be a string or list, got: {type(self.passing_categories)}"
-            )
-
-    def _normalize_passing_categories(self) -> None:
-        """
-        Convert string passing_categories to list for consistent handling.
-
-        This method ensures that passing_categories is always a list, converting
-        single string values to single-item lists.
-        """
-        if isinstance(self.passing_categories, str):
-            self.passing_categories = [self.passing_categories]
-
-    def _validate_passing_categories_subset(self) -> None:
-        """
-        Validate that passing_categories is a subset of categories.
-
-        Raises:
-            ValueError: If passing_categories contains values not in categories
-            ValueError: If passing_categories has more items than categories
-        """
-        if len(self.passing_categories) > len(self.categories):
-            raise ValueError(
-                f"The number of passing_categories ({len(self.passing_categories)}) must be "
-                f"less than or equal to the number of categories ({len(self.categories)})"
-            )
-
-        if not set(self.passing_categories).issubset(set(self.categories)):
-            missing_scores = set(self.passing_categories) - set(self.categories)
-            raise ValueError(
-                f"Each value in passing_categories must be present in categories. "
-                f"Missing scores: {missing_scores}\n"
-                f"Given passing_categories: {self.passing_categories}\n"
-                f"Given categories: {self.categories}"
-            )
 
 
 class CategoricalJudge(JudgeBase):

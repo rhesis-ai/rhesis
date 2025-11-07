@@ -17,9 +17,7 @@ from rhesis.sdk.metrics import (
     GoalAchievementJudge,
 )
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
-from rhesis.sdk.metrics.providers.native.conversational_judge import (
-    ConversationalJudgeConfig,
-)
+from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
 from rhesis.sdk.models import BaseLLM, VertexAILLM
 
 
@@ -46,7 +44,7 @@ class ToneConsistencyJudge(ConversationalJudge):
         model: Optional[Union[str, BaseLLM]] = None,
         **kwargs,
     ):
-        config = ConversationalJudgeConfig(
+        config = ConversationalNumericConfig(
             evaluation_prompt="""Evaluate the consistency of the assistant's tone throughout the conversation.
 
 Consider:

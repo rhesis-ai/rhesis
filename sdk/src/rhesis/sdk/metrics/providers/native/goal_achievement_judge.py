@@ -8,10 +8,8 @@ from pydantic import BaseModel, Field
 from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import ThresholdOperator
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
-from rhesis.sdk.metrics.providers.native.conversational_judge import (
-    ConversationalJudge,
-    ConversationalJudgeConfig,
-)
+from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
+from rhesis.sdk.metrics.providers.native.conversational_judge import ConversationalJudge
 from rhesis.sdk.models import BaseLLM
 
 SCORE_TYPE = ScoreType.NUMERIC
@@ -81,8 +79,8 @@ class GoalAchievementJudge(ConversationalJudge):
             for quick setup while still supporting full customization.
         """
 
-        # Use parent ConversationalJudgeConfig which now includes numeric fields
-        self.config = ConversationalJudgeConfig(
+        # Use parent ConversationalNumericConfig which now includes numeric fields
+        self.config = ConversationalNumericConfig(
             evaluation_prompt=evaluation_prompt,
             evaluation_steps=evaluation_steps,
             reasoning=reasoning,
@@ -252,9 +250,9 @@ class GoalAchievementJudge(ConversationalJudge):
     def from_dict(cls, config: Dict[str, Any]) -> "GoalAchievementJudge":
         """Create a metric from a dictionary."""
         # Get all field names from the dataclass
-        valid_fields = {field.name for field in fields(ConversationalJudgeConfig)}
+        valid_fields = {field.name for field in fields(ConversationalNumericConfig)}
 
         # Filter config to only include keys that exist in the dataclass
         filtered_config = {k: v for k, v in config.items() if k in valid_fields}
 
-        return cls.from_config(ConversationalJudgeConfig(**filtered_config))
+        return cls.from_config(ConversationalNumericConfig(**filtered_config))
