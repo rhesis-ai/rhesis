@@ -41,6 +41,7 @@ from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
     ConversationalJudge,
     CriterionEvaluation,
     GoalAchievementJudge,
+    GoalAchievementScoreResponse,
     NumericJudge,
     RhesisMetricFactory,
 )
@@ -99,6 +100,7 @@ __all__ = [
     "ConversationalJudge",
     "GoalAchievementJudge",
     "CriterionEvaluation",
+    "GoalAchievementScoreResponse",
     # Ragas
     "RagasMetricBase",
     # Ragas metrics

@@ -102,6 +102,16 @@ class NumericEvaluationMixin:
             response = self.model.generate(prompt, schema=response_schema)
             response = response_schema(**response)  # type: ignore
 
+            # Validate required fields exist on the response schema
+            if not hasattr(response, "score"):
+                raise ValueError(
+                    f"Response schema {response_schema.__name__} must have 'score' field"
+                )
+            if not hasattr(response, "reason"):
+                raise ValueError(
+                    f"Response schema {response_schema.__name__} must have 'reason' field"
+                )
+
             # Extract score and reason
             score = response.score
             reason = response.reason
@@ -117,6 +127,12 @@ class NumericEvaluationMixin:
                     "is_successful": is_successful,
                 }
             )
+
+            # Capture all additional structured fields from the response
+            # This includes fields like criteria_evaluations, confidence, all_criteria_met, etc.
+            # that are specific to certain judge types (e.g., GoalAchievementJudge)
+            response_dict = response.model_dump(exclude={"score", "reason"})
+            details.update(response_dict)
 
             return MetricResult(score=score, details=details)
 

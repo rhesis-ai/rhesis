@@ -10,6 +10,7 @@ from .factory import RhesisMetricFactory
 from .goal_achievement_judge import (
     CriterionEvaluation,
     GoalAchievementJudge,
+    GoalAchievementScoreResponse,
 )
 from .numeric_judge import (
     NumericJudge,
@@ -24,4 +25,5 @@ __all__ = [
     "ConversationalJudge",
     "GoalAchievementJudge",
     "CriterionEvaluation",
+    "GoalAchievementScoreResponse",
 ]

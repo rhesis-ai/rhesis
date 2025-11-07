@@ -92,6 +92,28 @@ def set_score_parameters(
         raise ValueError(f"Threshold must be between {config.min_score} and {config.max_score}")
 
 
+def initialize_numeric_config(
+    config: Union["NumericJudgeConfig", "ConversationalNumericConfig"]
+) -> None:
+    """
+    Shared initialization for numeric config classes.
+
+    This function handles common initialization tasks for both single-turn
+    and conversational numeric judge configs:
+    - Convert string threshold_operator to enum
+    - Validate score range
+    - Set up score parameters
+
+    Args:
+        config: The config object to initialize
+    """
+    # Convert string to enum if needed
+    if isinstance(config.threshold_operator, str):
+        config.threshold_operator = ThresholdOperator(config.threshold_operator)
+    validate_score_range(config.min_score, config.max_score)
+    set_score_parameters(config, config.min_score, config.max_score, config.threshold)
+
+
 @dataclass
 class NumericJudgeConfig(BaseJudgeConfig):
     """
@@ -106,11 +128,7 @@ class NumericJudgeConfig(BaseJudgeConfig):
     threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL
 
     def __post_init__(self):
-        # Convert string to enum if needed
-        if isinstance(self.threshold_operator, str):
-            self.threshold_operator = ThresholdOperator(self.threshold_operator)
-        validate_score_range(self.min_score, self.max_score)
-        set_score_parameters(self, self.min_score, self.max_score, self.threshold)
+        initialize_numeric_config(self)
         super().__post_init__()
 
 
@@ -129,12 +147,8 @@ class ConversationalNumericConfig(BaseJudgeConfig):
     threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL
 
     def __post_init__(self):
-        # Convert string to enum if needed
-        if isinstance(self.threshold_operator, str):
-            self.threshold_operator = ThresholdOperator(self.threshold_operator)
-        validate_score_range(self.min_score, self.max_score)
-        set_score_parameters(self, self.min_score, self.max_score, self.threshold)
-        return super().__post_init__()
+        initialize_numeric_config(self)
+        super().__post_init__()
 
 
 @dataclass
