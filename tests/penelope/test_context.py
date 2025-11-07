@@ -4,7 +4,6 @@ from datetime import datetime
 
 from rhesis.penelope.context import (
     ExecutionStatus,
-    GoalProgress,
     TestContext,
     TestResult,
     TestState,
@@ -206,35 +205,6 @@ def test_turn_properties_with_no_tool_calls():
     # Should handle missing tool_calls gracefully
     assert turn.tool_name == "unknown"
     assert turn.tool_arguments == {}
-
-
-def test_goal_progress_creation():
-    """Test GoalProgress initialization."""
-    progress = GoalProgress(
-        goal_achieved=True,
-        goal_impossible=False,
-        confidence=0.9,
-        reasoning="Goal was achieved successfully",
-        findings=["Evidence 1", "Evidence 2"],
-    )
-
-    assert progress.goal_achieved is True
-    assert progress.goal_impossible is False
-    assert progress.confidence == 0.9
-    assert progress.reasoning == "Goal was achieved successfully"
-    assert len(progress.findings) == 2
-
-
-def test_goal_progress_defaults():
-    """Test GoalProgress default values."""
-    progress = GoalProgress(
-        goal_achieved=False,
-        goal_impossible=False,
-        confidence=0.5,
-        reasoning="Still working on it",
-    )
-
-    assert progress.findings == []
 
 
 def test_test_result_creation():

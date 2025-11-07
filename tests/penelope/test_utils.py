@@ -2,13 +2,13 @@
 
 import pytest
 from datetime import datetime, timedelta
+from unittest.mock import Mock
 from rhesis.penelope.utils import (
     StoppingCondition,
     MaxIterationsCondition,
     TimeoutCondition,
     GoalAchievedCondition,
 )
-from rhesis.penelope.context import GoalProgress
 
 
 def test_stopping_condition_base_class():
@@ -88,27 +88,24 @@ def test_timeout_condition_should_stop(sample_test_state):
 
 def test_goal_achieved_condition_initialization():
     """Test GoalAchievedCondition initialization."""
-    progress = GoalProgress(
-        goal_achieved=False,
-        goal_impossible=False,
-        confidence=0.5,
-        reasoning="Testing",
-    )
+    mock_result = Mock()
+    mock_result.score = 0.5
+    mock_result.details = {"is_successful": False, "reason": "Testing"}
 
-    condition = GoalAchievedCondition(progress=progress)
+    condition = GoalAchievedCondition(result=mock_result)
 
-    assert condition.progress == progress
+    assert condition.result == mock_result
 
 
-def test_goal_achieved_condition_initialization_without_progress():
-    """Test GoalAchievedCondition can be initialized without progress."""
+def test_goal_achieved_condition_initialization_without_result():
+    """Test GoalAchievedCondition can be initialized without result."""
     condition = GoalAchievedCondition()
 
-    assert condition.progress is None
+    assert condition.result is None
 
 
-def test_goal_achieved_condition_should_not_stop_no_progress(sample_test_state):
-    """Test GoalAchievedCondition doesn't stop without progress."""
+def test_goal_achieved_condition_should_not_stop_no_result(sample_test_state):
+    """Test GoalAchievedCondition doesn't stop without result."""
     condition = GoalAchievedCondition()
 
     should_stop, reason = condition.should_stop(sample_test_state)
@@ -119,14 +116,11 @@ def test_goal_achieved_condition_should_not_stop_no_progress(sample_test_state):
 
 def test_goal_achieved_condition_should_not_stop_goal_not_achieved(sample_test_state):
     """Test GoalAchievedCondition doesn't stop if goal not achieved."""
-    progress = GoalProgress(
-        goal_achieved=False,
-        goal_impossible=False,
-        confidence=0.5,
-        reasoning="Still working",
-    )
+    mock_result = Mock()
+    mock_result.score = 0.5
+    mock_result.details = {"is_successful": False, "reason": "Still working"}
 
-    condition = GoalAchievedCondition(progress=progress)
+    condition = GoalAchievedCondition(result=mock_result)
 
     should_stop, reason = condition.should_stop(sample_test_state)
 
@@ -136,14 +130,11 @@ def test_goal_achieved_condition_should_not_stop_goal_not_achieved(sample_test_s
 
 def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
     """Test GoalAchievedCondition stops when goal achieved."""
-    progress = GoalProgress(
-        goal_achieved=True,
-        goal_impossible=False,
-        confidence=0.9,
-        reasoning="Goal successfully achieved",
-    )
+    mock_result = Mock()
+    mock_result.score = 0.9
+    mock_result.details = {"is_successful": True, "reason": "Goal successfully achieved"}
 
-    condition = GoalAchievedCondition(progress=progress)
+    condition = GoalAchievedCondition(result=mock_result)
 
     should_stop, reason = condition.should_stop(sample_test_state)
 
@@ -153,15 +144,36 @@ def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
 
 
 def test_goal_achieved_condition_should_stop_goal_impossible(sample_test_state):
-    """Test GoalAchievedCondition stops when goal is impossible."""
-    progress = GoalProgress(
-        goal_achieved=False,
-        goal_impossible=True,
-        confidence=0.8,
-        reasoning="Cannot achieve goal",
-    )
+    """Test GoalAchievedCondition stops when goal is impossible (low score after 5+ turns)."""
+    from rhesis.penelope.context import Turn
+    from rhesis.penelope.schemas import AssistantMessage, ToolMessage, FunctionCall, MessageToolCall
+    
+    mock_result = Mock()
+    mock_result.score = 0.2  # Low score
+    mock_result.details = {"is_successful": False, "reason": "Cannot achieve goal"}
 
-    condition = GoalAchievedCondition(progress=progress)
+    condition = GoalAchievedCondition(result=mock_result)
+    
+    # Simulate 5+ turns by adding turns to state
+    for i in range(5):
+        turn = Turn(
+            turn_number=i+1,
+            assistant_message=AssistantMessage(
+                content=f"Turn {i+1}",
+                tool_calls=[MessageToolCall(
+                    id=f"call_{i}",
+                    type="function",
+                    function=FunctionCall(name="test", arguments="{}")
+                )]
+            ),
+            tool_message=ToolMessage(
+                tool_call_id=f"call_{i}",
+                name="test",
+                content="result"
+            ),
+            reasoning="test"
+        )
+        sample_test_state.turns.append(turn)
 
     should_stop, reason = condition.should_stop(sample_test_state)
 
@@ -169,22 +181,19 @@ def test_goal_achieved_condition_should_stop_goal_impossible(sample_test_state):
     assert "impossible" in reason.lower()
 
 
-def test_goal_achieved_condition_update_progress():
-    """Test GoalAchievedCondition can update progress."""
+def test_goal_achieved_condition_update_result():
+    """Test GoalAchievedCondition can update result."""
     condition = GoalAchievedCondition()
 
-    assert condition.progress is None
+    assert condition.result is None
 
-    new_progress = GoalProgress(
-        goal_achieved=True,
-        goal_impossible=False,
-        confidence=0.9,
-        reasoning="Updated",
-    )
+    mock_result = Mock()
+    mock_result.score = 0.9
+    mock_result.details = {"is_successful": True, "reason": "Updated"}
 
-    condition.update_progress(new_progress)
+    condition.update_result(mock_result)
 
-    assert condition.progress == new_progress
+    assert condition.result == mock_result
 
 
 # Tests removed: format_tool_schema_for_llm is no longer needed
