@@ -16,8 +16,8 @@ from pydantic import BaseModel, ConfigDict, Field
 # Import base conversation types from SDK
 from rhesis.sdk.metrics.conversational import (
     ConversationHistory,
-    UserMessage,
     SystemMessage,
+    UserMessage,
 )
 
 # Penelope-specific: Strongly-typed tool call structures

@@ -375,7 +375,7 @@ def test_explicit_goal_metric(endpoint_id: str, verbose: bool, max_iterations: i
     result = agent.execute_test(
         target=target,
         goal="Verify chatbot can handle a complex multi-step inquiry",
-        instructions="Ask about capabilities, then ask for specific examples, then ask for clarification",
+        instructions="Ask about capabilities, then ask for specific examples, then clarification",
         max_turns=4,
     )
 
