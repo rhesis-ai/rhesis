@@ -1,0 +1,81 @@
+You will be given a conversation between a user and an AI assistant.
+
+Your task is to evaluate the conversation based on the following criteria.
+
+Please make sure you read and understand these instructions carefully.
+
+Evaluation Criteria:
+{% if evaluation_prompt %}
+{{ evaluation_prompt }}
+{% else %}
+Evaluate how well the conversation achieves its stated goal.
+
+Consider:
+- Did the assistant understand the user's objective?
+- Were the responses relevant and helpful?
+- Did the conversation progress logically toward the goal?
+- Was the goal ultimately achieved or close to being achieved?
+{% endif %}
+
+{% if evaluation_steps %}
+Evaluation Steps:
+{{ evaluation_steps }}
+{% else %}
+Evaluation Steps:
+1. Identify the stated or implied goal of the conversation
+2. Analyze each turn to see how it contributes to achieving the goal
+3. Evaluate the final state: was the goal achieved, partially achieved, or not achieved?
+4. Consider the quality and relevance of the assistant's contributions
+5. Assign a score reflecting the overall goal achievement
+{% endif %}
+
+{% if reasoning %}
+Reasoning Process:
+{{ reasoning }}
+{% else %}
+Reasoning Process:
+When evaluating, consider:
+- Goal clarity: Is the goal clearly defined or easily inferred?
+- Progress: Does the conversation make steady progress toward the goal?
+- Completeness: Is the goal fully achieved by the end?
+- Efficiency: Could the goal have been achieved more quickly?
+- Quality: Are the responses accurate and helpful?
+{% endif %}
+
+{% if evaluation_examples %}
+Examples:
+{{ evaluation_examples }}
+{% endif %}
+
+Conversation Goal:
+{{ goal if goal|trim else "No specific goal provided" }}
+
+Full Conversation ({{ turn_count }} turns):
+{{ conversation_text }}
+
+
+Evaluation Form:
+{% if score_type == "categorical" %}
+Please provide a categorical evaluation and a brief explanation.
+
+IMPORTANT: Return ONLY a valid JSON object without any markdown formatting, code blocks, or backticks. The response must be directly parseable as JSON.
+
+The JSON object must contain:
+1. A 'score' field with your categorical evaluation (as a string or number based on the evaluation criteria)
+2. A 'reason' field with your brief explanation as a string
+
+Example valid response format:
+{"score": "excellent", "reason": "The conversation demonstrates exceptional quality in all aspects."}
+{% else %}
+Please provide a numerical score between {{ min_score }} and {{ max_score }} and a brief explanation.
+
+IMPORTANT: Return ONLY a valid JSON object without any markdown formatting, code blocks, or backticks. The response must be directly parseable as JSON.
+
+The JSON object must contain:
+1. A 'score' field with your numerical evaluation (float between {{ min_score }} and {{ max_score }})
+2. A 'reason' field with your brief explanation as a string
+
+Example valid response format:
+{"score": 4.5, "reason": "The conversation effectively achieves its goal with accurate and helpful responses."}
+{% endif %}
+

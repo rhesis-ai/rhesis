@@ -1,5 +1,5 @@
 from rhesis.sdk.entities import Behavior
-from .base_entity_test import BaseEntityTest
+from tests.sdk.entities.base_entity_test import BaseEntityTest
 
 
 class TestBehavior(BaseEntityTest):

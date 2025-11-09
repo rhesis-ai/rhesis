@@ -4,7 +4,6 @@ from datetime import datetime
 
 from rhesis.penelope.context import (
     ExecutionStatus,
-    GoalProgress,
     TestContext,
     TestResult,
     TestState,
@@ -208,35 +207,6 @@ def test_turn_properties_with_no_tool_calls():
     assert turn.tool_arguments == {}
 
 
-def test_goal_progress_creation():
-    """Test GoalProgress initialization."""
-    progress = GoalProgress(
-        goal_achieved=True,
-        goal_impossible=False,
-        confidence=0.9,
-        reasoning="Goal was achieved successfully",
-        findings=["Evidence 1", "Evidence 2"],
-    )
-
-    assert progress.goal_achieved is True
-    assert progress.goal_impossible is False
-    assert progress.confidence == 0.9
-    assert progress.reasoning == "Goal was achieved successfully"
-    assert len(progress.findings) == 2
-
-
-def test_goal_progress_defaults():
-    """Test GoalProgress default values."""
-    progress = GoalProgress(
-        goal_achieved=False,
-        goal_impossible=False,
-        confidence=0.5,
-        reasoning="Still working on it",
-    )
-
-    assert progress.findings == []
-
-
 def test_test_result_creation():
     """Test TestResult initialization."""
     turn = Turn(
@@ -333,3 +303,216 @@ def test_test_context_full_initialization():
     assert context.context == {"key": "value"}
     assert context.max_turns == 15
     assert context.timeout_seconds == 300.0
+
+
+# Tests for _generate_metrics method with multiple metrics support
+
+
+def test_generate_metrics_with_no_metrics():
+    """Test _generate_metrics returns fallback when no metrics available."""
+    test_context = TestContext(
+        target_id="test",
+        target_type="test",
+        instructions="Test",
+        goal="Test goal",
+    )
+    state = TestState(context=test_context)
+
+    # No metrics in state
+    metrics = state._generate_metrics(goal_achieved=True)
+
+    # Should return fallback
+    assert "Goal Achievement" in metrics
+    assert metrics["Goal Achievement"]["is_successful"] is True
+    assert metrics["Goal Achievement"]["score"] == 0.5
+    assert "No detailed evaluation available" in metrics["Goal Achievement"]["reason"]
+
+
+def test_generate_metrics_with_single_metric():
+    """Test _generate_metrics with single MetricResult."""
+    from rhesis.sdk.metrics.base import MetricResult
+
+    test_context = TestContext(
+        target_id="test",
+        target_type="test",
+        instructions="Test",
+        goal="Test goal",
+    )
+    state = TestState(context=test_context)
+
+    # Add single metric result
+    metric_result = MetricResult(
+        score=0.85,
+        details={
+            "is_successful": True,
+            "reason": "Goal achieved",
+            "name": "test_metric",
+        },
+    )
+    state.metric_results = [metric_result]
+
+    metrics = state._generate_metrics(goal_achieved=True)
+
+    # Verify metric was included
+    assert "Test Metric" in metrics  # snake_case to Title Case
+    assert metrics["Test Metric"]["score"] == 0.85
+    assert metrics["Test Metric"]["details"]["is_successful"] is True
+
+
+def test_generate_metrics_with_multiple_metrics():
+    """Test _generate_metrics with multiple MetricResults."""
+    from rhesis.sdk.metrics.base import MetricResult
+
+    test_context = TestContext(
+        target_id="test",
+        target_type="test",
+        instructions="Test",
+        goal="Test goal",
+    )
+    state = TestState(context=test_context)
+
+    # Add multiple metric results
+    metric1 = MetricResult(
+        score=0.9, details={"name": "goal_achievement", "is_successful": True}
+    )
+    metric2 = MetricResult(score=0.75, details={"name": "turn_relevancy"})
+    metric3 = MetricResult(score=0.85, details={"name": "custom_metric"})
+
+    state.metric_results = [metric1, metric2, metric3]
+
+    metrics = state._generate_metrics(goal_achieved=True)
+
+    # Verify all metrics were included
+    assert len(metrics) == 3
+    assert "Goal Achievement" in metrics
+    assert "Turn Relevancy" in metrics
+    assert "Custom Metric" in metrics
+
+    # Verify scores
+    assert metrics["Goal Achievement"]["score"] == 0.9
+    assert metrics["Turn Relevancy"]["score"] == 0.75
+    assert metrics["Custom Metric"]["score"] == 0.85
+
+
+def test_generate_metrics_with_criteria_evaluations():
+    """Test _generate_metrics includes criteria counts for goal achievement."""
+    from rhesis.sdk.metrics.base import MetricResult
+
+    test_context = TestContext(
+        target_id="test",
+        target_type="test",
+        instructions="Test",
+        goal="Test goal",
+    )
+    state = TestState(context=test_context)
+
+    # Add metric with criteria evaluations
+    metric_result = MetricResult(
+        score=0.8,
+        details={
+            "name": "goal_achievement",
+            "is_successful": True,
+            "criteria_evaluations": [
+                {"criterion": "C1", "met": True, "evidence": "E1", "relevant_turns": [1]},
+                {"criterion": "C2", "met": False, "evidence": "E2", "relevant_turns": [2]},
+                {"criterion": "C3", "met": True, "evidence": "E3", "relevant_turns": [1, 2]},
+            ],
+            "all_criteria_met": False,
+            "confidence": 0.85,
+        },
+    )
+    state.metric_results = [metric_result]
+
+    metrics = state._generate_metrics(goal_achieved=True)
+
+    # Verify criteria counts were added
+    goal_metric = metrics["Goal Achievement"]
+    assert goal_metric["criteria_met"] == 2
+    assert goal_metric["criteria_total"] == 3
+    assert goal_metric["score"] == 0.8
+
+
+def test_generate_metrics_without_criteria():
+    """Test _generate_metrics handles metrics without criteria gracefully."""
+    from rhesis.sdk.metrics.base import MetricResult
+
+    test_context = TestContext(
+        target_id="test",
+        target_type="test",
+        instructions="Test",
+        goal="Test goal",
+    )
+    state = TestState(context=test_context)
+
+    # Add metric without criteria_evaluations
+    metric_result = MetricResult(score=0.9, details={"name": "simple_metric"})
+    state.metric_results = [metric_result]
+
+    metrics = state._generate_metrics(goal_achieved=True)
+
+    # Verify metric is included without criteria counts
+    assert "Simple Metric" in metrics
+    assert "criteria_met" not in metrics["Simple Metric"]
+    assert "criteria_total" not in metrics["Simple Metric"]
+
+
+def test_generate_metrics_dynamic_naming():
+    """Test _generate_metrics uses dynamic naming from metric details."""
+    from rhesis.sdk.metrics.base import MetricResult
+
+    test_context = TestContext(
+        target_id="test",
+        target_type="test",
+        instructions="Test",
+        goal="Test goal",
+    )
+    state = TestState(context=test_context)
+
+    # Metrics with different name formats
+    metric1 = MetricResult(score=0.9, details={"name": "my_custom_metric"})
+    metric2 = MetricResult(score=0.8, details={"name": "another_test"})
+    metric3 = MetricResult(score=0.7, details={})  # No name
+
+    state.metric_results = [metric1, metric2, metric3]
+
+    metrics = state._generate_metrics(goal_achieved=True)
+
+    # Verify Title Case conversion
+    assert "My Custom Metric" in metrics
+    assert "Another Test" in metrics
+    assert "Unnamed Metric" in metrics  # Fallback for missing name
+
+
+def test_generate_metrics_serialization():
+    """Test _generate_metrics properly serializes MetricResult to dict."""
+    from rhesis.sdk.metrics.base import MetricResult
+
+    test_context = TestContext(
+        target_id="test",
+        target_type="test",
+        instructions="Test",
+        goal="Test goal",
+    )
+    state = TestState(context=test_context)
+
+    # Add metric with complex details
+    metric_result = MetricResult(
+        score=0.95,
+        details={
+            "name": "complex_metric",
+            "is_successful": True,
+            "reason": "All checks passed",
+            "metadata": {"key1": "value1", "key2": [1, 2, 3]},
+        },
+    )
+    state.metric_results = [metric_result]
+
+    metrics = state._generate_metrics(goal_achieved=True)
+
+    # Verify proper serialization
+    complex_metric = metrics["Complex Metric"]
+    assert complex_metric["score"] == 0.95
+    assert complex_metric["details"]["is_successful"] is True
+    assert complex_metric["details"]["reason"] == "All checks passed"
+    assert complex_metric["details"]["metadata"]["key1"] == "value1"
+    assert complex_metric["details"]["metadata"]["key2"] == [1, 2, 3]

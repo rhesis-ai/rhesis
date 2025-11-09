@@ -13,12 +13,10 @@ from rhesis.penelope.context import TestContext, TestResult, TestState
 from rhesis.penelope.schemas import (
     AnalyzeResponseParams,
     AssistantMessage,
-    CriterionEvaluation,
     ExtractInformationParams,
     FunctionCall,
     MessageToolCall,
     SendMessageParams,
-    SimpleGoalEval,
     ToolCall,
     ToolMessage,
 )
@@ -42,8 +40,6 @@ __all__ = [
     "SendMessageParams",
     "AnalyzeResponseParams",
     "ExtractInformationParams",
-    "SimpleGoalEval",
-    "CriterionEvaluation",
     "Target",
     "EndpointTarget",
 ]

@@ -4,15 +4,24 @@ Pydantic schemas for structured outputs in Penelope.
 These schemas enable structured output from LLMs, eliminating the need
 for text parsing and making tool calls more reliable.
 
-Includes standard message format schemas (compatible with OpenAI format)
-for maximum LLM provider compatibility.
+Note: Base message types (UserMessage, SystemMessage) are imported from SDK.
+Penelope extends AssistantMessage and ToolMessage with strongly-typed tool calls
+for better type safety in the agent loop.
 """
 
 from typing import List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# Standard Message Format (OpenAI-compatible)
+# Import base conversation types from SDK
+from rhesis.sdk.metrics.conversational import (
+    ConversationHistory,
+    SystemMessage,
+    UserMessage,
+)
+
+# Penelope-specific: Strongly-typed tool call structures
+# These provide better type safety than SDK's generic Dict[str, Any] approach
 
 
 class FunctionCall(BaseModel):
@@ -32,9 +41,10 @@ class MessageToolCall(BaseModel):
 
 class AssistantMessage(BaseModel):
     """
-    Assistant message with optional tool calls.
+    Assistant message with strongly-typed tool calls.
 
-    Compatible with OpenAI message format and other major LLM providers.
+    Extends SDK's base AssistantMessage with Pydantic-validated tool call structure
+    for better type safety in Penelope's agent loop.
     """
 
     role: Literal["assistant"] = Field(default="assistant", description="Message role")
@@ -43,9 +53,7 @@ class AssistantMessage(BaseModel):
         default=None, description="Tool calls made in this message"
     )
 
-    model_config = ConfigDict(
-        extra="allow"
-    )  # Allow additional fields for provider-specific extensions
+    model_config = ConfigDict(extra="allow")
 
 
 class ToolMessage(BaseModel):
@@ -60,10 +68,26 @@ class ToolMessage(BaseModel):
     name: str = Field(description="The name of the tool that was called")
     content: str = Field(description="The result of the tool call, as a string")
 
-    model_config = ConfigDict(
-        extra="allow"
-    )  # Allow additional fields for provider-specific extensions
+    model_config = ConfigDict(extra="allow")
 
+
+# Re-export for convenience
+__all__ = [
+    # SDK conversation types
+    "ConversationHistory",
+    "UserMessage",
+    "SystemMessage",
+    # Penelope message types (strongly-typed tool calls)
+    "AssistantMessage",
+    "ToolMessage",
+    "FunctionCall",
+    "MessageToolCall",
+    # Penelope tool parameter schemas
+    "SendMessageParams",
+    "AnalyzeResponseParams",
+    "ExtractInformationParams",
+    "ToolCall",
+]
 
 # Tool Parameter Schemas
 
@@ -90,58 +114,6 @@ class ExtractInformationParams(BaseModel):
 
     response_text: str = Field(description="The response text to extract information from")
     extraction_target: str = Field(description="What specific information to extract")
-
-
-class CriterionEvaluation(BaseModel):
-    """Evaluation of a single goal criterion."""
-
-    criterion: str = Field(description="The specific criterion being evaluated")
-    met: bool = Field(description="Whether this criterion was met")
-    evidence: str = Field(description="Specific evidence from the conversation for this criterion")
-    relevant_turns: List[int] = Field(
-        default_factory=list,
-        description=(
-            "List of turn numbers (1-indexed) that are relevant to this criterion. "
-            "Include all turns where evidence for or against this criterion was observed."
-        ),
-    )
-
-
-class SimpleGoalEval(BaseModel):
-    """
-    Schema for interim goal achievement evaluation.
-
-    This is a temporary schema used until SDK multi-turn metrics are available.
-    It provides structured output for LLM-based goal evaluation.
-
-    The schema forces criterion-by-criterion evaluation for reliability.
-    """
-
-    turn_count: int = Field(
-        description=(
-            "CRITICAL: Count the actual number of user-assistant exchanges "
-            "in the conversation. Each USER message followed by an ASSISTANT "
-            "response = 1 turn."
-        )
-    )
-    criteria_evaluations: list[CriterionEvaluation] = Field(
-        description="Evaluation of each specific criterion mentioned in the goal. "
-        "Break down the goal into individual measurable criteria."
-    )
-    all_criteria_met: bool = Field(
-        description="True only if ALL criteria evaluations have met=True"
-    )
-    goal_achieved: bool = Field(
-        description="Overall assessment: True if all_criteria_met AND no critical issues found"
-    )
-    confidence: float = Field(
-        ge=0.0, le=1.0, description="Confidence in the assessment (0.0 to 1.0)"
-    )
-    reasoning: str = Field(description="Brief summary explaining the overall assessment")
-    evidence: list[str] = Field(
-        default_factory=list,
-        description="Key quotes or observations supporting the overall assessment",
-    )
 
 
 class ToolCall(BaseModel):

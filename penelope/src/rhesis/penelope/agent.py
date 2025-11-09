@@ -83,6 +83,69 @@ class PenelopeAgent:
         ... )
     """
 
+    @staticmethod
+    def _determine_goal_metric(
+        goal_metric: Optional[Any],
+        metrics: List[Any],
+        model: BaseLLM,
+    ) -> tuple[Any, List[Any]]:
+        """
+        Determine the goal metric to use for stopping condition.
+
+        Strategy:
+        1. If explicit goal_metric provided: validate and use it
+        2. Else search metrics for GoalAchievementJudge
+        3. Else create default GoalAchievementJudge
+
+        Args:
+            goal_metric: Optional explicit goal metric
+            metrics: List of evaluation metrics
+            model: LLM model for creating default judge if needed
+
+        Returns:
+            Tuple of (goal_metric, updated_metrics_list)
+
+        Raises:
+            ValueError: If explicit goal_metric lacks evaluate() method
+        """
+        from rhesis.sdk.metrics.providers.native import GoalAchievementJudge
+
+        # Case 1: Explicit goal_metric provided
+        if goal_metric is not None:
+            if not hasattr(goal_metric, "evaluate"):
+                raise ValueError(
+                    f"goal_metric must have an 'evaluate' method. Got: {type(goal_metric).__name__}"
+                )
+
+            logger.info(f"Using explicit goal metric: {goal_metric.name}")
+
+            # Ensure it's in metrics list
+            if goal_metric not in metrics:
+                metrics.append(goal_metric)
+                logger.info("Added goal_metric to metrics list")
+
+            return goal_metric, metrics
+
+        # Case 2: Search for existing GoalAchievementJudge
+        goal_judges = [m for m in metrics if isinstance(m, GoalAchievementJudge)]
+
+        if goal_judges:
+            selected = goal_judges[0]
+            logger.info(f"Auto-selected GoalAchievementJudge for stopping: {selected.name}")
+            return selected, metrics
+
+        # Case 3: Create default GoalAchievementJudge
+        default_judge = GoalAchievementJudge(
+            name="penelope_goal_evaluation",
+            description="Evaluates goal achievement in Penelope test conversations",
+            model=model,
+            threshold=0.7,
+        )
+        metrics.append(default_judge)
+        logger.info("✓ Created default GoalAchievementJudge for stopping and evaluation")
+
+        return default_judge, metrics
+
     def __init__(
         self,
         model: Optional[Union[BaseLLM, str]] = None,
@@ -91,6 +154,7 @@ class PenelopeAgent:
         timeout_seconds: Optional[float] = None,
         enable_transparency: bool = True,
         verbose: bool = False,
+        metrics: Optional[List[Any]] = None,
         goal_metric: Optional[Any] = None,
     ):
         """
@@ -106,9 +170,27 @@ class PenelopeAgent:
             timeout_seconds: Optional timeout in seconds
             enable_transparency: Show reasoning at each step (Anthropic principle)
             verbose: Print detailed execution information
-            goal_metric: Optional SDK multi-turn metric for goal evaluation.
-                If None, uses interim LLM-based evaluation until SDK metrics are ready.
-                When SDK metrics are available: GoalAchievementJudge(model=model)
+            metrics: Optional list of SDK conversational metrics for evaluation.
+                If None, defaults to empty list (GoalAchievementJudge will be auto-added).
+                Supports arbitrary number of metrics.
+
+                Example:
+                    from rhesis.sdk.metrics.providers.native import GoalAchievementJudge
+                    from rhesis.sdk.metrics.providers.deepeval import DeepEvalTurnRelevancy
+
+                    metrics = [
+                        GoalAchievementJudge(model=model, threshold=0.7),
+                        DeepEvalTurnRelevancy(model=model, window_size=3),
+                        # Add more metrics as needed
+                    ]
+            goal_metric: Metric to use for stopping condition.
+                Must be (or behave like) a GoalAchievementJudge with 'is_successful' in details.
+                If None:
+                - Searches metrics for a GoalAchievementJudge
+                - If not found, creates and adds default GoalAchievementJudge to metrics
+
+        Raises:
+            ValueError: If goal_metric is provided but doesn't have required attributes
 
         Note:
             Model Configuration:
@@ -143,16 +225,29 @@ class PenelopeAgent:
         self.timeout_seconds = timeout_seconds
         self.enable_transparency = enable_transparency
         self.verbose = verbose
-        self.goal_metric = goal_metric
 
         # Tools will be set per test (since TargetInteractionTool needs target)
         self.custom_tools = tools or []
 
+        # Initialize metrics list if not provided
+        if metrics is None:
+            metrics = []
+
+        # Determine goal metric for stopping condition (with smart defaults)
+        self.goal_metric, self.metrics = self._determine_goal_metric(
+            goal_metric=goal_metric,
+            metrics=metrics,
+            model=self.model,
+        )
+
         # Initialize specialized components
-        self.evaluator = GoalEvaluator(self.model, goal_metric)
+        self.evaluator = GoalEvaluator(goal_metric=self.goal_metric)
         self.executor = TurnExecutor(self.model, verbose, enable_transparency)
 
-        logger.info(f"Initialized PenelopeAgent with {self.model.get_model_name()}")
+        logger.info(
+            f"Initialized PenelopeAgent with {self.model.get_model_name()} "
+            f"and {len(self.metrics)} metric(s)"
+        )
 
     def _get_tools_for_test(self, target: Target) -> List[Tool]:
         """
@@ -404,18 +499,19 @@ class PenelopeAgent:
 
                 return result
 
-            # Evaluate goal progress
-            progress = self.evaluator.evaluate_progress(state, goal)
+            # Evaluate all SDK metrics
+            for metric in self.metrics:
+                if metric == self.goal_metric:
+                    # Use evaluator for goal metric (includes stopping condition logic)
+                    result = self.evaluator.evaluate(state, goal)
 
-            # Store structured evaluation if available
-            if progress.structured_evaluation:
-                state.last_evaluation = progress.structured_evaluation
+                    # Update goal-achieved stopping condition
+                    for condition in conditions:
+                        if isinstance(condition, GoalAchievedCondition):
+                            condition.update_result(result)
+                else:
+                    # Directly evaluate other metrics
+                    result = metric.evaluate(state.conversation, goal=goal)
 
-            # Update goal condition
-            for condition in conditions:
-                if isinstance(condition, GoalAchievedCondition):
-                    condition.update_progress(progress)
-
-            # Add findings from progress
-            for finding in progress.findings:
-                state.add_finding(finding)
+                # Store all metric results for reporting
+                state.metric_results.append(result)
