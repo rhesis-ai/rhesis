@@ -35,7 +35,6 @@ def example_multiple_metrics():
         ),
         # Metric 2: Turn Relevancy (evaluates conversation coherence)
         DeepEvalTurnRelevancy(
-            name="turn_relevancy",
             model=model,
             threshold=0.6,
             window_size=3,  # Look at last 3 turns
@@ -58,7 +57,6 @@ def example_multiple_metrics():
     # Define target
     target = EndpointTarget(
         endpoint_id="customer-support-bot",
-        url="https://api.example.com/chat",
     )
 
     # Execute test - all metrics will be evaluated
@@ -100,7 +98,6 @@ def example_single_metric():
 
     target = EndpointTarget(
         endpoint_id="support-bot",
-        url="https://api.example.com/chat",
     )
 
     result = agent.execute_test(
@@ -114,7 +111,7 @@ def example_single_metric():
 def example_custom_metric():
     """Example: Using custom conversational metric."""
 
-    from rhesis.sdk.metrics.conversational import ConversationalJudge
+    from rhesis.sdk.metrics.providers.native import ConversationalJudge
 
     model = VertexAILLM(model_name="gemini-2.0-flash")
 
@@ -151,7 +148,6 @@ def example_custom_metric():
 
     target = EndpointTarget(
         endpoint_id="support-bot",
-        url="https://api.example.com/chat",
     )
 
     result = agent.execute_test(
@@ -175,7 +171,6 @@ def example_explicit_goal_metric():
     # Configure evaluation metrics (no GoalAchievementJudge)
     metrics = [
         DeepEvalTurnRelevancy(
-            name="turn_relevancy",
             model=model,
             threshold=0.6,
             window_size=3,
@@ -184,7 +179,6 @@ def example_explicit_goal_metric():
 
     # Explicitly provide goal metric for stopping condition
     goal_metric = GoalAchievementJudge(
-        name="stopping_metric",
         model=model,
         threshold=0.8,  # Higher threshold for stopping
     )
@@ -200,7 +194,6 @@ def example_explicit_goal_metric():
 
     target = EndpointTarget(
         endpoint_id="support-bot",
-        url="https://api.example.com/chat",
     )
 
     result = agent.execute_test(
@@ -225,7 +218,6 @@ def example_auto_create_goal_metric():
     # Only provide evaluation metrics (no GoalAchievementJudge)
     metrics = [
         DeepEvalTurnRelevancy(
-            name="turn_relevancy",
             model=model,
             threshold=0.6,
             window_size=3,
@@ -243,7 +235,6 @@ def example_auto_create_goal_metric():
 
     target = EndpointTarget(
         endpoint_id="support-bot",
-        url="https://api.example.com/chat",
     )
 
     result = agent.execute_test(
@@ -367,7 +358,6 @@ def test_explicit_goal_metric(endpoint_id: str, verbose: bool, max_iterations: i
 
     # Explicit goal_metric separate from evaluation metrics
     goal_metric = GoalAchievementJudge(
-        name="stopping_metric",
         model=model,
         threshold=0.8,  # Higher threshold for stopping
     )
