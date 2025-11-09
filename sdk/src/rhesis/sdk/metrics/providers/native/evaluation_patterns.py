@@ -139,4 +139,3 @@ class NumericEvaluationMixin:
         except Exception as e:
             # Handle errors with standard error handling
             return self._handle_evaluation_error(e, details, 0.0)
-

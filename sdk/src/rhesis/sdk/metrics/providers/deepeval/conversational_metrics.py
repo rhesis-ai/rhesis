@@ -74,4 +74,3 @@ class DeepEvalTurnRelevancy(DeepEvalConversationalBase):
 
         self.threshold = threshold
         self.window_size = window_size
-

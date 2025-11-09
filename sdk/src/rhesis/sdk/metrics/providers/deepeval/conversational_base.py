@@ -53,9 +53,7 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         self._model = self._set_model(value)
         self._update_model()
 
-    def _to_deepeval_format(
-        self, conversation: ConversationHistory
-    ) -> ConversationalTestCase:
+    def _to_deepeval_format(self, conversation: ConversationHistory) -> ConversationalTestCase:
         """
         Convert standard message format to DeepEval format.
 
@@ -100,9 +98,7 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
             MetricResult with DeepEval evaluation
         """
         if self._metric is None:
-            raise ValueError(
-                "DeepEval metric not initialized. Child class must set self._metric"
-            )
+            raise ValueError("DeepEval metric not initialized. Child class must set self._metric")
 
         # Convert to DeepEval format
         test_case = self._to_deepeval_format(conversation_history)
@@ -122,4 +118,3 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
                 "window_size": getattr(self._metric, "window_size", None),
             },
         )
-
