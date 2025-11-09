@@ -31,25 +31,38 @@ export default async function TestSetsPage() {
       sort_order: 'desc',
     });
 
-    // Now, for each test set with a status_id, fetch status details
-    const testSetsWithStatus = await Promise.all(
+    // Now, for each test set with a status_id or test_set_type_id, fetch details
+    const testSetsWithDetails = await Promise.all(
       response.data.map(async testSet => {
+        let updatedTestSet = { ...testSet };
+
+        // Fetch status details if status_id exists
         if (testSet.status_id) {
           try {
-            // Use the status client to fetch status details
             const statusClient = clientFactory.getStatusClient();
             const status = await statusClient.getStatus(
               testSet.status_id as string
             );
-            return {
-              ...testSet,
-              status: status.name,
-            };
+            updatedTestSet.status = status.name;
           } catch (error) {
-            return testSet;
+            // Keep original testSet if status fetch fails
           }
         }
-        return testSet;
+
+        // Fetch test set type details if test_set_type_id exists
+        if (testSet.test_set_type_id) {
+          try {
+            const typeLookupClient = clientFactory.getTypeLookupClient();
+            const testSetType = await typeLookupClient.getTypeLookup(
+              testSet.test_set_type_id as string
+            );
+            updatedTestSet.test_set_type = testSetType;
+          } catch (error) {
+            // Keep original testSet if test set type fetch fails
+          }
+        }
+
+        return updatedTestSet;
       })
     );
 
@@ -65,7 +78,7 @@ export default async function TestSetsPage() {
         <Paper sx={{ width: '100%', mb: 2, mt: 2 }}>
           <Box sx={{ p: 2 }}>
             <TestSetsGrid
-              testSets={testSetsWithStatus}
+              testSets={testSetsWithDetails}
               loading={false}
               sessionToken={session.session_token}
               initialTotalCount={response.pagination.totalCount}

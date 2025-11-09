@@ -152,6 +152,7 @@ export default function TestSetsGrid({
     return {
       id: testSet.id,
       name: testSet.name,
+      testSetType: testSet.test_set_type?.type_value || 'Unknown',
       behaviors: testSet.attributes?.metadata?.behaviors || [],
       categories: testSet.attributes?.metadata?.categories || [],
       totalTests: testSet.attributes?.metadata?.total_tests || 0,
@@ -167,7 +168,15 @@ export default function TestSetsGrid({
       headerName: 'Name',
       flex: 1.5,
       renderCell: params => (
-        <span style={{ fontWeight: 'medium' }}>{params.value}</span>
+        <Typography sx={{ fontWeight: 'medium' }}>{params.value}</Typography>
+      ),
+    },
+    {
+      field: 'testSetType',
+      headerName: 'Type',
+      flex: 0.75,
+      renderCell: params => (
+        <Chip label={params.value} size="small" variant="outlined" />
       ),
     },
     {
