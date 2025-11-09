@@ -55,12 +55,12 @@ export interface LicenseType {
 
 // TestSetType interface for the nested test_set_type data
 export interface TestSetType {
-  id: string;
+  id: UUID;
+  type_name: string;
+  type_value: string;
   description?: string;
-  type_name?: string;
-  type_value?: string;
-  user_id?: string;
-  organization_id?: string;
+  user_id?: UUID | null;
+  organization_id?: UUID | null;
 }
 
 export interface TestSet {
