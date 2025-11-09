@@ -93,7 +93,7 @@ def set_score_parameters(
 
 
 def initialize_numeric_config(
-    config: Union["NumericJudgeConfig", "ConversationalNumericConfig"]
+    config: Union["NumericJudgeConfig", "ConversationalNumericConfig"],
 ) -> None:
     """
     Shared initialization for numeric config classes.
