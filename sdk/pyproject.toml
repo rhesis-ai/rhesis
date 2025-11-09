@@ -114,3 +114,12 @@ addopts = "--ignore=../tests/sdk/synthesizers  --ignore=../tests/sdk/services --
 pythonpath = [
     "src",
 ]
+
+# Asyncio configuration
+asyncio_default_fixture_loop_scope = "function"
+
+# Filter warnings
+filterwarnings = [
+    # Ignore Pydantic V2 deprecation warnings from external dependencies
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20",
+]

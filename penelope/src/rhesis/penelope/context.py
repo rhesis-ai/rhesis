@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_serializer
 
-from rhesis.penelope.schemas import AssistantMessage, CriterionEvaluation, ToolMessage
+from rhesis.penelope.schemas import AssistantMessage, ConversationHistory, ToolMessage
 
 
 class ExecutionStatus(str, Enum):
@@ -91,34 +91,6 @@ class Turn(BaseModel):
             return content
 
 
-class GoalEvaluationResult(BaseModel):
-    """
-    Structured goal evaluation results.
-
-    Preserves the criterion-by-criterion evaluation from the LLM in machine-readable format,
-    enabling programmatic analysis, filtering, and aggregation of test results.
-    """
-
-    turn_count: int = Field(description="Number of turns at evaluation time")
-    criteria_evaluations: List[CriterionEvaluation] = Field(
-        description="Detailed evaluation of each criterion"
-    )
-    all_criteria_met: bool = Field(description="Whether all criteria were met")
-    confidence: float = Field(ge=0.0, le=1.0, description="Confidence in the evaluation")
-    reasoning: str = Field(description="Summary explanation of the evaluation")
-    evidence: List[str] = Field(
-        default_factory=list, description="Supporting evidence from the conversation"
-    )
-    evaluated_at: datetime = Field(
-        default_factory=datetime.now, description="When the evaluation was performed"
-    )
-
-    @field_serializer("evaluated_at", when_used="json")
-    def serialize_evaluated_at(self, dt: datetime, _info):
-        """Serialize datetime to ISO format string."""
-        return dt.isoformat()
-
-
 class ConversationTurn(BaseModel):
     """
     Simplified conversation turn for easy reading and UI display.
@@ -157,10 +129,14 @@ class TestResult(BaseModel):
         ),
     )
 
-    # Structured evaluation data (machine-readable)
-    goal_evaluation: Optional[GoalEvaluationResult] = Field(
+    # Structured evaluation data (machine-readable) - SDK MetricResult
+    goal_evaluation: Optional[Any] = Field(
         default=None,
-        description="Structured goal evaluation with criterion-by-criterion results",
+        description=(
+            "SDK MetricResult from GoalAchievementJudge with structured criterion evaluation. "
+            "Access .score for overall score, "
+            ".details['criteria_evaluations'] for criterion breakdown."
+        ),
     )
 
     # Metrics in standard format (compatible with SDK single-turn metrics)
@@ -228,28 +204,6 @@ class TestResult(BaseModel):
         return dt.isoformat() if dt else None
 
 
-class GoalProgress(BaseModel):
-    """Evaluation of progress toward the test goal."""
-
-    goal_achieved: bool = Field(description="Whether the goal is achieved")
-    goal_impossible: bool = Field(
-        default=False, description="Whether the goal is determined to be impossible"
-    )
-    confidence: float = Field(
-        ge=0.0, le=1.0, description="Confidence in the evaluation (0.0 to 1.0)"
-    )
-    reasoning: str = Field(description="Explanation of the evaluation")
-    findings: List[str] = Field(
-        default_factory=list, description="Specific findings supporting this evaluation"
-    )
-
-    # Structured evaluation data (optional, when available from LLM evaluation)
-    structured_evaluation: Optional[GoalEvaluationResult] = Field(
-        default=None,
-        description="Structured criterion-by-criterion evaluation results",
-    )
-
-
 @dataclass
 class TestContext:
     """
@@ -276,17 +230,24 @@ class TestState:
     Current state of a test execution.
 
     Tracks conversation history, turn count, and session information.
+    Uses SDK's ConversationHistory for zero-conversion metric evaluation.
     """
 
     context: TestContext
     turns: List[Turn] = field(default_factory=list)
+
+    # Native SDK conversation tracking - built incrementally as tools execute
+    conversation: ConversationHistory = field(
+        default_factory=lambda: ConversationHistory.from_messages([])
+    )
+
     current_turn: int = 0
     session_id: Optional[str] = None
     findings: List[str] = field(default_factory=list)
     start_time: datetime = field(default_factory=datetime.now)
 
-    # Store the last goal evaluation result (structured)
-    last_evaluation: Optional[GoalEvaluationResult] = None
+    # Store SDK metric evaluation results (supports multiple metrics)
+    metric_results: List[Any] = field(default_factory=list)  # List of SDK MetricResults
 
     def add_turn(
         self,
@@ -346,7 +307,41 @@ class TestState:
         )
 
         self.turns.append(turn)
+
+        # Also update conversation for SDK metrics (zero-conversion)
+        self._update_conversation_from_turn(turn)
+
         return turn
+
+    def _update_conversation_from_turn(self, turn: Turn) -> None:
+        """
+        Update the conversation history from a turn's tool interaction.
+
+        For send_message_to_target turns, extracts the user-assistant exchange
+        and adds it to the conversation using SDK's message types.
+
+        Args:
+            turn: The turn to extract conversation from
+        """
+        from rhesis.penelope.schemas import UserMessage
+        from rhesis.sdk.metrics.conversational import AssistantMessage as SDKAssistantMessage
+
+        # Only process send_message_to_target turns
+        if turn.tool_name == "send_message_to_target":
+            # Extract user message from tool arguments
+            msg = turn.tool_arguments.get("message", "")
+            if msg:
+                self.conversation.messages.append(UserMessage(role="user", content=msg))
+
+            # Extract assistant response from tool result
+            result = turn.tool_result
+            if isinstance(result, dict) and result.get("success"):
+                resp = result.get("output", {})
+                resp_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+                if resp_text:
+                    self.conversation.messages.append(
+                        SDKAssistantMessage(role="assistant", content=resp_text)
+                    )
 
     def add_finding(self, finding: str) -> None:
         """Add a finding to the findings list."""
@@ -440,7 +435,8 @@ class TestState:
             findings=findings,
             history=self.turns,
             conversation_summary=conversation_summary,
-            goal_evaluation=self.last_evaluation,
+            # Use first metric result for backward compatibility with goal_evaluation field
+            goal_evaluation=self.metric_results[0] if self.metric_results else None,
             metrics=metrics,
             test_configuration=test_configuration,
             model_info=model_info,
@@ -463,37 +459,41 @@ class TestState:
         """
         findings = []
 
-        # If we have structured evaluation, use it for summary
-        if self.last_evaluation:
-            eval_result = self.last_evaluation
-            met_count = sum(1 for c in eval_result.criteria_evaluations if c.met)
-            total_count = len(eval_result.criteria_evaluations)
+        # If we have SDK metric evaluations, use first one (goal achievement) for summary
+        if self.metric_results:
+            first_metric = self.metric_results[0]
+            details = first_metric.details
+            criteria_evals = details.get("criteria_evaluations", [])
 
-            # Overall status
-            if eval_result.all_criteria_met:
-                findings.append(f"✓ All criteria met ({met_count}/{total_count})")
-            else:
-                findings.append(f"✗ Partial success: {met_count}/{total_count} criteria met")
+            if criteria_evals:
+                # Count met vs total criteria
+                met_count = sum(1 for c in criteria_evals if c.get("met", False))
+                total_count = len(criteria_evals)
 
-            # Completion info
-            findings.append(f"Test completed in {eval_result.turn_count} turn(s)")
+                # Overall status
+                all_met = details.get("all_criteria_met", False)
+                if all_met:
+                    findings.append(f"✓ All criteria met ({met_count}/{total_count})")
+                else:
+                    findings.append(f"✗ Partial success: {met_count}/{total_count} criteria met")
 
-            # Confidence level
-            confidence_label = (
-                "High"
-                if eval_result.confidence >= 0.8
-                else "Medium"
-                if eval_result.confidence >= 0.5
-                else "Low"
-            )
-            findings.append(f"Confidence: {eval_result.confidence:.1f} ({confidence_label})")
+                # Completion info
+                turn_count = details.get("turn_count", self.current_turn)
+                findings.append(f"Test completed in {turn_count} turn(s)")
 
-            # Add failed criteria summary if any
-            failed = [c for c in eval_result.criteria_evaluations if not c.met]
-            if failed:
-                findings.append(f"Failed criteria: {len(failed)}")
-                for criterion in failed:
-                    findings.append(f"  • {criterion.criterion}")
+                # Confidence level
+                confidence = details.get("confidence", 0.5)
+                confidence_label = (
+                    "High" if confidence >= 0.8 else "Medium" if confidence >= 0.5 else "Low"
+                )
+                findings.append(f"Confidence: {confidence:.1f} ({confidence_label})")
+
+                # Add failed criteria summary if any
+                failed = [c for c in criteria_evals if not c.get("met", False)]
+                if failed:
+                    findings.append(f"Failed criteria: {len(failed)}")
+                    for criterion in failed:
+                        findings.append(f"  • {criterion.get('criterion', 'Unknown')}")
         else:
             # Fallback for tests without structured evaluation
             status_icon = "✓" if goal_achieved else "✗"
@@ -509,8 +509,8 @@ class TestState:
         """
         Generate metrics in standard format (compatible with SDK single-turn metrics).
 
-        Converts the goal_evaluation into the platform's standard metrics format.
-        Future SDK metrics will be added to this dictionary.
+        Processes all SDK metric results and converts them to platform's standard format.
+        Supports arbitrary number of metrics passed as a list.
 
         Args:
             goal_achieved: Whether the goal was achieved
@@ -518,59 +518,48 @@ class TestState:
         Returns:
             Dictionary mapping metric names to their results in standard format
         """
+        # Fallback if no metrics available
+        if not self.metric_results:
+            return {
+                "Goal Achievement": {
+                    "name": "Goal Achievement",
+                    "score": 0.5,
+                    "reason": "No detailed evaluation available",
+                    "backend": "penelope",
+                    "threshold": None,
+                    "class_name": "GoalAchievementMetric",
+                    "description": "Goal achievement evaluation was not performed",
+                    "is_successful": goal_achieved,
+                    "turn_count": self.current_turn,
+                }
+            }
+
+        # Process all SDK metric results
         metrics = {}
 
-        # Convert goal evaluation to standard metric format
-        if self.last_evaluation:
-            eval_result = self.last_evaluation
-            met_count = sum(1 for c in eval_result.criteria_evaluations if c.met)
-            total_count = len(eval_result.criteria_evaluations)
-
-            # Build detailed reason including criterion breakdown
-            reason_parts = [eval_result.reasoning]
-            if not eval_result.all_criteria_met:
-                failed = [c for c in eval_result.criteria_evaluations if not c.met]
-                reason_parts.append(f"\nFailed criteria ({len(failed)}/{total_count}):")
-                for criterion in failed:
-                    reason_parts.append(f"  • {criterion.criterion}")
-
-            metrics["Goal Achievement"] = {
-                "name": "Goal Achievement",
-                "score": eval_result.confidence,
-                "reason": "\n".join(reason_parts),
-                "backend": "penelope",
-                "threshold": None,  # No fixed threshold, uses LLM judgment
-                "class_name": "GoalAchievementMetric",
-                "description": (
-                    "Evaluates whether the multi-turn conversation achieved its stated goal "
-                    "through criterion-by-criterion assessment."
-                ),
-                "is_successful": eval_result.all_criteria_met,
-                # Additional Penelope-specific fields
-                "criteria_met": met_count,
-                "criteria_total": total_count,
-                "turn_count": eval_result.turn_count,
-                "evaluated_at": eval_result.evaluated_at.isoformat(),
-            }
-        else:
-            # Fallback if no evaluation available
-            metrics["Goal Achievement"] = {
-                "name": "Goal Achievement",
-                "score": 0.5,
-                "reason": "No detailed evaluation available",
-                "backend": "penelope",
-                "threshold": None,
-                "class_name": "GoalAchievementMetric",
-                "description": "Goal achievement evaluation was not performed",
-                "is_successful": goal_achieved,
-                "turn_count": self.current_turn,
+        for metric_result in self.metric_results:
+            # Convert MetricResult to dict (it's not a Pydantic model)
+            metric_dict = {
+                "score": metric_result.score,
+                "details": metric_result.details,
             }
 
-        # Placeholder for future SDK metrics
-        # When SDK metrics are computed, they will be added here:
-        # metrics["Context Retention"] = {...}
-        # metrics["Conversation Coherence"] = {...}
-        # metrics["Safety"] = {...}
+            # Enhance with Penelope-specific summary fields (if applicable)
+            details = metric_dict.get("details", {})
+            criteria_evals = details.get("criteria_evaluations", [])
+
+            # Add criterion counts for quick analysis (for criterion-based metrics)
+            if criteria_evals:
+                met_count = sum(1 for c in criteria_evals if c.get("met", False))
+                metric_dict["criteria_met"] = met_count
+                metric_dict["criteria_total"] = len(criteria_evals)
+
+            # Use metric name from details, or fallback to generic name
+            metric_name = details.get("name", "unnamed_metric")
+            # Convert snake_case to Title Case for display
+            display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
+
+            metrics[display_name] = metric_dict
 
         return metrics
 

@@ -3,16 +3,14 @@
 import pytest
 from pydantic import ValidationError
 from rhesis.penelope.schemas import (
+    AnalyzeResponseParams,
+    AssistantMessage,
+    ExtractInformationParams,
     FunctionCall,
     MessageToolCall,
-    AssistantMessage,
-    ToolMessage,
     SendMessageParams,
-    AnalyzeResponseParams,
-    ExtractInformationParams,
-    CriterionEvaluation,
-    SimpleGoalEval,
     ToolCall,
+    ToolMessage,
 )
 
 
@@ -33,9 +31,7 @@ def test_function_call_validation():
 def test_message_tool_call_creation():
     """Test MessageToolCall schema."""
     func_call = FunctionCall(name="test_function", arguments="{}")
-    tool_call = MessageToolCall(
-        id="call_123", type="function", function=func_call
-    )
+    tool_call = MessageToolCall(id="call_123", type="function", function=func_call)
 
     assert tool_call.id == "call_123"
     assert tool_call.type == "function"
@@ -129,124 +125,17 @@ def test_analyze_response_params():
 
 def test_analyze_response_params_optional_context():
     """Test AnalyzeResponseParams with optional context."""
-    params = AnalyzeResponseParams(
-        response_text="Response", analysis_focus="tone"
-    )
+    params = AnalyzeResponseParams(response_text="Response", analysis_focus="tone")
 
     assert params.context is None
 
 
 def test_extract_information_params():
     """Test ExtractInformationParams schema."""
-    params = ExtractInformationParams(
-        response_text="Response", extraction_target="email"
-    )
+    params = ExtractInformationParams(response_text="Response", extraction_target="email")
 
     assert params.response_text == "Response"
     assert params.extraction_target == "email"
-
-
-def test_criterion_evaluation():
-    """Test CriterionEvaluation schema."""
-    criterion = CriterionEvaluation(
-        criterion="Chatbot provides accurate info",
-        met=True,
-        evidence="The chatbot stated correct facts",
-    )
-
-    assert criterion.criterion == "Chatbot provides accurate info"
-    assert criterion.met is True
-    assert criterion.evidence == "The chatbot stated correct facts"
-
-
-def test_simple_goal_eval():
-    """Test SimpleGoalEval schema."""
-    criteria = [
-        CriterionEvaluation(
-            criterion="Criterion 1", met=True, evidence="Evidence 1"
-        ),
-        CriterionEvaluation(
-            criterion="Criterion 2", met=True, evidence="Evidence 2"
-        ),
-    ]
-
-    goal_eval = SimpleGoalEval(
-        turn_count=3,
-        criteria_evaluations=criteria,
-        all_criteria_met=True,
-        goal_achieved=True,
-        confidence=0.9,
-        reasoning="All criteria were met successfully",
-        evidence=["Quote 1", "Quote 2"],
-    )
-
-    assert goal_eval.turn_count == 3
-    assert len(goal_eval.criteria_evaluations) == 2
-    assert goal_eval.all_criteria_met is True
-    assert goal_eval.goal_achieved is True
-    assert goal_eval.confidence == 0.9
-
-
-def test_simple_goal_eval_confidence_validation():
-    """Test SimpleGoalEval confidence must be between 0 and 1."""
-    criteria = [
-        CriterionEvaluation(
-            criterion="Test", met=True, evidence="Evidence"
-        )
-    ]
-
-    # Valid confidence
-    goal_eval = SimpleGoalEval(
-        turn_count=1,
-        criteria_evaluations=criteria,
-        all_criteria_met=True,
-        goal_achieved=True,
-        confidence=0.5,
-        reasoning="Test",
-    )
-    assert goal_eval.confidence == 0.5
-
-    # Invalid confidence (too high)
-    with pytest.raises(ValidationError):
-        SimpleGoalEval(
-            turn_count=1,
-            criteria_evaluations=criteria,
-            all_criteria_met=True,
-            goal_achieved=True,
-            confidence=1.5,
-            reasoning="Test",
-        )
-
-    # Invalid confidence (too low)
-    with pytest.raises(ValidationError):
-        SimpleGoalEval(
-            turn_count=1,
-            criteria_evaluations=criteria,
-            all_criteria_met=True,
-            goal_achieved=True,
-            confidence=-0.1,
-            reasoning="Test",
-        )
-
-
-def test_simple_goal_eval_default_evidence():
-    """Test SimpleGoalEval evidence defaults to empty list."""
-    criteria = [
-        CriterionEvaluation(
-            criterion="Test", met=True, evidence="Evidence"
-        )
-    ]
-
-    goal_eval = SimpleGoalEval(
-        turn_count=1,
-        criteria_evaluations=criteria,
-        all_criteria_met=True,
-        goal_achieved=True,
-        confidence=0.9,
-        reasoning="Test",
-    )
-
-    assert goal_eval.evidence == []
 
 
 def test_tool_call_with_send_message():
@@ -268,9 +157,7 @@ def test_tool_call_with_analyze_response():
     tool_call = ToolCall(
         reasoning="Analyzing response",
         tool_name="analyze_response",
-        parameters=AnalyzeResponseParams(
-            response_text="Response", analysis_focus="tone"
-        ),
+        parameters=AnalyzeResponseParams(response_text="Response", analysis_focus="tone"),
     )
 
     assert tool_call.tool_name == "analyze_response"
@@ -283,9 +170,7 @@ def test_tool_call_with_extract_information():
     tool_call = ToolCall(
         reasoning="Extracting info",
         tool_name="extract_information",
-        parameters=ExtractInformationParams(
-            response_text="Response", extraction_target="email"
-        ),
+        parameters=ExtractInformationParams(response_text="Response", extraction_target="email"),
     )
 
     assert tool_call.tool_name == "extract_information"
@@ -297,4 +182,3 @@ def test_tool_call_validation():
     """Test ToolCall requires all fields."""
     with pytest.raises(ValidationError):
         ToolCall(reasoning="Test")  # Missing tool_name and parameters
-

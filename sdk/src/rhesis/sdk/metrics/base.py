@@ -43,6 +43,7 @@ class MetricType(str, Enum):
     RAG = "rag"
     GENERATION = "generation"
     CLASSIFICATION = "classification"
+    CONVERSATIONAL = "conversational"
 
 
 class ThresholdOperator(str, Enum):
