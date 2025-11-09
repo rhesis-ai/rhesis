@@ -172,14 +172,6 @@ export default function TestSetsGrid({
       ),
     },
     {
-      field: 'testSetType',
-      headerName: 'Type',
-      flex: 0.75,
-      renderCell: params => (
-        <Chip label={params.value} size="small" variant="outlined" />
-      ),
-    },
-    {
       field: 'behaviors',
       headerName: 'Behaviors',
       flex: 1.0,
@@ -193,6 +185,14 @@ export default function TestSetsGrid({
       flex: 1.0,
       renderCell: params => (
         <ChipContainer items={params.row.categories || []} />
+      ),
+    },
+    {
+      field: 'testSetType',
+      headerName: 'Type',
+      flex: 0.75,
+      renderCell: params => (
+        <Chip label={params.value} size="small" variant="outlined" />
       ),
     },
     {
