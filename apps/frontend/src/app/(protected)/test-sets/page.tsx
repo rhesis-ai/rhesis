@@ -43,7 +43,7 @@ export default async function TestSetsPage() {
             const status = await statusClient.getStatus(
               testSet.status_id as string
             );
-            updatedTestSet.status = status.name;
+            updatedTestSet = { ...updatedTestSet, status: status.name };
           } catch (error) {
             // Keep original testSet if status fetch fails
           }
@@ -56,7 +56,7 @@ export default async function TestSetsPage() {
             const testSetType = await typeLookupClient.getTypeLookup(
               testSet.test_set_type_id as string
             );
-            updatedTestSet.test_set_type = testSetType;
+            updatedTestSet = { ...updatedTestSet, test_set_type: testSetType };
           } catch (error) {
             // Keep original testSet if test set type fetch fails
           }
