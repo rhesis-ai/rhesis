@@ -10,8 +10,8 @@ from rhesis.backend.alembic.utils.template_loader import (
 )
 
 # revision identifiers, used by Alembic.
-revision: str = '6fe8376f15b7'
-down_revision: Union[str, None] = '04779f916a43'
+revision: str = "6fe8376f15b7"
+down_revision: Union[str, None] = "04779f916a43"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -24,14 +24,16 @@ def upgrade() -> None:
         ('TestSetType', 'Mixed', 'Test set containing both single-turn and multi-turn tests')
     """.strip()
     op.execute(load_type_lookup_template(test_set_type_values))
-    
+
     # Step 2: Add test_set_type_id column to test_set table
     op.add_column(
-        "test_set", 
-        sa.Column("test_set_type_id", rhesis.backend.app.models.guid.GUID(), nullable=True)
+        "test_set",
+        sa.Column("test_set_type_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
     )
-    op.create_foreign_key("fk_test_set_test_set_type_id", "test_set", "type_lookup", ["test_set_type_id"], ["id"])
-    
+    op.create_foreign_key(
+        "fk_test_set_test_set_type_id", "test_set", "type_lookup", ["test_set_type_id"], ["id"]
+    )
+
     # Step 3: Set default test_set_type_id for existing test sets to 'Single-Turn'
     op.execute("""
         UPDATE test_set 
@@ -67,9 +69,9 @@ def downgrade() -> None:
             END IF;
         END $$;
     """)
-    
+
     op.drop_column("test_set", "test_set_type_id")
-    
+
     # Step 2: Remove TestSetType entries from type_lookup table
     test_set_type_values = "'Single-Turn', 'Multi-Turn', 'Mixed'"
     op.execute(load_cleanup_type_lookup_template("TestSetType", test_set_type_values))
