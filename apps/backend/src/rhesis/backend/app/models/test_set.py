@@ -46,6 +46,7 @@ class TestSet(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
     slug = Column(String)
     status_id = Column(GUID(), ForeignKey("status.id"))
     license_type_id = Column(GUID(), ForeignKey("type_lookup.id"))
+    test_set_type_id = Column(GUID(), ForeignKey("type_lookup.id"))
     user_id = Column(GUID(), ForeignKey("user.id"))
     organization_id = Column(GUID(), ForeignKey("organization.id"))
     attributes = Column(JSONB)
@@ -64,7 +65,12 @@ class TestSet(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
     # Relationship to subscriptions
     status = relationship("Status", back_populates="test_sets")
     test_configurations = relationship("TestConfiguration", back_populates="test_set")
-    license_type = relationship("TypeLookup", back_populates="test_sets")
+    license_type = relationship(
+        "TypeLookup", back_populates="test_sets", foreign_keys=[license_type_id]
+    )
+    test_set_type = relationship(
+        "TypeLookup", foreign_keys=[test_set_type_id], overlaps="test_set_types"
+    )
     user = relationship("User", back_populates="test_sets", foreign_keys=[user_id])
     owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_test_sets")
     assignee = relationship("User", foreign_keys=[assignee_id], back_populates="assigned_test_sets")
