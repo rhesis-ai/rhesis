@@ -1,6 +1,6 @@
 from rhesis.sdk.entities import Topic
 from dotenv import load_dotenv
-from .base_entity_test import BaseEntityTest
+from tests.sdk.entities.base_entity_test import BaseEntityTest
 
 load_dotenv()
 
