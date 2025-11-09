@@ -26,7 +26,9 @@ from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 TestRunDetailSchema = create_detailed_schema(
     schemas.TestRun,
     models.TestRun,
-    include_nested_relationships={"test_configuration": {"endpoint": ["project"], "test_set": ["test_set_type"]}},
+    include_nested_relationships={
+        "test_configuration": {"endpoint": ["project"], "test_set": ["test_set_type"]}
+    },
 )
 
 
