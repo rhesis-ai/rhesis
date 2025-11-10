@@ -1,32 +1,40 @@
 """Tool executor for MCP Agent - handles pure execution of tool calls."""
 
-import json
 import logging
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from rhesis.sdk.services.mcp.client import MCPClient
 from rhesis.sdk.services.mcp.schemas import ToolCall, ToolResult
+
+if TYPE_CHECKING:
+    from rhesis.sdk.services.mcp.provider_config import ProviderConfig
 
 logger = logging.getLogger(__name__)
 
 
 class ToolExecutor:
     """
-    Stateless executor for MCP tools.
+    Executor for MCP tools with optional response filtering.
 
     This component handles pure execution of tool calls without any
     business logic or decision-making. It simply takes tool calls and
     returns results.
     """
 
-    def __init__(self, mcp_client: MCPClient):
+    def __init__(
+        self,
+        mcp_client: MCPClient,
+        provider_config: Optional["ProviderConfig"] = None,
+    ):
         """
         Initialize the ToolExecutor.
 
         Args:
             mcp_client: MCP client instance for connecting to MCP servers
+            provider_config: Optional provider configuration for response filtering
         """
         self.mcp_client = mcp_client
+        self.provider_config = provider_config
 
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """
@@ -57,6 +65,10 @@ class ToolExecutor:
 
             result = await self.mcp_client.call_tool(tool_call.tool_name, args)
 
+            # Filter response if provider config is set
+            if self.provider_config:
+                result = self.provider_config.filter_response(result, tool_call.tool_name)
+
             # Extract content from the result
             content = self._extract_content(result)
 
@@ -79,11 +91,13 @@ class ToolExecutor:
         """
         Extract text content from MCP tool result.
 
+        Returns raw content without formatting - formatting is handled at agent level.
+
         Args:
             result: Result from MCP tool call
 
         Returns:
-            Extracted text content
+            Extracted text content (raw, unformatted)
         """
         content_parts = []
         content_list = getattr(result, "content", None)
@@ -93,36 +107,6 @@ class ToolExecutor:
 
         for content_item in content_list:
             if hasattr(content_item, "text"):
-                try:
-                    # Try to parse as JSON first for structured data
-                    data = json.loads(content_item.text)
-                    # Convert structured data to readable text
-                    content_parts.append(self._format_json_content(data))
-                except json.JSONDecodeError:
-                    # If not JSON, use as plain text
-                    content_parts.append(content_item.text)
+                content_parts.append(content_item.text)
 
         return "\n\n".join(content_parts)
-
-    def _format_json_content(self, data: Dict[str, Any]) -> str:
-        """
-        Format JSON data into readable text.
-
-        Args:
-            data: JSON data structure
-
-        Returns:
-            Formatted text representation
-        """
-        # For large/complex JSON, return formatted JSON string
-        # This ensures all data is preserved and readable
-        if isinstance(data, dict):
-            # Check if it's a simple dict that can be formatted nicely
-            if len(data) <= 10 and not any(isinstance(v, (dict, list)) for v in data.values()):
-                parts = []
-                for key, value in data.items():
-                    parts.append(f"{key}: {value}")
-                return "\n".join(parts)
-
-        # For complex structures, return formatted JSON
-        return json.dumps(data, indent=2)

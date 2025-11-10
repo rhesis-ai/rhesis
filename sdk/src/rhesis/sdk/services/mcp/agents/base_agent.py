@@ -32,7 +32,6 @@ class BaseMCPAgent(ABC):
         max_iterations: int = 10,
         verbose: bool = False,
         stop_on_error: bool = True,
-        debug: bool = False,
         provider_config: Optional["ProviderConfig"] = None,
     ):
         if not mcp_client:
@@ -42,7 +41,7 @@ class BaseMCPAgent(ABC):
         self.max_iterations = max_iterations
         self.verbose = verbose
         self.stop_on_error = stop_on_error
-        self.executor = ToolExecutor(mcp_client, debug=debug, provider_config=provider_config)
+        self.executor = ToolExecutor(mcp_client, provider_config=provider_config)
 
     @abstractmethod
     def get_system_prompt(self) -> str:
@@ -249,6 +248,11 @@ class BaseMCPAgent(ABC):
             tool_results: List[ToolResult] = []
             for tool_call in action.tool_calls:
                 result = await self.executor.execute_tool(tool_call)
+
+                # Format the content for LLM consumption
+                if result.success and result.content:
+                    result.content = self._format_tool_content(result.content)
+
                 tool_results.append(result)
 
                 if result.success:
@@ -344,6 +348,40 @@ class BaseMCPAgent(ABC):
             parts.append("")
 
         return "\n".join(parts)
+
+    def _format_tool_content(self, content: str) -> str:
+        """
+        Format tool content for LLM consumption.
+
+        Attempts to parse JSON and format it in a readable way. Falls back to
+        raw content if not JSON.
+
+        Args:
+            content: Raw content from tool execution
+
+        Returns:
+            Formatted content suitable for LLM
+        """
+        try:
+            # Try to parse as JSON first for structured data
+            data = json.loads(content)
+
+            # For simple dicts, create key-value pairs
+            if isinstance(data, dict):
+                # Check if it's a simple dict that can be formatted nicely
+                if len(data) <= 10 and not any(isinstance(v, (dict, list)) for v in data.values()):
+                    parts = []
+                    for key, value in data.items():
+                        parts.append(f"{key}: {value}")
+                    return "\n".join(parts)
+
+            # For complex structures, return compact JSON (no indentation)
+            # This prevents issues with LLM trying to include formatted JSON in its response
+            return json.dumps(data, ensure_ascii=False)
+
+        except json.JSONDecodeError:
+            # If not JSON, use as plain text
+            return content
 
 
 class MCPAgent(BaseMCPAgent):
