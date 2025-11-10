@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 from pydantic import BaseModel
 from tqdm.auto import tqdm
@@ -56,6 +56,9 @@ class TestSetSynthesizer(ABC):
 
         Args:
             batch_size: Maximum number of items to process in a single LLM call
+            model: The model to use for generation (string name or BaseLLM instance)
+            sources: Optional list of source specifications to extract content from
+            chunking_strategy: Strategy for chunking source content
         """
         self.batch_size = batch_size
         self.prompt_template = load_prompt_template(self.prompt_template_file)
@@ -109,7 +112,7 @@ class TestSetSynthesizer(ABC):
         if they need a custom name.
 
         Returns:
-            str: The synthesizer name (e.g., "SimpleSynthesizer")
+            str: The synthesizer name (e.g., "PromptSynthesizer", "ConfigSynthesizer")
         """
         return self.__class__.__name__
 
@@ -263,7 +266,8 @@ class TestSetSynthesizer(ABC):
         prompt = self.prompt_template.render(**template_context)
 
         # Use utility function for retry logic
-        response = self.model.generate(prompt=prompt, schema=Tests)
+        # When schema is provided, generate() returns a Dict
+        response = cast(Dict[str, Any], self.model.generate(prompt=prompt, schema=Tests))
         tests = response["tests"][:num_tests]
 
         tests = [
@@ -296,8 +300,3 @@ class TestSetSynthesizer(ABC):
             requested_tests=num_tests,
             **test_set_metadata,
         )
-
-
-if __name__ == "__main__":
-    template = load_prompt_template("simple_synthesizer.md")
-    print(template.render(num_tests=5))
