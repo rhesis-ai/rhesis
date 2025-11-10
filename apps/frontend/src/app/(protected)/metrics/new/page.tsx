@@ -25,7 +25,10 @@ import BaseTag from '@/components/common/BaseTag';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { MetricCreate, MetricScope } from '@/utils/api-client/interfaces/metric';
+import {
+  MetricCreate,
+  MetricScope,
+} from '@/utils/api-client/interfaces/metric';
 import { TypeLookupClient } from '@/utils/api-client/type-lookup-client';
 import { TypeLookupsQueryParams } from '@/utils/api-client/interfaces/type-lookup';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -434,9 +437,9 @@ export default function NewMetricPage() {
             value={formData.metric_scope}
             label="Metric Scope"
             onChange={handleChange('metric_scope')}
-            renderValue={(selected) => (
+            renderValue={selected => (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {selected.map((value) => (
+                {selected.map(value => (
                   <Typography
                     key={value}
                     sx={{
@@ -445,7 +448,7 @@ export default function NewMetricPage() {
                       px: 1,
                       py: 0.25,
                       borderRadius: 1,
-                      fontSize: '0.75rem',
+                      fontSize: theme.typography.caption.fontSize,
                     }}
                   >
                     {value}

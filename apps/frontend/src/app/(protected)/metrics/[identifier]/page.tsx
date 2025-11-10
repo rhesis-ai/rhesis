@@ -28,7 +28,11 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { MetricDetail, ScoreType, MetricScope } from '@/utils/api-client/interfaces/metric';
+import {
+  MetricDetail,
+  ScoreType,
+  MetricScope,
+} from '@/utils/api-client/interfaces/metric';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
@@ -949,8 +953,7 @@ export default function MetricDetailPage() {
                         px: 1.5,
                         py: 0.5,
                         borderRadius: theme => theme.shape.borderRadius * 0.25,
-                        fontSize:
-                          theme?.typography?.helperText?.fontSize || '0.75rem',
+                        fontSize: theme.typography.caption.fontSize,
                         fontWeight: 'medium',
                       }}
                     >
@@ -976,9 +979,11 @@ export default function MetricDetailPage() {
                         }))
                       }
                       label="Metric Scope"
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {selected.map((value) => (
+                      renderValue={selected => (
+                        <Box
+                          sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
+                        >
+                          {selected.map(value => (
                             <Typography
                               key={value}
                               sx={{
@@ -987,7 +992,7 @@ export default function MetricDetailPage() {
                                 px: 1,
                                 py: 0.25,
                                 borderRadius: 1,
-                                fontSize: '0.75rem',
+                                fontSize: theme.typography.caption.fontSize,
                               }}
                             >
                               {value}
@@ -1011,9 +1016,11 @@ export default function MetricDetailPage() {
                             color: 'primary.contrastText',
                             px: 1.5,
                             py: 0.5,
-                            borderRadius: theme => theme.shape.borderRadius * 0.25,
+                            borderRadius: theme =>
+                              theme.shape.borderRadius * 0.25,
                             fontSize:
-                              theme?.typography?.helperText?.fontSize || '0.75rem',
+                              theme?.typography?.helperText?.fontSize ||
+                              '0.75rem',
                             fontWeight: 'medium',
                           }}
                         >

@@ -36,7 +36,7 @@ const RhesisAIIcon = ({
     fontSize={fontSize}
     viewBox="0 0 390 371"
     sx={{
-      margin: '0 -4px 0 4px',
+      margin: theme => `0 -${theme.spacing(0.5)} 0 ${theme.spacing(0.5)}`,
     }}
   >
     <path
@@ -180,7 +180,7 @@ export default function MetricCard({
   const chipStyles = {
     '& .MuiChip-icon': {
       color: 'text.secondary',
-      marginLeft: '4px',
+      marginLeft: theme.spacing(0.5),
     },
   };
 
@@ -256,8 +256,8 @@ export default function MetricCard({
               flexWrap: 'wrap',
               gap: 0.5,
               '& .MuiChip-root': {
-                height: '24px',
-                fontSize: theme?.typography?.chartLabel?.fontSize || '0.75rem',
+                height: theme.spacing(3),
+                fontSize: theme.typography.caption.fontSize,
                 ...chipStyles,
               },
             }}

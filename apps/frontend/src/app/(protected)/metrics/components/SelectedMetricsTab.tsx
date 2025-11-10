@@ -398,7 +398,7 @@ export default function SelectedMetricsTab({
                       size="small"
                       onClick={() => handleMetricDetail(metric.id)}
                       sx={{
-                        padding: '2px',
+                        padding: theme.spacing(0.25),
                         '& .MuiSvgIcon-root': {
                           fontSize:
                             theme?.typography?.helperText?.fontSize ||
@@ -422,8 +422,7 @@ export default function SelectedMetricsTab({
                     sx={{
                       padding: '2px',
                       '& .MuiSvgIcon-root': {
-                        fontSize:
-                          theme?.typography?.helperText?.fontSize || '0.75rem',
+                        fontSize: theme.typography.caption.fontSize,
                         color: 'currentColor',
                       },
                     }}
