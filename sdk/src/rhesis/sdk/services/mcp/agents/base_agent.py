@@ -1,8 +1,10 @@
-"""Autonomous MCP Agent using ReAct (Reasoning + Action) loop."""
+"""Base MCP Agent with shared ReAct loop logic."""
 
 import asyncio
+import json
 import logging
-from typing import Any, Dict, List, Optional
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.mcp.client import MCPClient
@@ -14,112 +16,80 @@ from rhesis.sdk.services.mcp.schemas import (
     ToolResult,
 )
 
+if TYPE_CHECKING:
+    from rhesis.sdk.services.mcp.provider_config import ProviderConfig
+
 logger = logging.getLogger(__name__)
 
 
-class MCPAgent:
-    """
-    Autonomous AI agent that uses LLM to intelligently select and execute MCP tools.
-
-    The agent operates in a ReAct loop (Reasoning + Action):
-    1. Reason: Analyzes the task and available tools
-    2. Act: Decides to call tools or finish with an answer
-    3. Observe: Examines tool results
-    4. Repeat until task is complete or max iterations reached
-
-    This agent is server-agnostic and works with any MCP server (Notion,
-    Slack, GitHub, etc.).
-    """
-
-    DEFAULT_SYSTEM_PROMPT = """You are an autonomous agent that can use MCP \
-tools to accomplish tasks.
-
-You operate in a ReAct loop: Reason → Act → Observe → Repeat
-
-For each iteration:
-- Reason: Think step-by-step about what information you need and how to get it
-- Act: Either call tools to gather information, or finish with your final answer
-- Observe: Examine tool results and plan next steps
-
-Guidelines:
-- Break complex tasks into simple tool calls
-- Use tool results to inform next actions
-- When you have sufficient information, use action="finish" with your final_answer
-- Be efficient: minimize unnecessary tool calls
-- You can call multiple tools in a single iteration if they don't depend on each other
-
-Remember: You must explicitly use action="finish" when done."""
+class BaseMCPAgent(ABC):
+    """Base class for MCP agents using ReAct loop. Subclasses override specific methods."""
 
     def __init__(
         self,
         llm: BaseLLM,
         mcp_client: MCPClient,
-        system_prompt: Optional[str] = None,
         max_iterations: int = 10,
         verbose: bool = False,
         stop_on_error: bool = True,
+        debug: bool = False,
+        provider_config: Optional["ProviderConfig"] = None,
     ):
-        """
-        Initialize the MCP Agent.
-
-        Args:
-            llm: An instance of BaseLLM (e.g., OpenAILLM, AnthropicLLM, etc.)
-            mcp_client: MCP client instance (required)
-            system_prompt: Optional custom system prompt. Uses DEFAULT_SYSTEM_PROMPT if not provided
-            max_iterations: Maximum number of ReAct iterations (default: 10)
-            verbose: If True, prints detailed execution information to stdout
-            stop_on_error: If True, raises exception immediately on any error (default: True)
-
-        Raises:
-            ValueError: If mcp_client is not provided
-        """
         if not mcp_client:
             raise ValueError("mcp_client is required")
-
         self.llm = llm
         self.mcp_client = mcp_client
-        self.system_prompt = system_prompt or self.DEFAULT_SYSTEM_PROMPT
         self.max_iterations = max_iterations
         self.verbose = verbose
         self.stop_on_error = stop_on_error
+        self.executor = ToolExecutor(mcp_client, debug=debug, provider_config=provider_config)
 
-        # Create tool executor
-        self.executor = ToolExecutor(mcp_client)
+    @abstractmethod
+    def get_system_prompt(self) -> str:
+        """Return the system prompt for this agent type."""
+        pass
 
-    async def run_async(self, user_query: str) -> AgentResult:
-        """
-        Execute the autonomous agent to answer a query (async version).
+    @abstractmethod
+    def build_prompt(
+        self,
+        task_input: Any,
+        available_tools: List[Dict[str, Any]],
+        history: List[ExecutionStep],
+    ) -> str:
+        """Build the task-specific prompt."""
+        pass
 
-        The agent will:
-        1. Connect to MCP server and discover available tools
-        2. Iteratively reason about the task and execute tools
-        3. Continue until it has enough information to answer
-        4. Return the final answer with full execution history
+    @abstractmethod
+    def parse_result(self, final_answer: str, history: List[ExecutionStep]) -> Any:
+        """Parse the final answer into the appropriate result type."""
+        pass
 
-        Args:
-            user_query: Natural language query/task for the agent to accomplish
+    @abstractmethod
+    def create_error_result(self, error: str, history: List[ExecutionStep], iterations: int) -> Any:
+        """Create an error result object."""
+        pass
 
-        Returns:
-            AgentResult with final answer, execution history, and metadata
-        """
-        execution_history: List[ExecutionStep] = []
+    def get_agent_name(self) -> str:
+        """Return agent display name for logging."""
+        return self.__class__.__name__
+
+    async def run_async(self, task_input: Any) -> Any:
+        """Execute the agent with given input (async version)."""
+        history: List[ExecutionStep] = []
         iteration = 0
 
         try:
-            # Connect to MCP server
             await self.mcp_client.connect()
-            logger.info("Connected to MCP server")
+            logger.info(f"[{self.get_agent_name()}] Connected to MCP server")
 
             if self.verbose:
                 print("\n" + "=" * 70)
-                print("🤖 MCP Agent Starting")
+                print(f"{self.get_agent_name()} Starting")
                 print("=" * 70)
-                print(f"Query: {user_query}")
                 print(f"Max iterations: {self.max_iterations}")
 
-            # Get available tools
             available_tools = await self.executor.get_available_tools()
-            logger.info(f"Discovered {len(available_tools)} available tools")
+            logger.info(f"[{self.get_agent_name()}] Discovered {len(available_tools)} tools")
 
             # ReAct loop
             while iteration < self.max_iterations:
@@ -130,111 +100,55 @@ Remember: You must explicitly use action="finish" when done."""
                     print(f"Iteration {iteration}/{self.max_iterations}")
                     print("=" * 70)
 
-                # Execute one iteration
                 step, should_finish = await self._execute_iteration(
-                    user_query, available_tools, execution_history, iteration
+                    task_input, available_tools, history, iteration
                 )
+                history.append(step)
 
-                execution_history.append(step)
-
-                # Check if we should finish
                 if should_finish:
                     if self.verbose:
-                        print(f"\n✓ Agent finished after {iteration} iteration(s)")
+                        print(
+                            f"\n✓ {self.get_agent_name()} finished after {iteration} iteration(s)"
+                        )
 
-                    if step.action == "finish":
+                    if step.action == "finish" and step.tool_results:
                         final_answer = step.tool_results[0].content
-                    else:
-                        final_answer = ""
-
-                    # Extract final answer from the last step if available
-                    if not final_answer and execution_history:
-                        # Look for finish action in history
-                        for hist_step in reversed(execution_history):
-                            if hist_step.action == "finish":
-                                final_answer = hist_step.reasoning
-                                break
-
-                    return AgentResult(
-                        final_answer=final_answer,
-                        execution_history=execution_history,
-                        iterations_used=iteration,
-                        max_iterations_reached=False,
-                        success=True,
-                    )
+                        return self.parse_result(final_answer, history)
 
             # Max iterations reached
             if self.verbose:
                 print(f"\n⚠️  Max iterations ({self.max_iterations}) reached")
 
-            return AgentResult(
-                final_answer="Max iterations reached without completing the task. "
-                "Please try again with a higher max_iterations value or a simpler query.",
-                execution_history=execution_history,
-                iterations_used=iteration,
-                max_iterations_reached=True,
-                success=False,
-                error="Max iterations reached",
-            )
+            return self.create_error_result("Max iterations reached", history, iteration)
 
         except Exception as e:
-            error_msg = f"Agent execution failed: {str(e)}"
+            error_msg = f"{self.get_agent_name()} execution failed: {str(e)}"
             logger.error(error_msg, exc_info=True)
 
             if self.verbose:
                 print(f"\n❌ Error: {error_msg}")
 
-            return AgentResult(
-                final_answer="",
-                execution_history=execution_history,
-                iterations_used=iteration,
-                max_iterations_reached=False,
-                success=False,
-                error=error_msg,
-            )
+            return self.create_error_result(str(e), history, iteration)
 
         finally:
             await self.mcp_client.disconnect()
-            logger.info("Disconnected from MCP server")
+            logger.info(f"[{self.get_agent_name()}] Disconnected from MCP server")
 
-    def run(self, user_query: str) -> AgentResult:
-        """
-        Execute the autonomous agent to answer a query (synchronous wrapper).
-
-        Args:
-            user_query: Natural language query/task for the agent to accomplish
-
-        Returns:
-            AgentResult with final answer, execution history, and metadata
-        """
-        return asyncio.run(self.run_async(user_query))
+    def run(self, task_input: Any) -> Any:
+        """Execute the agent (synchronous wrapper)."""
+        return asyncio.run(self.run_async(task_input))
 
     async def _execute_iteration(
         self,
-        user_query: str,
+        task_input: Any,
         available_tools: List[Dict[str, Any]],
-        execution_history: List[ExecutionStep],
+        history: List[ExecutionStep],
         iteration: int,
-    ) -> tuple[ExecutionStep, bool]:
-        """
-        Execute a single ReAct iteration.
+    ) -> Tuple[ExecutionStep, bool]:
+        """Execute a single ReAct iteration."""
+        prompt = self.build_prompt(task_input, available_tools, history)
 
-        Args:
-            user_query: The original user query
-            available_tools: List of available tools from MCP server
-            execution_history: History of previous steps
-            iteration: Current iteration number
-
-        Returns:
-            Tuple of (ExecutionStep, should_finish)
-        """
-        # Build the prompt with history and available tools
-        prompt = self._build_react_prompt(user_query, available_tools, execution_history)
-
-        # Log the prompt being sent to LLM
-        logger.info(f"[MCP_AGENT] Iteration {iteration}: Sending prompt to LLM")
-        logger.info(f"[MCP_AGENT] System prompt: {self.system_prompt}")
-        logger.info(f"[MCP_AGENT] User prompt: {prompt}")
+        logger.info(f"[{self.get_agent_name()}] Iteration {iteration}: Sending prompt to LLM")
 
         if self.verbose:
             print("\n💭 Reasoning...")
@@ -242,45 +156,31 @@ Remember: You must explicitly use action="finish" when done."""
         # Get structured response from LLM
         try:
             response = self.llm.generate(
-                prompt=prompt, system_prompt=self.system_prompt, schema=AgentAction
+                prompt=prompt, system_prompt=self.get_system_prompt(), schema=AgentAction
             )
 
-            # Log the raw LLM response
-            logger.info(f"[MCP_AGENT] LLM raw response: {response}")
-
-            # Parse the response
             if isinstance(response, dict):
                 action = AgentAction(**response)
             else:
-                # If response is a string, try to parse it
-                import json
-
                 action = AgentAction(**json.loads(response))
 
-            # Log the parsed action
             logger.info(
-                f"[MCP_AGENT] Iteration {iteration}: Action={action.action}, "
+                f"[{self.get_agent_name()}] Iteration {iteration}: Action={action.action}, "
                 f"Reasoning='{action.reasoning[:100]}...'"
             )
 
         except Exception as e:
             logger.error(
-                f"[MCP_AGENT] Failed to get structured response from LLM: {e}", exc_info=True
+                f"[{self.get_agent_name()}] Failed to parse LLM response: {e}",
+                exc_info=True,
             )
-            # Return an error step
             return (
                 ExecutionStep(
                     iteration=iteration,
                     reasoning=f"Error: Failed to parse LLM response: {str(e)}",
                     action="finish",
                     tool_calls=[],
-                    tool_results=[
-                        ToolResult(
-                            tool_name="llm_error",
-                            success=False,
-                            error=str(e),
-                        )
-                    ],
+                    tool_results=[ToolResult(tool_name="llm_error", success=False, error=str(e))],
                 ),
                 True,
             )
@@ -291,11 +191,11 @@ Remember: You must explicitly use action="finish" when done."""
 
         # Handle finish action
         if action.action == "finish":
-            logger.info("[MCP_AGENT] Agent finishing with final answer")
-            logger.info(f"[MCP_AGENT] Final answer: {action.final_answer}")
+            logger.info(f"[{self.get_agent_name()}] Agent finishing")
 
             if self.verbose:
-                print(f"\n✓ Final Answer: {action.final_answer}")
+                ans = action.final_answer[:200] if action.final_answer else ""
+                print(f"\n✓ Final Answer: {ans}...")
 
             return (
                 ExecutionStep(
@@ -335,11 +235,10 @@ Remember: You must explicitly use action="finish" when done."""
                     False,
                 )
 
-            # Log tool calls
             tool_names = [tc.tool_name for tc in action.tool_calls]
-            logger.info(f"[MCP_AGENT] Calling {len(action.tool_calls)} tool(s): {tool_names}")
-            for tc in action.tool_calls:
-                logger.info(f"[MCP_AGENT] Tool call: {tc.tool_name} with args: {tc.arguments}")
+            logger.info(
+                f"[{self.get_agent_name()}] Calling {len(action.tool_calls)} tool(s): {tool_names}"
+            )
 
             if self.verbose:
                 print(f"\n🔧 Calling {len(action.tool_calls)} tool(s):")
@@ -352,15 +251,15 @@ Remember: You must explicitly use action="finish" when done."""
                 result = await self.executor.execute_tool(tool_call)
                 tool_results.append(result)
 
-                # Log tool result
                 if result.success:
                     logger.info(
-                        f"[MCP_AGENT] Tool {result.tool_name} succeeded, "
+                        f"[{self.get_agent_name()}] Tool {result.tool_name} succeeded, "
                         f"returned {len(result.content)} chars"
                     )
-                    logger.info(f"[MCP_AGENT] Tool {result.tool_name} result: {result.content}")
                 else:
-                    logger.error(f"[MCP_AGENT] Tool {result.tool_name} failed: {result.error}")
+                    logger.error(
+                        f"[{self.get_agent_name()}] Tool {result.tool_name} failed: {result.error}"
+                    )
 
                 if self.verbose:
                     if result.success:
@@ -368,21 +267,8 @@ Remember: You must explicitly use action="finish" when done."""
                     else:
                         print(f"      ✗ {result.tool_name}: {result.error}")
 
-                # Check for errors - abort if any tool fails
-                if not result.success:
-                    logger.error(f"[MCP_AGENT] Tool execution failed: {result.error}")
-                    if self.stop_on_error:
-                        raise RuntimeError(f"Tool '{result.tool_name}' failed: {result.error}")
-                    return (
-                        ExecutionStep(
-                            iteration=iteration,
-                            reasoning=action.reasoning,
-                            action="call_tool",
-                            tool_calls=action.tool_calls,
-                            tool_results=tool_results,
-                        ),
-                        True,  # Finish on error
-                    )
+                if not result.success and self.stop_on_error:
+                    raise RuntimeError(f"Tool '{result.tool_name}' failed: {result.error}")
 
             return (
                 ExecutionStep(
@@ -392,7 +278,7 @@ Remember: You must explicitly use action="finish" when done."""
                     tool_calls=action.tool_calls,
                     tool_results=tool_results,
                 ),
-                False,  # Continue
+                False,
             )
 
         # Unknown action
@@ -414,77 +300,112 @@ Remember: You must explicitly use action="finish" when done."""
             True,
         )
 
-    def _build_react_prompt(
-        self,
-        user_query: str,
-        available_tools: List[Dict[str, Any]],
-        execution_history: List[ExecutionStep],
-    ) -> str:
-        """
-        Build the ReAct prompt with history and available tools.
-
-        Args:
-            user_query: The original user query
-            available_tools: List of available tools
-            execution_history: History of previous steps
-
-        Returns:
-            Formatted prompt string
-        """
-        # Format available tools
-        tools_description = []
-        for tool in available_tools:
-            tool_desc = f"- {tool['name']}: {tool.get('description', 'No description')}"
-            # Add input schema info if available
+    def _format_tools(self, tools: List[Dict[str, Any]]) -> str:
+        """Format available tools for prompt."""
+        descriptions = []
+        for tool in tools:
+            desc = f"- {tool['name']}: {tool.get('description', 'No description')}"
             if "inputSchema" in tool and tool["inputSchema"]:
                 schema = tool["inputSchema"]
                 if "properties" in schema:
                     params = ", ".join(schema["properties"].keys())
-                    tool_desc += f"\n  Parameters: {params}"
-            tools_description.append(tool_desc)
+                    desc += f"\n  Parameters: {params}"
+            descriptions.append(desc)
+        return "\n".join(descriptions)
 
-        tools_text = "\n".join(tools_description)
+    def _format_history(self, history: List[ExecutionStep], max_len: int = 5000) -> str:
+        """Format execution history for prompt."""
+        if not history:
+            return ""
 
-        # Format execution history
-        history_text = ""
-        if execution_history:
-            history_parts = []
-            for step in execution_history:
-                history_parts.append(f"Iteration {step.iteration}:")
-                history_parts.append(f"  Reasoning: {step.reasoning}")
-                history_parts.append(f"  Action: {step.action}")
+        parts = []
+        for step in history:
+            parts.append(f"Iteration {step.iteration}:")
+            parts.append(f"  Reasoning: {step.reasoning}")
+            parts.append(f"  Action: {step.action}")
 
-                if step.tool_calls:
-                    history_parts.append("  Tools called:")
-                    for tc in step.tool_calls:
-                        history_parts.append(f"    • {tc.tool_name}")
+            if step.tool_calls:
+                parts.append("  Tools called:")
+                for tc in step.tool_calls:
+                    parts.append(f"    • {tc.tool_name}")
 
-                if step.tool_results:
-                    history_parts.append("  Results:")
-                    for tr in step.tool_results:
-                        if tr.success:
-                            history_parts.append(f"    • {tr.tool_name}: {tr.content}")
+            if step.tool_results:
+                parts.append("  Results:")
+                for tr in step.tool_results:
+                    if tr.success:
+                        if len(tr.content) > max_len:
+                            trunc = f"\n... (truncated, total {len(tr.content)} chars)"
+                            content = tr.content[:max_len] + trunc
                         else:
-                            history_parts.append(f"    • {tr.tool_name}: ERROR - {tr.error}")
+                            content = tr.content
+                        parts.append(f"    • {tr.tool_name}: {content}")
+                    else:
+                        parts.append(f"    • {tr.tool_name}: ERROR - {tr.error}")
+            parts.append("")
 
-                history_parts.append("")  # Empty line between iterations
+        return "\n".join(parts)
 
-            history_text = "\n".join(history_parts)
 
-        # Build the full prompt
+class MCPAgent(BaseMCPAgent):
+    """General-purpose MCP Agent for backward compatibility."""
+
+    DEFAULT_SYSTEM_PROMPT = """You are an autonomous agent that can use MCP \
+tools to accomplish tasks.
+
+You operate in a ReAct loop: Reason → Act → Observe → Repeat
+
+For each iteration:
+- Reason: Think step-by-step about what information you need and how to get it
+- Act: Either call tools to gather information, or finish with your final answer
+- Observe: Examine tool results and plan next steps
+
+Guidelines:
+- Break complex tasks into simple tool calls
+- Use tool results to inform next actions
+- When you have sufficient information, use action="finish" with your \
+final_answer
+- Be efficient: minimize unnecessary tool calls
+- You can call multiple tools in a single iteration if they don't depend on \
+each other
+
+Remember: You must explicitly use action="finish" when done."""
+
+    def __init__(
+        self,
+        llm: BaseLLM,
+        mcp_client: MCPClient,
+        system_prompt: Optional[str] = None,
+        max_iterations: int = 10,
+        verbose: bool = False,
+        stop_on_error: bool = True,
+    ):
+        super().__init__(llm, mcp_client, max_iterations, verbose, stop_on_error)
+        self.custom_system_prompt = system_prompt
+
+    def get_system_prompt(self) -> str:
+        return self.custom_system_prompt or self.DEFAULT_SYSTEM_PROMPT
+
+    def get_agent_name(self) -> str:
+        return "🤖 MCP Agent"
+
+    def build_prompt(
+        self, task_input: Any, available_tools: List[Dict[str, Any]], history: List[ExecutionStep]
+    ) -> str:
+        user_query = str(task_input)
+        tools_text = self._format_tools(available_tools)
+        history_text = self._format_history(history)
+
         prompt = f"""User Query: {user_query}
 
 Available MCP Tools:
 {tools_text}
 
 """
-
         if history_text:
             prompt += f"""Execution History:
 {history_text}
 
-Based on the query, available tools, and execution history above, decide what
-to do next.
+Based on the query, available tools, and execution history above, decide what to do next.
 
 """
         else:
@@ -495,10 +416,40 @@ decide what tools to call.
 
         prompt += """Your response should follow this structure:
 - reasoning: Your step-by-step thinking about what to do
-- action: Either "call_tool" (to execute tools) or "finish" (when you have the answer)
+- action: Either "call_tool" (to execute tools) or "finish" (when you have \
+the answer)
 - tool_calls: List of tools to call if action="call_tool" (can be multiple)
 - final_answer: Your complete answer if action="finish"
 
-Think carefully about what information you need and how to get it efficiently."""
+Think carefully about what information you need and how to get it \
+efficiently."""
 
         return prompt
+
+    def parse_result(self, final_answer: str, history: List[ExecutionStep]) -> AgentResult:
+        return AgentResult(
+            final_answer=final_answer,
+            execution_history=history,
+            iterations_used=len(history),
+            max_iterations_reached=False,
+            success=True,
+        )
+
+    def create_error_result(
+        self, error: str, history: List[ExecutionStep], iterations: int
+    ) -> AgentResult:
+        return AgentResult(
+            final_answer="",
+            execution_history=history,
+            iterations_used=iterations,
+            max_iterations_reached="Max iterations" in error,
+            success=False,
+            error=error,
+        )
+
+    # Keep backward compatibility
+    async def run_async(self, user_query: str) -> AgentResult:
+        return await super().run_async(user_query)
+
+    def run(self, user_query: str) -> AgentResult:
+        return super().run(user_query)
