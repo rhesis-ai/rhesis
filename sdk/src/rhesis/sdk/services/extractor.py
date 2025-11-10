@@ -36,12 +36,12 @@ class Extractor(ABC):
         pass
 
 
-class ExtractionService:
+class SourceExtractor:
     def __call__(self, sources: list[SourceBase]) -> list[ExtractedSource]:
         extracted_sources = []
         for source in sources:
             if source.type == SourceType.TEXT:
-                extracted_sources.append(TextExtractor().extract(source))
+                extracted_sources.append(IdentityExtractor().extract(source))
             elif source.type == SourceType.DOCUMENT:
                 extracted_sources.append(DocumentExtractor().extract(source))
             elif source.type == SourceType.WEBSITE:
@@ -58,7 +58,7 @@ class NotionExtractor(Extractor):
         raise NotImplementedError("Notion extraction is not implemented")
 
 
-class TextExtractor(Extractor):
+class IdentityExtractor(Extractor):
     def extract(self, source: SourceBase) -> ExtractedSource:
         return ExtractedSource(
             **source.model_dump(exclude={"medatadata"}), content=source.metadata["content"]
