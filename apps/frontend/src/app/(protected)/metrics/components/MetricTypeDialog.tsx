@@ -74,7 +74,7 @@ export default function MetricTypeDialog({
               sx={{
                 p: 2,
                 mb: 2,
-                border: '1px solid',
+                border: theme => `${theme.spacing(0.125)} solid`,
                 borderColor: 'divider',
                 borderRadius: theme => theme.shape.borderRadius * 0.25,
                 cursor: option.disabled ? 'not-allowed' : 'pointer',
