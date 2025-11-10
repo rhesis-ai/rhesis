@@ -12,6 +12,7 @@ import {
   useTheme,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import HistoryIcon from '@mui/icons-material/History';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
@@ -19,6 +20,7 @@ import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
+import TestDetailConversationTab from './TestDetailConversationTab';
 import TestDetailMetricsTab from './TestDetailMetricsTab';
 import TestDetailReviewsTab from './TestDetailReviewsTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
@@ -40,6 +42,7 @@ interface TestDetailPanelProps {
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
+  testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
 }
 
 interface TabPanelProps {
@@ -117,6 +120,7 @@ export default function TestDetailPanel({
   currentUserId,
   currentUserName,
   currentUserPicture,
+  testSetType,
 }: TestDetailPanelProps) {
   const [activeTab, setActiveTab] = useState(0);
   const theme = useTheme();
@@ -179,32 +183,39 @@ export default function TestDetailPanel({
             aria-controls="test-detail-tabpanel-0"
           />
           <Tab
+            icon={<ChatOutlinedIcon fontSize="small" />}
+            iconPosition="start"
+            label="Conversation"
+            id="test-detail-tab-1"
+            aria-controls="test-detail-tabpanel-1"
+          />
+          <Tab
             icon={<AssessmentOutlinedIcon fontSize="small" />}
             iconPosition="start"
             label="Metrics"
-            id="test-detail-tab-1"
-            aria-controls="test-detail-tabpanel-1"
+            id="test-detail-tab-2"
+            aria-controls="test-detail-tabpanel-2"
           />
           <Tab
             icon={<RateReviewIcon fontSize="small" />}
             iconPosition="start"
             label="Reviews"
-            id="test-detail-tab-2"
-            aria-controls="test-detail-tabpanel-2"
+            id="test-detail-tab-3"
+            aria-controls="test-detail-tabpanel-3"
           />
           <Tab
             icon={<HistoryIcon fontSize="small" />}
             iconPosition="start"
             label="History"
-            id="test-detail-tab-3"
-            aria-controls="test-detail-tabpanel-3"
+            id="test-detail-tab-4"
+            aria-controls="test-detail-tabpanel-4"
           />
           <Tab
             icon={<CommentOutlinedIcon fontSize="small" />}
             iconPosition="start"
             label="Tasks & Comments"
-            id="test-detail-tab-4"
-            aria-controls="test-detail-tabpanel-4"
+            id="test-detail-tab-5"
+            aria-controls="test-detail-tabpanel-5"
           />
         </Tabs>
       </Box>
@@ -237,14 +248,19 @@ export default function TestDetailPanel({
             prompts={prompts}
             sessionToken={sessionToken}
             onTestResultUpdate={onTestResultUpdate}
+            testSetType={testSetType}
           />
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
-          <TestDetailMetricsTab test={test} behaviors={behaviors} />
+          <TestDetailConversationTab test={test} testSetType={testSetType} />
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
+          <TestDetailMetricsTab test={test} behaviors={behaviors} />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={3}>
           <TestDetailReviewsTab
             test={test}
             sessionToken={sessionToken}
@@ -253,7 +269,7 @@ export default function TestDetailPanel({
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={3}>
+        <TabPanel value={activeTab} index={4}>
           <TestDetailHistoryTab
             test={test}
             testRunId={testRunId}
@@ -261,7 +277,7 @@ export default function TestDetailPanel({
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={4}>
+        <TabPanel value={activeTab} index={5}>
           <TasksAndCommentsWrapper
             entityType="TestRun"
             entityId={testRunId}

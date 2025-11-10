@@ -555,6 +555,10 @@ export default function TestRunMainView({
                     onTestSelect={handleTestSelect}
                     loading={loading}
                     prompts={prompts}
+                    testSetType={
+                      testRun.test_configuration?.test_set?.test_set_type
+                        ?.type_value
+                    }
                   />
                 </Box>
 
@@ -578,6 +582,10 @@ export default function TestRunMainView({
                     currentUserId={currentUserId}
                     currentUserName={currentUserName}
                     currentUserPicture={currentUserPicture}
+                    testSetType={
+                      testRun.test_configuration?.test_set?.test_set_type
+                        ?.type_value
+                    }
                   />
                 </Box>
               </Box>
@@ -612,6 +620,9 @@ export default function TestRunMainView({
               currentUserName={currentUserName}
               currentUserPicture={currentUserPicture}
               initialSelectedTestId={initialSelectedTestId}
+              testSetType={
+                testRun.test_configuration?.test_set?.test_set_type?.type_value
+              }
             />
           )}
         </>
