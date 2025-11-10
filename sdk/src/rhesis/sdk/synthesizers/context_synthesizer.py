@@ -21,9 +21,8 @@ class ContextSynthesizer(TestSetSynthesizer):
         Initialize the context synthesizer.
         Args:
             prompt: The generation prompt to use
-            context: The context to use
-            batch_size: Maximum number of tests to generate in a single LLM call (reduced default
-            for stability)
+            batch_size: Maximum number of tests to generate in a single LLM call
+            model: The model to use for generation
         """
 
         super().__init__(batch_size=batch_size, model=model)
@@ -34,10 +33,10 @@ class ContextSynthesizer(TestSetSynthesizer):
         Prepare template context for _generate_batch() call.
 
         Combines instance state (self.prompt) with runtime parameters.
-        SimpleSynthesizer only uses instance state.
+        Context must be provided in generate_kwargs.
 
         Args:
-            **generate_kwargs: Runtime parameters (unused for SimpleSynthesizer)
+            **generate_kwargs: Runtime parameters, must include 'context'
 
         Returns:
             Dict containing template context for rendering
