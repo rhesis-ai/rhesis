@@ -1,7 +1,5 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
-import logging
-from dataclasses import asdict
 from typing import Any, List, Optional, Union
 
 from pydantic import BaseModel
@@ -9,8 +7,6 @@ from pydantic import BaseModel
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.extractor import SourceBase
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
-
-logger = logging.getLogger(__name__)
 
 
 class GenerationConfig(BaseModel):
@@ -51,4 +47,4 @@ class ConfigSynthesizer(TestSetSynthesizer):
         self.config = config
 
     def _get_template_context(self, **generate_kwargs):
-        return {**asdict(self.config), **generate_kwargs}
+        return {**self.config.model_dump(), **generate_kwargs}

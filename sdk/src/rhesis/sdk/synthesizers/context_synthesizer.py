@@ -1,12 +1,9 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
-import logging
 from typing import Optional, Union
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
-
-logger = logging.getLogger(__name__)
 
 
 class ContextSynthesizer(TestSetSynthesizer):
@@ -51,18 +48,3 @@ class ContextSynthesizer(TestSetSynthesizer):
             raise ValueError("Context cannot be empty")
 
         return {"generation_prompt": self.prompt, "context": generate_kwargs["context"]}
-
-
-if __name__ == "__main__":
-    synthesizer = ContextSynthesizer(
-        prompt="Test knowledge of the chatbot about Poland", model="gemini"
-    )
-    context = [
-        "Poland is a country in Europe",
-        "Warsaw is the capital of Poland",
-        "Polish is the official language of Poland",
-    ]
-    tests = synthesizer.generate(context=context, num_tests=5)
-    from pprint import pprint
-
-    pprint(tests.tests)

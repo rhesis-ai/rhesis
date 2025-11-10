@@ -1,15 +1,12 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
-import logging
 from typing import Any, Optional, Union
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 
-logger = logging.getLogger(__name__)
 
-
-class SimpleSynthesizer(TestSetSynthesizer):
+class PromptSynthesizer(TestSetSynthesizer):
     """A synthesizer that generates test cases based on a prompt using LLM."""
 
     prompt_template_file = "simple_synthesizer.jinja"
