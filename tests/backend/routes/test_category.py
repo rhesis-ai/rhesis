@@ -25,28 +25,28 @@ fake = Faker()
 
 class CategoryTestMixin:
     """Mixin providing category-specific test data and configuration"""
-    
+
     # Entity configuration
     entity_name = "category"
     entity_plural = "categories"
     endpoints = APIEndpoints.CATEGORIES
-    
+
     def get_sample_data(self) -> Dict[str, Any]:
         """Return sample category data for testing using faker utilities"""
         data = generate_category_data()
-        
+
         # Remove None foreign key values that cause validation errors
         # The API will auto-populate organization_id and user_id from the authenticated user
         for key in ["status_id", "entity_type_id"]:
             if key in data and data[key] is None:
                 del data[key]  # Remove rather than sending None
-        
+
         return data
-    
+
     def get_minimal_data(self) -> Dict[str, Any]:
         """Return minimal category data for creation using faker utilities"""
         return TestDataGenerator.generate_category_minimal()
-    
+
     def get_update_data(self) -> Dict[str, Any]:
         """Return category update data using faker utilities"""
         return TestDataGenerator.generate_category_update_data()
@@ -62,12 +62,12 @@ class TestCategoryStandardRoutes(CategoryTestMixin, BaseEntityRouteTests):
 @pytest.mark.unit
 class TestCategorySpecificEdgeCases(CategoryTestMixin, BaseEntityTests):
     """Category-specific edge cases beyond the standard ones"""
-    
+
     def test_create_category_with_parent_id(self, authenticated_client: TestClient):
-        """🧩 Test creating categories with parent relationship"""
+        """Test creating categories with parent relationship"""
         # Create a parent category first
         parent_category = self.create_entity(authenticated_client)
-        
+
         # Create a child category
         child_data = {
             "name": fake.word().title() + " Child Category",
@@ -80,9 +80,9 @@ class TestCategorySpecificEdgeCases(CategoryTestMixin, BaseEntityTests):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["parent_id"] == parent_category["id"]
-    
+
     def test_create_category_with_invalid_parent_id(self, authenticated_client: TestClient):
-        """🧩 Test creating category with non-existent parent"""
+        """Test creating category with non-existent parent"""
         child_data = {
             "name": fake.word().title() + " Orphaned Category",
             "parent_id": str(uuid.uuid4())  # Non-existent parent
@@ -93,15 +93,15 @@ class TestCategorySpecificEdgeCases(CategoryTestMixin, BaseEntityTests):
         # API should handle foreign key constraint violations gracefully
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "invalid parent category reference" in response.json()["detail"].lower()
-    
+
     def test_list_categories_with_entity_type_filter(self, authenticated_client: TestClient):
-        """🧩 Test listing categories with entity type filter parameter"""
-        # Create a category 
+        """Test listing categories with entity type filter parameter"""
+        # Create a category
         created_category = self.create_entity(authenticated_client)
-        
+
         # Test filtering by entity type (this tests the query parameter handling)
         response = authenticated_client.get(f"{self.endpoints.list}?entity_type=behavior")
-        
+
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert isinstance(data, list)

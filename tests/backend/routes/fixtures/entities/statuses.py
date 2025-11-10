@@ -1,5 +1,5 @@
 """
-📊 Status Fixtures
+Status Fixtures
 
 Fixtures for creating status entities and related type lookups.
 """
@@ -16,15 +16,15 @@ fake = Faker()
 @pytest.fixture
 def test_type_lookup(test_db: Session, test_organization) -> TypeLookup:
     """
-    🏷️ Create a test type lookup in the database
-    
+    Create a test type lookup in the database
+
     This fixture creates a real TypeLookup record that can be used
     as a foreign key reference for statuses.
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
-        
+
     Returns:
         TypeLookup: Real type lookup record
     """
@@ -44,17 +44,17 @@ def test_type_lookup(test_db: Session, test_organization) -> TypeLookup:
 @pytest.fixture
 def db_status(test_db: Session, test_organization, test_type_lookup, db_user) -> Status:
     """
-    📊 Create a real status in the test database
-    
+    Create a real status in the test database
+
     This fixture creates an actual Status record in the database that can be
     used for foreign key relationships in tests.
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         test_type_lookup: General EntityType TypeLookup fixture
         db_user: User fixture
-        
+
     Returns:
         Status: Real status record with valid database ID
     """
@@ -74,7 +74,7 @@ def db_status(test_db: Session, test_organization, test_type_lookup, db_user) ->
 @pytest.fixture
 def db_inactive_status(test_db: Session, test_organization, test_type_lookup, db_user) -> Status:
     """
-    📊 Create an inactive status in the test database
+    Create an inactive status in the test database
 
     Args:
         test_db: Database session fixture
@@ -101,14 +101,14 @@ def db_inactive_status(test_db: Session, test_organization, test_type_lookup, db
 @pytest.fixture
 def db_draft_status(test_db: Session, test_organization, test_type_lookup, db_user) -> Status:
     """
-    📊 Create a draft status in the test database
-    
+    Create a draft status in the test database
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         test_type_lookup: General EntityType TypeLookup fixture
         db_user: User fixture
-        
+
     Returns:
         Status: Real draft status record
     """
@@ -128,17 +128,17 @@ def db_draft_status(test_db: Session, test_organization, test_type_lookup, db_us
 @pytest.fixture
 def db_project_status(test_db: Session, test_organization, test_type_lookup, db_user) -> Status:
     """
-    📊 Create a project status in the test database
-    
+    Create a project status in the test database
+
     This fixture creates an actual Status record specifically for projects
     using the General entity type (as used in production).
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         test_type_lookup: General EntityType TypeLookup fixture
         db_user: User fixture
-        
+
     Returns:
         Status: Real project status record with valid database ID
     """

@@ -1,16 +1,16 @@
 """
-💬 Comment Routes Testing Suite (Enhanced Factory-Based)
+Comment Routes Testing Suite (Enhanced Factory-Based)
 
 Comprehensive test suite for comment entity routes using the enhanced factory system
 with automatic cleanup, consistent data generation, and emoji reaction testing.
 
 Key Features:
-- 🏭 Factory-based entity creation with automatic cleanup
-- 📊 Consistent data generation using CommentDataFactory
-- 🎯 Clear fixture organization and naming
-- 🔄 Maintains DRY base class benefits
-- ⚡ Optimized performance with proper scoping
-- 😀 Comprehensive emoji reaction testing
+- Factory-based entity creation with automatic cleanup
+- Consistent data generation using CommentDataFactory
+- Clear fixture organization and naming
+- Maintains DRY base class benefits
+- Optimized performance with proper scoping
+- Comprehensive emoji reaction testing
 
 Run with: python -m pytest tests/backend/routes/test_comment.py -v
 """
@@ -68,7 +68,7 @@ class TestCommentStandardRoutes(CommentTestMixin, BaseEntityRouteTests):
     """Complete standard comment route tests using base classes"""
 
     def test_delete_entity_success(self, authenticated_client: TestClient):
-        """🧩🔥 Test successful entity deletion - now consistent with other routes"""
+        """Test successful entity deletion - now consistent with other routes"""
         created_entity = self.create_entity(authenticated_client)
         entity_id = created_entity[self.id_field]
 
@@ -79,18 +79,18 @@ class TestCommentStandardRoutes(CommentTestMixin, BaseEntityRouteTests):
         data = response.json()
         # Comment delete now returns the deleted entity (consistent with other routes)
         assert data[self.id_field] == entity_id
-        
+
         # Verify entity is soft-deleted by trying to get it (should return 410 GONE)
         get_response = authenticated_client.get(self.endpoints.get(entity_id))
         assert get_response.status_code == status.HTTP_410_GONE
 
     def test_entity_with_null_description(self, authenticated_client: TestClient):
-        """🧩 Test entity with null description - skip for comments (no description field)"""
+        """Test entity with null description - skip for comments (no description field)"""
         # Comments don't have a description field, so this test is not applicable
         pytest.skip("Comments don't have a description field")
 
     def test_update_entity_invalid_user_id(self, authenticated_client: TestClient):
-        """🧩 Test updating entity with invalid user ID - comment specific"""
+        """Test updating entity with invalid user ID - comment specific"""
         # Comments don't have user_id fields that can be updated, so skip this test
         pytest.skip("Comments don't have updatable user_id fields")
 

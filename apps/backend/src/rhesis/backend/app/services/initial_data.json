@@ -461,11 +461,6 @@
             "type_name": "TestSetType",
             "type_value": "Multi-Turn",
             "description": "Test set containing only multi-turn tests"
-        },
-        {
-            "type_name": "TestSetType",
-            "type_value": "Mixed",
-            "description": "Test set containing both single-turn and multi-turn tests"
         }
     ],
     "behavior": [
