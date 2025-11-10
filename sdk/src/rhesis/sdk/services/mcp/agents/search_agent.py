@@ -11,7 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 class MCPSearchAgent(BaseMCPAgent):
-    """Agent for searching and listing pages from any MCP server."""
+    """
+    Specialized agent for searching and discovering pages/documents/files.
+
+    Uses MCP tools (like Notion's search API or GitHub's repository search) to
+    find content matching a query. Returns structured PageMetadata for each result.
+    """
 
     SEARCH_SYSTEM_PROMPT = """You are a search agent that finds pages/documents/files.
 
@@ -96,6 +101,7 @@ When finishing, return the pages in the exact JSON format specified in the syste
         return prompt
 
     def parse_result(self, final_answer: str, history: List[ExecutionStep]) -> SearchResult:
+        """Parse LLM's JSON response into SearchResult with list of PageMetadata."""
         pages = self._parse_pages(final_answer)
 
         # Extract query from history
@@ -127,7 +133,11 @@ When finishing, return the pages in the exact JSON format specified in the syste
         )
 
     def _parse_pages(self, final_answer: str) -> List[PageMetadata]:
-        """Parse the LLM's final answer into PageMetadata objects."""
+        """
+        Parse LLM's JSON response into PageMetadata objects.
+
+        Handles both {"pages": [...]} and direct array formats.
+        """
         try:
             data = json.loads(final_answer)
 
@@ -157,9 +167,18 @@ When finishing, return the pages in the exact JSON format specified in the syste
             logger.error(f"Unexpected error parsing search results: {e}")
             return []
 
-    # Keep backward compatibility
     async def run_async(self, query: str) -> SearchResult:
+        """
+        Search for pages matching the query.
+
+        Args:
+            query: Natural language search query (e.g., "Find PRD documents")
+
+        Returns:
+            SearchResult with list of matching pages
+        """
         return await super().run_async(query)
 
     def run(self, query: str) -> SearchResult:
+        """Synchronous wrapper for run_async."""
         return super().run(query)
