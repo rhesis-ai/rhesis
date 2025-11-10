@@ -38,8 +38,6 @@ import { Model } from '@/utils/api-client/interfaces/model';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
-import { Status } from '@/utils/api-client/interfaces/status';
-import { User } from '@/utils/api-client/interfaces/user';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
@@ -64,10 +62,6 @@ interface StepWithId {
   content: string;
 }
 
-interface PageProps {
-  params: Promise<{ identifier: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}
 
 export default function MetricDetailPage() {
   const params = useParams();
@@ -82,8 +76,6 @@ export default function MetricDetailPage() {
   const [editData, setEditData] = useState<Partial<EditData>>({});
   const [models, setModels] = useState<Model[]>([]);
   const [stepsWithIds, setStepsWithIds] = useState<StepWithId[]>([]);
-  const [statuses, setStatuses] = useState<Status[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const dataFetchedRef = useRef(false);
 
@@ -107,23 +99,11 @@ export default function MetricDetailPage() {
       try {
         const clientFactory = new ApiClientFactory(session.session_token);
         const metricsClient = clientFactory.getMetricsClient();
-        const statusClient = clientFactory.getStatusClient();
-        const usersClient = clientFactory.getUsersClient();
 
-        // Fetch all data in parallel
-        const [metricData, statusesData, usersData] = await Promise.all([
-          metricsClient.getMetric(identifier as UUID),
-          statusClient.getStatuses({
-            entity_type: 'Metric',
-            sort_by: 'name',
-            sort_order: 'asc',
-          }),
-          usersClient.getUsers({ limit: 100 }),
-        ]);
+        // Fetch metric data
+        const metricData = await metricsClient.getMetric(identifier as UUID);
 
         setMetric(metricData);
-        setStatuses(statusesData || []);
-        setUsers(usersData.data || []);
 
         // Model data is already included in the metric response
         if (metricData.model) {
@@ -228,7 +208,7 @@ export default function MetricDetailPage() {
   );
 
   const handleTagsChange = React.useCallback(
-    async (newTags: string[]) => {
+    async (_newTags: string[]) => {
       if (!session?.session_token) return;
 
       // Use functional state update to avoid depending on metric
@@ -237,7 +217,7 @@ export default function MetricDetailPage() {
 
         (async () => {
           try {
-            const clientFactory = new ApiClientFactory(session.session_token!);
+            const clientFactory = new ApiClientFactory(session.session_token as string);
             const metricsClient = clientFactory.getMetricsClient();
             const updatedMetric = await metricsClient.getMetric(
               currentMetric.id
@@ -280,7 +260,7 @@ export default function MetricDetailPage() {
             (async () => {
               try {
                 const clientFactory = new ApiClientFactory(
-                  session.session_token!
+                  session.session_token as string
                 );
                 const modelsClient = clientFactory.getModelsClient();
                 const modelsData = await modelsClient.getModels({
@@ -342,7 +322,7 @@ export default function MetricDetailPage() {
       const fieldValues = collectFieldValues();
 
       // Also collect select field values from editData
-      const dataToSend: any = {
+      const dataToSend: Record<string, unknown> = {
         ...fieldValues,
         ...(editData.model_id && { model_id: editData.model_id }),
         ...(editData.score_type && { score_type: editData.score_type }),
