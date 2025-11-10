@@ -1,19 +1,24 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
-from typing import Any, Optional, Union
+from typing import Any, List, Optional, Union
 
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.services.extractor import SourceSpecification
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 
 
-class PromptSynthesizer(TestSetSynthesizer):
-    """A synthesizer that generates test cases based on a prompt using LLM."""
+class Synthesizer(TestSetSynthesizer):
+    """A synthesizer that generates test cases based on a user specification."""
 
-    prompt_template_file = "prompt_synthesizer.jinja"
+    prompt_template_file = "synthesizer.jinja"
 
     def __init__(
         self,
         prompt: str,
+        behaviors: List[str],
+        categories: List[str],
+        topics: List[str],
+        sources: List[SourceSpecification],
         batch_size: int = 20,
         model: Optional[Union[str, BaseLLM]] = None,
         **kwargs: dict[str, Any],
@@ -26,8 +31,11 @@ class PromptSynthesizer(TestSetSynthesizer):
             for stability)
         """
 
-        super().__init__(batch_size=batch_size, model=model, **kwargs)
+        super().__init__(batch_size=batch_size, model=model, sources=sources, **kwargs)
         self.prompt = prompt
+        self.behaviors = behaviors
+        self.categories = categories
+        self.topics = topics
 
     def _get_template_context(self, **generate_kwargs):
         """
@@ -42,4 +50,10 @@ class PromptSynthesizer(TestSetSynthesizer):
         Returns:
             Dict containing template context for rendering
         """
-        return {"generation_prompt": self.prompt, **generate_kwargs}
+        return {
+            "generation_prompt": self.prompt,
+            "behaviors": self.behaviors,
+            "categories": self.categories,
+            "topics": self.topics,
+            **generate_kwargs,
+        }
