@@ -896,6 +896,7 @@ export default function MetricsDirectoryTab({
                     backend={metric.backend_type?.type_value}
                     metricType={metric.metric_type?.type_value}
                     scoreType={metric.score_type}
+                    metricScope={metric.metric_scope}
                     usedIn={behaviorNames}
                     showUsage={true}
                   />

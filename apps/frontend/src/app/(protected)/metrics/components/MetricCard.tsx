@@ -22,6 +22,9 @@ import {
   CategoryIcon,
   ToggleOnIcon,
 } from '@/components/icons';
+import TurnedInIcon from '@mui/icons-material/TurnedIn';
+import LooksOneIcon from '@mui/icons-material/LooksOne';
+import RepeatIcon from '@mui/icons-material/Repeat';
 
 // Custom Rhesis AI icon component using inline SVG
 const RhesisAIIcon = ({
@@ -50,6 +53,7 @@ interface MetricCardProps {
   backend?: string;
   metricType?: string;
   scoreType?: string;
+  metricScope?: string[];
   usedIn?: string[];
   showUsage?: boolean;
 }
@@ -137,12 +141,28 @@ const getScoreTypeIcon = (scoreType: string) => {
   }
 };
 
+const getMetricScopeDisplay = (scope: string): string => {
+  return scope;
+};
+
+const getMetricScopeIcon = (scope: string) => {
+  switch (scope) {
+    case 'Single-Turn':
+      return <LooksOneIcon fontSize="small" />;
+    case 'Multi-Turn':
+      return <RepeatIcon fontSize="small" />;
+    default:
+      return <TurnedInIcon fontSize="small" />;
+  }
+};
+
 export default function MetricCard({
   title,
   description,
   backend,
   metricType,
   scoreType,
+  metricScope,
   type,
   usedIn,
   showUsage = false,
@@ -267,6 +287,18 @@ export default function MetricCard({
                 variant="outlined"
               />
             )}
+            {metricScope &&
+              metricScope.length > 0 &&
+              metricScope.map((scope, index) => (
+                <Chip
+                  key={`scope-${index}`}
+                  icon={getMetricScopeIcon(scope)}
+                  label={getMetricScopeDisplay(scope)}
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                />
+              ))}
           </Box>
         </Box>
       </CardContent>
