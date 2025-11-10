@@ -25,6 +25,11 @@ class ThresholdOperator(str, Enum):
     NOT_EQUAL = "!="
 
 
+class MetricScope(str, Enum):
+    SINGLE_TURN = "Single-Turn"
+    MULTI_TURN = "Multi-Turn"
+
+
 class MetricBase(Base):
     name: str
     description: Optional[str] = None
@@ -52,6 +57,7 @@ class MetricBase(Base):
     ground_truth_required: Optional[bool] = False
     context_required: Optional[bool] = False
     evaluation_examples: Optional[str] = None
+    metric_scope: Optional[List[MetricScope]] = None
     organization_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
 

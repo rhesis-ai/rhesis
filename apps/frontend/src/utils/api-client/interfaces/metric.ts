@@ -11,6 +11,8 @@ export type ScoreType = 'numeric' | 'categorical';
 
 export type ThresholdOperator = '=' | '<' | '>' | '<=' | '>=' | '!=';
 
+export type MetricScope = 'Single-Turn' | 'Multi-Turn';
+
 export interface Metric {
   id: UUID;
   name: string;
@@ -32,6 +34,7 @@ export interface Metric {
   context_required: boolean;
   class_name?: string;
   evaluation_examples?: string;
+  metric_scope?: MetricScope[];
   created_at: string;
   updated_at: string;
   priority?: number;
@@ -65,6 +68,7 @@ export interface MetricCreate {
   threshold_operator?: ThresholdOperator;
   explanation: string;
   ground_truth_required?: boolean;
+  metric_scope?: MetricScope[];
   metric_type_id?: UUID;
   backend_type_id?: UUID;
   status_id?: UUID;
@@ -91,6 +95,7 @@ export interface MetricUpdate {
   threshold_operator?: ThresholdOperator;
   explanation?: string;
   ground_truth_required?: boolean;
+  metric_scope?: MetricScope[];
   metric_type_id?: UUID;
   backend_type_id?: UUID;
   status_id?: UUID;

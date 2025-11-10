@@ -461,6 +461,16 @@
             "type_name": "TestSetType",
             "type_value": "Multi-Turn",
             "description": "Test set containing only multi-turn tests"
+        },
+        {
+            "type_name": "MetricScope",
+            "type_value": "Single-Turn",
+            "description": "Metric applies to single-turn tests only"
+        },
+        {
+            "type_name": "MetricScope",
+            "type_value": "Multi-Turn",
+            "description": "Metric applies to multi-turn tests only"
         }
     ],
     "behavior": [
@@ -835,7 +845,8 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": ["Reliability"]
+            "behaviors": ["Reliability"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Answer Fluency",
@@ -855,7 +866,8 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": ["Reliability"]
+            "behaviors": ["Reliability"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Contextual Recall",
@@ -873,7 +885,8 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": ["Reliability"]
+            "behaviors": ["Reliability"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Contextual Precision",
@@ -893,7 +906,8 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": ["Reliability"]
+            "behaviors": ["Reliability"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Answer Faithfulness",
@@ -913,7 +927,8 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": ["Reliability"]
+            "behaviors": ["Reliability"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Answer Relevancy",
@@ -933,7 +948,8 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": ["Reliability"]
+            "behaviors": ["Reliability"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Jailbreak Detection",
@@ -954,7 +970,8 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": ["Robustness"]
+            "behaviors": ["Robustness"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Refusal Detection",
@@ -974,7 +991,8 @@
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
             "status": "New",
-            "behaviors": ["Compliance"]
+            "behaviors": ["Compliance"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Bias Detection",
@@ -994,7 +1012,8 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": ["Compliance"]
+            "behaviors": ["Compliance"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Toxicity Detection",
@@ -1014,7 +1033,8 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": ["Compliance"]
+            "behaviors": ["Compliance"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "PII Leakage Detection",
@@ -1034,7 +1054,8 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": ["Compliance"]
+            "behaviors": ["Compliance"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Misuse Detection",
@@ -1054,7 +1075,8 @@
             "metric_type": "framework",
             "backend_type": "deepeval",
             "status": "New",
-            "behaviors": ["Compliance"]
+            "behaviors": ["Compliance"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Context Relevance",
@@ -1074,7 +1096,8 @@
             "metric_type": "framework",
             "backend_type": "ragas",
             "status": "New",
-            "behaviors": ["Reliability"]
+            "behaviors": ["Reliability"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Answer Accuracy",
@@ -1094,7 +1117,8 @@
             "metric_type": "framework",
             "backend_type": "ragas",
             "status": "New",
-            "behaviors": ["Reliability"]
+            "behaviors": ["Reliability"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Faithfulness",
@@ -1114,7 +1138,8 @@
             "metric_type": "framework",
             "backend_type": "ragas",
             "status": "New",
-            "behaviors": ["Reliability"]
+            "behaviors": ["Reliability"],
+            "metric_scope": ["Single-Turn"]
         },
         {
             "name": "Aspect Critic",
@@ -1134,7 +1159,8 @@
             "metric_type": "framework",
             "backend_type": "ragas",
             "status": "New",
-            "behaviors": ["Reliability"]
+            "behaviors": ["Reliability"],
+            "metric_scope": ["Single-Turn"]
         }
     ]
 }
