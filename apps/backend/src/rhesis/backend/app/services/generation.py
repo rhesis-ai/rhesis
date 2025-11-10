@@ -45,6 +45,10 @@ def process_sources_to_documents(
     Raises:
         HTTPException: If a source is not found in the database
     """
+    if isinstance(sources[0], dict):
+        sources = [SourceData(**source) for source in sources]
+    else:
+        sources = sources
     documents_sdk = []
     source_ids_list = []
     source_ids_to_documents = {}
