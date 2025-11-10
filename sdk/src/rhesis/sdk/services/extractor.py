@@ -19,27 +19,27 @@ class SourceType(Enum):
     TEXT = "text"
 
 
-class SourceBase(BaseModel):
+class SourceSpecification(BaseModel):
     type: SourceType
     name: Optional[str] = None
     description: Optional[str] = None
     metadata: Optional[dict] = None
 
 
-class ExtractedSource(SourceBase):
+class ExtractedSource(SourceSpecification):
     content: str
 
 
 class Extractor(ABC):
     @abstractmethod
-    def extract(self, source: SourceBase) -> ExtractedSource:
+    def extract(self, source: SourceSpecification) -> ExtractedSource:
         pass
 
 
 class ExtractionService:
     """Service for extracting text from sources."""
 
-    def __call__(self, sources: list[SourceBase]) -> list[ExtractedSource]:
+    def __call__(self, sources: list[SourceSpecification]) -> list[ExtractedSource]:
         extracted_sources = []
         for source in sources:
             if source.type == SourceType.TEXT:
@@ -56,12 +56,12 @@ class ExtractionService:
 
 
 class NotionExtractor(Extractor):
-    def extract(self, source: SourceBase) -> ExtractedSource:
+    def extract(self, source: SourceSpecification) -> ExtractedSource:
         raise NotImplementedError("Notion extraction is not implemented")
 
 
 class IdentityExtractor(Extractor):
-    def extract(self, source: SourceBase) -> ExtractedSource:
+    def extract(self, source: SourceSpecification) -> ExtractedSource:
         return ExtractedSource(
             **source.model_dump(exclude={"medatadata"}), content=source.metadata["content"]
         )
@@ -74,7 +74,7 @@ class WebsiteExtractor(Extractor):
         """Initialize the WebsiteExtractor."""
         self.converter = MarkItDown()
 
-    def extract(self, source: SourceBase) -> ExtractedSource:
+    def extract(self, source: SourceSpecification) -> ExtractedSource:
         """
         Extract text from a website source.
 
@@ -198,7 +198,7 @@ class DocumentExtractor(Extractor):
         # Note: Markitdown supports also other formats but may need additional dependencies
         self.converter = MarkItDown()
 
-    def extract(self, source: SourceBase) -> ExtractedSource:
+    def extract(self, source: SourceSpecification) -> ExtractedSource:
         """
         Extract text from a document source.
 
@@ -339,7 +339,7 @@ class DocumentExtractor(Extractor):
 
 if __name__ == "__main__":
     extractor = DocumentExtractor()
-    source = SourceBase(
+    source = SourceSpecification(
         name="test",
         description="test",
         type=SourceType.DOCUMENT,
@@ -351,7 +351,7 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     extractor = WebsiteExtractor()
-    source = SourceBase(
+    source = SourceSpecification(
         name="test",
         description="test",
         type=SourceType.WEBSITE,

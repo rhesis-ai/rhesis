@@ -6,14 +6,14 @@ from typing import List
 
 from pydantic import BaseModel
 
-from rhesis.sdk.services.extractor import ExtractedSource, SourceBase
+from rhesis.sdk.services.extractor import ExtractedSource, SourceSpecification
 from rhesis.sdk.utils import count_tokens
 
 
 class Chunk(BaseModel):
     """A chunk of text with a source metadata and a content"""
 
-    source: SourceBase
+    source: SourceSpecification
     content: str
 
 
@@ -38,7 +38,7 @@ class ChunkingService:
         for source in self.sources:
             text_chunks = self.strategy.chunk(source.content)
 
-            source_metadata = SourceBase(**source.model_dump())
+            source_metadata = SourceSpecification(**source.model_dump())
 
             for chunk in text_chunks:
                 chunks.append(Chunk(source=source_metadata, content=chunk))

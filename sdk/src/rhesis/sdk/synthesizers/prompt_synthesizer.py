@@ -9,7 +9,7 @@ from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 class PromptSynthesizer(TestSetSynthesizer):
     """A synthesizer that generates test cases based on a prompt using LLM."""
 
-    prompt_template_file = "simple_synthesizer.jinja"
+    prompt_template_file = "prompt_synthesizer.jinja"
 
     def __init__(
         self,

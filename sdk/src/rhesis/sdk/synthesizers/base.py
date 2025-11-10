@@ -14,7 +14,7 @@ from rhesis.sdk.services.chunker import (
 )
 from rhesis.sdk.services.extractor import (
     ExtractionService,
-    SourceBase,
+    SourceSpecification,
 )
 from rhesis.sdk.synthesizers.utils import (
     create_test_set,
@@ -48,7 +48,7 @@ class TestSetSynthesizer(ABC):
         self,
         batch_size: int = 5,
         model: Optional[Union[str, BaseLLM]] = None,
-        sources: Optional[List[SourceBase]] = None,
+        sources: Optional[List[SourceSpecification]] = None,
         chunking_strategy: Optional[ChunkingStrategy] = SemanticChunker(max_tokens_per_chunk=1500),
     ):
         """
@@ -123,7 +123,7 @@ class TestSetSynthesizer(ABC):
     ) -> tuple[List[Dict[str, Any]], dict[str, Any]]:
         # Process documents with source tracking
         if not isinstance(self.sources, list) or not all(
-            isinstance(source, SourceBase) for source in self.sources
+            isinstance(source, SourceSpecification) for source in self.sources
         ):
             raise ValueError("sources must be a list of SourceBase objects")
 
