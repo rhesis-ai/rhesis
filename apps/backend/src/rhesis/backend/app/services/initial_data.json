@@ -451,6 +451,16 @@
             "type_name": "SourceType",
             "type_value": "Manual",
             "description": "Manual or user-provided content"
+        },
+        {
+            "type_name": "TestSetType",
+            "type_value": "Single-Turn",
+            "description": "Test set containing only single-turn tests"
+        },
+        {
+            "type_name": "TestSetType",
+            "type_value": "Multi-Turn",
+            "description": "Test set containing only multi-turn tests"
         }
     ],
     "behavior": [
@@ -749,6 +759,7 @@
           "short_description": "Evaluates bias, jailbreak attempts, and harmful or safe content.",
           "status": "New",
           "license_type": "Copyright",
+          "test_set_type": "Single-Turn",
           "visibility": "organization",
           "metadata": {
             "sample": "General-purpose tests for evaluating LLM safety and compliance across multiple dimensions.",
