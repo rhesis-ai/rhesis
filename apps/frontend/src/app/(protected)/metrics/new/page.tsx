@@ -431,17 +431,26 @@ export default function NewMetricPage() {
         <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
           Result Configuration
         </Typography>
-        <FormControl fullWidth sx={{ mb: 3 }}>
-          <InputLabel required>Score Type</InputLabel>
-          <Select<'categorical' | 'numeric'>
-            value={formData.score_type}
-            label="Score Type"
-            onChange={handleChange('score_type')}
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 2 }}
           >
-            <MenuItem value="categorical">Categorical</MenuItem>
-            <MenuItem value="numeric">Numeric</MenuItem>
-          </Select>
-        </FormControl>
+            Choose how this metric will be scored:
+          </Typography>
+          <FormControl fullWidth>
+            <InputLabel required>Score Type</InputLabel>
+            <Select<'categorical' | 'numeric'>
+              value={formData.score_type}
+              label="Score Type"
+              onChange={handleChange('score_type')}
+            >
+              <MenuItem value="categorical">Categorical</MenuItem>
+              <MenuItem value="numeric">Numeric</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
