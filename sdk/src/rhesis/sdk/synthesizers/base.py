@@ -49,7 +49,7 @@ class TestSetSynthesizer(ABC):
         batch_size: int = 5,
         model: Optional[Union[str, BaseLLM]] = None,
         sources: Optional[List[SourceBase]] = None,
-        chunking_strategy: Optional[ChunkingStrategy] = SemanticChunker(max_tokens_per_chunk=100),
+        chunking_strategy: Optional[ChunkingStrategy] = SemanticChunker(max_tokens_per_chunk=1500),
     ):
         """
         Initialize the base synthesizer.

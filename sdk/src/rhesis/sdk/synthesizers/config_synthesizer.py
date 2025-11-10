@@ -1,32 +1,28 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from typing import Any, List, Optional, Union
 
+from pydantic import BaseModel
+
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.services.extractor import SourceBase, SourceType
+from rhesis.sdk.services.extractor import SourceBase
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class GenerationConfig:
+class GenerationConfig(BaseModel):
     """Dataclass representing generation config information."""
 
-    behaviors: List[str]  # Behaviors
-    categories: List[str]  # Categories
-    topics: List[str]  # Topics
+    generation_prompt: Optional[str] = None  # Describe what you want to test
 
-    project_context: str  # Select project
-    specific_requirements: str  # Describe what you want to test
+    behaviors: Optional[List[str]] = None  # Behaviors
+    categories: Optional[List[str]] = None  # Categories
+    topics: Optional[List[str]] = None  # Topics
 
-    previous_messages: List[str]  # Previous messages
-    rated_samples: List[str]  # Rated samples
-
-    test_type: str  # Test type
-    output_format: str  # Output format
+    additional_context: Optional[str] = None  # Additional context
 
 
 class ConfigSynthesizer(TestSetSynthesizer):
@@ -39,6 +35,7 @@ class ConfigSynthesizer(TestSetSynthesizer):
         config: GenerationConfig,
         batch_size: int = 20,
         model: Optional[Union[str, BaseLLM]] = None,
+        sources: Optional[List[SourceBase]] = None,
         **kwargs: dict[str, Any],
     ):
         """
@@ -50,39 +47,8 @@ class ConfigSynthesizer(TestSetSynthesizer):
             system_prompt: Optional custom system prompt template to override the default
         """
 
-        super().__init__(batch_size=batch_size, model=model, **kwargs)
+        super().__init__(batch_size=batch_size, model=model, sources=sources, **kwargs)
         self.config = config
 
     def _get_template_context(self, **generate_kwargs):
         return {**asdict(self.config), **generate_kwargs}
-
-
-if __name__ == "__main__":
-    sources = [
-        SourceBase(
-            name="Germany knowledge",
-            description="Knowledge about Germany",
-            type=SourceType.DOCUMENT,
-            metadata={"path": "/Users/arek/Desktop/rhesis/test.md"},
-        )
-    ]
-    config = GenerationConfig(
-        behaviors=["the chatbot about the knowledge of Germany"],
-        categories=["knowledge"],
-        topics=["Germany"],
-        project_context="The chatbot is a chatbot that sells cars",
-        specific_requirements="The chatbot should be able to answer questions about Germany",
-        previous_messages=[],
-        rated_samples=[],
-        test_type="unit",
-        output_format="json",
-    )
-    synthesizer = ConfigSynthesizer(
-        config=config,
-        model="gemini",
-        sources=sources,
-    )
-    tests = synthesizer.generate(num_tests=5)
-    from pprint import pprint
-
-    pprint(tests.tests)
