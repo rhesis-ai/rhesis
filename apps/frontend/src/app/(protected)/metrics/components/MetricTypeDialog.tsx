@@ -83,7 +83,9 @@ export default function MetricTypeDialog({
                 '&:hover': {
                   bgcolor: option.disabled ? undefined : 'action.hover',
                 },
-                transition: 'background-color 0.2s',
+                transition: theme.transitions.create('background-color', {
+                  duration: theme.transitions.duration.short,
+                }),
                 position: 'relative',
               }}
             >

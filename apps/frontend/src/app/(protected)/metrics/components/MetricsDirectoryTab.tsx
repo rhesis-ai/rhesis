@@ -792,13 +792,17 @@ export default function MetricsDirectoryTab({
                     },
                     ...(assignMode && {
                       cursor: 'pointer',
-                      transition:
-                        'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                      transition: theme.transitions.create(
+                        ['transform', 'box-shadow'],
+                        {
+                          duration: theme.transitions.duration.short,
+                        }
+                      ),
                       '&:hover': {
-                        transform: 'translateY(-4px)',
+                        transform: `translateY(-${theme.spacing(0.5)})`,
                       },
                       '&:active': {
-                        transform: 'translateY(-2px)',
+                        transform: `translateY(-${theme.spacing(0.25)})`,
                       },
                     }),
                   }}
@@ -833,7 +837,7 @@ export default function MetricsDirectoryTab({
                           handleMetricDetail(metric.id);
                         }}
                         sx={{
-                          padding: '2px',
+                          padding: theme.spacing(0.25),
                           '& .MuiSvgIcon-root': {
                             fontSize:
                               theme?.typography?.helperText?.fontSize ||
@@ -873,7 +877,7 @@ export default function MetricsDirectoryTab({
                             handleDeleteMetric(metric.id, metric.name);
                           }}
                           sx={{
-                            padding: '2px',
+                            padding: theme.spacing(0.25),
                             '& .MuiSvgIcon-root': {
                               fontSize:
                                 theme?.typography?.helperText?.fontSize ||
