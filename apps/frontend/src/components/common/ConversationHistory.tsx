@@ -431,13 +431,17 @@ export default function ConversationHistory({
                 </Typography>
               </Paper>
               <Tooltip title={displayProjectName} placement="right">
-                <ProjectIcon
+                <Box
                   sx={{
                     fontSize: 20,
                     color: theme.palette.secondary.main,
                     mt: 0.5,
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
-                />
+                >
+                  <ProjectIcon />
+                </Box>
               </Tooltip>
             </Box>
 
