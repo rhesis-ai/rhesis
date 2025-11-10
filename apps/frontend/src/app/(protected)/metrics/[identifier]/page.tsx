@@ -28,7 +28,7 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { MetricDetail, ScoreType } from '@/utils/api-client/interfaces/metric';
+import { MetricDetail, ScoreType, MetricScope } from '@/utils/api-client/interfaces/metric';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
@@ -51,6 +51,7 @@ interface EditData {
   max_score?: number;
   threshold?: number;
   explanation?: string;
+  metric_scope?: MetricScope[];
 }
 
 interface StepWithId {
@@ -335,6 +336,7 @@ export default function MetricDetailPage() {
         ...(editData.threshold !== undefined && {
           threshold: editData.threshold,
         }),
+        ...(editData.metric_scope && { metric_scope: editData.metric_scope }),
       };
 
       // Handle evaluation steps
@@ -956,6 +958,73 @@ export default function MetricDetailPage() {
                         ? 'Categorical'
                         : 'Numeric'}
                     </Typography>
+                  </Box>
+                )}
+              </InfoRow>
+
+              <InfoRow label="Metric Scope">
+                {isEditing === 'configuration' ? (
+                  <FormControl fullWidth>
+                    <InputLabel>Metric Scope</InputLabel>
+                    <Select
+                      multiple
+                      value={editData.metric_scope || metric.metric_scope || []}
+                      onChange={e =>
+                        setEditData(prev => ({
+                          ...prev,
+                          metric_scope: e.target.value as MetricScope[],
+                        }))
+                      }
+                      label="Metric Scope"
+                      renderValue={(selected) => (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {selected.map((value) => (
+                            <Typography
+                              key={value}
+                              sx={{
+                                bgcolor: 'primary.main',
+                                color: 'primary.contrastText',
+                                px: 1,
+                                py: 0.25,
+                                borderRadius: 1,
+                                fontSize: '0.75rem',
+                              }}
+                            >
+                              {value}
+                            </Typography>
+                          ))}
+                        </Box>
+                      )}
+                    >
+                      <MenuItem value="Single-Turn">Single-Turn</MenuItem>
+                      <MenuItem value="Multi-Turn">Multi-Turn</MenuItem>
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {metric.metric_scope && metric.metric_scope.length > 0 ? (
+                      metric.metric_scope.map((scope, index) => (
+                        <Typography
+                          key={index}
+                          sx={{
+                            bgcolor: 'primary.main',
+                            color: 'primary.contrastText',
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: theme => theme.shape.borderRadius * 0.25,
+                            fontSize:
+                              theme?.typography?.helperText?.fontSize || '0.75rem',
+                            fontWeight: 'medium',
+                          }}
+                        >
+                          {scope}
+                        </Typography>
+                      ))
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No scope defined
+                      </Typography>
+                    )}
                   </Box>
                 )}
               </InfoRow>

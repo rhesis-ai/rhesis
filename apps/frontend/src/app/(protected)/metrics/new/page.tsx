@@ -25,7 +25,7 @@ import BaseTag from '@/components/common/BaseTag';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { MetricCreate } from '@/utils/api-client/interfaces/metric';
+import { MetricCreate, MetricScope } from '@/utils/api-client/interfaces/metric';
 import { TypeLookupClient } from '@/utils/api-client/type-lookup-client';
 import { TypeLookupsQueryParams } from '@/utils/api-client/interfaces/type-lookup';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -54,6 +54,7 @@ interface MetricFormData {
   threshold?: number;
   explanation: string;
   model_id: string;
+  metric_scope: MetricScope[];
 }
 
 const initialFormData: MetricFormData = {
@@ -66,6 +67,7 @@ const initialFormData: MetricFormData = {
   score_type: 'categorical',
   explanation: '',
   model_id: '',
+  metric_scope: ['Single-Turn'],
 };
 
 const steps = ['Metric Information and Criteria', 'Confirmation'];
@@ -422,6 +424,38 @@ export default function NewMetricPage() {
           >
             <MenuItem value="categorical">Categorical</MenuItem>
             <MenuItem value="numeric">Numeric</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl fullWidth sx={{ mb: 3 }}>
+          <InputLabel required>Metric Scope</InputLabel>
+          <Select
+            multiple
+            value={formData.metric_scope}
+            label="Metric Scope"
+            onChange={handleChange('metric_scope')}
+            renderValue={(selected) => (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {selected.map((value) => (
+                  <Typography
+                    key={value}
+                    sx={{
+                      bgcolor: 'primary.main',
+                      color: 'primary.contrastText',
+                      px: 1,
+                      py: 0.25,
+                      borderRadius: 1,
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    {value}
+                  </Typography>
+                ))}
+              </Box>
+            )}
+          >
+            <MenuItem value="Single-Turn">Single-Turn</MenuItem>
+            <MenuItem value="Multi-Turn">Multi-Turn</MenuItem>
           </Select>
         </FormControl>
 
