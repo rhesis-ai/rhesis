@@ -45,6 +45,13 @@ IMPORTANT: Return results in this exact JSON format:
   ]
 }
 
+CRITICAL: When creating the JSON response:
+- Ensure all strings in the "content" field have proper JSON escaping
+- Replace literal newlines with \\n
+- Replace literal tabs with \\t
+- Escape quotes properly
+- The JSON must be valid and parseable
+
 Workflow:
 1. For each page_id provided, use tools to fetch full content
    - Notion: Use API-retrieve-a-page for metadata, then API-get-block-children for content
@@ -184,6 +191,26 @@ system prompt."""
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse extraction results as JSON: {e}")
+            logger.debug(f"Raw final_answer (first 500 chars): {final_answer[:500]}")
+
+            # Try to extract what we can from the malformed response
+            # This is a fallback for when the LLM doesn't properly escape JSON
+            try:
+                # Attempt to fix common JSON issues
+                import re
+
+                # Try to find JSON-like structure in the response
+                json_match = re.search(r"\{[\s\S]*\}", final_answer)
+                if json_match:
+                    potential_json = json_match.group(0)
+                    # Try parsing the extracted portion
+                    data = json.loads(potential_json)
+                    if isinstance(data, dict) and "pages" in data:
+                        logger.info("Successfully recovered from malformed JSON")
+                        return self._parse_pages(json.dumps(data))
+            except Exception:
+                pass
+
             return []
         except Exception as e:
             logger.error(f"Unexpected error parsing extraction results: {e}")
