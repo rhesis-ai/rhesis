@@ -36,7 +36,9 @@ class Extractor(ABC):
         pass
 
 
-class SourceExtractor:
+class ExtractionService:
+    """Service for extracting text from sources."""
+
     def __call__(self, sources: list[SourceBase]) -> list[ExtractedSource]:
         extracted_sources = []
         for source in sources:
