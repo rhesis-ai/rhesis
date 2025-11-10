@@ -216,10 +216,9 @@ export default function TestsTableView({
           c => c.met
         ).length || 0;
 
-      // Check for execution error
-      const hasExecutionError =
-        test.test_output.status === 'error' ||
-        test.test_output.status === 'failure';
+      // Check for execution error or failure
+      const hasExecutionError = test.test_output.status === 'error';
+      const hasExecutionFailure = test.test_output.status === 'failure';
 
       if (hasExecutionError) {
         return {
@@ -229,6 +228,17 @@ export default function TestsTableView({
           isOverruled: false,
           hasConflict: false,
           hasExecutionError: true,
+        };
+      }
+
+      if (hasExecutionFailure) {
+        return {
+          passed: false,
+          label: 'Failed',
+          count: `${metCriteria}/${totalCriteria}`,
+          isOverruled: false,
+          hasConflict: false,
+          hasExecutionError: false,
         };
       }
 
@@ -407,7 +417,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '25%',
+                  width: '22%',
                 }}
               >
                 {isMultiTurn ? 'Goal' : 'Prompt'}
@@ -416,7 +426,17 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '35%',
+                  width: '10%',
+                  textAlign: 'center',
+                }}
+              >
+                Result
+              </TableCell>
+              <TableCell
+                sx={{
+                  backgroundColor: theme.palette.background.paper,
+                  fontWeight: 600,
+                  width: '30%',
                 }}
               >
                 {isMultiTurn ? 'Evaluation Reasoning' : 'Response'}
@@ -425,7 +445,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '15%',
+                  width: '13%',
                   textAlign: 'center',
                 }}
               >
@@ -482,7 +502,7 @@ export default function TestsTableView({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
                   <Typography color="text.secondary">
                     Loading tests...
                   </Typography>
@@ -490,7 +510,7 @@ export default function TestsTableView({
               </TableRow>
             ) : paginatedTests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
                   <Typography color="text.secondary">
                     No tests to display
                   </Typography>
@@ -545,6 +565,28 @@ export default function TestsTableView({
                           {truncateText(promptContent, 150)}
                         </Typography>
                       </Tooltip>
+                    </TableCell>
+
+                    {/* Result Column */}
+                    <TableCell align="center">
+                      <Chip
+                        label={status.label}
+                        size="small"
+                        sx={{
+                          backgroundColor: status.hasExecutionError
+                            ? alpha(theme.palette.warning.main, 0.1)
+                            : status.passed
+                            ? alpha(theme.palette.success.main, 0.1)
+                            : alpha(theme.palette.error.main, 0.1),
+                          color: status.hasExecutionError
+                            ? 'warning.main'
+                            : status.passed
+                            ? 'success.main'
+                            : 'error.main',
+                          fontWeight: 600,
+                          minWidth: 70,
+                        }}
+                      />
                     </TableCell>
 
                     {/* Response Column */}
