@@ -25,6 +25,7 @@ import TestDetailMetricsTab from './TestDetailMetricsTab';
 import TestDetailReviewsTab from './TestDetailReviewsTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 interface TestDetailPanelProps {
   test: TestResultDetail | null;
@@ -43,6 +44,8 @@ interface TestDetailPanelProps {
   currentUserName: string;
   currentUserPicture?: string;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
+  project?: { icon?: string; useCase?: string; name?: string };
+  projectName?: string;
 }
 
 interface TabPanelProps {
@@ -121,12 +124,69 @@ export default function TestDetailPanel({
   currentUserName,
   currentUserPicture,
   testSetType,
+  project,
+  projectName,
 }: TestDetailPanelProps) {
   const [activeTab, setActiveTab] = useState(0);
+  const [reviewInitialComment, setReviewInitialComment] = useState<string>('');
+  const [reviewInitialStatus, setReviewInitialStatus] = useState<'passed' | 'failed' | undefined>(undefined);
   const theme = useTheme();
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
+  };
+
+  const handleReviewTurn = (turnNumber: number, turnSuccess: boolean) => {
+    setReviewInitialComment(`Turn ${turnNumber}: `);
+    // Set initial status to opposite of automated result
+    setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
+    setActiveTab(3); // Switch to reviews tab (index 3)
+  };
+
+  const handleConfirmAutomatedReview = async () => {
+    if (!test) return;
+
+    try {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testResultsClient = clientFactory.getTestResultsClient();
+      const statusClient = clientFactory.getStatusClient();
+
+      // Get available statuses for TestResult
+      const statuses = await statusClient.getStatuses({
+        entity_type: 'TestResult',
+      });
+
+      // Determine the automated status from goal_evaluation
+      const automatedPassed = test.test_output?.goal_evaluation?.all_criteria_met || false;
+
+      // Find appropriate status ID
+      const statusKeywords = automatedPassed
+        ? ['pass', 'success', 'completed']
+        : ['fail', 'error'];
+      const targetStatus = statuses.find(status =>
+        statusKeywords.some(keyword =>
+          status.name.toLowerCase().includes(keyword)
+        )
+      );
+
+      if (!targetStatus) {
+        return;
+      }
+
+      // Create a review that matches the automated result
+      await testResultsClient.createReview(
+        test.id,
+        targetStatus.id,
+        `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
+        { type: 'test', reference: null }
+      );
+
+      // Refresh the test result
+      const updatedTest = await testResultsClient.getTestResult(test.id);
+      onTestResultUpdate(updatedTest);
+    } catch (error) {
+      // Error handling - could be logged to monitoring service
+    }
   };
 
   if (loading) {
@@ -253,7 +313,14 @@ export default function TestDetailPanel({
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
-          <TestDetailConversationTab test={test} testSetType={testSetType} />
+          <TestDetailConversationTab 
+            test={test} 
+            testSetType={testSetType} 
+            project={project}
+            projectName={projectName}
+            onReviewTurn={handleReviewTurn}
+            onConfirmAutomatedReview={handleConfirmAutomatedReview}
+          />
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
@@ -266,6 +333,12 @@ export default function TestDetailPanel({
             sessionToken={sessionToken}
             onTestResultUpdate={onTestResultUpdate}
             currentUserId={currentUserId}
+            initialComment={reviewInitialComment}
+            initialStatus={reviewInitialStatus}
+            onCommentUsed={() => {
+              setReviewInitialComment('');
+              setReviewInitialStatus(undefined);
+            }}
           />
         </TabPanel>
 

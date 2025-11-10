@@ -36,6 +36,9 @@ interface TestDetailReviewsTabProps {
   sessionToken: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   currentUserId: string;
+  initialComment?: string;
+  initialStatus?: 'passed' | 'failed';
+  onCommentUsed?: () => void;
 }
 
 export default function TestDetailReviewsTab({
@@ -43,6 +46,9 @@ export default function TestDetailReviewsTab({
   sessionToken,
   onTestResultUpdate,
   currentUserId,
+  initialComment = '',
+  initialStatus,
+  onCommentUsed,
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
 
@@ -58,6 +64,18 @@ export default function TestDetailReviewsTab({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reviewToDelete, setReviewToDelete] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Handle initial comment and status from turn review
+  useEffect(() => {
+    if (initialComment) {
+      setReason(initialComment);
+      setShowReviewForm(true);
+      if (initialStatus) {
+        setNewStatus(initialStatus);
+      }
+      onCommentUsed?.();
+    }
+  }, [initialComment, initialStatus, onCommentUsed]);
 
   // Fetch available statuses
   useEffect(() => {
