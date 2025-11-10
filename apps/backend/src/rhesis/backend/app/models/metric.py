@@ -63,6 +63,9 @@ class Metric(
     context_required = Column(Boolean, default=False)
     class_name = Column(String)  # useful if type is custom code or framework
     evaluation_examples = Column(String)
+    metric_scope = Column(
+        JSONB
+    )  # Array of test types this metric applies to (Single-Turn, Multi-Turn)
 
     # Foreign keys
     metric_type_id = Column(GUID(), ForeignKey("type_lookup.id"))
