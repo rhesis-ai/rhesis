@@ -38,7 +38,7 @@ services:
   backend:
     build:
       context: ../../..
-      dockerfile: apps/backend/Dockerfile
+      dockerfile: apps/backend/Dockerfile.dev
     container_name: rhesis-backend-test
     environment:
       <<: [*database-config, *backend-config]
