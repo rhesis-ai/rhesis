@@ -46,6 +46,8 @@ x-rhesis-config: &rhesis-config
   RHESIS_API_KEY: ${RHESIS_API_KEY}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
   BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
+  DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-rhesis}  # Use Rhesis model instead of vertex_ai
+  DEFAULT_MODEL_NAME: ${DEFAULT_MODEL_NAME:-gemini-2.0-flash}
 
 x-telemetry-config: &telemetry-config
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318/}

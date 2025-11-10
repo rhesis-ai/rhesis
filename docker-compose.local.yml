@@ -1,108 +1,99 @@
 # Docker Compose configuration for LOCAL DEVELOPMENT ONLY
 # 
-# ⚠️ WARNING: This configuration uses hardcoded secrets and is NOT secure for production use!
+# ⚠️ WARNING: This configuration is for LOCAL DEVELOPMENT ONLY!
 # 
-# This file provides a zero-configuration setup for local development by:
-# - Using dummy Auth0 credentials
-# - Including a default encryption key
+# This file provides a simplified setup for local development by:
+# - Using environment variables from .env.docker.local
 # - Enabling local authentication bypass
 # - Creating a default admin user (admin@local.dev)
+# - Auto-login to dashboard
 #
-# Quick Start:
-#   docker-compose -f docker-compose.local.yml up
+# 📋 QUICK START:
+# 1. Copy the example file: cp .env.example.docker .env.docker.local
+# 2. (Optional) Update RHESIS_API_KEY in .env.docker.local
+# 3. Start services: docker compose -f docker-compose.local.yml --env-file .env.docker.local up
+# 4. Visit: http://localhost:3000 (you'll be auto-logged in)
 #
-# Default Credentials:
-#   Email: admin@local.dev
-#   Use the "Local Development Login" button in the UI
-#   API Token: rh-local-dev-token
+# 🔑 DEFAULT CREDENTIALS:
+#   Email: admin@local.dev (created automatically)
+#   Password: Not needed (auto-login enabled)
 #
-# For production deployment, see: docs/content/getting-started/self-hosting.mdx
+# For production deployment, see: .env.example and docs/content/getting-started/self-hosting.mdx
 
-# Define configurations using YAML anchors with hardcoded local values
+# Define configurations using YAML anchors with environment variables
 x-common-database: &common-database
-  SQLALCHEMY_DATABASE_URL: postgresql://rhesis-user:rhesis-local-password@postgres:5432/rhesis-db
-  SQLALCHEMY_DB_DRIVER: postgresql
-  SQLALCHEMY_DB_PORT: 5432
-  SQLALCHEMY_DB_USER: rhesis-user
-  SQLALCHEMY_DB_PASS: rhesis-local-password
-  SQLALCHEMY_DB_HOST: postgres
-  SQLALCHEMY_DB_NAME: rhesis-db
-  # ⚠️ LOCAL DEVELOPMENT ENCRYPTION KEY - DO NOT USE IN PRODUCTION
-  # This is a valid Fernet key generated specifically for local development
-  DB_ENCRYPTION_KEY: "Q1TXkiXw7aV-lPkGRqNHxmIjSuySERFD2T6bDjdaW8Q="
+  SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL}
+  SQLALCHEMY_DB_DRIVER: ${SQLALCHEMY_DB_DRIVER:-postgresql}
+  SQLALCHEMY_DB_PORT: ${SQLALCHEMY_DB_PORT:-5432}
+  SQLALCHEMY_DB_USER: ${SQLALCHEMY_DB_USER}
+  SQLALCHEMY_DB_PASS: ${SQLALCHEMY_DB_PASS}
+  SQLALCHEMY_DB_HOST: ${SQLALCHEMY_DB_HOST:-postgres}
+  SQLALCHEMY_DB_NAME: ${SQLALCHEMY_DB_NAME}
+  DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY}
 
 x-common-redis: &common-redis
-  REDIS_URL: redis://:rhesis-redis-pass@redis:6379/0
-  BROKER_URL: redis://:rhesis-redis-pass@redis:6379/0
-  CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@redis:6379/1
+  REDIS_URL: ${REDIS_URL}
+  BROKER_URL: ${BROKER_URL}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
 
 x-common-auth0: &common-auth0
-  # ⚠️ DUMMY AUTH0 CONFIGURATION - FOR LOCAL DEVELOPMENT ONLY
-  AUTH0_DOMAIN: local.rhesis.dev
-  AUTH0_AUDIENCE: local-audience
-  AUTH0_CLIENT_ID: local-client-id
-  AUTH0_CLIENT_SECRET: local-client-secret
-  AUTH0_SECRET_KEY: local-auth0-secret-key
+  AUTH0_DOMAIN: ${AUTH0_DOMAIN}
+  AUTH0_AUDIENCE: ${AUTH0_AUDIENCE}
+  AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID}
+  AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET}
+  AUTH0_SECRET_KEY: ${AUTH0_SECRET_KEY}
 
 x-common-smtp: &common-smtp
-  # SMTP is optional for local development - omitting allows code defaults to work
-  # Uncomment and set these if you need email functionality:
-  # SMTP_HOST: smtp.example.com
-  # SMTP_PORT: 587
-  # SMTP_USER: user@example.com
-  # SMTP_PASSWORD: your-password
-  # FROM_EMAIL: noreply@example.com
-  {}
+  SMTP_HOST: ${SMTP_HOST:-smtp.example.com}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-user@example.com}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-your-smtp-password}
+  FROM_EMAIL: ${FROM_EMAIL:-noreply@example.com}
 
 x-common-jwt: &common-jwt
-  # ⚠️ JWT CONFIGURATION - CHANGE IN PRODUCTION
-  JWT_SECRET_KEY: local-jwt-secret-key-change-in-production
-  JWT_ALGORITHM: HS256
-  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 10080
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+  JWT_ALGORITHM: ${JWT_ALGORITHM}
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
 
 x-common-environment: &common-environment
-  ENVIRONMENT: development  # Must be 'production', 'staging', or 'development' (not 'local')
-  BACKEND_ENV: development
-  FRONTEND_ENV: development
-  WORKER_ENV: development
-  LOG_LEVEL: DEBUG
+  ENVIRONMENT: ${ENVIRONMENT}
+  BACKEND_ENV: ${BACKEND_ENV}
+  FRONTEND_ENV: ${FRONTEND_ENV}
+  WORKER_ENV: ${WORKER_ENV}
+  LOG_LEVEL: ${LOG_LEVEL}
 
 x-rhesis-config: &rhesis-config
-  RHESIS_BASE_URL: https://api.rhesis.ai/ #http://backend:8080
-  RHESIS_API_KEY: "rh-EjwVhgSk_0_ovnFLPoCZKdAxe1n5MZutUmWk8s5JP9A" # "rh-H4rV_exzO308Kbreoab26o9VC23IpmBKUIghwdQaAsE"  # ⚠️ Local development API token (generated on first run - check backend logs)
-  FRONTEND_URL: http://localhost:3000
-  BACKEND_URL: http://backend:8080
-  # ⚠️ DEFAULT MODEL CONFIGURATION FOR LOCAL DEVELOPMENT
-  DEFAULT_GENERATION_MODEL: "rhesis"  # Use Rhesis model instead of vertex_ai
-  DEFAULT_MODEL_NAME: "gemini-2.0-flash"
+  RHESIS_BASE_URL: ${RHESIS_BASE_URL}
+  RHESIS_API_KEY: ${RHESIS_API_KEY}
+  FRONTEND_URL: ${FRONTEND_URL}
+  BACKEND_URL: ${BACKEND_URL}
+  DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL}
+  DEFAULT_MODEL_NAME: ${DEFAULT_MODEL_NAME}
 
 x-telemetry-config: &telemetry-config
-  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/
-  OTEL_SERVICE_NAME: rhesis
-  DEPLOYMENT_TYPE: self-hosted
-  TELEMETRY_ENABLED: false
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+  OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME}
+  DEPLOYMENT_TYPE: ${DEPLOYMENT_TYPE}
+  TELEMETRY_ENABLED: ${TELEMETRY_ENABLED}
 
 x-gemini-google: &gemini-google
-  GEMINI_API_KEY: ""
-  GEMINI_MODEL_NAME: ""
-  GOOGLE_API_KEY: ""
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME:-}
+  GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
 
 x-nextjs-frontend: &nextjs-frontend
-  # ⚠️ NEXTAUTH CONFIGURATION - CHANGE IN PRODUCTION
-  NEXTAUTH_SECRET: local-nextauth-secret-change-in-production
-  NEXTAUTH_URL: http://localhost:3000
-  NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
-  NEXT_PUBLIC_APP_URL: http://localhost:3000
-  NEXT_PUBLIC_AUTH0_DOMAIN: local.rhesis.dev
-  NEXT_PUBLIC_AUTH0_CLIENT_ID: local-client-id
-  NEXT_TELEMETRY_DISABLED: 1
-  # ⚠️ ENABLE LOCAL AUTHENTICATION
-  NEXT_PUBLIC_LOCAL_AUTH_ENABLED: "true"
+  NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+  NEXTAUTH_URL: ${NEXTAUTH_URL}
+  NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+  NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+  NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN}
+  NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID}
+  NEXT_TELEMETRY_DISABLED: ${NEXT_TELEMETRY_DISABLED}
+  NEXT_PUBLIC_LOCAL_AUTH_ENABLED: ${NEXT_PUBLIC_LOCAL_AUTH_ENABLED}
 
 x-google-client: &google-client
-  # ⚠️ DUMMY GOOGLE OAUTH - FOR LOCAL DEVELOPMENT ONLY
-  GOOGLE_CLIENT_ID: local-google-client-id
-  GOOGLE_CLIENT_SECRET: local-google-client-secret
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
 
 services:
   # PostgreSQL Database
@@ -110,16 +101,16 @@ services:
     image: postgres:16-alpine
     container_name: rhesis-postgres
     environment:
-      POSTGRES_DB: rhesis-db
-      POSTGRES_USER: rhesis-user
-      POSTGRES_PASSWORD: rhesis-local-password
+      POSTGRES_DB: ${SQLALCHEMY_DB_NAME}
+      POSTGRES_USER: ${SQLALCHEMY_DB_USER}
+      POSTGRES_PASSWORD: ${SQLALCHEMY_DB_PASS}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/rhesis/backend/alembic/create_user.sql:/docker-entrypoint-initdb.d/01-create-user.sql
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-db"]
+      test: ["CMD-SHELL", "pg_isready -U ${SQLALCHEMY_DB_USER} -d ${SQLALCHEMY_DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -130,15 +121,15 @@ services:
   redis:
     image: redis:7-alpine
     container_name: rhesis-redis
-    command: redis-server --requirepass rhesis-redis-pass
+    command: redis-server --requirepass ${REDIS_PASSWORD}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     environment:
-      - REDIS_PASSWORD=rhesis-redis-pass
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "rhesis-redis-pass", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -153,12 +144,8 @@ services:
     container_name: rhesis-backend
     environment:
       <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *gemini-google, *telemetry-config]
-      LOG_LEVEL: DEBUG
-      # ⚠️ ENABLE LOCAL AUTHENTICATION BYPASS
-      LOCAL_AUTH_ENABLED: "true"
-      # ⚠️ MODEL CONFIGURATION - Uses Rhesis model for local development
-      DEFAULT_GENERATION_MODEL: "rhesis"
-      DEFAULT_MODEL_NAME: "gemini-2.0-flash"
+      LOG_LEVEL: ${LOG_LEVEL}
+      LOCAL_AUTH_ENABLED: ${LOCAL_AUTH_ENABLED}
     ports:
       - "8080:8080"
     extra_hosts:
@@ -189,16 +176,13 @@ services:
     container_name: rhesis-worker
     environment:
       <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
-      LOG_LEVEL: INFO
-      CELERY_WORKER_CONCURRENCY: 8
-      CELERY_WORKER_PREFETCH_MULTIPLIER: 4
-      CELERY_WORKER_MAX_TASKS_PER_CHILD: 1000
-      CELERY_WORKER_LOGLEVEL: INFO
-      USE_TCP_DATABASE: true
-      ENABLE_FLOWER: no
-      # ⚠️ MODEL CONFIGURATION - Uses Rhesis model for local development
-      DEFAULT_GENERATION_MODEL: "rhesis"
-      DEFAULT_MODEL_NAME: "gemini-2.0-flash"
+      LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL}
+      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY}
+      CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER}
+      CELERY_WORKER_MAX_TASKS_PER_CHILD: ${CELERY_WORKER_MAX_TASKS_PER_CHILD}
+      CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL}
+      USE_TCP_DATABASE: ${USE_TCP_DATABASE}
+      ENABLE_FLOWER: ${ENABLE_FLOWER}
     ports:
       - "8081:8081"
     extra_hosts:
@@ -226,18 +210,18 @@ services:
       context: ./apps/frontend
       dockerfile: Dockerfile
       args:
-        FRONTEND_ENV: local
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
-        NEXT_PUBLIC_APP_URL: http://localhost:3000
-        NEXT_PUBLIC_AUTH0_DOMAIN: local.rhesis.dev
-        NEXT_PUBLIC_AUTH0_CLIENT_ID: local-client-id
-        NEXT_PUBLIC_LOCAL_AUTH_ENABLED: "true"
+        FRONTEND_ENV: ${FRONTEND_ENV}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN}
+        NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID}
+        NEXT_PUBLIC_LOCAL_AUTH_ENABLED: ${NEXT_PUBLIC_LOCAL_AUTH_ENABLED}
     container_name: rhesis-frontend
     environment:
       <<: [*common-auth0, *nextjs-frontend, *google-client, *common-environment, *rhesis-config]
-      PORT: 3000
-      NEXT_PUBLIC_OTEL_ENDPOINT: ""
-      NEXT_PUBLIC_DEPLOYMENT_TYPE: self-hosted
+      PORT: ${FRONTEND_PORT}
+      NEXT_PUBLIC_OTEL_ENDPOINT: ${NEXT_PUBLIC_OTEL_ENDPOINT:-}
+      NEXT_PUBLIC_DEPLOYMENT_TYPE: ${NEXT_PUBLIC_DEPLOYMENT_TYPE}
     ports:
       - "3000:3000"
     depends_on:
