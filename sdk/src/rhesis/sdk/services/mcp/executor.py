@@ -14,11 +14,10 @@ logger = logging.getLogger(__name__)
 
 class ToolExecutor:
     """
-    Executor for MCP tools with optional response filtering.
+    Handles execution of MCP tool calls with optional response filtering.
 
-    This component handles pure execution of tool calls without any
-    business logic or decision-making. It simply takes tool calls and
-    returns results.
+    Separates pure tool execution from agent logic. Optionally filters verbose
+    API responses (e.g., Notion pages) to reduce token usage.
     """
 
     def __init__(
@@ -27,11 +26,11 @@ class ToolExecutor:
         provider_config: Optional["ProviderConfig"] = None,
     ):
         """
-        Initialize the ToolExecutor.
+        Initialize the executor.
 
         Args:
-            mcp_client: MCP client instance for connecting to MCP servers
-            provider_config: Optional provider configuration for response filtering
+            mcp_client: Connected MCP client for calling tools
+            provider_config: Optional config for filtering API responses
         """
         self.mcp_client = mcp_client
         self.provider_config = provider_config
@@ -47,13 +46,13 @@ class ToolExecutor:
 
     async def execute_tool(self, tool_call: ToolCall) -> ToolResult:
         """
-        Execute a single tool call.
+        Execute a tool and return its result.
 
         Args:
-            tool_call: ToolCall instance with tool_name and arguments
+            tool_call: Specifies which tool to call and with what arguments
 
         Returns:
-            ToolResult with success status, content, or error message
+            ToolResult containing output content or error details
         """
         try:
             logger.info(f"Executing tool: {tool_call.tool_name}")

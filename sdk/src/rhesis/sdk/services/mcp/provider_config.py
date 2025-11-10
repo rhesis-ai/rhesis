@@ -12,10 +12,13 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ProviderConfig:
     """
-    Configuration for provider-specific response filtering.
+    Configuration for filtering verbose MCP API responses.
 
-    This allows filtering verbose API responses to only include essential fields,
-    reducing token usage and improving LLM processing efficiency.
+    Some MCP servers (like Notion) return very large responses with nested objects.
+    This config extracts only essential fields to reduce token usage and improve
+    LLM reasoning efficiency.
+
+    Example: Notion search might return 50KB per page. Filtering reduces it to 2KB.
     """
 
     name: str
@@ -32,14 +35,14 @@ class ProviderConfig:
 
     def filter_response(self, result: Any, tool_name: str) -> Any:
         """
-        Filter MCP response to include only essential fields.
+        Filter verbose API responses to essential fields only.
 
         Args:
-            result: Raw result from MCP tool call
+            result: Raw MCP tool result with potentially large nested objects
             tool_name: Name of the tool that was called
 
         Returns:
-            Filtered result object (if filtering applies) or original result
+            Filtered result with only essential fields, or original if no filter defined
         """
         if not self.should_filter(tool_name):
             return result

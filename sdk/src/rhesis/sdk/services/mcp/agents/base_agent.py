@@ -23,7 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 class BaseMCPAgent(ABC):
-    """Base class for MCP agents using ReAct loop. Subclasses override specific methods."""
+    """
+    Base class for MCP agents using ReAct (Reason-Act-Observe) loop.
+
+    Agents autonomously call MCP tools to accomplish tasks. Subclasses customize
+    the system prompt, result parsing, and error handling for specific use cases.
+    """
 
     def __init__(
         self,
@@ -34,6 +39,17 @@ class BaseMCPAgent(ABC):
         stop_on_error: bool = True,
         provider_config: Optional["ProviderConfig"] = None,
     ):
+        """
+        Initialize the MCP agent.
+
+        Args:
+            llm: Language model for reasoning and decision-making
+            mcp_client: Client connected to an MCP server (Notion, GitHub, etc.)
+            max_iterations: Maximum reasoning loops before stopping (default: 10)
+            verbose: Print detailed execution logs to stdout (default: False)
+            stop_on_error: Halt execution on first tool failure (default: True)
+            provider_config: Optional config for filtering verbose API responses
+        """
         if not mcp_client:
             raise ValueError("mcp_client is required")
         self.llm = llm
@@ -45,7 +61,7 @@ class BaseMCPAgent(ABC):
 
     @abstractmethod
     def get_system_prompt(self) -> str:
-        """Return the system prompt for this agent type."""
+        """Return the system prompt that defines agent behavior and output format."""
         pass
 
     @abstractmethod
@@ -55,17 +71,31 @@ class BaseMCPAgent(ABC):
         available_tools: List[Dict[str, Any]],
         history: List[ExecutionStep],
     ) -> str:
-        """Build the task-specific prompt."""
+        """
+        Build the user prompt for the current iteration.
+
+        Combines task input, available tools, and execution history into a prompt
+        that guides the LLM's next action.
+        """
         pass
 
     @abstractmethod
     def parse_result(self, final_answer: str, history: List[ExecutionStep]) -> Any:
-        """Parse the final answer into the appropriate result type."""
+        """
+        Parse the LLM's final answer into a structured result object.
+
+        Called when the agent finishes successfully. Subclasses return their
+        specific result type (AgentResult, SearchResult, ExtractionResult, etc.).
+        """
         pass
 
     @abstractmethod
     def create_error_result(self, error: str, history: List[ExecutionStep], iterations: int) -> Any:
-        """Create an error result object."""
+        """
+        Create an error result when execution fails.
+
+        Returns the same type as parse_result but with error details populated.
+        """
         pass
 
     def get_agent_name(self) -> str:
@@ -73,7 +103,18 @@ class BaseMCPAgent(ABC):
         return self.__class__.__name__
 
     async def run_async(self, task_input: Any) -> Any:
-        """Execute the agent with given input (async version)."""
+        """
+        Execute the agent's ReAct loop asynchronously.
+
+        Connects to MCP server, discovers tools, and iteratively reasons about
+        what actions to take until the task is complete or max iterations reached.
+
+        Args:
+            task_input: Task description (query string, page IDs, etc.)
+
+        Returns:
+            Subclass-specific result object with execution history
+        """
         history: List[ExecutionStep] = []
         iteration = 0
 
@@ -134,7 +175,11 @@ class BaseMCPAgent(ABC):
             logger.info(f"[{self.get_agent_name()}] Disconnected from MCP server")
 
     def run(self, task_input: Any) -> Any:
-        """Execute the agent (synchronous wrapper)."""
+        """
+        Execute the agent synchronously.
+
+        Convenience wrapper around run_async for non-async code.
+        """
         return asyncio.run(self.run_async(task_input))
 
     async def _execute_iteration(
@@ -144,7 +189,12 @@ class BaseMCPAgent(ABC):
         history: List[ExecutionStep],
         iteration: int,
     ) -> Tuple[ExecutionStep, bool]:
-        """Execute a single ReAct iteration."""
+        """
+        Execute one ReAct iteration: build prompt, get LLM decision, execute tools.
+
+        Returns:
+            Tuple of (execution_step, should_finish)
+        """
         prompt = self.build_prompt(task_input, available_tools, history)
 
         logger.info(f"[{self.get_agent_name()}] Iteration {iteration}: Sending prompt to LLM")
@@ -305,7 +355,7 @@ class BaseMCPAgent(ABC):
         )
 
     def _format_tools(self, tools: List[Dict[str, Any]]) -> str:
-        """Format available tools for prompt."""
+        """Format tool list into human-readable text with names, descriptions, and parameters."""
         descriptions = []
         for tool in tools:
             desc = f"- {tool['name']}: {tool.get('description', 'No description')}"
@@ -318,7 +368,11 @@ class BaseMCPAgent(ABC):
         return "\n".join(descriptions)
 
     def _format_history(self, history: List[ExecutionStep], max_len: int = 5000) -> str:
-        """Format execution history for prompt."""
+        """
+        Format execution history into readable text for LLM context.
+
+        Truncates long tool results to avoid exceeding context limits.
+        """
         if not history:
             return ""
 
@@ -385,7 +439,12 @@ class BaseMCPAgent(ABC):
 
 
 class MCPAgent(BaseMCPAgent):
-    """General-purpose MCP Agent for backward compatibility."""
+    """
+    General-purpose MCP Agent for open-ended tasks.
+
+    Uses a flexible ReAct loop that can work with any MCP tools to answer
+    user queries. For specialized tasks, use MCPSearchAgent or MCPExtractAgent.
+    """
 
     DEFAULT_SYSTEM_PROMPT = """You are an autonomous agent that can use MCP \
 tools to accomplish tasks.

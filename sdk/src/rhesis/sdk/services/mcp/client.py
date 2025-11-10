@@ -8,7 +8,12 @@ from mcp.client.stdio import stdio_client  # type: ignore[import-untyped]
 
 
 class MCPClient:
-    """Client for interacting with MCP servers."""
+    """
+    Client for connecting to and communicating with MCP servers.
+
+    Manages stdio-based communication with external MCP servers (Notion, GitHub, etc.)
+    and provides methods to list/call tools and read resources.
+    """
 
     def __init__(
         self,
@@ -18,13 +23,13 @@ class MCPClient:
         env: Optional[Dict[str, str]] = None,
     ):
         """
-        Initialize MCP client.
+        Initialize MCP client for a specific server.
 
         Args:
-            server_name: Name of the MCP server
-            command: Command to run the MCP server (e.g., "npx")
-            args: Arguments for the command (e.g., ["-y", "@notionhq/notion-mcp-server"])
-            env: Optional environment variables for the server
+            server_name: Friendly name for the server (e.g., "notionApi")
+            command: Command to launch the server (e.g., "npx", "python")
+            args: Command arguments (e.g., ["-y", "@notionhq/notion-mcp-server"])
+            env: Environment variables to pass to the server process
         """
         self.server_name = server_name
         self.command = command
@@ -36,7 +41,11 @@ class MCPClient:
         self._stdio_context = None
 
     async def connect(self) -> None:
-        """Connect to the MCP server."""
+        """
+        Start the MCP server subprocess and establish connection.
+
+        Must be called before any other operations.
+        """
         server_params = StdioServerParameters(
             command=self.command,
             args=self.args,
@@ -132,10 +141,10 @@ class MCPClient:
 
     async def list_tools(self) -> List[Dict[str, Any]]:
         """
-        List all available tools from the MCP server.
+        List all tools exposed by this MCP server.
 
         Returns:
-            List of tool dictionaries with name, description, input schema
+            List of dicts with 'name', 'description', and 'inputSchema' fields
         """
         if not self.session:
             raise RuntimeError("Not connected to MCP server. Call connect() first.")
@@ -152,15 +161,19 @@ class MCPClient:
 
 
 class MCPClientManager:
-    """Manager for multiple MCP clients."""
+    """
+    Factory for creating MCP clients from configuration files.
+
+    Loads server configurations from mcp.json and creates MCPClient instances.
+    """
 
     def __init__(self, config_path: Optional[str] = None):
         """
-        Initialize MCP client manager.
+        Initialize client manager with config file path.
 
         Args:
-            config_path: Optional path to MCP configuration file (mcp.json).
-                        If not provided, will look for ~/.cursor/mcp.json
+            config_path: Path to mcp.json config file.
+                        Defaults to ~/.cursor/mcp.json if not provided
         """
         self.config_path = config_path
         self.clients: Dict[str, MCPClient] = {}

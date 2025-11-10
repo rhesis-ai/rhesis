@@ -16,7 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class MCPExtractAgent(BaseMCPAgent):
-    """Agent for extracting full content from specific pages."""
+    """
+    Specialized agent for extracting full content from known pages.
+
+    Given page IDs (from search results or direct input), fetches complete content
+    including metadata, converting it to markdown format. Works with any MCP server.
+    """
 
     EXTRACT_SYSTEM_PROMPT = """You are a content extraction agent.
 
@@ -81,7 +86,6 @@ If title is missing or null, always use "Untitled" as the fallback."""
             max_iterations,
             verbose,
             stop_on_error,
-            debug=False,
             provider_config=provider_config,
         )
 
@@ -139,6 +143,7 @@ system prompt."""
         return prompt
 
     def parse_result(self, final_answer: str, history: List[ExecutionStep]) -> ExtractionResult:
+        """Parse LLM's JSON response into ExtractionResult with full page content."""
         pages = self._parse_pages(final_answer)
 
         return ExtractionResult(
@@ -162,7 +167,11 @@ system prompt."""
         )
 
     def _parse_pages(self, final_answer: str) -> List[ExtractedPage]:
-        """Parse the LLM's final answer into ExtractedPage objects."""
+        """
+        Parse LLM's JSON response into ExtractedPage objects with full content.
+
+        Includes fallback recovery for malformed JSON responses.
+        """
         try:
             data = json.loads(final_answer)
 
@@ -216,15 +225,25 @@ system prompt."""
             logger.error(f"Unexpected error parsing extraction results: {e}")
             return []
 
-    # Keep backward compatibility
     async def run_async(
         self, page_ids: List[str], context: Optional[Dict[str, Any]] = None
     ) -> ExtractionResult:
+        """
+        Extract full content from specified pages.
+
+        Args:
+            page_ids: List of page IDs to extract (from search results or known IDs)
+            context: Optional context for guiding extraction (purpose, query, etc.)
+
+        Returns:
+            ExtractionResult with full content for each page
+        """
         task_input = {"page_ids": page_ids, "context": context}
         return await super().run_async(task_input)
 
     def run(
         self, page_ids: List[str], context: Optional[Dict[str, Any]] = None
     ) -> ExtractionResult:
+        """Synchronous wrapper for run_async."""
         task_input = {"page_ids": page_ids, "context": context}
         return super().run(task_input)
