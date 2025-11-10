@@ -432,11 +432,7 @@ export default function NewMetricPage() {
           Result Configuration
         </Typography>
         <Box sx={{ mb: 3 }}>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 2 }}
-          >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Choose how this metric will be scored:
           </Typography>
           <FormControl fullWidth>
@@ -452,7 +448,10 @@ export default function NewMetricPage() {
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
-            Metric Scope <span style={{ color: 'red' }}>*</span>
+            Metric Scope{' '}
+            <Typography component="span" sx={{ color: 'error.main' }}>
+              *
+            </Typography>
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Select which test types this metric applies to (at least one
