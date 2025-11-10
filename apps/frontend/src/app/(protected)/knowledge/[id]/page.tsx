@@ -3,9 +3,10 @@ export const dynamic = 'force-dynamic';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import SourcePreviewClientWrapper from './components/SourcePreviewClientWrapper';
-import { Alert, Paper } from '@mui/material';
+import { Alert, Paper, Box } from '@mui/material';
 import styles from '@/styles/Knowledge.module.css';
 import { notFound } from 'next/navigation';
+import CommentsWrapper from '@/components/comments/CommentsWrapper';
 
 interface SourcePreviewPageProps {
   params: Promise<{
@@ -45,10 +46,24 @@ export default async function SourcePreviewPage({
     );
 
     return (
-      <SourcePreviewClientWrapper
-        source={source}
-        sessionToken={session.session_token}
-      />
+      <Box>
+        <SourcePreviewClientWrapper
+          source={source}
+          sessionToken={session.session_token}
+        />
+
+        {/* Comments Section */}
+        <Paper sx={{ p: 3 }}>
+          <CommentsWrapper
+            entityType="Source"
+            entityId={source.id}
+            sessionToken={session.session_token}
+            currentUserId={session.user_id}
+            currentUserName={session.user_name}
+            currentUserPicture={session.user_picture}
+          />
+        </Paper>
+      </Box>
     );
   } catch (error) {
     // If source not found, return 404
