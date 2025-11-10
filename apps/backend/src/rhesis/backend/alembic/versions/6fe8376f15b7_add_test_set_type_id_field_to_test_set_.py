@@ -1,7 +1,8 @@
-from alembic import op
-import sqlalchemy as sa
-from typing import Union, Sequence
+from typing import Sequence, Union
+
 import rhesis
+import sqlalchemy as sa
+from alembic import op
 
 # Import our simple template loader
 from rhesis.backend.alembic.utils.template_loader import (
@@ -20,8 +21,7 @@ def upgrade() -> None:
     # Step 1: Add TestSetType entries to type_lookup table
     test_set_type_values = """
         ('TestSetType', 'Single-Turn', 'Test set containing only single-turn tests'),
-        ('TestSetType', 'Multi-Turn', 'Test set containing only multi-turn tests'),
-        ('TestSetType', 'Mixed', 'Test set containing both single-turn and multi-turn tests')
+        ('TestSetType', 'Multi-Turn', 'Test set containing only multi-turn tests')
     """.strip()
     op.execute(load_type_lookup_template(test_set_type_values))
 
@@ -73,5 +73,5 @@ def downgrade() -> None:
     op.drop_column("test_set", "test_set_type_id")
 
     # Step 2: Remove TestSetType entries from type_lookup table
-    test_set_type_values = "'Single-Turn', 'Multi-Turn', 'Mixed'"
+    test_set_type_values = "'Single-Turn', 'Multi-Turn'"
     op.execute(load_cleanup_type_lookup_template("TestSetType", test_set_type_values))
