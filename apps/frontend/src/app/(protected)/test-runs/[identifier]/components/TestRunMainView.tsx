@@ -587,7 +587,9 @@ export default function TestRunMainView({
                         ?.type_value
                     }
                     project={testRun.test_configuration?.endpoint?.project}
-                    projectName={testRun.test_configuration?.endpoint?.project?.name}
+                    projectName={
+                      testRun.test_configuration?.endpoint?.project?.name
+                    }
                   />
                 </Box>
               </Box>

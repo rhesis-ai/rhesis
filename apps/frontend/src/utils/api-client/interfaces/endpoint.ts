@@ -30,7 +30,7 @@ export interface Endpoint {
   user_id?: string;
   organization_id?: string;
   project_id?: string;
-  
+
   // Nested project object (when included in response)
   project?: {
     id?: string;

@@ -708,7 +708,8 @@ export default function ComparisonView({
                 const baselineResponse = isMultiTurn
                   ? test.baseline?.test_output?.goal_evaluation?.reasoning ||
                     'No evaluation available'
-                  : test.baseline?.test_output?.output || 'No response available';
+                  : test.baseline?.test_output?.output ||
+                    'No response available';
                 const currentResponse = isMultiTurn
                   ? test.current.test_output?.goal_evaluation?.reasoning ||
                     'No evaluation available'
@@ -949,11 +950,11 @@ export default function ComparisonView({
               {comparisonTests.findIndex(t => t.id === selectedTestId) + 1}:{' '}
               {selectedTest
                 ? isMultiTurn
-                  ? selectedTest.current.test_output?.test_configuration?.goal ||
-                    'No goal available'
+                  ? selectedTest.current.test_output?.test_configuration
+                      ?.goal || 'No goal available'
                   : selectedTest.current.prompt_id &&
-              prompts[selectedTest.current.prompt_id]
-                ? prompts[selectedTest.current.prompt_id].content
+                      prompts[selectedTest.current.prompt_id]
+                    ? prompts[selectedTest.current.prompt_id].content
                     : 'No prompt available'
                 : ''}
             </Typography>
@@ -1128,7 +1129,8 @@ export default function ComparisonView({
                           </>
                         )}
                       </Box>
-                      {selectedTest.current.test_output?.conversation_summary ? (
+                      {selectedTest.current.test_output
+                        ?.conversation_summary ? (
                         <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
                           <ConversationHistory
                             conversationSummary={
@@ -1166,692 +1168,705 @@ export default function ComparisonView({
                   spacing={0}
                   sx={{ height: 'calc(90vh - 200px)' }}
                 >
-                {/* Baseline Column */}
-                <Grid
-                  item
-                  xs={12}
-                  md={6}
-                  sx={{
-                    borderRight: { md: 1 },
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Box
+                  {/* Baseline Column */}
+                  <Grid
+                    item
+                    xs={12}
+                    md={6}
                     sx={{
-                      p: 3,
-                      height: '100%',
-                      overflow: 'auto',
+                      borderRight: { md: 1 },
+                      borderColor: 'divider',
                     }}
                   >
                     <Box
                       sx={{
-                        mb: 3,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        flexWrap: 'wrap',
+                        p: 3,
+                        height: '100%',
+                        overflow: 'auto',
                       }}
                     >
-                      <Typography
-                        variant="overline"
-                        color="text.secondary"
-                        sx={{ fontWeight: 600 }}
+                      <Box
+                        sx={{
+                          mb: 3,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          flexWrap: 'wrap',
+                        }}
                       >
-                        Baseline Run
-                      </Typography>
-                      {selectedTest.baseline ? (
+                        <Typography
+                          variant="overline"
+                          color="text.secondary"
+                          sx={{ fontWeight: 600 }}
+                        >
+                          Baseline Run
+                        </Typography>
+                        {selectedTest.baseline ? (
+                          <MetricStatusChip
+                            passedCount={
+                              Object.values(
+                                selectedTest.baseline.test_metrics?.metrics ||
+                                  {}
+                              ).filter(m => m.is_successful).length
+                            }
+                            totalCount={
+                              Object.values(
+                                selectedTest.baseline.test_metrics?.metrics ||
+                                  {}
+                              ).length
+                            }
+                            size="small"
+                            variant="filled"
+                          />
+                        ) : (
+                          <Chip label="No data" size="small" color="default" />
+                        )}
+                      </Box>
+
+                      {selectedTest.baseline && (
+                        <>
+                          {/* Response */}
+                          <Box sx={{ mb: 3 }}>
+                            <Typography
+                              variant="overline"
+                              color="text.secondary"
+                              display="block"
+                              gutterBottom
+                            >
+                              Response
+                            </Typography>
+                            <Paper
+                              variant="outlined"
+                              sx={{
+                                p: 2.5,
+                                bgcolor: theme.palette.background.light1,
+                              }}
+                            >
+                              <Typography variant="body2">
+                                {selectedTest.baseline.test_output?.output ||
+                                  'No response available'}
+                              </Typography>
+                            </Paper>
+                          </Box>
+
+                          {/* Metrics */}
+                          {behaviors.map(behavior => {
+                            const behaviorMetrics = behavior.metrics
+                              .map(metric => ({
+                                ...metric,
+                                baselineResult:
+                                  selectedTest.baseline?.test_metrics
+                                    ?.metrics?.[metric.name],
+                                currentResult:
+                                  selectedTest.current?.test_metrics?.metrics?.[
+                                    metric.name
+                                  ],
+                              }))
+                              .filter(m => m.baselineResult || m.currentResult);
+
+                            if (behaviorMetrics.length === 0) return null;
+
+                            const baselinePassedCount = behaviorMetrics.filter(
+                              m => m.baselineResult?.is_successful
+                            ).length;
+                            const currentPassedCount = behaviorMetrics.filter(
+                              m => m.currentResult?.is_successful
+                            ).length;
+                            const hasChanges =
+                              baselinePassedCount !== currentPassedCount;
+
+                            return (
+                              <Accordion
+                                key={behavior.id}
+                                sx={{
+                                  mb: 2,
+                                  '&:before': { display: 'none' },
+                                  boxShadow: 'none',
+                                  border: 1,
+                                  borderColor: 'divider',
+                                }}
+                                defaultExpanded={hasChanges}
+                              >
+                                <AccordionSummary
+                                  expandIcon={<ExpandMoreIcon />}
+                                  sx={{ py: 2 }}
+                                >
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 1,
+                                      width: '100%',
+                                    }}
+                                  >
+                                    <Typography
+                                      variant="body1"
+                                      sx={{ fontWeight: 600 }}
+                                    >
+                                      {behavior.name}
+                                    </Typography>
+                                    <Chip
+                                      label={`${baselinePassedCount}/${behaviorMetrics.length}`}
+                                      size="small"
+                                      color={
+                                        baselinePassedCount ===
+                                        behaviorMetrics.length
+                                          ? 'success'
+                                          : 'error'
+                                      }
+                                    />
+                                  </Box>
+                                </AccordionSummary>
+                                <AccordionDetails sx={{ p: 3 }}>
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: 3,
+                                    }}
+                                  >
+                                    {behaviorMetrics.map(metric => {
+                                      const scoreDiff =
+                                        metric.currentResult?.score != null &&
+                                        metric.baselineResult?.score != null
+                                          ? Number(metric.currentResult.score) -
+                                            Number(metric.baselineResult.score)
+                                          : null;
+                                      const hasScoreChange =
+                                        scoreDiff !== null &&
+                                        Math.abs(scoreDiff) > 0.01;
+
+                                      return (
+                                        <Paper
+                                          key={metric.name}
+                                          variant="outlined"
+                                          sx={{ p: 3 }}
+                                        >
+                                          <Box
+                                            sx={{
+                                              display: 'flex',
+                                              alignItems: 'flex-start',
+                                              gap: 1,
+                                            }}
+                                          >
+                                            {metric.baselineResult
+                                              ?.is_successful ? (
+                                              <CheckCircleIcon
+                                                fontSize="small"
+                                                sx={{
+                                                  color:
+                                                    theme.palette.success.main,
+                                                }}
+                                              />
+                                            ) : (
+                                              <CancelIcon
+                                                fontSize="small"
+                                                sx={{
+                                                  color:
+                                                    theme.palette.error.main,
+                                                }}
+                                              />
+                                            )}
+                                            <Box sx={{ flex: 1 }}>
+                                              <Typography
+                                                variant="subtitle2"
+                                                gutterBottom
+                                              >
+                                                {metric.name}
+                                              </Typography>
+                                              {metric.baselineResult?.score !=
+                                                null && (
+                                                <Box sx={{ mb: 1 }}>
+                                                  <Box
+                                                    sx={{
+                                                      display: 'flex',
+                                                      justifyContent:
+                                                        'space-between',
+                                                      mb: 0.5,
+                                                    }}
+                                                  >
+                                                    <Typography variant="caption">
+                                                      Score:{' '}
+                                                      {Number(
+                                                        metric.baselineResult
+                                                          .score
+                                                      ).toFixed(2)}
+                                                      {hasScoreChange && (
+                                                        <Typography
+                                                          component="span"
+                                                          variant="caption"
+                                                          sx={{
+                                                            ml: 0.5,
+                                                            color:
+                                                              scoreDiff! > 0
+                                                                ? theme.palette
+                                                                    .success
+                                                                    .main
+                                                                : theme.palette
+                                                                    .error.main,
+                                                            fontWeight: 500,
+                                                          }}
+                                                        >
+                                                          (
+                                                          {scoreDiff! > 0
+                                                            ? '+'
+                                                            : ''}
+                                                          {scoreDiff!.toFixed(
+                                                            2
+                                                          )}
+                                                          )
+                                                        </Typography>
+                                                      )}
+                                                    </Typography>
+                                                    {metric.baselineResult
+                                                      .threshold != null && (
+                                                      <Typography
+                                                        variant="caption"
+                                                        color="text.secondary"
+                                                      >
+                                                        Threshold: ≥
+                                                        {Number(
+                                                          metric.baselineResult
+                                                            .threshold
+                                                        ).toFixed(2)}
+                                                      </Typography>
+                                                    )}
+                                                  </Box>
+                                                  <LinearProgress
+                                                    variant="determinate"
+                                                    value={
+                                                      Number(
+                                                        metric.baselineResult
+                                                          .score
+                                                      ) * 100
+                                                    }
+                                                    color={
+                                                      metric.baselineResult
+                                                        .is_successful
+                                                        ? 'success'
+                                                        : 'error'
+                                                    }
+                                                    sx={{
+                                                      height: 8,
+                                                      borderRadius:
+                                                        theme.shape
+                                                          .borderRadius / 4,
+                                                      bgcolor:
+                                                        theme.palette.background
+                                                          .light2,
+                                                    }}
+                                                  />
+                                                </Box>
+                                              )}
+                                              {metric.baselineResult
+                                                ?.reason && (
+                                                <Typography
+                                                  variant="caption"
+                                                  color="text.secondary"
+                                                >
+                                                  {metric.baselineResult.reason}
+                                                </Typography>
+                                              )}
+                                            </Box>
+                                          </Box>
+                                        </Paper>
+                                      );
+                                    })}
+                                  </Box>
+                                </AccordionDetails>
+                              </Accordion>
+                            );
+                          })}
+                        </>
+                      )}
+                    </Box>
+                  </Grid>
+
+                  {/* Current Column */}
+                  <Grid item xs={12} md={6}>
+                    <Box
+                      sx={{
+                        p: 3,
+                        height: '100%',
+                        overflow: 'auto',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          mb: 3,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <Typography
+                          variant="overline"
+                          color="text.secondary"
+                          sx={{ fontWeight: 600 }}
+                        >
+                          Current Run
+                        </Typography>
                         <MetricStatusChip
                           passedCount={
                             Object.values(
-                                selectedTest.baseline.test_metrics?.metrics ||
-                                  {}
+                              selectedTest.current.test_metrics?.metrics || {}
                             ).filter(m => m.is_successful).length
                           }
                           totalCount={
                             Object.values(
-                                selectedTest.baseline.test_metrics?.metrics ||
-                                  {}
+                              selectedTest.current.test_metrics?.metrics || {}
                             ).length
                           }
                           size="small"
                           variant="filled"
                         />
-                      ) : (
-                        <Chip label="No data" size="small" color="default" />
-                      )}
-                    </Box>
+                        {selectedTest.baseline && (
+                          <>
+                            {isTestPassed(selectedTest.current) &&
+                              !isTestPassed(selectedTest.baseline) && (
+                                <TrendingUpIcon
+                                  fontSize="small"
+                                  sx={{ color: theme.palette.success.main }}
+                                />
+                              )}
+                            {!isTestPassed(selectedTest.current) &&
+                              isTestPassed(selectedTest.baseline) && (
+                                <TrendingDownIcon
+                                  fontSize="small"
+                                  sx={{ color: theme.palette.error.main }}
+                                />
+                              )}
+                          </>
+                        )}
+                      </Box>
 
-                    {selectedTest.baseline && (
-                      <>
-                        {/* Response */}
-                        <Box sx={{ mb: 3 }}>
-                          <Typography
-                            variant="overline"
-                            color="text.secondary"
-                            display="block"
-                            gutterBottom
-                          >
-                            Response
+                      {/* Response */}
+                      <Box sx={{ mb: 3 }}>
+                        <Typography
+                          variant="overline"
+                          color="text.secondary"
+                          display="block"
+                          gutterBottom
+                        >
+                          Response
+                        </Typography>
+                        <Paper
+                          variant="outlined"
+                          sx={{
+                            p: 2.5,
+                            bgcolor: theme.palette.background.light1,
+                          }}
+                        >
+                          <Typography variant="body2">
+                            {selectedTest.current.test_output?.output ||
+                              'No response available'}
                           </Typography>
-                          <Paper
-                            variant="outlined"
+                        </Paper>
+                      </Box>
+
+                      {/* Metrics */}
+                      {behaviors.map(behavior => {
+                        const behaviorMetrics = behavior.metrics
+                          .map(metric => ({
+                            ...metric,
+                            currentResult:
+                              selectedTest.current?.test_metrics?.metrics?.[
+                                metric.name
+                              ],
+                            baselineResult:
+                              selectedTest.baseline?.test_metrics?.metrics?.[
+                                metric.name
+                              ],
+                          }))
+                          .filter(m => m.currentResult || m.baselineResult);
+
+                        if (behaviorMetrics.length === 0) return null;
+
+                        const currentPassedCount = behaviorMetrics.filter(
+                          m => m.currentResult?.is_successful
+                        ).length;
+                        const baselinePassedCount = behaviorMetrics.filter(
+                          m => m.baselineResult?.is_successful
+                        ).length;
+                        const hasChanges =
+                          currentPassedCount !== baselinePassedCount;
+
+                        return (
+                          <Accordion
+                            key={behavior.id}
                             sx={{
-                              p: 2.5,
-                              bgcolor: theme.palette.background.light1,
+                              mb: 2,
+                              '&:before': { display: 'none' },
+                              boxShadow: 'none',
+                              border: 1,
+                              borderColor: 'divider',
                             }}
+                            defaultExpanded={hasChanges}
                           >
-                            <Typography variant="body2">
-                              {selectedTest.baseline.test_output?.output ||
-                                'No response available'}
-                            </Typography>
-                          </Paper>
-                        </Box>
-
-                        {/* Metrics */}
-                        {behaviors.map(behavior => {
-                          const behaviorMetrics = behavior.metrics
-                            .map(metric => ({
-                              ...metric,
-                              baselineResult:
-                                selectedTest.baseline?.test_metrics?.metrics?.[
-                                  metric.name
-                                ],
-                              currentResult:
-                                selectedTest.current?.test_metrics?.metrics?.[
-                                  metric.name
-                                ],
-                            }))
-                            .filter(m => m.baselineResult || m.currentResult);
-
-                          if (behaviorMetrics.length === 0) return null;
-
-                          const baselinePassedCount = behaviorMetrics.filter(
-                            m => m.baselineResult?.is_successful
-                          ).length;
-                          const currentPassedCount = behaviorMetrics.filter(
-                            m => m.currentResult?.is_successful
-                          ).length;
-                          const hasChanges =
-                            baselinePassedCount !== currentPassedCount;
-
-                          return (
-                            <Accordion
-                              key={behavior.id}
-                              sx={{
-                                mb: 2,
-                                '&:before': { display: 'none' },
-                                boxShadow: 'none',
-                                border: 1,
-                                borderColor: 'divider',
-                              }}
-                              defaultExpanded={hasChanges}
+                            <AccordionSummary
+                              expandIcon={<ExpandMoreIcon />}
+                              sx={{ py: 2 }}
                             >
-                              <AccordionSummary
-                                expandIcon={<ExpandMoreIcon />}
-                                sx={{ py: 2 }}
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  width: '100%',
+                                }}
                               >
+                                <Typography
+                                  variant="body1"
+                                  sx={{ fontWeight: 600 }}
+                                >
+                                  {behavior.name}
+                                </Typography>
                                 <Box
                                   sx={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: 1,
-                                    width: '100%',
+                                    gap: 0.5,
                                   }}
                                 >
-                                  <Typography
-                                    variant="body1"
-                                    sx={{ fontWeight: 600 }}
-                                  >
-                                    {behavior.name}
-                                  </Typography>
                                   <Chip
-                                    label={`${baselinePassedCount}/${behaviorMetrics.length}`}
+                                    label={`${currentPassedCount}/${behaviorMetrics.length}`}
                                     size="small"
                                     color={
-                                      baselinePassedCount ===
+                                      currentPassedCount ===
                                       behaviorMetrics.length
                                         ? 'success'
                                         : 'error'
                                     }
                                   />
-                                </Box>
-                              </AccordionSummary>
-                              <AccordionDetails sx={{ p: 3 }}>
-                                <Box
-                                  sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: 3,
-                                  }}
-                                >
-                                  {behaviorMetrics.map(metric => {
-                                    const scoreDiff =
-                                      metric.currentResult?.score != null &&
-                                      metric.baselineResult?.score != null
-                                        ? Number(metric.currentResult.score) -
-                                          Number(metric.baselineResult.score)
-                                        : null;
-                                    const hasScoreChange =
-                                      scoreDiff !== null &&
-                                      Math.abs(scoreDiff) > 0.01;
-
-                                    return (
-                                      <Paper
-                                        key={metric.name}
-                                        variant="outlined"
-                                        sx={{ p: 3 }}
-                                      >
-                                        <Box
-                                          sx={{
-                                            display: 'flex',
-                                            alignItems: 'flex-start',
-                                            gap: 1,
-                                          }}
-                                        >
-                                          {metric.baselineResult
-                                            ?.is_successful ? (
-                                            <CheckCircleIcon
-                                              fontSize="small"
-                                              sx={{
-                                                color:
-                                                  theme.palette.success.main,
-                                              }}
-                                            />
-                                          ) : (
-                                            <CancelIcon
-                                              fontSize="small"
-                                              sx={{
-                                                color: theme.palette.error.main,
-                                              }}
-                                            />
-                                          )}
-                                          <Box sx={{ flex: 1 }}>
-                                            <Typography
-                                              variant="subtitle2"
-                                              gutterBottom
-                                            >
-                                              {metric.name}
-                                            </Typography>
-                                            {metric.baselineResult?.score !=
-                                              null && (
-                                              <Box sx={{ mb: 1 }}>
-                                                <Box
-                                                  sx={{
-                                                    display: 'flex',
-                                                    justifyContent:
-                                                      'space-between',
-                                                    mb: 0.5,
-                                                  }}
-                                                >
-                                                  <Typography variant="caption">
-                                                    Score:{' '}
-                                                    {Number(
-                                                      metric.baselineResult
-                                                        .score
-                                                    ).toFixed(2)}
-                                                    {hasScoreChange && (
-                                                      <Typography
-                                                        component="span"
-                                                        variant="caption"
-                                                        sx={{
-                                                          ml: 0.5,
-                                                          color:
-                                                            scoreDiff! > 0
-                                                              ? theme.palette
-                                                                  .success.main
-                                                              : theme.palette
-                                                                  .error.main,
-                                                          fontWeight: 500,
-                                                        }}
-                                                      >
-                                                        (
-                                                        {scoreDiff! > 0
-                                                          ? '+'
-                                                          : ''}
-                                                        {scoreDiff!.toFixed(2)})
-                                                      </Typography>
-                                                    )}
-                                                  </Typography>
-                                                  {metric.baselineResult
-                                                    .threshold != null && (
-                                                    <Typography
-                                                      variant="caption"
-                                                      color="text.secondary"
-                                                    >
-                                                      Threshold: ≥
-                                                      {Number(
-                                                        metric.baselineResult
-                                                          .threshold
-                                                      ).toFixed(2)}
-                                                    </Typography>
-                                                  )}
-                                                </Box>
-                                                <LinearProgress
-                                                  variant="determinate"
-                                                  value={
-                                                    Number(
-                                                      metric.baselineResult
-                                                        .score
-                                                    ) * 100
-                                                  }
-                                                  color={
-                                                    metric.baselineResult
-                                                      .is_successful
-                                                      ? 'success'
-                                                      : 'error'
-                                                  }
-                                                  sx={{
-                                                    height: 8,
-                                                    borderRadius:
-                                                      theme.shape.borderRadius /
-                                                      4,
-                                                    bgcolor:
-                                                      theme.palette.background
-                                                        .light2,
-                                                  }}
-                                                />
-                                              </Box>
-                                            )}
-                                            {metric.baselineResult?.reason && (
-                                              <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                              >
-                                                {metric.baselineResult.reason}
-                                              </Typography>
-                                            )}
-                                          </Box>
-                                        </Box>
-                                      </Paper>
-                                    );
-                                  })}
-                                </Box>
-                              </AccordionDetails>
-                            </Accordion>
-                          );
-                        })}
-                      </>
-                    )}
-                  </Box>
-                </Grid>
-
-                {/* Current Column */}
-                <Grid item xs={12} md={6}>
-                  <Box
-                    sx={{
-                      p: 3,
-                      height: '100%',
-                      overflow: 'auto',
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        mb: 3,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <Typography
-                        variant="overline"
-                        color="text.secondary"
-                        sx={{ fontWeight: 600 }}
-                      >
-                        Current Run
-                      </Typography>
-                      <MetricStatusChip
-                        passedCount={
-                          Object.values(
-                            selectedTest.current.test_metrics?.metrics || {}
-                          ).filter(m => m.is_successful).length
-                        }
-                        totalCount={
-                          Object.values(
-                            selectedTest.current.test_metrics?.metrics || {}
-                          ).length
-                        }
-                        size="small"
-                        variant="filled"
-                      />
-                      {selectedTest.baseline && (
-                        <>
-                          {isTestPassed(selectedTest.current) &&
-                            !isTestPassed(selectedTest.baseline) && (
-                              <TrendingUpIcon
-                                fontSize="small"
-                                sx={{ color: theme.palette.success.main }}
-                              />
-                            )}
-                          {!isTestPassed(selectedTest.current) &&
-                            isTestPassed(selectedTest.baseline) && (
-                              <TrendingDownIcon
-                                fontSize="small"
-                                sx={{ color: theme.palette.error.main }}
-                              />
-                            )}
-                        </>
-                      )}
-                    </Box>
-
-                    {/* Response */}
-                    <Box sx={{ mb: 3 }}>
-                      <Typography
-                        variant="overline"
-                        color="text.secondary"
-                        display="block"
-                        gutterBottom
-                      >
-                        Response
-                      </Typography>
-                      <Paper
-                        variant="outlined"
-                        sx={{
-                          p: 2.5,
-                          bgcolor: theme.palette.background.light1,
-                        }}
-                      >
-                        <Typography variant="body2">
-                          {selectedTest.current.test_output?.output ||
-                            'No response available'}
-                        </Typography>
-                      </Paper>
-                    </Box>
-
-                    {/* Metrics */}
-                    {behaviors.map(behavior => {
-                      const behaviorMetrics = behavior.metrics
-                        .map(metric => ({
-                          ...metric,
-                          currentResult:
-                            selectedTest.current?.test_metrics?.metrics?.[
-                              metric.name
-                            ],
-                          baselineResult:
-                            selectedTest.baseline?.test_metrics?.metrics?.[
-                              metric.name
-                            ],
-                        }))
-                        .filter(m => m.currentResult || m.baselineResult);
-
-                      if (behaviorMetrics.length === 0) return null;
-
-                      const currentPassedCount = behaviorMetrics.filter(
-                        m => m.currentResult?.is_successful
-                      ).length;
-                      const baselinePassedCount = behaviorMetrics.filter(
-                        m => m.baselineResult?.is_successful
-                      ).length;
-                      const hasChanges =
-                        currentPassedCount !== baselinePassedCount;
-
-                      return (
-                        <Accordion
-                          key={behavior.id}
-                          sx={{
-                            mb: 2,
-                            '&:before': { display: 'none' },
-                            boxShadow: 'none',
-                            border: 1,
-                            borderColor: 'divider',
-                          }}
-                          defaultExpanded={hasChanges}
-                        >
-                          <AccordionSummary
-                            expandIcon={<ExpandMoreIcon />}
-                            sx={{ py: 2 }}
-                          >
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1,
-                                width: '100%',
-                              }}
-                            >
-                              <Typography
-                                variant="body1"
-                                sx={{ fontWeight: 600 }}
-                              >
-                                {behavior.name}
-                              </Typography>
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 0.5,
-                                }}
-                              >
-                                <Chip
-                                  label={`${currentPassedCount}/${behaviorMetrics.length}`}
-                                  size="small"
-                                  color={
-                                    currentPassedCount ===
-                                    behaviorMetrics.length
-                                      ? 'success'
-                                      : 'error'
-                                  }
-                                />
-                                {hasChanges && (
-                                  <>
-                                    {currentPassedCount >
-                                    baselinePassedCount ? (
-                                      <TrendingUpIcon
-                                        fontSize="small"
-                                        sx={{
-                                          color: theme.palette.success.main,
-                                        }}
-                                      />
-                                    ) : (
-                                      <TrendingDownIcon
-                                        fontSize="small"
-                                        sx={{ color: theme.palette.error.main }}
-                                      />
-                                    )}
-                                  </>
-                                )}
-                              </Box>
-                            </Box>
-                          </AccordionSummary>
-                          <AccordionDetails sx={{ p: 3 }}>
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 3,
-                              }}
-                            >
-                              {behaviorMetrics.map(metric => {
-                                const scoreDiff =
-                                  metric.currentResult?.score != null &&
-                                  metric.baselineResult?.score != null
-                                    ? Number(metric.currentResult.score) -
-                                      Number(metric.baselineResult.score)
-                                    : null;
-                                const hasScoreChange =
-                                  scoreDiff !== null &&
-                                  Math.abs(scoreDiff) > 0.01;
-                                const statusChanged =
-                                  metric.baselineResult &&
-                                  metric.currentResult &&
-                                  metric.baselineResult.is_successful !==
-                                    metric.currentResult.is_successful;
-
-                                return (
-                                  <Paper
-                                    key={metric.name}
-                                    variant="outlined"
-                                    sx={{
-                                      p: 3,
-                                      bgcolor: statusChanged
-                                        ? metric.currentResult?.is_successful
-                                          ? theme.palette.mode === 'light'
-                                            ? alpha(
-                                                theme.palette.success.main,
-                                                0.08
-                                              )
-                                            : theme.palette.background.light3
-                                          : theme.palette.mode === 'light'
-                                            ? alpha(
-                                                theme.palette.error.main,
-                                                0.08
-                                              )
-                                            : theme.palette.background.light3
-                                        : 'transparent',
-                                    }}
-                                  >
-                                    <Box
-                                      sx={{
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: 1,
-                                      }}
-                                    >
-                                      {metric.currentResult?.is_successful ? (
-                                        <CheckCircleIcon
+                                  {hasChanges && (
+                                    <>
+                                      {currentPassedCount >
+                                      baselinePassedCount ? (
+                                        <TrendingUpIcon
                                           fontSize="small"
                                           sx={{
                                             color: theme.palette.success.main,
                                           }}
                                         />
                                       ) : (
-                                        <CancelIcon
+                                        <TrendingDownIcon
                                           fontSize="small"
                                           sx={{
                                             color: theme.palette.error.main,
                                           }}
                                         />
                                       )}
-                                      <Box sx={{ flex: 1 }}>
-                                        <Box
-                                          sx={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 1,
-                                            mb: 1,
-                                          }}
-                                        >
-                                          <Typography variant="subtitle2">
-                                            {metric.name}
-                                          </Typography>
-                                          {statusChanged && (
-                                            <>
-                                              {metric.currentResult
-                                                ?.is_successful ? (
-                                                <TrendingUpIcon
-                                                  fontSize="small"
-                                                  sx={{
-                                                    color:
-                                                      theme.palette.success
-                                                        .main,
-                                                  }}
-                                                />
-                                              ) : (
-                                                <TrendingDownIcon
-                                                  fontSize="small"
-                                                  sx={{
-                                                    color:
-                                                      theme.palette.error.main,
-                                                  }}
-                                                />
-                                              )}
-                                            </>
-                                          )}
-                                        </Box>
-                                        {metric.currentResult?.score !=
-                                          null && (
-                                          <Box sx={{ mb: 1 }}>
-                                            <Box
-                                              sx={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                mb: 0.5,
-                                              }}
-                                            >
-                                              <Typography variant="caption">
-                                                Score:{' '}
-                                                {Number(
-                                                  metric.currentResult.score
-                                                ).toFixed(2)}
-                                                {hasScoreChange && (
-                                                  <Typography
-                                                    component="span"
-                                                    variant="caption"
+                                    </>
+                                  )}
+                                </Box>
+                              </Box>
+                            </AccordionSummary>
+                            <AccordionDetails sx={{ p: 3 }}>
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 3,
+                                }}
+                              >
+                                {behaviorMetrics.map(metric => {
+                                  const scoreDiff =
+                                    metric.currentResult?.score != null &&
+                                    metric.baselineResult?.score != null
+                                      ? Number(metric.currentResult.score) -
+                                        Number(metric.baselineResult.score)
+                                      : null;
+                                  const hasScoreChange =
+                                    scoreDiff !== null &&
+                                    Math.abs(scoreDiff) > 0.01;
+                                  const statusChanged =
+                                    metric.baselineResult &&
+                                    metric.currentResult &&
+                                    metric.baselineResult.is_successful !==
+                                      metric.currentResult.is_successful;
+
+                                  return (
+                                    <Paper
+                                      key={metric.name}
+                                      variant="outlined"
+                                      sx={{
+                                        p: 3,
+                                        bgcolor: statusChanged
+                                          ? metric.currentResult?.is_successful
+                                            ? theme.palette.mode === 'light'
+                                              ? alpha(
+                                                  theme.palette.success.main,
+                                                  0.08
+                                                )
+                                              : theme.palette.background.light3
+                                            : theme.palette.mode === 'light'
+                                              ? alpha(
+                                                  theme.palette.error.main,
+                                                  0.08
+                                                )
+                                              : theme.palette.background.light3
+                                          : 'transparent',
+                                      }}
+                                    >
+                                      <Box
+                                        sx={{
+                                          display: 'flex',
+                                          alignItems: 'flex-start',
+                                          gap: 1,
+                                        }}
+                                      >
+                                        {metric.currentResult?.is_successful ? (
+                                          <CheckCircleIcon
+                                            fontSize="small"
+                                            sx={{
+                                              color: theme.palette.success.main,
+                                            }}
+                                          />
+                                        ) : (
+                                          <CancelIcon
+                                            fontSize="small"
+                                            sx={{
+                                              color: theme.palette.error.main,
+                                            }}
+                                          />
+                                        )}
+                                        <Box sx={{ flex: 1 }}>
+                                          <Box
+                                            sx={{
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: 1,
+                                              mb: 1,
+                                            }}
+                                          >
+                                            <Typography variant="subtitle2">
+                                              {metric.name}
+                                            </Typography>
+                                            {statusChanged && (
+                                              <>
+                                                {metric.currentResult
+                                                  ?.is_successful ? (
+                                                  <TrendingUpIcon
+                                                    fontSize="small"
                                                     sx={{
-                                                      ml: 0.5,
                                                       color:
-                                                        scoreDiff! > 0
-                                                          ? theme.palette
-                                                              .success.main
-                                                          : theme.palette.error
-                                                              .main,
-                                                      fontWeight: 500,
+                                                        theme.palette.success
+                                                          .main,
                                                     }}
+                                                  />
+                                                ) : (
+                                                  <TrendingDownIcon
+                                                    fontSize="small"
+                                                    sx={{
+                                                      color:
+                                                        theme.palette.error
+                                                          .main,
+                                                    }}
+                                                  />
+                                                )}
+                                              </>
+                                            )}
+                                          </Box>
+                                          {metric.currentResult?.score !=
+                                            null && (
+                                            <Box sx={{ mb: 1 }}>
+                                              <Box
+                                                sx={{
+                                                  display: 'flex',
+                                                  justifyContent:
+                                                    'space-between',
+                                                  mb: 0.5,
+                                                }}
+                                              >
+                                                <Typography variant="caption">
+                                                  Score:{' '}
+                                                  {Number(
+                                                    metric.currentResult.score
+                                                  ).toFixed(2)}
+                                                  {hasScoreChange && (
+                                                    <Typography
+                                                      component="span"
+                                                      variant="caption"
+                                                      sx={{
+                                                        ml: 0.5,
+                                                        color:
+                                                          scoreDiff! > 0
+                                                            ? theme.palette
+                                                                .success.main
+                                                            : theme.palette
+                                                                .error.main,
+                                                        fontWeight: 500,
+                                                      }}
+                                                    >
+                                                      (
+                                                      {scoreDiff! > 0
+                                                        ? '+'
+                                                        : ''}
+                                                      {scoreDiff!.toFixed(2)})
+                                                    </Typography>
+                                                  )}
+                                                </Typography>
+                                                {metric.currentResult
+                                                  .threshold != null && (
+                                                  <Typography
+                                                    variant="caption"
+                                                    color="text.secondary"
                                                   >
-                                                    ({scoreDiff! > 0 ? '+' : ''}
-                                                    {scoreDiff!.toFixed(2)})
+                                                    Threshold: ≥
+                                                    {Number(
+                                                      metric.currentResult
+                                                        .threshold
+                                                    ).toFixed(2)}
                                                   </Typography>
                                                 )}
-                                              </Typography>
-                                              {metric.currentResult.threshold !=
-                                                null && (
-                                                <Typography
-                                                  variant="caption"
-                                                  color="text.secondary"
-                                                >
-                                                  Threshold: ≥
-                                                  {Number(
-                                                    metric.currentResult
-                                                      .threshold
-                                                  ).toFixed(2)}
-                                                </Typography>
-                                              )}
+                                              </Box>
+                                              <LinearProgress
+                                                variant="determinate"
+                                                value={
+                                                  Number(
+                                                    metric.currentResult.score
+                                                  ) * 100
+                                                }
+                                                color={
+                                                  metric.currentResult
+                                                    .is_successful
+                                                    ? 'success'
+                                                    : 'error'
+                                                }
+                                                sx={{
+                                                  height: 8,
+                                                  borderRadius:
+                                                    theme.shape.borderRadius /
+                                                    4,
+                                                  bgcolor:
+                                                    theme.palette.background
+                                                      .light2,
+                                                }}
+                                              />
                                             </Box>
-                                            <LinearProgress
-                                              variant="determinate"
-                                              value={
-                                                Number(
-                                                  metric.currentResult.score
-                                                ) * 100
-                                              }
-                                              color={
-                                                metric.currentResult
-                                                  .is_successful
-                                                  ? 'success'
-                                                  : 'error'
-                                              }
-                                              sx={{
-                                                height: 8,
-                                                borderRadius:
-                                                  theme.shape.borderRadius / 4,
-                                                bgcolor:
-                                                  theme.palette.background
-                                                    .light2,
-                                              }}
-                                            />
-                                          </Box>
-                                        )}
-                                        {metric.currentResult?.reason && (
-                                          <Typography
-                                            variant="caption"
-                                            color="text.secondary"
-                                          >
-                                            {metric.currentResult.reason}
-                                          </Typography>
-                                        )}
+                                          )}
+                                          {metric.currentResult?.reason && (
+                                            <Typography
+                                              variant="caption"
+                                              color="text.secondary"
+                                            >
+                                              {metric.currentResult.reason}
+                                            </Typography>
+                                          )}
+                                        </Box>
                                       </Box>
-                                    </Box>
-                                  </Paper>
-                                );
-                              })}
-                            </Box>
-                          </AccordionDetails>
-                        </Accordion>
-                      );
-                    })}
-                  </Box>
+                                    </Paper>
+                                  );
+                                })}
+                              </Box>
+                            </AccordionDetails>
+                          </Accordion>
+                        );
+                      })}
+                    </Box>
+                  </Grid>
                 </Grid>
-              </Grid>
               )}
             </Box>
           )}

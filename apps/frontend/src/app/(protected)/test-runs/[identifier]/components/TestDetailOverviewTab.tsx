@@ -38,7 +38,7 @@ const renderFormattedText = (text: string) => {
 
   lines.forEach((line, index) => {
     const trimmedLine = line.trim();
-    
+
     // Check if line starts with a dash (bullet point)
     if (trimmedLine.startsWith('- ')) {
       // Flush current paragraph if exists
@@ -50,10 +50,13 @@ const renderFormattedText = (text: string) => {
         );
         currentParagraph = [];
       }
-      
+
       // Add bullet point
       elements.push(
-        <Box key={`bullet-${index}`} sx={{ display: 'flex', gap: 1, mb: 0.5, pl: 2 }}>
+        <Box
+          key={`bullet-${index}`}
+          sx={{ display: 'flex', gap: 1, mb: 0.5, pl: 2 }}
+        >
           <Typography variant="body2">•</Typography>
           <Typography variant="body2" sx={{ flex: 1 }}>
             {trimmedLine.substring(2).trim()}
@@ -142,7 +145,7 @@ export default function TestDetailOverviewTab({
           >
             Test Result
           </Typography>
-          
+
           {/* Show Review Confirmed indicator if review exists */}
           {test.last_review && (
             <Chip
@@ -358,10 +361,13 @@ export default function TestDetailOverviewTab({
                       fontStyle: testConfig?.instructions ? 'normal' : 'italic',
                     }}
                   >
-                    {testConfig?.instructions 
-                      ? renderFormattedText(testConfig.instructions)
-                      : <Typography variant="body2">No instructions provided</Typography>
-                    }
+                    {testConfig?.instructions ? (
+                      renderFormattedText(testConfig.instructions)
+                    ) : (
+                      <Typography variant="body2">
+                        No instructions provided
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
               )}
@@ -388,10 +394,13 @@ export default function TestDetailOverviewTab({
                       fontStyle: testConfig?.restrictions ? 'normal' : 'italic',
                     }}
                   >
-                    {testConfig?.restrictions 
-                      ? renderFormattedText(testConfig.restrictions)
-                      : <Typography variant="body2">No restrictions provided</Typography>
-                    }
+                    {testConfig?.restrictions ? (
+                      renderFormattedText(testConfig.restrictions)
+                    ) : (
+                      <Typography variant="body2">
+                        No restrictions provided
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
               )}
@@ -418,10 +427,13 @@ export default function TestDetailOverviewTab({
                       fontStyle: testConfig?.scenario ? 'normal' : 'italic',
                     }}
                   >
-                    {testConfig?.scenario 
-                      ? renderFormattedText(testConfig.scenario)
-                      : <Typography variant="body2">No scenario provided</Typography>
-                    }
+                    {testConfig?.scenario ? (
+                      renderFormattedText(testConfig.scenario)
+                    ) : (
+                      <Typography variant="body2">
+                        No scenario provided
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
               )}

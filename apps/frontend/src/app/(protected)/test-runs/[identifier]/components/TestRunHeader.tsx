@@ -201,9 +201,7 @@ export default function TestRunHeader({
 
     const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : '0.0';
     const avgTurnDepth =
-      testsWithTurnData > 0
-        ? (totalTurns / testsWithTurnData).toFixed(0)
-        : '0';
+      testsWithTurnData > 0 ? (totalTurns / testsWithTurnData).toFixed(0) : '0';
 
     // Calculate duration
     const startedAt = testRun.attributes?.started_at;
