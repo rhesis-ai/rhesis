@@ -335,27 +335,3 @@ class DocumentExtractor(Extractor):
             set[str]: Set of supported file extensions (including the dot)
         """
         return self.supported_extensions.copy()
-
-
-if __name__ == "__main__":
-    extractor = DocumentExtractor()
-    source = SourceSpecification(
-        name="test",
-        description="test",
-        type=SourceType.DOCUMENT,
-        metadata={"path": "/Users/arek/Desktop/rhesis/CHANGELOG.md"},
-    )
-    extracted_source = extractor.extract(source)
-    print(extracted_source)
-
-
-if __name__ == "__main__":
-    extractor = WebsiteExtractor()
-    source = SourceSpecification(
-        name="test",
-        description="test",
-        type=SourceType.WEBSITE,
-        metadata={"url": "https://sebastianraschka.com/blog/2025/llm-evaluation-4-approaches.html"},
-    )
-    extracted_source = extractor.extract(source)
-    print(extracted_source)
