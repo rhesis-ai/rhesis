@@ -23,15 +23,12 @@ import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import BaseTag from '@/components/common/BaseTag';
-import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   MetricCreate,
   MetricScope,
 } from '@/utils/api-client/interfaces/metric';
-import { TypeLookupClient } from '@/utils/api-client/type-lookup-client';
-import { TypeLookupsQueryParams } from '@/utils/api-client/interfaces/type-lookup';
 import { User } from '@/utils/api-client/interfaces/user';
 import { UUID } from 'crypto';
 import { Model } from '@/utils/api-client/interfaces/model';

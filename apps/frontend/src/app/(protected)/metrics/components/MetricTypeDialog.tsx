@@ -8,7 +8,6 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useRouter } from 'next/navigation';
-import GradingIcon from '@mui/icons-material/Grading';
 import ApiIcon from '@mui/icons-material/Api';
 import CodeIcon from '@mui/icons-material/Code';
 import ChatIcon from '@mui/icons-material/Chat';

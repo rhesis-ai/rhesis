@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -84,7 +83,7 @@ const initialFilterOptions: FilterOptions = {
 
 interface BehaviorMetrics {
   [behaviorId: string]: {
-    metrics: MetricDetail[] | any[];
+    metrics: MetricDetail[];
     isLoading: boolean;
     error: string | null;
   };
