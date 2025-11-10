@@ -20,6 +20,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import UploadSourceDialog from './UploadSourceDialog';
 import styles from '@/styles/Knowledge.module.css';
 import { combineSourceFiltersToOData } from '@/utils/odata-filter';
+import { ChatIcon } from '@/components/icons';
 import {
   FILE_SIZE_CONSTANTS,
   FILE_TYPE_CONSTANTS,
@@ -240,18 +241,29 @@ export default function SourcesGrid({
       {
         field: 'title',
         headerName: 'Title',
-        width: 200,
-        minWidth: 150,
+        width: 160,
+        resizable: false,
         renderCell: params => {
           const source = params.row as Source;
-          return <Typography variant="body2">{source.title}</Typography>;
+          return (
+            <Typography
+              variant="body2"
+              sx={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {source.title}
+            </Typography>
+          );
         },
       },
       {
         field: 'description',
         headerName: 'Description',
-        flex: 1,
-        minWidth: 250,
+        width: 200,
+        resizable: false,
         renderCell: params => {
           const source = params.row as Source;
           if (!source.description) {
@@ -266,11 +278,16 @@ export default function SourcesGrid({
             );
           }
           return (
-            <Typography variant="body2" color="text.secondary">
-              {source.description.length >
-              TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH
-                ? `${source.description.substring(0, TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH)}...`
-                : source.description}
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {source.description}
             </Typography>
           );
         },
@@ -278,7 +295,8 @@ export default function SourcesGrid({
       {
         field: 'file_type',
         headerName: 'Type',
-        width: 100,
+        width: 70,
+        resizable: false,
         renderCell: params => {
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
@@ -298,7 +316,8 @@ export default function SourcesGrid({
       {
         field: 'file_size',
         headerName: 'Size',
-        width: 90,
+        width: 70,
+        resizable: false,
         type: 'number',
         renderCell: params => {
           const source = params.row as Source;
@@ -315,7 +334,8 @@ export default function SourcesGrid({
       {
         field: 'created_at',
         headerName: 'Uploaded',
-        width: 110,
+        width: 95,
+        resizable: false,
         filterable: false,
         renderCell: params => {
           const source = params.row as Source;
@@ -333,7 +353,8 @@ export default function SourcesGrid({
       {
         field: 'user.name',
         headerName: 'Added by',
-        width: 130,
+        width: 110,
+        resizable: false,
         sortable: false,
         renderCell: params => {
           const source = params.row as Source;
@@ -349,9 +370,76 @@ export default function SourcesGrid({
           }
 
           return (
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {uploaderName}
             </Typography>
+          );
+        },
+      },
+      {
+        field: 'counts.comments',
+        headerName: 'Comments',
+        width: 95,
+        resizable: false,
+        sortable: false,
+        filterable: false,
+        renderCell: params => {
+          const source = params.row as Source;
+          const count = source.counts?.comments || 0;
+          if (count === 0) return null;
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <ChatIcon sx={{ fontSize: 'small', color: 'text.secondary' }} />
+              <Typography variant="body2">{count}</Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'tags',
+        headerName: 'Tags',
+        width: 160,
+        resizable: false,
+        sortable: false,
+        renderCell: params => {
+          const source = params.row as Source;
+          if (!source.tags || source.tags.length === 0) {
+            return null;
+          }
+
+          // Handle both string array and Tag object array
+          const tagNames =
+            typeof source.tags[0] === 'string'
+              ? source.tags
+              : (source.tags as any[]).map(tag => tag.name);
+
+          return (
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+              {tagNames.slice(0, 2).map((tagName: string, index: number) => (
+                <Chip
+                  key={index}
+                  label={tagName}
+                  size="small"
+                  variant="filled"
+                  color="primary"
+                />
+              ))}
+              {tagNames.length > 2 && (
+                <Chip
+                  label={`+${tagNames.length - 2}`}
+                  size="small"
+                  variant="outlined"
+                />
+              )}
+            </Box>
           );
         },
       },
