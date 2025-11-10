@@ -16,7 +16,7 @@ from rhesis.backend.worker import app
 
 # Import SDK components for test generation
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.synthesizers import ConfigSynthesizer, SynthesizerFactory, SynthesizerType
+from rhesis.sdk.synthesizers import ConfigSynthesizer
 from rhesis.sdk.synthesizers.config_synthesizer import GenerationConfig
 
 # Set up logging
@@ -98,74 +98,6 @@ def count_test_sets(self):
 
 
 # Helper functions for test set generation and saving
-
-
-def _determine_synthesizer_type(
-    self, synthesizer_type: str, synthesizer_kwargs: dict
-) -> SynthesizerType:
-    """Determine the appropriate synthesizer type based on input parameters."""
-    if synthesizer_kwargs.get("documents"):
-        # Automatically use DocumentSynthesizer when documents are provided
-        self.log_with_context(
-            "info",
-            f"Documents detected, using DocumentSynthesizer instead of {synthesizer_type}",
-        )
-        return SynthesizerType.DOCUMENT
-
-    # Convert string to enum and validate
-    try:
-        return SynthesizerType(synthesizer_type.lower())
-    except ValueError:
-        supported_types = SynthesizerFactory.get_supported_types()
-        raise ValueError(
-            f"Unsupported synthesizer type: {synthesizer_type}. "
-            f"Supported types: {', '.join(supported_types)}"
-        )
-
-
-def _process_synthesizer_parameters(
-    self, synth_type: SynthesizerType, synthesizer_kwargs: dict
-) -> dict:
-    """Process and prepare synthesizer parameters based on type."""
-    if synth_type == SynthesizerType.PARAPHRASING and "source_test_set_id" in synthesizer_kwargs:
-        # Load the source test set for paraphrasing synthesizer
-        source_test_set_id = synthesizer_kwargs["source_test_set_id"]
-        source_test_set = SynthesizerFactory.load_source_test_set(source_test_set_id)
-        processed_kwargs = {"test_set": source_test_set}
-        # Add other parameters except the processed one
-        processed_kwargs.update(
-            {k: v for k, v in synthesizer_kwargs.items() if k != "source_test_set_id"}
-        )
-        return processed_kwargs
-
-    # For other synthesizers, pass parameters as-is
-    return synthesizer_kwargs
-
-
-def _create_synthesizer(
-    self,
-    synth_type: SynthesizerType,
-    batch_size: int,
-    model: Union[str, BaseLLM],
-    processed_kwargs: dict,
-):
-    """Create and initialize the synthesizer."""
-    synthesizer = SynthesizerFactory.create_synthesizer(
-        synthesizer_type=synth_type, batch_size=batch_size, model=model, **processed_kwargs
-    )
-
-    # Determine model info for logging
-    model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
-
-    self.log_with_context(
-        "info",
-        "Synthesizer initialized",
-        synthesizer_type=synth_type.value,
-        synthesizer_class=synthesizer.__class__.__name__,
-        model=model_info,
-    )
-
-    return synthesizer
 
 
 def _save_test_set_to_database(
