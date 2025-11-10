@@ -43,12 +43,14 @@ interface FilterState {
   backend: string[];
   type: string[];
   scoreType: string[];
+  metricScope: string[];
 }
 
 interface FilterOptions {
   backend: { type_value: string }[];
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
+  metricScope: { value: string; label: string }[];
 }
 
 interface BehaviorMetrics {
@@ -241,7 +243,22 @@ export default function MetricsDirectoryTab({
         filters.scoreType.length === 0 ||
         (metric.score_type && filters.scoreType.includes(metric.score_type));
 
-      return searchMatch && backendMatch && typeMatch && scoreTypeMatch;
+      // Metric scope filter
+      const metricScopeMatch =
+        !filters.metricScope ||
+        filters.metricScope.length === 0 ||
+        (metric.metric_scope &&
+          filters.metricScope.some(scope =>
+            metric.metric_scope?.includes(scope)
+          ));
+
+      return (
+        searchMatch &&
+        backendMatch &&
+        typeMatch &&
+        scoreTypeMatch &&
+        metricScopeMatch
+      );
     });
   };
 
@@ -251,7 +268,8 @@ export default function MetricsDirectoryTab({
       filters.search !== '' ||
       filters.backend.length > 0 ||
       filters.type.length > 0 ||
-      filters.scoreType.length > 0
+      filters.scoreType.length > 0 ||
+      filters.metricScope.length > 0
     );
   };
 
@@ -262,6 +280,7 @@ export default function MetricsDirectoryTab({
       backend: [],
       type: [],
       scoreType: [],
+      metricScope: [],
     });
   };
 
@@ -723,6 +742,59 @@ export default function MetricsDirectoryTab({
                   <em>Select score type</em>
                 </MenuItem>
                 {filterOptions.scoreType.map(option => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* Metric Scope Filter */}
+            <FormControl sx={{ minWidth: 200, flex: 1 }} size="small">
+              <InputLabel id="metric-scope-filter-label">
+                Metric Scope
+              </InputLabel>
+              <Select
+                labelId="metric-scope-filter-label"
+                id="metric-scope-filter"
+                multiple
+                value={filters.metricScope}
+                onChange={e =>
+                  handleFilterChange('metricScope', e.target.value as string[])
+                }
+                label="Metric Scope"
+                renderValue={selected => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.length === 0 ? (
+                      <em>Select metric scope</em>
+                    ) : (
+                      selected.map(value => (
+                        <Chip
+                          key={value}
+                          label={
+                            filterOptions.metricScope.find(
+                              opt => opt.value === value
+                            )?.label || value
+                          }
+                          size="small"
+                        />
+                      ))
+                    )}
+                  </Box>
+                )}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: 224,
+                      width: 250,
+                    },
+                  },
+                }}
+              >
+                <MenuItem disabled value="">
+                  <em>Select metric scope</em>
+                </MenuItem>
+                {filterOptions.metricScope.map(option => (
                   <MenuItem key={option.value} value={option.value}>
                     {option.label}
                   </MenuItem>
