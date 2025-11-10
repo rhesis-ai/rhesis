@@ -3,6 +3,7 @@ import { TypeLookup } from './type-lookup';
 import { Status } from './status';
 import { User } from './user';
 import { Tag } from './tag';
+import { MetricScope } from './metric';
 
 export interface BehaviorBase {
   name: string;
@@ -131,6 +132,7 @@ export interface MetricWithRelationships {
   context_required?: boolean;
   class_name?: string;
   evaluation_examples?: string;
+  metric_scope?: MetricScope[];
   user_id?: UUID | null;
   organization_id?: UUID | null;
   status_id?: UUID | null;
