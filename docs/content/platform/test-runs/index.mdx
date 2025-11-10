@@ -48,6 +48,20 @@ The left panel (approximately one-third of the screen width) shows a scrollable 
 
 Navigate through results by clicking on them, or use your keyboard's arrow up and down keys to move between tests. The list automatically scrolls to keep the selected test in view.
 
+### View Modes
+
+Toggle between **Split View** and **Table View** using the view switcher in the filter bar.
+
+**Table View** displays all test results in a compact table format with these columns:
+- **Goal/Prompt**: The test input or multi-turn goal
+- **Result**: Color-coded chip showing Pass (green), Failed (red), or Error (orange) status at a glance
+- **Response/Reasoning**: The AI output or evaluation reasoning for multi-turn tests
+- **Review**: Icons showing automated and human review status
+- **Activity**: Comment and task counts
+- **Actions**: Quick access menu
+
+This view is ideal for quickly scanning many test results and identifying patterns across your test run.
+
 ### Test Detail Panel
 
 The right panel (approximately two-thirds of the screen width) shows detailed information for the selected test across multiple tabs.
@@ -58,7 +72,25 @@ This tab displays the overall pass/fail status at the top, followed by two main 
 
 #### Metrics Tab
 
-The Metrics tab provides a detailed breakdown of how the test performed against each evaluation criterion. Summary cards at the top show overall performance along with the best and worst performing behaviors. Use the filter toggle to show all metrics, only passed metrics, or only failed metrics. The main metrics table lists each metric with its status, associated behavior, metric name, and the reason (explanation) for the score given.
+The Metrics tab provides a detailed breakdown of how the test performed against each evaluation criterion. 
+
+**Filter Controls**: Toggle between All, Passed, or Failed metrics to focus your analysis. The summary cards update dynamically to reflect your filter selection.
+
+**Multi-Turn Tests**: For multi-turn test results, a dedicated Goal Achievement card displays:
+- **Criteria Progress**: Visual progress bar showing how many evaluation criteria were met
+- **Confidence**: Color-coded progress bar indicating the AI's confidence level (green for high, orange for medium, red for low)
+- **Criteria Breakdown**: Expandable list of all criteria with visual indicators (🟢 met, 🔴 not met)
+- **Detailed Reasoning**: Collapsible section with comprehensive evaluation explanation
+
+**Summary Cards**: Overall performance metrics, best and worst performing behaviors, and pass rate statistics help you quickly assess test quality.
+
+#### Conversation Tab
+
+Available for multi-turn tests, this tab displays the complete conversation history between the AI and simulated user interactions:
+- **Turn-by-Turn Display**: Each conversation turn shows the user input, AI response, and per-turn evaluation
+- **Expandable Sections**: Click to view detailed reasoning and evaluation for each turn
+- **Visual Indicators**: Icons and colors indicate success/failure at the turn level
+- **Project Context**: Project-specific icons help identify the test scenario at a glance
 
 #### History Tab
 
