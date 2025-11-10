@@ -31,7 +31,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import MetricCard from './MetricCard';
 import MetricTypeDialog from './MetricTypeDialog';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import { MetricDetail, MetricScope } from '@/utils/api-client/interfaces/metric';
 import type {
   Behavior as ApiBehavior,
   BehaviorWithMetrics,
@@ -249,7 +249,7 @@ export default function MetricsDirectoryTab({
         filters.metricScope.length === 0 ||
         (metric.metric_scope &&
           filters.metricScope.some(scope =>
-            metric.metric_scope?.includes(scope)
+            metric.metric_scope?.includes(scope as MetricScope)
           ));
 
       return (

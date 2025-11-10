@@ -218,7 +218,7 @@ export default function MetricsClientComponent({
         const initialBehaviorMetrics: BehaviorMetrics = {};
         behaviorsWithMetricsData.forEach(behavior => {
           initialBehaviorMetrics[behavior.id] = {
-            metrics: behavior.metrics || [],
+            metrics: (behavior.metrics || []) as MetricDetail[],
             isLoading: false,
             error: null,
           };
