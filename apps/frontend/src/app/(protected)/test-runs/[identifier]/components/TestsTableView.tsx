@@ -576,13 +576,13 @@ export default function TestsTableView({
                           backgroundColor: status.hasExecutionError
                             ? alpha(theme.palette.warning.main, 0.1)
                             : status.passed
-                            ? alpha(theme.palette.success.main, 0.1)
-                            : alpha(theme.palette.error.main, 0.1),
+                              ? alpha(theme.palette.success.main, 0.1)
+                              : alpha(theme.palette.error.main, 0.1),
                           color: status.hasExecutionError
                             ? 'warning.main'
                             : status.passed
-                            ? 'success.main'
-                            : 'error.main',
+                              ? 'success.main'
+                              : 'error.main',
                           fontWeight: 600,
                           minWidth: 70,
                         }}

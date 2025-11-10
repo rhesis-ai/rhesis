@@ -129,7 +129,9 @@ export default function TestDetailPanel({
 }: TestDetailPanelProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [reviewInitialComment, setReviewInitialComment] = useState<string>('');
-  const [reviewInitialStatus, setReviewInitialStatus] = useState<'passed' | 'failed' | undefined>(undefined);
+  const [reviewInitialStatus, setReviewInitialStatus] = useState<
+    'passed' | 'failed' | undefined
+  >(undefined);
   const theme = useTheme();
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -157,7 +159,8 @@ export default function TestDetailPanel({
       });
 
       // Determine the automated status from goal_evaluation
-      const automatedPassed = test.test_output?.goal_evaluation?.all_criteria_met || false;
+      const automatedPassed =
+        test.test_output?.goal_evaluation?.all_criteria_met || false;
 
       // Find appropriate status ID
       const statusKeywords = automatedPassed
@@ -313,9 +316,9 @@ export default function TestDetailPanel({
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
-          <TestDetailConversationTab 
-            test={test} 
-            testSetType={testSetType} 
+          <TestDetailConversationTab
+            test={test}
+            testSetType={testSetType}
             project={project}
             projectName={projectName}
             onReviewTurn={handleReviewTurn}

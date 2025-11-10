@@ -231,9 +231,10 @@ function TestListItem({
                   }}
                 >
                   • {turnCount} {turnCount === 1 ? 'turn' : 'turns'}
-                  {conversationTurnCount !== null && conversationTurnCount !== turnCount && (
-                    <> ({conversationTurnCount} conversation)</>
-                  )}
+                  {conversationTurnCount !== null &&
+                    conversationTurnCount !== turnCount && (
+                      <> ({conversationTurnCount} conversation)</>
+                    )}
                 </Typography>
               )}
 
@@ -305,15 +306,16 @@ export default function TestsList({
       const status = getTestResultStatus(test);
 
       // Get turn count for multi-turn tests
-      const turnCount = 
+      const turnCount =
         test.test_output?.turns_used ||
         test.test_output?.stats?.total_turns ||
         null;
-      
+
       // Get actual conversation turn count (excluding internal analysis turns)
-      const conversationTurnCount = test.test_output?.conversation_summary?.filter(
-        (turn: any) => turn.penelope_message || turn.target_response
-      ).length || null;
+      const conversationTurnCount =
+        test.test_output?.conversation_summary?.filter(
+          (turn: any) => turn.penelope_message || turn.target_response
+        ).length || null;
 
       // For multi-turn tests, show goal; for single-turn, show prompt
       let promptContent = 'No prompt available';
@@ -444,7 +446,15 @@ export default function TestsList({
     >
       <List sx={{ py: 0 }}>
         {processedTests.map(
-          ({ test, status, passedMetrics, totalMetrics, promptContent, turnCount, conversationTurnCount }) => (
+          ({
+            test,
+            status,
+            passedMetrics,
+            totalMetrics,
+            promptContent,
+            turnCount,
+            conversationTurnCount,
+          }) => (
             <Box
               key={test.id}
               ref={selectedTestId === test.id ? selectedItemRef : null}
