@@ -23,8 +23,8 @@ import {
   ToggleOnIcon,
 } from '@/components/icons';
 import TurnedInIcon from '@mui/icons-material/TurnedIn';
-import LooksOneIcon from '@mui/icons-material/LooksOne';
-import RepeatIcon from '@mui/icons-material/Repeat';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import MessageIcon from '@mui/icons-material/Message';
 
 // Custom Rhesis AI icon component using inline SVG
 const RhesisAIIcon = ({
@@ -148,9 +148,9 @@ const getMetricScopeDisplay = (scope: string): string => {
 const getMetricScopeIcon = (scope: string) => {
   switch (scope) {
     case 'Single-Turn':
-      return <LooksOneIcon fontSize="small" />;
+      return <ChatBubbleOutlineIcon fontSize="small" />;
     case 'Multi-Turn':
-      return <RepeatIcon fontSize="small" />;
+      return <MessageIcon fontSize="small" />;
     default:
       return <TurnedInIcon fontSize="small" />;
   }
@@ -296,7 +296,6 @@ export default function MetricCard({
                   label={getMetricScopeDisplay(scope)}
                   size="small"
                   variant="outlined"
-                  color="primary"
                 />
               ))}
           </Box>
