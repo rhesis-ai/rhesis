@@ -63,7 +63,7 @@ class NotionExtractor(Extractor):
 class IdentityExtractor(Extractor):
     def extract(self, source: SourceSpecification) -> ExtractedSource:
         return ExtractedSource(
-            **source.model_dump(exclude={"medatadata"}), content=source.metadata["content"]
+            **source.model_dump(exclude={"metadata"}), content=source.metadata["content"]
         )
 
 

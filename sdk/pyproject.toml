@@ -111,7 +111,7 @@ testpaths = [
     "../tests/sdk",
 
 ]
-addopts = "--ignore=../tests/sdk/synthesizers  --ignore=../tests/sdk/services --ignore=../tests/sdk/entities"
+addopts = " --ignore=../tests/sdk/entities"
 
 pythonpath = [
     "src",

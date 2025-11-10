@@ -15,8 +15,8 @@ class PromptSynthesizer(TestSetSynthesizer):
     def __init__(
         self,
         prompt: str,
-        sources: List[SourceSpecification],
         batch_size: int = 20,
+        sources: Optional[List[SourceSpecification]] = None,
         model: Optional[Union[str, BaseLLM]] = None,
         **kwargs: dict[str, Any],
     ):
