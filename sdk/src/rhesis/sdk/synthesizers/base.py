@@ -8,9 +8,9 @@ from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.chunker import (
+    ChunkingService,
     ChunkingStrategy,
     SemanticChunker,
-    SourceChunker,
 )
 from rhesis.sdk.services.extractor import (
     ExtractionService,
@@ -132,7 +132,7 @@ class TestSetSynthesizer(ABC):
 
         processed_sources = ExtractionService()(self.sources)
 
-        chunks = SourceChunker(processed_sources, strategy=self.chunker).chunk()
+        chunks = ChunkingService(processed_sources, strategy=self.chunker).chunk()
 
         tests_per_chunk = self._compute_tests_per_chunk(num_tests, len(chunks))
         if num_tests < len(chunks):
