@@ -8,11 +8,19 @@ import ConversationHistory from '@/components/common/ConversationHistory';
 interface TestDetailConversationTabProps {
   test: TestResultDetail;
   testSetType?: string;
+  project?: { icon?: string; useCase?: string; name?: string };
+  projectName?: string;
+  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onConfirmAutomatedReview?: () => void;
 }
 
 export default function TestDetailConversationTab({
   test,
   testSetType,
+  project,
+  projectName,
+  onReviewTurn,
+  onConfirmAutomatedReview,
 }: TestDetailConversationTabProps) {
   // Determine if this is a multi-turn test
   const isMultiTurn =
@@ -67,6 +75,12 @@ export default function TestDetailConversationTab({
     >
       <ConversationHistory
         conversationSummary={conversationSummary}
+        goalEvaluation={test.test_output?.goal_evaluation}
+        project={project}
+        projectName={projectName}
+        onReviewTurn={onReviewTurn}
+        onConfirmAutomatedReview={onConfirmAutomatedReview}
+        hasExistingReview={!!test.last_review}
         maxHeight="100%"
       />
     </Box>

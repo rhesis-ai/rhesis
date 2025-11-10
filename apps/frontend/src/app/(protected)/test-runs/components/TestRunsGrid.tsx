@@ -265,14 +265,10 @@ function TestRunsTable({
 
           if (!testSetType) return null;
 
-          const isMultiTurn = testSetType.toLowerCase().includes('multi-turn');
-          const color = isMultiTurn ? 'secondary' : 'primary';
-
           return (
             <Chip
               label={testSetType}
               size="small"
-              color={color}
               variant="outlined"
               sx={{ fontWeight: 500 }}
             />

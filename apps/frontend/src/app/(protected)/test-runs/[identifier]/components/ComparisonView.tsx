@@ -42,6 +42,7 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import ListIcon from '@mui/icons-material/List';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { MetricStatusChip } from '@/components/common/StatusChip';
+import ConversationHistory from '@/components/common/ConversationHistory';
 
 interface ComparisonViewProps {
   currentTestRun: {
@@ -65,6 +66,7 @@ interface ComparisonViewProps {
     description?: string;
     metrics: Array<{ name: string; description?: string }>;
   }>;
+  testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
 }
 
 interface ComparisonTest {
@@ -81,6 +83,7 @@ export default function ComparisonView({
   onLoadBaseline,
   prompts,
   behaviors,
+  testSetType,
 }: ComparisonViewProps) {
   const theme = useTheme();
   const [selectedBaselineId, setSelectedBaselineId] = useState<string>(
@@ -95,6 +98,10 @@ export default function ComparisonView({
     'all' | 'improved' | 'regressed' | 'unchanged'
   >('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Determine if this is a multi-turn test
+  const isMultiTurn =
+    testSetType?.toLowerCase().includes('multi-turn') || false;
 
   // Load baseline data when selection changes
   React.useEffect(() => {
@@ -180,6 +187,19 @@ export default function ComparisonView({
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
+        // For multi-turn tests, search in goal and evaluation
+        if (isMultiTurn) {
+          const goalContent =
+            test.current.test_output?.test_configuration?.goal?.toLowerCase() ||
+            '';
+          const evaluationContent =
+            test.current.test_output?.goal_evaluation?.reasoning?.toLowerCase() ||
+            '';
+          return (
+            goalContent.includes(query) || evaluationContent.includes(query)
+          );
+        }
+        // For single-turn tests, search in prompt and response
         const promptContent =
           test.current.prompt_id && prompts[test.current.prompt_id]
             ? prompts[test.current.prompt_id].content.toLowerCase()
@@ -191,7 +211,7 @@ export default function ComparisonView({
 
       return true;
     });
-  }, [allComparisonTests, statusFilter, searchQuery, prompts]);
+  }, [allComparisonTests, statusFilter, searchQuery, prompts, isMultiTurn]);
 
   // Calculate statistics (from all tests, not filtered)
   const stats = useMemo(() => {
@@ -239,6 +259,19 @@ export default function ComparisonView({
     test: TestResultDetail,
     maxLength: number = 80
   ): string => {
+    // For multi-turn tests, show goal instead of prompt
+    if (isMultiTurn) {
+      const goal = test.test_output?.test_configuration?.goal;
+      if (!goal) {
+        return `Test #${test.id.slice(0, 8)}`;
+      }
+      if (goal.length <= maxLength) {
+        return goal;
+      }
+      return goal.slice(0, maxLength).trim() + '...';
+    }
+
+    // For single-turn tests, show prompt
     const promptId = test.prompt_id;
     if (!promptId || !prompts[promptId]) {
       return `Test #${test.id.slice(0, 8)}`;
@@ -659,17 +692,27 @@ export default function ComparisonView({
                 ).length;
                 const currentTotalCount = Object.values(currentMetrics).length;
 
-                // Get full prompt content
-                const promptContent =
-                  test.current.prompt_id && prompts[test.current.prompt_id]
+                // Get content based on test type
+                const contentLabel = isMultiTurn ? 'Goal' : 'Prompt';
+                const promptContent = isMultiTurn
+                  ? test.current.test_output?.test_configuration?.goal ||
+                    'No goal available'
+                  : test.current.prompt_id && prompts[test.current.prompt_id]
                     ? prompts[test.current.prompt_id].content
                     : 'No prompt available';
 
-                // Get responses
-                const baselineResponse =
-                  test.baseline?.test_output?.output || 'No response available';
-                const currentResponse =
-                  test.current.test_output?.output || 'No response available';
+                // Get responses/evaluations based on test type
+                const responseLabel = isMultiTurn
+                  ? 'Overall Evaluation'
+                  : 'Response';
+                const baselineResponse = isMultiTurn
+                  ? test.baseline?.test_output?.goal_evaluation?.reasoning ||
+                    'No evaluation available'
+                  : test.baseline?.test_output?.output || 'No response available';
+                const currentResponse = isMultiTurn
+                  ? test.current.test_output?.goal_evaluation?.reasoning ||
+                    'No evaluation available'
+                  : test.current.test_output?.output || 'No response available';
 
                 return (
                   <Paper
@@ -688,7 +731,7 @@ export default function ComparisonView({
                     onClick={() => setSelectedTestId(test.id)}
                   >
                     <Box>
-                      {/* Prompt Section - Full Width, Inline */}
+                      {/* Prompt/Goal Section - Full Width, Inline */}
                       <Box
                         sx={{
                           p: 2,
@@ -705,7 +748,7 @@ export default function ComparisonView({
                           color="text.secondary"
                           sx={{ fontWeight: 600, flexShrink: 0 }}
                         >
-                          Prompt:
+                          {contentLabel}:
                         </Typography>
                         <Typography
                           variant="body2"
@@ -718,9 +761,9 @@ export default function ComparisonView({
                         </Typography>
                       </Box>
 
-                      {/* Responses Side by Side */}
+                      {/* Responses/Evaluations Side by Side */}
                       <Grid container spacing={0}>
-                        {/* Baseline Response */}
+                        {/* Baseline Response/Evaluation */}
                         <Grid
                           item
                           xs={12}
@@ -776,7 +819,7 @@ export default function ComparisonView({
                             )}
                           </Box>
 
-                          {/* Response Text */}
+                          {/* Response/Evaluation Text */}
                           <Typography
                             variant="body2"
                             sx={{
@@ -791,7 +834,7 @@ export default function ComparisonView({
                           </Typography>
                         </Grid>
 
-                        {/* Current Response */}
+                        {/* Current Response/Evaluation */}
                         <Grid
                           item
                           xs={12}
@@ -855,7 +898,7 @@ export default function ComparisonView({
                             )}
                           </Box>
 
-                          {/* Response Text */}
+                          {/* Response/Evaluation Text */}
                           <Typography
                             variant="body2"
                             sx={{
@@ -880,6 +923,7 @@ export default function ComparisonView({
       )}
 
       {/* Detailed Comparison Dialog */}
+      {/* For multi-turn tests, show side-by-side conversations. For single-turn, show detailed metrics. */}
       <Dialog
         open={selectedTestId !== null}
         onClose={() => setSelectedTestId(null)}
@@ -903,11 +947,15 @@ export default function ComparisonView({
             <Typography variant="h6" sx={{ flex: 1, pr: 2 }}>
               Test #
               {comparisonTests.findIndex(t => t.id === selectedTestId) + 1}:{' '}
-              {selectedTest &&
-              selectedTest.current.prompt_id &&
+              {selectedTest
+                ? isMultiTurn
+                  ? selectedTest.current.test_output?.test_configuration?.goal ||
+                    'No goal available'
+                  : selectedTest.current.prompt_id &&
               prompts[selectedTest.current.prompt_id]
                 ? prompts[selectedTest.current.prompt_id].content
-                : 'No prompt available'}
+                    : 'No prompt available'
+                : ''}
             </Typography>
             <IconButton
               onClick={() => setSelectedTestId(null)}
@@ -921,8 +969,203 @@ export default function ComparisonView({
         <DialogContent dividers>
           {selectedTest && (
             <Box>
-              {/* Responses Side by Side */}
-              <Grid container spacing={0} sx={{ height: 'calc(90vh - 200px)' }}>
+              {isMultiTurn ? (
+                /* Multi-turn: Show side-by-side conversations */
+                <Grid
+                  container
+                  spacing={0}
+                  sx={{ height: 'calc(90vh - 200px)' }}
+                >
+                  {/* Baseline Conversation Column */}
+                  <Grid
+                    item
+                    xs={12}
+                    md={6}
+                    sx={{
+                      borderRight: { md: 1 },
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        height: '100%',
+                        overflow: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderBottom: 1,
+                          borderColor: 'divider',
+                          bgcolor: theme.palette.background.default,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <Typography
+                          variant="overline"
+                          color="text.secondary"
+                          sx={{ fontWeight: 600 }}
+                        >
+                          Baseline Run
+                        </Typography>
+                        {selectedTest.baseline ? (
+                          <MetricStatusChip
+                            passedCount={
+                              Object.values(
+                                selectedTest.baseline.test_metrics?.metrics ||
+                                  {}
+                              ).filter(m => m.is_successful).length
+                            }
+                            totalCount={
+                              Object.values(
+                                selectedTest.baseline.test_metrics?.metrics ||
+                                  {}
+                              ).length
+                            }
+                            size="small"
+                            variant="filled"
+                          />
+                        ) : (
+                          <Chip label="No data" size="small" color="default" />
+                        )}
+                      </Box>
+                      {selectedTest.baseline?.test_output
+                        ?.conversation_summary ? (
+                        <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+                          <ConversationHistory
+                            conversationSummary={
+                              selectedTest.baseline.test_output
+                                .conversation_summary
+                            }
+                            goalEvaluation={
+                              selectedTest.baseline.test_output.goal_evaluation
+                            }
+                            maxHeight="100%"
+                          />
+                        </Box>
+                      ) : (
+                        <Box
+                          sx={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            p: 3,
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary">
+                            No conversation data available
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </Grid>
+
+                  {/* Current Conversation Column */}
+                  <Grid item xs={12} md={6}>
+                    <Box
+                      sx={{
+                        height: '100%',
+                        overflow: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderBottom: 1,
+                          borderColor: 'divider',
+                          bgcolor: theme.palette.background.default,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <Typography
+                          variant="overline"
+                          color="text.secondary"
+                          sx={{ fontWeight: 600 }}
+                        >
+                          Current Run
+                        </Typography>
+                        <MetricStatusChip
+                          passedCount={
+                            Object.values(
+                              selectedTest.current.test_metrics?.metrics || {}
+                            ).filter(m => m.is_successful).length
+                          }
+                          totalCount={
+                            Object.values(
+                              selectedTest.current.test_metrics?.metrics || {}
+                            ).length
+                          }
+                          size="small"
+                          variant="filled"
+                        />
+                        {selectedTest.baseline && (
+                          <>
+                            {isTestPassed(selectedTest.current) &&
+                              !isTestPassed(selectedTest.baseline) && (
+                                <TrendingUpIcon
+                                  fontSize="small"
+                                  sx={{ color: theme.palette.success.main }}
+                                />
+                              )}
+                            {!isTestPassed(selectedTest.current) &&
+                              isTestPassed(selectedTest.baseline) && (
+                                <TrendingDownIcon
+                                  fontSize="small"
+                                  sx={{ color: theme.palette.error.main }}
+                                />
+                              )}
+                          </>
+                        )}
+                      </Box>
+                      {selectedTest.current.test_output?.conversation_summary ? (
+                        <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+                          <ConversationHistory
+                            conversationSummary={
+                              selectedTest.current.test_output
+                                .conversation_summary
+                            }
+                            goalEvaluation={
+                              selectedTest.current.test_output.goal_evaluation
+                            }
+                            maxHeight="100%"
+                          />
+                        </Box>
+                      ) : (
+                        <Box
+                          sx={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            p: 3,
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary">
+                            No conversation data available
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </Grid>
+                </Grid>
+              ) : (
+                /* Single-turn: Show detailed metrics comparison */
+                <Grid
+                  container
+                  spacing={0}
+                  sx={{ height: 'calc(90vh - 200px)' }}
+                >
                 {/* Baseline Column */}
                 <Grid
                   item
@@ -960,12 +1203,14 @@ export default function ComparisonView({
                         <MetricStatusChip
                           passedCount={
                             Object.values(
-                              selectedTest.baseline.test_metrics?.metrics || {}
+                                selectedTest.baseline.test_metrics?.metrics ||
+                                  {}
                             ).filter(m => m.is_successful).length
                           }
                           totalCount={
                             Object.values(
-                              selectedTest.baseline.test_metrics?.metrics || {}
+                                selectedTest.baseline.test_metrics?.metrics ||
+                                  {}
                             ).length
                           }
                           size="small"
@@ -1607,6 +1852,7 @@ export default function ComparisonView({
                   </Box>
                 </Grid>
               </Grid>
+              )}
             </Box>
           )}
         </DialogContent>

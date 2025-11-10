@@ -202,8 +202,8 @@ export default function TestRunHeader({
     const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : '0.0';
     const avgTurnDepth =
       testsWithTurnData > 0
-        ? (totalTurns / testsWithTurnData).toFixed(1)
-        : '0.0';
+        ? (totalTurns / testsWithTurnData).toFixed(0)
+        : '0';
 
     // Calculate duration
     const startedAt = testRun.attributes?.started_at;
@@ -321,7 +321,7 @@ export default function TestRunHeader({
             value={stats.total}
             subtitle={
               isMultiTurn
-                ? `Avg ${stats.avgTurnDepth} turns | ${stats.passed} passed, ${stats.failed} failed`
+                ? `Avg ${stats.avgTurnDepth} turns`
                 : stats.executionErrors > 0
                   ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
                   : `${stats.passed} passed, ${stats.failed} failed`

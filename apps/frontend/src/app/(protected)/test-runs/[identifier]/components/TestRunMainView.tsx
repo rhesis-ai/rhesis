@@ -586,6 +586,8 @@ export default function TestRunMainView({
                       testRun.test_configuration?.test_set?.test_set_type
                         ?.type_value
                     }
+                    project={testRun.test_configuration?.endpoint?.project}
+                    projectName={testRun.test_configuration?.endpoint?.project?.name}
                   />
                 </Box>
               </Box>
@@ -635,6 +637,9 @@ export default function TestRunMainView({
           onLoadBaseline={handleLoadBaseline}
           prompts={prompts}
           behaviors={behaviors}
+          testSetType={
+            testRun.test_configuration?.test_set?.test_set_type?.type_value
+          }
         />
       )}
     </Box>

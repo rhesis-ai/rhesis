@@ -12,6 +12,7 @@ import {
   IconButton,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CheckIcon from '@mui/icons-material/Check';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestResultTags from './TestResultTags';
 import StatusChip from '@/components/common/StatusChip';
@@ -28,6 +29,62 @@ interface TestDetailOverviewTabProps {
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
 }
+
+// Helper function to render text with proper list formatting
+const renderFormattedText = (text: string) => {
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let currentParagraph: string[] = [];
+
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim();
+    
+    // Check if line starts with a dash (bullet point)
+    if (trimmedLine.startsWith('- ')) {
+      // Flush current paragraph if exists
+      if (currentParagraph.length > 0) {
+        elements.push(
+          <Typography key={`p-${index}`} variant="body2" sx={{ mb: 1 }}>
+            {currentParagraph.join(' ')}
+          </Typography>
+        );
+        currentParagraph = [];
+      }
+      
+      // Add bullet point
+      elements.push(
+        <Box key={`bullet-${index}`} sx={{ display: 'flex', gap: 1, mb: 0.5, pl: 2 }}>
+          <Typography variant="body2">•</Typography>
+          <Typography variant="body2" sx={{ flex: 1 }}>
+            {trimmedLine.substring(2).trim()}
+          </Typography>
+        </Box>
+      );
+    } else if (trimmedLine) {
+      // Non-empty line without dash
+      currentParagraph.push(trimmedLine);
+    } else if (currentParagraph.length > 0) {
+      // Empty line - flush paragraph
+      elements.push(
+        <Typography key={`p-${index}`} variant="body2" sx={{ mb: 1 }}>
+          {currentParagraph.join(' ')}
+        </Typography>
+      );
+      currentParagraph = [];
+    }
+  });
+
+  // Flush remaining paragraph
+  if (currentParagraph.length > 0) {
+    elements.push(
+      <Typography key="p-final" variant="body2">
+        {currentParagraph.join(' ')}
+      </Typography>
+    );
+  }
+
+  return <>{elements}</>;
+};
 
 export default function TestDetailOverviewTab({
   test,
@@ -74,18 +131,34 @@ export default function TestDetailOverviewTab({
     <Box sx={{ p: 3 }}>
       {/* Test Result Section */}
       <Box sx={{ mb: 4 }}>
-        <Typography
-          variant="overline"
-          sx={{
-            color: 'text.secondary',
-            fontWeight: 600,
-            letterSpacing: 1,
-            display: 'block',
-            mb: 2,
-          }}
-        >
-          Test Result
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <Typography
+            variant="overline"
+            sx={{
+              color: 'text.secondary',
+              fontWeight: 600,
+              letterSpacing: 1,
+            }}
+          >
+            Test Result
+          </Typography>
+          
+          {/* Show Review Confirmed indicator if review exists */}
+          {test.last_review && (
+            <Chip
+              icon={<CheckIcon sx={{ fontSize: 14 }} />}
+              label="Review Confirmed"
+              size="small"
+              sx={{
+                bgcolor: theme.palette.mode === 'light' ? '#E8F5E9' : '#1B2F1E',
+                color: theme.palette.success.main,
+                fontWeight: 500,
+                border: `1px solid ${theme.palette.mode === 'light' ? '#A5D6A7' : '#2E7D32'}`,
+                height: '20px',
+              }}
+            />
+          )}
+        </Box>
 
         <Paper
           variant="outlined"
@@ -166,28 +239,40 @@ export default function TestDetailOverviewTab({
                     >
                       <Box
                         sx={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: 1,
                           mt: 1,
+                          pl: 2,
                         }}
                       >
                         {test.test_output.goal_evaluation.evidence.map(
                           (item, index) => (
-                            <Chip
+                            <Box
                               key={index}
-                              label={item}
-                              size="small"
-                              variant="outlined"
                               sx={{
-                                height: 'auto',
-                                py: 0.5,
-                                '& .MuiChip-label': {
-                                  whiteSpace: 'normal',
-                                  textAlign: 'left',
-                                },
+                                display: 'flex',
+                                gap: 1,
+                                mb: 0.5,
                               }}
-                            />
+                            >
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: 'text.secondary',
+                                  fontSize: '0.875rem',
+                                }}
+                              >
+                                •
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: 'text.secondary',
+                                  fontSize: '0.875rem',
+                                  flex: 1,
+                                }}
+                              >
+                                {item}
+                              </Typography>
+                            </Box>
                           )
                         )}
                       </Box>
@@ -265,19 +350,19 @@ export default function TestDetailOverviewTab({
                   >
                     Instructions
                   </Typography>
-                  <Typography
-                    variant="body2"
+                  <Box
                     sx={{
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
                       color: testConfig?.instructions
                         ? 'text.primary'
                         : 'text.secondary',
                       fontStyle: testConfig?.instructions ? 'normal' : 'italic',
                     }}
                   >
-                    {testConfig?.instructions || 'No instructions provided'}
-                  </Typography>
+                    {testConfig?.instructions 
+                      ? renderFormattedText(testConfig.instructions)
+                      : <Typography variant="body2">No instructions provided</Typography>
+                    }
+                  </Box>
                 </Box>
               )}
 
@@ -295,19 +380,19 @@ export default function TestDetailOverviewTab({
                   >
                     Restrictions
                   </Typography>
-                  <Typography
-                    variant="body2"
+                  <Box
                     sx={{
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
                       color: testConfig?.restrictions
                         ? 'text.primary'
                         : 'text.secondary',
                       fontStyle: testConfig?.restrictions ? 'normal' : 'italic',
                     }}
                   >
-                    {testConfig?.restrictions || 'No restrictions provided'}
-                  </Typography>
+                    {testConfig?.restrictions 
+                      ? renderFormattedText(testConfig.restrictions)
+                      : <Typography variant="body2">No restrictions provided</Typography>
+                    }
+                  </Box>
                 </Box>
               )}
 
@@ -325,19 +410,19 @@ export default function TestDetailOverviewTab({
                   >
                     Scenario
                   </Typography>
-                  <Typography
-                    variant="body2"
+                  <Box
                     sx={{
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
                       color: testConfig?.scenario
                         ? 'text.primary'
                         : 'text.secondary',
                       fontStyle: testConfig?.scenario ? 'normal' : 'italic',
                     }}
                   >
-                    {testConfig?.scenario || 'No scenario provided'}
-                  </Typography>
+                    {testConfig?.scenario 
+                      ? renderFormattedText(testConfig.scenario)
+                      : <Typography variant="body2">No scenario provided</Typography>
+                    }
+                  </Box>
                 </Box>
               )}
             </>
