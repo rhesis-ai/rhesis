@@ -442,6 +442,7 @@ export default function SelectedMetricsTab({
                   backend={metric.backend_type?.type_value}
                   metricType={metric.metric_type?.type_value}
                   scoreType={metric.score_type}
+                  metricScope={metric.metric_scope}
                   usedIn={[behaviorWithMetrics.name]}
                   showUsage={false}
                 />
