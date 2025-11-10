@@ -1,6 +1,6 @@
 """Pydantic schemas for MCP Agent structured outputs."""
 
-from typing import Any, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -67,3 +67,55 @@ class AgentResult(BaseModel):
     )
     success: bool = Field(default=True, description="Whether the agent completed successfully")
     error: Optional[str] = Field(default=None, description="Error message if execution failed")
+
+
+# Search and Extract Agent Schemas
+
+
+class PageMetadata(BaseModel):
+    """Unified page metadata across all MCP servers."""
+
+    page_id: str = Field(description="Unique identifier from the service")
+    title: Optional[str] = Field(default=None, description="Page/file/document title")
+    url: Optional[str] = Field(default=None, description="URL to access the page")
+    last_edited: Optional[str] = Field(default=None, description="Last edit timestamp (ISO format)")
+    created_at: Optional[str] = Field(default=None, description="Creation timestamp (ISO format)")
+    excerpt: Optional[str] = Field(default=None, description="Brief preview/summary of content")
+    author: Optional[str] = Field(default=None, description="Author/creator")
+    source_type: str = Field(description="Source type: 'notion', 'github', 'slack', etc.")
+    raw_metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Original service-specific metadata"
+    )
+
+
+class SearchResult(BaseModel):
+    """Result from MCPSearchAgent."""
+
+    pages: List[PageMetadata] = Field(description="List of pages found")
+    total_found: int = Field(description="Total number of pages found")
+    query: str = Field(description="Original search query")
+    execution_history: List[ExecutionStep] = Field(default_factory=list)
+    iterations_used: int = Field(default=0)
+    success: bool = Field(default=True)
+    error: Optional[str] = Field(default=None)
+
+
+class ExtractedPage(BaseModel):
+    """Content extracted from a single page."""
+
+    page_id: str = Field(description="Unique identifier")
+    title: Optional[str] = Field(default=None, description="Page title")
+    content: str = Field(description="Full extracted content as markdown/text")
+    metadata: PageMetadata = Field(description="Page metadata")
+    source_type: str = Field(description="Source type: 'notion', 'github', etc.")
+
+
+class ExtractionResult(BaseModel):
+    """Result from MCPExtractAgent."""
+
+    pages: List[ExtractedPage] = Field(description="Extracted pages with content")
+    total_extracted: int = Field(description="Number of successfully extracted pages")
+    execution_history: List[ExecutionStep] = Field(default_factory=list)
+    iterations_used: int = Field(default=0)
+    success: bool = Field(default=True)
+    error: Optional[str] = Field(default=None)
