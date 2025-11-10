@@ -23,6 +23,7 @@ class RhesisMetricFactory(BaseMetricFactory):
         "name",
         "description",
         "metric_type",
+        "metric_scope",
         "score_type",
         "requires_ground_truth",
         "requires_context",

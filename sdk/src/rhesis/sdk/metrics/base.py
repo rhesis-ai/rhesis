@@ -46,6 +46,11 @@ class MetricType(str, Enum):
     CONVERSATIONAL = "conversational"
 
 
+class MetricScope(str, Enum):
+    SINGLE_TURN = "Single-Turn"
+    MULTI_TURN = "Multi-Turn"
+
+
 class ThresholdOperator(str, Enum):
     EQUAL = "="
     LESS_THAN = "<"
@@ -64,6 +69,7 @@ class MetricConfig:
     description: Optional[str] = None
     score_type: Optional[Union[str, ScoreType]] = None  # string or enum
     metric_type: Optional[Union[str, MetricType]] = None  # string or enum
+    metric_scope: Optional[List[Union[str, MetricScope]]] = None  # list of scopes
     requires_ground_truth: Optional[bool] = False
     requires_context: Optional[bool] = False
 
@@ -86,6 +92,18 @@ class MetricConfig:
             except ValueError:
                 raise ValueError(f"Unknown metric type: {self.metric_type}")
 
+        if self.metric_scope is not None:
+            converted_scopes = []
+            for scope in self.metric_scope:
+                if isinstance(scope, str):
+                    try:
+                        converted_scopes.append(MetricScope(scope))
+                    except ValueError:
+                        raise ValueError(f"Unknown metric scope: {scope}")
+                else:
+                    converted_scopes.append(scope)
+            self.metric_scope = converted_scopes
+
 
 class MetricResult:
     """Result of a metric evaluation."""
@@ -106,6 +124,7 @@ class BaseMetric(ABC):
         self.description = config.description
         self.score_type = config.score_type
         self.metric_type = config.metric_type
+        self.metric_scope = config.metric_scope
         self.requires_ground_truth = config.requires_ground_truth
         self.requires_context = config.requires_context
         self.class_name = config.class_name
