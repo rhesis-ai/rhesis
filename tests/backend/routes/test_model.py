@@ -32,33 +32,33 @@ fake = Faker()
 
 class ModelTestMixin:
     """Enhanced model test mixin using factory system"""
-    
+
     # Entity configuration
     entity_name = "model"
     entity_plural = "models"
     endpoints = APIEndpoints.MODELS
-    
+
     # Factory-based data methods
     def get_sample_data(self) -> Dict[str, Any]:
         """Return sample model data using factory"""
         return ModelDataFactory.sample_data()
-    
+
     def get_minimal_data(self) -> Dict[str, Any]:
         """Return minimal model data using factory"""
         return ModelDataFactory.minimal_data()
-    
+
     def get_update_data(self) -> Dict[str, Any]:
         """Return model update data using factory"""
         return ModelDataFactory.update_data()
-    
+
     def get_invalid_data(self) -> Dict[str, Any]:
         """Return invalid model data using factory"""
         return ModelDataFactory.invalid_data()
-    
+
     def get_edge_case_data(self, case_type: str) -> Dict[str, Any]:
         """Return edge case model data using factory"""
         return ModelDataFactory.edge_case_data(case_type)
-    
+
     def get_null_description_data(self) -> Dict[str, Any]:
         """Return model data with null description"""
         data = ModelDataFactory.minimal_data()
@@ -83,10 +83,10 @@ class TestModelConnectionTesting(ModelTestMixin, BaseEntityTests):
         # Create model using factory
         model = model_factory.create(self.get_sample_data())
         model_id = model["id"]
-        
+
         # Test the connection endpoint
         response = model_factory.client.post(self.endpoints.test(model_id))
-        
+
         assert response.status_code == status.HTTP_200_OK
         result = response.json()
         assert "status" in result
@@ -96,9 +96,9 @@ class TestModelConnectionTesting(ModelTestMixin, BaseEntityTests):
     def test_model_connection_test_nonexistent(self, model_factory):
         """🔌 Test connection test for non-existent model"""
         fake_model_id = str(uuid.uuid4())
-        
+
         response = model_factory.client.post(self.endpoints.test(fake_model_id))
-        
+
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert "not found" in response.json()["detail"].lower()
 
@@ -110,17 +110,17 @@ class TestModelConnectionTesting(ModelTestMixin, BaseEntityTests):
             "https://generativelanguage.googleapis.com/v1/models",
             "https://api.together.xyz/inference"
         ]
-        
+
         for endpoint_url in endpoint_types:
             data = self.get_sample_data()
             data["endpoint"] = endpoint_url
             data["name"] = f"Test Model for {endpoint_url.split('//')[1].split('.')[1].title()}"
-            
+
             model = model_factory.create(data)
-            
+
             # Test connection for this model
             response = model_factory.client.post(self.endpoints.test(model["id"]))
-            
+
             # Should handle different endpoint types gracefully
             assert response.status_code in [
                 status.HTTP_200_OK,  # Success
@@ -133,16 +133,16 @@ class TestModelConnectionTesting(ModelTestMixin, BaseEntityTests):
 @pytest.mark.unit
 class TestModelValidation(ModelTestMixin, BaseEntityTests):
     """Model-specific validation tests"""
-    
+
     def test_create_model_required_fields(self, model_factory):
         """📝 Test model creation with all required fields"""
         required_fields = ["name", "model_name", "endpoint", "key"]
-        
+
         # Test with all required fields
         data = self.get_minimal_data()
         response = model_factory.client.post(self.endpoints.create, json=data)
         assert response.status_code == status.HTTP_200_OK
-        
+
         created_model = response.json()
         for field in required_fields:
             assert field in created_model
@@ -151,11 +151,11 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
     def test_create_model_missing_required_fields(self, model_factory):
         """📝 Test model creation with missing required fields"""
         required_fields = ["name", "model_name", "key"]  # endpoint is optional
-        
+
         for field_to_remove in required_fields:
             data = self.get_minimal_data()
             del data[field_to_remove]
-            
+
             response = model_factory.client.post(self.endpoints.create, json=data)
             assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -167,10 +167,10 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
             "Content-Type": "application/json",
             "User-Agent": "TestClient/1.0"
         }
-        
+
         response = model_factory.client.post(self.endpoints.create, json=data)
         assert response.status_code == status.HTTP_200_OK
-        
+
         created_model = response.json()
         assert "request_headers" in created_model
         # Headers might be stored as JSON string, so just check they exist
@@ -184,15 +184,15 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
             "https://api.anthropic.com/v1/messages",
             "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent"
         ]
-        
+
         for url in valid_urls:
             data = self.get_minimal_data()
             data["endpoint"] = url
             data["name"] = f"Test Model {url.split('://')[1].split('/')[0]}"
-            
+
             response = model_factory.client.post(self.endpoints.create, json=data)
             assert response.status_code == status.HTTP_200_OK
-            
+
             created_model = response.json()
             assert created_model["endpoint"] == url
 
@@ -206,15 +206,15 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
             "llama-2-70b-chat",
             "mixtral-8x7b-instruct-v0.1"
         ]
-        
+
         for model_name in model_names:
             data = self.get_minimal_data()
             data["model_name"] = model_name
             data["name"] = f"Test {model_name.title()} Model"
-            
+
             response = model_factory.client.post(self.endpoints.create, json=data)
             assert response.status_code == status.HTTP_200_OK
-            
+
             created_model = response.json()
             assert created_model["model_name"] == model_name
 
@@ -224,46 +224,46 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
 @pytest.mark.unit
 class TestModelEdgeCases(ModelTestMixin, BaseEntityTests):
     """Enhanced model edge case tests using factory system"""
-    
+
     def test_create_model_long_name(self, model_factory):
-        """🧩 Test creating model with very long name"""
+        """Test creating model with very long name"""
         long_name_data = self.get_edge_case_data("long_name")
-        
+
         response = model_factory.client.post(self.endpoints.create, json=long_name_data)
-        
+
         # Should handle long names gracefully
         assert response.status_code in [
             status.HTTP_200_OK,  # If long names are allowed
             status.HTTP_422_UNPROCESSABLE_ENTITY  # If they're rejected
         ]
-    
+
     def test_create_model_special_characters(self, model_factory):
-        """🧩 Test creating model with special characters"""
+        """Test creating model with special characters"""
         special_char_data = self.get_edge_case_data("special_chars")
-        
+
         response = model_factory.client.post(self.endpoints.create, json=special_char_data)
-        
+
         # Should handle special characters gracefully
         assert response.status_code == status.HTTP_200_OK
         created_model = response.json()
         assert created_model["name"] == special_char_data["name"]
-    
+
     def test_create_model_unicode(self, model_factory):
-        """🧩 Test creating model with unicode characters"""
+        """Test creating model with unicode characters"""
         unicode_data = self.get_edge_case_data("unicode")
-        
+
         response = model_factory.client.post(self.endpoints.create, json=unicode_data)
-        
+
         assert response.status_code == status.HTTP_200_OK
         created_model = response.json()
         assert created_model["name"] == unicode_data["name"]
-    
+
     def test_create_model_sql_injection_attempt(self, model_factory):
         """🛡️ Test model creation with SQL injection attempt"""
         injection_data = self.get_edge_case_data("sql_injection")
-        
+
         response = model_factory.client.post(self.endpoints.create, json=injection_data)
-        
+
         # Should either create safely or reject
         if response.status_code == status.HTTP_200_OK:
             # If created, verify it was sanitized
@@ -280,10 +280,10 @@ class TestModelEdgeCases(ModelTestMixin, BaseEntityTests):
         """📝 Test model with empty request headers"""
         data = self.get_minimal_data()
         data["request_headers"] = {}
-        
+
         response = model_factory.client.post(self.endpoints.create, json=data)
         assert response.status_code == status.HTTP_200_OK
-        
+
         created_model = response.json()
         # Empty headers should be handled gracefully
         assert "request_headers" in created_model
@@ -292,7 +292,7 @@ class TestModelEdgeCases(ModelTestMixin, BaseEntityTests):
         """📝 Test model with malformed request headers"""
         data = self.get_minimal_data()
         data["request_headers"] = "not-a-dict"
-        
+
         response = model_factory.client.post(self.endpoints.create, json=data)
         # Should reject malformed headers
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -303,22 +303,22 @@ class TestModelEdgeCases(ModelTestMixin, BaseEntityTests):
 @pytest.mark.integration
 class TestModelUpdates(ModelTestMixin, BaseEntityTests):
     """Model-specific update operation tests"""
-    
+
     def test_update_model_endpoint(self, model_factory):
         """🔄 Test updating model endpoint"""
         # Create a model
         model = model_factory.create(self.get_sample_data())
-        
+
         # Update the endpoint
         update_data = {
             "endpoint": "https://api.newprovider.com/v2/chat"
         }
-        
+
         response = model_factory.client.put(
-            self.endpoints.put(model["id"]), 
+            self.endpoints.put(model["id"]),
             json=update_data
         )
-        
+
         assert response.status_code == status.HTTP_200_OK
         updated_model = response.json()
         assert updated_model["endpoint"] == update_data["endpoint"]
@@ -328,7 +328,7 @@ class TestModelUpdates(ModelTestMixin, BaseEntityTests):
         """🔄 Test updating model request headers"""
         # Create a model
         model = model_factory.create(self.get_sample_data())
-        
+
         # Update the headers
         new_headers = {
             "Authorization": "Bearer updated-token",
@@ -337,12 +337,12 @@ class TestModelUpdates(ModelTestMixin, BaseEntityTests):
         update_data = {
             "request_headers": new_headers
         }
-        
+
         response = model_factory.client.put(
-            self.endpoints.put(model["id"]), 
+            self.endpoints.put(model["id"]),
             json=update_data
         )
-        
+
         assert response.status_code == status.HTTP_200_OK
         updated_model = response.json()
         # Headers might be stored differently, just verify they're updated
@@ -353,18 +353,18 @@ class TestModelUpdates(ModelTestMixin, BaseEntityTests):
         # Create a model
         model = model_factory.create(self.get_sample_data())
         original_key = model["key"]
-        
+
         # Update the key
         new_key = str(uuid.uuid4())
         update_data = {
             "key": new_key
         }
-        
+
         response = model_factory.client.put(
-            self.endpoints.put(model["id"]), 
+            self.endpoints.put(model["id"]),
             json=update_data
         )
-        
+
         assert response.status_code == status.HTTP_200_OK
         updated_model = response.json()
         assert updated_model["key"] != original_key
@@ -377,7 +377,7 @@ class TestModelUpdates(ModelTestMixin, BaseEntityTests):
 @pytest.mark.integration
 class TestModelPerformance(ModelTestMixin, BaseEntityTests):
     """Performance tests using factory batch creation"""
-    
+
     def test_bulk_model_creation(self, model_factory):
         """🚀 Test creating multiple models efficiently"""
         # Generate batch data using factory
@@ -387,34 +387,34 @@ class TestModelPerformance(ModelTestMixin, BaseEntityTests):
             data["name"] = f"Performance Test Model {i+1}"
             data["model_name"] = f"test-model-{i+1}"
             batch_data.append(data)
-        
+
         # Create all models using factory batch method
         models = model_factory.create_batch(batch_data)
-        
+
         assert len(models) == 8
         assert all(m["id"] is not None for m in models)
         assert all(m["name"] is not None for m in models)
-        
+
         # Verify they're all different
         names = [m["name"] for m in models]
         assert len(set(names)) == len(names)  # All unique names
-    
+
     def test_model_list_pagination(self, model_factory, large_entity_batch):
         """🚀 Test list pagination with large dataset"""
         # large_entity_batch fixture creates multiple models
         models = large_entity_batch
         assert len(models) >= 5  # Should have substantial data
-        
+
         # Test pagination
         response = model_factory.client.get(f"{self.endpoints.list}?limit=5&skip=0")
         assert response.status_code == status.HTTP_200_OK
-        
+
         page_1 = response.json()
         assert len(page_1) <= 5  # Should respect limit
-        
+
         # Test second page
         response = model_factory.client.get(f"{self.endpoints.list}?limit=5&skip=5")
         assert response.status_code == status.HTTP_200_OK
-        
+
         page_2 = response.json()
         # page_2 might be empty if there aren't enough models, which is fine

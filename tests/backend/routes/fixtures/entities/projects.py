@@ -1,5 +1,5 @@
 """
-🚀 Project Fixtures
+Project Fixtures
 
 Fixtures for creating project entities and related relationships.
 """
@@ -15,18 +15,18 @@ fake = Faker()
 @pytest.fixture
 def db_project(test_db: Session, test_organization, db_user, db_owner_user, db_status) -> Project:
     """
-    🚀 Create a real project in the test database
-    
+    Create a real project in the test database
+
     This fixture creates an actual Project record in the database that can be
     used for foreign key relationships in tests.
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture for creator
         db_owner_user: User fixture for owner
         db_status: Status fixture
-        
+
     Returns:
         Project: Real project record with valid database ID
     """
@@ -49,15 +49,15 @@ def db_project(test_db: Session, test_organization, db_user, db_owner_user, db_s
 @pytest.fixture
 def db_inactive_project(test_db: Session, test_organization, db_user, db_owner_user, db_inactive_status) -> Project:
     """
-    🚀 Create an inactive project in the test database
-    
+    Create an inactive project in the test database
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture for creator
         db_owner_user: User fixture for owner
         db_inactive_status: Inactive status fixture
-        
+
     Returns:
         Project: Real inactive project record
     """
@@ -80,15 +80,15 @@ def db_inactive_project(test_db: Session, test_organization, db_user, db_owner_u
 @pytest.fixture
 def db_draft_project(test_db: Session, test_organization, db_user, db_owner_user, db_draft_status) -> Project:
     """
-    🚀 Create a draft project in the test database
-    
+    Create a draft project in the test database
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture for creator
         db_owner_user: User fixture for owner
         db_draft_status: Draft status fixture
-        
+
     Returns:
         Project: Real draft project record
     """
