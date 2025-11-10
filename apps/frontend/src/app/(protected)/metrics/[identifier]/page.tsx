@@ -14,6 +14,7 @@ import {
   Select,
   MenuItem,
   IconButton,
+  Chip,
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import AssessmentIcon from '@mui/icons-material/Assessment';
@@ -320,6 +321,20 @@ export default function MetricDetailPage() {
 
   const handleConfirmEdit = React.useCallback(async () => {
     if (!session?.session_token || !metric) return;
+
+    // Validate metric scope - at least one must be selected
+    const currentMetricScope =
+      editData.metric_scope || metric.metric_scope || [];
+    if (currentMetricScope.length === 0) {
+      notifications.show(
+        'Please select at least one metric scope (Single-Turn or Multi-Turn)',
+        {
+          severity: 'error',
+          autoHideDuration: 4000,
+        }
+      );
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -967,44 +982,51 @@ export default function MetricDetailPage() {
 
               <InfoRow label="Metric Scope">
                 {isEditing === 'configuration' ? (
-                  <FormControl fullWidth>
-                    <InputLabel>Metric Scope</InputLabel>
-                    <Select
-                      multiple
-                      value={editData.metric_scope || metric.metric_scope || []}
-                      onChange={e =>
-                        setEditData(prev => ({
-                          ...prev,
-                          metric_scope: e.target.value as MetricScope[],
-                        }))
-                      }
-                      label="Metric Scope"
-                      renderValue={selected => (
-                        <Box
-                          sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
-                        >
-                          {selected.map(value => (
-                            <Typography
-                              key={value}
-                              sx={{
-                                bgcolor: 'primary.main',
-                                color: 'primary.contrastText',
-                                px: 1,
-                                py: 0.25,
-                                borderRadius: 1,
-                                fontSize: theme.typography.caption.fontSize,
-                              }}
-                            >
-                              {value}
-                            </Typography>
-                          ))}
-                        </Box>
-                      )}
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 1 }}
                     >
-                      <MenuItem value="Single-Turn">Single-Turn</MenuItem>
-                      <MenuItem value="Multi-Turn">Multi-Turn</MenuItem>
-                    </Select>
-                  </FormControl>
+                      Select which test types this metric applies to (at least
+                      one required):
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {(['Single-Turn', 'Multi-Turn'] as MetricScope[]).map(
+                        scope => {
+                          const currentScope =
+                            editData.metric_scope || metric.metric_scope || [];
+                          const isSelected = currentScope.includes(scope);
+
+                          return (
+                            <Chip
+                              key={scope}
+                              label={scope}
+                              clickable
+                              color={isSelected ? 'primary' : 'default'}
+                              variant={isSelected ? 'filled' : 'outlined'}
+                              onClick={() => {
+                                const newScope = isSelected
+                                  ? currentScope.filter(s => s !== scope)
+                                  : [...currentScope, scope];
+                                setEditData(prev => ({
+                                  ...prev,
+                                  metric_scope: newScope as MetricScope[],
+                                }));
+                              }}
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: isSelected
+                                    ? 'primary.dark'
+                                    : 'action.hover',
+                                },
+                              }}
+                            />
+                          );
+                        }
+                      )}
+                    </Box>
+                  </Box>
                 ) : (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {metric.metric_scope && metric.metric_scope.length > 0 ? (
