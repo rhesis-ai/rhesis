@@ -36,6 +36,7 @@ export interface CriterionEvaluation {
   met: boolean;
   evidence: string;
   reasoning: string;
+  relevant_turns: number[];
 }
 
 export interface GoalEvaluation {
