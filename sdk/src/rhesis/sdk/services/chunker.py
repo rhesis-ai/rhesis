@@ -26,7 +26,7 @@ class ChunkingStrategy(ABC):
         pass
 
 
-class SourceChunker:
+class ChunkingService:
     """Chunk sources using a selected chunking strategy."""
 
     def __init__(self, sources: list[ExtractedSource], strategy: ChunkingStrategy):
