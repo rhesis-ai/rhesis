@@ -440,10 +440,8 @@ export default function NewMetricPage() {
             Choose how this metric will be scored:
           </Typography>
           <FormControl fullWidth>
-            <InputLabel required>Score Type</InputLabel>
             <Select<'categorical' | 'numeric'>
               value={formData.score_type}
-              label="Score Type"
               onChange={handleChange('score_type')}
             >
               <MenuItem value="categorical">Categorical</MenuItem>
