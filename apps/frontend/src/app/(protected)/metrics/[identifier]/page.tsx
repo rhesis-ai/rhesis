@@ -943,22 +943,29 @@ export default function MetricDetailPage() {
             >
               <InfoRow label="Score Type">
                 {isEditing === 'configuration' ? (
-                  <FormControl fullWidth>
-                    <InputLabel>Score Type</InputLabel>
-                    <Select
-                      value={editData.score_type || 'numeric'}
-                      onChange={e =>
-                        setEditData(prev => ({
-                          ...prev,
-                          score_type: e.target.value as ScoreType,
-                        }))
-                      }
-                      label="Score Type"
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 1 }}
                     >
-                      <MenuItem value="numeric">Numeric</MenuItem>
-                      <MenuItem value="categorical">Categorical</MenuItem>
-                    </Select>
-                  </FormControl>
+                      Choose how this metric will be scored:
+                    </Typography>
+                    <FormControl fullWidth>
+                      <Select
+                        value={editData.score_type || 'numeric'}
+                        onChange={e =>
+                          setEditData(prev => ({
+                            ...prev,
+                            score_type: e.target.value as ScoreType,
+                          }))
+                        }
+                      >
+                        <MenuItem value="numeric">Numeric</MenuItem>
+                        <MenuItem value="categorical">Categorical</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
                 ) : (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography
