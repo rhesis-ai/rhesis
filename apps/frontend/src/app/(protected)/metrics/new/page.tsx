@@ -12,6 +12,7 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import { useTheme } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -169,6 +170,18 @@ export default function NewMetricPage() {
     event.preventDefault();
     if (activeStep !== steps.length - 1) {
       // If not on the final step, don't submit
+      return;
+    }
+
+    // Validate metric scope - at least one must be selected
+    if (formData.metric_scope.length === 0) {
+      notifications.show(
+        'Please select at least one metric scope (Single-Turn or Multi-Turn)',
+        {
+          severity: 'error',
+          autoHideDuration: 4000,
+        }
+      );
       return;
     }
 
@@ -430,37 +443,46 @@ export default function NewMetricPage() {
           </Select>
         </FormControl>
 
-        <FormControl fullWidth sx={{ mb: 3 }}>
-          <InputLabel required>Metric Scope</InputLabel>
-          <Select
-            multiple
-            value={formData.metric_scope}
-            label="Metric Scope"
-            onChange={handleChange('metric_scope')}
-            renderValue={selected => (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {selected.map(value => (
-                  <Typography
-                    key={value}
-                    sx={{
-                      bgcolor: 'primary.main',
-                      color: 'primary.contrastText',
-                      px: 1,
-                      py: 0.25,
-                      borderRadius: 1,
-                      fontSize: theme.typography.caption.fontSize,
-                    }}
-                  >
-                    {value}
-                  </Typography>
-                ))}
-              </Box>
-            )}
-          >
-            <MenuItem value="Single-Turn">Single-Turn</MenuItem>
-            <MenuItem value="Multi-Turn">Multi-Turn</MenuItem>
-          </Select>
-        </FormControl>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
+            Metric Scope <span style={{ color: 'red' }}>*</span>
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Select which test types this metric applies to (at least one
+            required):
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {(['Single-Turn', 'Multi-Turn'] as MetricScope[]).map(scope => {
+              const isSelected = formData.metric_scope.includes(scope);
+
+              return (
+                <Chip
+                  key={scope}
+                  label={scope}
+                  clickable
+                  color={isSelected ? 'primary' : 'default'}
+                  variant={isSelected ? 'filled' : 'outlined'}
+                  onClick={() => {
+                    const newScope = isSelected
+                      ? formData.metric_scope.filter(s => s !== scope)
+                      : [...formData.metric_scope, scope];
+                    setFormData(prev => ({
+                      ...prev,
+                      metric_scope: newScope,
+                    }));
+                  }}
+                  sx={{
+                    '&:hover': {
+                      backgroundColor: isSelected
+                        ? 'primary.dark'
+                        : 'action.hover',
+                    },
+                  }}
+                />
+              );
+            })}
+          </Box>
+        </Box>
 
         {formData.score_type === 'numeric' && (
           <>
