@@ -433,14 +433,14 @@ export default function NewMetricPage() {
             Choose how this metric will be scored:
           </Typography>
           <FormControl fullWidth>
-            <Select<'categorical' | 'numeric'>
-              value={formData.score_type}
-              onChange={handleChange('score_type')}
-            >
-              <MenuItem value="categorical">Categorical</MenuItem>
-              <MenuItem value="numeric">Numeric</MenuItem>
-            </Select>
-          </FormControl>
+          <Select<'categorical' | 'numeric'>
+            value={formData.score_type}
+            onChange={handleChange('score_type')}
+          >
+            <MenuItem value="categorical">Categorical</MenuItem>
+            <MenuItem value="numeric">Numeric</MenuItem>
+          </Select>
+        </FormControl>
         </Box>
 
         <Box sx={{ mb: 3 }}>
