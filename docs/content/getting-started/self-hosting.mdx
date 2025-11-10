@@ -1,32 +1,254 @@
 import { CodeBlock } from '@/components/CodeBlock'
 import { Table } from '@/components/Table'
+import { FileTree } from '@/components/FileTree'
 import { Callout } from 'nextra/components'
 
 # Self-hosting
 
 You can self-host Rhesis on your own infrastructure.
 
-This guide will help you run the entire Rhesis platform using Docker Compose for self-hosted deployments.
+This guide covers two deployment scenarios:
 
-<Callout type="info">
-**Looking for a Quick Start?**
+1. **Zero-Configuration Local Development** - Get started immediately with pre-configured defaults
+2. **Production Deployment** - Full configuration for production environments
 
-If you want to test Rhesis locally without any configuration, check out our [Local Development Setup](/getting-started/local-development) guide. It provides a zero-configuration setup that works out of the box.
+> **Important**: This guide uses Docker Compose V2 syntax (`docker compose` without hyphen). If you're using an older version of Docker, you may need to install Docker Compose V2 or use the legacy `docker-compose` command.
 
-This guide is for **production** or **production-like** deployments where you need to configure authentication, security, and other production concerns.
+---
+
+## Zero-Configuration Local Development
+
+Perfect for quickly testing Rhesis locally without any configuration hassles. This setup includes:
+
+- ✅ **No Auth0 setup required** - Local authentication bypass enabled
+- ✅ **Pre-configured database** - PostgreSQL with automatic setup
+- ✅ **Auto-login enabled** - Access the dashboard immediately
+- ✅ **Default admin user** - `admin@local.dev` created automatically
+- ✅ **All secrets included** - Development-safe defaults provided
+
+<Callout type="warning">
+**Development Only**
+
+This configuration is **NOT suitable for production**. It includes hardcoded secrets and disabled security features for ease of local development.
 </Callout>
 
-> **Important**: This guide uses Docker Compose V2 syntax (`docker compose` without hyphen). If you're using an older version of Docker, you may need to install Docker Compose V2 or use the legacy `docker compose` command.
-
-## Prerequisites
+### Prerequisites
 
 - Docker Desktop installed and running
 - Git (to clone the repository)
 - Ports 3000, 8080, 8081, 5432, and 6379 available on your system
 
-## System Requirements
+### Quick Start
 
-### Development Environment
+Get Rhesis running in under 5 minutes:
+
+<CodeBlock filename="Terminal" language="bash">
+{`# 1. Clone the repository
+git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis
+
+# 2. Copy the local development environment file
+cp .env.example.local .env.local
+
+# 3. (Optional) Add your Rhesis API key to .env.local
+# Open .env.local and update RHESIS_API_KEY with your key from https://app.rhesis.ai/
+
+# 4. Start all services
+docker compose -f docker-compose.local.yml --env-file .env.local up -d
+
+# 5. Access the platform
+# Frontend: http://localhost:3000 (auto-login enabled)
+# Backend API: http://localhost:8080/docs
+# Worker Health: http://localhost:8081/health/basic`}
+</CodeBlock>
+
+That's it! The platform will automatically:
+- Create and configure the database
+- Run all migrations
+- Create the default admin user (`admin@local.dev`)
+- Enable auto-login for the frontend
+
+### Configuration Files
+
+The zero-configuration setup uses these files:
+
+<FileTree
+  title="Local Development Files"
+  data={[
+    {
+      name: '.env.example.local',
+      type: 'file',
+      description: 'Template with all pre-configured defaults'
+    },
+    {
+      name: '.env.local',
+      type: 'file',
+      description: 'Your local copy (created from .env.example.local)'
+    },
+    {
+      name: 'docker-compose.local.yml',
+      type: 'file',
+      description: 'Local development Docker Compose configuration'
+    }
+  ]}
+/>
+
+### What's Pre-Configured
+
+The `.env.example.local` file includes:
+
+**Authentication & Security (Development Defaults):**
+- Dummy Auth0 credentials (not used due to local auth bypass)
+- Pre-generated JWT secrets
+- Local authentication enabled
+- Auto-login functionality
+
+**Database & Redis:**
+- PostgreSQL: `rhesis-user` / `rhesis-local-password`
+- Redis with authentication
+- Automatic database migrations
+
+**Services:**
+- Backend API on port 8080
+- Frontend on port 3000
+- Worker on port 8081
+- Documentation on port 3001
+
+### Default Access
+
+Once running, access the platform at:
+
+<Table
+  headers={['Service', 'URL', 'Credentials']}
+  rows={[
+    ['Frontend', 'http://localhost:3000', 'Auto-login (no credentials needed)'],
+    ['Backend API', 'http://localhost:8080/docs', 'API documentation'],
+    ['Default Admin', 'admin@local.dev', 'Created automatically'],
+  ]}
+  align={['left', 'left', 'left']}
+/>
+
+### Optional: Configure AI Providers
+
+By default, the local setup uses the Rhesis API for test generation. You'll need to:
+
+1. Get your Rhesis API key from https://app.rhesis.ai/
+2. Open `.env.local` and update:
+
+<CodeBlock filename=".env.local" language="bash">
+{`# Update this line with your actual API key
+RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
+</CodeBlock>
+
+Alternatively, configure other AI providers (optional):
+
+<CodeBlock filename=".env.local" language="bash">
+{`# Google Gemini (uncomment and configure)
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL_NAME=gemini-2.0-flash-001
+GOOGLE_API_KEY=your-google-api-key
+
+# Azure OpenAI (uncomment and configure)
+# AZURE_OPENAI_ENDPOINT=your-endpoint
+# AZURE_OPENAI_API_KEY=your-key
+# AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+# AZURE_OPENAI_API_VERSION=your-version
+
+# OpenAI (uncomment and configure)
+# OPENAI_API_KEY=your-openai-key
+# OPENAI_MODEL_NAME=gpt-4o`}
+</CodeBlock>
+
+### Managing Services
+
+**Stop services:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Stop all services
+docker compose -f docker-compose.local.yml down
+
+# Stop and remove all data (fresh start)
+docker compose -f docker-compose.local.yml down -v`}
+</CodeBlock>
+
+**View logs:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# All services
+docker compose -f docker-compose.local.yml logs
+
+# Specific service
+docker compose -f docker-compose.local.yml logs backend
+docker compose -f docker-compose.local.yml logs frontend
+
+# Follow logs in real-time
+docker compose -f docker-compose.local.yml logs -f backend`}
+</CodeBlock>
+
+**Restart services:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Restart all services
+docker compose -f docker-compose.local.yml restart
+
+# Restart specific service
+docker compose -f docker-compose.local.yml restart backend`}
+</CodeBlock>
+
+### Troubleshooting
+
+**Port already in use:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Check what's using a port (e.g., port 3000)
+lsof -i :3000
+
+# Kill the process
+kill -9 <PID>`}
+</CodeBlock>
+
+**Need a fresh start:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Remove all containers, volumes, and start fresh
+docker compose -f docker-compose.local.yml down -v
+docker compose -f docker-compose.local.yml --env-file .env.local up -d`}
+</CodeBlock>
+
+**Check service health:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# View all running containers
+docker compose -f docker-compose.local.yml ps
+
+# Check backend health
+curl http://localhost:8080/health
+
+# Check worker health
+curl http://localhost:8081/health/basic`}
+</CodeBlock>
+
+---
+
+## Production Deployment
+
+For production environments, you need to configure authentication, security, and other production concerns properly.
+
+<Callout type="info">
+**Production Setup**
+
+This section covers deploying Rhesis for production use with proper security configuration, custom authentication setup, and environment-specific settings.
+</Callout>
+
+### Prerequisites
+
+- Docker Desktop installed and running
+- Git (to clone the repository)
+- Ports 3000, 8080, 8081, 5432, and 6379 available on your system
+
+### System Requirements
+
+#### Development Environment
 
 For local development, testing, and evaluation:
 
@@ -48,7 +270,7 @@ For local development, testing, and evaluation:
 - Smaller dataset for testing
 - Debug logging enabled
 
-### Production Environment
+#### Production Environment
 
 For production deployment with real users:
 
@@ -70,7 +292,7 @@ For production deployment with real users:
 - Production logging levels
 - Database connection pooling
 
-### Detailed Resource Breakdown
+#### Detailed Resource Breakdown
 
 **Memory Usage by Environment:**
 
@@ -103,7 +325,7 @@ For production deployment with real users:
   align={["left", "right", "right"]}
 />
 
-### Performance Characteristics
+#### Performance Characteristics
 
 **CPU Usage Patterns:**
 
@@ -118,7 +340,7 @@ For production deployment with real users:
 - **Database Growth**: Storage scales with user data and analytics
 - **Background Tasks**: CPU-intensive during batch processing
 
-### Docker Compose Version Note
+#### Docker Compose Version Note
 
 **Why `docker compose` instead of `docker-compose`?**
 
@@ -132,7 +354,7 @@ If you encounter errors with `docker-compose`, you're likely using the deprecate
 - Support for newer Docker features
 - Improved integration with Docker CLI
 
-## Quick Start
+### Quick Start
 
 1. **Clone the repository**
 
@@ -169,9 +391,9 @@ cd rhesis`}
    - **Backend API**: http://localhost:8080/docs
    - **Worker Health**: http://localhost:8081/health/basic
 
-## Architecture Overview
+### Architecture Overview
 
-### Services
+#### Services
 
 The Rhesis platform consists of several interconnected services:
 
@@ -187,7 +409,7 @@ The Rhesis platform consists of several interconnected services:
   align={["left", "center", "left", "left"]}
 />
 
-### Service Dependencies
+#### Service Dependencies
 
 <CodeBlock filename="Architecture Diagram" isTerminal={true}>
   {`Frontend → Backend → PostgreSQL
@@ -195,7 +417,7 @@ The Rhesis platform consists of several interconnected services:
            Redis ← Worker`}
 </CodeBlock>
 
-## Automated Database Setup
+### Automated Database Setup
 
 **No manual database setup required!** The system automatically handles:
 
@@ -212,13 +434,13 @@ The backend container startup process:
 3. Runs all pending migrations
 4. Starts the FastAPI application
 
-## Environment Configuration
+### Environment Configuration
 
-### Required Environment Variables
+#### Required Environment Variables
 
 Update your `.env.docker` file with the following configurations:
 
-#### Authentication & Security
+**Authentication & Security:**
 
 These variables configure user authentication and security for the platform:
 
@@ -255,7 +477,7 @@ NEXT_PUBLIC_AUTH0_CLIENT_ID=your-auth0-client-id`}
 
 </CodeBlock>
 
-#### OAuth Providers (Optional)
+**OAuth Providers (Optional):**
 
 Additional authentication providers for user login options:
 
@@ -266,7 +488,7 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret`}
 </CodeBlock>
 
-#### Email Configuration (Optional)
+**Email Configuration (Optional):**
 
 Required for sending system emails, notifications, and user communications:
 
@@ -280,7 +502,7 @@ SMTP_PASSWORD=your_smtp_password
 FROM_EMAIL=your_from_email`}
 </CodeBlock>
 
-#### AI Model Configuration (Optional)
+**AI Model Configuration (Optional):**
 
 Configure AI providers for natural language processing and content generation:
 
@@ -311,9 +533,9 @@ OPENAI_MODEL_NAME=gpt-4o`}
 
 > **Note**: At least one AI provider configuration is recommended for full platform functionality. You can choose between Gemini, Azure OpenAI, or OpenAI based on your preferences and requirements.
 
-## Management Commands
+### Management Commands
 
-### Service Management
+#### Service Management
 
 **Start services:**
 
@@ -351,7 +573,7 @@ docker compose --env-file .env.docker restart backend`}
 
 </CodeBlock>
 
-### Monitoring and Logs
+#### Monitoring and Logs
 
 **View logs:**
 
@@ -378,7 +600,7 @@ docker compose logs -f backend`}
 docker compose ps`}
 </CodeBlock>
 
-### Building and Updates
+#### Building and Updates
 
 **Rebuild services:**
 
@@ -396,7 +618,7 @@ docker compose --env-file .env.docker up -d --build`}
 
 </CodeBlock>
 
-### Database Operations
+#### Database Operations
 
 The database is automatically managed, but you can access it directly if needed:
 
@@ -418,9 +640,9 @@ docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic history"`}
 
 </CodeBlock>
 
-## Troubleshooting
+### Troubleshooting
 
-### Common Issues
+#### Common Issues
 
 **Database Migration Problems:**
 
@@ -477,7 +699,7 @@ kill -9 <PID>`}
 
 </CodeBlock>
 
-### Performance Optimization
+#### Performance Optimization
 
 **Resource Allocation:**
 
@@ -490,7 +712,7 @@ kill -9 <PID>`}
 - Monitor PostgreSQL logs: `docker compose logs postgres`
 - Check connection counts and slow queries
 
-### Security Considerations
+#### Security Considerations
 
 - Change default passwords in production
 - Use strong JWT secrets
@@ -498,9 +720,9 @@ kill -9 <PID>`}
 - Keep environment variables secure
 - Regularly update Docker images
 
-## Backup and Recovery
+### Backup and Recovery
 
-### Database Backup
+#### Database Backup
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Create database backup
@@ -512,7 +734,7 @@ docker exec -i rhesis-postgres psql -U rhesis-user -d rhesis-db < backup.sql`}
 
 </CodeBlock>
 
-### Full System Backup
+#### Full System Backup
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Stop services
@@ -529,9 +751,9 @@ docker compose --env-file .env.docker up -d`}
 
 </CodeBlock>
 
-## Support and Resources
+### Support and Resources
 
-### Getting Help
+#### Getting Help
 
 If you encounter issues:
 
@@ -541,7 +763,7 @@ If you encounter issues:
 4. Check if ports are available and not in use
 5. Review the [main documentation](https://docs.rhesis.ai) for additional guidance
 
-### Additional Resources
+#### Additional Resources
 
 - [Backend Documentation](https://docs.rhesis.ai/development/backend)
 - [Frontend Documentation](https://docs.rhesis.ai/development/frontend)
