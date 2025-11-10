@@ -20,10 +20,66 @@ export interface TestMetrics {
   execution_time: number;
 }
 
+// Penelope multi-turn conversation interfaces
+export interface ConversationTurn {
+  turn: number;
+  timestamp: string;
+  penelope_reasoning: string;
+  penelope_message: string;
+  target_response: string;
+  session_id: string;
+  success: boolean;
+}
+
+export interface CriterionEvaluation {
+  criterion: string;
+  met: boolean;
+  evidence: string;
+  reasoning: string;
+}
+
+export interface GoalEvaluation {
+  all_criteria_met: boolean;
+  confidence: number;
+  reasoning: string;
+  evidence: string[];
+  criteria_evaluations: CriterionEvaluation[];
+  turn_count?: number;
+  evaluated_at?: string;
+}
+
 export interface TestOutput {
+  // Single-turn fields
   output: string;
   context: string[];
   session_id: string;
+
+  // Multi-turn (Penelope) fields
+  goal?: string;
+  goal_achieved?: boolean;
+  turns_used?: number;
+  findings?: string[];
+  conversation_summary?: ConversationTurn[];
+  history?: any[]; // Complex structure, keeping as any for now
+  goal_evaluation?: GoalEvaluation;
+  stats?: {
+    total_turns?: number;
+    tools_used?: number;
+    total_tokens?: number;
+    execution_time_seconds?: number;
+  };
+  // Multi-turn test configuration (this is where the actual config lives in test_output)
+  test_configuration?: {
+    goal?: string;
+    max_turns?: number;
+    instructions?: string;
+    restrictions?: string | null;
+    scenario?: string | null;
+    context?: Record<string, any>;
+  };
+  // Status field for multi-turn tests
+  status?: 'success' | 'failure' | 'timeout' | 'error';
+  test_id?: string;
 }
 
 // Test Reviews interfaces

@@ -30,6 +30,7 @@ interface TestsListProps {
   onTestSelect: (testId: string) => void;
   loading?: boolean;
   prompts: Record<string, { content: string; name?: string }>;
+  testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
 }
 
 interface TestListItemProps {
@@ -263,10 +264,15 @@ export default function TestsList({
   onTestSelect,
   loading = false,
   prompts,
+  testSetType,
 }: TestsListProps) {
   const theme = useTheme();
   const listContainerRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLDivElement>(null);
+
+  // Determine if this is a multi-turn test set
+  const isMultiTurn =
+    testSetType?.toLowerCase().includes('multi-turn') || false;
 
   // Process tests to determine status (Pass/Fail/Error)
   const processedTests = useMemo(() => {
@@ -277,10 +283,19 @@ export default function TestsList({
       const totalMetrics = metricValues.length;
       const status = getTestResultStatus(test);
 
-      const promptContent =
-        test.prompt_id && prompts[test.prompt_id]
-          ? prompts[test.prompt_id].content
-          : 'No prompt available';
+      // For multi-turn tests, show goal; for single-turn, show prompt
+      let promptContent = 'No prompt available';
+      if (isMultiTurn) {
+        // Multi-turn: get goal from test_output.test_configuration
+        promptContent =
+          test.test_output?.test_configuration?.goal || 'No goal available';
+      } else {
+        // Single-turn: get prompt as usual
+        promptContent =
+          test.prompt_id && prompts[test.prompt_id]
+            ? prompts[test.prompt_id].content
+            : test.test?.prompt?.content || 'No prompt available';
+      }
 
       return {
         test,
@@ -290,7 +305,7 @@ export default function TestsList({
         promptContent,
       };
     });
-  }, [tests, prompts]);
+  }, [tests, prompts, isMultiTurn]);
 
   // Handle keyboard navigation
   useEffect(() => {
