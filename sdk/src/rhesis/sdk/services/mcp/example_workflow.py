@@ -18,6 +18,7 @@ from rhesis.sdk.services.mcp import (
     MCPExtractAgent,
     MCPSearchAgent,
 )
+from rhesis.sdk.services.mcp.provider_config import NOTION_CONFIG
 
 # Load environment variables from .env file if it exists
 try:
@@ -63,6 +64,7 @@ def main():
         mcp_client=mcp_client,
         max_iterations=10,
         verbose=True,  # Enable verbose mode to see debugging
+        provider_config=NOTION_CONFIG,  # Filter verbose Notion responses
     )
 
     print(f"\n🔍 Searching for: {search_query}")
