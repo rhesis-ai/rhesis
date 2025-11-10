@@ -195,6 +195,7 @@ export default function TestSetDetailsSection({
   };
 
   // Extract metadata from testSet
+  const testSetType = testSet.test_set_type?.type_value || 'Unknown';
   const behaviors = testSet.attributes?.metadata?.behaviors || [];
   const categories = testSet.attributes?.metadata?.categories || [];
   const topics = testSet.attributes?.metadata?.topics || [];
@@ -426,6 +427,19 @@ export default function TestSetDetailsSection({
         >
           {testSet.user?.name || testSet.user?.email || 'Not available'}
         </Typography>
+      </Box>
+
+      {/* Test Set Type */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+          Test Set Type
+        </Typography>
+        <Chip
+          label={testSetType}
+          variant="outlined"
+          size="medium"
+          sx={{ fontWeight: 'medium' }}
+        />
       </Box>
 
       {/* Metadata Fields */}

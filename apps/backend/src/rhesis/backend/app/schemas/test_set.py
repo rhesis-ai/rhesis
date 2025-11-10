@@ -15,6 +15,7 @@ class TestSetBase(Base):
     status_id: Optional[UUID4] = None
     tags: Optional[List[Tag]] = []
     license_type_id: Optional[UUID4] = None
+    test_set_type_id: Optional[UUID4] = None
     attributes: Optional[dict] = None
     user_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
