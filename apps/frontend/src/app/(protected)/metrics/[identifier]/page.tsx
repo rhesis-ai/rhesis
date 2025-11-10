@@ -62,7 +62,6 @@ interface StepWithId {
   content: string;
 }
 
-
 export default function MetricDetailPage() {
   const params = useParams();
   const identifier = params.identifier as string;
@@ -217,7 +216,9 @@ export default function MetricDetailPage() {
 
         (async () => {
           try {
-            const clientFactory = new ApiClientFactory(session.session_token as string);
+            const clientFactory = new ApiClientFactory(
+              session.session_token as string
+            );
             const metricsClient = clientFactory.getMetricsClient();
             const updatedMetric = await metricsClient.getMetric(
               currentMetric.id

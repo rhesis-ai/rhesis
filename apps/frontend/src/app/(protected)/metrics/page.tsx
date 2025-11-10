@@ -35,7 +35,7 @@ export default function MetricsPage() {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            minHeight: '200px',
+            minHeight: theme => theme.spacing(25),
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

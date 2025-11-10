@@ -546,7 +546,7 @@ export default function NewMetricPage() {
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
           gap: 3,
-          maxWidth: '1000px',
+          maxWidth: theme => theme.spacing(125),
           mx: 'auto',
         }}
       >
@@ -903,7 +903,7 @@ export default function NewMetricPage() {
             mt: 4,
           }}
         >
-          <Box sx={{ maxWidth: '600px', width: '100%' }}>
+          <Box sx={{ maxWidth: theme => theme.spacing(75), width: '100%' }}>
             <Stepper activeStep={activeStep}>
               {steps.map(label => (
                 <Step key={label}>

@@ -511,7 +511,7 @@ export default function MetricsDirectoryTab({
           justifyContent: 'center',
           alignItems: 'center',
           p: 4,
-          minHeight: '400px',
+          minHeight: theme => theme.spacing(50),
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -821,7 +821,11 @@ export default function MetricsDirectoryTab({
                   sm: '1 1 calc(50% - 12px)',
                   md: '1 1 calc(33.333% - 16px)',
                 },
-                minWidth: { xs: '100%', sm: '300px', md: '320px' },
+                minWidth: {
+                  xs: '100%',
+                  sm: theme => theme.spacing(37.5),
+                  md: theme => theme.spacing(40),
+                },
                 maxWidth: {
                   xs: '100%',
                   sm: 'calc(50% - 12px)',
@@ -855,7 +859,11 @@ export default function MetricsDirectoryTab({
                       sm: '1 1 calc(50% - 12px)',
                       md: '1 1 calc(33.333% - 16px)',
                     },
-                    minWidth: { xs: '100%', sm: '300px', md: '320px' },
+                    minWidth: {
+                      xs: '100%',
+                      sm: theme => theme.spacing(37.5),
+                      md: theme => theme.spacing(40),
+                    },
                     maxWidth: {
                       xs: '100%',
                       sm: 'calc(50% - 12px)',
@@ -927,7 +935,7 @@ export default function MetricsDirectoryTab({
                         setAssignDialogOpen(true);
                       }}
                       sx={{
-                        padding: '2px',
+                        padding: theme => theme.spacing(0.25),
                         '& .MuiSvgIcon-root': {
                           fontSize:
                             theme?.typography?.helperText?.fontSize ||
