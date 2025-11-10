@@ -13,8 +13,8 @@ from rhesis.sdk.services.chunker import (
     SourceChunker,
 )
 from rhesis.sdk.services.extractor import (
+    ExtractionService,
     SourceBase,
-    SourceExtractor,
 )
 from rhesis.sdk.synthesizers.utils import (
     create_test_set,
@@ -130,7 +130,7 @@ class TestSetSynthesizer(ABC):
         if self.chunker is None or not isinstance(self.chunker, ChunkingStrategy):
             raise ValueError("chunker must be a ChunkingStrategy object")
 
-        processed_sources = SourceExtractor()(self.sources)
+        processed_sources = ExtractionService()(self.sources)
 
         chunks = SourceChunker(processed_sources, strategy=self.chunker).chunk()
 
