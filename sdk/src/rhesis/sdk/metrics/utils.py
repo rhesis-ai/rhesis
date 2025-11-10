@@ -17,7 +17,7 @@ def sdk_config_to_backend_config(config: Dict[str, Any]) -> Dict[str, Any]:
     # Convert metric_scope enum values to strings for backend
     if config.get("metric_scope"):
         config["metric_scope"] = [
-            scope.value if hasattr(scope, 'value') else str(scope)
+            scope.value if hasattr(scope, "value") else str(scope)
             for scope in config["metric_scope"]
         ]
 
