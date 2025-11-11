@@ -230,7 +230,6 @@ function TestListItem({
                   sx={{
                     color: 'text.secondary',
                     fontWeight: 400,
-                    fontSize: '0.7rem',
                   }}
                 >
                   • {turnCount} {turnCount === 1 ? 'turn' : 'turns'}
