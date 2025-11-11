@@ -462,10 +462,10 @@ export default function BaseDataGrid({
           <TextField
             inputRef={quickFilterInputRef}
             size="small"
-            placeholder="Search..."
+            placeholder="Search by title or description..."
             defaultValue=""
             onChange={handleQuickFilterChange}
-            sx={{ minWidth: 200 }}
+            sx={{ minWidth: 250 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">

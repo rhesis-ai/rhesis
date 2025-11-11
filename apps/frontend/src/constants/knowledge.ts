@@ -17,6 +17,7 @@ export const TEXT_CONSTANTS = {
 
 // File type constants
 export const FILE_TYPE_CONSTANTS = {
+  // Must match DocumentExtractor.supported_extensions in sdk/src/rhesis/sdk/services/extractor.py
   ACCEPTED_EXTENSIONS:
     '.txt,.md,.pdf,.docx,.json,.csv,.xml,.epub,.pptx,.xlsx,.html,.htm,.zip',
   SIZE_UNITS: ['Bytes', 'KB', 'MB', 'GB'],
