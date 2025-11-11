@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-sdk"
-version = "0.3.1.post1"
+version = "0.4.0"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,28 +25,21 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "ipykernel>=6.29.5",
     "pandas>=2.2.2",
     "python-dotenv>=1.0.1",
     "requests>=2.31.0",
     "tiktoken>=0.9.0",
     "tqdm>=4.67.1",
-    "types-tqdm>=4.67.0.20241221",
     "jinja2>=3.1.6",
-    "hatch>=1.14.1",
     "markitdown[pdf,docx,pptx,xlsx]>=0.1.0",
-    "tomli>=2.2.1",
-    "tomli-w>=1.2.0",
     "deepeval==3.6.7",
     "tenacity>=8.2.3",
     "pyyaml>=6.0",
     "pydantic>=2.0.0",
     "litellm>=1.76.0",
-    "torch>=2.8.0",
-    "transformers>=4.56.0",
-    "ragas>=0.3.7",
-    "langchain-google-genai>=2.1.12",
     "deepteam>=0.2.5",
+        "langchain-google-genai>=2.1.12",
+    "ragas>=0.3.7",
 ]
 
 [project.license]
@@ -58,15 +51,18 @@ Repository = "https://github.com/rhesis-ai/rhesis"
 Documentation = "https://rhesis-sdk.readthedocs.io"
 "Bug Tracker" = "https://github.com/rhesis-ai/rhesis/issues"
 
+
 [project.optional-dependencies]
-examples = [
-    "jupyter",
-    "matplotlib",
-    "pandas",
+huggingface = [
+    "torch>=2.8.0",
+    "transformers>=4.56.0",
 ]
 
-[project.scripts]
-rhesis = "rhesis.sdk.cli:main"
+all = [
+
+    "torch>=2.8.0",
+    "transformers>=4.56.0",
+]
 
 [dependency-groups]
 dev = [
@@ -84,6 +80,7 @@ dev = [
     "myst-parser>=4.0.0",
     "ruff>=0.11.6",
     "pyright>=1.1.406",
+    "psycopg2-binary==2.9.9", # to match the version in the backend
 ]
 
 [build-system]
@@ -112,8 +109,17 @@ testpaths = [
     "../tests/sdk",
 
 ]
-addopts = "--ignore=../tests/sdk/synthesizers --ignore=../tests/sdk/tests --ignore=../tests/sdk/services --ignore=../tests/sdk/entities"
+addopts = "--ignore=../tests/sdk/synthesizers  --ignore=../tests/sdk/services --ignore=../tests/sdk/entities"
 
 pythonpath = [
     "src",
+]
+
+# Asyncio configuration
+asyncio_default_fixture_loop_scope = "function"
+
+# Filter warnings
+filterwarnings = [
+    # Ignore Pydantic V2 deprecation warnings from external dependencies
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20",
 ]

@@ -1,5 +1,6 @@
 """DeepEval metrics implementations."""
 
+from .conversational_metrics import DeepEvalTurnRelevancy
 from .factory import DeepEvalMetricFactory
 from .metric_base import DeepEvalMetricBase
 from .metrics import (
@@ -18,4 +19,6 @@ __all__ = [
     "DeepEvalContextualRelevancy",
     "DeepEvalContextualPrecision",
     "DeepEvalContextualRecall",
+    # Conversational metrics
+    "DeepEvalTurnRelevancy",
 ]

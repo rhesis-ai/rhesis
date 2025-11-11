@@ -22,6 +22,7 @@ import {
   Avatar,
 } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
+import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import AddIcon from '@mui/icons-material/Add';
@@ -129,7 +130,6 @@ export default function TestSetsGrid({
       setTestSets(response.data);
       setTotalCount(response.pagination.totalCount);
     } catch (error) {
-      console.error('Error fetching paginated test sets:', error);
     } finally {
       setLoading(false);
     }
@@ -152,11 +152,13 @@ export default function TestSetsGrid({
     return {
       id: testSet.id,
       name: testSet.name,
+      testSetType: testSet.test_set_type?.type_value || 'Unknown',
       behaviors: testSet.attributes?.metadata?.behaviors || [],
       categories: testSet.attributes?.metadata?.categories || [],
       totalTests: testSet.attributes?.metadata?.total_tests || 0,
       creator: testSet.user,
       counts: testSet.counts,
+      sources: testSet.attributes?.metadata?.sources || [],
     };
   });
 
@@ -166,7 +168,7 @@ export default function TestSetsGrid({
       headerName: 'Name',
       flex: 1.5,
       renderCell: params => (
-        <span style={{ fontWeight: 'medium' }}>{params.value}</span>
+        <Typography sx={{ fontWeight: 'medium' }}>{params.value}</Typography>
       ),
     },
     {
@@ -183,6 +185,14 @@ export default function TestSetsGrid({
       flex: 1.0,
       renderCell: params => (
         <ChipContainer items={params.row.categories || []} />
+      ),
+    },
+    {
+      field: 'testSetType',
+      headerName: 'Type',
+      flex: 0.75,
+      renderCell: params => (
+        <Chip label={params.value} size="small" variant="outlined" />
       ),
     },
     {
@@ -254,6 +264,35 @@ export default function TestSetsGrid({
         );
       },
     },
+    {
+      field: 'sources',
+      headerName: 'Sources',
+      width: 80,
+      sortable: false,
+      filterable: false,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: params => {
+        const sources = params.row.sources;
+        const count = sources?.length || 0;
+        if (count === 0) return null;
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 0.5,
+            }}
+          >
+            <InsertDriveFileOutlined
+              sx={{ fontSize: 16, color: 'text.secondary' }}
+            />
+            <Typography variant="body2">{count}</Typography>
+          </Box>
+        );
+      },
+    },
   ];
 
   const handleRowClick = (params: any) => {
@@ -313,7 +352,6 @@ export default function TestSetsGrid({
       setSelectedRows([]);
       fetchTestSets();
     } catch (error) {
-      console.error('Error deleting test sets:', error);
       notifications.show('Failed to delete test sets', {
         severity: 'error',
         autoHideDuration: 6000,

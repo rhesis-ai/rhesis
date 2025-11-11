@@ -25,14 +25,16 @@ from rhesis.backend.app.services.gemini_client import (
     get_chat_response,
     get_json_response,
 )
-from rhesis.backend.app.services.generation import generate_tests
+from rhesis.backend.app.services.generation import (
+    generate_tests,
+    process_sources_to_documents,
+)
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.handlers import DocumentHandler
 from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.extractor import DocumentExtractor
-from rhesis.sdk.types import Document
 
 router = APIRouter(
     prefix="/services",
@@ -102,7 +104,7 @@ async def get_ai_chat_response(chat_request: ChatRequest):
         if chat_request.stream:
             return StreamingResponse(
                 get_chat_response(
-                    messages=[msg.dict() for msg in chat_request.messages],
+                    messages=[msg.model_dump() for msg in chat_request.messages],
                     response_format=chat_request.response_format,
                     stream=True,
                 ),
@@ -110,7 +112,7 @@ async def get_ai_chat_response(chat_request: ChatRequest):
             )
 
         return get_chat_response(
-            messages=[msg.dict() for msg in chat_request.messages],
+            messages=[msg.model_dump() for msg in chat_request.messages],
             response_format=chat_request.response_format,
         )
     except Exception as e:
@@ -143,35 +145,44 @@ async def create_chat_completion_endpoint(request: dict):
 @router.post("/generate/content")
 async def generate_content_endpoint(request: GenerateContentRequest):
     """
-    Generate text using LLM with optional OpenAI JSON schema for structured output.
+    Generate text using LLM with optional OpenAI-wrapped JSON schema for structured output.
 
-    The schema parameter should follow the OpenAI structured output format. This format
-    is compatible with multiple LLM providers (OpenAI, Vertex AI, etc.) and enables
-    type-safe structured generation without requiring Pydantic model definitions.
+    The schema parameter MUST be in OpenAI-wrapped format. This format is compatible
+    with multiple LLM providers (OpenAI, Vertex AI, etc.) and enables type-safe
+    structured generation without requiring Pydantic model definitions.
 
     Args:
-        request: Contains prompt and optional OpenAI JSON schema for structured output.
-                The schema should follow the format defined in OpenAI's structured outputs
-                documentation: a JSON Schema object that describes the expected response format.
+        request: Contains prompt and optional OpenAI-wrapped JSON schema for structured output.
 
     Returns:
         str or dict: Raw text if no schema provided, validated dict if schema is provided
 
-    Example:
+    Schema Format (Required):
+        The schema must be wrapped in OpenAI's structured output format:
         ```python
         {
             "prompt": "Generate a person's info",
             "schema": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "age": {"type": "number"}
-                },
-                "required": ["name", "age"],
-                "additionalProperties": False
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "PersonInfo",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "age": {"type": "number"}
+                        },
+                        "required": ["name", "age"],
+                        "additionalProperties": false
+                    },
+                    "strict": true
+                }
             }
         }
         ```
+
+    Note: Plain JSON schemas are not supported. The schema must include the
+    "type": "json_schema" wrapper with name, schema, and strict fields.
     """
     try:
         from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, DEFAULT_MODEL_NAME
@@ -196,21 +207,18 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Generate test cases using the prompt synthesizer.
 
     Args:
-        request: The request containing the prompt, number of tests, and optional documents
-            - Each document may contain:
-                - `name` (str): Identifier for the document.
-                - `description` (str): Short description of its purpose.
-                - `path` (str): Path to the uploaded document file.
-                - `content` (str, optional): Raw content of the document.
-                ⚠️ If both `path` and `content` are provided in a document, `content` will override
-                 `path`: the file at `path` will not be read or used.
+        request: The request containing the prompt, number of tests, and optional sources
+            - sources contains SourceData with id
+            (name, description, content will be fetched from DB)
         db: Database session
+        tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
 
     Returns:
@@ -219,15 +227,36 @@ async def generate_tests_endpoint(
     try:
         prompt = request.prompt
         num_tests = request.num_tests
-        documents = request.documents
+        sources = request.sources
+        chip_states = request.chip_states
+        rated_samples = request.rated_samples
+        previous_messages = request.previous_messages
 
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
 
-        # Convert Pydantic models to Document objects
-        documents_sdk = [Document(**doc.dict()) for doc in documents] if documents else None
+        # Prepare sources from sources if provided
+        # Fetch full source data from database if only IDs are provided
+        sources_sdk = []
+        if sources:
+            organization_id, user_id = tenant_context
+            sources_sdk, _, _ = process_sources_to_documents(
+                sources=sources,
+                db=db,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
 
-        test_cases = await generate_tests(db, current_user, prompt, num_tests, documents_sdk)
+        test_cases = await generate_tests(
+            db,
+            current_user,
+            prompt,
+            num_tests,
+            sources_sdk,
+            chip_states=chip_states,
+            rated_samples=rated_samples,
+            previous_messages=previous_messages,
+        )
         return {"tests": test_cases}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -407,11 +436,10 @@ async def generate_test_config(
             f"with sample_size: {request.sample_size} for organization: {organization_id}"
         )
 
-        service = TestConfigGeneratorService()
+        service = TestConfigGeneratorService(db=db, user=current_user)
         result = service.generate_config(
             request.prompt,
             request.sample_size,
-            db=db,
             organization_id=organization_id,
             project_id=request.project_id,
         )

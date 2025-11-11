@@ -53,7 +53,6 @@ env:
 
 jobs:
   build:
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -104,7 +103,7 @@ jobs:
             echo "PROJECT_ID=${{ secrets.PROJECT_ID }}"
             echo "REGION=${{ secrets.REGION }}"
           } >> "$GITHUB_ENV"
-          
+
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
             {
               echo "SERVICE_NAME=rhesis-worker"
@@ -140,7 +139,6 @@ jobs:
 
   deploy:
     needs: build
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -188,7 +186,7 @@ jobs:
             echo "PROJECT_ID=${{ secrets.PROJECT_ID }}"
             echo "REGION=${{ secrets.REGION }}"
           } >> "$GITHUB_ENV"
-          
+
           # Ensure ENVIRONMENT is set with fallback
           ENV_VALUE="${{ env.ENVIRONMENT }}"
           if [ -z "$ENV_VALUE" ]; then
@@ -197,7 +195,7 @@ jobs:
           fi
           echo "ENVIRONMENT=$ENV_VALUE" >> "$GITHUB_ENV"
           echo "ENV_VALUE=$ENV_VALUE" >> "$GITHUB_ENV"
-          
+
           if [ "$ENV_VALUE" = "prd" ]; then
             {
               echo "CLUSTER_NAME=rhesis-worker"
@@ -221,7 +219,7 @@ jobs:
             echo "  - VPC Network: default (same as Redis and backend)"
             echo "  - Region: ${{ env.REGION }}"
             echo "  - Subnet: auto-selected in ${{ env.REGION }}"
-            
+
             # GKE Autopilot automatically configures:
             # - IP aliasing (enabled by default)
             # - Workload Identity (enabled by default)
@@ -232,7 +230,7 @@ jobs:
               --project=${{ env.PROJECT_ID }} \
               --network=default \
               --release-channel=regular
-            
+
             echo "✅ GKE Autopilot cluster created successfully in ${{ env.REGION }}"
             echo "ℹ️ Cluster is using 'default' VPC network in region ${{ env.REGION }}"
             echo "ℹ️ This ensures connectivity to Redis and other services in the same VPC"
@@ -293,6 +291,9 @@ jobs:
             --from-literal=SMTP_USER="${{ secrets.SMTP_USER }}" \
             --from-literal=SMTP_PASSWORD="${{ secrets.SMTP_PASSWORD }}" \
             --from-literal=FROM_EMAIL="${{ secrets.FROM_EMAIL }}" \
+            --from-literal=AGENT_EMAIL_BCC="${{ secrets.AGENT_EMAIL_BCC }}" \
+            --from-literal=WELCOME_CALENDAR_LINK="${{ secrets.WELCOME_CALENDAR_LINK }}" \
+            --from-literal=WELCOME_FROM_EMAIL="${{ secrets.WELCOME_FROM_EMAIL }}" \
             --from-literal=BACKEND_ENV="${{ secrets.BACKEND_ENV }}" \
             --from-literal=WORKER_ENV="${{ secrets.WORKER_ENV }}" \
             --from-literal=FRONTEND_URL="${{ secrets.FRONTEND_URL }}" \
@@ -319,15 +320,15 @@ jobs:
           echo "  - Memory request: 4Gi (prevents HPA auto-scaling due to memory pressure)"
           echo "  - Memory limit: 6Gi (generous headroom for spikes and safety)"
           echo "  - Celery concurrency: 2 (optimized for minimal memory usage and debugging)"
-          
+
           # Set environment-specific replica counts for clean deployment
           echo "🗑️ Ensuring clean deployment state..."
-          
+
           # Check if deployment exists and has selector issues
           if kubectl get deployment rhesis-worker -n "${{ env.NAMESPACE }}" >/dev/null 2>&1; then
             echo "📋 Checking existing deployment selector..."
             CURRENT_ENV_LABEL=$(kubectl get deployment rhesis-worker -n "${{ env.NAMESPACE }}" -o jsonpath='{.spec.selector.matchLabels.environment}' 2>/dev/null || echo "")
-            
+
             if [ "$CURRENT_ENV_LABEL" != "${{ env.ENV_VALUE }}" ]; then
               echo "⚠️ Deployment selector mismatch detected (current: '$CURRENT_ENV_LABEL', expected: '${{ env.ENV_VALUE }}')"
               echo "🗑️ Deleting deployment to fix immutable selector..."
@@ -337,7 +338,7 @@ jobs:
             else
               echo "✅ Deployment selector is correct, scaling to 0 for clean update..."
               kubectl scale deployment rhesis-worker --replicas=0 -n "${{ env.NAMESPACE }}" --timeout=120s || echo "⚠️ Scale down failed, continuing..."
-              
+
               # Wait for pods to terminate
               echo "⏳ Waiting for all pods to terminate..."
               kubectl wait --for=delete pods -l app=rhesis-worker -n "${{ env.NAMESPACE }}" --timeout=120s || echo "⚠️ Wait timeout, continuing..."
@@ -345,7 +346,7 @@ jobs:
           else
             echo "📋 No existing deployment found, will create new one"
           fi
-          
+
           # Set environment-specific replica counts
           if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
             sed -i 's/replicas: 4/replicas: 16/g' deployment.yaml
@@ -356,9 +357,9 @@ jobs:
           else
             echo "  ✅ Development: Deploying with 4 initial replicas (8 total workers with concurrency=2)"
           fi
-          
+
           echo "🧹 Clean deployment preparation completed"
-          
+
           # Always force pod restart by updating timestamp annotation
           sed -i "s|deployment-timestamp: \"placeholder\"|deployment-timestamp: \"$(date +%s)\"|g" deployment.yaml
 
@@ -380,12 +381,12 @@ jobs:
             NAMESPACE_NAME="rhesis-worker-${{ env.ENV_VALUE }}"
             echo "  - Development: Min 4, Max 8 replicas (8-16 total workers)"
           fi
-          
+
           # Generate HPA with environment-specific values
           HPA_NAME="rhesis-worker-hpa-${{ env.ENV_VALUE }}"
           echo "📈 Generating HPA configuration: $HPA_NAME"
           sed "s/NAMESPACE_PLACEHOLDER/$NAMESPACE_NAME/g; s/MIN_REPLICAS_PLACEHOLDER/$MIN_REPLICAS/g; s/MAX_REPLICAS_PLACEHOLDER/$MAX_REPLICAS/g" hpa-example.yaml > "hpa-${{ env.ENV_VALUE }}.yaml"
-          
+
           # Validate HPA configuration
           echo "✅ Validating HPA configuration..."
           kubectl apply -f "hpa-${{ env.ENV_VALUE }}.yaml" --dry-run=client || {
@@ -397,21 +398,21 @@ jobs:
           cat > kustomization.yaml <<EOF
           apiVersion: kustomize.config.k8s.io/v1beta1
           kind: Kustomization
-          
+
           resources:
           - deployment.yaml
           - service.yaml
           - serviceaccount.yaml
           - networkpolicy.yaml
           - hpa-${{ env.ENV_VALUE }}.yaml
-          
+
           labels:
            - includeSelectors: true
              pairs:
                environment: ${{ env.ENV_VALUE }}
-          
+
           namespace: ${{ env.NAMESPACE }}
-          
+
           images:
           - name: ${{ env.IMAGE_NAME }}
             newTag: latest
@@ -419,7 +420,7 @@ jobs:
 
           # Apply manifests
           kubectl apply -k . --namespace="${{ env.NAMESPACE }}"
-          
+
           # Wait for deployment rollout with validation
           echo "📋 Waiting for deployment rollout..."
           kubectl rollout status deployment/rhesis-worker --namespace="${{ env.NAMESPACE }}" --timeout=600s || {
@@ -427,11 +428,11 @@ jobs:
             kubectl get pods --namespace="${{ env.NAMESPACE }}" | grep rhesis-worker
             echo "🔍 Checking deployment conditions..."
             kubectl describe deployment rhesis-worker --namespace="${{ env.NAMESPACE }}" | grep -A 10 "Conditions:"
-            
+
             # Check if deployment is actually ready despite timeout
             READY_REPLICAS=$(kubectl get deployment rhesis-worker --namespace="${{ env.NAMESPACE }}" -o jsonpath='{.status.readyReplicas}')
             DESIRED_REPLICAS=$(kubectl get deployment rhesis-worker --namespace="${{ env.NAMESPACE }}" -o jsonpath='{.spec.replicas}')
-            
+
             if [ "$READY_REPLICAS" = "$DESIRED_REPLICAS" ]; then
               echo "✅ Deployment is actually ready ($READY_REPLICAS/$DESIRED_REPLICAS) - continuing despite timeout"
             else
@@ -439,20 +440,20 @@ jobs:
               exit 1
             fi
           }
-          
+
           # Verify single revision deployment
           echo "✅ Validating clean deployment..."
-          
+
           # Check for mixed pods (different template hashes)
           TEMPLATE_HASHES=$(kubectl get pods --namespace="${{ env.NAMESPACE }}" -l app=rhesis-worker -o jsonpath='{range .items[*]}{.metadata.labels.pod-template-hash}{"\n"}{end}' | sort | uniq | wc -l)
-          
+
           if [ "$TEMPLATE_HASHES" -gt "1" ]; then
             echo "⚠️ Warning: Multiple template hashes detected - this indicates mixed revisions"
             kubectl get pods --namespace="${{ env.NAMESPACE }}" -l app=rhesis-worker -o custom-columns="NAME:.metadata.name,HASH:.metadata.labels.pod-template-hash" | sort -k2
 
             echo "🔧 Force rolling update to clean mixed revisions..."
             kubectl rollout restart deployment/rhesis-worker --namespace="${{ env.NAMESPACE }}"
-            
+
             echo "⏳ Waiting for clean rollout..."
             kubectl rollout status deployment/rhesis-worker --namespace="${{ env.NAMESPACE }}" --timeout=300s || {
               echo "❌ Clean rollout failed - manual intervention needed"
@@ -461,11 +462,11 @@ jobs:
           else
             echo "✅ Clean deployment verified - single template hash"
           fi
-          
+
           # Clean up any old failed pods to ensure clean deployment
           echo "🧹 Cleaning up any remaining old/failed pods..."
           kubectl delete pods --field-selector=status.phase!=Running --namespace="${{ env.NAMESPACE }}" --ignore-not-found=true || true
-          
+
           # Display final deployment status
           echo "📊 Final deployment validation..."
           echo ""
@@ -481,12 +482,12 @@ jobs:
             kubectl logs "$pod" --namespace="${{ env.NAMESPACE }}" --tail=50 || echo "No logs available"
             echo ""
           done
-          
+
           # Verify HPA is working
           echo "=== HPA Status ==="
           kubectl get hpa --namespace="${{ env.NAMESPACE }}" || echo "HPA not found (will show metrics after deployment settles)"
           echo ""
-          
+
           echo "=== Final Status ==="
           kubectl get deployment,hpa,pods --namespace="${{ env.NAMESPACE }}" | grep -E "(NAME|rhesis-worker|READY|AGE)" | head -10
           echo ""
@@ -506,6 +507,6 @@ jobs:
             echo "  ✅ Autoscaling: Enabled with HPA (4-8 pods, 8-16 total workers)"
           fi
           echo "  ✅ Cleanup: Old pods removed"
-          
+
           echo ""
           echo "✅ Deployment completed successfully"

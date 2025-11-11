@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type, Union
 
 import requests
 from pydantic import BaseModel
@@ -58,11 +58,14 @@ class RhesisLLM(BaseLLM):
         }
         return self
 
-    def generate(self, prompt: str, schema: Optional[BaseModel] = None, **kwargs: Any) -> Any:
+    def generate(
+        self, prompt: str, schema: Optional[Union[Type[BaseModel], dict]] = None, **kwargs: Any
+    ) -> Any:
         """Run a chat completion using the API, and return the response."""
         try:
-            # Before sending the request, we need to convert the Pydantic schema to a JSON schema
-            if schema:
+            # Convert Pydantic models to OpenAI-wrapped format
+            # Dict schemas must already be in OpenAI-wrapped format
+            if schema and not isinstance(schema, dict):
                 schema = {
                     "type": "json_schema",
                     "json_schema": {
@@ -120,8 +123,10 @@ class RhesisLLM(BaseLLM):
             **kwargs,
         }
 
+        url = self.client.get_url(API_ENDPOINT)
+
         response = requests.post(
-            self.client.get_url(API_ENDPOINT),
+            url,
             headers=self.headers,
             json=request_data,
         )

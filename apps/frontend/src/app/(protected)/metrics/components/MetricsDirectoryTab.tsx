@@ -26,7 +26,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import MetricCard from './MetricCard';
@@ -149,6 +149,7 @@ interface MetricsDirectoryTabProps {
     React.SetStateAction<BehaviorWithMetrics[]>
   >;
   onTabChange: () => void; // Function to switch to Selected Metrics tab
+  assignMode?: boolean; // Whether we're in assign mode (coming from "Add New Behavior")
 }
 
 // Add type guard function
@@ -178,8 +179,10 @@ export default function MetricsDirectoryTab({
   setBehaviorMetrics,
   setBehaviorsWithMetrics,
   onTabChange,
+  assignMode = false,
 }: MetricsDirectoryTabProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const notifications = useNotifications();
   const theme = useTheme();
 
@@ -345,7 +348,6 @@ export default function MetricsDirectoryTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error assigning metric to behavior:', err);
       notifications.show('Failed to assign metric to behavior', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -418,7 +420,6 @@ export default function MetricsDirectoryTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error removing metric from behavior:', err);
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -432,6 +433,13 @@ export default function MetricsDirectoryTab({
     }
     setAssignDialogOpen(false);
     setSelectedMetric(null);
+
+    // Clear assignMode param from URL if present
+    if (assignMode) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('assignMode');
+      router.replace(`/metrics?${params.toString()}`, { scroll: false });
+    }
   };
 
   // Function to delete a metric
@@ -458,7 +466,6 @@ export default function MetricsDirectoryTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error deleting metric:', err);
       notifications.show('Failed to delete metric', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -783,7 +790,26 @@ export default function MetricsDirectoryTab({
                       sm: 'calc(50% - 12px)',
                       md: 'calc(33.333% - 16px)',
                     },
+                    ...(assignMode && {
+                      cursor: 'pointer',
+                      transition:
+                        'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                      },
+                      '&:active': {
+                        transform: 'translateY(-2px)',
+                      },
+                    }),
                   }}
+                  onClick={
+                    assignMode
+                      ? () => {
+                          setSelectedMetric(metric);
+                          setAssignDialogOpen(true);
+                        }
+                      : undefined
+                  }
                 >
                   <Box
                     sx={{
@@ -795,23 +821,33 @@ export default function MetricsDirectoryTab({
                       zIndex: 1,
                     }}
                   >
+                    {/* Only show detail button for rhesis and custom metrics */}
+                    {(metric.backend_type?.type_value?.toLowerCase() ===
+                      'rhesis' ||
+                      metric.backend_type?.type_value?.toLowerCase() ===
+                        'custom') && (
+                      <IconButton
+                        size="small"
+                        onClick={e => {
+                          if (assignMode) e.stopPropagation();
+                          handleMetricDetail(metric.id);
+                        }}
+                        sx={{
+                          padding: '2px',
+                          '& .MuiSvgIcon-root': {
+                            fontSize:
+                              theme?.typography?.helperText?.fontSize ||
+                              '0.75rem',
+                          },
+                        }}
+                      >
+                        <OpenInNewIcon fontSize="inherit" />
+                      </IconButton>
+                    )}
                     <IconButton
                       size="small"
-                      onClick={() => handleMetricDetail(metric.id)}
-                      sx={{
-                        padding: '2px',
-                        '& .MuiSvgIcon-root': {
-                          fontSize:
-                            theme?.typography?.helperText?.fontSize ||
-                            '0.75rem',
-                        },
-                      }}
-                    >
-                      <OpenInNewIcon fontSize="inherit" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
+                      onClick={e => {
+                        if (assignMode) e.stopPropagation();
                         setSelectedMetric(metric);
                         setAssignDialogOpen(true);
                       }}

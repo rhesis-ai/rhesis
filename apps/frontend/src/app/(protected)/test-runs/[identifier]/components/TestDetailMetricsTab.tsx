@@ -60,6 +60,7 @@ export default function TestDetailMetricsTab({
       behaviorName: string;
     }> = [];
 
+    // Handle behavior-based metrics (single-turn tests)
     behaviors.forEach(behavior => {
       behavior.metrics.forEach(metric => {
         const metricResult = testMetrics[metric.name];
@@ -68,12 +69,34 @@ export default function TestDetailMetricsTab({
             name: metric.name,
             description: metric.description,
             passed: metricResult.is_successful,
-            fullMetricData: metricResult, // Store the full data
+            fullMetricData: metricResult,
             behaviorName: behavior.name,
           });
         }
       });
     });
+
+    // Handle direct metrics (multi-turn tests) - metrics not associated with behaviors
+    if (allMetrics.length === 0 && Object.keys(testMetrics).length > 0) {
+      // If no behavior-based metrics found but test has metrics, treat them as direct metrics
+      Object.entries(testMetrics).forEach(
+        ([metricName, metricResult]: [string, any]) => {
+          if (
+            metricResult &&
+            typeof metricResult === 'object' &&
+            'is_successful' in metricResult
+          ) {
+            allMetrics.push({
+              name: metricName,
+              description: metricResult.description || undefined,
+              passed: metricResult.is_successful,
+              fullMetricData: metricResult,
+              behaviorName: 'Multi-Turn Test', // Default behavior name for multi-turn tests
+            });
+          }
+        }
+      );
+    }
 
     return allMetrics;
   }, [test, behaviors]);
@@ -100,15 +123,18 @@ export default function TestDetailMetricsTab({
   const behaviorStats = useMemo(() => {
     const stats = new Map<string, { passed: number; total: number }>();
 
-    behaviors.forEach(behavior => {
+    // Group metrics by behavior name (works for both behavior-based and direct metrics)
+    const behaviorNames = [...new Set(metricsData.map(m => m.behaviorName))];
+
+    behaviorNames.forEach(behaviorName => {
       const behaviorMetrics = metricsData.filter(
-        m => m.behaviorName === behavior.name
+        m => m.behaviorName === behaviorName
       );
       const passed = behaviorMetrics.filter(m => m.passed).length;
       const total = behaviorMetrics.length;
 
       if (total > 0) {
-        stats.set(behavior.name, { passed, total });
+        stats.set(behaviorName, { passed, total });
       }
     });
 
@@ -131,7 +157,7 @@ export default function TestDetailMetricsTab({
       worst: hasMultipleBehaviors ? entries[entries.length - 1] : undefined,
       hasMultipleBehaviors,
     };
-  }, [metricsData, behaviors]);
+  }, [metricsData]);
 
   const handleFilterChange = (
     _event: React.MouseEvent<HTMLElement>,

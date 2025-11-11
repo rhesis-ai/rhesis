@@ -131,7 +131,6 @@ export default function TestSetDetailsSection({
       testSet.description = editedDescription;
       setIsEditingDescription(false);
     } catch (error) {
-      console.error('Error updating test set description:', error);
       // Reset the edited description to the original value on error
       setEditedDescription(testSet.description || '');
     } finally {
@@ -160,7 +159,6 @@ export default function TestSetDetailsSection({
       // Refresh the page to update breadcrumbs and title
       window.location.reload();
     } catch (error) {
-      console.error('Error updating test set title:', error);
       // Reset the edited title to the original value on error
       setEditedTitle(testSet.name || '');
     } finally {
@@ -190,7 +188,6 @@ export default function TestSetDetailsSection({
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading test set:', error);
       // You might want to show a user-friendly error message here
     } finally {
       setIsDownloading(false);
@@ -198,6 +195,7 @@ export default function TestSetDetailsSection({
   };
 
   // Extract metadata from testSet
+  const testSetType = testSet.test_set_type?.type_value || 'Unknown';
   const behaviors = testSet.attributes?.metadata?.behaviors || [];
   const categories = testSet.attributes?.metadata?.categories || [];
   const topics = testSet.attributes?.metadata?.topics || [];
@@ -431,6 +429,19 @@ export default function TestSetDetailsSection({
         </Typography>
       </Box>
 
+      {/* Test Set Type */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+          Test Set Type
+        </Typography>
+        <Chip
+          label={testSetType}
+          variant="outlined"
+          size="medium"
+          sx={{ fontWeight: 'medium' }}
+        />
+      </Box>
+
       {/* Metadata Fields */}
       <Box sx={{ mb: 3 }}>
         <MetadataField label="Behaviors" items={behaviors} />
@@ -438,11 +449,11 @@ export default function TestSetDetailsSection({
         <MetadataField label="Topics" items={topics} />
       </Box>
 
-      {/* Source Documents Section */}
+      {/* Sources Section */}
       {sources.length > 0 && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
-            Source Documents
+            Sources
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {sources.map((source: any, index: number) => (
@@ -467,13 +478,8 @@ export default function TestSetDetailsSection({
                   }}
                 >
                   <DocumentIcon sx={{ fontSize: 'inherit' }} />
-                  {source.name || source.document || 'Unknown Document'}
+                  {source.name || source.document || 'Unknown Source'}
                 </Typography>
-                {source.description && (
-                  <Typography variant="body2" color="text.secondary">
-                    {source.description}
-                  </Typography>
-                )}
                 {source.document && source.document !== source.name && (
                   <Typography
                     variant="caption"

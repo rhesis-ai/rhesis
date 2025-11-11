@@ -5,13 +5,12 @@ Pytest fixtures for metrics testing. These provide consistent test data
 for baseline regression tests.
 """
 
+from typing import Any, Dict, List
+
 import pytest
-from typing import Dict, Any, List
-from unittest.mock import MagicMock
 
 from .metric_factories import (
     MetricConfigFactory,
-    RhesisMetricConfigFactory,
     RagasMetricConfigFactory,
 )
 
@@ -30,7 +29,11 @@ def categorical_metric_config() -> Dict[str, Any]:
 
 @pytest.fixture
 def binary_metric_config() -> Dict[str, Any]:
-    """Fixture for binary metric configuration."""
+    """
+    DEPRECATED: Fixture for binary metric configuration.
+    Binary metrics have been migrated to categorical.
+    This now returns a categorical metric configuration.
+    """
     return MetricConfigFactory.binary_config()
 
 
@@ -74,9 +77,13 @@ def mock_llm_categorical_response() -> Dict[str, Any]:
 
 @pytest.fixture
 def mock_llm_binary_response() -> Dict[str, Any]:
-    """Mock LLM response for binary metric."""
+    """
+    DEPRECATED: Mock LLM response for binary metric.
+    Binary metrics have been migrated to categorical.
+    This now returns a categorical response.
+    """
     return {
-        "score": True,
+        "score": "Pass",
         "reason": "Response meets the criteria",
         "verdict": "pass"
     }

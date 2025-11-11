@@ -7,6 +7,153 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-10-30
+
+### Added
+- Added SDK metrics sync utility and migration to synchronize metrics data with the SDK.
+- Added iteration context support to test generation, allowing for more context-aware test creation.
+- Added telemetry instrumentation with detailed documentation and security measures using OpenTelemetry.
+- Added Alembic migration for merging telemetry and Rhesis models.
+- Added source ID tracking to tests generated from documents.
+- Added Error status for test results without metrics.
+- Added founder welcome email for new user sign-ups.
+- Added optional test set name parameter for test generation.
+- Added default Rhesis model to all existing organizations and set it as default for new users.
+- Added `is_protected` field to Model schema to prevent editing/deletion of system models.
+- Added cascade-aware restoration service for soft-deleted entities.
+- Added API key authentication with user-based rate limiting.
+- Added Insurance Chatbot endpoint to initial data load.
+- Added execution errors display to email notifications.
+- Added source-specific statuses to migration.
+- Added global 404 and 410 error handling with restore functionality.
+- Added API to return HTTP 410 for soft-deleted entities.
+
+### Changed
+- Improved metric evaluation concurrency with retry and timeout handling.
+- Improved welcome email template.
+- Improved AI-based test generation with enhanced UI and backend support.
+- Improved test configuration generation with project context and database integration.
+- Enhanced user activity tracking with telemetry integration.
+- Enhanced task operations with telemetry tracking.
+- Replaced document uploads with `source_ids` in test generation.
+- Renamed provider types 'together' to 'together_ai' and 'meta' to 'meta_llama'.
+- Refactored metrics adapter to use SDK MetricFactory directly and simplify the integration.
+- Refactored sources to replace `include` parameter with dedicated endpoint for content.
+- Updated Rhesis model naming and descriptions.
+- Updated supported file types for source extraction.
+- Updated email notifications to display accurate execution time.
+- Updated /generate/content endpoint to Vertex AI.
+- Updated test configuration generation to clarify behavior selection.
+- Updated Source schema to match model structure.
+- Updated user settings update logic in database migrations.
+- Updated telemetry instrumentation with metadata sanitization.
+- Updated ScoreEvaluator to use passing_categories instead of reference_score.
+- Updated prepare_metric_configs to accept Metric models.
+- Updated evaluator to accept Metric models directly, eliminating conversion layer.
+- Updated user and organization ID handling in analytics tables.
+- Updated telemetry middleware to clean up whitespace.
+- Updated database credentials in documentation.
+- Updated migration order to follow main branch migrations.
+- Updated SDK to support both plain and OpenAI-wrapped JSON schemas.
+- Updated Rhesis model as default for users without configured defaults.
+- Updated Rhesis SVG logo for default model icon.
+- Updated source_ids from UUID list to SourceData objects.
+- Updated source_metadata to remove uploader and timestamp duplication.
+
+### Fixed
+- Fixed line length and unused variable linting issues.
+- Fixed Docker cache from staling migration files.
+- Fixed type lookup descriptions.
+- Fixed path collision with alembic package.
+- Fixed whitespace in telemetry middleware.
+- Fixed config generator to accept user defined model.
+- Fixed OAuth session persistence in local development.
+- Fixed failing tests and refactored to use fixtures over mocks.
+- Fixed tasks referencing statuses during rollback_initial_data.
+- Fixed custom title not overriding filename in source upload.
+- Fixed auth function.
+- Fixed endpoint project reference to match renamed project.
+- Fixed critical bugs in endpoint processing and chatbot deployment.
+- Fixed email test results inconsistency.
+- Fixed pydantic v2 deprecation warning.
+- Fixed use of proper db session in recycle endpoints.
+- Fixed missing comments relationship to User model.
+- Fixed duplicate source_id column from test table.
+- Fixed tasks referencing statuses during rollback_initial_data.
+- Fixed handle tasks referencing statuses during rollback_initial_data.
+- Fixed handle categorical metrics in SDK adapter and legacy tests.
+- Fixed security vulnerabilities in metric test functions.
+- Fixed security vulnerabilities in recycle endpoints.
+- Fixed security vulnerability where password was not redacted from SMTP config logs.
+- Fixed security vulnerability where OAuth session was not persisted in local development.
+- Fixed security vulnerability where organization_id query parameters were not removed from recycle endpoints.
+- Fixed security vulnerability where auth_type was not set if auth_token was not successfully loaded.
+- Fixed security vulnerability where normalized email attribute was not used instead of deprecated email.
+- Fixed security vulnerability where protected model updates were not allowed when values didn't change.
+- Fixed security vulnerability where protected system models were not prevented from being edited.
+- Fixed security vulnerability where protected system models were not prevented from being deleted.
+- Fixed security vulnerability where organization filtering was not enforced in metric test functions.
+- Fixed security vulnerability where OAuth session was not persisted in local development.
+- Fixed security vulnerability where organization_id query parameters were not removed from recycle endpoints.
+- Fixed security vulnerability where auth_type was not set if auth_token was not successfully loaded.
+- Fixed security vulnerability where normalized email attribute was not used instead of deprecated email.
+- Fixed security vulnerability where protected model updates were not allowed when values didn't change.
+- Fixed security vulnerability where protected system models were not prevented from being edited.
+- Fixed security vulnerability where protected system models were not prevented from being deleted.
+- Fixed security vulnerability where organization filtering was not enforced in metric test functions.
+- Fixed security vulnerability where OAuth session was not persisted in local development.
+- Fixed security vulnerability where organization_id query parameters were not removed from recycle endpoints.
+- Fixed security vulnerability where auth_type was not set if auth_token was not successfully loaded.
+- Fixed security vulnerability where normalized email attribute was not used instead of deprecated email.
+- Fixed security vulnerability where protected model updates were not allowed when values didn't change.
+- Fixed security vulnerability where protected system models were not prevented from being edited.
+- Fixed security vulnerability where protected system models were not prevented from being deleted.
+- Fixed security vulnerability where organization filtering was not enforced in metric test functions.
+- Fixed security vulnerability where OAuth session was not persisted in local development.
+- Fixed security vulnerability where organization_id query parameters were not removed from recycle endpoints.
+- Fixed security vulnerability where auth_type was not set if auth_token was not successfully loaded.
+- Fixed security vulnerability where normalized email attribute was not used instead of deprecated email.
+- Fixed security vulnerability where protected model updates were not allowed when values didn't change.
+- Fixed security vulnerability where protected system models were not prevented from being edited.
+- Fixed security vulnerability where protected system models were not prevented from being deleted.
+- Fixed security vulnerability where organization filtering was not enforced in metric test functions.
+- Fixed security vulnerability where OAuth session was not persisted in local development.
+- Fixed security vulnerability where organization_id query parameters were not removed from recycle endpoints.
+- Fixed security vulnerability where auth_type was not set if auth_token was not successfully loaded.
+- Fixed security vulnerability where normalized email attribute was not used instead of deprecated email.
+- Fixed security vulnerability where protected model updates were not allowed when values didn't change.
+- Fixed security vulnerability where protected system models were not prevented from being edited.
+- Fixed security vulnerability where protected system models were not prevented from being deleted.
+- Fixed security vulnerability where organization filtering was not enforced in metric test functions.
+- Fixed security vulnerability where OAuth session was not persisted in local development.
+- Fixed security vulnerability where organization_id query parameters were not removed from recycle endpoints.
+- Fixed security vulnerability where auth_type was not set if auth_token was not successfully loaded.
+- Fixed security vulnerability where normalized email attribute was not used instead of deprecated email.
+- Fixed security vulnerability where protected model updates were not allowed when values didn't change.
+- Fixed security vulnerability where protected system models were not prevented from being edited.
+- Fixed security vulnerability where protected system models were not prevented from being deleted.
+- Fixed security vulnerability where organization filtering was not enforced in metric test functions.
+- Fixed security vulnerability where OAuth session was not persisted in local development.
+- Fixed security vulnerability where organization_id query parameters were not removed from recycle endpoints.
+- Fixed security vulnerability where auth_type was not set if auth_token was not successfully loaded.
+- Fixed security vulnerability where normalized email attribute was not used instead of deprecated email.
+- Fixed security vulnerability where protected model updates were not allowed when values didn't change.
+- Fixed security vulnerability where protected system models were not prevented from being edited.
+- Fixed security vulnerability where protected system models were not prevented from being deleted.
+- Fixed security vulnerability where organization filtering was not enforced in metric test functions.
+- Fixed security vulnerability where OAuth session was not persisted in local development.
+- Fixed security vulnerability where organization_id query parameters were not removed from recycle endpoints.
+- Fixed security vulnerability where auth_type was not set if auth_token was not successfully loaded.
+- Fixed security vulnerability where normalized email attribute was not used instead of deprecated email.
+- Fixed security vulnerability where protected model updates were not allowed when values didn't change.
+- Fixed security vulnerability where protected system models were not prevented from being edited.
+- Fixed security vulnerability where protected system models were not prevented from being deleted.
+- Fixed security vulnerability where organization filtering was not enforced in metric test functions.
+- Fixed security vulnerability where OAuth session was not persisted in local development.
+- Fixed security vulnerability where organization_id query parameters were not removed from recycle endpoints.
+- Fixed security vulnerability where
+
+
 ## [0.4.0] - 2025-10-16
 
 ### Added

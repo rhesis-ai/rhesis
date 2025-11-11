@@ -3,7 +3,7 @@ name: Lint Check
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ main ]
+    branches: [ main, release/* ]
 
 jobs:
   lint:
@@ -25,20 +25,28 @@ jobs:
             - 'sdk/**'
           backend:
             - 'apps/backend/**'
+          penelope:
+            - 'penelope/**'
 
-    # SDK Linting
-    - name: Set up Python for SDK
-      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+    # Python-based linting (SDK, Backend, Penelope)
+    - name: Set up Python
+      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
-    - name: Install uv for SDK
-      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+    - name: Install uv
+      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
       uses: astral-sh/setup-uv@v6
       with:
         version: latest
         enable-cache: true
+
+    # - name: Check SDK uv.lock file
+    #   if: steps.filter.outputs.sdk == 'true' ||  github.event_name == 'workflow_dispatch'
+    #   run: |
+    #     cd sdk
+    #     uv lock --check
 
     - name: Run SDK linting
       if: steps.filter.outputs.sdk == 'true' || github.event_name == 'workflow_dispatch'
@@ -47,11 +55,23 @@ jobs:
         make lint
       continue-on-error: false
 
-    # Backend Linting
+    # - name: Check Backend uv.lock file
+    #   if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+    #   run: |
+    #     cd apps/backend
+    #     uv lock --check
+
     - name: Run Backend linting
       if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
       run: |
         cd apps/backend
+        make lint
+      continue-on-error: false
+
+    - name: Run Penelope linting
+      if: steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
+      run: |
+        cd penelope
         make lint
       continue-on-error: false
 
@@ -98,18 +118,24 @@ jobs:
           echo ""
           echo "### What was checked:"
         } >> "$GITHUB_STEP_SUMMARY"
-        
+
         if [ "${{ steps.filter.outputs.sdk }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           echo "- **SDK**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
         else
           echo "- **SDK**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
         fi
-        
+
         # if [ "${{ steps.filter.outputs.backend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
         #   echo "- **Backend**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
         # else
         #   echo "- **Backend**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
         # fi
+        
+        if [ "${{ steps.filter.outputs.penelope }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "- **Penelope**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "- **Penelope**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
+        fi
         
         if [ "${{ steps.filter.outputs.frontend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           echo "- **Frontend**: ESLint, Prettier formatting, TypeScript type checking, and build validation ✅" >> "$GITHUB_STEP_SUMMARY"

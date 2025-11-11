@@ -12,7 +12,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import MetricCard from './MetricCard';
 import SectionEditDrawer from './DimensionDrawer';
@@ -75,6 +75,7 @@ export default function SelectedMetricsTab({
   onTabChange,
 }: SelectedMetricsTabProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const notifications = useNotifications();
   const theme = useTheme();
 
@@ -99,6 +100,14 @@ export default function SelectedMetricsTab({
     setEditingSection({ key: null, title: '', description: '' });
     setIsNewSection(true);
     setDrawerOpen(true);
+  };
+
+  const handleSwitchToDirectoryWithAssignMode = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('assignMode', 'true');
+    params.delete('tab'); // Switch to directory tab (tab 0)
+    router.replace(`/metrics?${params.toString()}`, { scroll: false });
+    onTabChange(); // Trigger the tab change
   };
 
   const handleSaveSection = async (
@@ -180,7 +189,6 @@ export default function SelectedMetricsTab({
       }
       setDrawerOpen(false);
     } catch (err) {
-      console.error('Error saving behavior:', err);
       setDrawerError(
         err instanceof Error ? err.message : 'Failed to save dimension'
       );
@@ -208,7 +216,6 @@ export default function SelectedMetricsTab({
           try {
             await Promise.all(removePromises);
           } catch (err) {
-            console.error('Error removing metrics from behavior:', err);
             notifications.show(
               'Failed to remove all metrics from dimension. Please try again.',
               { severity: 'error', autoHideDuration: 4000 }
@@ -240,7 +247,6 @@ export default function SelectedMetricsTab({
         });
         setDrawerOpen(false);
       } catch (err) {
-        console.error('Error deleting behavior:', err);
         notifications.show(
           err instanceof Error ? err.message : 'Failed to delete dimension',
           { severity: 'error', autoHideDuration: 4000 }
@@ -298,7 +304,6 @@ export default function SelectedMetricsTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error removing metric from behavior:', err);
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -384,20 +389,27 @@ export default function SelectedMetricsTab({
                     zIndex: 1,
                   }}
                 >
-                  <IconButton
-                    size="small"
-                    onClick={() => handleMetricDetail(metric.id)}
-                    sx={{
-                      padding: '2px',
-                      '& .MuiSvgIcon-root': {
-                        fontSize:
-                          theme?.typography?.helperText?.fontSize || '0.75rem',
-                        color: 'currentColor',
-                      },
-                    }}
-                  >
-                    <OpenInNewIcon fontSize="inherit" />
-                  </IconButton>
+                  {/* Only show detail button for rhesis and custom metrics */}
+                  {(metric.backend_type?.type_value?.toLowerCase() ===
+                    'rhesis' ||
+                    metric.backend_type?.type_value?.toLowerCase() ===
+                      'custom') && (
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMetricDetail(metric.id)}
+                      sx={{
+                        padding: '2px',
+                        '& .MuiSvgIcon-root': {
+                          fontSize:
+                            theme?.typography?.helperText?.fontSize ||
+                            '0.75rem',
+                          color: 'currentColor',
+                        },
+                      }}
+                    >
+                      <OpenInNewIcon fontSize="inherit" />
+                    </IconButton>
+                  )}
                   <IconButton
                     size="small"
                     onClick={e => {
@@ -461,7 +473,7 @@ export default function SelectedMetricsTab({
             <Button
               variant="outlined"
               startIcon={<AddIcon />}
-              onClick={onTabChange}
+              onClick={handleSwitchToDirectoryWithAssignMode}
               sx={{
                 color: theme.palette.primary.main,
                 borderColor: theme.palette.primary.main,
@@ -536,7 +548,7 @@ export default function SelectedMetricsTab({
           onClick={handleAddNewSection}
           sx={{ color: 'text.secondary' }}
         >
-          Add New Dimension
+          Add New Behavior
         </Button>
       </Box>
 

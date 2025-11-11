@@ -81,9 +81,6 @@ export function useTestRunData({
           }
           // Fallback: if prompt_id exists but nested data is not available (backward compatibility)
           else if (testResult.prompt_id && !acc[testResult.prompt_id]) {
-            console.warn(
-              `Prompt ${testResult.prompt_id} not found in nested data for test result ${testResult.id}`
-            );
           }
           return acc;
         },
@@ -107,10 +104,6 @@ export function useTestRunData({
               metrics: behaviorMetrics,
             };
           } catch (error) {
-            console.error(
-              `Error fetching metrics for behavior ${behavior.id}:`,
-              error
-            );
             return {
               ...behavior,
               metrics: [],
@@ -128,7 +121,6 @@ export function useTestRunData({
       setPrompts(promptsMap);
       setTestResults(results);
     } catch (error) {
-      console.error('Error fetching test run data:', error);
       setError('Failed to load test run data');
       setTestResults([]);
       setPrompts({});

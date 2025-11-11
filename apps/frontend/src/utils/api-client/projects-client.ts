@@ -35,13 +35,11 @@ export class ProjectsClient extends BaseApiClient {
 
   async createProject(project: ProjectCreate): Promise<Project> {
     try {
-      console.log('Creating project with data:', JSON.stringify(project));
       return await this.fetch<Project>(API_ENDPOINTS.projects, {
         method: 'POST',
         body: JSON.stringify(project),
       });
     } catch (error) {
-      console.error('Error in ProjectsClient.createProject:', error);
       throw error;
     }
   }

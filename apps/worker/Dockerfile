@@ -26,11 +26,13 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     procps \
+    git \
     && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy SDK directory
+# Copy SDK and Penelope directories
 COPY sdk /app/sdk/
+COPY penelope /app/penelope/
 
 # Copy backend directory
 COPY apps/backend /app/backend/
@@ -74,13 +76,16 @@ ENV PYTHONPATH=/app:/app/backend/src \
     CELERY_TASK_ALWAYS_EAGER=False \
     CELERY_TASK_EAGER_PROPAGATES=False
 
-RUN uv add /app/sdk 
+# Fix paths in pyproject.toml to point to the correct locations in Docker
+RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
 
 RUN uv sync 
 
 #Add environment variable for the path. This way the Python environment is activated.
 
 # Remove build dependencies after installing Python packages
+# Keep git as it's needed by ragas package at runtime
 RUN apt-get purge -y gcc \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*

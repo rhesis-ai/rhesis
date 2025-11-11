@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -18,11 +18,16 @@ import CloseIcon from '@mui/icons-material/Close';
 import UploadIcon from '@mui/icons-material/Upload';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+import DragAndDropUpload from '@/components/common/DragAndDropUpload';
+import {
+  FILE_SIZE_CONSTANTS,
+  FILE_TYPE_CONSTANTS,
+} from '@/constants/knowledge';
 
 interface UploadSourceDialogProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
   sessionToken: string;
 }
 
@@ -37,19 +42,21 @@ export default function UploadSourceDialog({
   const [description, setDescription] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const notifications = useNotifications();
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      // Auto-populate title with filename if not already set
-      if (!title) {
-        setTitle(selectedFile.name);
-      }
-      setError(null);
+  const handleFileSelect = (file: File) => {
+    setFile(file);
+    // Auto-populate title with filename if not already set
+    if (!title) {
+      setTitle(file.name);
     }
+    setError(null);
+  };
+
+  const handleFileRemove = () => {
+    setFile(null);
+    setTitle('');
+    setError(null);
   };
 
   const handleUpload = async () => {
@@ -70,25 +77,40 @@ export default function UploadSourceDialog({
       const clientFactory = new ApiClientFactory(sessionToken);
       const sourcesClient = clientFactory.getSourcesClient();
 
-      await sourcesClient.uploadSource(
+      const uploadedSource = await sourcesClient.uploadSource(
         file,
         title.trim(),
         description.trim() || undefined
       );
 
-      notifications.show('Source uploaded successfully!', {
-        severity: 'success',
-        autoHideDuration: 4000,
-      });
+      // Check if content extraction failed
+      if (!uploadedSource.content || uploadedSource.content.trim() === '') {
+        notifications.show(
+          'Source uploaded successfully, but content extraction failed. The file may not be supported or corrupted.',
+          {
+            severity: 'warning',
+            autoHideDuration: 8000,
+          }
+        );
+      } else {
+        notifications.show('Source uploaded successfully!', {
+          severity: 'success',
+          autoHideDuration: 4000,
+        });
+      }
 
       // Reset form and close dialog
       handleClose();
-      onSuccess();
+      onSuccess?.();
     } catch (error) {
-      console.error('Error uploading source:', error);
       const errorMessage =
-        error instanceof Error && (error as any).data
-          ? JSON.stringify((error as any).data, null, 2)
+        error instanceof Error &&
+        (error as Error & { data?: Record<string, unknown> }).data
+          ? JSON.stringify(
+              (error as Error & { data?: Record<string, unknown> }).data,
+              null,
+              2
+            )
           : error instanceof Error
             ? error.message
             : 'Failed to upload source. Please try again.';
@@ -104,19 +126,8 @@ export default function UploadSourceDialog({
       setTitle('');
       setDescription('');
       setError(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
       onClose();
     }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
@@ -148,37 +159,14 @@ export default function UploadSourceDialog({
             <Typography variant="subtitle2" gutterBottom>
               Select File
             </Typography>
-            <input
-              ref={fileInputRef}
-              type="file"
-              onChange={handleFileSelect}
-              accept=".txt,.md,.pdf,.doc,.docx,.json,.csv,.xml"
-              style={{ display: 'none' }}
-            />
-            <Button
-              variant="outlined"
-              component="label"
-              startIcon={<UploadIcon />}
+            <DragAndDropUpload
+              onFileSelect={handleFileSelect}
+              onFileRemove={handleFileRemove}
+              selectedFile={file}
+              accept={FILE_TYPE_CONSTANTS.ACCEPTED_EXTENSIONS}
+              maxSize={FILE_SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
               disabled={uploading}
-              sx={{ width: '100%', py: 2 }}
-            >
-              {file ? file.name : 'Choose File'}
-              <input
-                type="file"
-                onChange={handleFileSelect}
-                accept=".txt,.md,.pdf,.doc,.docx,.json,.csv,.xml"
-                style={{ display: 'none' }}
-              />
-            </Button>
-            {file && (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 1, display: 'block' }}
-              >
-                Size: {formatFileSize(file.size)}
-              </Typography>
-            )}
+            />
           </Box>
 
           {/* Title Field */}
@@ -229,7 +217,7 @@ export default function UploadSourceDialog({
         </Button>
         <Button
           onClick={handleUpload}
-          variant="contained"
+          variant={uploading ? 'outlined' : 'contained'}
           disabled={!file || !title.trim() || uploading}
           startIcon={<UploadIcon />}
         >

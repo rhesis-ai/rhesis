@@ -253,22 +253,10 @@ def _execute_metric_test(
 
         # Dynamic imports to avoid circular dependencies
         from rhesis.backend.metrics.evaluator import MetricEvaluator
-        from rhesis.backend.tasks.execution.metrics_utils import create_metric_config_from_model
 
-        # Create metric configuration
-        print("🔧 Creating metric configuration...")
-        metric_config_dict = create_metric_config_from_model(metric_model)
-
-        if not metric_config_dict:
-            return {"error": "Failed to create metric configuration"}
-
-        # Import MetricConfig and create instance
-        from rhesis.backend.metrics.base import MetricConfig
-
-        metric_config = MetricConfig.from_dict(metric_config_dict)
-
-        if not metric_config:
-            return {"error": "Failed to create metric config object"}
+        # Pass the Metric model directly - evaluator handles conversion
+        print("✅ Using Metric model directly (evaluator handles conversion)...")
+        metric_config = metric_model
 
         # Initialize evaluator and run evaluation
         print("\n🚀 Running evaluation...")

@@ -30,12 +30,12 @@
 
 The Rhesis SDK empowers developers to programmatically access curated test sets and generate comprehensive test scenarios for Gen AI applications. Transform domain expertise into automated testing: access thousands of test scenarios, generate custom validation suites, and integrate seamlessly into your workflow to keep your Gen AI robust, reliable & compliant.
 
-<img src="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/68d66fa1ff10c81d4e4e4d0f_Frame%201000004352.png" 
-     loading="lazy" 
-     width="1392" 
-     sizes="(max-width: 479px) 100vw, (max-width: 767px) 95vw, (max-width: 991px) 94vw, 95vw" 
-     alt="Rhesis Platform Results" 
-     srcset="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/68d66fa1ff10c81d4e4e4d0f_Frame%201000004352.png 2939w" 
+<img src="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/68d66fa1ff10c81d4e4e4d0f_Frame%201000004352.png"
+     loading="lazy"
+     width="1392"
+     sizes="(max-width: 479px) 100vw, (max-width: 767px) 95vw, (max-width: 991px) 94vw, 95vw"
+     alt="Rhesis Platform Results"
+     srcset="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/68d66fa1ff10c81d4e4e4d0f_Frame%201000004352.png 2939w"
      class="uui-layout41_lightbox-image-01-2">
 
 ## 📑 Table of Contents
@@ -74,27 +74,7 @@ pip install rhesis-sdk
 
 ## 🐍 Python Requirements
 
-Rhesis SDK requires **Python 3.10** or newer. For development, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions:
-
-```bash
-# Install pyenv
-curl https://pyenv.run | bash
-
-# Install build dependencies (Ubuntu/Debian)
-sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-dev \
-libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
-libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
-
-# Install Python 3.10
-pyenv install 3.10.17
-
-# Set local Python version for SDK
-cd sdk
-pyenv local 3.10.17
-
-# Create a virtual environment with UV
-uv venv
-```
+Rhesis SDK requires **Python 3.10** or newer.
 
 ## 🏁 Getting Started
 
@@ -109,62 +89,34 @@ Your API key will be in the format `rh-XXXXXXXXXXXXXXXXXXXX`. Keep this key secu
 
 > **Note:** On the Rhesis App, you can also create test sets for your own use cases and access them via the SDK. You only need to connect your GitHub account to create a test set.
 
-### 2. Configure the SDK ⚙️
+### 2. Configure  and use the SDK.
 
-You can configure the Rhesis SDK either through environment variables or direct configuration:
-
-#### Using Environment Variables
-
-```bash
-export RHESIS_API_KEY="your-api-key"
-export RHESIS_BASE_URL="https://api.rhesis.ai"  # optional
-```
-
-#### Direct Configuration
 
 ```python
-import rhesis
 
-# Set configuration directly
-rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"
-rhesis.base_url = "https://api.rhesis.ai"  # optional
-```
+from pprint import pprint
 
-## ⚡ Quick Start
-
-Before you start, you can configure the Rhesis SDK either through environment variables or direct configuration, as described above.
-
-### Working with Test Sets 📋
-
-```python
 from rhesis.sdk.entities import TestSet
 from rhesis.sdk.synthesizers import PromptSynthesizer
 
-# List all test sets
+os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from app.rhesis.ai settings
+os.environ["RHESIS_BASE_URL"] = "https://api.rhesis.ai"  # optional
+
+# Browse available test sets
 for test_set in TestSet().all():
-    print(test_set)
+    pprint(test_set)
 
-# Load a specific test set
-test_set = TestSet(id="agent-or-industry-fraud-harmful")
-test_set.load()
-
-# Download test set data
-test_set.download()
-
-# Generate a new test set
-prompt_synthesizer = PromptSynthesizer(
-    prompt="Generate tests for an insurance chatbot that can answer questions about the company's policies."
+# Generate custom test scenarios
+synthesizer = PromptSynthesizer(
+    prompt="Generate tests for a medical chatbot that must never provide diagnosis"
 )
-test_set = prompt_synthesizer.generate(num_tests=100)
+test_set = synthesizer.generate(num_tests=10)
+pprint(test_set.tests)
 ```
-
-For more detailed examples, check out our [example notebooks](https://github.com/rhesis-ai/rhesis/tree/main/examples).
 
 ### Generating Custom Test Sets 🛠️
 
-If none of the existing test sets fit your needs, you can generate your own.
-
-You can check out [app.rhesis.ai](http://app.rhesis.ai). There you can define requirements, scenarios and personas, and even import your existing GitHub repository.
+If none of the existing test sets fit your needs, you can generate your own. You can check out [app.rhesis.ai](http://app.rhesis.ai). There you can define requirements, scenarios and behaviors.
 
 ## 🧪 About Rhesis AI
 

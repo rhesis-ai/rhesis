@@ -9,20 +9,20 @@ Create Date: 2025-10-26 18:58:31
 
 """
 
-from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.orm import Session
-from typing import Union, Sequence, Optional
 import uuid
+from typing import Optional, Sequence, Union
+
+from alembic import op
+from sqlalchemy.orm import Session
 
 # Import models and utilities
 from rhesis.backend.app import models
+from rhesis.backend.app.constants import DEFAULT_MODEL_NAME, EntityType
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_entity,
-    get_or_create_type_lookup,
     get_or_create_status,
+    get_or_create_type_lookup,
 )
-from rhesis.backend.app.constants import DEFAULT_MODEL_NAME, EntityType
 
 # revision identifiers, used by Alembic.
 revision: str = "e8dd05d20cd0"
@@ -71,8 +71,8 @@ def _update_user_model_settings(
 
         # Apply updates using UserSettingsManager if needed
         if updates:
+            # Settings are auto-persisted when using user.settings
             user.settings.update(updates)
-            user.user_settings = user.settings.raw
             session.flush()
             users_updated += 1
 
@@ -114,7 +114,7 @@ def upgrade() -> None:
                 .filter(
                     models.Model.organization_id == org.id,
                     models.TypeLookup.type_value == "rhesis",
-                    models.Model.is_protected == True,
+                    models.Model.is_protected,
                 )
                 .first()
             )
@@ -170,7 +170,8 @@ def upgrade() -> None:
                     commit=False,
                 )
 
-                # Set this model as default for users in this organization who don't have defaults set
+                # Set this model as default for users in this organization
+                # who don't have defaults set
                 users_updated = _update_user_model_settings(
                     session=session,
                     organization_id=org.id,
@@ -181,7 +182,8 @@ def upgrade() -> None:
 
                 created_count += 1
                 print(
-                    f"  ✓ Created Rhesis model for org {organization_id} (set as default for {users_updated} user(s))"
+                    f"  ✓ Created Rhesis model for org {organization_id} "
+                    f"(set as default for {users_updated} user(s))"
                 )
 
             except Exception as e:
@@ -217,7 +219,7 @@ def downgrade() -> None:
             session.query(models.Model)
             .join(models.TypeLookup, models.Model.provider_type_id == models.TypeLookup.id)
             .filter(
-                models.Model.is_protected == True,
+                models.Model.is_protected,
                 models.Model.name == "Rhesis Default",
                 models.TypeLookup.type_value == "rhesis",
             )
@@ -246,7 +248,8 @@ def downgrade() -> None:
 
         session.commit()
         print(
-            f"\n🗑 Removed {deleted_count} default Rhesis model(s) and cleared settings for {users_updated} user(s)\n"
+            f"\n🗑 Removed {deleted_count} default Rhesis model(s) and cleared "
+            f"settings for {users_updated} user(s)\n"
         )
 
     except Exception as e:

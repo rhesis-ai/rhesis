@@ -46,19 +46,17 @@ x-rhesis-config: &rhesis-config
   RHESIS_API_KEY: ${RHESIS_API_KEY}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
   BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
-  
-x-llm-config: &llm-config
-  # Gemini API (legacy)
+
+x-telemetry-config: &telemetry-config
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318/}
+  OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-rhesis}
+  DEPLOYMENT_TYPE: ${DEPLOYMENT_TYPE:-self-hosted}
+  TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-false}  # Self-hosted: opt-in via env var
+
+x-gemini-google: &gemini-google
   GEMINI_API_KEY: ${GEMINI_API_KEY}
   GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME}
   GOOGLE_API_KEY: ${GOOGLE_API_KEY}
-  # Default LLM Provider Configuration
-  DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-vertex_ai}
-  DEFAULT_MODEL_NAME: ${DEFAULT_MODEL_NAME:-gemini-2.0-flash}
-  # Vertex AI Configuration
-  GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
-  VERTEX_AI_LOCATION: ${VERTEX_AI_LOCATION:-europe-west4}  # Netherlands - best for Europe
-  VERTEX_AI_PROJECT: ${VERTEX_AI_PROJECT:-}
 
 x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
@@ -121,10 +119,12 @@ services:
       dockerfile: apps/backend/Dockerfile
     container_name: rhesis-backend
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *llm-config]
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *gemini-google, *telemetry-config]
       LOG_LEVEL: DEBUG
     ports:
       - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
@@ -151,7 +151,7 @@ services:
       dockerfile: apps/worker/Dockerfile
     container_name: rhesis-worker
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *llm-config]
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
       LOG_LEVEL: INFO
       CELERY_WORKER_CONCURRENCY: 8
       CELERY_WORKER_PREFETCH_MULTIPLIER: 4
@@ -161,6 +161,8 @@ services:
       ENABLE_FLOWER: no
     ports:
       - "8081:8081"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
@@ -193,6 +195,8 @@ services:
     environment:
       <<: [*common-auth0, *nextjs-frontend, *google-client, *common-environment, *rhesis-config]
       PORT: 3000
+      NEXT_PUBLIC_OTEL_ENDPOINT: ${NEXT_PUBLIC_OTEL_ENDPOINT:-}
+      NEXT_PUBLIC_DEPLOYMENT_TYPE: ${DEPLOYMENT_TYPE:-self-hosted}
     ports:
       - "3000:3000"
     depends_on:
@@ -237,4 +241,4 @@ volumes:
 
 networks:
   rhesis-network:
-    driver: bridge 
+    driver: bridge

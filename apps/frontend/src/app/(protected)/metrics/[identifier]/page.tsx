@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@mui/material/styles';
 import {
   Box,
@@ -25,7 +25,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import BaseTag from '@/components/common/BaseTag';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { MetricDetail, ScoreType } from '@/utils/api-client/interfaces/metric';
@@ -68,6 +68,7 @@ export default function MetricDetailPage() {
   const identifier = params.identifier as string;
   const { data: session } = useSession();
   const theme = useTheme();
+  const router = useRouter();
   const [metric, setMetric] = useState<MetricDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const notifications = useNotifications();
@@ -122,8 +123,20 @@ export default function MetricDetailPage() {
         if (metricData.model) {
           setModels([metricData.model]);
         }
+
+        // Check if this is NOT a rhesis or custom metric - redirect other metrics
+        const backendType = metricData.backend_type?.type_value?.toLowerCase();
+        if (backendType !== 'rhesis' && backendType !== 'custom') {
+          notifications.show(
+            'This metric type cannot be viewed through the detail page',
+            {
+              severity: 'warning',
+            }
+          );
+          router.push('/metrics');
+          return;
+        }
       } catch (error) {
-        console.error('Error fetching data:', error);
         // Use notifications without depending on it
         const notificationsContext = notifications;
         notificationsContext.show('Failed to load metric details', {
@@ -135,7 +148,7 @@ export default function MetricDetailPage() {
     };
 
     fetchData();
-  }, [identifier, session?.session_token, notifications]);
+  }, [identifier, session?.session_token, notifications, router]);
 
   // Helper function to collect current field values without triggering re-renders
   const collectFieldValues = React.useCallback((): Partial<EditData> => {
@@ -225,7 +238,6 @@ export default function MetricDetailPage() {
             );
             setMetric(updatedMetric);
           } catch (error) {
-            console.error('Error refreshing metric:', error);
             notifications.show('Failed to refresh metric data', {
               severity: 'error',
             });
@@ -271,7 +283,6 @@ export default function MetricDetailPage() {
                 });
                 setModels(modelsData.data || []);
               } catch (error) {
-                console.error('Error fetching models for editing:', error);
                 notifications.show('Failed to load models for editing', {
                   severity: 'error',
                 });
@@ -282,7 +293,7 @@ export default function MetricDetailPage() {
         });
       } else if (section === 'configuration') {
         sectionData = {
-          score_type: metric.score_type || 'binary',
+          score_type: metric.score_type || 'numeric',
           min_score: metric.min_score,
           max_score: metric.max_score,
           threshold: metric.threshold,
@@ -356,7 +367,6 @@ export default function MetricDetailPage() {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error updating metric:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to update metric';
       notifications.show(errorMessage, { severity: 'error' });
@@ -915,7 +925,7 @@ export default function MetricDetailPage() {
                   <FormControl fullWidth>
                     <InputLabel>Score Type</InputLabel>
                     <Select
-                      value={editData.score_type || 'binary'}
+                      value={editData.score_type || 'numeric'}
                       onChange={e =>
                         setEditData(prev => ({
                           ...prev,
@@ -924,8 +934,8 @@ export default function MetricDetailPage() {
                       }
                       label="Score Type"
                     >
-                      <MenuItem value="binary">Binary (Pass/Fail)</MenuItem>
                       <MenuItem value="numeric">Numeric</MenuItem>
+                      <MenuItem value="categorical">Categorical</MenuItem>
                     </Select>
                   </FormControl>
                 ) : (
@@ -942,8 +952,8 @@ export default function MetricDetailPage() {
                         fontWeight: 'medium',
                       }}
                     >
-                      {metric.score_type === 'binary'
-                        ? 'Binary (Pass/Fail)'
+                      {metric.score_type === 'categorical'
+                        ? 'Categorical'
                         : 'Numeric'}
                     </Typography>
                   </Box>

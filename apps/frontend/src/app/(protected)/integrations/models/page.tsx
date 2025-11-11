@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, Paper, Typography, Alert, CircularProgress } from '@mui/material';
+import { Box, Typography, Alert, CircularProgress } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
@@ -51,26 +51,24 @@ export default function ModelsPage() {
           $filter: "type_name eq 'ProviderType'",
           limit: 100, // Fetch all providers (default is 10)
         });
-        console.log('Provider types loaded:', types);
         setProviderTypes(types);
 
         // Load user settings
         try {
           const settings = await usersClient.getUserSettings();
           setUserSettings(settings);
-        } catch (err) {
-          console.error('Failed to load user settings:', err);
+        } catch {
+          // Failed to load user settings - continue without them
         }
 
         // Then load connected models
         try {
           const modelsResponse = await modelsClient.getModels();
           setConnectedModels(modelsResponse.data);
-        } catch (err) {
-          console.error('Failed to load models:', err);
+        } catch {
+          // Failed to load models - will show empty state
         }
       } catch (err) {
-        console.error('Failed to load providers:', err);
         setError(
           err instanceof Error ? err.message : 'Failed to load providers'
         );
@@ -83,7 +81,6 @@ export default function ModelsPage() {
   }, [session]);
 
   const handleAddLLM = () => {
-    console.log('Opening provider selection with types:', providerTypes);
     setProviderSelectionOpen(true);
   };
 
@@ -101,9 +98,7 @@ export default function ModelsPage() {
       const usersClient = apiFactory.getUsersClient();
       const settings = await usersClient.getUserSettings();
       setUserSettings(settings);
-    } catch (err) {
-      console.error('Failed to refresh user settings:', err);
-    }
+    } catch (err) {}
   };
 
   const handleConnect = async (

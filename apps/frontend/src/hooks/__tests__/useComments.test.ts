@@ -314,7 +314,10 @@ describe('useComments', () => {
       });
 
       expect(mockCommentsClient.deleteComment).toHaveBeenCalledWith('1');
-      expect(result.current.comments).toHaveLength(0);
+
+      await waitFor(() => {
+        expect(result.current.comments).toHaveLength(0);
+      });
     });
 
     it('handles delete error', async () => {

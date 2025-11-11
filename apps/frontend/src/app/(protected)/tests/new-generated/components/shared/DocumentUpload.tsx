@@ -122,7 +122,7 @@ export default function DocumentUpload({
   return (
     <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Add context documents to improve test generation quality
+        Add context sources to improve test generation quality
       </Typography>
 
       {/* Upload Area */}
@@ -170,7 +170,7 @@ export default function DocumentUpload({
         </Typography>
       </Paper>
 
-      {/* Document List */}
+      {/* Sources List */}
       {documents.length > 0 && (
         <Stack spacing={1}>
           {documents.map(doc => (
@@ -242,7 +242,7 @@ export default function DocumentUpload({
       {/* Processing Warning */}
       {hasProcessingDocuments && (
         <Alert severity="info" sx={{ mt: 2 }}>
-          Please wait for all documents to finish processing before continuing
+          Please wait for all sources to finish processing before continuing
         </Alert>
       )}
     </Box>

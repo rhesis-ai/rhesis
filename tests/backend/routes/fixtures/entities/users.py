@@ -1,5 +1,5 @@
 """
-👤 User Fixtures (Enhanced Factory-Based System)
+User Fixtures (Enhanced Factory-Based System)
 
 This module provides clean, purpose-driven user fixtures with clear naming
 and automatic cleanup. Replaces the old confusing mix of user fixture types.
@@ -11,7 +11,7 @@ Usage Guidelines:
 
 Categories:
 🎭 Mock Fixtures: Fast, no database interaction
-🗄️ Database Fixtures: Real entities in test database  
+🗄️ Database Fixtures: Real entities in test database
 🔑 Authenticated Fixtures: The actual authenticated user from API key
 """
 
@@ -49,11 +49,11 @@ fake = Faker()
 @pytest.fixture
 def mock_user_data() -> Dict[str, Any]:
     """
-    🎭👤 Mock user data for unit tests
-    
+    Mock user data for unit tests
+
     Fast fixture that provides user data without database interaction.
     Perfect for unit tests that need user data but don't interact with the database.
-    
+
     Returns:
         Dict containing mock user data
     """
@@ -74,7 +74,7 @@ def mock_user_data() -> Dict[str, Any]:
 def mock_admin_data(mock_user_data) -> Dict[str, Any]:
     """
     🎭👨‍💼 Mock admin user data for unit tests
-    
+
     Returns:
         Dict containing mock admin user data
     """
@@ -92,7 +92,7 @@ def mock_admin_data(mock_user_data) -> Dict[str, Any]:
 def mock_inactive_user_data(mock_user_data) -> Dict[str, Any]:
     """
     🎭🚫 Mock inactive user data for unit tests
-    
+
     Returns:
         Dict containing mock inactive user data
     """
@@ -107,11 +107,11 @@ def mock_inactive_user_data(mock_user_data) -> Dict[str, Any]:
 @pytest.fixture
 def mock_user_object() -> Mock:
     """
-    🎭👤 Mock User model object for unit tests
-    
+    Mock User model object for unit tests
+
     Provides a mock User object that behaves like the SQLAlchemy User model
     without requiring database interaction.
-    
+
     Returns:
         Mock object with User model properties
     """
@@ -133,27 +133,27 @@ def mock_user_object() -> Mock:
 @pytest.fixture
 def db_user(test_db, test_org_id):
     """
-    🗄️👤 Create real user in test database
-    
+    Create real user in test database
+
     Creates an actual User record in the database for integration tests.
     Automatically uses the test organization to avoid foreign key issues.
-    
+
     Args:
         test_db: Database session fixture
         test_org_id: Dynamic organization ID from API key
-        
+
     Returns:
         User: Real user record from database
     """
     if User is None:
         pytest.skip("User model not available")
-    
+
     import uuid
     import time
-    
+
     # Generate truly unique data to avoid conflicts between tests
     unique_suffix = f"{int(time.time() * 1000000)}"  # microsecond timestamp
-    
+
     user = User(
         email=f"test-{unique_suffix}@example.com",
         name=fake.name(),
@@ -174,17 +174,17 @@ def db_user(test_db, test_org_id):
 def db_admin(test_db, test_org_id):
     """
     🗄️👨‍💼 Create real admin user in test database
-    
+
     Args:
         test_db: Database session fixture
         test_org_id: Dynamic organization ID from API key
-        
+
     Returns:
         User: Real admin user record from database
     """
     if User is None:
         pytest.skip("User model not available")
-    
+
     admin = User(
         email=f"admin+{fake.uuid4()[:8]}@example.com",
         name=f"Admin {fake.last_name()}",
@@ -205,17 +205,17 @@ def db_admin(test_db, test_org_id):
 def db_inactive_user(test_db, test_org_id):
     """
     🗄️🚫 Create real inactive user in test database
-    
+
     Args:
         test_db: Database session fixture
         test_org_id: Dynamic organization ID from API key
-        
+
     Returns:
         User: Real inactive user record from database
     """
     if User is None:
         pytest.skip("User model not available")
-    
+
     user = User(
         email=f"inactive+{fake.uuid4()[:8]}@example.com",
         name=f"Inactive {fake.last_name()}",
@@ -234,19 +234,19 @@ def db_inactive_user(test_db, test_org_id):
 def db_owner_user(test_db, test_org_id):
     """
     🗄️🏠 Create real user for owner relationships
-    
+
     Creates a user specifically for testing owner_id relationships.
-    
+
     Args:
         test_db: Database session fixture
         test_org_id: Dynamic organization ID from API key
-        
+
     Returns:
         User: Real user record for owner relationships
     """
     if User is None:
         pytest.skip("User model not available")
-    
+
     import time
     unique_suffix = f"{int(time.time() * 1000000)}"  # microsecond timestamp
     owner = User(
@@ -269,19 +269,19 @@ def db_owner_user(test_db, test_org_id):
 def db_assignee_user(test_db, test_org_id):
     """
     🗄️📋 Create real user for assignee relationships
-    
+
     Creates a user specifically for testing assignee_id relationships.
-    
+
     Args:
         test_db: Database session fixture
         test_org_id: Dynamic organization ID from API key
-        
+
     Returns:
         User: Real user record for assignee relationships
     """
     if User is None:
         pytest.skip("User model not available")
-    
+
     import time
     unique_suffix = f"{int(time.time() * 1000000)}"  # microsecond timestamp
     assignee = User(
@@ -306,20 +306,20 @@ def db_assignee_user(test_db, test_org_id):
 def authenticated_user(test_db, authenticated_user_id):
     """
     🔑👤 Get the real authenticated user from database
-    
+
     Retrieves the actual user that corresponds to the API key used in tests.
     This is the user behind the authenticated_client fixture.
-    
+
     Args:
         test_db: Database session fixture
         authenticated_user_id: Dynamic user ID from API key
-        
+
     Returns:
         User: The authenticated user record
     """
     if User is None:
         pytest.skip("User model not available")
-    
+
     user = test_db.query(User).filter(User.id == authenticated_user_id).first()
     if not user:
         pytest.skip(f"Authenticated user {authenticated_user_id} not found in test database")
@@ -330,13 +330,13 @@ def authenticated_user(test_db, authenticated_user_id):
 def authenticated_user_data(authenticated_user) -> Dict[str, Any]:
     """
     🔑📊 Get authenticated user data as dictionary
-    
+
     Returns the authenticated user data in dictionary format for tests
     that need user data but not the SQLAlchemy object.
-    
+
     Args:
         authenticated_user: The authenticated user fixture
-        
+
     Returns:
         Dict containing authenticated user data
     """
@@ -357,19 +357,19 @@ def authenticated_user_data(authenticated_user) -> Dict[str, Any]:
 def test_organization(test_db, test_org_id):
     """
     🔑🏢 Get the test organization from database
-    
+
     Retrieves the test organization that all test users belong to.
-    
+
     Args:
         test_db: Database session fixture
         test_org_id: Dynamic organization ID from API key
-        
+
     Returns:
         Organization: The test organization record
     """
     if Organization is None:
         pytest.skip("Organization model not available")
-    
+
     org = test_db.query(Organization).filter(Organization.id == test_org_id).first()
     if not org:
         pytest.skip(f"Test organization {test_org_id} not found in database")
@@ -382,12 +382,12 @@ def test_organization(test_db, test_org_id):
 def user_trio(db_user, db_owner_user, db_assignee_user):
     """
     🎯👥 Three users for relationship testing
-    
+
     Provides three different users for testing various user relationships:
     - Regular user
-    - Owner user  
+    - Owner user
     - Assignee user
-    
+
     Returns:
         Dict with 'user', 'owner', and 'assignee' keys
     """
@@ -402,7 +402,7 @@ def user_trio(db_user, db_owner_user, db_assignee_user):
 def admin_and_user(db_admin, db_user):
     """
     🎯👨‍💼👤 Admin and regular user for permission testing
-    
+
     Returns:
         Dict with 'admin' and 'user' keys
     """
@@ -414,7 +414,7 @@ def admin_and_user(db_admin, db_user):
 
 # LEGACY ALIASES (for backward compatibility - will be removed in future)
 sample_user = mock_user_data
-mock_user = mock_user_object  
+mock_user = mock_user_object
 admin_user = mock_admin_data
 inactive_user = mock_inactive_user_data
 db_authenticated_user = authenticated_user
@@ -425,16 +425,16 @@ db_admin_user = db_admin
 __all__ = [
     # Mock fixtures (unit tests)
     "mock_user_data", "mock_admin_data", "mock_inactive_user_data", "mock_user_object",
-    
+
     # Database fixtures (integration tests)
     "db_user", "db_admin", "db_inactive_user", "db_owner_user", "db_assignee_user",
-    
+
     # Authenticated fixtures (the real user)
     "authenticated_user", "authenticated_user_data", "test_organization",
-    
+
     # Convenience fixtures
     "user_trio", "admin_and_user",
-    
+
     # Legacy aliases (deprecated)
     "sample_user", "mock_user", "admin_user", "inactive_user", "db_authenticated_user", "db_admin_user"
 ]

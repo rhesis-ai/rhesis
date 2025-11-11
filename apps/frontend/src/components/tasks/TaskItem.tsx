@@ -77,7 +77,6 @@ export function TaskItem({
     try {
       router.push(`/tasks/${task.id}`);
     } catch (error) {
-      console.error('Navigation error:', error);
       // Could show notification or handle gracefully
     }
   };

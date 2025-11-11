@@ -16,6 +16,8 @@ export interface Source {
   language_code?: string;
   source_metadata?: Record<string, any>;
   tags: string[];
+  created_at?: string;
+  updated_at?: string;
   counts?: {
     comments: number;
     tasks: number;
@@ -24,6 +26,7 @@ export interface Source {
   // References
   source_type?: TypeLookup;
   status?: Status;
+  user?: User; // uploader/creator of the source
   owner?: User;
   assignee?: User;
 }

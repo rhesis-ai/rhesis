@@ -94,25 +94,9 @@ class ScoreEvaluator:
         Returns:
             ScoreType: The determined score type
         """
-        # If it's a string score, determine if it's binary or categorical
+        # If it's a string score, it's categorical
         if isinstance(score, str):
-            # Common binary values
-            binary_values = {
-                "true",
-                "false",
-                "yes",
-                "no",
-                "pass",
-                "fail",
-                "success",
-                "failure",
-                "1",
-                "0",
-            }
-            if score.lower().strip() in binary_values:
-                return ScoreType.BINARY
-            else:
-                return ScoreType.CATEGORICAL
+            return ScoreType.CATEGORICAL
 
         # If it's numeric, it's numeric type
         return ScoreType.NUMERIC
@@ -124,6 +108,8 @@ class ScoreEvaluator:
         threshold_operator: Optional[str],
         reference_score: Optional[str] = None,
         score_type: Optional[Union[ScoreType, str]] = None,
+        categories: Optional[list] = None,
+        passing_categories: Optional[list] = None,
     ) -> bool:
         """
         Evaluate whether a metric score meets the success criteria based on threshold and operator.
@@ -133,8 +119,10 @@ class ScoreEvaluator:
             score: The metric score (can be numeric or string)
             threshold: The threshold value for numeric scores
             threshold_operator: The comparison operator ('<', '>', '>=', '<=', '=', '!=')
-            reference_score: Reference score for binary/categorical metrics
+            reference_score: Reference score for categorical metrics (deprecated, use passing_categories)
             score_type: Explicit score type, if not provided will be auto-determined
+            categories: List of valid categories for categorical metrics
+            passing_categories: List of categories that indicate success
 
         Returns:
             bool: True if the metric score meets the success criteria
@@ -156,7 +144,7 @@ class ScoreEvaluator:
         if sanitized_operator is None:
             if score_type == ScoreType.NUMERIC:
                 sanitized_operator = ThresholdOperator.GREATER_THAN_OR_EQUAL
-            else:  # BINARY or CATEGORICAL
+            else:  # CATEGORICAL
                 sanitized_operator = ThresholdOperator.EQUAL
             logger.debug(
                 f"Using default operator '{sanitized_operator.value}' for score type '{score_type.value}'"
@@ -176,9 +164,15 @@ class ScoreEvaluator:
         # Handle different score types
         if score_type == ScoreType.NUMERIC:
             return self._evaluate_numeric_score(score, threshold, sanitized_operator)
-        else:  # BINARY or CATEGORICAL
+        else:  # CATEGORICAL
             return self._evaluate_categorical_score(
-                score, reference_score, threshold, sanitized_operator, score_type
+                score,
+                reference_score,
+                threshold,
+                sanitized_operator,
+                score_type,
+                categories,
+                passing_categories,
             )
 
     def _evaluate_numeric_score(
@@ -225,38 +219,58 @@ class ScoreEvaluator:
         threshold: Optional[float],
         threshold_operator: ThresholdOperator,
         score_type: ScoreType,
+        categories: Optional[list] = None,
+        passing_categories: Optional[list] = None,
     ) -> bool:
         """
-        Evaluate binary/categorical scores against reference score using the specified operator.
+        Evaluate categorical scores using passing_categories or reference score.
 
         Args:
             score: The score value
-            reference_score: The reference score to compare against
+            reference_score: The reference score to compare against (deprecated)
             threshold: The threshold (used as reference if reference_score not provided)
             threshold_operator: The comparison operator
-            score_type: The score type (BINARY or CATEGORICAL)
+            score_type: The score type (CATEGORICAL)
+            categories: List of valid categories
+            passing_categories: List of categories that indicate success
 
         Returns:
             bool: True if the score meets the criteria
         """
-        # Determine reference value
-        if reference_score is None:
-            if threshold is not None:
-                reference_value = str(threshold)
-            else:
-                # Use the actual score type to determine the error message
-                score_type_name = score_type.value.lower()
-                raise ValueError(f"Reference score is required for {score_type_name} score type")
-        else:
-            reference_value = reference_score
-
         # Convert score to string for comparison
         score_str = (
             str(score).lower().strip() if not isinstance(score, str) else score.lower().strip()
         )
-        reference_str = reference_value.lower().strip()
 
-        # Use operator module for comparison
+        # New approach: use passing_categories if available
+        if passing_categories is not None and len(passing_categories) > 0:
+            # Normalize passing categories to lowercase
+            passing_cats_lower = [str(cat).lower().strip() for cat in passing_categories]
+
+            # Check if score is in passing categories
+            if threshold_operator == ThresholdOperator.EQUAL:
+                return score_str in passing_cats_lower
+            elif threshold_operator == ThresholdOperator.NOT_EQUAL:
+                return score_str not in passing_cats_lower
+            else:
+                logger.warning(
+                    f"Operator '{threshold_operator.value}' not typically used with passing_categories, "
+                    "defaulting to membership check"
+                )
+                return score_str in passing_cats_lower
+
+        # Legacy approach: use reference_score
+        if reference_score is not None:
+            reference_str = reference_score.lower().strip()
+        elif threshold is not None:
+            reference_str = str(threshold).lower().strip()
+        else:
+            # No passing categories and no reference score
+            raise ValueError(
+                f"Either passing_categories or reference_score is required for {score_type.value} score type"
+            )
+
+        # Use operator module for comparison with reference
         op_func = OPERATOR_MAP.get(threshold_operator)
         if op_func is None:
             # Fallback to equality check

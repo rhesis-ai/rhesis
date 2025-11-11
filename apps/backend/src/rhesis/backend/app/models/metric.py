@@ -1,6 +1,7 @@
 from enum import Enum
 
 from sqlalchemy import Boolean, Column, Float, ForeignKey, String, Table, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -26,7 +27,6 @@ behavior_metric_association = Table(
 
 
 class ScoreType(str, Enum):
-    BINARY = "binary"
     NUMERIC = "numeric"
     CATEGORICAL = "categorical"
 
@@ -53,7 +53,9 @@ class Metric(
     score_type = Column(String, nullable=False)
     min_score = Column(Float)
     max_score = Column(Float)
-    reference_score = Column(String)  # used for binary or categorical metrics
+    reference_score = Column(String)  # @deprecated: kept for transition, use categories instead
+    categories = Column(JSONB)  # List of valid categories for categorical metrics
+    passing_categories = Column(JSONB)  # List of categories that indicate pass
     threshold = Column(Float)
     threshold_operator = Column(String, default=ThresholdOperator.GREATER_THAN_OR_EQUAL.value)
     explanation = Column(Text)

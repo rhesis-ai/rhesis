@@ -1,4 +1,4 @@
-import { CodeBlock } from '@/components/CodeBlock'
+import { CodeBlock } from "@/components/CodeBlock";
 
 # Test Sets
 
@@ -82,12 +82,15 @@ Use the Rhesis Python SDK to load test sets programmatically:
 {`from rhesis.entities import TestSet
 
 # Load as pandas DataFrame
+
 test_set = TestSet(id="test-set-id")
 df = test_set.load()
 
 # Or download CSV directly
+
 test_set = TestSet(id="test-set-id")
-test_set.download()  # Downloads to current directory`}
+test_set.download() # Downloads to current directory`}
+
 </CodeBlock>
 
 ## Test Set Details
@@ -105,8 +108,9 @@ The metadata section aggregates information from all tests in the set. You'll se
 ---
 
 <Callout type="default">
-  **Next Steps** - Execute your test set against an [Endpoint](/docs/platform/endpoints) - View
-  detailed results in [Test Runs](/docs/platform/test-runs) - Download test sets as CSV or access
-  via [Python SDK](/docs/development/sdk) - Create additional test sets for different scenarios
-  (regression, smoke, integration)
+  **Next Steps** - Execute your test set against an
+  [Endpoint](/docs/platform/endpoints) - View detailed results in [Test
+  Runs](/docs/platform/test-runs) - Download test sets as CSV or access via
+  [Python SDK](/docs/development/sdk) - Create additional test sets for
+  different scenarios (regression, smoke, integration)
 </Callout>

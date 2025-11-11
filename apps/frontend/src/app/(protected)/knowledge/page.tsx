@@ -3,8 +3,8 @@ export const dynamic = 'force-dynamic';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import KnowledgeClientWrapper from './components/KnowledgeClientWrapper';
-import { Box, Typography, Alert, Paper } from '@mui/material';
-import styles from '@/styles/KnowledgePage.module.css';
+import { Alert, Paper } from '@mui/material';
+import styles from '@/styles/Knowledge.module.css';
 
 /**
  * Server component for the Knowledge page
@@ -43,8 +43,6 @@ export default async function KnowledgePage() {
       />
     );
   } catch (error) {
-    console.error('Error loading knowledge sources:', error);
-
     // Show error state instead of empty sources
     return (
       <Paper className={styles.errorContainer}>

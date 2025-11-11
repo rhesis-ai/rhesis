@@ -15,6 +15,7 @@ export interface TestSetBase {
   owner_id?: UUID;
   assignee_id?: UUID;
   organization_id?: UUID;
+  test_set_type_id?: UUID;
 }
 
 // Organization interface for the nested organization data
@@ -52,6 +53,16 @@ export interface LicenseType {
   organization_id?: string;
 }
 
+// TestSetType interface for the nested test_set_type data
+export interface TestSetType {
+  id: UUID;
+  type_name: string;
+  type_value: string;
+  description?: string;
+  user_id?: UUID | null;
+  organization_id?: UUID | null;
+}
+
 export interface TestSet {
   id: UUID;
   name: string;
@@ -64,6 +75,8 @@ export interface TestSet {
   tags?: Tag[];
   license_type_id?: UUID;
   license_type?: LicenseType;
+  test_set_type_id?: UUID;
+  test_set_type?: TestSetType;
   attributes?: {
     metadata?: {
       total_tests?: number;
@@ -108,6 +121,7 @@ export interface TestSetCreate {
   tags?: string[];
   attributes?: Record<string, any>;
   priority?: number;
+  test_set_type_id?: UUID;
 }
 
 export interface TestSetStatsHistorical {
@@ -261,12 +275,20 @@ export interface TestSetGenerationConfig {
   description: string;
 }
 
+export interface SourceData {
+  id: string;
+  name?: string;
+  description?: string;
+  content?: string;
+}
+
 export interface TestSetGenerationRequest {
   config: TestSetGenerationConfig;
   samples?: GenerationSample[];
   synthesizer_type?: string;
   num_tests?: number;
   batch_size?: number;
+  sources?: SourceData[];
   name?: string;
 }
 

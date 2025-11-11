@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   GridColDef,
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridSortModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
@@ -16,24 +17,24 @@ import UploadIcon from '@mui/icons-material/Upload';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { DeleteButton } from '@/components/common/DeleteButton';
 import UploadSourceDialog from './UploadSourceDialog';
-import styles from '@/styles/SourcesGrid.module.css';
-import { convertGridFilterModelToOData } from '@/utils/odata-filter';
+import styles from '@/styles/Knowledge.module.css';
+import { combineSourceFiltersToOData } from '@/utils/odata-filter';
+import {
+  FILE_SIZE_CONSTANTS,
+  FILE_TYPE_CONSTANTS,
+  TEXT_CONSTANTS,
+  formatFileSize,
+  formatDate,
+  getFileExtension,
+} from '@/constants/knowledge';
 
 interface SourcesGridProps {
   sessionToken: string;
   onRefresh?: () => void;
 }
 
-// Helper function to format file size
-const formatFileSize = (bytes?: number) => {
-  if (!bytes) return 'Unknown';
-
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
-};
+// Remove the local formatFileSize function since we're importing it
 
 export default function SourcesGrid({
   sessionToken,
@@ -55,6 +56,9 @@ export default function SourcesGrid({
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
+  const [sortModel, setSortModel] = useState<GridSortModel>([
+    { field: 'created_at', sort: 'desc' },
+  ]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -70,13 +74,17 @@ export default function SourcesGrid({
       const sourcesClient = clientFactory.getSourcesClient();
 
       // Convert filter model to OData filter string
-      const filterString = convertGridFilterModelToOData(filterModel);
+      const filterString = combineSourceFiltersToOData(filterModel);
+
+      // Get sort field and order from sortModel
+      const sortField = sortModel[0]?.field || 'created_at';
+      const sortOrder = sortModel[0]?.sort || 'desc';
 
       const apiParams = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc' as const,
+        sort_by: sortField,
+        sort_order: sortOrder as 'asc' | 'desc',
         ...(filterString && { $filter: filterString }),
       };
 
@@ -85,8 +93,7 @@ export default function SourcesGrid({
       setSources(response.data);
       setTotalCount(response.pagination.totalCount);
       setError(null);
-    } catch (error) {
-      console.error('Error fetching sources:', error);
+    } catch {
       setError('Failed to load knowledge sources');
       setSources([]);
     } finally {
@@ -97,6 +104,7 @@ export default function SourcesGrid({
     paginationModel.page,
     paginationModel.pageSize,
     filterModel,
+    sortModel,
   ]);
 
   // Initial data fetch
@@ -104,11 +112,12 @@ export default function SourcesGrid({
     fetchSources();
   }, [fetchSources]);
 
-  // Handle refresh
-  const handleRefresh = useCallback(() => {
-    fetchSources();
-    onRefresh?.();
-  }, [fetchSources, onRefresh]);
+  // Handle refresh - called by parent via onRefresh
+  useEffect(() => {
+    if (onRefresh) {
+      fetchSources();
+    }
+  }, [onRefresh, fetchSources]);
 
   // Handle pagination
   const handlePaginationModelChange = useCallback(
@@ -125,6 +134,13 @@ export default function SourcesGrid({
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
+  // Handle sort change
+  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
+    setSortModel(newModel);
+    // Reset to first page when sort changes
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
   // Handle selection change
   const handleSelectionChange = useCallback(
     (newSelection: GridRowSelectionModel) => {
@@ -135,7 +151,7 @@ export default function SourcesGrid({
 
   // Handle row click to navigate to preview
   const handleRowClick = useCallback(
-    (params: any) => {
+    (params: { id: string }) => {
       const sourceId = params.id;
       router.push(`/knowledge/${sourceId}`);
     },
@@ -157,7 +173,11 @@ export default function SourcesGrid({
 
       // Delete all selected sources
       await Promise.all(
-        selectedRows.map(id => sourcesClient.deleteSource(id as any))
+        selectedRows.map(id =>
+          sourcesClient.deleteSource(
+            String(id) as `${string}-${string}-${string}-${string}-${string}`
+          )
+        )
       );
 
       // Show success notification
@@ -169,8 +189,7 @@ export default function SourcesGrid({
       // Clear selection and refresh data
       setSelectedRows([]);
       fetchSources();
-    } catch (error) {
-      console.error('Error deleting sources:', error);
+    } catch {
       notifications.show('Failed to delete sources', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -187,7 +206,12 @@ export default function SourcesGrid({
 
   // Get action buttons based on selection
   const getActionButtons = useCallback(() => {
-    const buttons = [
+    const buttons: Array<{
+      label: string;
+      icon: React.ReactNode;
+      variant: 'text' | 'outlined' | 'contained';
+      onClick: () => void;
+    }> = [
       {
         label: 'Upload Source',
         icon: <UploadIcon />,
@@ -203,9 +227,8 @@ export default function SourcesGrid({
         label: 'Delete Sources',
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
-        color: 'error' as const,
         onClick: handleDeleteSources,
-      } as any);
+      });
     }
 
     return buttons;
@@ -217,49 +240,48 @@ export default function SourcesGrid({
       {
         field: 'title',
         headerName: 'Title',
+        width: 200,
+        minWidth: 150,
+        renderCell: params => {
+          const source = params.row as Source;
+          return <Typography variant="body2">{source.title}</Typography>;
+        },
+      },
+      {
+        field: 'description',
+        headerName: 'Description',
         flex: 1,
         minWidth: 250,
         renderCell: params => {
           const source = params.row as Source;
-
+          if (!source.description) {
+            return (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                fontStyle="italic"
+              >
+                No description
+              </Typography>
+            );
+          }
           return (
-            <Box className={styles.sourceContent}>
-              <Typography variant="body2">{source.title}</Typography>
-              {source.description && (
-                <Typography
-                  variant="caption"
-                  className={styles.sourceDescription}
-                >
-                  {source.description.length > 50
-                    ? `${source.description.substring(0, 50)}...`
-                    : source.description}
-                </Typography>
-              )}
-            </Box>
+            <Typography variant="body2" color="text.secondary">
+              {source.description.length >
+              TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH
+                ? `${source.description.substring(0, TEXT_CONSTANTS.DESCRIPTION_TRUNCATE_LENGTH)}...`
+                : source.description}
+            </Typography>
           );
         },
       },
       {
-        field: 'type',
+        field: 'file_type',
         headerName: 'Type',
         width: 100,
         renderCell: params => {
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
-
-          // Extract file extension from original filename
-          const getFileExtension = (filename?: string) => {
-            if (!filename) return 'unknown';
-
-            const ext = filename.split('.').pop()?.toLowerCase();
-            if (!ext) return 'unknown';
-
-            // Handle special cases where we want to normalize extensions
-            const normalizedExt =
-              ext === 'htm' ? 'html' : ext === 'jpeg' ? 'jpg' : ext;
-
-            return normalizedExt;
-          };
 
           const fileExtension = getFileExtension(metadata.original_filename);
 
@@ -274,9 +296,10 @@ export default function SourcesGrid({
         },
       },
       {
-        field: 'size',
+        field: 'file_size',
         headerName: 'Size',
         width: 90,
+        type: 'number',
         renderCell: params => {
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
@@ -293,28 +316,12 @@ export default function SourcesGrid({
         field: 'created_at',
         headerName: 'Uploaded',
         width: 110,
+        filterable: false,
         renderCell: params => {
           const source = params.row as Source;
 
-          const formatDate = (dateString: string | null | undefined) => {
-            if (!dateString) return 'Unknown';
-            try {
-              const date = new Date(dateString);
-              if (isNaN(date.getTime())) return 'Invalid date';
-
-              // Use consistent DD/MM/YYYY formatting
-              const year = date.getFullYear();
-              const month = String(date.getMonth() + 1).padStart(2, '0');
-              const day = String(date.getDate()).padStart(2, '0');
-
-              return `${day}/${month}/${year}`;
-            } catch {
-              return 'Invalid date';
-            }
-          };
-
-          // Use uploaded_at from source_metadata
-          const dateToShow = source.source_metadata?.uploaded_at;
+          // Use backend-created timestamp only
+          const dateToShow = source.created_at;
 
           return (
             <Typography variant="body2" color="text.secondary">
@@ -324,12 +331,14 @@ export default function SourcesGrid({
         },
       },
       {
-        field: 'uploader',
+        field: 'user.name',
         headerName: 'Added by',
         width: 130,
+        sortable: false,
         renderCell: params => {
           const source = params.row as Source;
-          const uploaderName = source.source_metadata?.uploader_name;
+          // Use top-level user only
+          const uploaderName = source.user?.name || source.user?.email;
 
           if (!uploaderName) {
             return (
@@ -381,7 +390,10 @@ export default function SourcesGrid({
         showToolbar={false}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
+        filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
+        sortModel={sortModel}
+        onSortModelChange={handleSortModelChange}
         actionButtons={getActionButtons()}
         checkboxSelection
         disableRowSelectionOnClick
@@ -389,6 +401,7 @@ export default function SourcesGrid({
         rowSelectionModel={selectedRows}
         serverSidePagination={true}
         serverSideFiltering={true}
+        sortingMode="server"
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}

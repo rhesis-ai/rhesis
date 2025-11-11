@@ -13,6 +13,45 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-10-30
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.1**
+- **Frontend 0.4.1**
+- **SDK 0.4.0**
+
+### Summary of Changes
+
+**Backend v0.4.1:**
+- Added comprehensive OpenTelemetry telemetry system for enhanced monitoring and analytics.
+- Enhanced test generation with iteration context support and replaced document uploads with source IDs for improved source tracking.
+- Integrated SDK metrics, simplified metric evaluation, and migrated database to SDK format for improved metric handling.
+- Introduced soft deletion and cascade-aware restoration for entities, enhancing data management and recovery capabilities.
+
+
+**Frontend v0.4.1:**
+- Enhanced test generation with improved UI, backend support, and source context display. Replaced "Documents" terminology with "Sources" throughout the application.
+- Implemented OpenTelemetry for enhanced monitoring and improved telemetry data handling.
+- Added support for additional file formats (.pptx, .xlsx, .html, .htm, .zip) for knowledge source uploads with drag-and-drop functionality.
+- Improved the display of test results, including error status icons, execution time for failed runs, and quick search functionality in the test runs grid.
+
+
+**SDK v0.4.0:**
+- Added Cohere and Vertex AI LLM providers, and Ollama integration.
+- Enhanced AI-based test generation with iteration context support and source ID tracking.
+- Improved metrics integration with Ragas and DeepEval, including updated DeepEval to v3.6.7 and new metrics.
+- Refactored and improved error handling and schema support for LLM providers, including OpenAI-wrapped schemas.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.4.0] - 2025-10-16
 
 ### Platform Release

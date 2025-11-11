@@ -1,6 +1,6 @@
 {
   "name": "rhesis-app",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "scripts": {
     "dev": "next dev --turbo -H 0.0.0.0 -p 3000",
     "build": "npm run clean && next build",
@@ -34,6 +34,12 @@
     "@mui/material-nextjs": "^6",
     "@mui/x-data-grid": "^7.27.3",
     "@mui/x-date-pickers": "^7.28.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.207.0",
+    "@opentelemetry/resources": "^2.2.0",
+    "@opentelemetry/sdk-trace-base": "^2.2.0",
+    "@opentelemetry/sdk-trace-web": "^2.2.0",
+    "@opentelemetry/semantic-conventions": "^1.37.0",
     "@toolpad/core": "0.12.0",
     "@types/auth0-lock": "^11.27.9",
     "@types/nodemailer": "^6.4.17",

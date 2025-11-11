@@ -4,12 +4,20 @@ import React from 'react';
 import { Chip, ChipProps } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+
+export type TestResultStatus = 'Pass' | 'Fail' | 'Error';
 
 export interface StatusChipProps extends Omit<ChipProps, 'icon' | 'color'> {
   /**
-   * Whether the status represents a passed/successful state
+   * Whether the status represents a passed/successful state (legacy, use status instead)
+   * @deprecated Use status prop instead
    */
-  passed: boolean;
+  passed?: boolean;
+  /**
+   * The status of the test result: Pass, Fail, or Error
+   */
+  status?: TestResultStatus;
   /**
    * The text to display in the chip
    */
@@ -29,11 +37,12 @@ export interface StatusChipProps extends Omit<ChipProps, 'icon' | 'color'> {
 }
 
 /**
- * A standardized status chip component that displays pass/fail states
+ * A standardized status chip component that displays pass/fail/error states
  * with consistent icons and colors across the application.
  */
 export default function StatusChip({
   passed,
+  status,
   label,
   size = 'small',
   variant = 'outlined',
@@ -45,18 +54,44 @@ export default function StatusChip({
   const defaultIconSize = size === 'small' ? 16 : 20;
   const finalIconSize = iconSize ?? defaultIconSize;
 
+  // Determine status from either new status prop or legacy passed prop
+  const actualStatus: TestResultStatus =
+    status || (passed !== undefined ? (passed ? 'Pass' : 'Fail') : 'Error');
+
+  // Determine icon based on status
+  const getIcon = () => {
+    switch (actualStatus) {
+      case 'Pass':
+        return <CheckCircleOutlineIcon sx={{ fontSize: finalIconSize }} />;
+      case 'Fail':
+        return <CancelOutlinedIcon sx={{ fontSize: finalIconSize }} />;
+      case 'Error':
+        return <ErrorOutlineIcon sx={{ fontSize: finalIconSize }} />;
+      default:
+        return <CancelOutlinedIcon sx={{ fontSize: finalIconSize }} />;
+    }
+  };
+
+  // Determine color based on status
+  const getColor = (): ChipProps['color'] => {
+    switch (actualStatus) {
+      case 'Pass':
+        return 'success';
+      case 'Fail':
+        return 'error';
+      case 'Error':
+        return 'warning';
+      default:
+        return 'default';
+    }
+  };
+
   return (
     <Chip
-      icon={
-        passed ? (
-          <CheckCircleOutlineIcon sx={{ fontSize: finalIconSize }} />
-        ) : (
-          <CancelOutlinedIcon sx={{ fontSize: finalIconSize }} />
-        )
-      }
+      icon={getIcon()}
       label={label}
       size={size}
-      color={passed ? 'success' : 'error'}
+      color={getColor()}
       variant={variant}
       sx={sx}
       {...chipProps}

@@ -3,8 +3,9 @@ Main email service that orchestrates SMTP and template services.
 """
 
 import os
+import re
 from email.mime.text import MIMEText
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from rhesis.backend.logging.rhesis_logger import logger
 
@@ -15,6 +16,14 @@ from .template_service import EmailTemplate, TemplateService
 class EmailService:
     """Main email service for sending HTML notifications."""
 
+    # List of regex patterns for email addresses that should not receive welcome emails
+    WELCOME_EMAIL_EXCLUSION_PATTERNS: List[str] = [
+        r"new_user_",  # Exclude test users with new_user_ prefix
+        # Add more patterns here as needed, e.g.:
+        # r"test@",
+        # r".*@example\.com$",
+    ]
+
     def __init__(self):
         self.smtp_service = SMTPService()
         self.template_service = TemplateService()
@@ -24,6 +33,24 @@ class EmailService:
         """Check if email service is properly configured."""
         return self.smtp_service.is_configured
 
+    def _should_exclude_from_welcome_email(self, email: str) -> bool:
+        """
+        Check if an email address matches any exclusion pattern.
+
+        Args:
+            email: The email address to check
+
+        Returns:
+            bool: True if the email should be excluded, False otherwise
+        """
+        for pattern in self.WELCOME_EMAIL_EXCLUSION_PATTERNS:
+            if re.search(pattern, email):
+                logger.info(
+                    f"Email {email} matched exclusion pattern '{pattern}', skipping welcome email"
+                )
+                return True
+        return False
+
     def send_email(
         self,
         template: EmailTemplate,
@@ -31,6 +58,8 @@ class EmailService:
         subject: str,
         template_variables: Dict[str, Any],
         task_id: Optional[str] = None,
+        from_email: Optional[str] = None,
+        bcc: Optional[str] = None,
     ) -> bool:
         """
         Send an email using the specified template.
@@ -41,6 +70,8 @@ class EmailService:
             subject: Email subject line
             template_variables: Variables to pass to the template
             task_id: Optional task ID for logging purposes
+            from_email: Optional custom from email address (overrides default)
+            bcc: Optional BCC email address
 
         Returns:
             bool: True if email was sent successfully, False otherwise
@@ -58,14 +89,16 @@ class EmailService:
             # Create HTML message
             msg = MIMEText(html_content, "html")
             msg["Subject"] = subject
-            msg["From"] = self.smtp_service.from_email
+            msg["From"] = from_email if from_email else self.smtp_service.from_email
             msg["To"] = recipient_email
 
             logger.debug(f"Created HTML email message with subject: {msg['Subject']}")
             logger.debug(f"HTML content length: {len(html_content)}")
 
             # Send email using SMTP service
-            return self.smtp_service.send_message(msg, recipient_email, task_id or "generic")
+            return self.smtp_service.send_message(
+                msg, recipient_email, task_id or "generic", bcc=bcc
+            )
 
         except Exception as e:
             logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
@@ -140,4 +173,65 @@ class EmailService:
             subject=subject,
             template_variables=template_variables,
             task_id="team_invitation",
+        )
+
+    def send_welcome_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        frontend_url: Optional[str] = None,
+        calendar_link: Optional[str] = None,
+    ) -> bool:
+        """
+        Send a welcome email to a new user.
+
+        Args:
+            recipient_email: Email address of the new user
+            recipient_name: Name of the new user (optional)
+            frontend_url: URL to the frontend application
+            calendar_link: URL to book a call with the founder
+
+        Returns:
+            bool: True if email was sent successfully, False otherwise
+        """
+        if not self.is_configured:
+            logger.warning(f"Cannot send welcome email to {recipient_email}: SMTP not configured")
+            return False
+
+        # Set default URLs if not provided
+        if not frontend_url:
+            frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
+
+        if not calendar_link:
+            calendar_link = os.getenv("WELCOME_CALENDAR_LINK")
+
+        # Get BCC email from environment variable (optional)
+        bcc_email = os.getenv("AGENT_EMAIL_BCC")
+
+        # Get welcome-specific from email (defaults to hello@rhesis.ai for founder emails)
+        welcome_from_email = os.getenv(
+            "WELCOME_FROM_EMAIL", '"Nicolai from Rhesis AI" <hello@rhesis.ai>'
+        )
+
+        subject = "Welcome to Rhesis AI!"
+
+        template_variables = {
+            "recipient_name": recipient_name or "",
+            "recipient_email": recipient_email,
+            "frontend_url": frontend_url,
+            "calendar_link": calendar_link,
+        }
+
+        # Check if email should be excluded based on patterns
+        if self._should_exclude_from_welcome_email(recipient_email):
+            return False
+
+        return self.send_email(
+            template=EmailTemplate.WELCOME,
+            recipient_email=recipient_email,
+            subject=subject,
+            template_variables=template_variables,
+            task_id="welcome",
+            from_email=welcome_from_email,
+            bcc=bcc_email,
         )

@@ -24,9 +24,7 @@ export class TaskErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Task component error:', error, errorInfo);
-  }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {}
 
   handleRetry = () => {
     this.setState({ hasError: false, error: undefined });
@@ -56,7 +54,7 @@ export class TaskErrorBoundary extends Component<Props, State> {
             <AlertTitle>Something went wrong</AlertTitle>
             There was an error with the task component. Please try refreshing or
             contact support if the problem persists.
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {process.env.FRONTEND_ENV === 'development' && this.state.error && (
               <Box sx={{ mt: 1, fontSize: '0.75rem', fontFamily: 'monospace' }}>
                 {this.state.error.message}
               </Box>

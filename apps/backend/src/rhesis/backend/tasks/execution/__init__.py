@@ -7,10 +7,7 @@ from rhesis.backend.tasks.execution.config import (
     get_test_configuration,
 )
 from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
-from rhesis.backend.tasks.execution.metrics_utils import (
-    create_metric_config_from_model,
-    get_behavior_metrics,
-)
+from rhesis.backend.tasks.execution.metrics_utils import get_behavior_metrics
 from rhesis.backend.tasks.execution.orchestration import execute_test_cases
 from rhesis.backend.tasks.execution.results import collect_results
 from rhesis.backend.tasks.execution.run import (
@@ -32,7 +29,6 @@ __all__ = [
     "collect_results",
     "evaluate_prompt_response",
     "get_behavior_metrics",
-    "create_metric_config_from_model",
     "execute_test",
     "get_redis_config",
     "get_production_redis_urls",

@@ -37,12 +37,12 @@ The API client is implemented in `src/utils/api-client/`:
         {
           name: "index.ts",
           type: "file",
-          description: "Main export file"
+          description: "Main export file",
         },
         {
           name: "client.ts",
           type: "file",
-          description: "Base API client implementation"
+          description: "Base API client implementation",
         },
         {
           name: "endpoints",
@@ -52,24 +52,24 @@ The API client is implemented in `src/utils/api-client/`:
             {
               name: "auth.ts",
               type: "file",
-              description: "Authentication endpoints"
+              description: "Authentication endpoints",
             },
             {
               name: "projects.ts",
               type: "file",
-              description: "Projects endpoints"
+              description: "Projects endpoints",
             },
             {
               name: "tests.ts",
               type: "file",
-              description: "Tests endpoints"
+              description: "Tests endpoints",
             },
             {
               name: "...",
               type: "file",
-              description: "Other endpoint groups"
-            }
-          ]
+              description: "Other endpoint groups",
+            },
+          ],
         },
         {
           name: "types",
@@ -79,27 +79,27 @@ The API client is implemented in `src/utils/api-client/`:
             {
               name: "auth.ts",
               type: "file",
-              description: "Authentication types"
+              description: "Authentication types",
             },
             {
               name: "projects.ts",
               type: "file",
-              description: "Projects types"
+              description: "Projects types",
             },
             {
               name: "tests.ts",
               type: "file",
-              description: "Tests types"
+              description: "Tests types",
             },
             {
               name: "...",
               type: "file",
-              description: "Other type groups"
-            }
-          ]
-        }
-      ]
-    }
+              description: "Other type groups",
+            },
+          ],
+        },
+      ],
+    },
   ]}
 />
 
@@ -126,43 +126,44 @@ export async function apiClient<T>(
   const tokens = getTokens();
   const headers = new Headers(options.headers);
 
-  // Add authentication header if tokens exist
-  if (tokens?.accessToken) {
-    headers.append('Authorization', \`Bearer \${tokens.accessToken}\`);
-  }
+// Add authentication header if tokens exist
+if (tokens?.accessToken) {
+headers.append('Authorization', \`Bearer \${tokens.accessToken}\`);
+}
 
-  // Add content type if not present
-  if (!headers.has('Content-Type') && options.method !== 'GET') {
-    headers.append('Content-Type', 'application/json');
-  }
+// Add content type if not present
+if (!headers.has('Content-Type') && options.method !== 'GET') {
+headers.append('Content-Type', 'application/json');
+}
 
-  const response = await fetch(\`\${API_BASE_URL}\${endpoint}\`, {
-    ...options,
-    headers,
-  });
+const response = await fetch(\`\${API_BASE_URL}\${endpoint}\`, {
+...options,
+headers,
+});
 
-  // Handle non-JSON responses
-  const contentType = response.headers.get('Content-Type');
-  if (contentType && !contentType.includes('application/json')) {
-    if (!response.ok) {
-      throw new ApiError(response.status, response.statusText);
-    }
-    return response as unknown as T;
-  }
+// Handle non-JSON responses
+const contentType = response.headers.get('Content-Type');
+if (contentType && !contentType.includes('application/json')) {
+if (!response.ok) {
+throw new ApiError(response.status, response.statusText);
+}
+return response as unknown as T;
+}
 
-  // Parse JSON response
-  const data = await response.json();
+// Parse JSON response
+const data = await response.json();
 
-  // Handle error responses
-  if (!response.ok) {
-    throw new ApiError(
-      response.status,
-      data.message || response.statusText
-    );
-  }
+// Handle error responses
+if (!response.ok) {
+throw new ApiError(
+response.status,
+data.message || response.statusText
+);
+}
 
-  return data;
+return data;
 }`}
+
 </CodeBlock>
 
 ### Endpoint Definitions
@@ -171,42 +172,42 @@ API endpoints are defined in separate files for each resource, all targeting the
 
 ```tsx
 // src/utils/api-client/endpoints/projects.ts
-import { apiClient } from '../client';
-import type { Project, ProjectCreate, ProjectUpdate } from '../types/projects';
+import { apiClient } from "../client";
+import type { Project, ProjectCreate, ProjectUpdate } from "../types/projects";
 
 export const projectsApi = {
   getAll: async (params?: { skip?: number; limit?: number }) => {
-    return apiClient<{ data: Project[]; total: number }>('/projects', {
-      method: 'GET',
+    return apiClient<{ data: Project[]; total: number }>("/projects", {
+      method: "GET",
       ...(params && {
-        query: new URLSearchParams(params as Record<string, string>).toString()
+        query: new URLSearchParams(params as Record<string, string>).toString(),
       }),
     });
   },
 
   getById: async (id: string) => {
     return apiClient<Project>(`/projects/${id}`, {
-      method: 'GET',
+      method: "GET",
     });
   },
 
   create: async (data: ProjectCreate) => {
-    return apiClient<Project>('/projects', {
-      method: 'POST',
+    return apiClient<Project>("/projects", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   },
 
   update: async (id: string, data: ProjectUpdate) => {
     return apiClient<Project>(`/projects/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     });
   },
 
   delete: async (id: string) => {
     return apiClient<void>(`/projects/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
   },
 };
@@ -225,7 +226,7 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   ownerId: string;
-  status: 'active' | 'archived';
+  status: "active" | "archived";
 }
 
 export interface ProjectCreate {
@@ -236,7 +237,7 @@ export interface ProjectCreate {
 export interface ProjectUpdate {
   name?: string;
   description?: string;
-  status?: 'active' | 'archived';
+  status?: "active" | "archived";
 }
 ```
 
@@ -248,7 +249,7 @@ In server components, you can use the API client to communicate with the Rhesis 
 
 ```tsx
 // app/(protected)/projects/page.tsx
-import { projectsApi } from '@/utils/api-client/endpoints/projects';
+import { projectsApi } from "@/utils/api-client/endpoints/projects";
 
 export default async function ProjectsPage() {
   // Fetch data from the Rhesis backend API
@@ -273,15 +274,15 @@ In client components, you can use the API client with React hooks to communicate
 
 ```tsx
 // components/projects/ProjectForm.tsx
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { projectsApi } from '@/utils/api-client/endpoints/projects';
-import type { ProjectCreate } from '@/utils/api-client/types/projects';
+import { useState } from "react";
+import { projectsApi } from "@/utils/api-client/endpoints/projects";
+import type { ProjectCreate } from "@/utils/api-client/types/projects";
 
 export default function ProjectForm() {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -300,7 +301,7 @@ export default function ProjectForm() {
       await projectsApi.create(data);
       // Handle success (e.g., redirect, show message)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -311,7 +312,7 @@ export default function ProjectForm() {
       {/* Form fields */}
       {error && <div className="error">{error}</div>}
       <button type="submit" disabled={loading}>
-        {loading ? 'Creating...' : 'Create Project'}
+        {loading ? "Creating..." : "Create Project"}
       </button>
     </form>
   );
@@ -324,22 +325,26 @@ For form submissions and mutations, you can use server actions that communicate 
 
 ```tsx
 // app/(protected)/projects/actions.ts
-'use server';
+"use server";
 
-import { revalidatePath } from 'next/cache';
-import { projectsApi } from '@/utils/api-client/endpoints/projects';
-import type { ProjectCreate, ProjectUpdate } from '@/utils/api-client/types/projects';
+import { revalidatePath } from "next/cache";
+import { projectsApi } from "@/utils/api-client/endpoints/projects";
+import type {
+  ProjectCreate,
+  ProjectUpdate,
+} from "@/utils/api-client/types/projects";
 
 export async function createProject(data: ProjectCreate) {
   try {
     // Create project through the Rhesis backend API
     await projectsApi.create(data);
-    revalidatePath('/projects');
+    revalidatePath("/projects");
     return { success: true };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create project'
+      error:
+        error instanceof Error ? error.message : "Failed to create project",
     };
   }
 }
@@ -349,12 +354,13 @@ export async function updateProject(id: string, data: ProjectUpdate) {
     // Update project through the Rhesis backend API
     await projectsApi.update(id, data);
     revalidatePath(`/projects/${id}`);
-    revalidatePath('/projects');
+    revalidatePath("/projects");
     return { success: true };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update project'
+      error:
+        error instanceof Error ? error.message : "Failed to update project",
     };
   }
 }
@@ -363,12 +369,13 @@ export async function deleteProject(id: string) {
   try {
     // Delete project through the Rhesis backend API
     await projectsApi.delete(id);
-    revalidatePath('/projects');
+    revalidatePath("/projects");
     return { success: true };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete project'
+      error:
+        error instanceof Error ? error.message : "Failed to delete project",
     };
   }
 }
@@ -379,7 +386,7 @@ export async function deleteProject(id: string) {
 The Rhesis backend API URL is configured in environment variables:
 
 <CodeBlock filename=".env.local" language="bash">
-{`# .env.local
+  {`# .env.local
 NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai`}
 </CodeBlock>
 
@@ -396,14 +403,14 @@ The API client includes centralized error handling for Rhesis backend API errors
 
 ```tsx
 // components/common/ErrorBoundary.tsx
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { ApiError } from '@/utils/api-client/client';
+import { useEffect } from "react";
+import { ApiError } from "@/utils/api-client/client";
 
 export default function ErrorBoundary({
   error,
-  reset
+  reset,
 }: {
   error: Error;
   reset: () => void;
@@ -420,7 +427,7 @@ export default function ErrorBoundary({
         <div>
           <h2>Session expired</h2>
           <p>Please log in again.</p>
-          <button onClick={() => window.location.href = '/login'}>
+          <button onClick={() => (window.location.href = "/login")}>
             Log In
           </button>
         </div>
@@ -432,7 +439,7 @@ export default function ErrorBoundary({
         <div>
           <h2>Access denied</h2>
           <p>You don't have permission to access this resource.</p>
-          <button onClick={() => window.location.href = '/dashboard'}>
+          <button onClick={() => (window.location.href = "/dashboard")}>
             Go to Dashboard
           </button>
         </div>

@@ -1,82 +1,68 @@
 from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
-from rhesis.sdk.metrics.providers.native.categorical_judge import (
-    CategoricalJudge,
-)
+from rhesis.sdk.metrics.providers.native.categorical_judge import CategoricalJudge
+from rhesis.sdk.metrics.providers.native.goal_achievement_judge import GoalAchievementJudge
 from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
 
 
 class RhesisMetricFactory(BaseMetricFactory):
     """Factory for creating Rhesis' custom metric instances."""
 
-    # Currently no metrics implemented, but will follow the same pattern
     _metrics = {
-        # Add metrics as they're implemented, e.g.:
-        # "RhesisCustomMetric": RhesisCustomMetric,
         "CategoricalJudge": CategoricalJudge,
         "NumericJudge": NumericJudge,
+        "GoalAchievementJudge": GoalAchievementJudge,
     }
 
-    # Define which parameters each metric class accepts
+    # Common parameters supported by all metrics
+    _common_params = {"model"}
+
+    # Base parameters from MetricConfig (inherited by all configs)
+    _base_metric_params = {
+        "name",
+        "description",
+        "metric_type",
+        "score_type",
+        "requires_ground_truth",
+        "requires_context",
+        "backend",
+        "class_name",
+    }
+
+    # Base judge parameters from BaseJudgeConfig (inherited by all judge configs)
+    _base_judge_params = {
+        "evaluation_prompt",
+        "evaluation_steps",
+        "reasoning",
+        "evaluation_examples",
+    }
+
+    # Numeric scoring parameters (for NumericJudgeConfig and ConversationalNumericConfig)
+    _numeric_params = {
+        "min_score",
+        "max_score",
+        "threshold",
+        "threshold_operator",
+    }
+
+    # Metric-specific parameters (in addition to common, base metric, and base judge params)
     _supported_params = {
-        # Example: "RhesisCustomMetric": {"threshold", "custom_param1", "custom_param2"},
-        "CategoricalJudge": {
+        "CategoricalJudge": _base_metric_params
+        | _base_judge_params
+        | {
             "categories",
             "passing_categories",
-            "evaluation_prompt",
-            "evaluation_steps",
-            "reasoning",
-            "evaluation_examples",
-            "name",
-            "description",
-            "model",
-            "requires_ground_truth",
-            "requires_context",
-            "metric_type",
         },
-        "NumericJudge": {
-            "threshold",
-            "reference_score",
-            "threshold_operator",
-            "score_type",
-            "evaluation_prompt",
-            "evaluation_steps",
-            "reasoning",
-            "evaluation_examples",
-            "min_score",
-            "max_score",
-            "provider",
-            "model",
-            "api_key",
-            "metric_type",
-            "name",
-            "description",
-        },
-        "NumericDetailedJudge": {
-            "threshold",
-            "reference_score",
-            "threshold_operator",
-            "score_type",
-            "evaluation_prompt",
-            "evaluation_steps",
-            "reasoning",
-            "evaluation_examples",
-            "min_score",
-            "max_score",
-            "provider",
-            "model",
-            "api_key",
-            "metric_type",
-            "name",
-            "description",
-        },
+        "NumericJudge": _base_metric_params | _base_judge_params | _numeric_params,
+        "GoalAchievementJudge": _base_metric_params | _base_judge_params | _numeric_params,
     }
 
     # Define required parameters for each metric class
     _required_params = {
         "CategoricalJudge": {"categories", "passing_categories"},
         "NumericJudge": {"evaluation_prompt"},
+        "GoalAchievementJudge": set(),  # All params are optional with defaults
     }
 
     def create(self, class_name: str, **kwargs) -> BaseMetric:
@@ -120,8 +106,11 @@ class RhesisMetricFactory(BaseMetricFactory):
                 f"Provided parameters: {set(combined_kwargs.keys())}"
             )
 
+        # Merge common params with metric-specific params
+        metric_params = self._supported_params.get(class_name, set())
+        supported_params = self._common_params | metric_params
+
         # Filter kwargs to only include supported parameters for this class
-        supported_params = self._supported_params.get(class_name, set())
         filtered_kwargs = {k: v for k, v in combined_kwargs.items() if k in supported_params}
 
         return self._metrics[class_name](**filtered_kwargs)

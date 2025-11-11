@@ -8,13 +8,13 @@ Helper functions for managing user-configured LLM models for different purposes
 import logging
 from typing import Union
 
-from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.factory import get_model
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.models.user import User
+from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,8 @@ def _fetch_and_configure_model(
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
         logger.info(
-            "[LLM_UTILS] Rhesis system model detected - using backend's default model infrastructure"
+            "[LLM_UTILS] Rhesis system model detected - "
+            "using backend's default model infrastructure"
         )
         logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
         return default_model

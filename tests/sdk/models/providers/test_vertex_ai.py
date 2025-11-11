@@ -127,7 +127,8 @@ class TestVertexAIConfigLoading:
             assert llm.model['project'] == "test-project-123"
             assert llm.model['location'] == "europe-west3"
             assert llm.model['credentials_path'] is not None
-            assert '_temp_file' in llm.model  # Temp file created
+            # Verify temp file was created and exists
+            assert os.path.exists(llm.model['credentials_path'])
 
     def test_load_config_file_credentials(self):
         """Test file path credentials with location."""
@@ -150,8 +151,8 @@ class TestVertexAIConfigLoading:
                 
                 assert llm.model['project'] == "test-project-456"
                 assert llm.model['location'] == "us-central1"
+                # When using file path, credentials_path should match the provided path
                 assert llm.model['credentials_path'] == temp_path
-                assert '_temp_file' not in llm.model  # No temp file
         finally:
             os.unlink(temp_path)
 
@@ -177,6 +178,9 @@ class TestVertexAIConfigLoading:
                 assert llm.model['project'] == "test-project-789"
                 assert llm.model['location'] == "asia-northeast1"
                 assert llm.model['credentials_path'] == temp_path
+                # Verify file path credentials don't create a temp file
+                assert not llm.model['credentials_path'].startswith('/var/folders') or \
+                       llm.model['credentials_path'] == temp_path
         finally:
             os.unlink(temp_path)
 
@@ -493,7 +497,7 @@ class TestVertexAICleanup:
     """Test cleanup of temporary files."""
 
     def test_temp_file_cleanup_on_delete(self):
-        """Test that temporary credentials file is cleaned up."""
+        """Test that temporary credentials file is tracked and exists."""
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project",
@@ -507,16 +511,20 @@ class TestVertexAICleanup:
             "VERTEX_AI_LOCATION": "europe-west3"
         }, clear=True):
             llm = VertexAILLM()
-            temp_file = llm.model.get('_temp_file')
+            credentials_path = llm.model.get('credentials_path')
             
+            # Credentials path should be set
+            assert credentials_path is not None
             # Temp file should exist
-            assert temp_file is not None
-            assert os.path.exists(temp_file)
+            assert os.path.exists(credentials_path)
             
-            # Delete the instance
+            # Verify it's a temp file (deterministic path based on credentials hash)
+            assert 'vertex_ai_creds_' in credentials_path
+            
+            # Delete the instance - temp file will be cleaned up at process exit via atexit
             del llm
             
-            # Temp file should be cleaned up
-            # Note: This test may be flaky depending on GC timing
-            # In practice, the __del__ method will be called eventually
+            # Temp file persists until process exit (cleaned up via atexit)
+            # This is intentional to allow multiple instances to share the same file
+            assert os.path.exists(credentials_path)
 

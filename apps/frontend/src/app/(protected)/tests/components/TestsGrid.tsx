@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Typography, Box, Alert, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
+import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDrawer from './TestDrawer';
 import TestSetSelectionDialog from './TestSetSelectionDialog';
@@ -22,7 +23,12 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { convertGridFilterModelToOData } from '@/utils/odata-filter';
+import { combineTestFiltersToOData } from '@/utils/odata-filter';
+import { isMultiTurnTest } from '@/constants/test-types';
+import {
+  getTestContentValue,
+  renderTestContentCell,
+} from './test-grid-helpers';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -75,7 +81,7 @@ export default function TestsTable({
       const testsClient = clientFactory.getTestsClient();
 
       // Convert filter model to OData filter string
-      const filterString = convertGridFilterModelToOData(filterModel);
+      const filterString = combineTestFiltersToOData(filterModel);
 
       const apiParams: Parameters<typeof testsClient.getTests>[0] = {
         skip: paginationModel.page * paginationModel.pageSize,
@@ -87,13 +93,11 @@ export default function TestsTable({
 
       const response = await testsClient.getTests(apiParams);
 
-      console.log('API response:', response);
       setTests(response.data);
       setTotalCount(response.pagination.totalCount);
 
       setError(null);
     } catch (error) {
-      console.error('Error fetching tests:', error);
       setError('Failed to load tests');
       setTests([]);
     } finally {
@@ -134,25 +138,8 @@ export default function TestsTable({
         headerName: 'Content',
         flex: 3,
         filterable: true,
-        valueGetter: (value, row) => row.prompt?.content || '',
-        renderCell: params => {
-          const content = params.row.prompt?.content || params.row.content;
-          if (!content) return null;
-
-          return (
-            <Typography
-              variant="body2"
-              title={content}
-              sx={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {content}
-            </Typography>
-          );
-        },
+        valueGetter: getTestContentValue,
+        renderCell: renderTestContentCell,
       },
       {
         field: 'behavior.name',
@@ -194,6 +181,19 @@ export default function TestsTable({
         },
       },
       {
+        field: 'test_type.type_value',
+        headerName: 'Test Type',
+        flex: 1,
+        filterable: true,
+        valueGetter: (value, row) => row.test_type?.type_value || '',
+        renderCell: params => {
+          const testType = params.row.test_type?.type_value;
+          if (!testType) return null;
+
+          return <Chip label={testType} size="small" variant="outlined" />;
+        },
+      },
+      {
         field: 'counts.comments',
         headerName: 'Comments',
         width: 100,
@@ -204,7 +204,7 @@ export default function TestsTable({
           if (count === 0) return null;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <ChatIcon sx={{ fontSize: 'small', color: 'text.secondary' }} />
               <Typography variant="body2">{count}</Typography>
             </Box>
           );
@@ -221,8 +221,36 @@ export default function TestsTable({
           if (count === 0) return null;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <DescriptionIcon
+                sx={{ fontSize: 'small', color: 'text.secondary' }}
+              />
               <Typography variant="body2">{count}</Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'test_metadata.sources',
+        headerName: 'Sources',
+        width: 80,
+        sortable: false,
+        filterable: false,
+        align: 'center',
+        headerAlign: 'center',
+        renderCell: params => {
+          const sources = params.row.test_metadata?.sources;
+          if (!sources || sources.length === 0) return null;
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <InsertDriveFileOutlined
+                sx={{ fontSize: 'small', color: 'text.secondary' }}
+              />
             </Box>
           );
         },
@@ -315,7 +343,6 @@ export default function TestsTable({
       fetchTests();
       onRefresh?.();
     } catch (error) {
-      console.error('Error deleting tests:', error);
       notifications.show('Failed to delete tests', {
         severity: 'error',
         autoHideDuration: 6000,
@@ -389,7 +416,6 @@ export default function TestsTable({
 
         onRefresh?.();
       } catch (error) {
-        console.error('Error fetching newly created test:', error);
         // Fallback to full refresh
         fetchTests();
         onRefresh?.();
@@ -481,6 +507,7 @@ export default function TestsTable({
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         serverSideFiltering={true}
+        filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
         showToolbar={true}
         disablePaperWrapper={true}

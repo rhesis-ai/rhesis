@@ -53,6 +53,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 organization_id=organization_id,
                 user_id=user_id,
                 commit=False,
+                description=item.get("description"),
             )
 
         # Process statuses next as they're also needed by other entities
@@ -406,13 +407,38 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 )
 
             # Build endpoint data
+            # Handle URL environment variable replacement
+            url = item["url"]
+            if "${BACKEND_ENV}" in url:
+                backend_env = os.getenv("BACKEND_ENV", "development")
+                # Map environment to chatbot subdomain
+                env_mapping = {
+                    "development": "dev",
+                    "staging": "stg",
+                    "production": "",  # Production uses no prefix
+                    "local": "",  # Local uses no prefix
+                }
+                env_prefix = env_mapping.get(backend_env, "dev")
+                # Replace ${BACKEND_ENV} with the appropriate prefix
+                if env_prefix:
+                    url = url.replace("${BACKEND_ENV}", env_prefix)
+                else:
+                    # For production and local, remove the prefix and the hyphen
+                    url = url.replace("${BACKEND_ENV}-", "")
+                print(f"  ✓ Resolved URL for {backend_env} environment: {url}")
+
+            # Handle environment variable replacement in environment field
+            environment = item.get("environment", "development")
+            if "${BACKEND_ENV}" in environment:
+                environment = os.getenv("BACKEND_ENV", "development")
+
             endpoint_data = {
                 "name": item["name"],
                 "description": item.get("description"),
                 "protocol": item["protocol"],
-                "url": item["url"],
+                "url": url,
                 "method": item.get("method"),
-                "environment": item.get("environment", "development"),
+                "environment": environment,
                 "config_source": item.get("config_source", "manual"),
                 "response_format": item.get("response_format", "json"),
                 "request_headers": item.get("request_headers"),
@@ -436,11 +462,13 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         endpoint_data["auth_token"] = auth_token
                         auth_token_loaded = True
                         print(
-                            f"  ✓ Loaded {env_var_name} from environment for endpoint: {item['name']}"
+                            f"  ✓ Loaded {env_var_name} from environment for "
+                            f"endpoint: {item['name']}"
                         )
                     else:
                         print(
-                            f"  ⚠ Warning: {env_var_name} not found in environment for endpoint: {item['name']}"
+                            f"  ⚠ Warning: {env_var_name} not found in environment for "
+                            f"endpoint: {item['name']}"
                         )
                         print("  → Skipping auth_type configuration (no token available)")
                 else:
@@ -518,6 +546,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 "evaluation_examples": item.get("evaluation_examples"),
                 "threshold_operator": item.get("threshold_operator", ">="),
                 "reference_score": item.get("reference_score"),
+                "categories": item.get("categories"),  # New: categories for categorical metrics
+                "passing_categories": item.get("passing_categories"),  # New: passing categories
                 "metric_type_id": metric_type.id,
                 "backend_type_id": backend_type.id,
                 "status_id": status.id,
@@ -587,15 +617,10 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             commit=False,
         )
 
-        # Get the backend-configured model name (e.g., gemini-2.0-flash)
-        from rhesis.backend.app.constants import DEFAULT_MODEL_NAME
-
-        default_model_name = DEFAULT_MODEL_NAME
-
         # Create the default Rhesis model
         default_model_data = {
             "name": "Rhesis Default",
-            "model_name": default_model_name,
+            "model_name": "default",
             "description": "Default Rhesis-hosted model. No API key required.",
             "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
             "provider_type_id": rhesis_provider_type.id,

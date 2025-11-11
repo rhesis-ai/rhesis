@@ -9,17 +9,21 @@ Test run statuses reflect **execution completion**, not test assertion results. 
 ## Status Types
 
 ### COMPLETED
+
 **Definition:** All tests executed successfully (regardless of pass/fail results)
 
 **When assigned:**
+
 - `execution_errors == 0` (all tests ran without errors)
 - At least one test was present in the run
 
-**Email status:** 
+**Email status:**
+
 - `"success"` if all tests passed
 - `"failed"` if any tests failed
 
 **Example scenarios:**
+
 ```
 10 tests, 10 passed, 0 failed, 0 errors → COMPLETED (email: success)
 10 tests, 7 passed, 3 failed, 0 errors → COMPLETED (email: failed)
@@ -27,39 +31,47 @@ Test run statuses reflect **execution completion**, not test assertion results. 
 ```
 
 ### PARTIAL
+
 **Definition:** Incomplete execution - some tests executed, some couldn't
 
 **When assigned:**
+
 - `0 < execution_errors < total_tests`
 - Mix of successfully executed tests and execution errors
 
 **Email status:** `"partial"`
 
 **Example scenarios:**
+
 ```
 10 tests, 5 passed, 3 failed, 2 errors → PARTIAL
 10 tests, 8 passed, 0 failed, 2 errors → PARTIAL
 ```
 
 ### FAILED
+
 **Definition:** Run couldn't complete - no tests OR all tests had execution errors
 
 **When assigned:**
+
 - `total_tests == 0` (no tests in the run), OR
 - `execution_errors == total_tests` (all tests errored)
 
 **Email status:** `"failed"`
 
 **Example scenarios:**
+
 ```
 0 tests, 0 passed, 0 failed, 0 errors → FAILED (no tests)
 10 tests, 0 passed, 0 failed, 10 errors → FAILED (all errored)
 ```
 
 ### PROGRESS
+
 **Definition:** Test run is currently executing
 
 **When assigned:**
+
 - Set when test execution starts
 - Replaced by COMPLETED/PARTIAL/FAILED when execution finishes
 
@@ -95,22 +107,24 @@ else:
 
 ### Test Run Status vs Test Result Status
 
-| Aspect | Test Run Status | Test Result Status |
-|--------|----------------|-------------------|
-| **Scope** | Entire test run | Individual test |
-| **Purpose** | Did tests execute? | Did test pass assertions? |
-| **Values** | COMPLETED, PARTIAL, FAILED, PROGRESS | Pass, Fail |
-| **Considers** | Execution errors | Metric success |
+| Aspect        | Test Run Status                      | Test Result Status        |
+| ------------- | ------------------------------------ | ------------------------- |
+| **Scope**     | Entire test run                      | Individual test           |
+| **Purpose**   | Did tests execute?                   | Did test pass assertions? |
+| **Values**    | COMPLETED, PARTIAL, FAILED, PROGRESS | Pass, Fail                |
+| **Considers** | Execution errors                     | Metric success            |
 
 ### Execution Errors
 
 **What are execution errors?**
+
 - Tests that couldn't execute due to technical issues
 - Missing test_metrics or empty metrics
 - Infrastructure/connection failures
 - Code errors during test execution
 
 **What are NOT execution errors?**
+
 - Tests that executed but failed assertions
 - Metrics that returned `is_successful: false`
 - Expected test failures
@@ -120,6 +134,7 @@ else:
 ## Examples
 
 ### Scenario 1: Successful Test Run
+
 ```
 Total: 10 tests
 Passed: 10
@@ -132,6 +147,7 @@ Reason: All tests executed and passed
 ```
 
 ### Scenario 2: Tests Failed Assertions
+
 ```
 Total: 10 tests
 Passed: 7
@@ -144,6 +160,7 @@ Reason: All tests executed (even though some failed)
 ```
 
 ### Scenario 3: Incomplete Execution
+
 ```
 Total: 10 tests
 Passed: 5
@@ -156,6 +173,7 @@ Reason: 2 tests couldn't execute
 ```
 
 ### Scenario 4: Complete Failure
+
 ```
 Total: 10 tests
 Passed: 0
@@ -168,6 +186,7 @@ Reason: No tests could execute
 ```
 
 ### Scenario 5: Empty Test Run
+
 ```
 Total: 0 tests
 Passed: 0
@@ -189,13 +208,13 @@ Test statistics are calculated by analyzing `test_metrics`:
 def get_test_statistics(test_run, db):
     for result in test_results:
         metrics = result.test_metrics.get('metrics', {})
-        
+
         # Check if ALL metrics passed
         all_metrics_passed = all(
             metric.get('is_successful', False)
             for metric in metrics.values()
         )
-        
+
         if all_metrics_passed:
             tests_passed += 1
         else:
@@ -232,10 +251,9 @@ Email notifications show test counts based on the same logic:
 
 ## Implementation Files
 
-| File | Purpose |
-|------|---------|
-| `tasks/execution/result_processor.py` | Status determination logic |
-| `tasks/enums.py` | RunStatus enum definition |
-| `app/constants.py` | Status mapping constants |
-| `notifications/email/templates/test_execution_summary.html.jinja2` | Email template |
-
+| File                                                               | Purpose                    |
+| ------------------------------------------------------------------ | -------------------------- |
+| `tasks/execution/result_processor.py`                              | Status determination logic |
+| `tasks/enums.py`                                                   | RunStatus enum definition  |
+| `app/constants.py`                                                 | Status mapping constants   |
+| `notifications/email/templates/test_execution_summary.html.jinja2` | Email template             |

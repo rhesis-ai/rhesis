@@ -1,0 +1,316 @@
+# Execution Modes
+
+## Overview
+
+When executing a test configuration (a set of tests against an endpoint), Rhesis supports two execution modes: **Sequential** and **Parallel**. The mode determines how multiple tests are scheduled and executed.
+
+## Parallel Execution (Default)
+
+### Description
+
+Tests are executed simultaneously using multiple Celery workers. This is the default mode and provides the fastest execution time.
+
+### How It Works
+
+```
+Test Configuration
+    ↓
+Celery Chord (parallel dispatch)
+    ├─→ Worker 1: Test A ─┐
+    ├─→ Worker 2: Test B ─┼─→ Collect Results
+    └─→ Worker 3: Test C ─┘
+```
+
+- Tests are dispatched to available workers
+- Multiple tests run concurrently
+- Results collected when all complete
+- Uses Celery's chord primitive for coordination
+
+### Use Cases
+
+✅ **Best for:**
+
+- Endpoints that can handle concurrent requests
+- Independent tests (no dependencies)
+- Fast execution needed
+- Scalable endpoints without rate limits
+- High-performance testing scenarios
+- Large test suites
+
+⚠️ **Considerations:**
+
+- May overwhelm endpoints
+- Harder to debug concurrent failures
+- Requires adequate system resources
+- May hit rate limits
+
+### Configuration
+
+Parallel is the default mode. No configuration needed:
+
+```python
+# Implicitly uses parallel mode
+test_config = TestConfiguration(
+    endpoint_id=endpoint.id,
+    test_set_id=test_set.id,
+    # attributes is empty or doesn't specify execution_mode
+)
+```
+
+Or explicitly set:
+
+```python
+test_config = TestConfiguration(
+    endpoint_id=endpoint.id,
+    test_set_id=test_set.id,
+    attributes={
+        "execution_mode": "Parallel"
+    }
+)
+```
+
+---
+
+## Sequential Execution
+
+### Description
+
+Tests are executed one after another in sequence. Each test must complete before the next one starts.
+
+### How It Works
+
+```
+Test Configuration
+    ↓
+Test 1
+    ↓
+Test 2
+    ↓
+Test 3
+    ↓
+Collect Results
+```
+
+- Tests execute in order
+- One test at a time
+- No concurrent load on endpoint
+- Predictable execution pattern
+
+### Use Cases
+
+✅ **Best for:**
+
+- Endpoints with rate limiting
+- Endpoints that can't handle concurrent load
+- Tests with dependencies on each other
+- Debugging test execution issues
+- Limited endpoint resources
+- Stateful testing scenarios
+
+⚠️ **Considerations:**
+
+- Slower overall execution time
+- Less efficient resource utilization
+- Longer wait times for results
+
+### Configuration
+
+Set in test configuration attributes:
+
+```python
+test_config = TestConfiguration(
+    endpoint_id=endpoint.id,
+    test_set_id=test_set.id,
+    attributes={
+        "execution_mode": "Sequential"
+    }
+)
+```
+
+Or programmatically:
+
+```python
+from rhesis.backend.tasks.execution.modes import set_execution_mode
+from rhesis.backend.tasks.enums import ExecutionMode
+
+success = set_execution_mode(
+    db=db,
+    test_config_id=test_config.id,
+    execution_mode=ExecutionMode.SEQUENTIAL,
+    organization_id=org_id
+)
+```
+
+---
+
+## Implementation Details
+
+### Execution Flow
+
+Both modes produce identical result structures:
+
+```python
+{
+    "status": "completed",
+    "total_tests": 10,
+    "tests_passed": 8,
+    "tests_failed": 2,
+    "execution_errors": 0,
+    "execution_time": "2m 15s",
+    "completed_at": "2024-01-15 10:30:00"
+}
+```
+
+### Result Processing
+
+Both modes use the same `collect_results` task for consistency:
+
+- Status tracking: `status`, `final_status`, `task_state`
+- Progress metrics: `completed_tests`, `failed_tests`, `total_tests`
+- Timing information: `started_at`, `completed_at`, `execution_time`
+- Email notifications triggered for both modes
+
+### Task Orchestration
+
+#### Parallel Mode (`parallel.py`)
+
+Uses Celery's chord primitive:
+
+```python
+from celery import chord
+
+# Create task group
+test_tasks = [
+    execute_test_task.signature(...)
+    for test in tests
+]
+
+# Execute in parallel with callback
+chord(test_tasks)(
+    collect_results.signature(...)
+)
+```
+
+#### Sequential Mode (`sequential.py`)
+
+Uses Celery's chain primitive:
+
+```python
+from celery import chain
+
+# Create sequential chain
+tasks = []
+for test in tests:
+    tasks.append(execute_test_task.signature(...))
+tasks.append(collect_results.signature(...))
+
+# Execute sequentially
+chain(*tasks)()
+```
+
+---
+
+## Choosing an Execution Mode
+
+### Decision Matrix
+
+| Scenario                      | Recommended Mode | Reason                           |
+| ----------------------------- | ---------------- | -------------------------------- |
+| Production regression suite   | **Parallel**     | Fast feedback, independent tests |
+| Rate-limited API              | **Sequential**   | Avoid hitting rate limits        |
+| Development/debugging         | **Sequential**   | Easier to trace issues           |
+| High-traffic endpoint         | **Parallel**     | Endpoint designed for load       |
+| Tests have dependencies       | **Sequential**   | Ensure proper order              |
+| Small test suite (< 5 tests)  | **Either**       | Minimal time difference          |
+| Large test suite (> 50 tests) | **Parallel**     | Significant time savings         |
+| Stateful endpoint             | **Sequential**   | Maintain state consistency       |
+
+### Performance Comparison
+
+Example with 20 tests, 5s average test time:
+
+| Mode                 | Execution Time | Resource Usage |
+| -------------------- | -------------- | -------------- |
+| Parallel (5 workers) | ~20-25 seconds | High           |
+| Sequential           | ~100 seconds   | Low            |
+
+---
+
+## Utilities
+
+### Get Current Mode
+
+```python
+from rhesis.backend.tasks.execution.modes import get_execution_mode
+
+mode = get_execution_mode(test_config)
+# Returns: ExecutionMode.PARALLEL or ExecutionMode.SEQUENTIAL
+```
+
+### Get Mode Description
+
+```python
+from rhesis.backend.tasks.execution.modes import get_mode_description
+
+description = get_mode_description(ExecutionMode.PARALLEL)
+# Returns: "Tests are executed simultaneously using multiple workers..."
+```
+
+### Get Recommendations
+
+```python
+from rhesis.backend.tasks.execution.modes import get_mode_recommendations
+
+recommendations = get_mode_recommendations()
+# Returns: {
+#   ExecutionMode.SEQUENTIAL: {
+#     "use_when": [...],
+#     "pros": [...],
+#     "cons": [...]
+#   },
+#   ...
+# }
+```
+
+---
+
+## Monitoring and Debugging
+
+### Parallel Mode
+
+```bash
+# Check worker status
+celery -A rhesis.backend.worker inspect active
+
+# Monitor task progress
+celery -A rhesis.backend.worker events
+```
+
+### Sequential Mode
+
+```bash
+# Follow sequential execution
+tail -f celery.log | grep "execute_test"
+```
+
+### Common Issues
+
+**Parallel Mode:**
+
+- Endpoint returns 429 (rate limit) → Switch to Sequential
+- Inconsistent test results → Check for race conditions
+- Worker overload → Reduce concurrency or use Sequential
+
+**Sequential Mode:**
+
+- Tests taking too long → Consider Parallel if endpoint can handle it
+- Bottleneck in single test → Optimize that test first
+
+---
+
+## Related Documentation
+
+- [Test Execution System](/development/worker/test-execution) - Overall architecture
+- [Test Types](/development/worker/test-types) - Single-turn vs Multi-turn
+- [Background Tasks](/development/worker/background-tasks) - Celery configuration
+- [Architecture](/development/worker/architecture) - Worker system details

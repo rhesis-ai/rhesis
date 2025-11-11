@@ -23,14 +23,29 @@ import Image from 'next/image';
 
 // Providers currently supported by the Rhesis SDK
 // These must match the keys in PROVIDER_REGISTRY in sdk/src/rhesis/sdk/models/factory.py
-export const SUPPORTED_PROVIDERS = ['openai', 'gemini', 'ollama'];
+export const SUPPORTED_PROVIDERS = [
+  'openai',
+  'gemini',
+  'ollama',
+  'anthropic',
+  'groq',
+  'mistral',
+  'replicate',
+  'perplexity',
+  'together_ai',
+  'cohere',
+  'huggingface',
+  'meta_llama',
+];
+
+export const LOCAL_PROVIDERS = ['huggingface', 'ollama'];
 
 // Providers that require custom endpoint URLs (self-hosted or local)
 export const PROVIDERS_REQUIRING_ENDPOINT = ['ollama', 'vllm', 'huggingface'];
 
 // Default endpoints for providers that need them
 export const DEFAULT_ENDPOINTS: Record<string, string> = {
-  ollama: 'http://localhost:11434',
+  ollama: 'http://host.docker.internal:11434',
   vllm: 'http://localhost:8000',
 };
 
@@ -60,7 +75,9 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
       style={{ width: '32px', height: '32px' }}
     />
   ),
-  together: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  together_ai: (
+    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
+  ),
   vllm: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
 };
 
