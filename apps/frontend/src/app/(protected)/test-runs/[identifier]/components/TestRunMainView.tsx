@@ -555,6 +555,10 @@ export default function TestRunMainView({
                     onTestSelect={handleTestSelect}
                     loading={loading}
                     prompts={prompts}
+                    testSetType={
+                      testRun.test_configuration?.test_set?.test_set_type
+                        ?.type_value
+                    }
                   />
                 </Box>
 
@@ -578,6 +582,14 @@ export default function TestRunMainView({
                     currentUserId={currentUserId}
                     currentUserName={currentUserName}
                     currentUserPicture={currentUserPicture}
+                    testSetType={
+                      testRun.test_configuration?.test_set?.test_set_type
+                        ?.type_value
+                    }
+                    project={testRun.test_configuration?.endpoint?.project}
+                    projectName={
+                      testRun.test_configuration?.endpoint?.project?.name
+                    }
                   />
                 </Box>
               </Box>
@@ -612,6 +624,9 @@ export default function TestRunMainView({
               currentUserName={currentUserName}
               currentUserPicture={currentUserPicture}
               initialSelectedTestId={initialSelectedTestId}
+              testSetType={
+                testRun.test_configuration?.test_set?.test_set_type?.type_value
+              }
             />
           )}
         </>
@@ -624,6 +639,9 @@ export default function TestRunMainView({
           onLoadBaseline={handleLoadBaseline}
           prompts={prompts}
           behaviors={behaviors}
+          testSetType={
+            testRun.test_configuration?.test_set?.test_set_type?.type_value
+          }
         />
       )}
     </Box>

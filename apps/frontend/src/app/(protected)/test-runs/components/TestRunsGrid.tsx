@@ -250,34 +250,29 @@ function TestRunsTable({
         },
       },
       {
-        field: 'execution_time',
-        headerName: 'Execution Time',
+        field: 'test_set_type',
+        headerName: 'Type',
         flex: 1,
-        align: 'right',
-        headerAlign: 'right',
+        filterable: true,
+        valueGetter: (_, row) => {
+          return (
+            row.test_configuration?.test_set?.test_set_type?.type_value || ''
+          );
+        },
         renderCell: params => {
-          const status =
-            params.row.status?.name || params.row.attributes?.status;
-          const statusLower = status?.toLowerCase();
+          const testSetType =
+            params.row.test_configuration?.test_set?.test_set_type?.type_value;
 
-          // If status is Progress, show "In Progress" instead of elapsed time
-          if (statusLower === 'progress') {
-            return 'In Progress';
-          }
+          if (!testSetType) return null;
 
-          // Show execution time for completed, partial, and failed runs
-          if (
-            statusLower === 'completed' ||
-            statusLower === 'partial' ||
-            statusLower === 'failed'
-          ) {
-            const timeMs = params.row.attributes?.total_execution_time_ms;
-            if (!timeMs) return '';
-            return formatExecutionTime(timeMs);
-          }
-
-          // For unknown statuses, return empty
-          return '';
+          return (
+            <Chip
+              label={testSetType}
+              size="small"
+              variant="outlined"
+              sx={{ fontWeight: 500 }}
+            />
+          );
         },
       },
       {
