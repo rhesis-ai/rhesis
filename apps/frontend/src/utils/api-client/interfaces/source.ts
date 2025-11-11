@@ -3,12 +3,7 @@ import { User } from './user';
 import { TypeLookup } from './type-lookup';
 import { Status } from './status';
 import { PaginationParams } from './pagination';
-
-export interface Tag {
-  id: UUID;
-  name: string;
-  icon_unicode?: string;
-}
+import { Tag } from './tag';
 
 export interface Source {
   id: UUID;
