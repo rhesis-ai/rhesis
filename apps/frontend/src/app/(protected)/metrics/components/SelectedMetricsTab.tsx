@@ -398,7 +398,7 @@ export default function SelectedMetricsTab({
                       size="small"
                       onClick={() => handleMetricDetail(metric.id)}
                       sx={{
-                        padding: '2px',
+                        padding: theme.spacing(0.25),
                         '& .MuiSvgIcon-root': {
                           fontSize:
                             theme?.typography?.helperText?.fontSize ||
@@ -420,10 +420,9 @@ export default function SelectedMetricsTab({
                       );
                     }}
                     sx={{
-                      padding: '2px',
+                      padding: theme => theme.spacing(0.25),
                       '& .MuiSvgIcon-root': {
-                        fontSize:
-                          theme?.typography?.helperText?.fontSize || '0.75rem',
+                        fontSize: theme.typography.caption.fontSize,
                         color: 'currentColor',
                       },
                     }}
@@ -442,6 +441,7 @@ export default function SelectedMetricsTab({
                   backend={metric.backend_type?.type_value}
                   metricType={metric.metric_type?.type_value}
                   scoreType={metric.score_type}
+                  metricScope={metric.metric_scope}
                   usedIn={[behaviorWithMetrics.name]}
                   showUsage={false}
                 />
@@ -499,7 +499,7 @@ export default function SelectedMetricsTab({
           justifyContent: 'center',
           alignItems: 'center',
           p: 4,
-          minHeight: '200px',
+          minHeight: theme => theme.spacing(25),
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -535,7 +535,7 @@ export default function SelectedMetricsTab({
         sx={{
           mt: 4,
           p: 3,
-          border: '2px dashed',
+          border: theme => `${theme.spacing(0.25)} dashed`,
           borderColor: 'divider',
           borderRadius: theme => theme.shape.borderRadius * 0.25,
           display: 'flex',
