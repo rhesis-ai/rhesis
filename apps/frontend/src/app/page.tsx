@@ -359,13 +359,27 @@ export default function LandingPage() {
                     : 'rgba(255, 255, 255, 0.9)',
               }}
             >
-              <Typography variant="h5" gutterBottom>
-                Welcome back, {session.user?.name || 'User'}!
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                You&apos;re already logged in. Redirecting you to the
-                dashboard...
-              </Typography>
+              {process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true' ? (
+                <>
+                  <Typography variant="h5" gutterBottom>
+                    🚀 Local Mode
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    Starting with zero configuration. Redirecting to
+                    dashboard...
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <Typography variant="h5" gutterBottom>
+                    Welcome back, {session.user?.name || 'User'}!
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    You&apos;re already logged in. Redirecting you to the
+                    dashboard...
+                  </Typography>
+                </>
+              )}
               <CircularProgress sx={{ mt: 2 }} />
             </Box>
           </Box>
