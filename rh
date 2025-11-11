@@ -68,14 +68,64 @@ start_all() {
         exit 1
     fi
     
-    # Check if .env.docker.local exists
-    if [ ! -f ".env.docker.local" ]; then
-        echo -e "${RED}❌ Error: .env.docker.local not found${NC}"
-        exit 1
+    # Check if .env.docker.local exists and has DB_ENCRYPTION_KEY
+    if [ ! -f ".env.docker.local" ] || ! grep -q "^DB_ENCRYPTION_KEY=.\+" .env.docker.local 2>/dev/null; then
+        echo -e "${YELLOW}🔑 Generating DB_ENCRYPTION_KEY...${NC}"
+        
+        # Generate encryption key using Python
+        ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" 2>/dev/null)
+        
+        if [ $? -ne 0 ] || [ -z "$ENCRYPTION_KEY" ]; then
+            echo -e "${RED}❌ Error: Failed to generate encryption key${NC}"
+            echo -e "${YELLOW}💡 Make sure Python 3 and cryptography package are installed:${NC}"
+            echo -e "   ${BLUE}pip install cryptography${NC}"
+            exit 1
+        fi
+        
+        # Create or update .env.docker.local
+        if [ ! -f ".env.docker.local" ]; then
+            # Create new file
+            echo "# Auto-generated local environment configuration" > .env.docker.local
+            echo "" >> .env.docker.local
+            echo "# Database Encryption" >> .env.docker.local
+            echo "DB_ENCRYPTION_KEY=$ENCRYPTION_KEY" >> .env.docker.local
+            echo "" >> .env.docker.local
+            echo "# Local Authentication Bypass" >> .env.docker.local
+            echo "LOCAL_AUTH_ENABLED=true" >> .env.docker.local
+            echo "NEXT_PUBLIC_LOCAL_AUTH_ENABLED=true" >> .env.docker.local
+            echo -e "${GREEN}✅ Created .env.docker.local with local configuration${NC}"
+        else
+            # Update existing file
+            if grep -q "^DB_ENCRYPTION_KEY=" .env.docker.local 2>/dev/null; then
+                # Replace existing line
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    sed -i '' "s|^DB_ENCRYPTION_KEY=.*|DB_ENCRYPTION_KEY=$ENCRYPTION_KEY|" .env.docker.local
+                else
+                    sed -i "s|^DB_ENCRYPTION_KEY=.*|DB_ENCRYPTION_KEY=$ENCRYPTION_KEY|" .env.docker.local
+                fi
+            else
+                # Add new line
+                echo "" >> .env.docker.local
+                echo "DB_ENCRYPTION_KEY=$ENCRYPTION_KEY" >> .env.docker.local
+            fi
+            
+            # Add LOCAL_AUTH_ENABLED if missing
+            if ! grep -q "^LOCAL_AUTH_ENABLED=" .env.docker.local 2>/dev/null; then
+                echo "LOCAL_AUTH_ENABLED=true" >> .env.docker.local
+            fi
+            
+            # Add NEXT_PUBLIC_LOCAL_AUTH_ENABLED if missing
+            if ! grep -q "^NEXT_PUBLIC_LOCAL_AUTH_ENABLED=" .env.docker.local 2>/dev/null; then
+                echo "NEXT_PUBLIC_LOCAL_AUTH_ENABLED=true" >> .env.docker.local
+            fi
+            
+            echo -e "${GREEN}✅ Local configuration updated in .env.docker.local${NC}"
+        fi
     fi
     
+    echo ""
     echo -e "${YELLOW}📦 Starting services...${NC}"
-    docker compose -f docker-compose.local.yml --env-file .env.docker.local up -d
+    docker compose --env-file .env.docker.local up -d
     
     if [ $? -eq 0 ]; then
         echo ""
@@ -106,7 +156,7 @@ stop_all() {
         exit 1
     }
     
-    docker compose -f docker-compose.local.yml down
+    docker compose down
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ All services stopped${NC}"
@@ -125,7 +175,7 @@ restart_all() {
         exit 1
     }
     
-    docker compose -f docker-compose.local.yml --env-file .env.docker.local restart
+    docker compose --env-file .env.docker.local restart
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ All services restarted${NC}"
@@ -146,10 +196,10 @@ view_logs() {
     
     if [ -z "$1" ]; then
         # No service specified, show all logs
-        docker compose -f docker-compose.local.yml logs -f
+        docker compose logs -f
     else
         # Show logs for specific service
-        docker compose -f docker-compose.local.yml logs -f "$1"
+        docker compose logs -f "$1"
     fi
 }
 
@@ -180,7 +230,7 @@ delete_all() {
     }
     
     # Stop and remove all services, volumes, and images
-    docker compose -f docker-compose.local.yml down -v --rmi all
+    docker compose down -v --rmi all
     
     if [ $? -eq 0 ]; then
         echo ""
