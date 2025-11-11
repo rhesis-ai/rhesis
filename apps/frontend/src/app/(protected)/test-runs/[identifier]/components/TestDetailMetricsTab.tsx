@@ -525,7 +525,7 @@ export default function TestDetailMetricsTab({
                                 sx={{
                                   width: 6,
                                   height: 6,
-                                  borderRadius: theme.shape.circular,
+                                  borderRadius: '50%',
                                   backgroundColor: criterion.met
                                     ? 'success.main'
                                     : 'error.main',
