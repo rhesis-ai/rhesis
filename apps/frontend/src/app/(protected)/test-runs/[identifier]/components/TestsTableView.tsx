@@ -49,6 +49,7 @@ interface TestsTableViewProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
+  testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
 }
 
 export default function TestsTableView({
@@ -63,7 +64,10 @@ export default function TestsTableView({
   currentUserName,
   currentUserPicture,
   initialSelectedTestId,
+  testSetType,
 }: TestsTableViewProps) {
+  const isMultiTurn =
+    testSetType?.toLowerCase().includes('multi-turn') || false;
   const theme = useTheme();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -202,6 +206,82 @@ export default function TestsTableView({
 
   // Calculate test result status (considering reviews from backend)
   const getTestStatus = (test: TestResultDetail) => {
+    // For multi-turn tests, use goal_evaluation
+    if (isMultiTurn && test.test_output?.goal_evaluation) {
+      const allCriteriaMet = test.test_output.goal_evaluation.all_criteria_met;
+      const totalCriteria =
+        test.test_output.goal_evaluation.criteria_evaluations?.length || 0;
+      const metCriteria =
+        test.test_output.goal_evaluation.criteria_evaluations?.filter(
+          c => c.met
+        ).length || 0;
+
+      // Check for execution error or failure
+      const hasExecutionError = test.test_output.status === 'error';
+      const hasExecutionFailure = test.test_output.status === 'failure';
+
+      if (hasExecutionError) {
+        return {
+          passed: false,
+          label: 'Error',
+          count: `${metCriteria}/${totalCriteria}`,
+          isOverruled: false,
+          hasConflict: false,
+          hasExecutionError: true,
+        };
+      }
+
+      if (hasExecutionFailure) {
+        return {
+          passed: false,
+          label: 'Failed',
+          count: `${metCriteria}/${totalCriteria}`,
+          isOverruled: false,
+          hasConflict: false,
+          hasExecutionError: false,
+        };
+      }
+
+      const originalPassed = allCriteriaMet === true;
+      const lastReview = test.last_review;
+
+      // If there's a review, use the review status
+      if (lastReview) {
+        const reviewStatusName = lastReview.status.name.toLowerCase();
+        const reviewPassed =
+          reviewStatusName.includes('pass') ||
+          reviewStatusName.includes('success') ||
+          reviewStatusName.includes('completed');
+
+        return {
+          passed: reviewPassed,
+          label: reviewPassed ? 'Passed' : 'Failed',
+          count: `${metCriteria}/${totalCriteria}`,
+          isOverruled: true,
+          hasConflict: !test.matches_review,
+          automatedPassed: originalPassed,
+          hasExecutionError: false,
+          reviewData: {
+            reviewer: lastReview.user.name,
+            comments: lastReview.comments,
+            updated_at: lastReview.updated_at,
+            newStatus: reviewPassed ? 'passed' : 'failed',
+          },
+        };
+      }
+
+      return {
+        passed: originalPassed,
+        label: originalPassed ? 'Passed' : 'Failed',
+        count: `${metCriteria}/${totalCriteria}`,
+        isOverruled: false,
+        hasConflict: false,
+        automatedPassed: originalPassed,
+        hasExecutionError: false,
+      };
+    }
+
+    // For single-turn tests, use metrics (original logic)
     const metrics = test.test_metrics?.metrics || {};
     const metricValues = Object.values(metrics);
     const totalMetrics = metricValues.length;
@@ -337,25 +417,35 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '25%',
+                  width: '22%',
                 }}
               >
-                Prompt
+                {isMultiTurn ? 'Goal' : 'Prompt'}
               </TableCell>
               <TableCell
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '35%',
+                  width: '10%',
+                  textAlign: 'center',
                 }}
               >
-                Response
+                Result
               </TableCell>
               <TableCell
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '15%',
+                  width: '30%',
+                }}
+              >
+                {isMultiTurn ? 'Evaluation Reasoning' : 'Response'}
+              </TableCell>
+              <TableCell
+                sx={{
+                  backgroundColor: theme.palette.background.paper,
+                  fontWeight: 600,
+                  width: '13%',
                   textAlign: 'center',
                 }}
               >
@@ -412,7 +502,7 @@ export default function TestsTableView({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
                   <Typography color="text.secondary">
                     Loading tests...
                   </Typography>
@@ -420,7 +510,7 @@ export default function TestsTableView({
               </TableRow>
             ) : paginatedTests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
                   <Typography color="text.secondary">
                     No tests to display
                   </Typography>
@@ -430,11 +520,19 @@ export default function TestsTableView({
               paginatedTests.map((test, index) => {
                 const status = getTestStatus(test);
                 const failedMetrics = getFailedMetrics(test);
-                const promptContent =
-                  test.prompt_id && prompts[test.prompt_id]
+
+                // Get prompt/goal content based on test type
+                const promptContent = isMultiTurn
+                  ? test.test_output?.test_configuration?.goal || 'N/A'
+                  : test.prompt_id && prompts[test.prompt_id]
                     ? prompts[test.prompt_id].content
-                    : 'N/A';
-                const responseContent = test.test_output?.output || 'N/A';
+                    : test.test?.prompt?.content || 'N/A';
+
+                // Get response/evaluation content based on test type
+                const responseContent = isMultiTurn
+                  ? test.test_output?.goal_evaluation?.reasoning || 'N/A'
+                  : test.test_output?.output || 'N/A';
+
                 const isRowSelected = selectedRowIndex === index;
 
                 return (
@@ -467,6 +565,28 @@ export default function TestsTableView({
                           {truncateText(promptContent, 150)}
                         </Typography>
                       </Tooltip>
+                    </TableCell>
+
+                    {/* Result Column */}
+                    <TableCell align="center">
+                      <Chip
+                        label={status.label}
+                        size="small"
+                        sx={{
+                          backgroundColor: status.hasExecutionError
+                            ? alpha(theme.palette.warning.main, 0.1)
+                            : status.passed
+                              ? alpha(theme.palette.success.main, 0.1)
+                              : alpha(theme.palette.error.main, 0.1),
+                          color: status.hasExecutionError
+                            ? 'warning.main'
+                            : status.passed
+                              ? 'success.main'
+                              : 'error.main',
+                          fontWeight: 600,
+                          minWidth: 70,
+                        }}
+                      />
                     </TableCell>
 
                     {/* Response Column */}
