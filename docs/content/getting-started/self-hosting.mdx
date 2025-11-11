@@ -46,24 +46,35 @@ Get Rhesis running in under 5 minutes:
 git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 
-# 2. (Optional) Update RHESIS_API_KEY in .env.docker.local
-# Edit .env.docker.local and update RHESIS_API_KEY with your key from https://app.rhesis.ai/
-# Or use the default configuration as-is for immediate testing
+# 2. Start all services with one command
+./rh start
 
-# 3. Start all services (no file copying needed!)
-docker compose -f docker-compose.local.yml --env-file .env.docker.local up -d
+# That's it! The platform will automatically:
+# - Generate database encryption key
+# - Create .env.docker.local with local configuration
+# - Start all services (backend, frontend, database, worker)
+# - Create default admin user and example data
+# - Enable auto-login
 
-# 4. Access the platform
+# 3. Access the platform
 # Frontend: http://localhost:3000 (auto-login enabled)
 # Backend API: http://localhost:8080/docs
-# Worker Health: http://localhost:8081/health/basic`}
+# Worker Health: http://localhost:8081/health/basic
+
+# 4. (Optional) Enable test generation
+# Get your API key from https://app.rhesis.ai/
+# Edit .env.docker.local and update RHESIS_API_KEY=your-actual-key`}
 </CodeBlock>
 
-That's it! The platform will automatically:
-- Create and configure the database
-- Run all migrations
-- Create the default admin user (`admin@local.dev`)
-- Enable auto-login for the frontend
+That's it! The `./rh start` command automatically:
+- Checks if Docker is running
+- Generates a secure database encryption key
+- Creates `.env.docker.local` with all required configuration
+- Enables local authentication bypass (auto-login)
+- Starts all services
+- Creates the database and runs migrations
+- Creates the default admin user (`Local Admin`)
+- Loads example test data
 
 ### Configuration Files
 
@@ -75,36 +86,40 @@ The zero-configuration setup uses these files:
     {
       name: '.env.docker.local',
       type: 'file',
-      description: 'Pre-configured environment file (ready to use, no copying needed!)'
+      description: 'Auto-generated environment file (created by ./rh start)'
     },
     {
-      name: 'docker-compose.local.yml',
+      name: 'docker-compose.yml',
       type: 'file',
-      description: 'Local development Docker Compose configuration'
+      description: 'Docker Compose configuration with sensible defaults'
+    },
+    {
+      name: 'rh',
+      type: 'file',
+      description: 'CLI tool for managing services (start, stop, logs, delete)'
     }
   ]}
 />
 
-### What's Pre-Configured
+### What's Auto-Generated
 
-The `.env.docker.local` file includes:
+When you run `./rh start`, the `.env.docker.local` file is automatically created with:
 
-**Authentication & Security (Development Defaults):**
-- Dummy Auth0 credentials (not used due to local auth bypass)
-- Pre-generated JWT secrets
-- Local authentication enabled
-- Auto-login functionality
+**Auto-Generated Keys:**
+- Database encryption key (using Python cryptography.fernet)
+- Local authentication bypass flags
 
-**Database & Redis:**
-- PostgreSQL: `rhesis-user` / `rhesis-local-password`
-- Redis with authentication
-- Automatic database migrations
+**You can add (optional):**
+- Rhesis API key (for test generation)
+- AI provider keys (Gemini, OpenAI, Azure)
+- SMTP credentials (for email notifications)
 
-**Services:**
+**Default Services:**
 - Backend API on port 8080
-- Frontend on port 3000
+- Frontend on port 3000 
 - Worker on port 8081
-- Documentation on port 3001
+- PostgreSQL on port 5432
+- Redis on port 6379
 
 ### Default Access
 
@@ -115,79 +130,104 @@ Once running, access the platform at:
   rows={[
     ['Frontend', 'http://localhost:3000', 'Auto-login (no credentials needed)'],
     ['Backend API', 'http://localhost:8080/docs', 'API documentation'],
-    ['Default Admin', 'admin@local.dev', 'Created automatically'],
+    ['Worker Health', 'http://localhost:8081/health/basic', 'Health check endpoint'],
+    ['Default Admin', 'Local Admin', 'Created automatically with auto-login'],
   ]}
   align={['left', 'left', 'left']}
 />
 
 ### Optional: Configure AI Providers
 
-By default, the local setup uses the Rhesis API for test generation. To enable this:
+The local setup works out-of-the-box, but to enable test generation, you need an AI provider. Two options:
 
-1. Get your Rhesis API key from https://app.rhesis.ai/
-2. Open `.env.docker.local` and update:
+**Option 1: Use Rhesis API (Recommended)**
+
+1. Get your API key from https://app.rhesis.ai/
+2. Edit `.env.docker.local` and add:
 
 <CodeBlock filename=".env.docker.local" language="bash">
-{`# Update this line with your actual API key
-RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
+{`RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
 </CodeBlock>
 
-Alternatively, configure other AI providers (optional):
+**Option 2: Use Your Own AI Provider**
+
+Add your provider's credentials to `.env.docker.local`:
 
 <CodeBlock filename=".env.docker.local" language="bash">
-{`# Google Gemini (uncomment and configure)
+{`# Google Gemini
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL_NAME=gemini-2.0-flash-001
 GOOGLE_API_KEY=your-google-api-key
 
-# Azure OpenAI (uncomment and configure)
-# AZURE_OPENAI_ENDPOINT=your-endpoint
-# AZURE_OPENAI_API_KEY=your-key
-# AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
-# AZURE_OPENAI_API_VERSION=your-version
+# Or Azure OpenAI
+AZURE_OPENAI_ENDPOINT=your-endpoint
+AZURE_OPENAI_API_KEY=your-key
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_API_VERSION=your-version
 
-# OpenAI (uncomment and configure)
-# OPENAI_API_KEY=your-openai-key
-# OPENAI_MODEL_NAME=gpt-4o`}
+# Or OpenAI
+OPENAI_API_KEY=your-openai-key
+OPENAI_MODEL_NAME=gpt-4o`}
+</CodeBlock>
+
+After updating, restart services:
+<CodeBlock filename="Terminal" language="bash">
+{`./rh restart`}
 </CodeBlock>
 
 ### Managing Services
+
+Use the `./rh` CLI for easy service management:
 
 **Stop services:**
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Stop all services
-docker compose -f docker-compose.local.yml down
-
-# Stop and remove all data (fresh start)
-docker compose -f docker-compose.local.yml down -v`}
+./rh stop`}
 </CodeBlock>
 
 **View logs:**
 
 <CodeBlock filename="Terminal" language="bash">
-{`# All services
-docker compose -f docker-compose.local.yml logs
+{`# All services (follow in real-time)
+./rh logs
 
 # Specific service
-docker compose -f docker-compose.local.yml logs backend
-docker compose -f docker-compose.local.yml logs frontend
-
-# Follow logs in real-time
-docker compose -f docker-compose.local.yml logs -f backend`}
+./rh logs backend
+./rh logs frontend
+./rh logs worker`}
 </CodeBlock>
 
 **Restart services:**
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Restart all services
-docker compose -f docker-compose.local.yml restart
+./rh restart`}
+</CodeBlock>
 
-# Restart specific service
-docker compose -f docker-compose.local.yml restart backend`}
+**Delete everything (fresh start):**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Remove all containers, volumes, images, and data
+./rh delete
+
+# Then start fresh
+./rh start`}
 </CodeBlock>
 
 ### Troubleshooting
+
+**Docker not running:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# The ./rh start command checks automatically
+# If you see this error:
+# ❌ Error: Docker is not running
+# 💡 Please start Docker Desktop and try again
+
+# Start Docker Desktop, then run:
+./rh start`}
+</CodeBlock>
 
 **Port already in use:**
 
@@ -202,22 +242,36 @@ kill -9 <PID>`}
 **Need a fresh start:**
 
 <CodeBlock filename="Terminal" language="bash">
-{`# Remove all containers, volumes, and start fresh
-docker compose -f docker-compose.local.yml down -v
-docker compose -f docker-compose.local.yml --env-file .env.docker.local up -d`}
+{`# Delete everything and start fresh
+./rh delete
+./rh start`}
 </CodeBlock>
 
 **Check service health:**
 
 <CodeBlock filename="Terminal" language="bash">
 {`# View all running containers
-docker compose -f docker-compose.local.yml ps
+docker compose ps
 
 # Check backend health
 curl http://localhost:8080/health
 
 # Check worker health
 curl http://localhost:8081/health/basic`}
+</CodeBlock>
+
+**Python cryptography package missing:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# If you see this error:
+# ❌ Error: Failed to generate encryption key
+# 💡 Make sure Python 3 and cryptography package are installed
+
+# Install the package:
+pip install cryptography
+
+# Then run:
+./rh start`}
 </CodeBlock>
 
 ---
