@@ -1,11 +1,11 @@
 import functools
 import logging
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import Any, Callable, ClassVar, Dict, Optional, TypeVar
 
 import requests
 from pydantic import BaseModel
 
-from rhesis.sdk.client import Client, HTTPStatus, Methods
+from rhesis.sdk.client import Client, Endpoints, HTTPStatus, Methods
 
 T = TypeVar("T")
 
@@ -39,7 +39,7 @@ def handle_http_errors(func: Callable[..., T]) -> Callable[..., Optional[T]]:
     return wrapper
 
 
-class BaseEntity:
+class BaseEntity(BaseModel):
     """Base class for API entity interactions.
 
     This class provides basic CRUD operations for interacting with REST API endpoints.
@@ -50,20 +50,7 @@ class BaseEntity:
         headers (Dict[str, str]): HTTP headers for API requests.
     """
 
-    endpoint: str
-    entity_schema: BaseModel
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        pass
-
-    def __repr__(self) -> str:
-        field_strings = []
-        for key, value in self.fields.items():
-            field_strings.append(f"{key}: {value}\n")
-        return f"class_name: {self.__class__.__name__}\n{''.join(field_strings)}"
-
-    def _set_fields(self) -> None:
-        self.fields = self.entity_schema(**vars(self)).model_dump()
+    endpoint: ClassVar[Endpoints]
 
     @classmethod
     def _delete_by_id(cls, id: str) -> bool:
@@ -116,29 +103,30 @@ class BaseEntity:
 
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the entity to the database."""
-        self._set_fields()
-        data = {k: v for k, v in self.fields.items() if k != "id"}
+        data = self.model_dump(mode="json")
 
-        if "id" in self.fields and self.fields["id"] is not None:
-            response = self._push_by_id(self.fields["id"], data)
+        if "id" in data and data["id"] is not None:
+            response = self._push_by_id(data["id"], data)
 
             return response
         else:
             response = self._push_without_id(data)
-            self.fields["id"] = response["id"]
+            self.id = response["id"]
 
             return response
 
     def pull(self) -> None:
         """Pull the entity from the database."""
-        if "id" not in self.fields or self.fields["id"] is None:
+        data = self.model_dump(mode="json")
+        if "id" not in data or data["id"] is None:
             raise ValueError("Entity has no ID")
 
-        return self._pull_by_id(self.fields["id"])
+        return self._pull_by_id(data["id"])
 
     def delete(self) -> bool:
         """Delete the entity from the database."""
-        if "id" not in self.fields or self.fields["id"] is None:
+        data = self.model_dump(mode="json")
+        if "id" not in data or data["id"] is None:
             raise ValueError("Entity has no ID")
 
-        return self._delete_by_id(self.fields["id"])
+        return self._delete_by_id(data["id"])

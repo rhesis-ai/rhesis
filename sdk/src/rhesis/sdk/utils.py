@@ -2,19 +2,12 @@
 
 import json
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import tiktoken
-from nanoid import generate
-
-CUSTOM_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
-def generate_nano_id() -> str:
-    return generate(size=12, alphabet=CUSTOM_ALPHABET)
-
-
-def count_tokens(text: str, encoding_name: str = "cl100k_base") -> int:
+def count_tokens(text: str, encoding_name: str = "cl100k_base") -> Optional[int]:
     """Count the number of tokens in a given text string using tiktoken.
 
     Args:
