@@ -217,6 +217,7 @@ class ResultsCurator:
             Model ID -> ModelPerformance mapping
         """
         models_data = {}
+        model_collections = {}
 
         for result_file in result_files:
             provider, model_name = self._parse_model_path(result_file)
@@ -237,19 +238,18 @@ class ResultsCurator:
                     provider=provider,
                     model_name=model_name,
                 )
+                model_collections[model_id] = {
+                    "scores": [],
+                    "costs": [],
+                    "gen_times": [],
+                    "input_tokens": [],
+                    "output_tokens": [],
+                    "metric_values": {},
+                    "category_data": {},
+                }
 
             model_perf = models_data[model_id]
-
-            # Collect all values for statistics
-            scores = []
-            costs = []
-            gen_times = []
-            input_tokens = []
-            output_tokens = []
-            metric_values = {}
-
-            # Category tracking: {category_name: {scores: [], metric_values: {}}}
-            category_data = {}
+            collections = model_collections[model_id]
 
             for result in results:
                 model_perf.total_tests += 1
@@ -269,13 +269,12 @@ class ResultsCurator:
                 else:
                     model_perf.successful_tests += 1
 
-                scores.append(score)
+                collections["scores"].append(score)
 
                 # Extract category from test_metadata
                 test_metadata = result.get("test_metadata", {})
                 category = None
                 if test_metadata:
-                    # Try multiple possible category fields
                     category = (
                         test_metadata.get("category")
                         or test_metadata.get("categorization")
@@ -285,33 +284,32 @@ class ResultsCurator:
                     )
 
                     if category:
-                        # Initialize category data structure if needed
-                        if category not in category_data:
-                            category_data[category] = {
+                        if category not in collections["category_data"]:
+                            collections["category_data"][category] = {
                                 "scores": [],
                                 "metric_values": {},
                                 "total": 0,
                                 "successful": 0,
                             }
 
-                        category_data[category]["total"] += 1
+                        collections["category_data"][category]["total"] += 1
                         if score > 0:
-                            category_data[category]["successful"] += 1
-                        category_data[category]["scores"].append(score)
+                            collections["category_data"][category]["successful"] += 1
+                        collections["category_data"][category]["scores"].append(score)
 
                 # Cost
                 cost = result.get("cost")
                 if cost is not None:
-                    costs.append(cost)
+                    collections["costs"].append(cost)
 
                 # Metadata
                 metadata = result.get("metadata", {})
                 if "generation_time_seconds" in metadata:
-                    gen_times.append(metadata["generation_time_seconds"])
+                    collections["gen_times"].append(metadata["generation_time_seconds"])
                 if "input_tokens" in metadata:
-                    input_tokens.append(metadata["input_tokens"])
+                    collections["input_tokens"].append(metadata["input_tokens"])
                 if "output_tokens" in metadata:
-                    output_tokens.append(metadata["output_tokens"])
+                    collections["output_tokens"].append(metadata["output_tokens"])
 
                 # Metric details
                 details = result.get("details", {})
@@ -319,51 +317,48 @@ class ResultsCurator:
                     if not isinstance(metric_data, dict):
                         continue
 
-                    # Collect numeric scores
                     metric_score = metric_data.get("score")
                     if metric_score is not None and isinstance(metric_score, (int, float)):
-                        if metric_name not in metric_values:
-                            metric_values[metric_name] = []
-                        metric_values[metric_name].append(metric_score)
+                        if metric_name not in collections["metric_values"]:
+                            collections["metric_values"][metric_name] = []
+                        collections["metric_values"][metric_name].append(metric_score)
 
-                        # Track metric for category if applicable
                         if category:
-                            if metric_name not in category_data[category]["metric_values"]:
-                                category_data[category]["metric_values"][metric_name] = []
-                            category_data[category]["metric_values"][metric_name].append(
-                                metric_score
-                            )
+                            cat_data = collections["category_data"][category]
+                            cat_metric_values = cat_data["metric_values"]
+                            if metric_name not in cat_metric_values:
+                                cat_metric_values[metric_name] = []
+                            cat_metric_values[metric_name].append(metric_score)
 
-            # Compute statistics
-            if scores:
-                model_perf.overall_score = self._compute_statistics(scores)
-            if costs:
-                model_perf.cost_heuristic = self._compute_statistics(costs)
-            if gen_times:
-                model_perf.generation_time = self._compute_statistics(gen_times)
-            if input_tokens:
-                model_perf.tokens_in = self._compute_statistics(input_tokens)
-            if output_tokens:
-                model_perf.tokens_out = self._compute_statistics(output_tokens)
+        # Compute statistics for all models after collecting all data
+        for model_id, model_perf in models_data.items():
+            collections = model_collections[model_id]
 
-            # Compute per-metric statistics
-            for metric_name, values in metric_values.items():
+            if collections["scores"]:
+                model_perf.overall_score = self._compute_statistics(collections["scores"])
+            if collections["costs"]:
+                model_perf.cost_heuristic = self._compute_statistics(collections["costs"])
+            if collections["gen_times"]:
+                model_perf.generation_time = self._compute_statistics(collections["gen_times"])
+            if collections["input_tokens"]:
+                model_perf.tokens_in = self._compute_statistics(collections["input_tokens"])
+            if collections["output_tokens"]:
+                model_perf.tokens_out = self._compute_statistics(collections["output_tokens"])
+
+            for metric_name, values in collections["metric_values"].items():
                 model_perf.metric_scores[metric_name] = self._compute_statistics(values)
                 model_perf.metric_scores[metric_name].name = metric_name
 
-            # Compute category statistics
-            for category_name, cat_data in category_data.items():
+            for category_name, cat_data in collections["category_data"].items():
                 cat_perf = CategoryPerformance(
                     category_name=category_name,
                     total_tests=cat_data["total"],
                     successful_tests=cat_data["successful"],
                 )
 
-                # Overall score for category
                 if cat_data["scores"]:
                     cat_perf.overall_score = self._compute_statistics(cat_data["scores"])
 
-                # Per-metric scores for category
                 for metric_name, metric_vals in cat_data["metric_values"].items():
                     if metric_vals:
                         cat_perf.metric_scores[metric_name] = self._compute_statistics(

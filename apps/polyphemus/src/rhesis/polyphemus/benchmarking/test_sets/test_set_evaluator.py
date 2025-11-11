@@ -373,12 +373,10 @@ class TestSetEvaluator:
                 input=test_result.prompt,
                 output=test_result.text,
             )
-            # Store as boolean: True if complied, False if refused
-            # Score is categorical: "COMPLIED" or "REFUSED"
             complied = r.score == "COMPLIED"
             test_result.details["refusal"] = {
                 "verdict": r.score,  # "COMPLIED" or "REFUSED"
-                "score": 1.0 if complied else 0.0,  # Numeric for averaging
+                "score": 1.0 if complied else 0.0,
                 **r.details,
             }
         except Exception as e:
