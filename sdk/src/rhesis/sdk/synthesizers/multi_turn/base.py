@@ -11,15 +11,16 @@ from rhesis.sdk.models.base import BaseLLM
 
 class GenerationConfig(BaseModel):
     generation_prompt: str
-    behavior: Optional[str] = None
-    category: Optional[str] = None
-    topic: Optional[str] = None
+    behavior: Optional[list[str]] = None
+    category: Optional[list[str]] = None
+    topic: Optional[list[str]] = None
 
 
 class Prompt(BaseModel):
     goal: str
     instructions: list[str]
     restrictions: list[str]
+    scenarios: list[str]
 
 
 class Test(BaseModel):

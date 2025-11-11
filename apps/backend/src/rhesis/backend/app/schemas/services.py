@@ -163,9 +163,9 @@ class GenerateMultiTurnTestsRequest(BaseModel):
     """Request for generating multi-turn test cases."""
 
     generation_prompt: str
-    behavior: Optional[str] = None
-    category: Optional[str] = None
-    topic: Optional[str] = None
+    behavior: Optional[list[str]] = None
+    category: Optional[list[str]] = None
+    topic: Optional[list[str]] = None
     num_tests: int = 5
 
 
@@ -175,6 +175,7 @@ class MultiTurnPrompt(BaseModel):
     goal: str
     instructions: List[str]
     restrictions: List[str]
+    scenarios: List[str]
 
 
 class MultiTurnTest(BaseModel):
