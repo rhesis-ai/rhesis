@@ -31,7 +31,10 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import MetricCard from './MetricCard';
 import MetricTypeDialog from './MetricTypeDialog';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import { MetricDetail, MetricScope } from '@/utils/api-client/interfaces/metric';
+import {
+  MetricDetail,
+  MetricScope,
+} from '@/utils/api-client/interfaces/metric';
 import type {
   Behavior as ApiBehavior,
   BehaviorWithMetrics,
