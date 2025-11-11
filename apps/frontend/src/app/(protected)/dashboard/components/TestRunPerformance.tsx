@@ -123,23 +123,17 @@ export default function TestRunPerformance({
   }, [sessionToken, calculateLimit]);
 
   useEffect(() => {
-    // Set initial viewport height
+    // Set viewport height once on mount
     setViewportHeight(window.innerHeight);
-
-    // Track viewport height changes
-    const handleResize = () => {
-      setViewportHeight(window.innerHeight);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
-    if (viewportHeight > 0) {
+    // Fetch data once viewport height is set
+    if (sessionToken && viewportHeight > 0) {
       fetchTestRuns();
     }
-  }, [fetchTestRuns, viewportHeight]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionToken, viewportHeight]); // Fetch when sessionToken changes or when viewport height is initially set
 
   const handleCardClick = (testRunId: string) => {
     router.push(`/test-runs/${testRunId}`);

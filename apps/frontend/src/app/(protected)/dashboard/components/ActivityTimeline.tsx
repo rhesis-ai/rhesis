@@ -226,9 +226,17 @@ export default function ActivityTimeline({
 
       // Add new test sets
       newTestSets.data.forEach((testSet: TestSet) => {
-        // Use created_at, updated_at, or current time as fallback
+        // Use created_at or updated_at; use a very old date as fallback to sort properly
         const testSetTimestamp =
-          testSet.created_at || testSet.updated_at || new Date().toISOString();
+          testSet.created_at || testSet.updated_at || '2000-01-01T00:00:00Z';
+
+        if (!testSet.created_at && !testSet.updated_at) {
+          console.warn(
+            'Test set missing timestamp (will be sorted to bottom):',
+            testSet.id,
+            testSet.name
+          );
+        }
 
         allActivities.push({
           id: `test_set_created_${testSet.id}`,
@@ -242,9 +250,18 @@ export default function ActivityTimeline({
 
       // Add tasks with enhanced activity tracking
       recentTasks.data.forEach((task: Task) => {
-        // Use created_at, updated_at, or current time as fallback
+        // Use created_at or updated_at; use a very old date as fallback to sort properly
+        // Tasks without timestamps will appear at the bottom
         const taskTimestamp =
-          task.created_at || task.updated_at || new Date().toISOString();
+          task.created_at || task.updated_at || '2000-01-01T00:00:00Z';
+
+        if (!task.created_at && !task.updated_at) {
+          console.warn(
+            'Task missing timestamp (will be sorted to bottom):',
+            task.id,
+            task.title
+          );
+        }
 
         // Add task created activity
         allActivities.push({
@@ -340,23 +357,17 @@ export default function ActivityTimeline({
   }, [sessionToken, calculateLimit]);
 
   useEffect(() => {
-    // Set initial viewport height
+    // Set viewport height once on mount
     setViewportHeight(window.innerHeight);
-
-    // Track viewport height changes
-    const handleResize = () => {
-      setViewportHeight(window.innerHeight);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
-    if (viewportHeight > 0) {
+    // Fetch data once viewport height is set
+    if (sessionToken && viewportHeight > 0) {
       fetchActivities();
     }
-  }, [fetchActivities, viewportHeight]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionToken, viewportHeight]); // Fetch when sessionToken changes or when viewport height is initially set
 
   const handleActivityClick = (activity: Activity) => {
     switch (activity.type) {
