@@ -51,7 +51,7 @@ class MultiTurnSynthesizer:
         template = environment.get_template(prompt_template_file)
         return template
 
-    def generate(self, num_tests: int = 5) -> Tests:
+    def generate(self, num_tests: int = 5) -> TestSet:
         prompt_template = self.load_prompt_template(self.prompt_template_file)
         template_context = {
             "num_tests": num_tests,

@@ -165,3 +165,48 @@ async def generate_tests(
     test_set = await loop.run_in_executor(None, generate_func)
 
     return test_set.to_dict()
+
+
+async def generate_multiturn_tests(
+    db: Session,
+    user: User,
+    config: Dict,
+    num_tests: int = 5,
+) -> Dict:
+    """
+    Generate multi-turn test cases using MultiTurnSynthesizer.
+    Uses user's configured default model if available,
+    otherwise falls back to DEFAULT_GENERATION_MODEL.
+
+    Args:
+        db: Database session
+        user: Current user (organization_id extracted from user for security)
+        config: The generation configuration as a dictionary containing:
+            - generation_prompt (str): The generation prompt describing what to test
+            - behavior (str, optional): Behavior type (e.g., "Compliance", "Reliability")
+            - category (str, optional): Category (e.g., "Harmful", "Harmless")
+            - topic (str, optional): Specific topic
+        num_tests: Number of test cases to generate (default: 5)
+
+    Returns:
+        Dict: The generated test set as a dictionary
+
+    Raises:
+        HTTPException: If no valid tokens are found for the user
+    """
+    from rhesis.sdk.synthesizers.multi_turn.base import GenerationConfig, MultiTurnSynthesizer
+
+    # Get user's configured model or fallback to default
+    model = get_user_generation_model(db, user)
+
+    # Create configuration for multi-turn synthesizer from dict
+    generation_config = GenerationConfig(**config)
+
+    synthesizer = MultiTurnSynthesizer(config=generation_config, model=model)
+
+    # Run the potentially blocking operation in a separate thread
+    # to avoid blocking the event loop
+    loop = asyncio.get_event_loop()
+    test_set = await loop.run_in_executor(None, synthesizer.generate, num_tests)
+
+    return test_set.to_dict()
