@@ -307,7 +307,7 @@ async def generate_multiturn_tests_endpoint(
             config=config,
             num_tests=request.num_tests,
         )
-        return {"tests": test_cases["tests"]}
+        return {"tests": test_cases}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
