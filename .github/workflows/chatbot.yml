@@ -216,6 +216,30 @@ jobs:
           fi
           
           echo "🤖 Model configuration: ${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai' }} / ${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.0-flash' }}"
+          
+          # Set environment-dependent resources
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            MEMORY="4Gi"
+            CPU="2"
+            MIN_INSTANCES="2"
+            MAX_INSTANCES="20"
+            CONCURRENCY="100"
+            echo "🏭 Production configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
+          elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
+            MEMORY="2Gi"
+            CPU="2"
+            MIN_INSTANCES="1"
+            MAX_INSTANCES="10"
+            CONCURRENCY="80"
+            echo "🧪 Staging configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
+          else
+            MEMORY="1Gi"
+            CPU="1"
+            MIN_INSTANCES="1"
+            MAX_INSTANCES="5"
+            CONCURRENCY="50"
+            echo "🛠️ Development configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
+          fi
 
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:latest \
@@ -224,12 +248,12 @@ jobs:
             --platform=managed \
             --allow-unauthenticated \
             --port=8080 \
-            --memory=512Mi \
-            --cpu=1 \
-            --concurrency=80 \
+            --memory=$MEMORY \
+            --cpu=$CPU \
+            --concurrency=$CONCURRENCY \
             --timeout=120 \
-            --max-instances=10 \
-            --min-instances=0 \
+            --max-instances=$MAX_INSTANCES \
+            --min-instances=$MIN_INSTANCES \
             --set-env-vars="$ENV_VARS"
 
           echo "✅ Deployment completed successfully"

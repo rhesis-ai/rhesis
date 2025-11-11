@@ -73,7 +73,6 @@ export const authConfig: NextAuthConfig = {
             session_token: sessionToken,
           };
         } catch (error) {
-          console.error('Auth error:', error);
           return null;
         }
       },
@@ -100,7 +99,6 @@ export const authConfig: NextAuthConfig = {
         const stringified = JSON.stringify(token);
         return stringified;
       } catch (error) {
-        console.error('JWT encode error:', error);
         return '';
       }
     },
@@ -125,7 +123,6 @@ export const authConfig: NextAuthConfig = {
               session_token: token,
             };
           } catch (jwtError) {
-            console.error('JWT parsing error:', jwtError);
             // If JWT parsing fails, fall back to JSON parsing
           }
         }
@@ -137,8 +134,6 @@ export const authConfig: NextAuthConfig = {
 
         return token;
       } catch (error) {
-        console.error('JWT decode error:', error);
-        console.error('Failed token:', token);
         return null;
       }
     },
@@ -180,11 +175,7 @@ export const authConfig: NextAuthConfig = {
     },
   },
   events: {
-    async signOut() {
-      console.log(
-        '[AUTH] NextAuth signOut event triggered - session fully cleared'
-      );
-    },
+    async signOut() {},
   },
   pages: {
     signIn: '/',

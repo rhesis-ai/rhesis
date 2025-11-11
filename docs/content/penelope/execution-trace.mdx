@@ -1,0 +1,330 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Execution Trace
+
+Penelope captures comprehensive execution traces that provide complete visibility into multi-turn test runs. These traces are structured, machine-readable, and designed for analysis, debugging, and integration with metrics systems.
+
+## Overview
+
+Every test execution produces a `TestResult` object that contains:
+
+- **Test outcomes** - Status, goal achievement, findings
+- **Complete conversation history** - Every turn with full message context
+- **Easy-to-read conversation summary** - Simplified turn-by-turn flow with clear roles
+- **Structured evaluation data** - Criterion-by-criterion results with traceability
+- **Standardized metrics** - SDK-compatible metric format
+- **Test configuration** - Full reproducibility information
+- **Performance statistics** - Timing, tool usage, token consumption
+
+## Schema Structure
+
+<CodeBlock filename="test_result.json" language="json">
+  {`{
+  "test_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "success",
+  "goal_achieved": true,
+  "turns_used": 3,
+  "findings": ["All success criteria met"],
+  
+  "goal_evaluation": {
+    "all_criteria_met": true,
+    "confidence": 1.0,
+    "reasoning": "All criteria satisfied",
+    "evidence": ["Turn 2: User confirmed coverage details"],
+    "criteria_evaluations": [...]
+  },
+  
+  "history": [
+    {
+      "turn_number": 1,
+      "reasoning": "Need to gather information",
+      "assistant_message": {...},
+      "tool_message": {...}
+    }
+  ],
+  
+  "conversation_summary": [
+    {
+      "turn": 1,
+      "timestamp": "2024-01-15T10:30:00Z",
+      "penelope_reasoning": "Need to gather information about coverage",
+      "penelope_message": "What insurance coverage do you offer?",
+      "target_response": "We offer auto, home, life, and health insurance...",
+      "session_id": "abc123",
+      "success": true
+    }
+  ],
+  
+  "metrics": {
+    "Goal Achievement": {
+      "score": 1.0,
+      "is_successful": true,
+      "reason": "All criteria met"
+    }
+  },
+  
+  "config": {
+    "goal": "Test goal",
+    "max_turns": 10,
+    "model_name": "gemini-2.0-flash"
+  },
+  
+  "stats": {
+    "total_turns": 3,
+    "tools_used": 2,
+    "total_tokens": 1250,
+    "execution_time_seconds": 5.2
+  }
+}`}
+</CodeBlock>
+
+## Key Fields
+
+### Status & Outcome
+
+- **status**: `"success"`, `"failure"`, `"timeout"`, or `"error"`
+- **goal_achieved**: Boolean indicating if test objective was met
+- **turns_used**: Number of conversation turns executed
+- **findings**: List of key observations from the test
+
+### Goal Evaluation
+
+Structured assessment of success criteria:
+
+<CodeBlock filename="goal_evaluation.json" language="json">
+  {`{
+  "all_criteria_met": true,
+  "confidence": 1.0,
+  "reasoning": "Detailed explanation of evaluation",
+  "evidence": ["Supporting evidence from conversation"],
+  "criteria_evaluations": [
+    {
+      "criterion": "Criterion description",
+      "met": true,
+      "evidence": "Evidence for this criterion",
+      "reasoning": "Why this criterion was met/not met"
+    }
+  ],
+  "turn_count": 3,
+  "evaluated_at": "2024-01-15T10:30:00Z"
+}`}
+</CodeBlock>
+
+### Conversation Summary
+
+For easy reading and UI display, each test includes a simplified conversation summary with clear role names:
+
+<CodeBlock filename="conversation_summary.json" language="json">
+  {`[
+  {
+    "turn": 1,
+    "timestamp": "2024-01-15T10:30:00Z",
+    "penelope_reasoning": "Need to gather information about coverage options",
+    "penelope_message": "What insurance coverage do you offer?",
+    "target_response": "We offer auto, home, life, and health insurance with various coverage levels...",
+    "session_id": "abc123-def456",
+    "success": true
+  },
+  {
+    "turn": 2,
+    "timestamp": "2024-01-15T10:30:15Z",
+    "penelope_reasoning": "Follow up on auto insurance specifics",
+    "penelope_message": "Can you tell me more about auto insurance coverage?",
+    "target_response": "Auto insurance includes liability, collision, comprehensive, and uninsured motorist coverage...",
+    "session_id": "abc123-def456",
+    "success": true
+  }
+]`}
+</CodeBlock>
+
+**Key Benefits:**
+- **Clear roles**: "penelope" for the agent, "target" for the endpoint
+- **Easy tracking**: Turn-by-turn conversation flow
+- **UI-friendly**: Perfect for frontend display and analysis
+- **Complements history**: Simplified view while detailed `history` remains available
+
+### Conversation History
+
+Each turn in the detailed history contains:
+
+<CodeBlock filename="turn.json" language="json">
+  {`{
+  "turn_number": 1,
+  "reasoning": "Why this action was taken",
+  "assistant_message": {
+    "role": "assistant",
+    "content": "Reasoning about next step",
+    "tool_calls": [
+      {
+        "id": "call_123",
+        "type": "function",
+        "function": {
+          "name": "send_message_to_target",
+          "arguments": "{\"message\":\"Hello\"}"
+        }
+      }
+    ]
+  },
+  "tool_message": {
+    "role": "tool",
+    "tool_call_id": "call_123",
+    "content": "Tool response"
+  }
+}`}
+</CodeBlock>
+
+### Metrics
+
+SDK-compatible format for integration with Rhesis platform:
+
+<CodeBlock filename="metrics.json" language="json">
+  {`{
+  "Goal Achievement": {
+    "name": "Goal Achievement",
+    "score": 1.0,
+    "is_successful": true,
+    "reason": "All success criteria met",
+    "backend": "penelope",
+    "confidence": 1.0,
+    "criteria_met": 3,
+    "criteria_total": 3
+  }
+}`}
+</CodeBlock>
+
+## Accessing Traces
+
+### Python API
+
+<CodeBlock filename="access_trace.py" language="python">
+{`from rhesis.penelope import PenelopeAgent
+
+agent = PenelopeAgent()
+result = agent.execute_test(target=target, goal="Test goal")
+
+# Access trace data
+
+print(f"Status: {result.status}")
+print(f"Goal achieved: {result.goal_achieved}")
+print(f"Turns used: {result.turns_used}")
+
+# Iterate through history
+
+for turn in result.history:
+print(f"Turn {turn.turn_number}: {turn.reasoning}")
+
+# Access conversation summary (easy-to-read format)
+
+for turn in result.conversation_summary:
+    print(f"Turn {turn.turn}: {turn.penelope_message}")
+    print(f"  → {turn.target_response}")
+
+# Export to JSON
+
+trace_json = result.dict()
+
+# Export to file
+
+result.to_json("trace.json")`}
+
+</CodeBlock>
+
+### JSON Export
+
+<CodeBlock filename="export.py" language="python">
+{`import json
+
+# Save trace
+
+with open("execution_trace.json", "w") as f:
+json.dump(result.dict(), f, indent=2)
+
+# Load trace
+
+with open("execution_trace.json", "r") as f:
+trace_data = json.load(f)
+
+# Reconstruct TestResult
+
+from rhesis.penelope.context import TestResult
+result = TestResult.from_dict(trace_data)`}
+
+</CodeBlock>
+
+## Integration with Rhesis Platform
+
+Penelope traces integrate seamlessly with the Rhesis platform:
+
+<CodeBlock filename="platform_integration.py" language="python">
+{`from rhesis.penelope import PenelopeAgent
+from rhesis.sdk import Rhesis
+
+# Execute with Penelope
+
+agent = PenelopeAgent()
+result = agent.execute_test(target=target, goal="Test goal")
+
+# Submit to Rhesis platform
+
+client = Rhesis()
+client.create_test_result(
+test_id="test-123",
+metrics=result.metrics,
+output=result.dict(),
+execution_time=result.stats["execution_time_seconds"]
+)`}
+
+</CodeBlock>
+
+## Analysis & Debugging
+
+### Quick Summary
+
+<CodeBlock filename="summary.py" language="python">
+{`# Print concise summary
+print(f"""
+Test ID: {result.test_id}
+Status: {result.status.value}
+Goal Achieved: {result.goal_achieved}
+Turns: {result.turns_used}/{result.config.max_turns}
+Findings: {', '.join(result.findings)}
+""")
+
+# Check for issues
+
+if not result.goal_achieved:
+print("Failure reasons:")
+for criterion in result.goal_evaluation.criteria_evaluations:
+if not criterion.met:
+print(f" ❌ {criterion.criterion}: {criterion.reasoning}")`}
+
+</CodeBlock>
+
+### Debugging Failed Tests
+
+<CodeBlock filename="debug.py" language="python">
+{`# Analyze conversation flow
+for turn in result.history:
+    print(f"\nTurn {turn.turn_number}:")
+    print(f"  Reasoning: {turn.reasoning}")
+    if turn.assistant_message.tool_calls:
+        for call in turn.assistant_message.tool_calls:
+            print(f"  Tool: {call.function.name}")
+    if turn.tool_message:
+        print(f"  Response: {turn.tool_message.content[:100]}...")
+
+# Check token usage
+
+stats = result.stats
+if stats["total_tokens"] > 50000:
+print(f"⚠️ High token usage: {stats['total_tokens']}")`}
+
+</CodeBlock>
+
+---
+
+<Callout type="info">
+  **Complete Schema**: See the [Penelope GitHub
+  repository](https://github.com/rhesis-ai/rhesis/tree/main/penelope) for the
+  complete TestResult schema definition and examples.
+</Callout>

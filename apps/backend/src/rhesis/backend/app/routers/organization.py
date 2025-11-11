@@ -160,7 +160,7 @@ async def initialize_organization_data(
             # Get the user to update settings
             user = db.query(models.User).filter(models.User.id == current_user.id).first()
             if user:
-                # Use the UserSettingsManager to properly update settings
+                # Settings are auto-persisted when using user.settings
                 user.settings.update(
                     {
                         "models": {
@@ -169,8 +169,6 @@ async def initialize_organization_data(
                         }
                     }
                 )
-                # Persist the updated settings back to the database
-                user.user_settings = user.settings.raw
                 db.flush()
 
         # Mark onboarding as completed

@@ -14,7 +14,7 @@ export async function handleSignOut() {
       redirectTo: '/auth/signout', // Redirect to our client logout page
       redirect: false, // We'll handle the redirect manually
     });
-  } catch (error) {
+  } catch {
     // Continue with redirect even if server signOut fails
   }
 

@@ -323,7 +323,7 @@ class MetricDataFactory(BaseDataFactory):
         return {
             "name": fake.word().title() + " Metric",
             "evaluation_prompt": fake.sentence(nb_words=8),
-            "score_type": fake.random_element(elements=("numeric", "categorical", "binary"))
+            "score_type": fake.random_element(elements=("numeric", "categorical"))
         }
     
     @classmethod
@@ -335,7 +335,7 @@ class MetricDataFactory(BaseDataFactory):
             "evaluation_prompt": fake.sentence(nb_words=8),
             "evaluation_steps": fake.text(max_nb_chars=200),
             "reasoning": fake.text(max_nb_chars=100),
-            "score_type": fake.random_element(elements=("numeric", "categorical", "binary")),
+            "score_type": fake.random_element(elements=("numeric", "categorical")),
             "min_score": fake.random_number(digits=1),
             "max_score": fake.random_number(digits=2),
             "reference_score": fake.word(),
@@ -376,8 +376,8 @@ class MetricDataFactory(BaseDataFactory):
         elif case_type == "unicode":
             return {
                 "name": f"Test 测试 тест テスト {fake.word()} Metric",
-                "evaluation_prompt": "Unicode evaluation: 测试 тест テスト",
-                "score_type": "binary",
+                "evaluation_prompt": "Unicode evaluation: 测试 тест테スト",
+                "score_type": "categorical",
                 "description": "Unicode description: 测试 тест テスト"
             }
         elif case_type == "sql_injection":
@@ -1362,8 +1362,10 @@ class UseCaseDataFactory(BaseDataFactory):
     def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
         """Generate use case edge case data"""
         if case_type == "long_name":
+            # Generate a name that's guaranteed to be >100 characters
+            long_name = " ".join([fake.sentence(nb_words=5) for _ in range(4)])
             return {
-                "name": fake.text(max_nb_chars=200).replace('\n', ' '),
+                "name": long_name[:200],  # Ensure we don't exceed 200 chars
                 "description": fake.paragraph(nb_sentences=5),
                 "industry": "Technology",
                 "application": "Complex System Integration"

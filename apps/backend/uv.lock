@@ -4244,7 +4244,6 @@ dependencies = [
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-instrumentation-fastapi" },
     { name = "opentelemetry-sdk" },
-    { name = "pandas" },
     { name = "pathspec" },
     { name = "portalocker" },
     { name = "proto-plus" },
@@ -4258,6 +4257,7 @@ dependencies = [
     { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "redis" },
+    { name = "rhesis-penelope" },
     { name = "rhesis-sdk" },
     { name = "slowapi" },
     { name = "sqlalchemy" },
@@ -4311,7 +4311,6 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.32.1" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.45b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.32.1" },
-    { name = "pandas", specifier = "==2.2.2" },
     { name = "pathspec", specifier = "==0.12.1" },
     { name = "portalocker", specifier = "==3.1.1" },
     { name = "proto-plus", specifier = ">=1.26.1" },
@@ -4325,6 +4324,7 @@ requires-dist = [
     { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "redis", specifier = "==4.6.0" },
+    { name = "rhesis-penelope", editable = "../../penelope" },
     { name = "rhesis-sdk", editable = "../../sdk" },
     { name = "slowapi", specifier = ">=0.1.9" },
     { name = "sqlalchemy" },
@@ -4349,6 +4349,43 @@ dev = [
     { name = "pytest-mock", specifier = ">=3.12.0" },
     { name = "pytest-xdist", specifier = ">=3.6.0" },
     { name = "ruff", specifier = ">=0.11.6" },
+]
+
+[[package]]
+name = "rhesis-penelope"
+version = "0.1.0"
+source = { editable = "../../penelope" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "pydantic" },
+    { name = "rhesis-sdk" },
+    { name = "rich" },
+    { name = "tenacity" },
+    { name = "tiktoken" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jinja2", specifier = ">=3.1.0" },
+    { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "rhesis-sdk", editable = "../../sdk" },
+    { name = "rich", specifier = ">=13.0.0" },
+    { name = "tenacity", specifier = ">=8.2.3" },
+    { name = "tiktoken", specifier = ">=0.9.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "hatch", specifier = ">=1.14.1" },
+    { name = "mypy", specifier = ">=1.15.0" },
+    { name = "pre-commit", specifier = ">=4.3.0" },
+    { name = "pyright", specifier = ">=1.1.406" },
+    { name = "pytest", specifier = ">=8.3.4" },
+    { name = "pytest-asyncio", specifier = ">=0.24.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "pytest-mock", specifier = ">=3.14.0" },
+    { name = "ruff", specifier = ">=0.11.6" },
+    { name = "types-requests", specifier = ">=2.32.0" },
 ]
 
 [[package]]
@@ -4404,6 +4441,7 @@ dev = [
     { name = "myst-parser", specifier = ">=4.0.0" },
     { name = "pandas-stubs", specifier = ">=2.2.3.250308" },
     { name = "pre-commit", specifier = ">=4.3.0" },
+    { name = "psycopg2-binary", specifier = "==2.9.9" },
     { name = "pyright", specifier = ">=1.1.406" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "ruff", specifier = ">=0.11.6" },

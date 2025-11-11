@@ -16,35 +16,35 @@ Components are organized in the following directory structure:
         {
           name: "common",
           type: "folder",
-          description: "Reusable components used across features"
+          description: "Reusable components used across features",
         },
         {
           name: "layout",
           type: "folder",
-          description: "Layout components (header, footer, etc.)"
+          description: "Layout components (header, footer, etc.)",
         },
         {
           name: "navigation",
           type: "folder",
-          description: "Navigation components (sidebar, navbar, etc.)"
+          description: "Navigation components (sidebar, navbar, etc.)",
         },
         {
           name: "providers",
           type: "folder",
-          description: "Context providers"
+          description: "Context providers",
         },
         {
           name: "auth",
           type: "folder",
-          description: "Authentication components"
+          description: "Authentication components",
         },
         {
           name: "[feature]",
           type: "folder",
-          description: "Feature-specific components"
-        }
-      ]
-    }
+          description: "Feature-specific components",
+        },
+      ],
+    },
   ]}
 />
 
@@ -57,8 +57,9 @@ Components are organized in the following directory structure:
 The main application layout wrapper used for authenticated pages.
 
 **Usage:**
+
 <CodeBlock filename="AppLayout.tsx" language="typescript">
-{`<AppLayout>
+  {`<AppLayout>
   <YourPageContent />
 </AppLayout>`}
 </CodeBlock>
@@ -68,8 +69,9 @@ The main application layout wrapper used for authenticated pages.
 Layout for authentication pages (login, register, etc.).
 
 **Usage:**
+
 <CodeBlock filename="AuthLayout.tsx" language="typescript">
-{`<AuthLayout>
+  {`<AuthLayout>
   <LoginForm />
 </AuthLayout>`}
 </CodeBlock>
@@ -81,6 +83,7 @@ Layout for authentication pages (login, register, etc.).
 Main navigation sidebar with collapsible sections.
 
 **Props:**
+
 - `isOpen`: `boolean` - Controls whether the sidebar is expanded or collapsed
 - `onToggle`: `() => void` - Callback when the sidebar toggle button is clicked
 
@@ -89,6 +92,7 @@ Main navigation sidebar with collapsible sections.
 Top navigation bar with user menu, notifications, and search.
 
 **Props:**
+
 - `user`: `User` - Current user object
 - `onSearch`: `(query: string) => void` - Search callback
 
@@ -99,6 +103,7 @@ Top navigation bar with user menu, notifications, and search.
 Reusable table component with sorting, filtering, and pagination.
 
 **Props:**
+
 - `columns`: `Column[]` - Column definitions
 - `data`: `any[]` - Table data
 - `pagination`: `PaginationProps` - Pagination configuration
@@ -110,6 +115,7 @@ Reusable table component with sorting, filtering, and pagination.
 Advanced data grid component using MUI X Data Grid.
 
 **Props:**
+
 - `rows`: `any[]` - Grid data
 - `columns`: `GridColDef[]` - Column definitions
 - `pageSize`: `number` - Number of rows per page
@@ -120,6 +126,7 @@ Advanced data grid component using MUI X Data Grid.
 Wrapper component for content cards.
 
 **Props:**
+
 - `title`: `string` - Card title
 - `subtitle`: `string` - Optional card subtitle
 - `actions`: `React.ReactNode` - Optional action buttons/menu
@@ -132,6 +139,7 @@ Wrapper component for content cards.
 Enhanced text input component.
 
 **Props:**
+
 - `label`: `string` - Input label
 - `value`: `string` - Input value
 - `onChange`: `(e: React.ChangeEvent<HTMLInputElement>) => void` - Change handler
@@ -144,6 +152,7 @@ Enhanced text input component.
 Enhanced select component.
 
 **Props:**
+
 - `label`: `string` - Select label
 - `options`: `{ label: string, value: string | number }[]` - Select options
 - `value`: `string | number` - Selected value
@@ -155,6 +164,7 @@ Enhanced select component.
 Enhanced button component with variants.
 
 **Props:**
+
 - `variant`: `'primary' | 'secondary' | 'danger' | 'ghost'` - Button variant
 - `size`: `'small' | 'medium' | 'large'` - Button size
 - `loading`: `boolean` - Loading state
@@ -167,6 +177,7 @@ Enhanced button component with variants.
 Component for displaying alerts and notifications.
 
 **Props:**
+
 - `severity`: `'success' | 'info' | 'warning' | 'error'` - Alert type
 - `title`: `string` - Alert title
 - `message`: `string` - Alert message
@@ -177,6 +188,7 @@ Component for displaying alerts and notifications.
 Modal dialog component.
 
 **Props:**
+
 - `open`: `boolean` - Controls dialog visibility
 - `onClose`: `() => void` - Close handler
 - `title`: `string` - Dialog title
@@ -190,6 +202,7 @@ Modal dialog component.
 Line chart component using Recharts.
 
 **Props:**
+
 - `data`: `any[]` - Chart data
 - `xKey`: `string` - X-axis data key
 - `yKeys`: `{ key: string, name: string, color: string }[]` - Y-axis data keys
@@ -200,6 +213,7 @@ Line chart component using Recharts.
 Bar chart component using Recharts.
 
 **Props:**
+
 - `data`: `any[]` - Chart data
 - `xKey`: `string` - X-axis data key
 - `yKeys`: `{ key: string, name: string, color: string }[]` - Y-axis data keys
@@ -210,6 +224,7 @@ Bar chart component using Recharts.
 Interactive flow chart using React Flow.
 
 **Props:**
+
 - `nodes`: `Node[]` - Flow nodes
 - `edges`: `Edge[]` - Flow edges
 - `onNodesChange`: `(changes: NodeChange[]) => void` - Node change handler

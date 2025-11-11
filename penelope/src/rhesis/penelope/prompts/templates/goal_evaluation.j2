@@ -1,0 +1,31 @@
+Evaluate this conversation against the stated goal.
+
+TEST GOAL (what should be achieved):
+{{ goal }}
+
+TEST INSTRUCTIONS (how the test was conducted):
+{{ instructions }}
+
+CONVERSATION:
+{{ conversation }}
+
+EVALUATION INSTRUCTIONS:
+1. Count the user-assistant exchanges (USER + ASSISTANT = 1 turn)
+2. Break down the goal into specific measurable criteria
+3. Evaluate each criterion individually with evidence
+4. For EACH criterion, identify which turn numbers (1, 2, 3, etc.) are relevant
+5. Determine if ALL criteria are met
+
+Your response must follow the structured format with:
+- turn_count: actual number of user-assistant exchanges
+- criteria_evaluations: each criterion evaluated separately, including:
+  * criterion: what is being evaluated
+  * met: true/false
+  * evidence: specific quotes or observations
+  * relevant_turns: list of turn numbers [1, 2, 3] where this criterion was tested
+- all_criteria_met: logical AND of all criteria
+- goal_achieved: final assessment
+
+IMPORTANT: For relevant_turns, include ALL turns where evidence for or against the criterion appears.
+If a criterion applies to the entire conversation, include all turn numbers.
+

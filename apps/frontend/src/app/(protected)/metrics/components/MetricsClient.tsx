@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -58,6 +57,7 @@ interface FilterState {
   backend: string[];
   type: string[];
   scoreType: string[];
+  metricScope: string[];
 }
 
 const initialFilterState: FilterState = {
@@ -65,12 +65,14 @@ const initialFilterState: FilterState = {
   backend: [],
   type: [],
   scoreType: [],
+  metricScope: [],
 };
 
 interface FilterOptions {
   backend: { type_value: string }[];
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
+  metricScope: { value: string; label: string }[];
 }
 
 const initialFilterOptions: FilterOptions = {
@@ -80,11 +82,15 @@ const initialFilterOptions: FilterOptions = {
     { value: 'binary', label: 'Binary (Pass/Fail)' },
     { value: 'numeric', label: 'Numeric' },
   ],
+  metricScope: [
+    { value: 'Single-Turn', label: 'Single-Turn' },
+    { value: 'Multi-Turn', label: 'Multi-Turn' },
+  ],
 };
 
 interface BehaviorMetrics {
   [behaviorId: string]: {
-    metrics: MetricDetail[] | any[];
+    metrics: MetricDetail[];
     isLoading: boolean;
     error: string | null;
   };
@@ -155,41 +161,21 @@ export default function MetricsClientComponent({
       const isFirstLoad = !hasFetchedRef.current;
 
       if (!isTokenChange && !isRefresh && !isFirstLoad) {
-        console.log(
-          '[DEBUG] [DEBUG] Skipping fetchData - session token unchanged, no refresh, not first load'
-        );
         return;
       }
-
-      console.log('[DEBUG] [DEBUG] Metrics client fetchData started', {
-        isTokenChange,
-        isRefresh,
-        isFirstLoad,
-        tokenChanged: lastSessionTokenRef.current !== sessionToken,
-      });
 
       // Update refs
       lastSessionTokenRef.current = sessionToken;
       hasFetchedRef.current = true;
 
       try {
-        console.log(
-          '[DEBUG] [DEBUG] Setting loading state and clearing errors'
-        );
         setIsLoadingSelectedMetrics(true);
         setIsLoadingMetricsDirectory(true);
         setError(null);
 
-        console.log(
-          '[DEBUG] [DEBUG] Creating API clients with session token:',
-          !!sessionToken
-        );
         const behaviorClient = new BehaviorClient(sessionToken);
         const metricsClient = new MetricsClient(sessionToken);
 
-        console.log(
-          '[DEBUG] [DEBUG] Fetching behaviors with metrics and all metrics...'
-        );
         const [behaviorsWithMetricsData, allMetricsData] = await Promise.all([
           behaviorClient.getBehaviorsWithMetrics({
             skip: 0,
@@ -204,8 +190,6 @@ export default function MetricsClientComponent({
             sort_order: 'desc',
           }),
         ]);
-
-        console.log('[DEBUG] [DEBUG] API calls completed. Processing data...');
 
         // Extract behaviors from the optimized response
         const behaviorsData = behaviorsWithMetricsData;
@@ -225,12 +209,6 @@ export default function MetricsClientComponent({
           };
         });
 
-        console.log(
-          '[SUCCESS] [DEBUG] Metrics processing completed - found',
-          metricsWithBehaviors.length,
-          'unique metrics'
-        );
-
         // Set the data
         setBehaviorsWithMetrics(behaviorsWithMetricsData);
         setBehaviors(behaviorsData);
@@ -240,7 +218,7 @@ export default function MetricsClientComponent({
         const initialBehaviorMetrics: BehaviorMetrics = {};
         behaviorsWithMetricsData.forEach(behavior => {
           initialBehaviorMetrics[behavior.id] = {
-            metrics: behavior.metrics || [],
+            metrics: (behavior.metrics || []) as MetricDetail[],
             isLoading: false,
             error: null,
           };
@@ -282,20 +260,7 @@ export default function MetricsClientComponent({
           backend: backendTypes,
           type: metricTypes,
         }));
-
-        console.log(
-          '[SUCCESS] [DEBUG] Extracted filter options from metrics:',
-          {
-            backendTypes: backendTypes.length,
-            metricTypes: metricTypes.length,
-          }
-        );
-
-        console.log(
-          '[SUCCESS] [DEBUG] All data processing completed successfully'
-        );
       } catch (err) {
-        console.error('[ERROR] [DEBUG] Error in fetchData:', err);
         const errorMessage =
           err instanceof Error ? err.message : 'An error occurred';
         setError(errorMessage);
@@ -304,7 +269,6 @@ export default function MetricsClientComponent({
           autoHideDuration: 4000,
         });
       } finally {
-        console.log('[COMPLETE] [DEBUG] Setting loading to false');
         setIsLoadingSelectedMetrics(false);
         setIsLoadingMetricsDirectory(false);
       }
@@ -314,14 +278,7 @@ export default function MetricsClientComponent({
   }, [sessionToken, refreshKey, notifications]);
 
   // Debug log for useEffect triggers
-  React.useEffect(() => {
-    console.log('[DEBUG] [DEBUG] MetricsClient useEffect triggered', {
-      sessionToken: !!sessionToken,
-      refreshKey,
-      lastToken: !!lastSessionTokenRef.current,
-      hasFetched: hasFetchedRef.current,
-    });
-  }, [sessionToken, refreshKey]);
+  React.useEffect(() => {}, [sessionToken, refreshKey]);
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);

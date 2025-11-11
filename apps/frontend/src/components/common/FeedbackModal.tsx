@@ -58,7 +58,6 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
         throw new Error(error.message || 'Failed to send feedback');
       }
     } catch (error) {
-      console.error('Error sending feedback:', error);
       show(error instanceof Error ? error.message : 'Failed to send feedback', {
         severity: 'error',
       });

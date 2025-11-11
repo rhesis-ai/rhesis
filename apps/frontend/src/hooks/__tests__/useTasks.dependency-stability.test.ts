@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// @ts-nocheck
 import { renderHook, waitFor } from '@testing-library/react';
 import { useTasks } from '../useTasks';
 import { ApiClientFactory } from '../../utils/api-client/client-factory';

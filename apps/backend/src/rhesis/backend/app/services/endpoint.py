@@ -41,7 +41,8 @@ class EndpointService:
             endpoint_id: ID of the endpoint to invoke
             input_data: Input data to be mapped to the endpoint's request template
             organization_id: Organization ID for security filtering (CRITICAL)
-            user_id: User ID for context injection (CRITICAL - injected into headers, not from user input)
+            user_id: User ID for context injection (CRITICAL - injected into
+                headers, not from user input)
 
         Returns:
             Dict containing the mapped response from the endpoint

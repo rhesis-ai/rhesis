@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, event
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -144,6 +144,8 @@ class User(Base):
         Centralized access to user settings.
 
         Provides a clean interface for accessing and updating all user preferences.
+        The settings manager instance is cached for the lifetime of the User object,
+        and updates are automatically persisted to the database.
 
         Usage:
             # Access model settings
@@ -155,13 +157,24 @@ class User(Base):
             theme = user.settings.ui.theme
             page_size = user.settings.ui.default_page_size
 
-            # Update settings
+            # Update settings (auto-persists!)
             user.settings.update({
                 "models": {
                     "generation": {"model_id": str(model.id), "temperature": 0.7}
                 }
             })
-            # After update, commit to persist changes
-            self.user_settings = user.settings.raw
+            # No manual persistence needed - changes are applied immediately
         """
-        return UserSettingsManager(self.user_settings)
+        # Cache the manager instance to prevent creating new instances on each access
+        # Pass self to enable auto-persistence when updates are made
+        if not hasattr(self, "_settings_cache") or self._settings_cache is None:
+            self._settings_cache = UserSettingsManager(self.user_settings, user_instance=self)
+        return self._settings_cache
+
+
+# Event listener to invalidate settings cache when user_settings is modified
+@event.listens_for(User.user_settings, "set", propagate=True)
+def _invalidate_settings_cache(target, value, oldvalue, initiator):
+    """Invalidate the cached settings manager when user_settings changes."""
+    if hasattr(target, "_settings_cache"):
+        target._settings_cache = None

@@ -19,18 +19,41 @@ Regional availability:
 For detailed usage and configuration options, see VertexAILLM class documentation.
 """
 
+import atexit
 import base64
+import hashlib
 import json
 import os
 import tempfile
-from typing import Optional, Type, Union
+from pathlib import Path
+from typing import Optional, Set, Type, Union
 
 from pydantic import BaseModel
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
+# Track temp files created by this process for cleanup
+_temp_credential_files: Set[str] = set()
+
 PROVIDER = "vertex_ai"
 DEFAULT_MODEL_NAME = "gemini-2.0-flash"
+
+
+def _cleanup_temp_credentials():
+    """
+    Clean up temporary credential files created by this process.
+    Called automatically at process exit via atexit.
+    """
+    for temp_file in _temp_credential_files:
+        try:
+            if os.path.exists(temp_file):
+                os.unlink(temp_file)
+        except Exception:
+            pass  # Ignore cleanup errors
+
+
+# Register cleanup function to run at process exit
+atexit.register(_cleanup_temp_credentials)
 
 
 class VertexAILLM(LiteLLM):
@@ -86,6 +109,10 @@ class VertexAILLM(LiteLLM):
         self._init_location = location
         self._init_project = project
 
+        # Store the original environment variable value at initialization time
+        # This prevents reading a modified value if another instance changes it
+        self._original_credentials_env = credentials or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
         # Initialize parent LiteLLM with vertex_ai prefix
         # Don't pass api_key as Vertex AI uses credentials
         super().__init__(f"{PROVIDER}/{model_name}", api_key=None)
@@ -94,11 +121,15 @@ class VertexAILLM(LiteLLM):
         """
         Attempt to load credentials from base64-encoded string.
 
+        Uses a deterministic temp file path based on credentials hash to ensure
+        multiple instances can share the same file without race conditions.
+        Files are tracked and cleaned up at process exit.
+
         Args:
             credentials: Base64-encoded service account JSON
 
         Returns:
-            dict: Config with credentials_path, project, and _temp_file
+            dict: Config with credentials_path and project
 
         Raises:
             Exception: If not valid base64 or JSON
@@ -106,15 +137,26 @@ class VertexAILLM(LiteLLM):
         decoded_credentials = base64.b64decode(credentials, validate=True)
         credentials_json = json.loads(decoded_credentials)
 
-        # Write to temporary file for LiteLLM
-        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
-        json.dump(credentials_json, temp_file)
-        temp_file.close()
+        # Create a deterministic temp file path based on credentials hash
+        # This ensures all instances with the same credentials use the same file
+        creds_hash = hashlib.sha256(credentials.encode()).hexdigest()[:16]
+        temp_dir = Path(tempfile.gettempdir())
+        temp_file_path = temp_dir / f"vertex_ai_creds_{creds_hash}.json"
+
+        # Write credentials to the persistent temp file (idempotent)
+        # If file already exists, we'll just overwrite it (safe since content is the same)
+        try:
+            with open(temp_file_path, "w") as f:
+                json.dump(credentials_json, f)
+
+            # Track this file for cleanup at process exit
+            _temp_credential_files.add(str(temp_file_path))
+        except (OSError, PermissionError) as e:
+            raise ValueError(f"Failed to create temporary credentials file: {e}")
 
         return {
-            "credentials_path": temp_file.name,
+            "credentials_path": str(temp_file_path),
             "project": credentials_json.get("project_id"),
-            "_temp_file": temp_file.name,
         }
 
     def _load_credentials_from_file(self, credentials: str) -> dict:
@@ -133,8 +175,11 @@ class VertexAILLM(LiteLLM):
         if not os.path.exists(credentials):
             raise ValueError(f"Credentials file not found: {credentials}")
 
-        with open(credentials, "r") as f:
-            credentials_json = json.load(f)
+        try:
+            with open(credentials, "r") as f:
+                credentials_json = json.load(f)
+        except (FileNotFoundError, PermissionError, json.JSONDecodeError) as e:
+            raise ValueError(f"Failed to read credentials file {credentials}: {e}")
 
         return {
             "credentials_path": credentials,
@@ -216,8 +261,9 @@ class VertexAILLM(LiteLLM):
         Raises:
             ValueError: If configuration is incomplete or invalid
         """
-        # Step 1: Get credentials (init parameter takes priority)
-        google_credentials = self._init_credentials or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        # Step 1: Get credentials from the value captured at initialization
+        # Use the value we captured in __init__ to avoid race conditions
+        google_credentials = self._original_credentials_env
         if not google_credentials:
             raise ValueError(
                 "GOOGLE_APPLICATION_CREDENTIALS not found. Provide either:\n"
@@ -281,9 +327,25 @@ class VertexAILLM(LiteLLM):
         kwargs["vertex_ai_project"] = self.model["project"]
         kwargs["vertex_ai_location"] = self.model["location"]
 
+        # Ensure credentials file exists before setting environment variable
+        credentials_path = self.model["credentials_path"]
+        if not os.path.exists(credentials_path):
+            # If temp file was deleted, try to recreate it from original credentials
+            if hasattr(self, "_original_credentials_env") and self._original_credentials_env:
+                try:
+                    # Try to recreate from base64 if it was originally base64
+                    config = self._load_credentials(self._original_credentials_env)
+                    credentials_path = config["credentials_path"]
+                    # Update model config with new path
+                    self.model["credentials_path"] = credentials_path
+                except Exception as e:
+                    raise ValueError(f"Credentials file missing and could not be recreated: {e}")
+            else:
+                raise ValueError(f"Credentials file not found: {credentials_path}")
+
         # Set credentials via environment variable for LiteLLM
         original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.model["credentials_path"]
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
 
         try:
             # Call parent generate method
@@ -298,14 +360,14 @@ class VertexAILLM(LiteLLM):
                 del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
 
     def __del__(self):
-        """Cleanup temporary credentials file if created."""
-        if hasattr(self, "model") and isinstance(self.model, dict) and "_temp_file" in self.model:
-            temp_file = self.model["_temp_file"]
-            try:
-                if os.path.exists(temp_file):
-                    os.unlink(temp_file)
-            except Exception:
-                pass  # Ignore cleanup errors
+        """
+        Cleanup method - does NOT delete temp credentials file here.
+
+        Temp files are shared across instances and cleaned up at process exit
+        via atexit handler. This prevents race conditions when multiple model
+        instances are created rapidly.
+        """
+        pass
 
     def get_config_info(self) -> dict:
         """
@@ -319,6 +381,8 @@ class VertexAILLM(LiteLLM):
             "model": self.model_name,
             "project": self.model["project"],
             "location": self.model["location"],
-            "credentials_source": "base64" if "_temp_file" in self.model else "file",
+            "credentials_source": "base64"
+            if self._original_credentials_env and not os.path.isfile(self._original_credentials_env)
+            else "file",
             "credentials_path": self.model["credentials_path"],
         }

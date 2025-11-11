@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@mui/material/styles';
 import {
   Box,
@@ -14,6 +14,7 @@ import {
   Select,
   MenuItem,
   IconButton,
+  Chip,
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import AssessmentIcon from '@mui/icons-material/Assessment';
@@ -25,16 +26,18 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import BaseTag from '@/components/common/BaseTag';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { MetricDetail, ScoreType } from '@/utils/api-client/interfaces/metric';
+import {
+  MetricDetail,
+  ScoreType,
+  MetricScope,
+} from '@/utils/api-client/interfaces/metric';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
-import { Status } from '@/utils/api-client/interfaces/status';
-import { User } from '@/utils/api-client/interfaces/user';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
@@ -51,6 +54,7 @@ interface EditData {
   max_score?: number;
   threshold?: number;
   explanation?: string;
+  metric_scope?: MetricScope[];
 }
 
 interface StepWithId {
@@ -58,16 +62,12 @@ interface StepWithId {
   content: string;
 }
 
-interface PageProps {
-  params: Promise<{ identifier: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}
-
 export default function MetricDetailPage() {
   const params = useParams();
   const identifier = params.identifier as string;
   const { data: session } = useSession();
   const theme = useTheme();
+  const router = useRouter();
   const [metric, setMetric] = useState<MetricDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const notifications = useNotifications();
@@ -75,8 +75,6 @@ export default function MetricDetailPage() {
   const [editData, setEditData] = useState<Partial<EditData>>({});
   const [models, setModels] = useState<Model[]>([]);
   const [stepsWithIds, setStepsWithIds] = useState<StepWithId[]>([]);
-  const [statuses, setStatuses] = useState<Status[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const dataFetchedRef = useRef(false);
 
@@ -100,30 +98,30 @@ export default function MetricDetailPage() {
       try {
         const clientFactory = new ApiClientFactory(session.session_token);
         const metricsClient = clientFactory.getMetricsClient();
-        const statusClient = clientFactory.getStatusClient();
-        const usersClient = clientFactory.getUsersClient();
 
-        // Fetch all data in parallel
-        const [metricData, statusesData, usersData] = await Promise.all([
-          metricsClient.getMetric(identifier as UUID),
-          statusClient.getStatuses({
-            entity_type: 'Metric',
-            sort_by: 'name',
-            sort_order: 'asc',
-          }),
-          usersClient.getUsers({ limit: 100 }),
-        ]);
+        // Fetch metric data
+        const metricData = await metricsClient.getMetric(identifier as UUID);
 
         setMetric(metricData);
-        setStatuses(statusesData || []);
-        setUsers(usersData.data || []);
 
         // Model data is already included in the metric response
         if (metricData.model) {
           setModels([metricData.model]);
         }
+
+        // Check if this is NOT a rhesis or custom metric - redirect other metrics
+        const backendType = metricData.backend_type?.type_value?.toLowerCase();
+        if (backendType !== 'rhesis' && backendType !== 'custom') {
+          notifications.show(
+            'This metric type cannot be viewed through the detail page',
+            {
+              severity: 'warning',
+            }
+          );
+          router.push('/metrics');
+          return;
+        }
       } catch (error) {
-        console.error('Error fetching data:', error);
         // Use notifications without depending on it
         const notificationsContext = notifications;
         notificationsContext.show('Failed to load metric details', {
@@ -135,7 +133,7 @@ export default function MetricDetailPage() {
     };
 
     fetchData();
-  }, [identifier, session?.session_token, notifications]);
+  }, [identifier, session?.session_token, notifications, router]);
 
   // Helper function to collect current field values without triggering re-renders
   const collectFieldValues = React.useCallback((): Partial<EditData> => {
@@ -209,7 +207,7 @@ export default function MetricDetailPage() {
   );
 
   const handleTagsChange = React.useCallback(
-    async (newTags: string[]) => {
+    async (_newTags: string[]) => {
       if (!session?.session_token) return;
 
       // Use functional state update to avoid depending on metric
@@ -218,14 +216,15 @@ export default function MetricDetailPage() {
 
         (async () => {
           try {
-            const clientFactory = new ApiClientFactory(session.session_token!);
+            const clientFactory = new ApiClientFactory(
+              session.session_token as string
+            );
             const metricsClient = clientFactory.getMetricsClient();
             const updatedMetric = await metricsClient.getMetric(
               currentMetric.id
             );
             setMetric(updatedMetric);
           } catch (error) {
-            console.error('Error refreshing metric:', error);
             notifications.show('Failed to refresh metric data', {
               severity: 'error',
             });
@@ -262,7 +261,7 @@ export default function MetricDetailPage() {
             (async () => {
               try {
                 const clientFactory = new ApiClientFactory(
-                  session.session_token!
+                  session.session_token as string
                 );
                 const modelsClient = clientFactory.getModelsClient();
                 const modelsData = await modelsClient.getModels({
@@ -271,7 +270,6 @@ export default function MetricDetailPage() {
                 });
                 setModels(modelsData.data || []);
               } catch (error) {
-                console.error('Error fetching models for editing:', error);
                 notifications.show('Failed to load models for editing', {
                   severity: 'error',
                 });
@@ -305,13 +303,27 @@ export default function MetricDetailPage() {
   const handleConfirmEdit = React.useCallback(async () => {
     if (!session?.session_token || !metric) return;
 
+    // Validate metric scope - at least one must be selected
+    const currentMetricScope =
+      editData.metric_scope || metric.metric_scope || [];
+    if (currentMetricScope.length === 0) {
+      notifications.show(
+        'Please select at least one metric scope (Single-Turn or Multi-Turn)',
+        {
+          severity: 'error',
+          autoHideDuration: 4000,
+        }
+      );
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Collect current field values without triggering re-renders
       const fieldValues = collectFieldValues();
 
       // Also collect select field values from editData
-      const dataToSend: any = {
+      const dataToSend: Record<string, unknown> = {
         ...fieldValues,
         ...(editData.model_id && { model_id: editData.model_id }),
         ...(editData.score_type && { score_type: editData.score_type }),
@@ -324,6 +336,7 @@ export default function MetricDetailPage() {
         ...(editData.threshold !== undefined && {
           threshold: editData.threshold,
         }),
+        ...(editData.metric_scope && { metric_scope: editData.metric_scope }),
       };
 
       // Handle evaluation steps
@@ -356,7 +369,6 @@ export default function MetricDetailPage() {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error updating metric:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to update metric';
       notifications.show(errorMessage, { severity: 'error' });
@@ -912,22 +924,29 @@ export default function MetricDetailPage() {
             >
               <InfoRow label="Score Type">
                 {isEditing === 'configuration' ? (
-                  <FormControl fullWidth>
-                    <InputLabel>Score Type</InputLabel>
-                    <Select
-                      value={editData.score_type || 'numeric'}
-                      onChange={e =>
-                        setEditData(prev => ({
-                          ...prev,
-                          score_type: e.target.value as ScoreType,
-                        }))
-                      }
-                      label="Score Type"
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 1 }}
                     >
-                      <MenuItem value="numeric">Numeric</MenuItem>
-                      <MenuItem value="categorical">Categorical</MenuItem>
-                    </Select>
-                  </FormControl>
+                      Choose how this metric will be scored:
+                    </Typography>
+                    <FormControl fullWidth>
+                      <Select
+                        value={editData.score_type || 'numeric'}
+                        onChange={e =>
+                          setEditData(prev => ({
+                            ...prev,
+                            score_type: e.target.value as ScoreType,
+                          }))
+                        }
+                      >
+                        <MenuItem value="numeric">Numeric</MenuItem>
+                        <MenuItem value="categorical">Categorical</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
                 ) : (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography
@@ -937,8 +956,7 @@ export default function MetricDetailPage() {
                         px: 1.5,
                         py: 0.5,
                         borderRadius: theme => theme.shape.borderRadius * 0.25,
-                        fontSize:
-                          theme?.typography?.helperText?.fontSize || '0.75rem',
+                        fontSize: theme.typography.caption.fontSize,
                         fontWeight: 'medium',
                       }}
                     >
@@ -946,6 +964,84 @@ export default function MetricDetailPage() {
                         ? 'Categorical'
                         : 'Numeric'}
                     </Typography>
+                  </Box>
+                )}
+              </InfoRow>
+
+              <InfoRow label="Metric Scope">
+                {isEditing === 'configuration' ? (
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 1 }}
+                    >
+                      Select which test types this metric applies to (at least
+                      one required):
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {(['Single-Turn', 'Multi-Turn'] as MetricScope[]).map(
+                        scope => {
+                          const currentScope =
+                            editData.metric_scope || metric.metric_scope || [];
+                          const isSelected = currentScope.includes(scope);
+
+                          return (
+                            <Chip
+                              key={scope}
+                              label={scope}
+                              clickable
+                              color={isSelected ? 'primary' : 'default'}
+                              variant={isSelected ? 'filled' : 'outlined'}
+                              onClick={() => {
+                                const newScope = isSelected
+                                  ? currentScope.filter(s => s !== scope)
+                                  : [...currentScope, scope];
+                                setEditData(prev => ({
+                                  ...prev,
+                                  metric_scope: newScope as MetricScope[],
+                                }));
+                              }}
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: isSelected
+                                    ? 'primary.dark'
+                                    : 'action.hover',
+                                },
+                              }}
+                            />
+                          );
+                        }
+                      )}
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {metric.metric_scope && metric.metric_scope.length > 0 ? (
+                      metric.metric_scope.map((scope, index) => (
+                        <Typography
+                          key={index}
+                          sx={{
+                            bgcolor: 'primary.main',
+                            color: 'primary.contrastText',
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: theme =>
+                              theme.shape.borderRadius * 0.25,
+                            fontSize:
+                              theme?.typography?.helperText?.fontSize ||
+                              '0.75rem',
+                            fontWeight: 'medium',
+                          }}
+                        >
+                          {scope}
+                        </Typography>
+                      ))
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No scope defined
+                      </Typography>
+                    )}
                   </Box>
                 )}
               </InfoRow>

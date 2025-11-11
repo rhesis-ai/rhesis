@@ -9,7 +9,8 @@ import {
   TestRunStatsTests,
   TestRunStatsExecutors,
 } from '@/utils/api-client/interfaces/test-run-stats';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress, Typography, Paper } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 // Fallback mock data in case the API fails
 const fallbackData = [{ name: 'Loading...', value: 100 }];
@@ -32,9 +33,13 @@ const truncateName = (name: string): string => {
 
 interface TestRunChartsProps {
   sessionToken: string;
+  totalCount?: number;
 }
 
-export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
+export default function TestRunCharts({
+  sessionToken,
+  totalCount = 0,
+}: TestRunChartsProps) {
   const isMounted = useRef(false);
 
   // Global loading state for all charts
@@ -100,7 +105,6 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
           setIsLoading(false);
         }
       } catch (err) {
-        console.error('Error fetching chart stats:', err);
         if (isMounted.current) {
           setIsLoading(false);
           setHasError(true);
@@ -185,6 +189,25 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
           {errorMessage || 'Failed to load chart data'}
         </Typography>
       </Box>
+    );
+  }
+
+  // Show empty state when no test runs exist
+  if (totalCount === 0) {
+    return (
+      <Paper
+        sx={{
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
+        <InfoOutlinedIcon color="info" />
+        <Typography color="text.secondary">
+          No test runs yet. Create your first test run to get started.
+        </Typography>
+      </Paper>
     );
   }
 

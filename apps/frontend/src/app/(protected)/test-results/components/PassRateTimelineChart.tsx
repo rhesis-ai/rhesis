@@ -35,8 +35,6 @@ export default function PassRateTimelineChart({
       const statsData =
         await testResultsClient.getComprehensiveTestResultsStats(options);
       if (statsData && typeof statsData === 'object') {
-        console.log('Timeline API Response:', statsData);
-        console.log('Timeline data:', statsData.timeline);
         setStats(statsData);
         setError(null);
       } else {

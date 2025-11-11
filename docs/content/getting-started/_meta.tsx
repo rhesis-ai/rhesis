@@ -1,8 +1,8 @@
-import type { MetaRecord } from 'nextra'
+import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
-  index: 'Overview',
-  concepts: 'Core Concepts',
-}
+  concepts: "Core Concepts",
+  "self-hosting": "Self-hosting",
+};
 
-export default meta
+export default meta;

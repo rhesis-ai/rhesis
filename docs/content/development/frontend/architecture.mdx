@@ -4,19 +4,19 @@ This document provides a high-level overview of the Rhesis frontend architecture
 
 ## Tech Stack
 
-* **Framework:** [Next.js](https://nextjs.org/) 15.3.0 with App Router
-* **Language:** [TypeScript](https://www.typescriptlang.org/) 5.8.3
-* **UI:** [Material UI (MUI)](https://mui.com/) v6
-* **Authentication:** [NextAuth.js](https://next-auth.js.org/) 5.0.0-beta.25
-* **State Management:** React Context API
-* **Styling:** MUI theming with Emotion
-* **Data Visualization:** [Recharts](https://recharts.org/) 2.15.0
-* **Data Grid:** MUI X Data Grid
-* **Flow Visualization:** [React Flow](https://reactflow.dev/) 11.11.4
-* **Code Editor:** [Monaco Editor](https://microsoft.github.io/monaco-editor/)
-* **Icons:** MUI Icons, Lucide React
-* **Date Handling:** date-fns, dayjs
-* **React:** React 19
+- **Framework:** [Next.js](https://nextjs.org/) 15.3.0 with App Router
+- **Language:** [TypeScript](https://www.typescriptlang.org/) 5.8.3
+- **UI:** [Material UI (MUI)](https://mui.com/) v6
+- **Authentication:** [NextAuth.js](https://next-auth.js.org/) 5.0.0-beta.25
+- **State Management:** React Context API
+- **Styling:** MUI theming with Emotion
+- **Data Visualization:** [Recharts](https://recharts.org/) 2.15.0
+- **Data Grid:** MUI X Data Grid
+- **Flow Visualization:** [React Flow](https://reactflow.dev/) 11.11.4
+- **Code Editor:** [Monaco Editor](https://microsoft.github.io/monaco-editor/)
+- **Icons:** MUI Icons, Lucide React
+- **Date Handling:** date-fns, dayjs
+- **React:** React 19
 
 ## Project Structure
 
@@ -37,24 +37,24 @@ The frontend codebase follows a modular architecture organized by feature and re
             {
               name: "(protected)",
               type: "folder",
-              description: "Authentication-protected routes"
+              description: "Authentication-protected routes",
             },
             {
               name: "api",
               type: "folder",
-              description: "API routes"
+              description: "API routes",
             },
             {
               name: "auth",
               type: "folder",
-              description: "Authentication pages"
+              description: "Authentication pages",
             },
             {
               name: "...",
               type: "folder",
-              description: "Other routes"
-            }
-          ]
+              description: "Other routes",
+            },
+          ],
         },
         {
           name: "components",
@@ -64,34 +64,34 @@ The frontend codebase follows a modular architecture organized by feature and re
             {
               name: "common",
               type: "folder",
-              description: "Reusable components (charts, tables, etc.)"
+              description: "Reusable components (charts, tables, etc.)",
             },
             {
               name: "layout",
               type: "folder",
-              description: "Layout components"
+              description: "Layout components",
             },
             {
               name: "navigation",
               type: "folder",
-              description: "Navigation components"
+              description: "Navigation components",
             },
             {
               name: "providers",
               type: "folder",
-              description: "Context providers"
+              description: "Context providers",
             },
             {
               name: "auth",
               type: "folder",
-              description: "Authentication components"
+              description: "Authentication components",
             },
             {
               name: "...",
               type: "folder",
-              description: "Feature-specific components"
-            }
-          ]
+              description: "Feature-specific components",
+            },
+          ],
         },
         {
           name: "utils",
@@ -101,37 +101,37 @@ The frontend codebase follows a modular architecture organized by feature and re
             {
               name: "api-client",
               type: "folder",
-              description: "API client implementation with typed interfaces"
+              description: "API client implementation with typed interfaces",
             },
             {
               name: "...",
               type: "folder",
-              description: "Other utilities"
-            }
-          ]
+              description: "Other utilities",
+            },
+          ],
         },
         {
           name: "actions",
           type: "folder",
-          description: "Server actions"
+          description: "Server actions",
         },
         {
           name: "types",
           type: "folder",
-          description: "TypeScript type definitions"
+          description: "TypeScript type definitions",
         },
         {
           name: "styles",
           type: "folder",
-          description: "Theme configuration"
+          description: "Theme configuration",
         },
         {
           name: "constants",
           type: "folder",
-          description: "Application constants"
-        }
-      ]
-    }
+          description: "Application constants",
+        },
+      ],
+    },
   ]}
 />
 
@@ -140,6 +140,7 @@ The frontend codebase follows a modular architecture organized by feature and re
 ### App Router
 
 The application uses Next.js App Router for routing, which provides:
+
 - File-based routing
 - Route groups for organization
 - Layout nesting
@@ -150,6 +151,7 @@ The application uses Next.js App Router for routing, which provides:
 ### Component Architecture
 
 Components follow these principles:
+
 - **Atomic Design:** Building from small, reusable components to complex page layouts
 - **Component Composition:** Favoring composition over inheritance
 - **Separation of Concerns:** UI components are separate from data fetching and business logic
@@ -158,6 +160,7 @@ Components follow these principles:
 ### Data Flow
 
 The application follows these data flow patterns:
+
 - **Server Components:** Fetch data on the server when possible
 - **React Context:** For global state management
 - **Server Actions:** For mutations and form submissions
@@ -166,6 +169,7 @@ The application follows these data flow patterns:
 ### Authentication
 
 Authentication is handled by NextAuth.js with:
+
 - Route protection via middleware
 - Session management
 - Multiple authentication providers (Google, etc.)
@@ -174,6 +178,7 @@ Authentication is handled by NextAuth.js with:
 ### Styling Approach
 
 The styling system uses:
+
 - MUI's theming system
 - Emotion for CSS-in-JS
 - Responsive design principles

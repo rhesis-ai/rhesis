@@ -322,6 +322,16 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 commit=False,
             )
 
+            # Get test set type
+            test_set_type = get_or_create_type_lookup(
+                db=db,
+                type_name="TestSetType",
+                type_value=item["test_set_type"],
+                organization_id=organization_id,
+                user_id=user_id,
+                commit=False,
+            )
+
             # Create test set
             test_set = get_or_create_entity(
                 db=db,
@@ -332,6 +342,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     "short_description": item["short_description"],
                     "status_id": status.id,
                     "license_type_id": license_type.id,
+                    "test_set_type_id": test_set_type.id,
                     "visibility": item["visibility"],
                     "attributes": item["metadata"],
                     "user_id": uuid.UUID(user_id),  # Set the creating user
@@ -407,13 +418,38 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 )
 
             # Build endpoint data
+            # Handle URL environment variable replacement
+            url = item["url"]
+            if "${BACKEND_ENV}" in url:
+                backend_env = os.getenv("BACKEND_ENV", "development")
+                # Map environment to chatbot subdomain
+                env_mapping = {
+                    "development": "dev",
+                    "staging": "stg",
+                    "production": "",  # Production uses no prefix
+                    "local": "",  # Local uses no prefix
+                }
+                env_prefix = env_mapping.get(backend_env, "dev")
+                # Replace ${BACKEND_ENV} with the appropriate prefix
+                if env_prefix:
+                    url = url.replace("${BACKEND_ENV}", env_prefix)
+                else:
+                    # For production and local, remove the prefix and the hyphen
+                    url = url.replace("${BACKEND_ENV}-", "")
+                print(f"  ✓ Resolved URL for {backend_env} environment: {url}")
+
+            # Handle environment variable replacement in environment field
+            environment = item.get("environment", "development")
+            if "${BACKEND_ENV}" in environment:
+                environment = os.getenv("BACKEND_ENV", "development")
+
             endpoint_data = {
                 "name": item["name"],
                 "description": item.get("description"),
                 "protocol": item["protocol"],
-                "url": item["url"],
+                "url": url,
                 "method": item.get("method"),
-                "environment": item.get("environment", "development"),
+                "environment": environment,
                 "config_source": item.get("config_source", "manual"),
                 "response_format": item.get("response_format", "json"),
                 "request_headers": item.get("request_headers"),
@@ -523,6 +559,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 "reference_score": item.get("reference_score"),
                 "categories": item.get("categories"),  # New: categories for categorical metrics
                 "passing_categories": item.get("passing_categories"),  # New: passing categories
+                "metric_scope": item.get(
+                    "metric_scope"
+                ),  # New: metric scope for test type applicability
                 "metric_type_id": metric_type.id,
                 "backend_type_id": backend_type.id,
                 "status_id": status.id,

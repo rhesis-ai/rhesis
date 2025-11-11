@@ -1,5 +1,5 @@
 """
-🔗 Endpoint Fixtures
+Endpoint Fixtures
 
 Fixtures for creating endpoint entities including complex configurations.
 """
@@ -20,11 +20,11 @@ fake = Faker()
 @pytest.fixture
 def sample_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
     """
-    🔗 Create a sample endpoint for testing
-    
+    Create a sample endpoint for testing
+
     This fixture creates an endpoint that can be used for testing
     endpoint functionality and invocation.
-    
+
     Returns:
         Dict containing the created endpoint data including its ID
     """
@@ -36,27 +36,27 @@ def sample_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
         "environment": "development",  # Valid enum value
         "config_source": "manual"  # Valid enum value
     }
-    
+
     response = authenticated_client.post(APIEndpoints.ENDPOINTS.create, json=endpoint_data)
     assert response.status_code == status.HTTP_200_OK
-    
+
     return response.json()
 
 
 @pytest.fixture
 def sample_endpoints(authenticated_client: TestClient) -> list[Dict[str, Any]]:
     """
-    🔗 Create multiple sample endpoints for testing
-    
+    Create multiple sample endpoints for testing
+
     Useful for tests that need multiple endpoints or bulk operations.
-    
+
     Returns:
         List of created endpoint dictionaries
     """
     endpoints = []
     protocols = ["REST", "WebSocket", "GRPC"]
     environments = ["development", "staging", "production"]
-    
+
     for i in range(3):
         endpoint_data = {
             "name": f"{fake.word().title()} Endpoint {i+1}",
@@ -66,22 +66,22 @@ def sample_endpoints(authenticated_client: TestClient) -> list[Dict[str, Any]]:
             "environment": environments[i % len(environments)],
             "config_source": "manual"
         }
-        
+
         response = authenticated_client.post(APIEndpoints.ENDPOINTS.create, json=endpoint_data)
         assert response.status_code == status.HTTP_200_OK
         endpoints.append(response.json())
-    
+
     return endpoints
 
 
 @pytest.fixture
 def working_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
     """
-    🔗✅ Create a working endpoint for integration testing
-    
+    Create a working endpoint for integration testing
+
     This fixture creates an endpoint that's configured to work with
     mocked external services for realistic testing scenarios.
-    
+
     Returns:
         Dict containing the created working endpoint data
     """
@@ -113,10 +113,10 @@ def working_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
             "max_input_length": 1000
         }
     }
-    
+
     response = authenticated_client.post(APIEndpoints.ENDPOINTS.create, json=working_endpoint_data)
     assert response.status_code == status.HTTP_200_OK
-    
+
     return response.json()
 
 
@@ -124,10 +124,10 @@ def working_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
 def endpoint_with_complex_config(authenticated_client: TestClient) -> Dict[str, Any]:
     """
     🔗⚙️ Create an endpoint with complex configuration for integration testing
-    
+
     This fixture creates an endpoint with comprehensive configuration
     including auth, headers, mappings, and OpenAPI spec.
-    
+
     Returns:
         Dict containing the endpoint with full configuration
     """
@@ -187,10 +187,10 @@ def endpoint_with_complex_config(authenticated_client: TestClient) -> Dict[str, 
             "confidence_score": 0.95
         }
     }
-    
+
     response = authenticated_client.post(APIEndpoints.ENDPOINTS.create, json=complex_endpoint_data)
     assert response.status_code == status.HTTP_200_OK
-    
+
     return response.json()
 
 
@@ -199,19 +199,19 @@ def endpoint_with_complex_config(authenticated_client: TestClient) -> Dict[str, 
 @pytest.fixture
 def db_endpoint(test_db: Session, test_organization, db_user, db_status) -> Endpoint:
     """
-    🔗 Create an endpoint in the test database
-    
+    Create an endpoint in the test database
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture
         db_status: Status fixture
-        
+
     Returns:
         Endpoint: Real endpoint record in database
     """
     from tests.backend.routes.fixtures.data_factories import EndpointDataFactory
-    
+
     endpoint_data = EndpointDataFactory.sample_data()
     endpoint = Endpoint(
         name=endpoint_data["name"],
@@ -234,7 +234,7 @@ def db_endpoint(test_db: Session, test_organization, db_user, db_status) -> Endp
         user_id=db_user.id,
         status_id=db_status.id
     )
-    
+
     test_db.add(endpoint)
     test_db.flush()
     test_db.refresh(endpoint)
@@ -244,20 +244,20 @@ def db_endpoint(test_db: Session, test_organization, db_user, db_status) -> Endp
 @pytest.fixture
 def db_endpoint_minimal(test_db: Session, test_organization, db_user) -> Endpoint:
     """
-    🔗 Create a minimal endpoint in the test database
-    
+    Create a minimal endpoint in the test database
+
     Only includes required fields for basic testing.
-    
+
     Args:
         test_db: Database session fixture
-        test_organization: Organization fixture  
+        test_organization: Organization fixture
         db_user: User fixture
-        
+
     Returns:
         Endpoint: Minimal endpoint record in database
     """
     from tests.backend.routes.fixtures.data_factories import EndpointDataFactory
-    
+
     endpoint_data = EndpointDataFactory.minimal_data()
     endpoint = Endpoint(
         name=endpoint_data["name"],
@@ -266,7 +266,7 @@ def db_endpoint_minimal(test_db: Session, test_organization, db_user) -> Endpoin
         organization_id=test_organization.id,
         user_id=db_user.id
     )
-    
+
     test_db.add(endpoint)
     test_db.flush()
     test_db.refresh(endpoint)
@@ -276,16 +276,16 @@ def db_endpoint_minimal(test_db: Session, test_organization, db_user) -> Endpoin
 @pytest.fixture
 def db_endpoint_rest(test_db: Session, test_organization, db_user, db_status) -> Endpoint:
     """
-    🔗 Create a REST endpoint in the test database
-    
+    Create a REST endpoint in the test database
+
     Specifically configured for REST API testing.
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture
         db_status: Status fixture
-        
+
     Returns:
         Endpoint: REST endpoint record in database
     """
@@ -302,7 +302,7 @@ def db_endpoint_rest(test_db: Session, test_organization, db_user, db_status) ->
         user_id=db_user.id,
         status_id=db_status.id
     )
-    
+
     test_db.add(endpoint)
     test_db.flush()
     test_db.refresh(endpoint)

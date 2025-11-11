@@ -3,9 +3,9 @@
 Thank you for your interest in contributing to Rhesis! This guide will help you get started with contributing to our AI-powered testing and evaluation platform.
 
 <Callout type="default">
-  **Welcome Contributors!** We welcome contributions from developers of all skill levels. Whether
-  you're fixing bugs, adding features, or improving documentation, your contributions help make
-  Rhesis better for everyone.
+  **Welcome Contributors!** We welcome contributions from developers of all
+  skill levels. Whether you're fixing bugs, adding features, or improving
+  documentation, your contributions help make Rhesis better for everyone.
 </Callout>
 
 ## Getting Started
@@ -15,10 +15,11 @@ Thank you for your interest in contributing to Rhesis! This guide will help you 
 Before contributing, make sure you have:
 
 <Callout type="default">
-  **Development Requirements** - **Python 3.8+** with [uv](https://docs.astral.sh/uv/) package
-  manager - **Node.js 18+** and npm - **Git** for version control - **Docker** (optional, for
-  containerized development) - **PostgreSQL** (for backend development) - **Redis** (for background
-  tasks)
+  **Development Requirements** - **Python 3.8+** with
+  [uv](https://docs.astral.sh/uv/) package manager - **Node.js 18+** and npm -
+  **Git** for version control - **Docker** (optional, for containerized
+  development) - **PostgreSQL** (for backend development) - **Redis** (for
+  background tasks)
 </Callout>
 
 ### Quick Setup
@@ -62,15 +63,23 @@ Understanding the project structure will help you navigate the codebase:
 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
   <div>
     <h3>Backend Service</h3>
-    <p>FastAPI-based backend in `apps/backend/` with REST APIs and business logic.</p>
+    <p>
+      FastAPI-based backend in `apps/backend/` with REST APIs and business
+      logic.
+    </p>
   </div>
   <div>
     <h3>Frontend Application</h3>
-    <p>React/Next.js frontend in `apps/frontend/` providing the user interface.</p>
+    <p>
+      React/Next.js frontend in `apps/frontend/` providing the user interface.
+    </p>
   </div>
   <div>
     <h3>Documentation</h3>
-    <p>Nextra-based documentation in `apps/documentation/` with comprehensive guides.</p>
+    <p>
+      Nextra-based documentation in `apps/documentation/` with comprehensive
+      guides.
+    </p>
   </div>
   <div>
     <h3>Python SDK</h3>
@@ -104,9 +113,9 @@ git checkout -b docs/your-doc-update
 ```
 
 <Callout type="default">
-  **Branch Naming Convention** - `feature/` - New features and enhancements - `fix/` - Bug fixes and
-  patches - `docs/` - Documentation updates - `refactor/` - Code refactoring - `test/` - Test
-  improvements
+  **Branch Naming Convention** - `feature/` - New features and enhancements -
+  `fix/` - Bug fixes and patches - `docs/` - Documentation updates - `refactor/`
+  - Code refactoring - `test/` - Test improvements
 </Callout>
 
 ### Making Changes
@@ -178,31 +187,31 @@ We follow modern JavaScript/TypeScript practices:
 ```typescript
 // Use TypeScript interfaces
 interface User {
-  id: string
-  email: string
-  name: string
-  organizationId: string
+  id: string;
+  email: string;
+  name: string;
+  organizationId: string;
 }
 
 // Use React hooks properly
 const useUser = (userId: string) => {
   return useQuery({
-    queryKey: ['user', userId],
+    queryKey: ["user", userId],
     queryFn: () => api.getUser(userId),
     enabled: !!userId,
-  })
-}
+  });
+};
 
 // Use proper error handling
 const handleSubmit = async (data: FormData) => {
   try {
-    await api.createUser(data)
-    toast.success('User created successfully')
+    await api.createUser(data);
+    toast.success("User created successfully");
   } catch (error) {
-    toast.error('Failed to create user')
-    console.error(error)
+    toast.error("Failed to create user");
+    console.error(error);
   }
-}
+};
 ```
 
 **Frontend Standards:**
@@ -368,8 +377,9 @@ Brief description of the changes made.
 ### Review Process
 
 <Callout type="default">
-  **Review Guidelines** - All PRs require at least one review - Address all review comments before
-  merging - Ensure CI/CD checks pass - Update documentation as needed
+  **Review Guidelines** - All PRs require at least one review - Address all
+  review comments before merging - Ensure CI/CD checks pass - Update
+  documentation as needed
 </Callout>
 
 ## Code Review Guidelines
@@ -478,8 +488,9 @@ We provide templates for different types of issues:
 ### Mentorship
 
 <Callout type="default">
-  **New Contributors** - Don't hesitate to ask questions - Start with "good first issue" labels -
-  Join our community discussions - We're here to help you succeed!
+  **New Contributors** - Don't hesitate to ask questions - Start with "good
+  first issue" labels - Join our community discussions - We're here to help you
+  succeed!
 </Callout>
 
 ## Versioning
@@ -513,8 +524,9 @@ We are committed to providing a welcoming and inclusive environment for all cont
 ### Enforcement
 
 <Callout type="default">
-  **Reporting Issues** If you experience or witness unacceptable behavior, please report it to the
-  project maintainers. All reports will be handled with discretion.
+  **Reporting Issues** If you experience or witness unacceptable behavior,
+  please report it to the project maintainers. All reports will be handled with
+  discretion.
 </Callout>
 
 ---
@@ -522,8 +534,9 @@ We are committed to providing a welcoming and inclusive environment for all cont
 <Callout type="default">
   **Ready to Contribute?** - Check out our [Development Setup
   Guide](/docs/development/contributing/development-setup) - Review our [Coding
-  Standards](/docs/development/contributing/coding-standards) - Look for issues labeled "good first
-  issue" - Join our [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions)
+  Standards](/docs/development/contributing/coding-standards) - Look for issues
+  labeled "good first issue" - Join our [GitHub
+  Discussions](https://github.com/rhesis-ai/rhesis/discussions)
 </Callout>
 
 Thank you for contributing to Rhesis!

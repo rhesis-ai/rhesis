@@ -15,6 +15,8 @@ import TestTags from './components/TestTags';
 import CommentsWrapper from '@/components/comments/CommentsWrapper'; // Updated import
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
+import { isMultiTurnTest } from '@/constants/test-types';
+import { isMultiTurnConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -62,7 +64,17 @@ export default async function TestDetailPage({ params }: PageProps) {
   }
 
   // Define title and breadcrumbs for PageContainer
-  const content = test.prompt?.content || '';
+  // For multi-turn tests, use goal; for single-turn tests, use prompt content
+  let content = '';
+  if (
+    isMultiTurnTest(test.test_type?.type_value) &&
+    isMultiTurnConfig(test.test_configuration)
+  ) {
+    content = test.test_configuration.goal || '';
+  } else {
+    content = test.prompt?.content || '';
+  }
+
   const title = content
     ? content.length > 45
       ? `${content.substring(0, 45)}...`

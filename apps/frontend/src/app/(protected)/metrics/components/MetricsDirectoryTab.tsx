@@ -18,7 +18,6 @@ import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
 import ClearIcon from '@mui/icons-material/Clear';
 import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Dialog from '@mui/material/Dialog';
@@ -32,7 +31,10 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import MetricCard from './MetricCard';
 import MetricTypeDialog from './MetricTypeDialog';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import {
+  MetricDetail,
+  MetricScope,
+} from '@/utils/api-client/interfaces/metric';
 import type {
   Behavior as ApiBehavior,
   BehaviorWithMetrics,
@@ -44,12 +46,14 @@ interface FilterState {
   backend: string[];
   type: string[];
   scoreType: string[];
+  metricScope: string[];
 }
 
 interface FilterOptions {
   backend: { type_value: string }[];
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
+  metricScope: { value: string; label: string }[];
 }
 
 interface BehaviorMetrics {
@@ -242,7 +246,22 @@ export default function MetricsDirectoryTab({
         filters.scoreType.length === 0 ||
         (metric.score_type && filters.scoreType.includes(metric.score_type));
 
-      return searchMatch && backendMatch && typeMatch && scoreTypeMatch;
+      // Metric scope filter
+      const metricScopeMatch =
+        !filters.metricScope ||
+        filters.metricScope.length === 0 ||
+        (metric.metric_scope &&
+          filters.metricScope.some(scope =>
+            metric.metric_scope?.includes(scope as MetricScope)
+          ));
+
+      return (
+        searchMatch &&
+        backendMatch &&
+        typeMatch &&
+        scoreTypeMatch &&
+        metricScopeMatch
+      );
     });
   };
 
@@ -252,7 +271,8 @@ export default function MetricsDirectoryTab({
       filters.search !== '' ||
       filters.backend.length > 0 ||
       filters.type.length > 0 ||
-      filters.scoreType.length > 0
+      filters.scoreType.length > 0 ||
+      filters.metricScope.length > 0
     );
   };
 
@@ -263,6 +283,7 @@ export default function MetricsDirectoryTab({
       backend: [],
       type: [],
       scoreType: [],
+      metricScope: [],
     });
   };
 
@@ -348,7 +369,6 @@ export default function MetricsDirectoryTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error assigning metric to behavior:', err);
       notifications.show('Failed to assign metric to behavior', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -421,7 +441,6 @@ export default function MetricsDirectoryTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error removing metric from behavior:', err);
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -468,7 +487,6 @@ export default function MetricsDirectoryTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error deleting metric:', err);
       notifications.show('Failed to delete metric', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -496,7 +514,7 @@ export default function MetricsDirectoryTab({
           justifyContent: 'center',
           alignItems: 'center',
           p: 4,
-          minHeight: '400px',
+          minHeight: theme => theme.spacing(50),
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -733,6 +751,59 @@ export default function MetricsDirectoryTab({
                 ))}
               </Select>
             </FormControl>
+
+            {/* Metric Scope Filter */}
+            <FormControl sx={{ minWidth: 200, flex: 1 }} size="small">
+              <InputLabel id="metric-scope-filter-label">
+                Metric Scope
+              </InputLabel>
+              <Select
+                labelId="metric-scope-filter-label"
+                id="metric-scope-filter"
+                multiple
+                value={filters.metricScope}
+                onChange={e =>
+                  handleFilterChange('metricScope', e.target.value as string[])
+                }
+                label="Metric Scope"
+                renderValue={selected => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.length === 0 ? (
+                      <em>Select metric scope</em>
+                    ) : (
+                      selected.map(value => (
+                        <Chip
+                          key={value}
+                          label={
+                            filterOptions.metricScope.find(
+                              opt => opt.value === value
+                            )?.label || value
+                          }
+                          size="small"
+                        />
+                      ))
+                    )}
+                  </Box>
+                )}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: 224,
+                      width: 250,
+                    },
+                  },
+                }}
+              >
+                <MenuItem disabled value="">
+                  <em>Select metric scope</em>
+                </MenuItem>
+                {filterOptions.metricScope.map(option => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </Stack>
       </Box>
@@ -753,7 +824,11 @@ export default function MetricsDirectoryTab({
                   sm: '1 1 calc(50% - 12px)',
                   md: '1 1 calc(33.333% - 16px)',
                 },
-                minWidth: { xs: '100%', sm: '300px', md: '320px' },
+                minWidth: {
+                  xs: '100%',
+                  sm: theme => theme.spacing(37.5),
+                  md: theme => theme.spacing(40),
+                },
                 maxWidth: {
                   xs: '100%',
                   sm: 'calc(50% - 12px)',
@@ -787,7 +862,11 @@ export default function MetricsDirectoryTab({
                       sm: '1 1 calc(50% - 12px)',
                       md: '1 1 calc(33.333% - 16px)',
                     },
-                    minWidth: { xs: '100%', sm: '300px', md: '320px' },
+                    minWidth: {
+                      xs: '100%',
+                      sm: theme => theme.spacing(37.5),
+                      md: theme => theme.spacing(40),
+                    },
                     maxWidth: {
                       xs: '100%',
                       sm: 'calc(50% - 12px)',
@@ -795,13 +874,17 @@ export default function MetricsDirectoryTab({
                     },
                     ...(assignMode && {
                       cursor: 'pointer',
-                      transition:
-                        'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                      transition: theme.transitions.create(
+                        ['transform', 'box-shadow'],
+                        {
+                          duration: theme.transitions.duration.short,
+                        }
+                      ),
                       '&:hover': {
-                        transform: 'translateY(-4px)',
+                        transform: `translateY(-${theme.spacing(0.5)})`,
                       },
                       '&:active': {
-                        transform: 'translateY(-2px)',
+                        transform: `translateY(-${theme.spacing(0.25)})`,
                       },
                     }),
                   }}
@@ -824,23 +907,29 @@ export default function MetricsDirectoryTab({
                       zIndex: 1,
                     }}
                   >
-                    <IconButton
-                      size="small"
-                      onClick={e => {
-                        if (assignMode) e.stopPropagation();
-                        handleMetricDetail(metric.id);
-                      }}
-                      sx={{
-                        padding: '2px',
-                        '& .MuiSvgIcon-root': {
-                          fontSize:
-                            theme?.typography?.helperText?.fontSize ||
-                            '0.75rem',
-                        },
-                      }}
-                    >
-                      <OpenInNewIcon fontSize="inherit" />
-                    </IconButton>
+                    {/* Only show detail button for rhesis and custom metrics */}
+                    {(metric.backend_type?.type_value?.toLowerCase() ===
+                      'rhesis' ||
+                      metric.backend_type?.type_value?.toLowerCase() ===
+                        'custom') && (
+                      <IconButton
+                        size="small"
+                        onClick={e => {
+                          if (assignMode) e.stopPropagation();
+                          handleMetricDetail(metric.id);
+                        }}
+                        sx={{
+                          padding: theme.spacing(0.25),
+                          '& .MuiSvgIcon-root': {
+                            fontSize:
+                              theme?.typography?.helperText?.fontSize ||
+                              '0.75rem',
+                          },
+                        }}
+                      >
+                        <OpenInNewIcon fontSize="inherit" />
+                      </IconButton>
+                    )}
                     <IconButton
                       size="small"
                       onClick={e => {
@@ -849,7 +938,7 @@ export default function MetricsDirectoryTab({
                         setAssignDialogOpen(true);
                       }}
                       sx={{
-                        padding: '2px',
+                        padding: theme => theme.spacing(0.25),
                         '& .MuiSvgIcon-root': {
                           fontSize:
                             theme?.typography?.helperText?.fontSize ||
@@ -870,7 +959,7 @@ export default function MetricsDirectoryTab({
                             handleDeleteMetric(metric.id, metric.name);
                           }}
                           sx={{
-                            padding: '2px',
+                            padding: theme.spacing(0.25),
                             '& .MuiSvgIcon-root': {
                               fontSize:
                                 theme?.typography?.helperText?.fontSize ||
@@ -893,6 +982,7 @@ export default function MetricsDirectoryTab({
                     backend={metric.backend_type?.type_value}
                     metricType={metric.metric_type?.type_value}
                     scoreType={metric.score_type}
+                    metricScope={metric.metric_scope}
                     usedIn={behaviorNames}
                     showUsage={true}
                   />

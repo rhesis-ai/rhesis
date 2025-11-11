@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Card,
-  CardContent,
   FormControl,
   Grid,
   InputLabel,
@@ -17,16 +16,17 @@ import {
   TextField,
   Typography,
   Alert,
-  SelectChangeEvent,
   ToggleButton,
   ToggleButtonGroup,
   CircularProgress,
-  Avatar,
   ListItemIcon,
   ListItemText,
   FormHelperText,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
 import dynamic from 'next/dynamic';
+import { useTheme } from '@mui/material/styles';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
@@ -54,6 +54,10 @@ import {
   SchoolIcon,
   ScienceIcon,
   AccountTreeIcon,
+  VisibilityIcon,
+  VisibilityOffIcon,
+  InfoIcon,
+  LockIcon,
 } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -92,9 +96,10 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        border: '1px solid rgba(0, 0, 0, 0.23)',
-        borderRadius: '4px',
-        backgroundColor: 'grey.100',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: theme => theme.shape.borderRadius,
+        backgroundColor: 'background.default',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -110,7 +115,6 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 // Enums based on your backend models
 const PROTOCOLS = ['REST'];
 const ENVIRONMENTS = ['production', 'staging', 'development'];
-const RESPONSE_FORMATS = ['json', 'xml', 'text'];
 const METHODS = ['POST'];
 
 interface TabPanelProps {
@@ -143,21 +147,8 @@ interface FormData
   request_headers?: string;
   request_body_template?: string;
   response_mappings?: string;
+  auth_token?: string; // Write-only field for create/update
 }
-
-// Add this style component at the top level of your component
-const editorWrapperStyle = {
-  border: '1px solid rgba(0, 0, 0, 0.23)',
-  borderRadius: '4px',
-  '&:hover': {
-    border: '1px solid rgba(0, 0, 0, 0.87)',
-  },
-  '&:focus-within': {
-    border: '2px solid',
-    borderColor: 'primary.main',
-    margin: '-1px',
-  },
-};
 
 // Get appropriate icon based on project type or use case
 const getProjectIcon = (project: Project) => {
@@ -173,15 +164,35 @@ const getProjectIcon = (project: Project) => {
 
 export default function EndpointForm() {
   const router = useRouter();
+  const theme = useTheme();
   const [error, setError] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState(0);
-  const [urlError, setUrlError] = useState<string | null>(null);
+  const [urlError] = useState<string | null>(null);
   const [testResponse, setTestResponse] = useState<string>('');
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
+  const [showAuthToken, setShowAuthToken] = useState(false);
   const { data: session } = useSession();
   const notifications = useNotifications();
+
+  // Determine editor theme based on MUI theme
+  const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
+
+  // Theme-aware editor wrapper style
+  const editorWrapperStyle = {
+    border: 1,
+    borderColor: 'divider',
+    borderRadius: theme.shape.borderRadius,
+    '&:hover': {
+      borderColor: 'text.primary',
+    },
+    '&:focus-within': {
+      borderWidth: 2,
+      borderColor: 'primary.main',
+      margin: '-1px',
+    },
+  };
 
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -195,6 +206,10 @@ export default function EndpointForm() {
     endpoint_path: '',
     project_id: '',
     organization_id: '',
+    auth_token: '',
+    request_headers: '{}',
+    request_body_template: '{}',
+    response_mappings: '{}',
   });
 
   // Fetch projects when component mounts
@@ -212,8 +227,7 @@ export default function EndpointForm() {
         ).getProjectsClient();
         const data = await client.getProjects();
         setProjects(Array.isArray(data) ? data : data?.data || []);
-      } catch (err) {
-        console.error('Error fetching projects:', err);
+      } catch {
         setError('Failed to load projects. Please try again later.');
         setProjects([]);
       } finally {
@@ -237,7 +251,7 @@ export default function EndpointForm() {
     }
   };
 
-  const handleChange = (field: keyof FormData, value: any) => {
+  const handleChange = (field: keyof FormData, value: unknown) => {
     setFormData((prev: FormData) => ({ ...prev, [field]: value }));
   };
 
@@ -284,32 +298,32 @@ export default function EndpointForm() {
         const value = transformedData[field] as string;
         if (value && typeof value === 'string' && value.trim()) {
           try {
-            (transformedData as any)[field] = JSON.parse(value);
-          } catch (e) {
-            console.error(`Invalid JSON in ${field}:`, e);
-            delete (transformedData as any)[field];
+            (transformedData as Record<string, unknown>)[field] =
+              JSON.parse(value);
+          } catch {
+            delete (transformedData as Record<string, unknown>)[field];
           }
         } else {
-          delete (transformedData as any)[field];
+          delete (transformedData as Record<string, unknown>)[field];
         }
       }
 
       // Remove organization_id as it should not be part of the request
-      delete (transformedData as any).organization_id;
+      delete (transformedData as Record<string, unknown>).organization_id;
 
       // Remove empty project_id
       if (!transformedData.project_id || transformedData.project_id === '') {
-        delete (transformedData as any).project_id;
+        delete (transformedData as Record<string, unknown>).project_id;
+      }
+
+      // Handle auth_token: only include if it has a value
+      if (!transformedData.auth_token || transformedData.auth_token === '') {
+        delete (transformedData as any).auth_token;
       }
 
       // Ensure we're sending a single object, not an array
       const endpointData = transformedData as unknown as Omit<Endpoint, 'id'>;
-      console.log(
-        'Submitting endpoint data:',
-        JSON.stringify(endpointData, null, 2)
-      );
-      const result = await createEndpoint(endpointData);
-      console.log('Create endpoint result:', result);
+      await createEndpoint(endpointData);
 
       // Show success notification
       notifications.show('Endpoint created successfully!', {
@@ -602,23 +616,68 @@ export default function EndpointForm() {
         {/* Request Settings Tab */}
         <TabPanel value={currentTab} index={1}>
           <Grid container spacing={2}>
+            {/* Authentication Token Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Request Headers define key-value pairs for authentication and
-                other required headers.
+                Authorization (Optional)
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Example:{' '}
+                Token will be encrypted and automatically included as{' '}
+                <code>Authorization: Bearer {'<token>'}</code>. Use{' '}
+                <code>{'{{ auth_token }}'}</code> placeholder in custom headers.
+              </Typography>
+
+              <TextField
+                fullWidth
+                label="API Token"
+                type={showAuthToken ? 'text' : 'password'}
+                value={formData.auth_token}
+                onChange={e => handleChange('auth_token', e.target.value)}
+                placeholder="sk-..."
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle token visibility"
+                        onClick={() => setShowAuthToken(!showAuthToken)}
+                        edge="end"
+                      >
+                        {showAuthToken ? (
+                          <VisibilityOffIcon />
+                        ) : (
+                          <VisibilityIcon />
+                        )}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+                helperText="Token will be encrypted and stored securely"
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Request Headers (Optional)
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Custom headers for your endpoint. Authorization and Content-Type
+                are automatically provided. Example:{' '}
                 <code>{`{
-  "Authorization": "Bearer {API_KEY}",
-  "x-api-key": "{API_KEY}",
-  "Content-Type": "application/json"
+  "x-api-key": "{{ auth_token }}",
+  "x-custom-header": "value"
 }`}</code>
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
+                  key={`request-headers-${editorTheme}`}
                   height="200px"
                   defaultLanguage="json"
+                  theme={editorTheme}
                   value={formData.request_headers}
                   onChange={value =>
                     handleJsonChange('request_headers', value || '')
@@ -637,7 +696,6 @@ export default function EndpointForm() {
                       horizontal: 'visible',
                     },
                     fontSize: 14,
-                    theme: 'light',
                   }}
                 />
               </Box>
@@ -662,8 +720,10 @@ export default function EndpointForm() {
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
+                  key={`request-body-${editorTheme}`}
                   height="300px"
                   defaultLanguage="json"
+                  theme={editorTheme}
                   value={formData.request_body_template}
                   onChange={value =>
                     handleJsonChange('request_body_template', value || '')
@@ -682,7 +742,6 @@ export default function EndpointForm() {
                       horizontal: 'visible',
                     },
                     fontSize: 14,
-                    theme: 'light',
                   }}
                 />
               </Box>
@@ -704,8 +763,10 @@ export default function EndpointForm() {
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
+                  key={`response-mappings-${editorTheme}`}
                   height="200px"
                   defaultLanguage="json"
+                  theme={editorTheme}
                   value={formData.response_mappings}
                   onChange={value =>
                     handleJsonChange('response_mappings', value || '')
@@ -724,7 +785,6 @@ export default function EndpointForm() {
                       horizontal: 'visible',
                     },
                     fontSize: 14,
-                    theme: 'light',
                   }}
                 />
               </Box>
@@ -740,13 +800,15 @@ export default function EndpointForm() {
                 Test your endpoint configuration with sample data
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Enter sample JSON data that matches your request template
-                structure
+                Enter sample JSON data. It will be matched to your request
+                template and parsed using your response mappings.
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
+                  key={`test-input-${editorTheme}`}
                   height="200px"
                   defaultLanguage="json"
+                  theme={editorTheme}
                   defaultValue={`{
   "input": "[place your input here]"
 }`}
@@ -764,7 +826,6 @@ export default function EndpointForm() {
                       horizontal: 'visible',
                     },
                     fontSize: 14,
-                    theme: 'light',
                   }}
                 />
               </Box>
@@ -822,8 +883,10 @@ export default function EndpointForm() {
                 </Typography>
                 <Box sx={editorWrapperStyle}>
                   <Editor
+                    key={`test-response-${editorTheme}`}
                     height="200px"
                     defaultLanguage="json"
+                    theme={editorTheme}
                     value={testResponse}
                     options={{
                       minimap: { enabled: false },
@@ -838,7 +901,6 @@ export default function EndpointForm() {
                         horizontal: 'visible',
                       },
                       fontSize: 14,
-                      theme: 'light',
                     }}
                   />
                 </Box>

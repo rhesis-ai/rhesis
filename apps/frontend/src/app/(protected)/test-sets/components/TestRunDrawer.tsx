@@ -27,7 +27,6 @@ export default function TestRunDrawer({
       await submitRef.current?.();
       onClose();
     } catch (err) {
-      console.error('Error executing test sets:', err);
     } finally {
       setLoading(false);
     }

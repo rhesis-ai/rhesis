@@ -1,0 +1,67 @@
+# Database configuration - single source of truth
+x-database-config: &database-config
+  SQLALCHEMY_DB_NAME: rhesis-db
+  SQLALCHEMY_DB_USER: rhesis-user
+  SQLALCHEMY_DB_PASS: your-secured-password
+  SQLALCHEMY_DB_PORT: 5432
+
+  SQLALCHEMY_DATABASE_URL: postgresql://rhesis-user:your-secured-password@postgres:5432/rhesis-db
+  SQLALCHEMY_DB_DRIVER: postgresql
+  SQLALCHEMY_DB_HOST: postgres
+  DB_ENCRYPTION_KEY: Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=
+
+x-backend-config: &backend-config
+  JWT_SECRET_KEY: your-jwt-secret-key
+  LOG_LEVEL: DEBUG
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: rhesis-postgres-test
+    environment:
+      POSTGRES_DB: rhesis-db
+      POSTGRES_USER: rhesis-user
+      POSTGRES_PASSWORD: your-secured-password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rhesis-network
+    env_file: []
+
+  # Backend API
+  backend:
+    build:
+      context: ../../..
+      dockerfile: apps/backend/Dockerfile
+    container_name: rhesis-backend-test
+    environment:
+      <<: [*database-config, *backend-config]
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rhesis-network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    env_file: []
+    command: ["/app/start.sh"]
+    volumes:
+      - ../../../apps/backend/src:/app/src
+      - ../../../apps/backend/start.sh:/app/start.sh
+
+networks:
+  rhesis-network:
+    driver: bridge

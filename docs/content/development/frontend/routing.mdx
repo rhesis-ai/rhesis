@@ -35,9 +35,9 @@ The main route structure is organized as follows:
                 {
                   name: "page.tsx",
                   type: "file",
-                  description: "Dashboard page component"
-                }
-              ]
+                  description: "Dashboard page component",
+                },
+              ],
             },
             {
               name: "projects",
@@ -52,16 +52,16 @@ The main route structure is organized as follows:
                     {
                       name: "page.tsx",
                       type: "file",
-                      description: "Project detail page"
-                    }
-                  ]
+                      description: "Project detail page",
+                    },
+                  ],
                 },
                 {
                   name: "page.tsx",
                   type: "file",
-                  description: "Projects list page"
-                }
-              ]
+                  description: "Projects list page",
+                },
+              ],
             },
             {
               name: "tests",
@@ -76,23 +76,23 @@ The main route structure is organized as follows:
                     {
                       name: "page.tsx",
                       type: "file",
-                      description: "Test detail page"
-                    }
-                  ]
+                      description: "Test detail page",
+                    },
+                  ],
                 },
                 {
                   name: "page.tsx",
                   type: "file",
-                  description: "Tests list page"
-                }
-              ]
+                  description: "Tests list page",
+                },
+              ],
             },
             {
               name: "layout.tsx",
               type: "file",
-              description: "Protected layout with auth check"
-            }
-          ]
+              description: "Protected layout with auth check",
+            },
+          ],
         },
         {
           name: "api",
@@ -102,9 +102,9 @@ The main route structure is organized as follows:
             {
               name: "[...]",
               type: "folder",
-              description: "API endpoints"
-            }
-          ]
+              description: "API endpoints",
+            },
+          ],
         },
         {
           name: "auth",
@@ -119,9 +119,9 @@ The main route structure is organized as follows:
                 {
                   name: "page.tsx",
                   type: "file",
-                  description: "Login page"
-                }
-              ]
+                  description: "Login page",
+                },
+              ],
             },
             {
               name: "register",
@@ -131,29 +131,29 @@ The main route structure is organized as follows:
                 {
                   name: "page.tsx",
                   type: "file",
-                  description: "Register page"
-                }
-              ]
+                  description: "Register page",
+                },
+              ],
             },
             {
               name: "layout.tsx",
               type: "file",
-              description: "Auth layout"
-            }
-          ]
+              description: "Auth layout",
+            },
+          ],
         },
         {
           name: "layout.tsx",
           type: "file",
-          description: "Root layout"
+          description: "Root layout",
         },
         {
           name: "page.tsx",
           type: "file",
-          description: "Home page"
-        }
-      ]
-    }
+          description: "Home page",
+        },
+      ],
+    },
   ]}
 />
 
@@ -205,6 +205,7 @@ For programmatic navigation, use the `useRouter` hook:
 
 const router = useRouter();
 router.push('/projects');`}
+
 </CodeBlock>
 
 ## Route Protection
@@ -225,7 +226,7 @@ Dynamic routes use parameters in the URL, defined with brackets notation:
 Access parameters in the page component:
 
 <CodeBlock filename="dynamic-route.tsx" language="typescript">
-{`// app/(protected)/projects/[id]/page.tsx
+  {`// app/(protected)/projects/[id]/page.tsx
 export default function ProjectPage({ params }: { params: { id: string } }) {
   const { id } = params;
   // Use the ID to fetch project data
@@ -250,9 +251,15 @@ Error states are defined using special `error.tsx` files:
 
 ```tsx
 // app/(protected)/projects/error.tsx
-'use client';
+"use client";
 
-export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error;
+  reset: () => void;
+}) {
   return (
     <div>
       <h2>Something went wrong!</h2>
@@ -279,11 +286,11 @@ Page metadata is defined using the `metadata` export:
 
 ```tsx
 // app/(protected)/projects/page.tsx
-import { Metadata } from 'next';
+import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: 'Projects | Rhesis',
-  description: 'Manage your Rhesis projects',
+  title: "Projects | Rhesis",
+  description: "Manage your Rhesis projects",
 };
 
 export default function ProjectsPage() {
