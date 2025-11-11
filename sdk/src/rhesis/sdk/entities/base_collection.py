@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional
 
 from requests.exceptions import HTTPError
 
-from rhesis.sdk.client import Client, HTTPStatus, Methods
+from rhesis.sdk.client import Client, Endpoints, HTTPStatus, Methods
 from rhesis.sdk.entities.base_entity import handle_http_errors
 
 
@@ -13,7 +13,7 @@ class BaseCollection:
     It handles authentication and common HTTP operations.
     """
 
-    endpoint: str
+    endpoint: Endpoints
 
     @classmethod
     def all(cls) -> Optional[list[Any]]:
