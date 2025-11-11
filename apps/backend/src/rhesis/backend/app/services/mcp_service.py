@@ -8,8 +8,8 @@ from rhesis.sdk.models import get_model
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientManager
 
 SEARCH_PROMPT = """Search for items matching the query.
-Return JSON array: [{"url": "item_url", "title": "Item Title"}]
-Only include items actually found by API."""
+Return JSON array: [{"id": "item_id", "url": "item_url", "title": "Item Title"}]
+Only include items actually found by API. The id field is required."""
 
 EXTRACT_PROMPT = """Extract full content from the item as markdown.
 Include all text, headings, and lists."""
@@ -24,7 +24,7 @@ async def search_mcp(query: str, server_name: str) -> List[Dict[str, str]]:
         server_name: Name of the MCP server (e.g., "notionApi", "github")
 
     Returns:
-        List of dicts with 'url' and 'title' keys
+        List of dicts with 'id', 'url', and 'title' keys
     """
     llm = get_model(
         provider="gemini",
@@ -51,12 +51,12 @@ async def search_mcp(query: str, server_name: str) -> List[Dict[str, str]]:
     return json.loads(result.final_answer)
 
 
-async def extract_mcp(item_id: str, server_name: str) -> str:
+async def extract_mcp(id: str, server_name: str) -> str:
     """
     Extract content from MCP server item as markdown.
 
     Args:
-        item_id: ID of the item to extract
+        id: ID of the item to extract
         server_name: Name of the MCP server (e.g., "notionApi", "github")
 
     Returns:
@@ -79,7 +79,7 @@ async def extract_mcp(item_id: str, server_name: str) -> str:
         verbose=False,
     )
 
-    result = await agent.run_async(f"Extract content from item {item_id}")
+    result = await agent.run_async(f"Extract content from item {id}")
 
     if not result.success:
         raise ValueError(f"Extraction failed: {result.error}")
