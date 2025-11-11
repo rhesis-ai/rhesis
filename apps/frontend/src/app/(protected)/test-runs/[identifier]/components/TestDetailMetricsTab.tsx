@@ -392,7 +392,7 @@ export default function TestDetailMetricsTab({
                       }
                       sx={{
                         height: 6,
-                        borderRadius: 1,
+                        borderRadius: theme.shape.borderRadius,
                         backgroundColor: theme.palette.grey[200],
                         '& .MuiLinearProgress-bar': {
                           backgroundColor: goalAchievementData.isSuccessful
@@ -442,7 +442,7 @@ export default function TestDetailMetricsTab({
                       value={goalAchievementData.confidence * 100}
                       sx={{
                         height: 6,
-                        borderRadius: 1,
+                        borderRadius: theme.shape.borderRadius,
                         backgroundColor: theme.palette.grey[200],
                         '& .MuiLinearProgress-bar': {
                           backgroundColor:
