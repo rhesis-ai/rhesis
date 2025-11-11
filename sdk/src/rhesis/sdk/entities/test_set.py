@@ -63,6 +63,7 @@ class TestSet(BaseEntity):
         self.name = fields.get("name", None)
         self.description = fields.get("description", None)
         self.short_description = fields.get("short_description", None)
+        self.test_set_type = fields.get("test_set_type", "Single-Turn")  # Default to Single-Turn
         self.tests = fields.get("tests", None)
         self.metadata = fields.get("metadata", None)
         self.model = fields.get("model", None)
@@ -172,6 +173,7 @@ class TestSet(BaseEntity):
             "name": self.name,
             "description": self.description,
             "short_description": self.short_description,
+            "test_set_type": self.test_set_type,
             "metadata": self.metadata,
             "tests": self.tests,
         }
@@ -194,6 +196,8 @@ class TestSet(BaseEntity):
             self.description = response_data["description"]
         if "short_description" in response_data:
             self.short_description = response_data["short_description"]
+        if "test_set_type" in response_data:
+            self.test_set_type = response_data["test_set_type"]
 
         # Handle metadata merging - ensure we merge rather than replace
         if "metadata" in response_data and response_data["metadata"]:
