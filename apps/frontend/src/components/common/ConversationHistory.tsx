@@ -33,6 +33,7 @@ interface ConversationHistoryProps {
   onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
   onConfirmAutomatedReview?: () => void;
   hasExistingReview?: boolean;
+  reviewMatchesAutomated?: boolean; // True if review matches automated result, false if conflict
   maxHeight?: number | string;
 }
 
@@ -49,6 +50,7 @@ export default function ConversationHistory({
   onReviewTurn,
   onConfirmAutomatedReview,
   hasExistingReview = false,
+  reviewMatchesAutomated = true,
   maxHeight = 600,
 }: ConversationHistoryProps) {
   const theme = useTheme();
@@ -475,20 +477,19 @@ export default function ConversationHistory({
           }}
         />
 
-        {/* Show Confirmed Indicator if review exists, otherwise show Confirm button */}
-        {hasExistingReview ? (
+        {/* Show Confirmed Indicator only if review exists AND matches automated result, otherwise show Confirm button */}
+        {hasExistingReview && reviewMatchesAutomated ? (
           <Chip
             icon={<CheckIcon sx={{ fontSize: 16 }} />}
-            label="Review Confirmed"
-            size="small"
+            label="Confirmed"
+            size="medium"
+            color="success"
+            variant="filled"
             sx={{
-              bgcolor: theme.palette.mode === 'light' ? '#E8F5E9' : '#1B2F1E',
-              color: theme.palette.success.main,
-              fontWeight: 500,
-              border: `1px solid ${theme.palette.mode === 'light' ? '#A5D6A7' : '#2E7D32'}`,
+              fontWeight: 600,
             }}
           />
-        ) : onConfirmAutomatedReview ? (
+        ) : !hasExistingReview && onConfirmAutomatedReview ? (
           <Tooltip title="Confirm automated review">
             <IconButton
               size="small"

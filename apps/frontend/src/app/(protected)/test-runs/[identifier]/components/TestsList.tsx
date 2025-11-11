@@ -21,6 +21,8 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import {
   getTestResultStatus,
+  getTestResultStatusWithReview,
+  hasConflictingReview,
   type TestResultStatus,
 } from '@/utils/testResultStatus';
 
@@ -95,7 +97,8 @@ function TestListItem({
   const theme = useTheme();
 
   // Check if there's a conflicting review
-  const hasConflictingReview = test.last_review && !test.matches_review;
+  const conflictingReview = hasConflictingReview(test);
+  const hasHumanReview = !!test.last_review;
 
   // Truncate prompt content for display
   const truncatedPrompt =
@@ -238,10 +241,10 @@ function TestListItem({
                 </Typography>
               )}
 
-              {/* Conflicting Review Indicator */}
-              {hasConflictingReview && (
+              {/* Human Review Indicator */}
+              {conflictingReview && (
                 <Tooltip
-                  title="Human review conflicts with automated result"
+                  title={`Human review overrides automated result (${test.last_review?.user.name})`}
                   arrow
                 >
                   <WarningAmberIcon
@@ -303,7 +306,8 @@ export default function TestsList({
       const metricValues = Object.values(metrics);
       const passedMetrics = metricValues.filter(m => m.is_successful).length;
       const totalMetrics = metricValues.length;
-      const status = getTestResultStatus(test);
+      // Use human review status if available, otherwise use automated status
+      const status = getTestResultStatusWithReview(test);
 
       // Get turn count for multi-turn tests
       const turnCount =

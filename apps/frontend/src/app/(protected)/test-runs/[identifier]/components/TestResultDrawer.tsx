@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Box, Tabs, Tab, Typography, Skeleton, useTheme } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import HistoryIcon from '@mui/icons-material/History';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
@@ -10,10 +11,12 @@ import RateReviewIcon from '@mui/icons-material/RateReview';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
+import TestDetailConversationTab from './TestDetailConversationTab';
 import TestDetailMetricsTab from './TestDetailMetricsTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
 import TestDetailReviewsTab from './TestDetailReviewsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 interface TestResultDrawerProps {
   open: boolean;
@@ -34,6 +37,9 @@ interface TestResultDrawerProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialTab?: number;
+  testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
+  project?: { icon?: string; useCase?: string; name?: string };
+  projectName?: string;
 }
 
 interface TabPanelProps {
@@ -113,9 +119,20 @@ export default function TestResultDrawer({
   currentUserName,
   currentUserPicture,
   initialTab = 0,
+  testSetType,
+  project,
+  projectName,
 }: TestResultDrawerProps) {
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [reviewInitialComment, setReviewInitialComment] = useState<string>('');
+  const [reviewInitialStatus, setReviewInitialStatus] = useState<
+    'passed' | 'failed' | undefined
+  >(undefined);
   const theme = useTheme();
+
+  // Determine if this is a multi-turn test
+  const isMultiTurn =
+    testSetType?.toLowerCase().includes('multi-turn') || false;
 
   // Update active tab when initialTab changes (when drawer opens with specific tab)
   React.useEffect(() => {
@@ -126,6 +143,75 @@ export default function TestResultDrawer({
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
+  };
+
+  const handleReviewTurn = (turnNumber: number, turnSuccess: boolean) => {
+    setReviewInitialComment(`Turn ${turnNumber}: `);
+    // Set initial status to opposite of automated result
+    setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
+    setActiveTab(isMultiTurn ? 3 : 2); // Switch to reviews tab (index depends on multi-turn)
+  };
+
+  const handleConfirmAutomatedReview = async () => {
+    if (!test) return;
+
+    try {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testResultsClient = clientFactory.getTestResultsClient();
+      const statusClient = clientFactory.getStatusClient();
+
+      // Get available statuses for TestResult
+      const statuses = await statusClient.getStatuses({
+        entity_type: 'TestResult',
+      });
+
+      // Determine the automated status from goal_evaluation
+      const automatedPassed =
+        test.test_output?.goal_evaluation?.all_criteria_met || false;
+
+      // Find appropriate status ID
+      // Prioritize exact matches or longer forms (e.g., "Passed" over "Pass", "Failed" over "Fail")
+      let targetStatus;
+      if (automatedPassed) {
+        // Try exact matches first, then longer forms, then any match
+        targetStatus =
+          statuses.find(s => s.name.toLowerCase() === 'passed') ||
+          statuses.find(s => s.name.toLowerCase() === 'pass') ||
+          statuses.find(s => s.name.toLowerCase().includes('success')) ||
+          statuses.find(s => s.name.toLowerCase().includes('completed'));
+      } else {
+        // For failed tests, prefer "Failed" over "Fail", avoid "Error"
+        targetStatus =
+          statuses.find(s => s.name.toLowerCase() === 'failed') ||
+          statuses.find(s => s.name.toLowerCase() === 'fail') ||
+          statuses.find(s => s.name.toLowerCase().includes('failure'));
+
+        // Only fall back to 'error' if no other failed status is found
+        if (!targetStatus) {
+          targetStatus = statuses.find(s =>
+            s.name.toLowerCase().includes('error')
+          );
+        }
+      }
+
+      if (!targetStatus) {
+        return;
+      }
+
+      // Create a review that matches the automated result
+      await testResultsClient.createReview(
+        test.id,
+        targetStatus.id,
+        `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
+        { type: 'test', reference: null }
+      );
+
+      // Refresh the test result
+      const updatedTest = await testResultsClient.getTestResult(test.id);
+      onTestResultUpdate(updatedTest);
+    } catch (error) {
+      // Error handling - could be logged to monitoring service
+    }
   };
 
   // Handle counts change (when comments/tasks are added or deleted)
@@ -221,33 +307,42 @@ export default function TestResultDrawer({
               id="test-detail-tab-0"
               aria-controls="test-detail-tabpanel-0"
             />
+            {isMultiTurn && (
+              <Tab
+                icon={<ChatOutlinedIcon fontSize="small" />}
+                iconPosition="start"
+                label="Conversation"
+                id="test-detail-tab-1"
+                aria-controls="test-detail-tabpanel-1"
+              />
+            )}
             <Tab
               icon={<AssessmentOutlinedIcon fontSize="small" />}
               iconPosition="start"
               label="Metrics"
-              id="test-detail-tab-1"
-              aria-controls="test-detail-tabpanel-1"
+              id={`test-detail-tab-${isMultiTurn ? '2' : '1'}`}
+              aria-controls={`test-detail-tabpanel-${isMultiTurn ? '2' : '1'}`}
             />
             <Tab
               icon={<RateReviewIcon fontSize="small" />}
               iconPosition="start"
               label="Reviews"
-              id="test-detail-tab-2"
-              aria-controls="test-detail-tabpanel-2"
+              id={`test-detail-tab-${isMultiTurn ? '3' : '2'}`}
+              aria-controls={`test-detail-tabpanel-${isMultiTurn ? '3' : '2'}`}
             />
             <Tab
               icon={<HistoryIcon fontSize="small" />}
               iconPosition="start"
               label="History"
-              id="test-detail-tab-3"
-              aria-controls="test-detail-tabpanel-3"
+              id={`test-detail-tab-${isMultiTurn ? '4' : '3'}`}
+              aria-controls={`test-detail-tabpanel-${isMultiTurn ? '4' : '3'}`}
             />
             <Tab
               icon={<CommentOutlinedIcon fontSize="small" />}
               iconPosition="start"
               label="Tasks & Comments"
-              id="test-detail-tab-4"
-              aria-controls="test-detail-tabpanel-4"
+              id={`test-detail-tab-${isMultiTurn ? '5' : '4'}`}
+              aria-controls={`test-detail-tabpanel-${isMultiTurn ? '5' : '4'}`}
             />
           </Tabs>
         </Box>
@@ -280,23 +375,43 @@ export default function TestResultDrawer({
               prompts={prompts}
               sessionToken={sessionToken}
               onTestResultUpdate={onTestResultUpdate}
+              testSetType={testSetType}
             />
           </TabPanel>
 
-          <TabPanel value={activeTab} index={1}>
+          {isMultiTurn && (
+            <TabPanel value={activeTab} index={1}>
+              <TestDetailConversationTab
+                test={test}
+                testSetType={testSetType}
+                project={project}
+                projectName={projectName}
+                onReviewTurn={handleReviewTurn}
+                onConfirmAutomatedReview={handleConfirmAutomatedReview}
+              />
+            </TabPanel>
+          )}
+
+          <TabPanel value={activeTab} index={isMultiTurn ? 2 : 1}>
             <TestDetailMetricsTab test={test} behaviors={behaviors} />
           </TabPanel>
 
-          <TabPanel value={activeTab} index={2}>
+          <TabPanel value={activeTab} index={isMultiTurn ? 3 : 2}>
             <TestDetailReviewsTab
               test={test}
               sessionToken={sessionToken}
               onTestResultUpdate={onTestResultUpdate}
               currentUserId={currentUserId}
+              initialComment={reviewInitialComment}
+              initialStatus={reviewInitialStatus}
+              onCommentUsed={() => {
+                setReviewInitialComment('');
+                setReviewInitialStatus(undefined);
+              }}
             />
           </TabPanel>
 
-          <TabPanel value={activeTab} index={3}>
+          <TabPanel value={activeTab} index={isMultiTurn ? 4 : 3}>
             <TestDetailHistoryTab
               test={test}
               testRunId={testRunId}
@@ -304,7 +419,7 @@ export default function TestResultDrawer({
             />
           </TabPanel>
 
-          <TabPanel value={activeTab} index={4}>
+          <TabPanel value={activeTab} index={isMultiTurn ? 5 : 4}>
             <TasksAndCommentsWrapper
               entityType="TestResult"
               entityId={test.id}
