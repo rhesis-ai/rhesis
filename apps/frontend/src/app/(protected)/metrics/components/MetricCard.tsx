@@ -22,6 +22,9 @@ import {
   CategoryIcon,
   ToggleOnIcon,
 } from '@/components/icons';
+import TurnedInIcon from '@mui/icons-material/TurnedIn';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import MessageIcon from '@mui/icons-material/Message';
 
 // Custom Rhesis AI icon component using inline SVG
 const RhesisAIIcon = ({
@@ -33,7 +36,7 @@ const RhesisAIIcon = ({
     fontSize={fontSize}
     viewBox="0 0 390 371"
     sx={{
-      margin: '0 -4px 0 4px',
+      margin: theme => `0 -${theme.spacing(0.5)} 0 ${theme.spacing(0.5)}`,
     }}
   >
     <path
@@ -50,6 +53,7 @@ interface MetricCardProps {
   backend?: string;
   metricType?: string;
   scoreType?: string;
+  metricScope?: string[];
   usedIn?: string[];
   showUsage?: boolean;
 }
@@ -137,12 +141,28 @@ const getScoreTypeIcon = (scoreType: string) => {
   }
 };
 
+const getMetricScopeDisplay = (scope: string): string => {
+  return scope;
+};
+
+const getMetricScopeIcon = (scope: string) => {
+  switch (scope) {
+    case 'Single-Turn':
+      return <ChatBubbleOutlineIcon fontSize="small" />;
+    case 'Multi-Turn':
+      return <MessageIcon fontSize="small" />;
+    default:
+      return <TurnedInIcon fontSize="small" />;
+  }
+};
+
 export default function MetricCard({
   title,
   description,
   backend,
   metricType,
   scoreType,
+  metricScope,
   type,
   usedIn,
   showUsage = false,
@@ -160,7 +180,7 @@ export default function MetricCard({
   const chipStyles = {
     '& .MuiChip-icon': {
       color: 'text.secondary',
-      marginLeft: '4px',
+      marginLeft: theme.spacing(0.5),
     },
   };
 
@@ -236,8 +256,8 @@ export default function MetricCard({
               flexWrap: 'wrap',
               gap: 0.5,
               '& .MuiChip-root': {
-                height: '24px',
-                fontSize: theme?.typography?.chartLabel?.fontSize || '0.75rem',
+                height: theme.spacing(3),
+                fontSize: theme.typography.caption.fontSize,
                 ...chipStyles,
               },
             }}
@@ -267,6 +287,17 @@ export default function MetricCard({
                 variant="outlined"
               />
             )}
+            {metricScope &&
+              metricScope.length > 0 &&
+              metricScope.map((scope, index) => (
+                <Chip
+                  key={`scope-${index}`}
+                  icon={getMetricScopeIcon(scope)}
+                  label={getMetricScopeDisplay(scope)}
+                  size="small"
+                  variant="outlined"
+                />
+              ))}
           </Box>
         </Box>
       </CardContent>

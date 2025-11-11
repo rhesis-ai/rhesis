@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -58,6 +57,7 @@ interface FilterState {
   backend: string[];
   type: string[];
   scoreType: string[];
+  metricScope: string[];
 }
 
 const initialFilterState: FilterState = {
@@ -65,12 +65,14 @@ const initialFilterState: FilterState = {
   backend: [],
   type: [],
   scoreType: [],
+  metricScope: [],
 };
 
 interface FilterOptions {
   backend: { type_value: string }[];
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
+  metricScope: { value: string; label: string }[];
 }
 
 const initialFilterOptions: FilterOptions = {
@@ -80,11 +82,15 @@ const initialFilterOptions: FilterOptions = {
     { value: 'binary', label: 'Binary (Pass/Fail)' },
     { value: 'numeric', label: 'Numeric' },
   ],
+  metricScope: [
+    { value: 'Single-Turn', label: 'Single-Turn' },
+    { value: 'Multi-Turn', label: 'Multi-Turn' },
+  ],
 };
 
 interface BehaviorMetrics {
   [behaviorId: string]: {
-    metrics: MetricDetail[] | any[];
+    metrics: MetricDetail[];
     isLoading: boolean;
     error: string | null;
   };
@@ -212,7 +218,7 @@ export default function MetricsClientComponent({
         const initialBehaviorMetrics: BehaviorMetrics = {};
         behaviorsWithMetricsData.forEach(behavior => {
           initialBehaviorMetrics[behavior.id] = {
-            metrics: behavior.metrics || [],
+            metrics: (behavior.metrics || []) as MetricDetail[],
             isLoading: false,
             error: null,
           };

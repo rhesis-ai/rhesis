@@ -33,7 +33,7 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: 'package-lock.json'
+          cache-dependency-path: 'apps/frontend/package-lock.json'
 
       - name: Make scripts executable
         run: |
