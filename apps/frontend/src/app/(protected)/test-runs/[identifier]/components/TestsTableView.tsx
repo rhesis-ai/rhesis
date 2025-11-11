@@ -113,7 +113,10 @@ export default function TestsTableView({
           const propTest = tests.find(t => t.id === testId);
           const localTest = localTestUpdates.get(testId);
           // Check if the prop test has the same last_review as our local update
-          return propTest?.last_review?.id === localTest?.last_review?.id;
+          return (
+            propTest?.last_review?.review_id ===
+            localTest?.last_review?.review_id
+          );
         }
       );
 
@@ -774,7 +777,7 @@ export default function TestsTableView({
                         {status.isOverruled ? (
                           <Tooltip
                             title={
-                              status.reviewData
+                              'reviewData' in status && status.reviewData
                                 ? `Human review by ${status.reviewData.reviewer}: ${
                                     status.reviewData.newStatus === 'passed'
                                       ? 'Passed'
@@ -784,7 +787,8 @@ export default function TestsTableView({
                             }
                           >
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              {status.reviewData?.newStatus === 'passed' ? (
+                              {'reviewData' in status &&
+                              status.reviewData?.newStatus === 'passed' ? (
                                 <CheckIcon
                                   sx={{
                                     fontSize: 20,
