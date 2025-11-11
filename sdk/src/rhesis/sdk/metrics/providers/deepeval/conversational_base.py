@@ -54,10 +54,7 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         self._update_model()
 
     def _to_deepeval_format(
-        self,
-        conversation: ConversationHistory,
-        chatbot_role: Optional[str] = None,
-        **kwargs: Any
+        self, conversation: ConversationHistory, chatbot_role: Optional[str] = None, **kwargs: Any
     ) -> ConversationalTestCase:
         """
         Convert standard message format to DeepEval format.
@@ -88,7 +85,7 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         test_case_params = {"turns": deepeval_turns}
         if chatbot_role:
             test_case_params["chatbot_role"] = chatbot_role
-        
+
         # Add any additional kwargs
         test_case_params.update(kwargs)
 
@@ -122,9 +119,7 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
 
         # Convert to DeepEval format, passing chatbot_role if provided
         test_case = self._to_deepeval_format(
-            conversation_history,
-            chatbot_role=chatbot_role,
-            **kwargs
+            conversation_history, chatbot_role=chatbot_role, **kwargs
         )
 
         # Run DeepEval's measure method
