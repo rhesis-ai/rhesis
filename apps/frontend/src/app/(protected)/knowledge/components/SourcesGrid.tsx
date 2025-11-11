@@ -241,8 +241,8 @@ export default function SourcesGrid({
       {
         field: 'title',
         headerName: 'Title',
-        width: 160,
-        resizable: false,
+        flex: 2,
+        minWidth: 150,
         renderCell: params => {
           const source = params.row as Source;
           return (
@@ -262,8 +262,8 @@ export default function SourcesGrid({
       {
         field: 'description',
         headerName: 'Description',
-        width: 200,
-        resizable: false,
+        flex: 3,
+        minWidth: 200,
         renderCell: params => {
           const source = params.row as Source;
           if (!source.description) {
@@ -295,8 +295,8 @@ export default function SourcesGrid({
       {
         field: 'file_type',
         headerName: 'Type',
-        width: 70,
-        resizable: false,
+        flex: 0.6,
+        minWidth: 70,
         renderCell: params => {
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
@@ -316,8 +316,8 @@ export default function SourcesGrid({
       {
         field: 'file_size',
         headerName: 'Size',
-        width: 70,
-        resizable: false,
+        flex: 0.6,
+        minWidth: 70,
         type: 'number',
         renderCell: params => {
           const source = params.row as Source;
@@ -334,8 +334,8 @@ export default function SourcesGrid({
       {
         field: 'created_at',
         headerName: 'Uploaded',
-        width: 95,
-        resizable: false,
+        flex: 0.8,
+        minWidth: 95,
         filterable: false,
         renderCell: params => {
           const source = params.row as Source;
@@ -353,8 +353,8 @@ export default function SourcesGrid({
       {
         field: 'user.name',
         headerName: 'Added by',
-        width: 110,
-        resizable: false,
+        flex: 1,
+        minWidth: 110,
         sortable: false,
         renderCell: params => {
           const source = params.row as Source;
@@ -387,8 +387,8 @@ export default function SourcesGrid({
       {
         field: 'counts.comments',
         headerName: 'Comments',
-        width: 95,
-        resizable: false,
+        flex: 0.8,
+        minWidth: 95,
         sortable: false,
         filterable: false,
         renderCell: params => {
@@ -406,8 +406,8 @@ export default function SourcesGrid({
       {
         field: 'tags',
         headerName: 'Tags',
-        width: 160,
-        resizable: false,
+        flex: 1.5,
+        minWidth: 140,
         sortable: false,
         renderCell: params => {
           const source = params.row as Source;
@@ -415,26 +415,20 @@ export default function SourcesGrid({
             return null;
           }
 
-          // Handle both string array and Tag object array
-          const tagNames =
-            typeof source.tags[0] === 'string'
-              ? source.tags
-              : (source.tags as any[]).map(tag => tag.name);
-
           return (
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-              {tagNames.slice(0, 2).map((tagName: string, index: number) => (
+              {source.tags.slice(0, 2).map((tag, index) => (
                 <Chip
-                  key={index}
-                  label={tagName}
+                  key={tag.id}
+                  label={tag.name}
                   size="small"
                   variant="filled"
                   color="primary"
                 />
               ))}
-              {tagNames.length > 2 && (
+              {source.tags.length > 2 && (
                 <Chip
-                  label={`+${tagNames.length - 2}`}
+                  label={`+${source.tags.length - 2}`}
                   size="small"
                   variant="outlined"
                 />
