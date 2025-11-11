@@ -32,7 +32,7 @@ tenacity==8.2.3
 psutil==5.9.5
 kombu==5.5.3
 portalocker==3.1.1
-deepeval==3.0.0
+deepeval==3.7.0
 yaspin==3.0.2
 pyfiglet==1.0.2
 odata-query==0.10.0
