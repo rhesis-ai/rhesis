@@ -1,39 +1,29 @@
 """Tool executor for MCP Agent - handles pure execution of tool calls."""
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from rhesis.sdk.services.mcp.client import MCPClient
 from rhesis.sdk.services.mcp.schemas import ToolCall, ToolResult
-
-if TYPE_CHECKING:
-    from rhesis.sdk.services.mcp.provider_config import ProviderConfig
 
 logger = logging.getLogger(__name__)
 
 
 class ToolExecutor:
     """
-    Handles execution of MCP tool calls with optional response filtering.
+    Handles execution of MCP tool calls.
 
-    Separates pure tool execution from agent logic. Optionally filters verbose
-    API responses (e.g., Notion pages) to reduce token usage.
+    Separates pure tool execution from agent logic.
     """
 
-    def __init__(
-        self,
-        mcp_client: MCPClient,
-        provider_config: Optional["ProviderConfig"] = None,
-    ):
+    def __init__(self, mcp_client: MCPClient):
         """
         Initialize the executor.
 
         Args:
             mcp_client: Connected MCP client for calling tools
-            provider_config: Optional config for filtering API responses
         """
         self.mcp_client = mcp_client
-        self.provider_config = provider_config
 
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """
@@ -63,10 +53,6 @@ class ToolExecutor:
             args = tool_call.arguments if isinstance(tool_call.arguments, dict) else {}
 
             result = await self.mcp_client.call_tool(tool_call.tool_name, args)
-
-            # Filter response if provider config is set
-            if self.provider_config:
-                result = self.provider_config.filter_response(result, tool_call.tool_name)
 
             # Extract content from the result
             content = self._extract_content(result)
