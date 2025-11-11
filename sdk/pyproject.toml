@@ -32,7 +32,7 @@ dependencies = [
     "tqdm>=4.67.1",
     "jinja2>=3.1.6",
     "markitdown[pdf,docx,pptx,xlsx]>=0.1.0",
-    "deepeval==3.6.7",
+    "deepeval==3.7.0",
     "tenacity>=8.2.3",
     "pyyaml>=6.0",
     "pydantic>=2.0.0",
