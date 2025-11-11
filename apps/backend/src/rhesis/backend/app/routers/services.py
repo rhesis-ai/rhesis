@@ -1,7 +1,9 @@
 from pathlib import Path
+from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -31,10 +33,34 @@ from rhesis.backend.app.services.generation import (
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.handlers import DocumentHandler
+from rhesis.backend.app.services.mcp_service import extract_mcp, search_mcp
 from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.extractor import DocumentExtractor
+
+
+# Inline schemas for MCP endpoints
+class ItemResult(BaseModel):
+    """Minimal item metadata for search results."""
+
+    url: str
+    title: str
+
+
+class SearchMCPRequest(BaseModel):
+    """Request to search MCP server."""
+
+    query: str
+    server_name: str
+
+
+class ExtractMCPRequest(BaseModel):
+    """Request to extract MCP item content."""
+
+    item_id: str
+    server_name: str
+
 
 router = APIRouter(
     prefix="/services",
@@ -455,3 +481,38 @@ async def generate_test_config(
     except Exception as e:
         logger.error(f"Unexpected error in test config generation: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/mcp/search", response_model=List[ItemResult])
+async def search_mcp_server(
+    request: SearchMCPRequest,
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Search MCP server for items matching the query.
+
+    Works with any MCP server (Notion, GitHub, Slack, etc.).
+    Returns list of items with url and title.
+    """
+    try:
+        return await search_mcp(request.query, request.server_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/mcp/extract")
+async def extract_mcp_item(
+    request: ExtractMCPRequest,
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Extract full content from an MCP item as markdown.
+
+    Works with any MCP server (Notion, GitHub, Slack, etc.).
+    Returns markdown content.
+    """
+    try:
+        content = await extract_mcp(request.item_id, request.server_name)
+        return {"content": content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
