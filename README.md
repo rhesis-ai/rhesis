@@ -145,16 +145,14 @@ Get the full platform running locally with a single command - no configuration n
 ```bash
 git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
-docker-compose -f docker-compose.local.yml up
+docker compose -f docker-compose.local.yml --env-file .env.docker.local up
 ```
 
-Visit `http://localhost:3000` and click "Local Development Login" to get started immediately.
+Visit `http://localhost:3000` - you'll be automatically logged in to the dashboard!
 
-**Default API token:** `rh-local-dev-token`
+**Optional:** Edit `.env.docker.local` and update `RHESIS_API_KEY` with your key from [app.rhesis.ai](https://app.rhesis.ai) to enable test generation.
 
 > **Note:** This is a simplified setup for local testing and development only. For production deployments, see the [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
-
-**Detailed local setup:** [Local Development Guide](https://docs.rhesis.ai/getting-started/local-development)
 
 
 ## 👥 Contributing

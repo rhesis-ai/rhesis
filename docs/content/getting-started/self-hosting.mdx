@@ -1,7 +1,6 @@
 import { CodeBlock } from '@/components/CodeBlock'
 import { Table } from '@/components/Table'
 import { FileTree } from '@/components/FileTree'
-import { Callout } from 'nextra/components'
 
 # Self-hosting
 
@@ -47,16 +46,14 @@ Get Rhesis running in under 5 minutes:
 git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 
-# 2. Copy the local development environment file
-cp .env.example.local .env.local
+# 2. (Optional) Update RHESIS_API_KEY in .env.docker.local
+# Edit .env.docker.local and update RHESIS_API_KEY with your key from https://app.rhesis.ai/
+# Or use the default configuration as-is for immediate testing
 
-# 3. (Optional) Add your Rhesis API key to .env.local
-# Open .env.local and update RHESIS_API_KEY with your key from https://app.rhesis.ai/
+# 3. Start all services (no file copying needed!)
+docker compose -f docker-compose.local.yml --env-file .env.docker.local up -d
 
-# 4. Start all services
-docker compose -f docker-compose.local.yml --env-file .env.local up -d
-
-# 5. Access the platform
+# 4. Access the platform
 # Frontend: http://localhost:3000 (auto-login enabled)
 # Backend API: http://localhost:8080/docs
 # Worker Health: http://localhost:8081/health/basic`}
@@ -76,14 +73,9 @@ The zero-configuration setup uses these files:
   title="Local Development Files"
   data={[
     {
-      name: '.env.example.local',
+      name: '.env.docker.local',
       type: 'file',
-      description: 'Template with all pre-configured defaults'
-    },
-    {
-      name: '.env.local',
-      type: 'file',
-      description: 'Your local copy (created from .env.example.local)'
+      description: 'Pre-configured environment file (ready to use, no copying needed!)'
     },
     {
       name: 'docker-compose.local.yml',
@@ -95,7 +87,7 @@ The zero-configuration setup uses these files:
 
 ### What's Pre-Configured
 
-The `.env.example.local` file includes:
+The `.env.docker.local` file includes:
 
 **Authentication & Security (Development Defaults):**
 - Dummy Auth0 credentials (not used due to local auth bypass)
@@ -130,19 +122,19 @@ Once running, access the platform at:
 
 ### Optional: Configure AI Providers
 
-By default, the local setup uses the Rhesis API for test generation. You'll need to:
+By default, the local setup uses the Rhesis API for test generation. To enable this:
 
 1. Get your Rhesis API key from https://app.rhesis.ai/
-2. Open `.env.local` and update:
+2. Open `.env.docker.local` and update:
 
-<CodeBlock filename=".env.local" language="bash">
+<CodeBlock filename=".env.docker.local" language="bash">
 {`# Update this line with your actual API key
 RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
 </CodeBlock>
 
 Alternatively, configure other AI providers (optional):
 
-<CodeBlock filename=".env.local" language="bash">
+<CodeBlock filename=".env.docker.local" language="bash">
 {`# Google Gemini (uncomment and configure)
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL_NAME=gemini-2.0-flash-001
@@ -212,7 +204,7 @@ kill -9 <PID>`}
 <CodeBlock filename="Terminal" language="bash">
 {`# Remove all containers, volumes, and start fresh
 docker compose -f docker-compose.local.yml down -v
-docker compose -f docker-compose.local.yml --env-file .env.local up -d`}
+docker compose -f docker-compose.local.yml --env-file .env.docker.local up -d`}
 </CodeBlock>
 
 **Check service health:**

@@ -43,8 +43,9 @@ export default function LandingPage() {
 
   // Auto-login for local development
   useEffect(() => {
-    const isLocalAuthEnabled = process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true';
-    
+    const isLocalAuthEnabled =
+      process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true';
+
     // Only auto-login if:
     // 1. Local auth is enabled
     // 2. User is not authenticated
@@ -54,17 +55,17 @@ export default function LandingPage() {
       const urlParams = new URLSearchParams(window.location.search);
       const isSessionExpired = urlParams.get('session_expired') === 'true';
       const isForcedLogout = urlParams.get('force_logout') === 'true';
-      
+
       // Don't auto-login if user was forcefully logged out
       if (!isSessionExpired && !isForcedLogout) {
         setAutoLoggingIn(true);
-        
+
         // Call the local-login endpoint
         fetch(`${getClientApiBaseUrl()}/auth/local-login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         })
-          .then(async (response) => {
+          .then(async response => {
             if (response.ok) {
               const data = await response.json();
               // Sign in with NextAuth using the session token
@@ -79,7 +80,7 @@ export default function LandingPage() {
               setAutoLoggingIn(false);
             }
           })
-          .catch((error) => {
+          .catch(error => {
             console.error('Local auto-login error:', error);
             setAutoLoggingIn(false);
           });
