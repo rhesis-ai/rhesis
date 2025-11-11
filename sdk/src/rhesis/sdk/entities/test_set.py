@@ -26,6 +26,7 @@ class TestSet(BaseEntity):
     tests: Optional[list[Test]] = None
     categories: Optional[list[str]] = None
     topics: Optional[list[str]] = None
+    behaviors: Optional[list[str]] = None
     test_count: Optional[int] = None
     name: str
     description: str
