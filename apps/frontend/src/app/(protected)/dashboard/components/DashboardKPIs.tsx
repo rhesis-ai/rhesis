@@ -62,9 +62,8 @@ const KPICard: React.FC<KPICardProps> = ({
         height: '100%',
         position: 'relative',
         overflow: 'visible',
-        transition: 'transform 0.2s, box-shadow 0.2s',
+        transition: 'box-shadow 0.2s',
         '&:hover': {
-          transform: 'translateY(-4px)',
           boxShadow: theme.shadows[8],
         },
       }}
@@ -326,9 +325,8 @@ export default function DashboardKPIs({
             elevation={2}
             sx={{
               height: '100%',
-              transition: 'transform 0.2s, box-shadow 0.2s',
+              transition: 'box-shadow 0.2s',
               '&:hover': {
-                transform: 'translateY(-4px)',
                 boxShadow: theme.shadows[8],
               },
             }}

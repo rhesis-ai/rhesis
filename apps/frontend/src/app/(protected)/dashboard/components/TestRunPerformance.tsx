@@ -231,7 +231,7 @@ export default function TestRunPerformance({
                   sx={{
                     height: '100%',
                     cursor: 'pointer',
-                    transition: 'all 0.2s',
+                    transition: 'box-shadow 0.2s',
                     borderLeft: 4,
                     borderLeftColor:
                       statusColor === 'success'
@@ -242,7 +242,6 @@ export default function TestRunPerformance({
                             ? 'warning.main'
                             : 'info.main',
                     '&:hover': {
-                      transform: 'translateY(-4px)',
                       boxShadow: 4,
                     },
                   }}

@@ -465,10 +465,9 @@ export default function ActivityTimeline({
                       borderRadius: 1,
                       bgcolor: alpha(theme.palette[activityColor].main, 0.05),
                       border: `1px solid ${alpha(theme.palette[activityColor].main, 0.1)}`,
-                      transition: 'all 0.2s',
+                      transition: 'background-color 0.2s',
                       '&:hover': {
                         bgcolor: alpha(theme.palette[activityColor].main, 0.1),
-                        transform: 'translateX(4px)',
                       },
                     }}
                     onClick={() => handleActivityClick(activity)}
