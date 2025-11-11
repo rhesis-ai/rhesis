@@ -21,7 +21,7 @@ export interface Source {
   citation?: string;
   language_code?: string;
   source_metadata?: Record<string, any>;
-  tags: Tag[] | string[]; // Backend returns Tag objects, but support string array for compatibility
+  tags?: Tag[];
   created_at?: string;
   updated_at?: string;
   counts?: {
@@ -46,7 +46,7 @@ export interface SourceCreate {
   citation?: string;
   language_code?: string;
   source_metadata?: Record<string, any>;
-  tags?: Tag[] | string[];
+  tags?: Tag[];
 }
 
 export interface SourceUpdate {
@@ -58,7 +58,7 @@ export interface SourceUpdate {
   citation?: string;
   language_code?: string;
   source_metadata?: Record<string, any>;
-  tags?: Tag[] | string[];
+  tags?: Tag[];
 }
 
 export interface SourcesQueryParams extends PaginationParams {

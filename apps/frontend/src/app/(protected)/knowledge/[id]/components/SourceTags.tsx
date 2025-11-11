@@ -17,12 +17,7 @@ export default function SourceTags({ sessionToken, source }: SourceTagsProps) {
   // Initialize and update tag names when source changes
   useEffect(() => {
     if (source.tags) {
-      // Handle both string array and Tag object array
-      if (typeof source.tags[0] === 'string') {
-        setTagNames(source.tags as string[]);
-      } else {
-        setTagNames((source.tags as any[]).map(tag => tag.name));
-      }
+      setTagNames(source.tags.map(tag => tag.name));
     }
   }, [source.tags]);
 
