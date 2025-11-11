@@ -1,8 +1,9 @@
-from typing import Any
+from typing import Dict, Optional
 
 from rhesis.sdk.client import Endpoints
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
+from rhesis.sdk.entities.prompt import Prompt
 
 ENDPOINT = Endpoints.TESTS
 
@@ -10,12 +11,14 @@ ENDPOINT = Endpoints.TESTS
 class Test(BaseEntity):
     endpoint = ENDPOINT
 
-    def __init__(self, **fields: Any) -> None:
-        super().__init__(**fields)
-        self.category = fields.get("category", None)
-        self.topic = fields.get("topic", None)
-        self.behavior = fields.get("behavior", None)
-        self.prompt = fields.get("prompt", None)
+    category: str
+    topic: str
+    behavior: str
+    prompt: Prompt
+    id: Optional[str] = None
+
+    def count_tokens(self, encoding_name: str = "cl100k_base") -> Dict[str, int]:
+        pass
 
 
 class Tests(BaseCollection):
