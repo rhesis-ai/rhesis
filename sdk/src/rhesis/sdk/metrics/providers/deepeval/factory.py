@@ -1,6 +1,14 @@
 from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
+from rhesis.sdk.metrics.providers.deepeval.conversational_metrics import (
+    DeepEvalConversationCompleteness,
+    DeepEvalGoalAccuracy,
+    DeepEvalKnowledgeRetention,
+    DeepEvalRoleAdherence,
+    DeepEvalToolUse,
+    DeepEvalTurnRelevancy,
+)
 from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepEvalAnswerRelevancy,
     DeepEvalBias,
@@ -35,6 +43,13 @@ class DeepEvalMetricFactory(BaseMetricFactory):
         "DeepEvalRoleViolation": DeepEvalRoleViolation,
         "DeepTeamIllegal": DeepTeamIllegal,
         "DeepTeamSafety": DeepTeamSafety,
+        # Conversational metrics
+        "DeepEvalTurnRelevancy": DeepEvalTurnRelevancy,
+        "DeepEvalRoleAdherence": DeepEvalRoleAdherence,
+        "DeepEvalKnowledgeRetention": DeepEvalKnowledgeRetention,
+        "DeepEvalConversationCompleteness": DeepEvalConversationCompleteness,
+        "DeepEvalGoalAccuracy": DeepEvalGoalAccuracy,
+        "DeepEvalToolUse": DeepEvalToolUse,
     }
 
     # Common parameters supported by all metrics
@@ -57,6 +72,13 @@ class DeepEvalMetricFactory(BaseMetricFactory):
         # DeepTeam metrics have custom parameters
         "DeepTeamIllegal": {"illegal_category"},
         "DeepTeamSafety": {"safety_category"},
+        # Conversational metrics
+        "DeepEvalTurnRelevancy": {"threshold", "window_size"},
+        "DeepEvalRoleAdherence": {"threshold"},
+        "DeepEvalKnowledgeRetention": {"threshold"},
+        "DeepEvalConversationCompleteness": {"threshold", "window_size"},
+        "DeepEvalGoalAccuracy": {"threshold"},
+        "DeepEvalToolUse": {"threshold", "available_tools"},
     }
 
     def create(self, class_name: str, **kwargs) -> BaseMetric:

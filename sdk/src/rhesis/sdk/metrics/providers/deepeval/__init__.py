@@ -1,6 +1,13 @@
 """DeepEval metrics implementations."""
 
-from .conversational_metrics import DeepEvalTurnRelevancy
+from .conversational_metrics import (
+    DeepEvalConversationCompleteness,
+    DeepEvalGoalAccuracy,
+    DeepEvalKnowledgeRetention,
+    DeepEvalRoleAdherence,
+    DeepEvalToolUse,
+    DeepEvalTurnRelevancy,
+)
 from .factory import DeepEvalMetricFactory
 from .metric_base import DeepEvalMetricBase
 from .metrics import (
@@ -21,4 +28,9 @@ __all__ = [
     "DeepEvalContextualRecall",
     # Conversational metrics
     "DeepEvalTurnRelevancy",
+    "DeepEvalRoleAdherence",
+    "DeepEvalKnowledgeRetention",
+    "DeepEvalConversationCompleteness",
+    "DeepEvalGoalAccuracy",
+    "DeepEvalToolUse",
 ]
