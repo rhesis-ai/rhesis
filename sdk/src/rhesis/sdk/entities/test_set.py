@@ -1,7 +1,6 @@
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, cast
+from typing import Any, ClassVar, Dict, Optional
 
-import pandas as pd
 from jinja2 import Template
 from pydantic import BaseModel
 
@@ -42,10 +41,8 @@ class TestSet(BaseEntity):
         >>> test_set.download(format='json', path='data/my_test_set.json')
     """
 
-    #: :no-index: The API endpoint for test sets
     endpoint: ClassVar[Endpoints] = ENDPOINT
 
-    #: :no-index: Cached list of tests for the test set
     id: Optional[str] = None
     tests: Optional[list[Any]] = None
     categories: Optional[list[str]] = None
@@ -123,96 +120,6 @@ class TestSet(BaseEntity):
             "max": max(token_counts),
             "min": min(token_counts),
             "test_count": len(token_counts),
-        }
-
-    def to_dict(self) -> List[Dict[str, Any]]:
-        """Convert the test set tests to a list of dictionaries.
-
-        Returns:
-            List[Dict[str, Any]]: A list of dictionaries containing test data
-        """
-        if self.tests is None:
-            self.get_tests()
-        if self.tests is None:  # Double-check after get_tests
-            return []
-        return cast(List[Dict[str, Any]], self.tests)
-
-    def to_pandas(self) -> pd.DataFrame:
-        """Convert the test set tests to a pandas DataFrame.
-
-        Returns:
-            pd.DataFrame: A DataFrame containing the test data
-
-        Example:
-            >>> test_set = TestSet(id='123')
-            >>> df = test_set.to_pandas()
-            >>> print(df.columns)
-        """
-        if self.tests is None:
-            self.get_tests()
-        return pd.DataFrame(self.tests)
-
-    def to_csv(self, path: Optional[str] = None) -> pd.DataFrame:
-        """Convert the test set tests to a CSV file.
-
-        Args:
-            path: The path where the CSV file should be saved.
-                 If None, uses 'test_set_{id}.csv'
-
-        Returns:
-            pd.DataFrame: The DataFrame that was saved to CSV
-
-        Example:
-            >>> test_set = TestSet(id='123')
-            >>> df = test_set.to_csv('my_test_set.csv')
-        """
-        df = self.to_pandas()
-
-        if path is None:
-            path = f"test_set_{self.id}.csv"
-
-        df.to_csv(path, index=False)
-        return df
-
-    def get_properties(self) -> Dict[str, Any]:
-        """Get the test set properties including basic info and test analysis.
-
-        Returns:
-            Dict[str, Any]: A dictionary containing:
-                - basic properties (name, description, short_description)
-                - unique categories and topics from tests
-                - total number of tests
-
-        Example:
-            >>> test_set = TestSet(id='123')
-            >>> props = test_set.get_properties()
-            >>> print(f"Categories: {props['categories']}")
-            >>> print(f"Topics: {props['topics']}")
-        """
-        # Ensure tests are loaded
-        if self.tests is None:
-            self.get_tests()
-
-        # Initialize sets for unique categories and topics
-        categories = set()
-        topics = set()
-
-        # Extract unique categories and topics from tests
-        if self.tests is not None:
-            for test in self.tests:
-                if isinstance(test, dict):
-                    if "category" in test and test["category"]:
-                        categories.add(test["category"])
-                    if "topic" in test and test["topic"]:
-                        topics.add(test["topic"])
-
-        return {
-            "name": self.name,
-            "description": self.description,
-            "short_description": self.short_description,
-            "categories": sorted(list(categories)),
-            "topics": sorted(list(topics)),
-            "test_count": len(self.tests) if self.tests is not None else 0,
         }
 
     def set_properties(self) -> None:
