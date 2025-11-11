@@ -100,7 +100,10 @@ class DeepEvalRoleAdherence(DeepEvalConversationalBase):
         ...     {"role": "user", "content": "I need help with my order."},
         ...     {"role": "assistant", "content": "I'll help you with that right away."},
         ...     {"role": "user", "content": "Can you also give me stock tips?"},
-        ...     {"role": "assistant", "content": "I'm a support agent, I can only help with orders."},
+        ...     {
+        ...         "role": "assistant",
+        ...         "content": "I'm a support agent, I can only help with orders."
+        ...     },
         ... ])
         >>>
         >>> result = metric.evaluate(conversation_history=conversation)
@@ -140,7 +143,7 @@ class DeepEvalRoleAdherence(DeepEvalConversationalBase):
         )
 
         self.threshold = threshold
-    
+
     def evaluate(
         self,
         conversation_history: ConversationHistory,
@@ -167,7 +170,7 @@ class DeepEvalRoleAdherence(DeepEvalConversationalBase):
         # If chatbot_role is not provided, use a default
         if chatbot_role is None:
             chatbot_role = "assistant"
-        
+
         # Call parent evaluate with chatbot_role
         return super().evaluate(
             conversation_history=conversation_history,
@@ -175,7 +178,7 @@ class DeepEvalRoleAdherence(DeepEvalConversationalBase):
             instructions=instructions,
             context=context,
             chatbot_role=chatbot_role,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -409,8 +412,8 @@ class DeepEvalToolUse(DeepEvalConversationalBase):
         Initialize Tool Use metric.
 
         Args:
-            available_tools: Optional list of available tools (each with 'name' and optional 'description').
-                           Defaults to empty list if not provided.
+            available_tools: Optional list of available tools (each with 'name' and
+                           optional 'description'). Defaults to empty list if not provided.
             threshold: Minimum passing score (0.0 to 1.0)
             model: LLM model for evaluation
         """
