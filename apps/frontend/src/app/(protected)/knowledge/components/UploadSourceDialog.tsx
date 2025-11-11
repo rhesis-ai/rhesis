@@ -22,6 +22,7 @@ import DragAndDropUpload from '@/components/common/DragAndDropUpload';
 import {
   FILE_SIZE_CONSTANTS,
   FILE_TYPE_CONSTANTS,
+  formatFileSize,
 } from '@/constants/knowledge';
 
 interface UploadSourceDialogProps {
@@ -154,6 +155,26 @@ export default function UploadSourceDialog({
 
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+          {/* Info Box */}
+          <Alert severity="info" sx={{ mb: 1 }}>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Upload knowledge sources to use as context for test generation
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Supported formats:{' '}
+              <Typography
+                component="span"
+                variant="body2"
+                sx={{ fontStyle: 'italic' }}
+              >
+                {FILE_TYPE_CONSTANTS.ACCEPTED_EXTENSIONS.split(',')
+                  .map(ext => ext.replace('.', ''))
+                  .join(', ')}
+              </Typography>{' '}
+              (max {formatFileSize(FILE_SIZE_CONSTANTS.MAX_UPLOAD_SIZE)})
+            </Typography>
+          </Alert>
+
           {/* File Upload Section */}
           <Box>
             <Typography variant="subtitle2" gutterBottom>
