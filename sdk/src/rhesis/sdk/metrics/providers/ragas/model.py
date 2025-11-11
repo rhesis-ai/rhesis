@@ -2,11 +2,8 @@ from typing import Any, List, Optional
 
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import LLM
-from ragas import SingleTurnSample
-from ragas.llms import LangchainLLMWrapper
-from ragas.metrics import AnswerAccuracy
 
-from rhesis.sdk.models import BaseLLM, get_model
+from rhesis.sdk.models import BaseLLM
 
 
 class CustomLLM(LLM):
@@ -62,18 +59,3 @@ class CustomLLM(LLM):
         """Get the type of language model used by this chat model.
         Used for logging purposes only."""
         return "custom"
-
-
-if __name__ == "__main__":
-    # Initialize with Google AI Studio
-    evaluator_llm = LangchainLLMWrapper(CustomLLM(rhesis_model=get_model("gemini")))
-
-    sample = SingleTurnSample(
-        user_input="When was Einstein born?",
-        response="Albert Einstein was born in 1879.",
-        reference="Albert Einstein was born in May 1879.",
-    )
-
-    scorer = AnswerAccuracy(llm=evaluator_llm)
-    score = scorer.single_turn_score(sample)
-    print(score)

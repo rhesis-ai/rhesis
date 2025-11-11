@@ -1,10 +1,13 @@
 import logging
-from typing import Optional, Union
+from typing import Union
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
+from rhesis.backend.app.services.generation import (
+    process_sources_to_documents,
+)
 from rhesis.backend.app.services.test_set import bulk_create_test_set
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.notifications.email.template_service import EmailTemplate
@@ -13,7 +16,8 @@ from rhesis.backend.worker import app
 
 # Import SDK components for test generation
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.synthesizers import SynthesizerFactory, SynthesizerType
+from rhesis.sdk.synthesizers import ConfigSynthesizer
+from rhesis.sdk.synthesizers.config_synthesizer import GenerationConfig
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -94,74 +98,6 @@ def count_test_sets(self):
 
 
 # Helper functions for test set generation and saving
-
-
-def _determine_synthesizer_type(
-    self, synthesizer_type: str, synthesizer_kwargs: dict
-) -> SynthesizerType:
-    """Determine the appropriate synthesizer type based on input parameters."""
-    if synthesizer_kwargs.get("documents"):
-        # Automatically use DocumentSynthesizer when documents are provided
-        self.log_with_context(
-            "info",
-            f"Documents detected, using DocumentSynthesizer instead of {synthesizer_type}",
-        )
-        return SynthesizerType.DOCUMENT
-
-    # Convert string to enum and validate
-    try:
-        return SynthesizerType(synthesizer_type.lower())
-    except ValueError:
-        supported_types = SynthesizerFactory.get_supported_types()
-        raise ValueError(
-            f"Unsupported synthesizer type: {synthesizer_type}. "
-            f"Supported types: {', '.join(supported_types)}"
-        )
-
-
-def _process_synthesizer_parameters(
-    self, synth_type: SynthesizerType, synthesizer_kwargs: dict
-) -> dict:
-    """Process and prepare synthesizer parameters based on type."""
-    if synth_type == SynthesizerType.PARAPHRASING and "source_test_set_id" in synthesizer_kwargs:
-        # Load the source test set for paraphrasing synthesizer
-        source_test_set_id = synthesizer_kwargs["source_test_set_id"]
-        source_test_set = SynthesizerFactory.load_source_test_set(source_test_set_id)
-        processed_kwargs = {"test_set": source_test_set}
-        # Add other parameters except the processed one
-        processed_kwargs.update(
-            {k: v for k, v in synthesizer_kwargs.items() if k != "source_test_set_id"}
-        )
-        return processed_kwargs
-
-    # For other synthesizers, pass parameters as-is
-    return synthesizer_kwargs
-
-
-def _create_synthesizer(
-    self,
-    synth_type: SynthesizerType,
-    batch_size: int,
-    model: Union[str, BaseLLM],
-    processed_kwargs: dict,
-):
-    """Create and initialize the synthesizer."""
-    synthesizer = SynthesizerFactory.create_synthesizer(
-        synthesizer_type=synth_type, batch_size=batch_size, model=model, **processed_kwargs
-    )
-
-    # Determine model info for logging
-    model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
-
-    self.log_with_context(
-        "info",
-        "Synthesizer initialized",
-        synthesizer_type=synth_type.value,
-        synthesizer_class=synthesizer.__class__.__name__,
-        model=model_info,
-    )
-
-    return synthesizer
 
 
 def _save_test_set_to_database(
@@ -280,7 +216,6 @@ def _build_task_result(
     self,
     db_test_set,
     num_tests: int,
-    synthesizer_type: str,
     synthesizer,
     log_kwargs: dict,
     batch_size: int,
@@ -295,7 +230,6 @@ def _build_task_result(
         "short_description": db_test_set.short_description,
         "num_tests_generated": len(db_test_set.tests),
         "num_tests_requested": num_tests,
-        "synthesizer_type": synthesizer_type,
         "synthesizer_class": synthesizer.__class__.__name__,
         "synthesizer_params": log_kwargs,  # Safe parameters for logging
         "batch_size": batch_size,
@@ -318,14 +252,7 @@ def _build_task_result(
 )
 def generate_and_save_test_set(
     self,
-    synthesizer_type: str,
-    num_tests: int = 5,
-    batch_size: int = 20,
-    model: Union[str, BaseLLM, None] = None,
-    name: str = None,
-    source_ids: Optional[list] = None,
-    source_ids_to_documents: Optional[dict] = None,
-    **synthesizer_kwargs,
+    request: dict = None,
 ):
     """
     Task that generates test cases using SDK synthesizers and saves them directly to the database.
@@ -361,51 +288,31 @@ def generate_and_save_test_set(
     Returns:
         dict: Information about the generated and saved test set including ID and metadata
 
-    Examples:
-        # Using PromptSynthesizer
-        generate_and_save_test_set.delay(
-            synthesizer_type="prompt",
-            prompt="Generate insurance claim tests",
-            num_tests=10,
-            model="gemini"
-        )
-
-        # Using ParaphrasingSynthesizer
-        generate_and_save_test_set.delay(
-            synthesizer_type="paraphrasing",
-            source_test_set_id="test-set-123",
-            num_tests=5,
-            model="gemini"
-        )
-
-        # Using DocumentSynthesizer
-        generate_and_save_test_set.delay(
-            synthesizer_type="document",
-            prompt="Generate insurance claim tests",
-            documents=[{
-                "name": "policy_doc.pdf",
-                "description": "Insurance policy terms",
-                "path": "/uploads/policy_doc.pdf"
-            }],
-            num_tests=10,
-            model="gemini"
-        )
     """
+
     # Access context using the new utility method
     org_id, user_id = self.get_tenant_context()
 
-    # Store source_ids for later use when creating tests
-    if source_ids is None:
-        source_ids = []
-    if source_ids_to_documents is None:
-        source_ids_to_documents = {}
+    with self.get_db_session() as db:
+        documents_to_use, source_ids_list, source_ids_to_documents = process_sources_to_documents(
+            sources=request["sources"],
+            db=db,
+            organization_id=org_id,
+            user_id=user_id,
+        )
+
+    if request is None:
+        raise ValueError("request parameter is required")
+
+    num_tests = request["num_tests"]
+    batch_size = request["batch_size"]
+    test_set_name = request["name"]
 
     # Log the parameters (safely, without exposing sensitive data)
-    log_kwargs = {k: v for k, v in synthesizer_kwargs.items() if not k.lower().endswith("_key")}
+    log_kwargs = {k: v for k, v in request["config"].items() if not k.lower().endswith("_key")}
 
     # If no model specified, fetch user's configured model
-    if model is None:
-        model = _get_model_for_user(self, org_id, user_id)
+    model = _get_model_for_user(self, org_id, user_id)
 
     # Determine model info for logging
     model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
@@ -414,40 +321,17 @@ def generate_and_save_test_set(
         "info",
         "Starting generate_and_save_test_set task",
         num_tests=num_tests,
-        synthesizer_type=synthesizer_type,
         model=model_info,
         synthesizer_params=list(log_kwargs.keys()),
     )
 
     try:
-        # Step 1: Determine synthesizer type
-        self.update_state(state="PROGRESS", meta={"status": "Initializing synthesizer"})
-        synth_type = _determine_synthesizer_type(self, synthesizer_type, synthesizer_kwargs)
-
-        # Step 2: Process parameters
-        processed_kwargs = _process_synthesizer_parameters(self, synth_type, synthesizer_kwargs)
-
-        # Step 3: Create synthesizer
-        synthesizer = _create_synthesizer(self, synth_type, batch_size, model, processed_kwargs)
-
         # Step 4: Generate test set
         self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} test cases"})
 
-        # Handle DocumentSynthesizer specially - it needs documents parameter
-        if synth_type == SynthesizerType.DOCUMENT and "documents" in synthesizer_kwargs:
-            # Convert dicts to Document objects (from Celery serialization)
-            from rhesis.sdk.types import Document
-
-            documents_raw = synthesizer_kwargs["documents"]
-            if documents_raw:
-                documents = [
-                    Document(**doc) if isinstance(doc, dict) else doc for doc in documents_raw
-                ]
-                test_set = synthesizer.generate(documents=documents, num_tests=num_tests)
-            else:
-                raise ValueError("documents parameter is required for DocumentSynthesizer")
-        else:
-            test_set = synthesizer.generate(num_tests=num_tests)
+        config = GenerationConfig(behaviors=request["config"]["behaviors"])
+        synthesizer = ConfigSynthesizer(config=config, model=model, sources=documents_to_use)
+        test_set = synthesizer.generate(num_tests=num_tests)
 
         self.log_with_context(
             "info",
@@ -463,7 +347,7 @@ def generate_and_save_test_set(
             test_set,
             org_id,
             user_id,
-            custom_name=name,
+            custom_name=test_set_name,
             source_ids=source_ids,
             source_ids_to_documents=source_ids_to_documents,
         )
@@ -473,7 +357,6 @@ def generate_and_save_test_set(
             self,
             db_test_set,
             num_tests,
-            synthesizer_type,
             synthesizer,
             log_kwargs,
             batch_size,

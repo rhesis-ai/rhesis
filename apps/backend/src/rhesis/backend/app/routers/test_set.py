@@ -1,5 +1,4 @@
 import uuid
-from dataclasses import asdict
 from enum import Enum
 from typing import List, Optional
 
@@ -21,7 +20,6 @@ from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.documents import Document
 from rhesis.backend.app.schemas.services import SourceData
-from rhesis.backend.app.services.generation import process_sources_to_documents
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
     create_test_set_associations,
@@ -46,7 +44,7 @@ TestSetDetailSchema = create_detailed_schema(schemas.TestSet, models.TestSet)
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
 router = APIRouter(
-    prefix="/test_sets", tags=["test_sets"], responses={404: {"description": "Not found"}}
+    prefix="/test_sets", tags=["test_sets"], responses={404: {"description": "Not found the page"}}
 )
 
 
@@ -280,45 +278,15 @@ async def generate_test_set(
         if not request.config.description.strip():
             raise HTTPException(status_code=400, detail="Description is required")
 
-        # Prepare documents from sources if provided
-        # Fetch full source data from database if only IDs are provided
-        documents_to_use = []
-        source_ids_to_documents = {}  # Map document name to source_id
-        source_ids_list = []  # List of source_ids in the same order as documents
-        if request.documents:
-            documents_to_use = request.documents
-        elif request.sources:
-            organization_id, user_id = tenant_context
-            documents_to_use, source_ids_list, source_ids_to_documents = (
-                process_sources_to_documents(
-                    sources=request.sources,
-                    db=db,
-                    organization_id=organization_id,
-                    user_id=user_id,
-                )
-            )
-
-        # Build the generation prompt from config and samples
-        generation_prompt = build_generation_prompt(request.config, request.samples)
-
-        # Determine test count
-        test_count = determine_test_count(request.config, request.num_tests)
-
+        test_count = request.num_tests
         # Launch the generation task
         # Note: The task will fetch the user's configured model itself
         # using get_user_generation_model. This avoids trying to serialize
         # BaseLLM objects which are not JSON serializable
         task_result = task_launcher(
             generate_and_save_test_set,
-            request.synthesizer_type,  # First positional argument
             current_user=current_user,
-            num_tests=test_count,
-            batch_size=request.batch_size,
-            prompt=generation_prompt,
-            documents=[asdict(doc) for doc in documents_to_use] if documents_to_use else None,
-            source_ids=source_ids_list,  # Pass actual source_ids list
-            source_ids_to_documents=source_ids_to_documents,  # Pass mapping for debugging
-            name=request.name,  # Pass optional test set name
+            request=request.model_dump(mode="json"),
         )
 
         logger.info(
@@ -327,7 +295,6 @@ async def generate_test_set(
                 "task_id": task_result.id,
                 "user_id": current_user.id,
                 "organization_id": current_user.organization_id,
-                "synthesizer_type": request.synthesizer_type,
                 "test_count": test_count,
                 "sample_count": len(request.samples),
             },

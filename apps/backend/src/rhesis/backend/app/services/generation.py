@@ -9,9 +9,9 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import SourceData
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
+from rhesis.sdk.services.extractor import SourceSpecification, SourceType
 from rhesis.sdk.synthesizers import (
     ConfigSynthesizer,
-    DocumentSynthesizer,
     GenerationConfig,
 )
 from rhesis.sdk.types import Document
@@ -22,7 +22,7 @@ def process_sources_to_documents(
     db: Session,
     organization_id: str,
     user_id: str,
-) -> Tuple[List[Document], List[str], Dict[str, str]]:
+) -> Tuple[List[SourceSpecification], List[str], Dict[str, str]]:
     """
     Process SourceData list into SDK Document objects with source tracking.
 
@@ -45,6 +45,10 @@ def process_sources_to_documents(
     Raises:
         HTTPException: If a source is not found in the database
     """
+    if isinstance(sources[0], dict):
+        sources = [SourceData(**source) for source in sources]
+    else:
+        sources = sources
     documents_sdk = []
     source_ids_list = []
     source_ids_to_documents = {}
@@ -52,6 +56,7 @@ def process_sources_to_documents(
     if not sources:
         return documents_sdk, source_ids_list, source_ids_to_documents
 
+    sources_sdk: List[SourceSpecification] = []
     for source_data in sources:
         # Fetch source from database if id is provided
         if source_data.id:
@@ -76,13 +81,15 @@ def process_sources_to_documents(
             source_content = source_data.content or ""
 
         # Create Document object from SourceData
-        document_sdk = Document(
+        source_sdk = SourceSpecification(
             name=source_name,
             description=source_description or (f"Source document: {source_name}"),
-            content=source_content or (f"No content available for source: {source_name}"),
-            path=None,  # Sources don't have file paths
+            type=SourceType.TEXT,
+            metadata={
+                "content": source_content or (f"No content available for source: {source_name}")
+            },
         )
-        documents_sdk.append(document_sdk)
+        sources_sdk.append(source_sdk)
 
         # Track source IDs only if an ID was provided
         if source_data.id:
@@ -90,19 +97,16 @@ def process_sources_to_documents(
             # Store mapping: document name -> source_id for later lookup
             source_ids_to_documents[source_name] = str(source_data.id)
 
-    return documents_sdk, source_ids_list, source_ids_to_documents
+    return sources_sdk, source_ids_list, source_ids_to_documents
 
 
 async def generate_tests(
     db: Session,
     user: User,
-    prompt: Dict,
+    config: Dict,
     num_tests: int = 5,
     documents: Optional[List[Document]] = None,
-    chip_states: Optional[List[Dict]] = None,
-    rated_samples: Optional[List[Dict]] = None,
-    previous_messages: Optional[List[Dict]] = None,
-) -> Dict:
+) -> List[Dict]:
     """
     Generate tests using the appropriate synthesizer based on input.
     Uses user's configured default model if available,
@@ -133,31 +137,13 @@ async def generate_tests(
     model = get_user_generation_model(db, user)
 
     # Choose synthesizer based on whether documents are provided
-    config = GenerationConfig(**prompt)
-    if documents:
-        # For DocumentSynthesizer, we need a simple prompt string
-        # The detailed config is passed via the config parameter
-        prompt_string = str(
-            prompt.get("specific_requirements") or prompt.get("test_type", "Generate test cases")
-        )
-        synthesizer = DocumentSynthesizer(
-            prompt=prompt_string,
-            model=model,
-            config=config,
-            chip_states=chip_states,
-            rated_samples=rated_samples,
-            previous_messages=previous_messages,
-        )
-        generate_func = partial(synthesizer.generate, documents=documents, num_tests=num_tests)
-    else:
-        synthesizer = ConfigSynthesizer(
-            config=config,
-            model=model,
-            chip_states=chip_states,
-            rated_samples=rated_samples,
-            previous_messages=previous_messages,
-        )
-        generate_func = partial(synthesizer.generate, num_tests=num_tests)
+    generation_config = GenerationConfig(**config)
+    synthesizer = ConfigSynthesizer(
+        config=generation_config,
+        model=model,
+        sources=documents,
+    )
+    generate_func = partial(synthesizer.generate, num_tests=num_tests)
 
     # Run the potentially blocking operation in a separate thread
     # to avoid blocking the event loop

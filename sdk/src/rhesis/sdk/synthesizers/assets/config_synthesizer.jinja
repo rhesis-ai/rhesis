@@ -1,0 +1,17 @@
+{% extends "base.jinja" %}
+
+{% block specific_requirements %}
+
+{% if generation_prompt %}
+### Generation Prompt
+{{ generation_prompt }}
+### End of Generation Prompt
+{% endif %}
+
+{% if additional_context %}
+### Additional Context
+{{ additional_context }}
+### End of Additional Context
+{% endif %}
+
+{% endblock %}
