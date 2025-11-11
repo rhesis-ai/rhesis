@@ -1,8 +1,10 @@
+import gc
 from pathlib import Path
 from typing import List, Optional
 
 from rhesis.sdk.models import BaseLLM
 
+from .models.judge import Judge
 from .results_curator import ResultsCurator
 from .test_sets import TestResult, TestSetEvaluator
 
@@ -39,7 +41,6 @@ class ModelTester:
         for json_file in self.test_sets_dir.glob("*.json"):
             test_set = TestSetEvaluator(json_file)
             self.test_sets.append(test_set)
-        self.test_results: List[TestResult] = []  # Collected test results
         self._current_run_results: List[TestResult] = []  # Results from current run
 
     def add_model(self, model: BaseLLM):
@@ -64,11 +65,6 @@ class ModelTester:
             If True, recompute all responses even if they exist. Default: False.
         print_summary : bool, optional
             If True, print generation summary. Default: True.
-
-        Returns
-        -------
-        List[TestResult]
-            Results from this generation run.
         """
         self._current_run_results = []
 
@@ -80,13 +76,10 @@ class ModelTester:
                 results = test_set.generate_all_responses()
             else:
                 results = test_set.generate_pending_responses()
-            self.test_results.extend(results)
             self._current_run_results.extend(results)
 
         if print_summary:
             self.print_generation_summary()
-
-        return self._current_run_results
 
     def evaluate(self, recompute_existing=False, print_summary=True):
         """
@@ -101,16 +94,23 @@ class ModelTester:
         print_summary : bool, optional
             If True, print evaluation summary. Default: True.
         """
+        # Load judge model once for all evaluations
+        judge = None
         if self.test_sets:
-            self.test_sets[0].load_judge()
+            judge = Judge()
+            judge.model, judge.tokenizer, judge.device = judge.load_model()
 
         try:
             for test_set in self.test_sets:
+                test_set.set_judge(judge)
                 test_set.load_results()
                 test_set.evaluate_results(recompute_existing=recompute_existing)
         finally:
-            if self.test_sets:
-                self.test_sets[0].unload_judge()
+            # Unload judge model
+            if judge is not None:
+                judge.unload_model()
+                del judge
+                gc.collect()
 
         if print_summary:
             self.print_evaluation_summary()

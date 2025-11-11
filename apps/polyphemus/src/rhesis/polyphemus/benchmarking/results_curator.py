@@ -36,6 +36,33 @@ class MetricStatistics:
 
 
 @dataclass
+class CategoryPerformance:
+    """Performance data for a specific category within a model."""
+
+    category_name: str
+    total_tests: int = 0
+    successful_tests: int = 0
+    overall_score: Optional[MetricStatistics] = None
+    metric_scores: Dict[str, MetricStatistics] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        result = {
+            "category": self.category_name,
+            "total_tests": self.total_tests,
+            "successful_tests": self.successful_tests,
+            "overall_score": self.overall_score.to_dict() if self.overall_score else None,
+        }
+
+        # Add individual metric scores
+        if self.metric_scores:
+            result["metrics"] = {
+                metric_name: stats.to_dict() for metric_name, stats in self.metric_scores.items()
+            }
+
+        return result
+
+
+@dataclass
 class ModelPerformance:
     """Performance data for a single model."""
 
@@ -59,13 +86,8 @@ class ModelPerformance:
     tokens_in: MetricStatistics = None
     tokens_out: MetricStatistics = None
 
-    # Context usage
-    tests_with_context: int = 0
-    context_retention_score: Optional[MetricStatistics] = None
-
-    # Refusal analysis
-    complied_count: int = 0
-    refused_count: int = 0
+    # Category breakdown
+    category_performance: Dict[str, CategoryPerformance] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         result = {
@@ -104,51 +126,14 @@ class ModelPerformance:
         if self.tokens_out:
             result["performance_metrics"]["output_tokens"] = self.tokens_out.to_dict()
 
-        # Add context metrics
-        if self.tests_with_context > 0:
-            result["context_usage"] = {
-                "tests_with_context": self.tests_with_context,
-                "context_retention": self.context_retention_score.to_dict()
-                if self.context_retention_score
-                else None,
-            }
-
-        # Add refusal analysis
-        if self.complied_count > 0 or self.refused_count > 0:
-            result["refusal_analysis"] = {
-                "complied": self.complied_count,
-                "refused": self.refused_count,
-                "compliance_rate": round(
-                    self.complied_count / (self.complied_count + self.refused_count) * 100,
-                    2,
-                ),
+        # Add category breakdown
+        if self.category_performance:
+            result["category_breakdown"] = {
+                cat_name: cat_perf.to_dict()
+                for cat_name, cat_perf in self.category_performance.items()
             }
 
         return result
-
-
-@dataclass
-class TestSetSummary:
-    """Summary for a single test set."""
-
-    test_set_name: str
-    total_tests: int
-    models_evaluated: List[str]
-    best_overall_model: Optional[str] = None
-    best_cost_model: Optional[str] = None
-    best_speed_model: Optional[str] = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "test_set_name": self.test_set_name,
-            "total_tests": self.total_tests,
-            "models_evaluated": self.models_evaluated,
-            "recommendations": {
-                "best_overall_quality": self.best_overall_model,
-                "best_cost_efficiency": self.best_cost_model,
-                "best_speed": self.best_speed_model,
-            },
-        }
 
 
 class ResultsCurator:
@@ -262,7 +247,9 @@ class ResultsCurator:
             input_tokens = []
             output_tokens = []
             metric_values = {}
-            context_retention_values = []
+
+            # Category tracking: {category_name: {scores: [], metric_values: {}}}
+            category_data = {}
 
             for result in results:
                 model_perf.total_tests += 1
@@ -284,6 +271,34 @@ class ResultsCurator:
 
                 scores.append(score)
 
+                # Extract category from test_metadata
+                test_metadata = result.get("test_metadata", {})
+                category = None
+                if test_metadata:
+                    # Try multiple possible category fields
+                    category = (
+                        test_metadata.get("category")
+                        or test_metadata.get("categorization")
+                        or test_metadata.get("topic")
+                        or test_metadata.get("harm_area")
+                        or test_metadata.get("dataset")
+                    )
+
+                    if category:
+                        # Initialize category data structure if needed
+                        if category not in category_data:
+                            category_data[category] = {
+                                "scores": [],
+                                "metric_values": {},
+                                "total": 0,
+                                "successful": 0,
+                            }
+
+                        category_data[category]["total"] += 1
+                        if score > 0:
+                            category_data[category]["successful"] += 1
+                        category_data[category]["scores"].append(score)
+
                 # Cost
                 cost = result.get("cost")
                 if cost is not None:
@@ -298,23 +313,10 @@ class ResultsCurator:
                 if "output_tokens" in metadata:
                     output_tokens.append(metadata["output_tokens"])
 
-                # Context
-                if result.get("context"):
-                    model_perf.tests_with_context += 1
-
                 # Metric details
                 details = result.get("details", {})
                 for metric_name, metric_data in details.items():
                     if not isinstance(metric_data, dict):
-                        continue
-
-                    # Handle refusal separately
-                    if metric_name == "refusal":
-                        verdict = metric_data.get("verdict", "").upper()
-                        if verdict == "COMPLIED":
-                            model_perf.complied_count += 1
-                        elif verdict == "REFUSED":
-                            model_perf.refused_count += 1
                         continue
 
                     # Collect numeric scores
@@ -324,9 +326,13 @@ class ResultsCurator:
                             metric_values[metric_name] = []
                         metric_values[metric_name].append(metric_score)
 
-                        # Track context retention separately
-                        if metric_name == "context_retention":
-                            context_retention_values.append(metric_score)
+                        # Track metric for category if applicable
+                        if category:
+                            if metric_name not in category_data[category]["metric_values"]:
+                                category_data[category]["metric_values"][metric_name] = []
+                            category_data[category]["metric_values"][metric_name].append(
+                                metric_score
+                            )
 
             # Compute statistics
             if scores:
@@ -339,15 +345,33 @@ class ResultsCurator:
                 model_perf.tokens_in = self._compute_statistics(input_tokens)
             if output_tokens:
                 model_perf.tokens_out = self._compute_statistics(output_tokens)
-            if context_retention_values:
-                model_perf.context_retention_score = self._compute_statistics(
-                    context_retention_values
-                )
 
             # Compute per-metric statistics
             for metric_name, values in metric_values.items():
                 model_perf.metric_scores[metric_name] = self._compute_statistics(values)
                 model_perf.metric_scores[metric_name].name = metric_name
+
+            # Compute category statistics
+            for category_name, cat_data in category_data.items():
+                cat_perf = CategoryPerformance(
+                    category_name=category_name,
+                    total_tests=cat_data["total"],
+                    successful_tests=cat_data["successful"],
+                )
+
+                # Overall score for category
+                if cat_data["scores"]:
+                    cat_perf.overall_score = self._compute_statistics(cat_data["scores"])
+
+                # Per-metric scores for category
+                for metric_name, metric_vals in cat_data["metric_values"].items():
+                    if metric_vals:
+                        cat_perf.metric_scores[metric_name] = self._compute_statistics(
+                            metric_vals
+                        )
+                        cat_perf.metric_scores[metric_name].name = metric_name
+
+                model_perf.category_performance[category_name] = cat_perf
 
         return models_data
 
@@ -367,30 +391,6 @@ class ResultsCurator:
         """
         if not models_data:
             return {}
-
-        # Find best models by different criteria
-        best_overall = None
-        best_overall_score = -1
-        best_cost = None
-        best_cost_value = float("inf")
-        best_speed = None
-        best_speed_value = float("inf")
-
-        for model_id, perf in models_data.items():
-            # Best overall quality
-            if perf.overall_score and perf.overall_score.mean > best_overall_score:
-                best_overall_score = perf.overall_score.mean
-                best_overall = model_id
-
-            # Best cost (lowest)
-            if perf.cost_heuristic and perf.cost_heuristic.mean < best_cost_value:
-                best_cost_value = perf.cost_heuristic.mean
-                best_cost = model_id
-
-            # Best speed (lowest generation time)
-            if perf.generation_time and perf.generation_time.mean < best_speed_value:
-                best_speed_value = perf.generation_time.mean
-                best_speed = model_id
 
         # Quality rankings
         quality_rankings = sorted(
@@ -444,133 +444,89 @@ class ResultsCurator:
             ]
 
         return {
-            "best_models": {
-                "overall_quality": {
-                    "model": best_overall,
-                    "score": round(best_overall_score, 4),
-                },
-                "cost_efficiency": {
-                    "model": best_cost,
-                    "cost_heuristic": round(best_cost_value, 4),
-                },
-                "speed": {
-                    "model": best_speed,
-                    "avg_generation_time_seconds": round(best_speed_value, 4),
-                },
-            },
-            "rankings": {
-                "by_overall_quality": [
-                    {"model": model_id, "score": round(score, 4)}
-                    for model_id, score in quality_rankings
-                ],
-                "by_cost_efficiency": [
-                    {"model": model_id, "cost_heuristic": round(cost, 4)}
-                    for model_id, cost in cost_rankings
-                ],
-                "by_speed": [
-                    {
-                        "model": model_id,
-                        "avg_generation_time_seconds": round(time, 4),
-                    }
-                    for model_id, time in speed_rankings
-                ],
-                "by_metric": metric_rankings,
-            },
+            "by_overall_quality": [
+                {"model": model_id, "score": round(score, 4)}
+                for model_id, score in quality_rankings
+            ],
+            "by_cost": [
+                {"model": model_id, "cost_heuristic": round(cost, 4)}
+                for model_id, cost in cost_rankings
+            ],
+            "by_speed": [
+                {
+                    "model": model_id,
+                    "avg_generation_time_seconds": round(time, 4),
+                }
+                for model_id, time in speed_rankings
+            ],
+            "by_metric": metric_rankings,
         }
 
-    def _generate_recommendations(
-        self, models_data: Dict[str, ModelPerformance], comparisons: Dict[str, Any]
+    def _generate_category_insights(
+        self, models_data: Dict[str, ModelPerformance]
     ) -> Dict[str, Any]:
         """
-        Generate use-case specific recommendations.
+        Generate insights from category-based performance analysis.
 
         Parameters
         ----------
         models_data : Dict[str, ModelPerformance]
             Model performance data
-        comparisons : Dict[str, Any]
-            Comparative analysis
 
         Returns
         -------
         Dict[str, Any]
-            Recommendations
+            Category insights across all models
         """
-        recommendations = {}
+        # Collect all unique categories
+        all_categories = set()
+        for perf in models_data.values():
+            all_categories.update(perf.category_performance.keys())
 
-        # General purpose: balance of quality and cost
-        quality_cost_scores = []
-        for model_id, perf in models_data.items():
-            if perf.overall_score and perf.cost_heuristic:
-                # Normalize and compute combined score (higher quality, lower cost)
-                quality = perf.overall_score.mean
-                # Invert cost so lower is better
-                cost_score = 1 / (1 + perf.cost_heuristic.mean)
-                combined = (quality * 0.6) + (cost_score * 0.4)
-                quality_cost_scores.append((model_id, combined, quality, cost_score))
+        if not all_categories:
+            return {}
 
-        if quality_cost_scores:
-            quality_cost_scores.sort(key=lambda x: x[1], reverse=True)
-            best = quality_cost_scores[0]
-            recommendations["general_purpose"] = {
-                "model": best[0],
-                "reason": "Best balance of quality and cost efficiency",
-                "quality_score": round(best[2], 4),
-                "cost_efficiency_score": round(best[3], 4),
+        category_insights = {}
+
+        for category in all_categories:
+            # Find best model for this category
+            best_model = None
+            best_score = -1
+
+            category_stats = []
+
+            for model_id, perf in models_data.items():
+                if category in perf.category_performance:
+                    cat_perf = perf.category_performance[category]
+                    if cat_perf.overall_score:
+                        score = cat_perf.overall_score.mean
+                        category_stats.append(
+                            {
+                                "model": model_id,
+                                "score": round(score, 4),
+                                "tests": cat_perf.total_tests,
+                                "success_rate": round(
+                                    cat_perf.successful_tests / cat_perf.total_tests * 100, 2
+                                )
+                                if cat_perf.total_tests > 0
+                                else 0,
+                            }
+                        )
+
+                        if score > best_score:
+                            best_score = score
+                            best_model = model_id
+
+            # Sort by score
+            category_stats.sort(key=lambda x: x["score"], reverse=True)
+
+            category_insights[category] = {
+                "best_model": best_model,
+                "best_score": round(best_score, 4) if best_model else None,
+                "model_rankings": category_stats,
             }
 
-        # High accuracy: best overall quality
-        best_quality = comparisons["best_models"]["overall_quality"]
-        if best_quality["model"]:
-            recommendations["high_accuracy"] = {
-                "model": best_quality["model"],
-                "reason": "Highest overall quality score",
-                "score": best_quality["score"],
-            }
-
-        # Budget constrained: best cost
-        best_cost = comparisons["best_models"]["cost_efficiency"]
-        if best_cost["model"]:
-            recommendations["budget_constrained"] = {
-                "model": best_cost["model"],
-                "reason": "Most cost-efficient option",
-                "cost_heuristic": best_cost["cost_heuristic"],
-            }
-
-        # Low latency: best speed
-        best_speed = comparisons["best_models"]["speed"]
-        if best_speed["model"]:
-            recommendations["low_latency"] = {
-                "model": best_speed["model"],
-                "reason": "Fastest generation time",
-                "avg_generation_time_seconds": best_speed["avg_generation_time_seconds"],
-            }
-
-        # Context-heavy tasks: best context retention
-        context_scores = []
-        for model_id, perf in models_data.items():
-            if perf.context_retention_score:
-                context_scores.append((model_id, perf.context_retention_score.mean))
-
-        if context_scores:
-            context_scores.sort(key=lambda x: x[1], reverse=True)
-            best_context = context_scores[0]
-            recommendations["context_heavy_tasks"] = {
-                "model": best_context[0],
-                "reason": "Best at utilizing and retaining context information",
-                "context_retention_score": round(best_context[1], 4),
-            }
-
-        # Fluency-critical: best fluency
-        if "fluency" in comparisons["rankings"]["by_metric"]:
-            best_fluency = comparisons["rankings"]["by_metric"]["fluency"][0]
-            recommendations["fluency_critical"] = {
-                "model": best_fluency["model"],
-                "reason": "Most fluent and natural language generation",
-                "fluency_score": best_fluency["score"],
-            }
-
-        return recommendations
+        return category_insights
 
     def curate_results(self) -> Dict[str, Any]:
         """
@@ -600,8 +556,8 @@ class ResultsCurator:
         # Generate comparisons
         comparisons = self._generate_comparisons(models_data)
 
-        # Generate recommendations
-        recommendations = self._generate_recommendations(models_data, comparisons)
+        # Generate category insights
+        category_insights = self._generate_category_insights(models_data)
 
         # Build final report
         report = {
@@ -612,7 +568,7 @@ class ResultsCurator:
             },
             "models": {model_id: perf.to_dict() for model_id, perf in models_data.items()},
             "comparisons": comparisons,
-            "recommendations": recommendations,
+            "category_insights": category_insights,
         }
 
         return report
