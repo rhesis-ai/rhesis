@@ -44,6 +44,7 @@ from rhesis.sdk.services.extractor import DocumentExtractor
 class ItemResult(BaseModel):
     """Minimal item metadata for search results."""
 
+    id: str
     url: str
     title: str
 
@@ -58,7 +59,7 @@ class SearchMCPRequest(BaseModel):
 class ExtractMCPRequest(BaseModel):
     """Request to extract MCP item content."""
 
-    item_id: str
+    id: str
     server_name: str
 
 
@@ -491,8 +492,8 @@ async def search_mcp_server(
     """
     Search MCP server for items matching the query.
 
-    Works with any MCP server (Notion, GitHub, Slack, etc.).
-    Returns list of items with url and title.
+    Works with any MCP server (e.g., "notionApi", "github").
+    Returns list of items with id, url, and title.
     """
     try:
         return await search_mcp(request.query, request.server_name)
@@ -508,11 +509,11 @@ async def extract_mcp_item(
     """
     Extract full content from an MCP item as markdown.
 
-    Works with any MCP server (Notion, GitHub, Slack, etc.).
+    Works with any MCP server (e.g., "notionApi", "github").
     Returns markdown content.
     """
     try:
-        content = await extract_mcp(request.item_id, request.server_name)
+        content = await extract_mcp(request.id, request.server_name)
         return {"content": content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
