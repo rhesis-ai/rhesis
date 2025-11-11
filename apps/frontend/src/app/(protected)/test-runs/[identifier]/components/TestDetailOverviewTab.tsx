@@ -130,201 +130,53 @@ export default function TestDetailOverviewTab({
   const testStatus = useMemo(() => getTestResultStatus(test), [test]);
   const testLabel = useMemo(() => getTestResultLabel(test), [test]);
 
-  return (
-    <Box sx={{ p: 3 }}>
-      {/* Test Result Section */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Typography
-            variant="overline"
-            sx={{
-              color: 'text.secondary',
-              fontWeight: 600,
-              letterSpacing: 1,
-            }}
-          >
-            Test Result
-          </Typography>
-
-          {/* Show Review Confirmed indicator if review exists */}
-          {test.last_review && (
-            <Chip
-              icon={<CheckIcon sx={{ fontSize: 14 }} />}
-              label="Review Confirmed"
-              size="small"
-              sx={{
-                bgcolor: theme.palette.mode === 'light' ? '#E8F5E9' : '#1B2F1E',
-                color: theme.palette.success.main,
-                fontWeight: 500,
-                border: `1px solid ${theme.palette.mode === 'light' ? '#A5D6A7' : '#2E7D32'}`,
-                height: '20px',
-              }}
-            />
-          )}
-        </Box>
-
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2.5,
-            backgroundColor: theme.palette.background.default,
-          }}
-        >
-          {/* Status and Reasoning in one line */}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+  // Render for Single-turn tests (original simple design)
+  if (!isMultiTurn) {
+    return (
+      <Box sx={{ p: 3 }}>
+        {/* Overall Status */}
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <Typography variant="h6" fontWeight={600}>
+              Test Result
+            </Typography>
             <StatusChip
               status={testStatus}
               label={testLabel}
               size="medium"
               variant="filled"
-              sx={{ fontWeight: 600, flexShrink: 0 }}
+              sx={{ fontWeight: 600 }}
             />
-
-            {/* Reasoning and Evidence Container */}
-            <Box sx={{ flex: 1 }}>
-              {/* Reasoning (Multi-turn only) */}
-              {isMultiTurn && test.test_output?.goal_evaluation?.reasoning && (
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: 'text.secondary',
-                    lineHeight: 1.6,
-                    mb: 1.5,
-                  }}
-                >
-                  {test.test_output.goal_evaluation.reasoning}
-                </Typography>
-              )}
-
-              {/* Evidence (Multi-turn only) - Collapsible */}
-              {isMultiTurn &&
-                test.test_output?.goal_evaluation?.evidence &&
-                test.test_output.goal_evaluation.evidence.length > 0 && (
-                  <Box>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        cursor: 'pointer',
-                        '&:hover': { opacity: 0.7 },
-                      }}
-                      onClick={() => setEvidenceExpanded(!evidenceExpanded)}
-                    >
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: 'text.secondary',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {evidenceExpanded ? 'Hide' : 'Show'} Evidence (
-                        {test.test_output.goal_evaluation.evidence.length})
-                      </Typography>
-                      <IconButton
-                        size="small"
-                        sx={{
-                          padding: 0,
-                          transform: evidenceExpanded
-                            ? 'rotate(180deg)'
-                            : 'rotate(0deg)',
-                          transition: 'transform 0.2s',
-                        }}
-                      >
-                        <ExpandMoreIcon sx={{ fontSize: 16 }} />
-                      </IconButton>
-                    </Box>
-
-                    <Collapse
-                      in={evidenceExpanded}
-                      timeout="auto"
-                      unmountOnExit
-                    >
-                      <Box
-                        sx={{
-                          mt: 1,
-                          pl: 2,
-                        }}
-                      >
-                        {test.test_output.goal_evaluation.evidence.map(
-                          (item, index) => (
-                            <Box
-                              key={index}
-                              sx={{
-                                display: 'flex',
-                                gap: 1,
-                                mb: 0.5,
-                              }}
-                            >
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  color: 'text.secondary',
-                                  fontSize: '0.875rem',
-                                }}
-                              >
-                                •
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  color: 'text.secondary',
-                                  fontSize: '0.875rem',
-                                  flex: 1,
-                                }}
-                              >
-                                {item}
-                              </Typography>
-                            </Box>
-                          )
-                        )}
-                      </Box>
-                    </Collapse>
-                  </Box>
-                )}
-            </Box>
+            {/* Show Review Confirmed indicator if review exists */}
+            {test.last_review && (
+              <Chip
+                icon={<CheckIcon sx={{ fontSize: 16 }} />}
+                label="Confirmed"
+                size="medium"
+                color="success"
+                variant="filled"
+                sx={{
+                  fontWeight: 600,
+                }}
+              />
+            )}
           </Box>
-        </Paper>
-      </Box>
+        </Box>
 
-      {/* Divider between Result and Configuration */}
-      <Divider sx={{ my: 4 }} />
-
-      {/* Test Configuration Section */}
-      <Box>
-        <Typography
-          variant="overline"
-          sx={{
-            color: 'text.secondary',
-            fontWeight: 600,
-            letterSpacing: 1,
-            display: 'block',
-            mb: 2,
-          }}
-        >
-          Test Configuration
-        </Typography>
-
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2.5,
-            backgroundColor: theme.palette.background.default,
-          }}
-        >
-          {/* Goal/Prompt */}
-          <Box sx={{ mb: 2 }}>
-            <Typography
-              variant="caption"
-              sx={{
-                color: 'text.secondary',
-                fontWeight: 600,
-                display: 'block',
-                mb: 0.5,
-              }}
-            >
-              {isMultiTurn ? 'Goal' : 'Prompt'}
-            </Typography>
+        {/* Prompt Section */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Prompt
+          </Typography>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              backgroundColor: theme.palette.background.default,
+              maxHeight: 200,
+              overflow: 'auto',
+            }}
+          >
             <Typography
               variant="body2"
               sx={{
@@ -334,139 +186,265 @@ export default function TestDetailOverviewTab({
             >
               {promptContent}
             </Typography>
-          </Box>
+          </Paper>
+        </Box>
 
-          {/* Multi-turn Configuration Details */}
-          {isMultiTurn && (
-            <>
-              {/* Instructions */}
-              {(testConfig?.instructions || true) && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: 'text.secondary',
-                      fontWeight: 600,
-                      display: 'block',
-                      mb: 0.5,
-                    }}
-                  >
-                    Instructions
-                  </Typography>
-                  <Box
-                    sx={{
-                      color: testConfig?.instructions
-                        ? 'text.primary'
-                        : 'text.secondary',
-                      fontStyle: testConfig?.instructions ? 'normal' : 'italic',
-                    }}
-                  >
-                    {testConfig?.instructions ? (
-                      renderFormattedText(testConfig.instructions)
-                    ) : (
-                      <Typography variant="body2">
-                        No instructions provided
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
-              )}
+        {/* Response Section */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Response
+          </Typography>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              backgroundColor: theme.palette.background.default,
+              maxHeight: 200,
+              overflow: 'auto',
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}
+            >
+              {responseContent}
+            </Typography>
+          </Paper>
+        </Box>
 
-              {/* Restrictions */}
-              {(testConfig?.restrictions || true) && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: 'text.secondary',
-                      fontWeight: 600,
-                      display: 'block',
-                      mb: 0.5,
-                    }}
-                  >
-                    Restrictions
-                  </Typography>
-                  <Box
-                    sx={{
-                      color: testConfig?.restrictions
-                        ? 'text.primary'
-                        : 'text.secondary',
-                      fontStyle: testConfig?.restrictions ? 'normal' : 'italic',
-                    }}
-                  >
-                    {testConfig?.restrictions ? (
-                      renderFormattedText(testConfig.restrictions)
-                    ) : (
-                      <Typography variant="body2">
-                        No restrictions provided
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
-              )}
+        {/* Tags Section */}
+        <Box sx={{ mb: 3 }}>
+          <TestResultTags
+            sessionToken={sessionToken}
+            testResult={test}
+            onUpdate={onTestResultUpdate}
+          />
+        </Box>
+      </Box>
+    );
+  }
 
-              {/* Scenario */}
-              {(testConfig?.scenario || true) && (
-                <Box sx={{ mb: 0 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: 'text.secondary',
-                      fontWeight: 600,
-                      display: 'block',
-                      mb: 0.5,
-                    }}
-                  >
-                    Scenario
-                  </Typography>
-                  <Box
-                    sx={{
-                      color: testConfig?.scenario
-                        ? 'text.primary'
-                        : 'text.secondary',
-                      fontStyle: testConfig?.scenario ? 'normal' : 'italic',
-                    }}
-                  >
-                    {testConfig?.scenario ? (
-                      renderFormattedText(testConfig.scenario)
-                    ) : (
-                      <Typography variant="body2">
-                        No scenario provided
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
-              )}
-            </>
+  // Render for Multi-turn tests (structured design)
+  return (
+    <Box sx={{ p: 3 }}>
+      {/* Test Result Section */}
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <Typography variant="subtitle2" fontWeight={600}>
+            Test Result
+          </Typography>
+          <StatusChip
+            status={testStatus}
+            label={testLabel}
+            size="medium"
+            variant="filled"
+            sx={{ fontWeight: 600 }}
+          />
+          {/* Show Review Confirmed indicator if review exists */}
+          {test.last_review && (
+            <Chip
+              icon={<CheckIcon sx={{ fontSize: 16 }} />}
+              label="Confirmed"
+              size="medium"
+              color="success"
+              variant="filled"
+              sx={{
+                fontWeight: 600,
+              }}
+            />
           )}
+        </Box>
 
-          {/* Response Section (Single-turn only) */}
-          {!isMultiTurn && (
-            <Box sx={{ mb: 0 }}>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: 'text.secondary',
-                  fontWeight: 600,
-                  display: 'block',
-                  mb: 0.5,
-                }}
-              >
-                Response
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {responseContent}
-              </Typography>
-            </Box>
-          )}
+        {/* Reasoning and Evidence */}
+        {test.test_output?.goal_evaluation?.reasoning && (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              backgroundColor: theme.palette.background.default,
+              mb: 2,
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                mb: test.test_output?.goal_evaluation?.evidence ? 1.5 : 0,
+              }}
+            >
+              {test.test_output.goal_evaluation.reasoning}
+            </Typography>
+
+            {/* Evidence - Collapsible */}
+            {test.test_output?.goal_evaluation?.evidence &&
+              test.test_output.goal_evaluation.evidence.length > 0 && (
+                <Box>
+                  <Divider sx={{ mb: 1.5 }} />
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      cursor: 'pointer',
+                      '&:hover': { opacity: 0.7 },
+                    }}
+                    onClick={() => setEvidenceExpanded(!evidenceExpanded)}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'text.secondary',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      {evidenceExpanded ? 'Hide' : 'Show'} Evidence (
+                      {test.test_output.goal_evaluation.evidence.length})
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      sx={{
+                        padding: 0,
+                        transform: evidenceExpanded
+                          ? 'rotate(180deg)'
+                          : 'rotate(0deg)',
+                        transition: 'transform 0.2s',
+                      }}
+                    >
+                      <ExpandMoreIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Box>
+
+                  <Collapse in={evidenceExpanded} timeout="auto" unmountOnExit>
+                    <Box sx={{ mt: 1, pl: 2 }}>
+                      {test.test_output.goal_evaluation.evidence.map(
+                        (item, index) => (
+                          <Box
+                            key={index}
+                            sx={{
+                              display: 'flex',
+                              gap: 1,
+                              mb: 0.5,
+                            }}
+                          >
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: 'text.secondary',
+                              }}
+                            >
+                              •
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: 'text.secondary',
+                                flex: 1,
+                              }}
+                            >
+                              {item}
+                            </Typography>
+                          </Box>
+                        )
+                      )}
+                    </Box>
+                  </Collapse>
+                </Box>
+              )}
+          </Paper>
+        )}
+      </Box>
+
+      {/* Goal Section */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+          Goal
+        </Typography>
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            backgroundColor: theme.palette.background.default,
+            maxHeight: 200,
+            overflow: 'auto',
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {promptContent}
+          </Typography>
         </Paper>
       </Box>
+
+      {/* Instructions */}
+      {testConfig?.instructions && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Instructions
+          </Typography>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              backgroundColor: theme.palette.background.default,
+              maxHeight: 200,
+              overflow: 'auto',
+            }}
+          >
+            {renderFormattedText(testConfig.instructions)}
+          </Paper>
+        </Box>
+      )}
+
+      {/* Restrictions */}
+      {testConfig?.restrictions && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Restrictions
+          </Typography>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              backgroundColor: theme.palette.background.default,
+              maxHeight: 200,
+              overflow: 'auto',
+            }}
+          >
+            {renderFormattedText(testConfig.restrictions)}
+          </Paper>
+        </Box>
+      )}
+
+      {/* Scenario */}
+      {testConfig?.scenario && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Scenario
+          </Typography>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              backgroundColor: theme.palette.background.default,
+              maxHeight: 200,
+              overflow: 'auto',
+            }}
+          >
+            {renderFormattedText(testConfig.scenario)}
+          </Paper>
+        </Box>
+      )}
     </Box>
   );
 }

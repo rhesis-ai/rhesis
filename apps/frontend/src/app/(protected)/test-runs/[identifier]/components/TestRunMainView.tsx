@@ -627,6 +627,8 @@ export default function TestRunMainView({
               testSetType={
                 testRun.test_configuration?.test_set?.test_set_type?.type_value
               }
+              project={testRun.test_configuration?.endpoint?.project}
+              projectName={testRun.test_configuration?.endpoint?.project?.name}
             />
           )}
         </>
@@ -642,6 +644,8 @@ export default function TestRunMainView({
           testSetType={
             testRun.test_configuration?.test_set?.test_set_type?.type_value
           }
+          project={testRun.test_configuration?.endpoint?.project}
+          projectName={testRun.test_configuration?.endpoint?.project?.name}
         />
       )}
     </Box>

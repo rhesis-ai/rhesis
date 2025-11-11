@@ -50,6 +50,8 @@ interface TestsTableViewProps {
   currentUserPicture?: string;
   initialSelectedTestId?: string;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
+  project?: { icon?: string; useCase?: string; name?: string };
+  projectName?: string;
 }
 
 export default function TestsTableView({
@@ -65,6 +67,8 @@ export default function TestsTableView({
   currentUserPicture,
   initialSelectedTestId,
   testSetType,
+  project,
+  projectName,
 }: TestsTableViewProps) {
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
@@ -83,23 +87,75 @@ export default function TestsTableView({
   );
   const [hasInitialSelection, setHasInitialSelection] = useState(false);
 
+  // Local state to track immediate test updates before parent prop updates
+  const [localTestUpdates, setLocalTestUpdates] = useState<
+    Map<string, TestResultDetail>
+  >(new Map());
+
+  // Merge local updates with tests prop for immediate UI updates
+  const mergedTests = React.useMemo(() => {
+    if (localTestUpdates.size === 0) {
+      return tests;
+    }
+    const merged = tests.map(test => {
+      const updated = localTestUpdates.get(test.id);
+      return updated || test;
+    });
+    return merged;
+  }, [tests, localTestUpdates]);
+
+  // Clear local updates when tests prop changes AND includes our local updates
+  React.useEffect(() => {
+    if (localTestUpdates.size > 0) {
+      // Check if any of our local updates are now in the tests prop
+      const allUpdatesIncluded = Array.from(localTestUpdates.keys()).every(
+        testId => {
+          const propTest = tests.find(t => t.id === testId);
+          const localTest = localTestUpdates.get(testId);
+          // Check if the prop test has the same last_review as our local update
+          return propTest?.last_review?.id === localTest?.last_review?.id;
+        }
+      );
+
+      if (allUpdatesIncluded) {
+        setLocalTestUpdates(new Map());
+      }
+    }
+  }, [tests, localTestUpdates]);
+
   // Handle initial selection when initialSelectedTestId is provided
   React.useEffect(() => {
-    if (initialSelectedTestId && tests.length > 0 && !hasInitialSelection) {
-      const testIndex = tests.findIndex(t => t.id === initialSelectedTestId);
+    if (
+      initialSelectedTestId &&
+      mergedTests.length > 0 &&
+      !hasInitialSelection
+    ) {
+      const testIndex = mergedTests.findIndex(
+        t => t.id === initialSelectedTestId
+      );
       if (testIndex !== -1) {
         // Calculate which page the test is on
         const testPage = Math.floor(testIndex / rowsPerPage);
         const rowIndexInPage = testIndex % rowsPerPage;
 
         setPage(testPage);
-        setSelectedTest(tests[testIndex]);
+        setSelectedTest(mergedTests[testIndex]);
         setSelectedRowIndex(rowIndexInPage);
         setDrawerOpen(true);
         setHasInitialSelection(true);
       }
     }
-  }, [initialSelectedTestId, tests, rowsPerPage, hasInitialSelection]);
+  }, [initialSelectedTestId, mergedTests, rowsPerPage, hasInitialSelection]);
+
+  // Sync selectedTest with tests array when tests are updated (e.g., after review changes)
+  React.useEffect(() => {
+    if (selectedTest) {
+      const updatedTest = mergedTests.find(t => t.id === selectedTest.id);
+      if (updatedTest && updatedTest !== selectedTest) {
+        setSelectedTest(updatedTest);
+      }
+    }
+  }, [mergedTests, selectedTest]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -125,6 +181,16 @@ export default function TestsTableView({
 
   const handleCloseDrawer = () => {
     setDrawerOpen(false);
+  };
+
+  // Handle test result updates from the drawer (e.g., when reviews are added/deleted)
+  const handleTestResultUpdateInDrawer = (updatedTest: TestResultDetail) => {
+    // Update local selected test state if it's the same test
+    if (selectedTest && selectedTest.id === updatedTest.id) {
+      setSelectedTest(updatedTest);
+    }
+    // Propagate to parent component to update the tests array
+    onTestResultUpdate(updatedTest);
   };
 
   const handleOverruleJudgement = (
@@ -167,22 +233,44 @@ export default function TestsTableView({
       });
 
       // Determine the current automated status
-      const metrics = test.test_metrics?.metrics || {};
-      const metricValues = Object.values(metrics);
-      const totalMetrics = metricValues.length;
-      const passedMetrics = metricValues.filter(m => m.is_successful).length;
-      const automatedPassed =
-        totalMetrics > 0 && passedMetrics === totalMetrics;
+      // For multi-turn tests
+      let automatedPassed = false;
+      if (isMultiTurn && test.test_output?.goal_evaluation) {
+        automatedPassed =
+          test.test_output.goal_evaluation.all_criteria_met || false;
+      } else {
+        // For single-turn tests
+        const metrics = test.test_metrics?.metrics || {};
+        const metricValues = Object.values(metrics);
+        const totalMetrics = metricValues.length;
+        const passedMetrics = metricValues.filter(m => m.is_successful).length;
+        automatedPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
+      }
 
       // Find appropriate status ID
-      const statusKeywords = automatedPassed
-        ? ['pass', 'success', 'completed']
-        : ['fail', 'error'];
-      const targetStatus = statuses.find(status =>
-        statusKeywords.some(keyword =>
-          status.name.toLowerCase().includes(keyword)
-        )
-      );
+      // Prioritize exact matches or longer forms (e.g., "Passed" over "Pass", "Failed" over "Fail")
+      let targetStatus;
+      if (automatedPassed) {
+        // Try exact matches first, then longer forms, then any match
+        targetStatus =
+          statuses.find(s => s.name.toLowerCase() === 'passed') ||
+          statuses.find(s => s.name.toLowerCase() === 'pass') ||
+          statuses.find(s => s.name.toLowerCase().includes('success')) ||
+          statuses.find(s => s.name.toLowerCase().includes('completed'));
+      } else {
+        // For failed tests, prefer "Failed" over "Fail", avoid "Error"
+        targetStatus =
+          statuses.find(s => s.name.toLowerCase() === 'failed') ||
+          statuses.find(s => s.name.toLowerCase() === 'fail') ||
+          statuses.find(s => s.name.toLowerCase().includes('failure'));
+
+        // Only fall back to 'error' if no other failed status is found
+        if (!targetStatus) {
+          targetStatus = statuses.find(s =>
+            s.name.toLowerCase().includes('error')
+          );
+        }
+      }
 
       if (!targetStatus) {
         return;
@@ -196,8 +284,25 @@ export default function TestsTableView({
         { type: 'test', reference: null }
       );
 
-      // Refresh the test result
+      // Small delay to ensure backend computes last_review property
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Refresh the test result to get the new review
       const updatedTest = await testResultsClient.getTestResult(test.id);
+
+      // IMMEDIATELY update local state for instant UI feedback
+      setLocalTestUpdates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(updatedTest.id, updatedTest);
+        return newMap;
+      });
+
+      // Update local selected test if this is the currently selected test
+      if (selectedTest && selectedTest.id === test.id) {
+        setSelectedTest(updatedTest);
+      }
+
+      // Propagate to parent component
       onTestResultUpdate(updatedTest);
     } catch (error) {
       // Error handling - could be logged to monitoring service
@@ -216,7 +321,41 @@ export default function TestsTableView({
           c => c.met
         ).length || 0;
 
-      // Check for execution error or failure
+      const originalPassed = allCriteriaMet === true;
+      const lastReview = test.last_review;
+
+      // Check for human review FIRST (reviews override automated results)
+      if (lastReview) {
+        const reviewStatusName = lastReview.status.name.toLowerCase();
+        const reviewPassed =
+          reviewStatusName.includes('pass') ||
+          reviewStatusName.includes('success') ||
+          reviewStatusName.includes('completed');
+
+        // Calculate conflict ourselves (don't trust backend's matches_review)
+        // A conflict exists if the review decision differs from the automated decision
+        const hasConflict = reviewPassed !== originalPassed;
+
+        const result = {
+          passed: reviewPassed,
+          label: reviewPassed ? 'Passed' : 'Failed',
+          count: `${metCriteria}/${totalCriteria}`,
+          isOverruled: true,
+          hasConflict,
+          automatedPassed: originalPassed,
+          hasExecutionError: false,
+          reviewData: {
+            reviewer: lastReview.user.name,
+            comments: lastReview.comments,
+            updated_at: lastReview.updated_at,
+            newStatus: reviewPassed ? 'passed' : 'failed',
+          },
+        };
+
+        return result;
+      }
+
+      // No review, check for execution errors/failures
       const hasExecutionError = test.test_output.status === 'error';
       const hasExecutionFailure = test.test_output.status === 'failure';
 
@@ -239,34 +378,6 @@ export default function TestsTableView({
           isOverruled: false,
           hasConflict: false,
           hasExecutionError: false,
-        };
-      }
-
-      const originalPassed = allCriteriaMet === true;
-      const lastReview = test.last_review;
-
-      // If there's a review, use the review status
-      if (lastReview) {
-        const reviewStatusName = lastReview.status.name.toLowerCase();
-        const reviewPassed =
-          reviewStatusName.includes('pass') ||
-          reviewStatusName.includes('success') ||
-          reviewStatusName.includes('completed');
-
-        return {
-          passed: reviewPassed,
-          label: reviewPassed ? 'Passed' : 'Failed',
-          count: `${metCriteria}/${totalCriteria}`,
-          isOverruled: true,
-          hasConflict: !test.matches_review,
-          automatedPassed: originalPassed,
-          hasExecutionError: false,
-          reviewData: {
-            reviewer: lastReview.user.name,
-            comments: lastReview.comments,
-            updated_at: lastReview.updated_at,
-            newStatus: reviewPassed ? 'passed' : 'failed',
-          },
         };
       }
 
@@ -312,12 +423,16 @@ export default function TestsTableView({
         reviewStatusName.includes('success') ||
         reviewStatusName.includes('completed');
 
+      // Calculate conflict ourselves (don't trust backend's matches_review)
+      // A conflict exists if the review decision differs from the automated decision
+      const hasConflict = reviewPassed !== originalPassed;
+
       return {
         passed: reviewPassed,
         label: reviewPassed ? 'Passed' : 'Failed',
         count: `${passedMetrics}/${totalMetrics}`,
         isOverruled: true,
-        hasConflict: !test.matches_review,
+        hasConflict,
         automatedPassed: originalPassed, // Keep original automated result
         hasExecutionError: false,
         reviewData: {
@@ -350,8 +465,11 @@ export default function TestsTableView({
 
   // Paginated tests
   const paginatedTests = useMemo(() => {
-    return tests.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  }, [tests, page, rowsPerPage]);
+    return mergedTests.slice(
+      page * rowsPerPage,
+      page * rowsPerPage + rowsPerPage
+    );
+  }, [mergedTests, page, rowsPerPage]);
 
   // Keyboard navigation
   React.useEffect(() => {
@@ -858,7 +976,7 @@ export default function TestsTableView({
       <TablePagination
         rowsPerPageOptions={[10, 25, 50, 100]}
         component="div"
-        count={tests.length}
+        count={mergedTests.length}
         rowsPerPage={rowsPerPage}
         page={page}
         onPageChange={handleChangePage}
@@ -880,11 +998,14 @@ export default function TestsTableView({
         behaviors={behaviors}
         testRunId={testRunId}
         sessionToken={sessionToken}
-        onTestResultUpdate={onTestResultUpdate}
+        onTestResultUpdate={handleTestResultUpdateInDrawer}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
         currentUserPicture={currentUserPicture}
         initialTab={initialTab}
+        testSetType={testSetType}
+        project={project}
+        projectName={projectName}
       />
 
       {/* Review Judgement Drawer */}

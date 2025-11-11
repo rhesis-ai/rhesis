@@ -134,6 +134,10 @@ export default function TestDetailPanel({
   >(undefined);
   const theme = useTheme();
 
+  // Determine if this is a multi-turn test
+  const isMultiTurn =
+    testSetType?.toLowerCase().includes('multi-turn') || false;
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
   };
@@ -142,7 +146,7 @@ export default function TestDetailPanel({
     setReviewInitialComment(`Turn ${turnNumber}: `);
     // Set initial status to opposite of automated result
     setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
-    setActiveTab(3); // Switch to reviews tab (index 3)
+    setActiveTab(isMultiTurn ? 3 : 2); // Switch to reviews tab (index depends on multi-turn)
   };
 
   const handleConfirmAutomatedReview = async () => {
@@ -163,14 +167,29 @@ export default function TestDetailPanel({
         test.test_output?.goal_evaluation?.all_criteria_met || false;
 
       // Find appropriate status ID
-      const statusKeywords = automatedPassed
-        ? ['pass', 'success', 'completed']
-        : ['fail', 'error'];
-      const targetStatus = statuses.find(status =>
-        statusKeywords.some(keyword =>
-          status.name.toLowerCase().includes(keyword)
-        )
-      );
+      // Prioritize exact matches or longer forms (e.g., "Passed" over "Pass", "Failed" over "Fail")
+      let targetStatus;
+      if (automatedPassed) {
+        // Try exact matches first, then longer forms, then any match
+        targetStatus =
+          statuses.find(s => s.name.toLowerCase() === 'passed') ||
+          statuses.find(s => s.name.toLowerCase() === 'pass') ||
+          statuses.find(s => s.name.toLowerCase().includes('success')) ||
+          statuses.find(s => s.name.toLowerCase().includes('completed'));
+      } else {
+        // For failed tests, prefer "Failed" over "Fail", avoid "Error"
+        targetStatus =
+          statuses.find(s => s.name.toLowerCase() === 'failed') ||
+          statuses.find(s => s.name.toLowerCase() === 'fail') ||
+          statuses.find(s => s.name.toLowerCase().includes('failure'));
+
+        // Only fall back to 'error' if no other failed status is found
+        if (!targetStatus) {
+          targetStatus = statuses.find(s =>
+            s.name.toLowerCase().includes('error')
+          );
+        }
+      }
 
       if (!targetStatus) {
         return;
@@ -245,40 +264,42 @@ export default function TestDetailPanel({
             id="test-detail-tab-0"
             aria-controls="test-detail-tabpanel-0"
           />
-          <Tab
-            icon={<ChatOutlinedIcon fontSize="small" />}
-            iconPosition="start"
-            label="Conversation"
-            id="test-detail-tab-1"
-            aria-controls="test-detail-tabpanel-1"
-          />
+          {isMultiTurn && (
+            <Tab
+              icon={<ChatOutlinedIcon fontSize="small" />}
+              iconPosition="start"
+              label="Conversation"
+              id="test-detail-tab-1"
+              aria-controls="test-detail-tabpanel-1"
+            />
+          )}
           <Tab
             icon={<AssessmentOutlinedIcon fontSize="small" />}
             iconPosition="start"
             label="Metrics"
-            id="test-detail-tab-2"
-            aria-controls="test-detail-tabpanel-2"
+            id={`test-detail-tab-${isMultiTurn ? '2' : '1'}`}
+            aria-controls={`test-detail-tabpanel-${isMultiTurn ? '2' : '1'}`}
           />
           <Tab
             icon={<RateReviewIcon fontSize="small" />}
             iconPosition="start"
             label="Reviews"
-            id="test-detail-tab-3"
-            aria-controls="test-detail-tabpanel-3"
+            id={`test-detail-tab-${isMultiTurn ? '3' : '2'}`}
+            aria-controls={`test-detail-tabpanel-${isMultiTurn ? '3' : '2'}`}
           />
           <Tab
             icon={<HistoryIcon fontSize="small" />}
             iconPosition="start"
             label="History"
-            id="test-detail-tab-4"
-            aria-controls="test-detail-tabpanel-4"
+            id={`test-detail-tab-${isMultiTurn ? '4' : '3'}`}
+            aria-controls={`test-detail-tabpanel-${isMultiTurn ? '4' : '3'}`}
           />
           <Tab
             icon={<CommentOutlinedIcon fontSize="small" />}
             iconPosition="start"
             label="Tasks & Comments"
-            id="test-detail-tab-5"
-            aria-controls="test-detail-tabpanel-5"
+            id={`test-detail-tab-${isMultiTurn ? '5' : '4'}`}
+            aria-controls={`test-detail-tabpanel-${isMultiTurn ? '5' : '4'}`}
           />
         </Tabs>
       </Box>
@@ -315,22 +336,24 @@ export default function TestDetailPanel({
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={1}>
-          <TestDetailConversationTab
-            test={test}
-            testSetType={testSetType}
-            project={project}
-            projectName={projectName}
-            onReviewTurn={handleReviewTurn}
-            onConfirmAutomatedReview={handleConfirmAutomatedReview}
-          />
-        </TabPanel>
+        {isMultiTurn && (
+          <TabPanel value={activeTab} index={1}>
+            <TestDetailConversationTab
+              test={test}
+              testSetType={testSetType}
+              project={project}
+              projectName={projectName}
+              onReviewTurn={handleReviewTurn}
+              onConfirmAutomatedReview={handleConfirmAutomatedReview}
+            />
+          </TabPanel>
+        )}
 
-        <TabPanel value={activeTab} index={2}>
+        <TabPanel value={activeTab} index={isMultiTurn ? 2 : 1}>
           <TestDetailMetricsTab test={test} behaviors={behaviors} />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={3}>
+        <TabPanel value={activeTab} index={isMultiTurn ? 3 : 2}>
           <TestDetailReviewsTab
             test={test}
             sessionToken={sessionToken}
@@ -345,7 +368,7 @@ export default function TestDetailPanel({
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={4}>
+        <TabPanel value={activeTab} index={isMultiTurn ? 4 : 3}>
           <TestDetailHistoryTab
             test={test}
             testRunId={testRunId}
@@ -353,7 +376,7 @@ export default function TestDetailPanel({
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={5}>
+        <TabPanel value={activeTab} index={isMultiTurn ? 5 : 4}>
           <TasksAndCommentsWrapper
             entityType="TestRun"
             entityId={testRunId}

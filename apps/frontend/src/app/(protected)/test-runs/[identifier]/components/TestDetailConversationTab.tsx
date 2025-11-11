@@ -81,6 +81,7 @@ export default function TestDetailConversationTab({
         onReviewTurn={onReviewTurn}
         onConfirmAutomatedReview={onConfirmAutomatedReview}
         hasExistingReview={!!test.last_review}
+        reviewMatchesAutomated={test.matches_review !== false}
         maxHeight="100%"
       />
     </Box>
