@@ -98,7 +98,7 @@ class ModelTester:
         judge = None
         if self.test_sets:
             judge = Judge()
-            judge.model, judge.tokenizer, judge.device = judge.load_model()
+            judge.load_model()
 
         try:
             for test_set in self.test_sets:
@@ -107,7 +107,7 @@ class ModelTester:
                 test_set.evaluate_results(recompute_existing=recompute_existing)
         finally:
             # Unload judge model
-            if judge is not None:
+            if judge is not None and hasattr(judge, "unload_model"):
                 judge.unload_model()
                 del judge
                 gc.collect()

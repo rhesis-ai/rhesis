@@ -1,7 +1,7 @@
 import gc
 import json
 import time
-from typing import Optional
+from typing import Optional, Type
 
 try:
     import torch
@@ -61,7 +61,7 @@ class HuggingFaceLLM(BaseLLM):
         self.last_generation_metadata = None
 
         if auto_loading:
-            (self.model, self.tokenizer, self.device) = self.load_model()
+            self.load_model()
 
     def __del__(self):
         """
@@ -74,24 +74,29 @@ class HuggingFaceLLM(BaseLLM):
     def load_model(self):
         """
         Load the model and tokenizer from the specified location.
+
+        Returns
+        -------
+        self
+            Returns self for method chaining
         """
         if self.model is not None:
             print(MODEL_RELOAD_WARNING.format(self.model_name))
         if self.tokenizer is not None:
             print(WARNING_TOKENIZER_ALREADY_LOADED_RELOAD.format(self.model_name))
 
-        model = AutoModelForCausalLM.from_pretrained(
+        self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
         )
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model.to(device)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
 
-        tokenizer = AutoTokenizer.from_pretrained(
+        self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name,
         )
 
-        return model, tokenizer, device
+        return self
 
     def unload_model(self):
         """
@@ -159,7 +164,7 @@ class HuggingFaceLLM(BaseLLM):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        schema: Optional[BaseModel] = None,
+        schema: Optional[Type[BaseModel]] = None,
         **kwargs,
     ) -> str:
         """

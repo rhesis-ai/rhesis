@@ -162,7 +162,7 @@ class TestSetEvaluator:
             return results
         # load model and tokenizer
         try:
-            (model.model, model.tokenizer, model.device) = model.load_model()
+            model.load_model()
         except Exception as e:
             # Create error response if model loading fails
             for test in tests:
