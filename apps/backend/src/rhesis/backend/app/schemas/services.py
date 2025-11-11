@@ -157,3 +157,37 @@ class TestConfigResponse(BaseModel):
     behaviors: List[TestConfigItem]
     topics: List[TestConfigItem]
     categories: List[TestConfigItem]
+
+
+class GenerateMultiTurnTestsRequest(BaseModel):
+    """Request for generating multi-turn test cases."""
+
+    generation_prompt: str
+    behavior: Optional[list[str]] = None
+    category: Optional[list[str]] = None
+    topic: Optional[list[str]] = None
+    num_tests: int = 5
+
+
+class MultiTurnPrompt(BaseModel):
+    """Multi-turn prompt with goal, instructions, and restrictions."""
+
+    goal: str
+    instructions: List[str]
+    restrictions: List[str]
+    scenarios: List[str]
+
+
+class MultiTurnTest(BaseModel):
+    """Multi-turn test case with structured prompt."""
+
+    prompt: MultiTurnPrompt
+    behavior: str
+    category: str
+    topic: str
+
+
+class GenerateMultiTurnTestsResponse(BaseModel):
+    """Response containing generated multi-turn test cases."""
+
+    tests: List[MultiTurnTest]
