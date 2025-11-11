@@ -1,7 +1,8 @@
 from .deep_hermes3 import DeepHermes3
+from rhesis.sdk.models import GeminiLLM
 
 
-class Judge(DeepHermes3):
+class Judge(GeminiLLM):
     def __init__(self):
         super().__init__()
 

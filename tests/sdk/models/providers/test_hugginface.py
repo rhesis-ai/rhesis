@@ -36,36 +36,58 @@ class TestHuggingFaceLLM:
         assert llm.device is None
         assert llm.default_kwargs is default_kwargs
 
-    @patch("rhesis.sdk.models.providers.huggingface.HuggingFaceLLM.load_model")
-    def test_init_with_auto_loading_and_no_defaults(self, mock_load_model):
+    @patch("rhesis.sdk.models.providers.huggingface.torch.device")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_init_with_auto_loading_and_no_defaults(
+        self, mock_auto_model, mock_auto_tokenizer, mock_torch_device
+    ):
         """Should auto-load model when auto_loading=True and no defaults"""
-        mock_load_model.return_value = (Mock(), Mock(), Mock())
-        model_name = "provider/model"
+        mock_model = Mock()
+        mock_tokenizer = Mock()
+        mock_device = Mock()
 
+        mock_auto_model.from_pretrained.return_value = mock_model
+        mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+        mock_torch_device.return_value = mock_device
+
+        model_name = "provider/model"
         llm = HuggingFaceLLM(model_name, auto_loading=True)
 
         assert llm.model_name == model_name
-        assert llm.model is not None
-        assert llm.tokenizer is not None
-        assert llm.device is not None
+        assert llm.model is mock_model
+        assert llm.tokenizer is mock_tokenizer
+        assert llm.device is mock_device
         assert llm.default_kwargs is None
-        mock_load_model.assert_called_once()
+        mock_auto_model.from_pretrained.assert_called_once_with(model_name)
+        mock_auto_tokenizer.from_pretrained.assert_called_once_with(model_name)
 
-    @patch("rhesis.sdk.models.providers.huggingface.HuggingFaceLLM.load_model")
-    def test_init_with_auto_loading_and_with_defaults(self, mock_load_model):
+    @patch("rhesis.sdk.models.providers.huggingface.torch.device")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_init_with_auto_loading_and_with_defaults(
+        self, mock_auto_model, mock_auto_tokenizer, mock_torch_device
+    ):
         """Should auto-load model when auto_loading=True and defaults provided"""
-        mock_load_model.return_value = (Mock(), Mock(), Mock())
+        mock_model = Mock()
+        mock_tokenizer = Mock()
+        mock_device = Mock()
+
+        mock_auto_model.from_pretrained.return_value = mock_model
+        mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+        mock_torch_device.return_value = mock_device
+
         model_name = "provider/model"
         default_kwargs = {"temperature": 0.7}
-
         llm = HuggingFaceLLM(model_name, auto_loading=True, default_kwargs=default_kwargs)
 
         assert llm.model_name == model_name
-        assert llm.model is not None
-        assert llm.tokenizer is not None
-        assert llm.device is not None
+        assert llm.model is mock_model
+        assert llm.tokenizer is mock_tokenizer
+        assert llm.device is mock_device
         assert llm.default_kwargs is default_kwargs
-        mock_load_model.assert_called_once()
+        mock_auto_model.from_pretrained.assert_called_once_with(model_name)
+        mock_auto_tokenizer.from_pretrained.assert_called_once_with(model_name)
 
     def test_init_raises_with_no_model_name(self):
         """Should raise ValueError if model_name is None"""
@@ -105,7 +127,9 @@ class TestHuggingFaceLLM:
 
         # Mock model
         mock_model = Mock()
-        mock_model.generate.return_value = [[101, 102, 103, 104, 105]]
+        # Return a tensor-like object with shape attribute
+        output_tensor = torch.tensor([[101, 102, 103, 104, 105]])
+        mock_model.generate.return_value = output_tensor
 
         llm.tokenizer = mock_tokenizer
         llm.model = mock_model
