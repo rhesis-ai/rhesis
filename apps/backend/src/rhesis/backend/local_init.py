@@ -1,7 +1,7 @@
 """
-Local Development Initialization
+Local Initialization
 
-⚠️ WARNING: This module is for LOCAL DEVELOPMENT ONLY!
+⚠️ WARNING: This module is for LOCAL USE ONLY!
 It creates a default organization and admin user with known credentials.
 DO NOT use this in production environments.
 """
@@ -20,11 +20,11 @@ from rhesis.backend.logging import logger
 
 def initialize_local_dev_environment(db: Session) -> None:
     """
-    Initialize local development environment with default organization and user.
+    Initialize local environment with default organization and user.
 
     Only runs when LOCAL_AUTH_ENABLED=true environment variable is set.
     Creates:
-    - Default organization "Local Development"
+    - Default organization "Local Org"
     - Default admin user admin@local.dev
     - Default API token rh-local-dev-token
 
@@ -37,40 +37,34 @@ def initialize_local_dev_environment(db: Session) -> None:
         return
 
     logger.warning("=" * 80)
-    logger.warning("⚠️  LOCAL DEVELOPMENT MODE ENABLED")
+    logger.warning("⚠️  LOCAL MODE ENABLED")
     logger.warning("⚠️  Initializing default organization and user...")
     logger.warning("=" * 80)
 
     try:
-        # Check if local development organization already exists
-        org = (
-            db.query(models.Organization)
-            .filter(models.Organization.name == "Local Development")
-            .first()
-        )
+        # Check if local organization already exists
+        org = db.query(models.Organization).filter(models.Organization.name == "Local Org").first()
 
         if org:
-            logger.info(
-                "ℹ️  Local development organization already exists, skipping initialization."
-            )
+            logger.info("ℹ️  Local organization already exists, skipping initialization.")
 
             # Check if user exists
             user = crud.get_user_by_email(db, "admin@local.dev")
             if user:
-                logger.info("ℹ️  Local development user already exists.")
+                logger.info("ℹ️  Local user already exists.")
 
                 # Check if token exists (check by user_id since we can't filter encrypted fields directly)
                 token = (
                     db.query(models.Token)
                     .filter(models.Token.user_id == user.id)
-                    .filter(models.Token.name == "Local Development Token")
+                    .filter(models.Token.name == "Local Token")
                     .first()
                 )
 
                 if token:
-                    logger.info("ℹ️  Local development API token already exists.")
+                    logger.info("ℹ️  Local API token already exists.")
                 else:
-                    logger.info("ℹ️  Creating local development API token...")
+                    logger.info("ℹ️  Creating local API token...")
                     _create_local_token(db, user.id, org.id)
                     db.commit()
 
@@ -99,7 +93,7 @@ def initialize_local_dev_environment(db: Session) -> None:
         current_time = datetime.now(timezone.utc)
 
         # Create admin user FIRST (without organization)
-        logger.info("👤 Creating local development admin user...")
+        logger.info("👤 Creating local admin user...")
         user = models.User(
             id=user_id,
             email="admin@local.dev",
@@ -109,7 +103,7 @@ def initialize_local_dev_environment(db: Session) -> None:
             is_active=True,
             is_superuser=True,
             organization_id=None,  # Set after organization is created
-            auth0_id=None,  # No Auth0 ID for local development
+            auth0_id=None,  # No Auth0 ID for local
             last_login_at=current_time,
             created_at=current_time,
             updated_at=current_time,
@@ -119,12 +113,12 @@ def initialize_local_dev_environment(db: Session) -> None:
         db.flush()
 
         # Create organization (now user exists so foreign keys work)
-        logger.info("📦 Creating local development organization...")
+        logger.info("📦 Creating local organization...")
         org = models.Organization(
             id=org_id,
-            name="Local Development",
-            display_name="Local Development Organization",
-            description="Default organization for local development and testing. Created automatically for simplified local deployment.",
+            name="Local Org",
+            display_name="Local Organization",
+            description="Default organization for local deployment and testing. Created automatically for simplified local setup.",
             is_active=True,
             is_onboarding_complete=True,
             owner_id=user_id,
@@ -140,7 +134,7 @@ def initialize_local_dev_environment(db: Session) -> None:
         db.flush()
 
         # Create API token
-        logger.info("🔑 Creating local development API token...")
+        logger.info("🔑 Creating local API token...")
         _create_local_token(db, user_id, org_id)
 
         # Load initial seed data (example project, tests, etc.)
@@ -150,18 +144,18 @@ def initialize_local_dev_environment(db: Session) -> None:
         db.commit()
 
         logger.info("=" * 80)
-        logger.info("✅ Local development environment initialized successfully!")
+        logger.info("✅ Local environment initialized successfully!")
         _show_local_dev_info()
         logger.info("=" * 80)
 
     except Exception as e:
-        logger.error(f"❌ Failed to initialize local development environment: {str(e)}")
+        logger.error(f"❌ Failed to initialize local environment: {str(e)}")
         logger.error("   This is not critical - you can still use the application.")
         db.rollback()
 
 
 def _create_local_token(db: Session, user_id: uuid.UUID, organization_id: uuid.UUID) -> None:
-    """Create the local development API token."""
+    """Create the local API token."""
     token_id = uuid.uuid4()
     current_time = datetime.now(timezone.utc)
     token_value = "rh-local-dev-token"
@@ -170,12 +164,12 @@ def _create_local_token(db: Session, user_id: uuid.UUID, organization_id: uuid.U
         id=token_id,
         user_id=user_id,
         organization_id=organization_id,
-        name="Local Development Token",
+        name="Local Token",
         token=token_value,
         token_hash=hash_token(token_value),
         token_type="bearer",
         token_obfuscated=token_value[:3] + "..." + token_value[-4:],
-        expires_at=None,  # Never expires for local development
+        expires_at=None,  # Never expires for local
         last_used_at=None,
         created_at=current_time,
         updated_at=current_time,
@@ -185,14 +179,14 @@ def _create_local_token(db: Session, user_id: uuid.UUID, organization_id: uuid.U
 
 
 def _show_local_dev_info() -> None:
-    """Display local development credentials and information."""
+    """Display local credentials and information."""
     logger.info("")
-    logger.info("📋 LOCAL DEVELOPMENT CREDENTIALS:")
-    logger.info("   Organization: Local Development")
+    logger.info("📋 LOCAL CREDENTIALS:")
+    logger.info("   Organization: Local Org")
     logger.info("   User Email:   admin@local.dev")
-    logger.info("   Login:        Use 'Local Development Login' button in UI")
+    logger.info("   Login:        Auto-login enabled (navigate to http://localhost:3000)")
     logger.info("   API Token:    rh-local-dev-token")
     logger.info("")
-    logger.info("⚠️  WARNING: This is a development setup only!")
+    logger.info("⚠️  WARNING: This is a local setup only!")
     logger.info("   Do not use these credentials in production.")
     logger.info("")

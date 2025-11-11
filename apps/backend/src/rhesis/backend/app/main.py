@@ -25,7 +25,7 @@ from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
-from rhesis.backend.app.utils.local_dev_init import initialize_local_dev_environment
+from rhesis.backend.local_init import initialize_local_dev_environment
 from rhesis.backend.logging import logger
 from rhesis.backend.telemetry import initialize_telemetry
 from rhesis.backend.telemetry.middleware import TelemetryMiddleware
