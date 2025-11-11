@@ -143,16 +143,34 @@ pprint(test_set.tests)
 Get the full platform running locally with a single command - no configuration needed:
 
 ```bash
+# Clone the repository
 git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
-docker compose -f docker-compose.local.yml --env-file .env.docker.local up
+
+# Start all services (auto-generates .env.docker.local with encryption keys)
+./rh start
 ```
 
-Visit `http://localhost:3000` - you'll be automatically logged in to the dashboard!
+That's it! Visit `http://localhost:3000` - you'll be automatically logged in to the dashboard!
 
-**Optional:** Edit `.env.docker.local` and update `RHESIS_API_KEY` with your key from [app.rhesis.ai](https://app.rhesis.ai) to enable test generation.
+**What happens automatically:**
+- ✅ Generates database encryption key
+- ✅ Creates `.env.docker.local` with local configuration
+- ✅ Enables auto-login (no Auth0 setup needed)
+- ✅ Starts all services (backend, frontend, database, worker, docs)
+- ✅ Creates default admin user and example data
 
-> **Note:** This is a simplified setup for local testing and development only. For production deployments, see the [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
+**Optional:** To enable test generation, get your API key from [app.rhesis.ai](https://app.rhesis.ai), then edit `.env.docker.local` and update `RHESIS_API_KEY`.
+
+**Useful commands:**
+```bash
+./rh logs          # View logs from all services
+./rh stop          # Stop all services
+./rh restart       # Restart all services
+./rh delete        # Delete everything (fresh start)
+```
+
+> **Note:** This is a simplified setup for local testing only. For production deployments, see the [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
 
 
 ## 👥 Contributing
