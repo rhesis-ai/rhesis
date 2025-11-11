@@ -261,7 +261,7 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
 
     def __init__(
         self,
-        advice_types: List[str],
+        advice_types: Optional[List[str]] = None,
         threshold: float = 0.5,
         model: Optional[Union[BaseLLM, str]] = None,
     ):
@@ -270,6 +270,9 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        # Default to common advice types if not provided
+        if advice_types is None:
+            advice_types = ["legal", "medical", "financial"]
         self._metric = NonAdviceMetric(
             advice_types=advice_types, threshold=threshold, model=self._deepeval_model
         )
@@ -372,7 +375,7 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
 
     def __init__(
         self,
-        role: str,
+        role: Optional[str] = None,
         threshold: float = 0.5,
         model: Optional[Union[BaseLLM, str]] = None,
     ):
@@ -381,6 +384,9 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        # Default to a generic helpful assistant role if not provided
+        if role is None:
+            role = "helpful assistant"
         self._metric = RoleViolationMetric(
             role=role, threshold=threshold, model=self._deepeval_model
         )

@@ -78,7 +78,6 @@ export default function TestExecutableField({
       );
       onUpdate?.();
     } catch (error) {
-      console.error(`Error updating test ${fieldName}:`, error);
       showNotification(`Failed to update test ${fieldName.replace('_', ' ')}`, {
         severity: 'error',
       });

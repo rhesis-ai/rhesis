@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
 import DashboardCharts from './components/DashboardCharts';
@@ -11,9 +10,6 @@ import RecentTestsGrid from './components/RecentTestsGrid';
 import RecentTestSetsGrid from './components/RecentTestSetsGrid';
 import RecentActivitiesGrid from './components/RecentActivitiesGrid';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { UUID } from 'crypto';
 import {
   ScienceIcon,
   HorizontalSplitIcon,
@@ -21,33 +17,8 @@ import {
 } from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
 
-// Extended User interface with organization_id
-interface ExtendedUser {
-  id?: string;
-  name?: string | null;
-  email?: string | null;
-  is_superuser?: boolean;
-  organization_id?: UUID;
-}
-
-interface SessionUser {
-  id: string;
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
-  organization_id?: string | null;
-}
-
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const router = useRouter();
-
-  // Check if user has organization_id
-  useEffect(() => {
-    const user = session?.user as ExtendedUser | undefined;
-
-    // Removed organization_id check - now handled by middleware
-  }, [session, router]);
 
   return (
     <PageContainer>

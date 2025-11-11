@@ -41,11 +41,13 @@ DB_ENCRYPTION_KEY=your-32-byte-url-safe-base64-encoded-key
 ```
 
 **Generating an Encryption Key:**
+
 ```bash
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
 **Security Notes:**
+
 - ⚠️ **Never commit this key to version control**
 - ⚠️ Use different keys for dev, staging, and production
 - ⚠️ Back up production keys securely

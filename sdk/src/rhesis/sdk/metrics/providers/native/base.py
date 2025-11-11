@@ -1,50 +1,33 @@
-import inspect
-import logging
-import traceback
-from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-
-from rhesis.sdk.client import Client, Endpoints, Methods
-from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult
-from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to_backend_config
+from rhesis.sdk.metrics.base import BaseMetric, MetricResult
+from rhesis.sdk.metrics.providers.native.configs import BaseJudgeConfig
+from rhesis.sdk.metrics.providers.native.serialization import BackendSyncMixin, SerializationMixin
+from rhesis.sdk.metrics.providers.native.shared_utils import (
+    get_base_details,
+    handle_evaluation_error,
+    setup_jinja_environment,
+)
 from rhesis.sdk.models import BaseLLM
 
 # Type variable for generic return types
 T = TypeVar("T", bound="JudgeBase")
 
-# Custom parameters
 
-
-@dataclass
-class JudgeConfig(MetricConfig):
-    evaluation_prompt: Optional[str] = None
-    evaluation_steps: Optional[str] = None
-    reasoning: Optional[str] = None
-    evaluation_examples: Optional[str] = None
-
-    def __post_init__(self):
-        return super().__post_init__()
-
-
-class JudgeBase(BaseMetric):
+class JudgeBase(BaseMetric, SerializationMixin, BackendSyncMixin):
     """
     A generic metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
     """
 
-    def __init__(self, config: JudgeConfig, model: Optional[Union[BaseLLM, str]] = None):
+    def __init__(self, config: BaseJudgeConfig, model: Optional[Union[BaseLLM, str]] = None):
         self.config = config
         super().__init__(config=self.config, model=model)
         self.evaluation_prompt = self.config.evaluation_prompt
         self.evaluation_steps = self.config.evaluation_steps
         self.reasoning = self.config.reasoning
         self.evaluation_examples = self.config.evaluation_examples
-
-    def __repr__(self) -> str:
-        return str(self.to_config())
 
     def evaluate(self, *args, **kwargs) -> MetricResult:
         raise NotImplementedError("Subclasses should override this method")
@@ -90,12 +73,7 @@ class JudgeBase(BaseMetric):
         Returns:
             Dict[str, Any]: Base details dictionary
         """
-        if self.score_type is None:
-            raise ValueError("score_type must be set before calling _get_base_details")
-        return {
-            "score_type": self.score_type.value,
-            "prompt": prompt,
-        }
+        return get_base_details(self.score_type, prompt, metric_name=self.name)
 
     def _handle_evaluation_error(
         self, e: Exception, details: Dict[str, Any], default_score: Any
@@ -111,27 +89,7 @@ class JudgeBase(BaseMetric):
         Returns:
             MetricResult: Error result with default score
         """
-        logger = logging.getLogger(__name__)
-        error_msg = f"Error evaluating with {self.name}: {str(e)}"
-
-        logger.error(f"Exception in JudgeBase.evaluate: {error_msg}")
-        logger.error(f"Exception type: {type(e).__name__}")
-        logger.error(f"Exception details: {str(e)}")
-        logger.error(f"Full traceback:\n{traceback.format_exc()}")
-
-        # Update details with error-specific fields
-        details.update(
-            {
-                "error": error_msg,
-                "reason": error_msg,
-                "exception_type": type(e).__name__,
-                "exception_details": str(e),
-                "model": self.model,
-                "is_successful": False,
-            }
-        )
-
-        return MetricResult(score=default_score, details=details)
+        return handle_evaluation_error(e, self.name, self.model, details, default_score)
 
     def _setup_jinja_environment(self) -> None:
         """
@@ -141,12 +99,7 @@ class JudgeBase(BaseMetric):
         and configures it for optimal template rendering performance.
         """
         templates_dir = Path(__file__).resolve().parent / "templates"
-        self.jinja_env = Environment(
-            loader=FileSystemLoader(templates_dir),
-            autoescape=select_autoescape(["html", "xml"]),
-            trim_blocks=True,
-            lstrip_blocks=True,
-        )
+        self.jinja_env = setup_jinja_environment(templates_dir)
 
     def _get_prompt_template(
         self,
@@ -215,80 +168,3 @@ class JudgeBase(BaseMetric):
             raise ValueError(f"Failed to render template: {e}") from e
 
         return prompt
-
-    def to_config(self) -> MetricConfig:
-        """Convert the metric to a MetricConfig."""
-        """Subclasses should override this method to add their own parameters."""
-        return self.config
-
-    @classmethod
-    def from_config(cls: type[T], config: MetricConfig) -> T:
-        """Create a metric from a config object."""
-        # Get __init__ parameter names automatically
-        init_params = inspect.signature(cls.__init__).parameters
-        config_dict = asdict(config)
-
-        # Only pass parameters that __init__ accepts
-        filtered_params = {k: v for k, v in config_dict.items() if k in init_params}
-
-        return cls(**filtered_params)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert the metric to a dictionary."""
-        return asdict(self.to_config())
-
-    @classmethod
-    def from_dict(cls: type[T], config: Dict[str, Any]) -> T:
-        """Create a metric from a dictionary."""
-        raise NotImplementedError("Subclasses should override this method")
-
-    def push(self) -> None:
-        """Push the metric to the backend."""
-        client = Client()
-        config = asdict(self.to_config())
-        config = sdk_config_to_backend_config(config)
-
-        client.send_request(Endpoints.METRICS, Methods.POST, config)
-
-    @classmethod
-    def pull(cls, name: Optional[str] = None, nano_id: Optional[str] = None) -> "JudgeBase":
-        """
-        Pull the metric from the backend.
-        # Either 'name' or 'nano_id' must be provided to pull a metric from the backend.
-        # If 'name' is not unique (i.e., multiple metrics share the same name), an error
-        # will be raised and you will be asked to use 'nano_id' instead for disambiguation.
-
-        Args:
-            name (Optional[str]): The name of the metric
-            nano_id (Optional[str]): The nano_id of the metric
-
-        Returns:
-            JudgeBase: The metric
-        """
-        if not name and not nano_id:
-            raise ValueError("Either name or nano_id must be provided")
-
-        client = Client()
-
-        # Build filter based on provided parameter
-        filter_field = "nano_id" if nano_id else "name"
-        filter_value = nano_id or name
-
-        config = client.send_request(
-            Endpoints.METRICS,
-            Methods.GET,
-            params={"$filter": f"{filter_field} eq '{filter_value}'"},
-        )
-
-        if not config:
-            raise ValueError(f"No metric found with {filter_field} {filter_value}")
-
-        if len(config) > 1:
-            raise ValueError(f"Multiple metrics found with name {name}, please use nano_id")
-
-        config = config[0]
-        if config["class_name"] != cls.__name__:
-            raise ValueError(f"Metric {config.get('id')} is not a {cls.__name__}")
-
-        config = backend_config_to_sdk_config(config)
-        return cls.from_dict(config)

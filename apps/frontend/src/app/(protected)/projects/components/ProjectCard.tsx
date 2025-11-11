@@ -176,12 +176,6 @@ const ProjectCard = React.memo(
             if (typographyElement) {
               const isOverflowing =
                 typographyElement.scrollWidth > typographyElement.clientWidth;
-              console.log('Truncation check:', {
-                scrollWidth: typographyElement.scrollWidth,
-                clientWidth: typographyElement.clientWidth,
-                isOverflowing,
-                projectName: project.name,
-              });
               setIsTruncated(isOverflowing);
             }
           }

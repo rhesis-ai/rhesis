@@ -1,16 +1,19 @@
 # Database Field Encryption for Sensitive Tokens
 
 ## Status
+
 Accepted
 
 ## Context
 
 The Rhesis backend currently stores sensitive credentials as plaintext in the PostgreSQL database, including:
+
 - API keys and authentication tokens in the `endpoint` table
 - Model provider API keys in the `model` table
 - OAuth tokens and client secrets
 
 This creates security risks:
+
 - Database dumps or backups could expose sensitive credentials
 - Log files or error messages might inadvertently include plaintext secrets
 - Unauthorized database access (via SQL injection or compromised credentials) could reveal all tokens
@@ -27,6 +30,7 @@ We will implement field-level encryption for sensitive database columns using **
 **Chosen library:** `cryptography.fernet`
 
 **Rationale:**
+
 - Part of the widely-used `cryptography` package in the Python ecosystem
 - Implements AES-128 in CBC mode with HMAC authentication
 - Provides authenticated encryption (prevents tampering and ensures integrity)
@@ -36,12 +40,14 @@ We will implement field-level encryption for sensitive database columns using **
 - Battle-tested in production environments
 
 **Installation:**
+
 ```bash
 cd apps/backend
 uv add cryptography
 ```
 
 **Basic Usage:**
+
 ```python
 from cryptography.fernet import Fernet
 
@@ -64,11 +70,13 @@ decrypted = cipher.decrypt(encrypted).decode()  # Returns: "my-api-key-12345"
 **Environment Variable:** `DB_ENCRYPTION_KEY`
 
 **Key Format:**
+
 - 32 URL-safe base64-encoded bytes (Fernet standard format)
 - Example: `ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM92s=`
 
 **Key Generation:**
 Developers can generate keys locally using:
+
 ```bash
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
@@ -76,6 +84,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 **Key Storage by Environment:**
 
 **Phase 1 (Initial Implementation) - Environment Secrets:**
+
 - **Local Development:** `.env` file (gitignored, never committed)
 - **CI/CD:** GitHub Secrets for automated testing
 - **Staging/Production:**
@@ -84,6 +93,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
   - **Google Cloud Run:** Environment variables with GCP Secret Manager reference
 
 **Phase 2 (Future Enhancement) - Cloud Secret Manager:**
+
 - Direct GCP Secret Manager integration
 - Automatic key rotation support
 - Centralized audit logging of key access
@@ -91,6 +101,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 - Versioned secrets with rollback capability
 
 **Security Considerations:**
+
 - Keys must never be committed to version control (enforce with `.gitignore`)
 - The same key must be used across all application instances within a single environment
 - **Critical:** Losing the encryption key means permanent loss of access to encrypted data
@@ -105,6 +116,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 **Approach:** Update existing database columns in-place without schema changes
 
 **Rationale:**
+
 - ✅ Maintains column name consistency across the codebase
 - ✅ Eliminates need to update queries, models, and API code
 - ✅ Simpler migration process with fewer moving parts
@@ -112,6 +124,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 - ✅ Avoids temporary dual-column management
 
 **Migration Flow:**
+
 ```
 1. Deploy application code with EncryptedString TypeDecorator
    - Includes backward compatibility (reads both encrypted and plaintext)
@@ -149,6 +162,7 @@ def process_result_value(self, value, dialect):
 ### 4. Database Schema: No Changes Required
 
 **Existing columns remain as-is:**
+
 - `endpoint.auth_token` (Text) → stores encrypted base64 string
 - `endpoint.client_secret` (Text) → stores encrypted base64 string
 - `endpoint.last_token` (Text) → stores encrypted base64 string
@@ -156,6 +170,7 @@ def process_result_value(self, value, dialect):
 
 **Size Considerations:**
 Fernet encryption adds overhead to the stored data:
+
 - **Overhead:** ~40-60 bytes plus the original length
 - **Example:**
   - Original: `"my-api-key"` (10 characters)
@@ -196,6 +211,7 @@ class EncryptedString(TypeDecorator):
 ```
 
 **Usage in Models:**
+
 ```python
 from sqlalchemy import Column, Integer, String
 from rhesis.backend.app.models.base import Base
@@ -214,18 +230,19 @@ class Endpoint(Base):
 
 **Threat Model:**
 
-| Threat | Current Risk | After Encryption | Mitigation |
-|--------|--------------|------------------|------------|
-| Database dump leak | 🔴 High | ✅ Protected | Encrypted at rest |
-| Stolen backup files | 🔴 High | ✅ Protected | Useless without key |
-| SQL injection | 🔴 High | ✅ Protected | Data is encrypted |
-| Unauthorized DB access | 🔴 High | ✅ Protected | Credentials encrypted |
-| Application breach | 🟡 Medium | 🟡 Medium | Defense in depth |
-| Encryption key exposure | 🔴 Critical | 🔴 Critical | Key protection critical |
+| Threat                  | Current Risk | After Encryption | Mitigation              |
+| ----------------------- | ------------ | ---------------- | ----------------------- |
+| Database dump leak      | 🔴 High      | ✅ Protected     | Encrypted at rest       |
+| Stolen backup files     | 🔴 High      | ✅ Protected     | Useless without key     |
+| SQL injection           | 🔴 High      | ✅ Protected     | Data is encrypted       |
+| Unauthorized DB access  | 🔴 High      | ✅ Protected     | Credentials encrypted   |
+| Application breach      | 🟡 Medium    | 🟡 Medium        | Defense in depth        |
+| Encryption key exposure | 🔴 Critical  | 🔴 Critical      | Key protection critical |
 
 **Security Boundaries:**
 
 **Phase 1 Scope (Current Implementation):**
+
 - ✅ Encryption at rest using Fernet (AES-128-CBC with HMAC)
 - ✅ Symmetric key stored in environment variables
 - ✅ In-place migration with backward compatibility
@@ -233,6 +250,7 @@ class Endpoint(Base):
 - ✅ Transparent encryption/decryption via SQLAlchemy
 
 **Out of Scope (Phase 2 - Future Enhancements):**
+
 - ⏳ Key rotation mechanism (planned)
 - ⏳ GCP Secret Manager integration (planned)
 - ⏳ Per-tenant encryption keys (under consideration)
@@ -242,6 +260,7 @@ class Endpoint(Base):
 
 **Defense in Depth:**
 While encryption at rest significantly improves security, it's important to note:
+
 - If an attacker gains access to both the database and the encryption key, they can decrypt the data
 - This solution is one layer in a comprehensive security strategy
 - Continue to follow best practices: least privilege access, network security, monitoring, etc.
@@ -249,6 +268,7 @@ While encryption at rest significantly improves security, it's important to note
 ## Consequences
 
 ### Positive
+
 - ✅ **Data Protection:** Sensitive tokens encrypted at rest in the database
 - ✅ **Transparent Operation:** Encryption/decryption handled automatically by SQLAlchemy
 - ✅ **No Schema Changes:** Existing columns and queries remain unchanged
@@ -257,6 +277,7 @@ While encryption at rest significantly improves security, it's important to note
 - ✅ **Compliance:** Helps meet security and compliance requirements (SOC 2, GDPR, etc.)
 
 ### Negative
+
 - ⚠️ **Operational Burden:** Must securely manage encryption keys across environments
 - ⚠️ **Key Loss Risk:** Losing the encryption key means permanent data loss
 - ⚠️ **Performance Overhead:** Minimal but measurable (~1-2ms per encrypt/decrypt operation)
@@ -264,6 +285,7 @@ While encryption at rest significantly improves security, it's important to note
 - ⚠️ **Migration Complexity:** Requires careful coordination during rollout
 
 ### Neutral
+
 - ℹ️ **Environment Setup:** All environments must configure `DB_ENCRYPTION_KEY`
 - ℹ️ **Migration Window:** Application will support both encrypted and plaintext during migration
 - ℹ️ **Key Distribution:** Need process for securely distributing keys to new environments
@@ -300,16 +322,19 @@ This ADR is part of a larger implementation plan broken into subtasks:
 ### Key Protection Best Practices
 
 **Development Environment:**
+
 - Store key in `.env` file (must be gitignored)
 - Generate unique key per developer (not shared)
 - Document key generation procedure in developer onboarding
 
 **CI/CD Environment:**
+
 - Store key in GitHub Secrets
 - Limit access to repository secrets
 - Rotate keys periodically
 
 **Staging/Production Environment:**
+
 - Use GCP Secret Manager or Kubernetes secrets
 - Implement strict access controls (principle of least privilege)
 - Enable audit logging for key access
@@ -319,12 +344,14 @@ This ADR is part of a larger implementation plan broken into subtasks:
 ### Key Backup and Recovery
 
 **Critical Requirements:**
+
 - Production encryption keys must be backed up to at least 2 secure locations
 - Key backup procedure must be documented and tested quarterly
 - Designated personnel must have access to key recovery procedures
 - Include encryption keys in disaster recovery planning
 
 **Recommended Approach:**
+
 1. Store primary key in GCP Secret Manager (production)
 2. Store backup key in separate secure location (e.g., encrypted vault)
 3. Document key recovery procedure with step-by-step instructions
@@ -333,12 +360,14 @@ This ADR is part of a larger implementation plan broken into subtasks:
 ### Monitoring and Alerting
 
 **Key Metrics to Monitor:**
+
 - Number of decryption failures (potential key mismatch)
 - Presence of plaintext values in encrypted columns (during/after migration)
 - Encryption key access patterns (after Secret Manager integration)
 - Application errors related to encryption/decryption
 
 **Recommended Alerts:**
+
 - Alert on decryption failures exceeding threshold
 - Alert on missing `DB_ENCRYPTION_KEY` environment variable
 - Alert on plaintext values found post-migration
@@ -349,6 +378,7 @@ This ADR is part of a larger implementation plan broken into subtasks:
 
 **1. Key Rotation:**
 Implement support for dual-key encryption to enable zero-downtime key rotation:
+
 ```python
 # Support both current and previous key
 OLD_KEY = os.getenv("DB_ENCRYPTION_KEY_OLD")
@@ -363,6 +393,7 @@ def decrypt_with_fallback(value):
 
 **2. GCP Secret Manager Integration:**
 Migrate from environment variables to GCP Secret Manager:
+
 - Centralized secret management
 - Automatic secret rotation
 - Audit logging of secret access
@@ -371,6 +402,7 @@ Migrate from environment variables to GCP Secret Manager:
 
 **3. Per-Tenant Encryption Keys:**
 For enhanced security isolation:
+
 - Each organization has its own encryption key
 - Compromised key only affects single tenant
 - Supports data residency requirements
@@ -378,6 +410,7 @@ For enhanced security isolation:
 
 **4. Field-Level Encryption Extension:**
 Apply encryption to additional sensitive fields:
+
 - User PII (email addresses, phone numbers)
 - Payment information
 - Custom credentials
@@ -385,6 +418,7 @@ Apply encryption to additional sensitive fields:
 
 **5. Audit Logging:**
 Track encryption operations:
+
 - Log all decryption events
 - Track key usage patterns
 - Detect anomalous access patterns

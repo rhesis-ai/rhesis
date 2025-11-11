@@ -8,7 +8,18 @@ from rhesis.sdk.metrics.constants import (
     ScoreType,
     ThresholdOperator,
 )
+from rhesis.sdk.metrics.conversational import (
+    AssistantMessage,
+    ConversationalMetricBase,
+    ConversationHistory,
+    SystemMessage,
+    ToolMessage,
+    UserMessage,
+)
 from rhesis.sdk.metrics.factory import MetricFactory
+from rhesis.sdk.metrics.providers.deepeval.conversational_metrics import (
+    DeepEvalTurnRelevancy,
+)
 from rhesis.sdk.metrics.providers.deepeval.factory import DeepEvalMetricFactory
 from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepEvalAnswerRelevancy,
@@ -27,6 +38,10 @@ from rhesis.sdk.metrics.providers.deepeval.metrics import (
 )
 from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
     CategoricalJudge,
+    ConversationalJudge,
+    CriterionEvaluation,
+    GoalAchievementJudge,
+    GoalAchievementScoreResponse,
     NumericJudge,
     RhesisMetricFactory,
 )
@@ -45,6 +60,13 @@ __all__ = [
     "MetricResult",
     "MetricConfigLoader",
     "MetricFactory",
+    # Conversational metrics
+    "ConversationalMetricBase",
+    "ConversationHistory",
+    "UserMessage",
+    "AssistantMessage",
+    "ToolMessage",
+    "SystemMessage",
     # Evaluation
     # Types and utilities
     "ScoreType",
@@ -67,11 +89,18 @@ __all__ = [
     "DeepEvalToxicity",
     "DeepTeamSafety",
     "DeepTeamIllegal",
+    # DeepEval conversational metrics
+    "DeepEvalTurnRelevancy",
     # Rhesis
     "RhesisMetricFactory",
     # Rhesis metrics
     "CategoricalJudge",
     "NumericJudge",
+    # Rhesis conversational metrics
+    "ConversationalJudge",
+    "GoalAchievementJudge",
+    "CriterionEvaluation",
+    "GoalAchievementScoreResponse",
     # Ragas
     "RagasMetricBase",
     # Ragas metrics

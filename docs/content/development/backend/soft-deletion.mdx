@@ -13,18 +13,23 @@ This document describes the soft deletion implementation in the Rhesis backend. 
 The soft deletion implementation was designed to achieve the following objectives:
 
 ### 1. Seamless Implementation Across All Entities
+
 Leverage the `Base` model to provide soft deletion capabilities to all 31+ database entities automatically, without requiring changes to individual model definitions. This ensures consistency and reduces maintenance overhead.
 
 ### 2. Automatic Filtering at the Fundamental Level
+
 Implement filtering that works automatically for **ALL** queries throughout the codebase without requiring manual modifications. This was critical because changing every existing query would be impractical and error-prone in a large codebase.
 
 ### 3. Preserve Referential Integrity and Historical Data
+
 In a multi-entity database with complex foreign key relationships, cascade deletion would destroy valuable historical data. For example, tests should be deletable without losing test run history and results. Soft deletion preserves all relationships while hiding the deleted entity from normal operations.
 
 ### 4. Support Correct Pagination
+
 Ensure soft delete filters are applied **BEFORE** `LIMIT`/`OFFSET` in SQL queries, so pagination counts and results are accurate. This required special handling of SQLAlchemy's query compilation order.
 
 ### 5. Provide Flexible Control Mechanisms
+
 Offer multiple layers of control: global context manager for admin operations, query-level methods for specific cases, and automatic filtering for normal operations. This balance supports different use cases without compromising security.
 
 ## Architecture
@@ -66,6 +71,7 @@ def restore(self):
 A `before_compile` event listener automatically adds `deleted_at IS NULL` filter to **ALL** queries. This is the core mechanism that enables automatic filtering without code changes.
 
 **Key features:**
+
 - Intercepts queries at compilation time
 - Catches `InvalidRequestError` for queries with `LIMIT`/`OFFSET`
 - Modifies `_where_criteria` tuple directly when `.filter()` fails
@@ -134,37 +140,44 @@ item = crud_utils.get_item(db, Model, item_id, include_deleted=True)
 A complete REST API for managing deleted records is available at `/recycle`:
 
 ### List Available Models
+
 ```
 GET /recycle/models
 ```
 
 ### Get Deleted Records
+
 ```
 GET /recycle/{model_name}?skip=0&limit=100&organization_id={org_id}
 ```
 
 ### Restore a Record
+
 ```
 POST /recycle/{model_name}/{item_id}/restore
 ```
 
 ### Permanently Delete a Record
+
 ```
 DELETE /recycle/{model_name}/{item_id}?confirm=true
 ```
 
 ### Get Recycle Bin Statistics
+
 ```
 GET /recycle/stats/counts
 ```
 
 ### Bulk Restore
+
 ```
 POST /recycle/bulk-restore/{model_name}
 Body: { "item_ids": ["uuid1", "uuid2", ...] }
 ```
 
 ### Empty Recycle Bin for a Model
+
 ```
 DELETE /recycle/empty/{model_name}?confirm=true
 ```
@@ -222,6 +235,7 @@ Comprehensive test suite with 35 passing tests covering:
 - ✅ Raw query filtering (including `.first()`)
 
 **Test files:**
+
 - `tests/backend/utils/test_soft_delete_crud.py`
 - `tests/backend/utils/test_soft_delete_querybuilder.py`
 - `tests/backend/routes/test_recycle.py`
@@ -295,15 +309,15 @@ with without_soft_delete_filter():
 
 ## Key Implementation Files
 
-| File | Purpose |
-|------|---------|
-| `app/models/base.py` | Base model with soft deletion columns and methods |
-| `app/models/soft_delete_events.py` | SQLAlchemy event listener for automatic filtering |
-| `app/database.py` | Context manager for global control |
-| `app/utils/crud_utils.py` | Enhanced CRUD operations |
-| `app/utils/model_utils.py` | QueryBuilder with soft delete methods |
-| `app/routers/recycle.py` | REST API for recycle bin management |
-| `alembic/versions/e364aaec703f_add_soft_delete_support.py` | Database migration |
+| File                                                       | Purpose                                           |
+| ---------------------------------------------------------- | ------------------------------------------------- |
+| `app/models/base.py`                                       | Base model with soft deletion columns and methods |
+| `app/models/soft_delete_events.py`                         | SQLAlchemy event listener for automatic filtering |
+| `app/database.py`                                          | Context manager for global control                |
+| `app/utils/crud_utils.py`                                  | Enhanced CRUD operations                          |
+| `app/utils/model_utils.py`                                 | QueryBuilder with soft delete methods             |
+| `app/routers/recycle.py`                                   | REST API for recycle bin management               |
+| `alembic/versions/e364aaec703f_add_soft_delete_support.py` | Database migration                                |
 
 ## Summary
 

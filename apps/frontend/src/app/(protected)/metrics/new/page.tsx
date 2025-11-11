@@ -12,6 +12,7 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import { useTheme } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -22,12 +23,12 @@ import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import BaseTag from '@/components/common/BaseTag';
-import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { MetricCreate } from '@/utils/api-client/interfaces/metric';
-import { TypeLookupClient } from '@/utils/api-client/type-lookup-client';
-import { TypeLookupsQueryParams } from '@/utils/api-client/interfaces/type-lookup';
+import {
+  MetricCreate,
+  MetricScope,
+} from '@/utils/api-client/interfaces/metric';
 import { User } from '@/utils/api-client/interfaces/user';
 import { UUID } from 'crypto';
 import { Model } from '@/utils/api-client/interfaces/model';
@@ -54,6 +55,7 @@ interface MetricFormData {
   threshold?: number;
   explanation: string;
   model_id: string;
+  metric_scope: MetricScope[];
 }
 
 const initialFormData: MetricFormData = {
@@ -66,6 +68,7 @@ const initialFormData: MetricFormData = {
   score_type: 'categorical',
   explanation: '',
   model_id: '',
+  metric_scope: ['Single-Turn'],
 };
 
 const steps = ['Metric Information and Criteria', 'Confirmation'];
@@ -110,7 +113,6 @@ export default function NewMetricPage() {
         });
         setModels(response.data || []); // Use .data instead of .items
       } catch (error) {
-        console.error('Failed to fetch models:', error);
         notifications.show('Failed to load evaluation models', {
           severity: 'error',
         });
@@ -168,10 +170,21 @@ export default function NewMetricPage() {
       return;
     }
 
+    // Validate metric scope - at least one must be selected
+    if (formData.metric_scope.length === 0) {
+      notifications.show(
+        'Please select at least one metric scope (Single-Turn or Multi-Turn)',
+        {
+          severity: 'error',
+          autoHideDuration: 4000,
+        }
+      );
+      return;
+    }
+
     setIsCreating(true);
 
     try {
-      console.log('Session:', session);
       if (!session?.session_token) {
         throw new Error(
           'No session token available. Please try logging in again.'
@@ -239,8 +252,6 @@ export default function NewMetricPage() {
         model_id: formData.model_id ? (formData.model_id as UUID) : undefined,
         owner_id: session.user?.id as UUID,
       };
-
-      console.log('Submitting metric:', JSON.stringify(metricRequest, null, 2));
 
       await metricsClient.createMetric(metricRequest);
       notifications.show('Metric created successfully', {
@@ -417,17 +428,64 @@ export default function NewMetricPage() {
         <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
           Result Configuration
         </Typography>
-        <FormControl fullWidth sx={{ mb: 3 }}>
-          <InputLabel required>Score Type</InputLabel>
-          <Select<'categorical' | 'numeric'>
-            value={formData.score_type}
-            label="Score Type"
-            onChange={handleChange('score_type')}
-          >
-            <MenuItem value="categorical">Categorical</MenuItem>
-            <MenuItem value="numeric">Numeric</MenuItem>
-          </Select>
-        </FormControl>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Choose how this metric will be scored:
+          </Typography>
+          <FormControl fullWidth>
+            <Select<'categorical' | 'numeric'>
+              value={formData.score_type}
+              onChange={handleChange('score_type')}
+            >
+              <MenuItem value="categorical">Categorical</MenuItem>
+              <MenuItem value="numeric">Numeric</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
+            Metric Scope{' '}
+            <Typography component="span" sx={{ color: 'error.main' }}>
+              *
+            </Typography>
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Select which test types this metric applies to (at least one
+            required):
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {(['Single-Turn', 'Multi-Turn'] as MetricScope[]).map(scope => {
+              const isSelected = formData.metric_scope.includes(scope);
+
+              return (
+                <Chip
+                  key={scope}
+                  label={scope}
+                  clickable
+                  color={isSelected ? 'primary' : 'default'}
+                  variant={isSelected ? 'filled' : 'outlined'}
+                  onClick={() => {
+                    const newScope = isSelected
+                      ? formData.metric_scope.filter(s => s !== scope)
+                      : [...formData.metric_scope, scope];
+                    setFormData(prev => ({
+                      ...prev,
+                      metric_scope: newScope,
+                    }));
+                  }}
+                  sx={{
+                    '&:hover': {
+                      backgroundColor: isSelected
+                        ? 'primary.dark'
+                        : 'action.hover',
+                    },
+                  }}
+                />
+              );
+            })}
+          </Box>
+        </Box>
 
         {formData.score_type === 'numeric' && (
           <>
@@ -488,7 +546,7 @@ export default function NewMetricPage() {
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
           gap: 3,
-          maxWidth: '1000px',
+          maxWidth: theme => theme.spacing(125),
           mx: 'auto',
         }}
       >
@@ -845,7 +903,7 @@ export default function NewMetricPage() {
             mt: 4,
           }}
         >
-          <Box sx={{ maxWidth: '600px', width: '100%' }}>
+          <Box sx={{ maxWidth: theme => theme.spacing(75), width: '100%' }}>
             <Stepper activeStep={activeStep}>
               {steps.map(label => (
                 <Step key={label}>

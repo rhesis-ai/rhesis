@@ -33,9 +33,7 @@ export function TasksWrapper({
     async (taskData: any) => {
       try {
         await createTask(taskData);
-      } catch (error) {
-        console.error('Failed to create task:', error);
-      }
+      } catch (error) {}
     },
     [createTask]
   );
@@ -49,9 +47,7 @@ export function TasksWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
-      } catch (error) {
-        console.error('Failed to delete task:', error);
-      }
+      } catch (error) {}
     },
     [deleteTask]
   );

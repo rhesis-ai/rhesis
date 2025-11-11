@@ -48,11 +48,11 @@ x-rhesis-config: &rhesis-config
   BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
 
 x-telemetry-config: &telemetry-config
-  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318/}
   OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-rhesis}
   DEPLOYMENT_TYPE: ${DEPLOYMENT_TYPE:-self-hosted}
   TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-false}  # Self-hosted: opt-in via env var
-  
+
 x-gemini-google: &gemini-google
   GEMINI_API_KEY: ${GEMINI_API_KEY}
   GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME}
@@ -241,4 +241,4 @@ volumes:
 
 networks:
   rhesis-network:
-    driver: bridge 
+    driver: bridge

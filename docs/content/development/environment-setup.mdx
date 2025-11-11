@@ -7,6 +7,7 @@ This guide explains how to configure the environment variables for both the back
 Create a `.env` file in `apps/backend/` with the following variables:
 
 ### Database Configuration
+
 ```bash
 # PostgreSQL database connection
 SQLALCHEMY_DATABASE_URL=postgresql://username:password@host:port/database
@@ -19,12 +20,14 @@ SQLALCHEMY_DB_NAME=your_database_name
 ```
 
 ### Logging
+
 ```bash
 # Application logging level
 LOG_LEVEL=DEBUG
 ```
 
 ### Authentication (Auth0)
+
 ```bash
 # Auth0 configuration
 AUTH0_DOMAIN=your-tenant.region.auth0.com
@@ -35,6 +38,7 @@ AUTH0_SECRET_KEY=your_auth0_secret
 ```
 
 ### JWT Configuration
+
 ```bash
 # JWT token settings
 JWT_SECRET_KEY=your_very_long_random_secret_key
@@ -43,6 +47,7 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
 ```
 
 ### Application URLs
+
 ```bash
 # Frontend application URL
 FRONTEND_URL=http://localhost:3000
@@ -50,6 +55,7 @@ RHESIS_BASE_URL=http://localhost:8080
 ```
 
 ### AI Services
+
 ```bash
 # Azure OpenAI
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
@@ -63,6 +69,7 @@ GEMINI_MODEL_NAME=gemini-2.0-flash-001
 ```
 
 ### Email Configuration
+
 ```bash
 # SMTP settings (e.g., SendGrid)
 SMTP_HOST=your_smtp_host
@@ -72,6 +79,7 @@ SMTP_PASSWORD=your_smtp_password
 ```
 
 ### Celery Configuration
+
 ```bash
 # Task queue configuration
 BROKER_URL=your_celery_broker_url
@@ -86,6 +94,7 @@ CELERY_WORKER_MAX_TASKS_PER_CHILD=1000
 Create a `.env.local` file in `apps/frontend/` with the following variables:
 
 ### NextAuth Configuration
+
 ```bash
 # NextAuth.js settings
 NEXTAUTH_URL=http://localhost:3000
@@ -94,6 +103,7 @@ AUTH_SECRET=your_auth_secret
 ```
 
 ### Public Variables (Exposed to Browser)
+
 ```bash
 # API and application URLs
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
@@ -105,6 +115,7 @@ NEXT_PUBLIC_AUTH0_DOMAIN=your-domain.auth0.com
 ```
 
 ### OAuth Configuration
+
 ```bash
 # Google OAuth credentials
 GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
@@ -112,12 +123,14 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
 
 ### Database (if needed)
+
 ```bash
 # Database connection for frontend operations
 DATABASE_URL=postgresql://username:password@host:port/database
 ```
 
 ### Email Configuration (if needed)
+
 ```bash
 # SMTP settings
 SMTP_HOST=your_smtp_host
@@ -129,30 +142,36 @@ SMTP_PASSWORD=your_smtp_password
 ## Setup Instructions
 
 ### 1. Database Setup
+
 - Set up PostgreSQL database
 - Create separate databases for main app and Celery if needed
 - Configure connection details in environment variables
 
 ### 2. Auth0 Setup
+
 - Create Auth0 application
 - Configure callback URLs and settings
 - Get client credentials and domain
 
 ### 3. Google OAuth Setup
+
 - Create project in Google Cloud Console
 - Enable Google+ API
 - Create OAuth 2.0 credentials
 - Configure authorized redirect URIs
 
 ### 4. AI Services Setup
+
 - **Azure OpenAI**: Create resource in Azure, deploy models, get API keys
 - **Google Gemini**: Get API key from Google AI Studio
 
 ### 5. Email Setup
+
 - Configure SMTP service (e.g., SendGrid)
 - Get API keys and SMTP credentials
 
 ### 6. Generate Secrets
+
 ```bash
 # Generate NextAuth secret
 openssl rand -base64 32
@@ -171,5 +190,6 @@ openssl rand -hex 64
 ## Development vs Production
 
 Make sure to use appropriate values for each environment:
+
 - **Development**: `localhost` URLs, development databases
 - **Production**: Production URLs, production databases, stronger secrets

@@ -1,8 +1,9 @@
 export default {
-  index: 'Home',
-  'getting-started': 'Getting Started',
-  platform: 'Platform',
-  sdk: 'SDK',
-  development: 'Development',
-  telemetry: 'Telemetry',
-}
+  index: "Home",
+  "getting-started": "Getting Started",
+  platform: "Platform",
+  sdk: "SDK",
+  penelope: "Penelope",
+  development: "Development",
+  telemetry: "Telemetry",
+};

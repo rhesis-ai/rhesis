@@ -104,17 +104,12 @@ export default function CreateProjectClient({
         icon: formData.icon,
       };
 
-      console.log('Creating project with data:', projectData);
-
       try {
         const project = await projectsClient.createProject(projectData);
-        console.log('Project created:', project);
 
         // Navigate to the projects page
         router.push('/projects');
       } catch (projectError) {
-        console.error('Error creating project:', projectError);
-
         if (projectError instanceof Error) {
           if (projectError.message.includes('Failed to fetch')) {
             setError(
@@ -134,7 +129,6 @@ export default function CreateProjectClient({
         }
       }
     } catch (error) {
-      console.error('Error during project creation:', error);
       setError('Failed to complete project creation. Please try again.');
     } finally {
       setIsSubmitting(false);

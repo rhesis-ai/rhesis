@@ -3,8 +3,9 @@
 This guide covers testing strategies and implementation for the Rhesis frontend application.
 
 <Callout type="default">
-  **Testing Framework** The frontend uses **Jest** as the test runner and **React Testing Library**
-  for component testing, providing comprehensive unit testing capabilities.
+  **Testing Framework** The frontend uses **Jest** as the test runner and
+  **React Testing Library** for component testing, providing comprehensive unit
+  testing capabilities.
 </Callout>
 
 ## Quick Start
@@ -16,21 +17,26 @@ This guide covers testing strategies and implementation for the Rhesis frontend 
 cd apps/frontend
 
 # Run all tests
+
 npm test
 
 # Run tests in watch mode
+
 npm run test:watch
 
 # Run tests with coverage
+
 npm run test:coverage
 
 # Run tests in CI mode
+
 npm test:ci`}
+
 </CodeBlock>
 
 <Callout type="default">
-  **Test Coverage** Target coverage thresholds: **70%** for branches, functions, lines, and
-  statements
+  **Test Coverage** Target coverage thresholds: **70%** for branches, functions,
+  lines, and statements
 </Callout>
 
 ## Testing Configuration
@@ -43,35 +49,36 @@ The testing framework is configured in `jest.config.js`:
 {`const nextJest = require('next/jest')
 
 const createJestConfig = nextJest({
-  dir: './',
+dir: './',
 })
 
 const customJestConfig = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testEnvironment: 'jsdom',
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
-  },
-  collectCoverageFrom: [
-    'src/**/*.{js,jsx,ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/**/index.ts',
-    '!src/app/layout.tsx',
-    '!src/app/page.tsx',
-    '!src/auth.ts',
-    '!src/middleware.ts',
-  ],
-  coverageThreshold: {
-    global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70,
-    },
-  },
+setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+testEnvironment: 'jsdom',
+moduleNameMapper: {
+'^@/(._)$': '<rootDir>/src/$1',
+},
+collectCoverageFrom: [
+'src/\*\*/_.{js,jsx,ts,tsx}',
+'!src/**/\*.d.ts',
+'!src/**/index.ts',
+'!src/app/layout.tsx',
+'!src/app/page.tsx',
+'!src/auth.ts',
+'!src/middleware.ts',
+],
+coverageThreshold: {
+global: {
+branches: 70,
+functions: 70,
+lines: 70,
+statements: 70,
+},
+},
 }
 
 module.exports = createJestConfig(customJestConfig)`}
+
 </CodeBlock>
 
 ### Test Environment Setup
@@ -79,33 +86,33 @@ module.exports = createJestConfig(customJestConfig)`}
 The test environment is configured in `jest.setup.js`:
 
 ```javascript
-import '@testing-library/jest-dom'
+import "@testing-library/jest-dom";
 
 // Set environment variables for tests
-process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080/api/v1'
+process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:8080/api/v1";
 
 // Mock Next.js router
-jest.mock('next/router', () => ({
+jest.mock("next/router", () => ({
   useRouter() {
     return {
-      route: '/',
-      pathname: '',
+      route: "/",
+      pathname: "",
       query: {},
-      asPath: '',
+      asPath: "",
       push: jest.fn(),
       events: {
         on: jest.fn(),
         off: jest.fn(),
       },
       isFallback: false,
-    }
+    };
   },
-}))
+}));
 
 // Mock browser APIs
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: jest.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -115,13 +122,13 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: jest.fn(),
     dispatchEvent: jest.fn(),
   })),
-})
+});
 
 global.ResizeObserver = jest.fn().mockImplementation(() => ({
   observe: jest.fn(),
   unobserve: jest.fn(),
   disconnect: jest.fn(),
-}))
+}));
 ```
 
 ## Writing Tests
@@ -192,47 +199,47 @@ describe('BaseDrawer', () => {
 Test custom hooks using `@testing-library/react-hooks`:
 
 ```typescript
-import { renderHook, act } from '@testing-library/react'
-import { useTasks } from '../useTasks'
-import { TasksClient } from '@/utils/api-client/tasks-client'
+import { renderHook, act } from "@testing-library/react";
+import { useTasks } from "../useTasks";
+import { TasksClient } from "@/utils/api-client/tasks-client";
 
 // Mock the API client
-jest.mock('@/utils/api-client/tasks-client')
-const mockTasksClient = TasksClient as jest.Mocked<typeof TasksClient>
+jest.mock("@/utils/api-client/tasks-client");
+const mockTasksClient = TasksClient as jest.Mocked<typeof TasksClient>;
 
-describe('useTasks', () => {
+describe("useTasks", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-  })
+    jest.clearAllMocks();
+  });
 
-  it('should fetch tasks on mount', async () => {
-    const mockTasks = [{ id: '1', name: 'Test Task' }]
-    mockTasksClient.getTasks.mockResolvedValue(mockTasks)
+  it("should fetch tasks on mount", async () => {
+    const mockTasks = [{ id: "1", name: "Test Task" }];
+    mockTasksClient.getTasks.mockResolvedValue(mockTasks);
 
-    const { result } = renderHook(() => useTasks())
-
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0))
-    })
-
-    expect(result.current.tasks).toEqual(mockTasks)
-    expect(result.current.isLoading).toBe(false)
-  })
-
-  it('should handle errors correctly', async () => {
-    const mockError = new Error('API Error')
-    mockTasksClient.getTasks.mockRejectedValue(mockError)
-
-    const { result } = renderHook(() => useTasks())
+    const { result } = renderHook(() => useTasks());
 
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0))
-    })
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
 
-    expect(result.current.error).toBe('API Error')
-    expect(result.current.isLoading).toBe(false)
-  })
-})
+    expect(result.current.tasks).toEqual(mockTasks);
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it("should handle errors correctly", async () => {
+    const mockError = new Error("API Error");
+    mockTasksClient.getTasks.mockRejectedValue(mockError);
+
+    const { result } = renderHook(() => useTasks());
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(result.current.error).toBe("API Error");
+    expect(result.current.isLoading).toBe(false);
+  });
+});
 ```
 
 ### Utility Function Testing
@@ -240,30 +247,30 @@ describe('useTasks', () => {
 Test utility functions with Jest:
 
 ```typescript
-import { formatDate } from '../date-utils'
+import { formatDate } from "../date-utils";
 
-describe('formatDate', () => {
-  it('formats ISO date string correctly', () => {
-    const isoDate = '2024-01-15T10:30:00Z'
-    const formatted = formatDate(isoDate)
+describe("formatDate", () => {
+  it("formats ISO date string correctly", () => {
+    const isoDate = "2024-01-15T10:30:00Z";
+    const formatted = formatDate(isoDate);
 
-    expect(formatted).toBe('Jan 15, 2024')
-  })
+    expect(formatted).toBe("Jan 15, 2024");
+  });
 
-  it('handles invalid date gracefully', () => {
-    const invalidDate = 'invalid-date'
-    const formatted = formatDate(invalidDate)
+  it("handles invalid date gracefully", () => {
+    const invalidDate = "invalid-date";
+    const formatted = formatDate(invalidDate);
 
-    expect(formatted).toBe('Invalid Date')
-  })
+    expect(formatted).toBe("Invalid Date");
+  });
 
-  it('formats with custom locale', () => {
-    const isoDate = '2024-01-15T10:30:00Z'
-    const formatted = formatDate(isoDate, 'en-GB')
+  it("formats with custom locale", () => {
+    const isoDate = "2024-01-15T10:30:00Z";
+    const formatted = formatDate(isoDate, "en-GB");
 
-    expect(formatted).toBe('15 Jan 2024')
-  })
-})
+    expect(formatted).toBe("15 Jan 2024");
+  });
+});
 ```
 
 ## Test Utilities
@@ -311,14 +318,14 @@ Create mock implementations for API clients:
 
 ```typescript
 // Mock API client
-jest.mock('@/utils/api-client/tasks-client', () => ({
+jest.mock("@/utils/api-client/tasks-client", () => ({
   TasksClient: jest.fn().mockImplementation(() => ({
     getTasks: jest.fn(),
     createTask: jest.fn(),
     updateTask: jest.fn(),
     deleteTask: jest.fn(),
   })),
-}))
+}));
 ```
 
 ## Testing Best Practices
@@ -371,20 +378,20 @@ expect(component.state.isLoading).toBe(true);`}</code></pre>
               children: [
                 {
                   name: "Button.tsx",
-                  type: "file"
+                  type: "file",
                 },
                 {
                   name: "Button.test.tsx",
                   type: "file",
-                  description: "Co-located tests"
+                  description: "Co-located tests",
                 },
                 {
                   name: "index.ts",
-                  type: "file"
-                }
-              ]
-            }
-          ]
+                  type: "file",
+                },
+              ],
+            },
+          ],
         },
         {
           name: "hooks",
@@ -392,14 +399,14 @@ expect(component.state.isLoading).toBe(true);`}</code></pre>
           children: [
             {
               name: "useAuth.ts",
-              type: "file"
+              type: "file",
             },
             {
               name: "useAuth.test.ts",
               type: "file",
-              description: "Hook tests"
-            }
-          ]
+              description: "Hook tests",
+            },
+          ],
         },
         {
           name: "utils",
@@ -407,14 +414,14 @@ expect(component.state.isLoading).toBe(true);`}</code></pre>
           children: [
             {
               name: "formatDate.ts",
-              type: "file"
+              type: "file",
             },
             {
               name: "formatDate.test.ts",
               type: "file",
-              description: "Utility tests"
-            }
-          ]
+              description: "Utility tests",
+            },
+          ],
         },
         {
           name: "__tests__",
@@ -423,22 +430,22 @@ expect(component.state.isLoading).toBe(true);`}</code></pre>
             {
               name: "integration",
               type: "folder",
-              description: "Integration tests"
+              description: "Integration tests",
             },
             {
               name: "setup",
               type: "folder",
-              description: "Test setup files"
+              description: "Test setup files",
             },
             {
               name: "README.md",
               type: "file",
-              description: "Test documentation"
-            }
-          ]
-        }
-      ]
-    }
+              description: "Test documentation",
+            },
+          ],
+        },
+      ],
+    },
   ]}
 />
 
@@ -501,9 +508,9 @@ test:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: 'apps/frontend/package-lock.json'
+        node-version: "18"
+        cache: "npm"
+        cache-dependency-path: "apps/frontend/package-lock.json"
 
     - name: Install dependencies
       run: npm ci
@@ -570,6 +577,6 @@ npm test -- --detectOpenHandles
   **Resources** - [React Testing Library
   Docs](https://testing-library.com/docs/react-testing-library/intro/) - [Jest
   Documentation](https://jestjs.io/docs/getting-started) - [Testing Library Best
-  Practices](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library) - [Frontend
-  Testing Examples](/docs/development/frontend/testing/examples)
+  Practices](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
+  - [Frontend Testing Examples](/docs/development/frontend/testing/examples)
 </Callout>

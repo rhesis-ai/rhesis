@@ -54,13 +54,28 @@ export default async function TestSetPage({ params }: { params: any }) {
     limit: 1,
     $filter: `id eq ${identifier}`,
   } as TestSetsQueryParams);
-  const testSet = response.data[0];
+  let testSet = response.data[0];
   if (!testSet) {
     throw new Error('Test set not found');
   }
 
+  // Fetch test set type details if test_set_type_id exists
+  if (testSet.test_set_type_id) {
+    try {
+      const typeLookupClient = apiFactory.getTypeLookupClient();
+      const testSetType = await typeLookupClient.getTypeLookup(
+        testSet.test_set_type_id as string
+      );
+      testSet = {
+        ...testSet,
+        test_set_type: testSetType,
+      };
+    } catch (error) {
+      // Keep original testSet if test set type fetch fails
+    }
+  }
+
   // Log the test set data to help diagnose status issues
-  console.log('Test Set JSON Data:', JSON.stringify(testSet, null, 2));
 
   // Serialize the testSet data to ensure consistent rendering
   const serializedTestSet = JSON.parse(JSON.stringify(testSet));

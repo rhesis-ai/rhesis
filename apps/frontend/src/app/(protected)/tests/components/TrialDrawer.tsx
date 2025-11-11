@@ -94,7 +94,6 @@ export default function TrialDrawer({
 
             setTestData(testDetail);
           } catch (testError) {
-            console.error('Error fetching test data:', testError);
             // Continue with projects/endpoints even if test fetch fails
           }
         }
@@ -108,30 +107,23 @@ export default function TrialDrawer({
             limit: 100,
           });
 
-          console.log('Projects API response:', projectsData);
-
           // Handle both response formats: direct array or {data: array}
           let projectsArray: Project[] = [];
           if (Array.isArray(projectsData)) {
             // Direct array response (what we're getting)
             projectsArray = projectsData;
-            console.log('Using direct array response');
           } else if (projectsData && Array.isArray(projectsData.data)) {
             // Paginated response with data property
             projectsArray = projectsData.data;
-            console.log('Using paginated response data');
           } else {
-            console.warn('Invalid projects response structure:', projectsData);
           }
 
           const processedProjects = projectsArray
             .filter((p: Project) => p.id && p.name && p.name.trim() !== '')
             .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
 
-          console.log('Final processed projects:', processedProjects);
           setProjects(processedProjects);
         } catch (projectsError) {
-          console.error('Error fetching projects:', projectsError);
           setProjects([]);
           notifications.show(
             'Failed to load projects. Please refresh the page.',
@@ -148,8 +140,6 @@ export default function TrialDrawer({
             limit: 100,
           });
 
-          console.log('Endpoints API response:', endpointsResponse);
-
           if (endpointsResponse && Array.isArray(endpointsResponse.data)) {
             const processedEndpoints = endpointsResponse.data
               .filter(e => e.id && e.name && e.name.trim() !== '')
@@ -160,17 +150,11 @@ export default function TrialDrawer({
                 project_id: e.project_id,
               }));
 
-            console.log('Final processed endpoints:', processedEndpoints);
             setEndpoints(processedEndpoints);
           } else {
-            console.warn(
-              'Invalid endpoints response structure:',
-              endpointsResponse
-            );
             setEndpoints([]);
           }
         } catch (endpointsError) {
-          console.error('Error fetching endpoints:', endpointsError);
           setEndpoints([]);
           notifications.show(
             'Failed to load endpoints. Please refresh the page.',
@@ -178,7 +162,6 @@ export default function TrialDrawer({
           );
         }
       } catch (error) {
-        console.error('General error in fetchData:', error);
         setError(
           'Failed to load data. Please check your connection and try again.'
         );
@@ -233,12 +216,8 @@ export default function TrialDrawer({
         input: testData.prompt.content,
       });
 
-      console.log('Response data:', data);
-      console.log('Output:', data.output);
-
       setTrialResponse(data);
     } catch (error) {
-      console.error(error);
       setError('Failed to execute trial');
     } finally {
       setTrialInProgress(false);
@@ -261,7 +240,6 @@ export default function TrialDrawer({
             options={projects}
             value={projects.find(p => p.id === selectedProject) || null}
             onChange={(_, newValue) => {
-              console.log('Project selection changed:', newValue);
               if (!newValue) {
                 setSelectedProject(null);
                 return;

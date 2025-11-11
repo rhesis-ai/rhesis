@@ -12,6 +12,9 @@ import React from 'react'
  * @param {React.ComponentType} props.icon - MUI icon component to display
  * @param {string} props.title - Card title/heading
  * @param {string} props.description - Card description text
+ * @param {string} [props.link] - Optional link URL
+ * @param {string} [props.linkText] - Optional link text
+ * @param {boolean} [props.external] - Whether link is external
  * @param {React.ReactNode} [props.children] - Optional custom content instead of description
  * @param {string} [props.className] - Additional CSS classes
  *
@@ -21,6 +24,8 @@ import React from 'react'
  *   icon={GroupsOutlined}
  *   title="Collaborative Testing"
  *   description="Bring developers and domain experts together"
+ *   link="/docs/features"
+ *   linkText="Learn More →"
  * />
  * ```
  */
@@ -28,9 +33,13 @@ export const InfoCardHorizontal = ({
   icon: Icon,
   title,
   description,
+  link,
+  linkText,
+  external = false,
   children,
   className = '',
 }) => {
+  const hasLink = Boolean(link)
   const styles = {
     card: {
       display: 'flex',
@@ -75,7 +84,15 @@ export const InfoCardHorizontal = ({
       color: 'var(--text-secondary, #6B7280)',
       lineHeight: '1.6',
       fontFamily: 'Be Vietnam Pro, sans-serif',
-      margin: '0',
+      margin: hasLink ? '0 0 0.75rem 0' : '0',
+    },
+    link: {
+      color: '#2AA1CE',
+      textDecoration: 'none',
+      fontWeight: '500',
+      fontSize: '0.875rem',
+      transition: 'color 0.2s ease',
+      display: 'inline-block',
     },
   }
 
@@ -87,6 +104,17 @@ export const InfoCardHorizontal = ({
       <div style={styles.content}>
         <h3 style={styles.title}>{title}</h3>
         {children || <p style={styles.description}>{description}</p>}
+        {hasLink && (
+          <a
+            href={link}
+            target={external ? '_blank' : '_self'}
+            rel={external ? 'noopener noreferrer' : undefined}
+            style={styles.link}
+            className="info-card-link"
+          >
+            {linkText}
+          </a>
+        )}
       </div>
     </div>
   )

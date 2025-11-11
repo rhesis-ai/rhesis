@@ -30,4 +30,21 @@ export interface Endpoint {
   user_id?: string;
   organization_id?: string;
   project_id?: string;
+
+  // Nested project object (when included in response)
+  project?: {
+    id?: string;
+    icon?: string;
+    useCase?: string;
+    name?: string;
+  };
+
+  // Note: auth_token, client_secret, last_token are write-only fields
+  // They can be set during create/update but are never returned in responses
+}
+
+// Type for editing endpoints - includes write-only fields
+export interface EndpointEditData extends Partial<Endpoint> {
+  auth_token?: string;
+  client_secret?: string;
 }

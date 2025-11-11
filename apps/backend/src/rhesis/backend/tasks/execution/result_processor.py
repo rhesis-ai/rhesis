@@ -219,7 +219,8 @@ def calculate_execution_time(
         execution_time = format_execution_time(duration_seconds)
         logger_func(
             "debug",
-            f"Calculated execution time from started_at to now: {execution_time} ({duration_seconds} seconds)",
+            f"Calculated execution time from started_at to now: "
+            f"{execution_time} ({duration_seconds} seconds)",
         )
         return execution_time
     except Exception as e:

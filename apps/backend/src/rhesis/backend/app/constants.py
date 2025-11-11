@@ -29,6 +29,30 @@ class EntityType(Enum):
         return entity_type
 
 
+# Test Types Enum - Aligned with initial_data.json type_lookup values
+class TestType(Enum):
+    SINGLE_TURN = "Single-Turn"
+    MULTI_TURN = "Multi-Turn"
+
+    @classmethod
+    def get_value(cls, test_type):
+        """Get the string value of a test type"""
+        if isinstance(test_type, cls):
+            return test_type.value
+        return test_type
+
+    @classmethod
+    def from_string(cls, value: str):
+        """Get enum from string value (case-insensitive comparison)"""
+        if not value:
+            return None
+        value_lower = value.lower()
+        for test_type in cls:
+            if test_type.value.lower() == value_lower:
+                return test_type
+        return None
+
+
 # Error messages
 ERROR_INVALID_UUID = "Invalid UUID format in input parameters: {error}"
 ERROR_TEST_SET_NOT_FOUND = "Test set with ID {test_set_id} not found"

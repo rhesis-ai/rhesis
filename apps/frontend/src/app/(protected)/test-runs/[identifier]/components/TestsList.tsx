@@ -30,6 +30,7 @@ interface TestsListProps {
   onTestSelect: (testId: string) => void;
   loading?: boolean;
   prompts: Record<string, { content: string; name?: string }>;
+  testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
 }
 
 interface TestListItemProps {
@@ -40,6 +41,8 @@ interface TestListItemProps {
   status: TestResultStatus;
   passedMetrics: number;
   totalMetrics: number;
+  turnCount: number | null;
+  conversationTurnCount: number | null;
 }
 
 function TestListItemSkeleton() {
@@ -86,6 +89,8 @@ function TestListItem({
   status,
   passedMetrics,
   totalMetrics,
+  turnCount,
+  conversationTurnCount,
 }: TestListItemProps) {
   const theme = useTheme();
 
@@ -215,6 +220,24 @@ function TestListItem({
                   : `${passedMetrics}/${totalMetrics} metrics`}
               </Typography>
 
+              {/* Turn Count for Multi-turn Tests */}
+              {turnCount !== null && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    fontWeight: 400,
+                    fontSize: '0.7rem',
+                  }}
+                >
+                  • {turnCount} {turnCount === 1 ? 'turn' : 'turns'}
+                  {conversationTurnCount !== null &&
+                    conversationTurnCount !== turnCount && (
+                      <> ({conversationTurnCount} conversation)</>
+                    )}
+                </Typography>
+              )}
+
               {/* Conflicting Review Indicator */}
               {hasConflictingReview && (
                 <Tooltip
@@ -263,10 +286,15 @@ export default function TestsList({
   onTestSelect,
   loading = false,
   prompts,
+  testSetType,
 }: TestsListProps) {
   const theme = useTheme();
   const listContainerRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLDivElement>(null);
+
+  // Determine if this is a multi-turn test set
+  const isMultiTurn =
+    testSetType?.toLowerCase().includes('multi-turn') || false;
 
   // Process tests to determine status (Pass/Fail/Error)
   const processedTests = useMemo(() => {
@@ -277,10 +305,31 @@ export default function TestsList({
       const totalMetrics = metricValues.length;
       const status = getTestResultStatus(test);
 
-      const promptContent =
-        test.prompt_id && prompts[test.prompt_id]
-          ? prompts[test.prompt_id].content
-          : 'No prompt available';
+      // Get turn count for multi-turn tests
+      const turnCount =
+        test.test_output?.turns_used ||
+        test.test_output?.stats?.total_turns ||
+        null;
+
+      // Get actual conversation turn count (excluding internal analysis turns)
+      const conversationTurnCount =
+        test.test_output?.conversation_summary?.filter(
+          (turn: any) => turn.penelope_message || turn.target_response
+        ).length || null;
+
+      // For multi-turn tests, show goal; for single-turn, show prompt
+      let promptContent = 'No prompt available';
+      if (isMultiTurn) {
+        // Multi-turn: get goal from test_output.test_configuration
+        promptContent =
+          test.test_output?.test_configuration?.goal || 'No goal available';
+      } else {
+        // Single-turn: get prompt as usual
+        promptContent =
+          test.prompt_id && prompts[test.prompt_id]
+            ? prompts[test.prompt_id].content
+            : test.test?.prompt?.content || 'No prompt available';
+      }
 
       return {
         test,
@@ -288,9 +337,11 @@ export default function TestsList({
         passedMetrics,
         totalMetrics,
         promptContent,
+        turnCount,
+        conversationTurnCount,
       };
     });
-  }, [tests, prompts]);
+  }, [tests, prompts, isMultiTurn]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -395,7 +446,15 @@ export default function TestsList({
     >
       <List sx={{ py: 0 }}>
         {processedTests.map(
-          ({ test, status, passedMetrics, totalMetrics, promptContent }) => (
+          ({
+            test,
+            status,
+            passedMetrics,
+            totalMetrics,
+            promptContent,
+            turnCount,
+            conversationTurnCount,
+          }) => (
             <Box
               key={test.id}
               ref={selectedTestId === test.id ? selectedItemRef : null}
@@ -408,6 +467,8 @@ export default function TestsList({
                 status={status}
                 passedMetrics={passedMetrics}
                 totalMetrics={totalMetrics}
+                turnCount={turnCount}
+                conversationTurnCount={conversationTurnCount}
               />
             </Box>
           )

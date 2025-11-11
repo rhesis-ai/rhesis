@@ -8,13 +8,13 @@ Helper functions for managing user-configured LLM models for different purposes
 import logging
 from typing import Union
 
-from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.factory import get_model
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.models.user import User
+from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger(__name__)
 

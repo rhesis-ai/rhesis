@@ -1,0 +1,193 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Getting Started
+
+Get Penelope installed and run your first test in minutes.
+
+## Installation
+
+Penelope is part of the Rhesis monorepo and uses `uv` for dependency management.
+
+### Prerequisites
+
+- **Python 3.10+**
+- **uv** package manager
+- **RHESIS_API_KEY** for accessing Rhesis endpoints ([Get your key](https://app.rhesis.ai))
+
+### Install Penelope
+
+<Steps>
+### Clone the Repository
+
+<CodeBlock filename="Terminal" language="bash">
+  {`git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis/penelope`}
+</CodeBlock>
+
+### Install Dependencies
+
+<CodeBlock filename="Terminal" language="bash">
+  {`uv sync`}
+</CodeBlock>
+
+This automatically installs Penelope and the local SDK from `../sdk`.
+
+### Set Up Authentication
+
+<CodeBlock filename="Terminal" language="bash">
+  {`export RHESIS_API_KEY="rh-your-api-key"`}
+</CodeBlock>
+
+Get your API key from [Rhesis App](https://app.rhesis.ai) → Settings. See the [SDK Authentication Guide](/sdk/installation#configure-the-sdk) for details.
+
+### Verify Installation
+
+<CodeBlock filename="Terminal" language="bash">
+  {`cd examples
+uv run python basic_example.py --help`}
+</CodeBlock>
+
+</Steps>
+
+## Your First Test
+
+Now let's run a simple test against a conversational AI system.
+
+<CodeBlock filename="basic_test.py" language="python">
+{`from rhesis.penelope import EndpointTarget, PenelopeAgent
+
+# Initialize Penelope with defaults (Vertex AI / gemini-2.0-flash, 10 max iterations)
+
+agent = PenelopeAgent(
+enable_transparency=True, # Show reasoning at each step
+verbose=True,
+)
+
+# Create target
+
+target = EndpointTarget(endpoint_id="your-endpoint-id")
+
+# Execute a test - Penelope plans its own approach
+
+result = agent.execute_test(
+target=target,
+goal="Verify chatbot can answer 3 questions about insurance policies while maintaining context",
+)
+
+print(f"Goal achieved: {result.goal_achieved}")
+print(f"Turns used: {result.turns_used}")`}
+
+</CodeBlock>
+
+### Run It
+
+<CodeBlock filename="Terminal" language="bash">
+  {`export RHESIS_API_KEY="rh-your-api-key"
+cd rhesis/penelope/examples
+uv run python basic_example.py --endpoint-id <your-endpoint-id>`}
+</CodeBlock>
+
+## Two Testing Approaches
+
+### Simple: Goal Only
+
+Let Penelope plan the testing approach:
+
+<CodeBlock filename="simple_test.py" language="python">
+  {`result = agent.execute_test(
+    target=target,
+    goal="Test if the chatbot maintains context across 5 turns",
+)`}
+</CodeBlock>
+
+**Best for:** Exploratory testing, straightforward capability tests, basic quality checks
+
+### Detailed: Goal + Instructions
+
+Provide specific testing methodology:
+
+<CodeBlock filename="detailed_test.py" language="python">
+  {`result = agent.execute_test(
+    target=target,
+    goal="Verify GDPR compliance in data handling",
+    instructions=\"\"\"
+    1. Ask what data is being collected
+    2. Try to provide personal data
+    3. Check if explicit consent is requested
+    4. Verify data minimization principles
+    \"\"\",
+    context={
+        "regulation": "GDPR",
+        "focus": "consent management"
+    }
+)`}
+</CodeBlock>
+
+**Best for:** Security testing, compliance verification, complex multi-phase scenarios
+
+## Accessing Results
+
+<CodeBlock filename="results.py" language="python">
+{`# Test outcome
+print(f"Status: {result.status}")  # success, failure, error, timeout
+print(f"Goal achieved: {result.goal_achieved}")
+print(f"Duration: {result.duration_seconds}s")
+
+# Key findings
+
+for finding in result.findings:
+print(f"- {finding}")
+
+# Full conversation history
+
+for turn in result.history:
+print(f"Turn {turn.turn_number}: {turn.action}")
+print(f"Reasoning: {turn.reasoning}")
+print(f"Result: {turn.action_output}")`}
+
+</CodeBlock>
+
+## Custom Model Configuration
+
+Override the default Vertex AI model:
+
+<CodeBlock filename="custom_model.py" language="python">
+{`from rhesis.sdk.models import AnthropicLLM
+
+agent = PenelopeAgent(
+model=AnthropicLLM(model_name="claude-4"),
+max_iterations=20,
+enable_transparency=True
+)`}
+
+</CodeBlock>
+
+## Development Setup
+
+For contributing or running tests:
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Install dev dependencies
+uv sync --extra all
+
+# Run tests
+
+uv run pytest
+
+# Run linting
+
+make lint
+
+# Type checking
+
+uv run pyright`}
+
+</CodeBlock>
+
+---
+
+<Callout type="info">
+  **Next Steps:** Explore [Examples](/penelope/examples) for real-world testing
+  scenarios, learn about [Configuration](/penelope/configuration) options, or
+  understand how to [Extend Penelope](/penelope/extending).
+</Callout>

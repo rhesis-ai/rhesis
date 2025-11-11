@@ -134,6 +134,12 @@ export default function TestRunHeader({
 }: TestRunHeaderProps) {
   const theme = useTheme();
 
+  // Determine if this is a multi-turn test set
+  const isMultiTurn =
+    testRun.test_configuration?.test_set?.test_set_type?.type_value
+      ?.toLowerCase()
+      .includes('multi-turn') || false;
+
   // Calculate statistics
   const stats = useMemo(() => {
     const total = testResults.length;
@@ -142,8 +148,38 @@ export default function TestRunHeader({
     let passed = 0;
     let failed = 0;
     let executionErrors = 0;
+    let totalTurns = 0;
+    let testsWithTurnData = 0;
 
     testResults.forEach(result => {
+      // For multi-turn tests, check goal_evaluation
+      if (isMultiTurn && result.test_output?.goal_evaluation) {
+        const allCriteriaMet =
+          result.test_output.goal_evaluation.all_criteria_met;
+        const hasExecutionError =
+          result.test_output.status === 'error' ||
+          result.test_output.status === 'failure';
+
+        if (hasExecutionError) {
+          executionErrors++;
+        } else if (allCriteriaMet) {
+          passed++;
+        } else {
+          failed++;
+        }
+
+        // Track turn depth
+        const turns =
+          result.test_output.turns_used ||
+          result.test_output.stats?.total_turns;
+        if (turns) {
+          totalTurns += turns;
+          testsWithTurnData++;
+        }
+        return;
+      }
+
+      // For single-turn tests, check metrics
       const metrics = result.test_metrics?.metrics;
 
       // No metrics or empty metrics = execution error
@@ -164,6 +200,8 @@ export default function TestRunHeader({
     });
 
     const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : '0.0';
+    const avgTurnDepth =
+      testsWithTurnData > 0 ? (totalTurns / testsWithTurnData).toFixed(0) : '0';
 
     // Calculate duration
     const startedAt = testRun.attributes?.started_at;
@@ -238,12 +276,13 @@ export default function TestRunHeader({
       failed,
       executionErrors,
       passRate,
+      avgTurnDepth,
       duration,
       status,
       statusColor,
       statusLabel,
     };
-  }, [testResults, testRun]);
+  }, [testResults, testRun, isMultiTurn]);
 
   return (
     <Box sx={{ mb: 4 }}>
@@ -279,9 +318,11 @@ export default function TestRunHeader({
             title="Tests Executed"
             value={stats.total}
             subtitle={
-              stats.executionErrors > 0
-                ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
-                : `${stats.passed} passed, ${stats.failed} failed`
+              isMultiTurn
+                ? `Avg ${stats.avgTurnDepth} turns`
+                : stats.executionErrors > 0
+                  ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
+                  : `${stats.passed} passed, ${stats.failed} failed`
             }
             icon={<PlayCircleOutlineIcon />}
             color="primary"

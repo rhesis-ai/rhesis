@@ -171,7 +171,6 @@ export default function ProjectDetailsStep({
         const fetchedUsers = await usersClient.getUsers();
         setUsers(fetchedUsers.data);
       } catch (error) {
-        console.error('Failed to fetch users:', error);
       } finally {
         setLoadingUsers(false);
       }
@@ -201,7 +200,6 @@ export default function ProjectDetailsStep({
         // Proceed to next step
         onNext();
       } catch (error) {
-        console.error('Error during form submission:', error);
       } finally {
         setLoading(false);
       }

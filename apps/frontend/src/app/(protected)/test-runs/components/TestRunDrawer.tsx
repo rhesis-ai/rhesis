@@ -66,7 +66,6 @@ export default function TestRunDrawer({
       );
       return payload.user?.id;
     } catch (err) {
-      console.error('Error decoding JWT token:', err);
       return undefined;
     }
   }, [sessionToken]);
@@ -101,8 +100,6 @@ export default function TestRunDrawer({
             endpointsClient.getEndpoints(),
           ]);
 
-          console.log('Projects API response:', fetchedProjects);
-
           // Ensure we always set arrays, never undefined
           setUsers(Array.isArray(fetchedUsers) ? fetchedUsers : []);
           setTestSets(
@@ -114,24 +111,16 @@ export default function TestRunDrawer({
           if (Array.isArray(fetchedProjects)) {
             // Direct array response (what we're getting)
             projectsArray = fetchedProjects;
-            console.log('Using direct array response for projects');
           } else if (fetchedProjects && Array.isArray(fetchedProjects.data)) {
             // Paginated response with data property
             projectsArray = fetchedProjects.data;
-            console.log('Using paginated response data for projects');
           } else {
-            console.warn(
-              'Invalid projects response structure:',
-              fetchedProjects
-            );
           }
 
           setProjects(projectsArray);
           setEndpoints(
             Array.isArray(fetchedEndpoints?.data) ? fetchedEndpoints.data : []
           );
-
-          console.log('Final processed projects:', projectsArray);
 
           // Set initial values if editing
           if (testRun) {
@@ -158,7 +147,6 @@ export default function TestRunDrawer({
             }
           }
         } catch (fetchError) {
-          console.error('Error fetching data:', fetchError);
           setError('Failed to load required data');
           // Ensure state remains as empty arrays even on error
           setUsers([]);
@@ -168,7 +156,6 @@ export default function TestRunDrawer({
           setFilteredEndpoints([]);
         }
       } catch (err) {
-        console.error('Error in loadData:', err);
         setError('Failed to load required data');
       } finally {
         setLoading(false);
@@ -238,7 +225,6 @@ export default function TestRunDrawer({
       onSuccess?.();
       onClose();
     } catch (err) {
-      console.error('Error executing test run:', err);
       setError('Failed to execute test run');
     } finally {
       setLoading(false);

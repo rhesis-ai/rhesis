@@ -23,7 +23,7 @@ Before the cascade system, each CRUD function needed manual cascade logic:
 def delete_test_run(db, test_run_id, org_id, user_id):
     # Get the test run
     test_run = get_item(db, models.TestRun, test_run_id, org_id, user_id)
-    
+
     # Manually query and soft delete all test results (50+ lines)
     query = db.query(models.TestResult).filter(
         models.TestResult.test_run_id == test_run_id
@@ -31,7 +31,7 @@ def delete_test_run(db, test_run_id, org_id, user_id):
     if org_id:
         query = query.filter(models.TestResult.organization_id == org_id)
     query.update({"deleted_at": datetime.utcnow()}, synchronize_session=False)
-    
+
     # Soft delete the test run
     test_run.soft_delete()
     db.commit()
@@ -39,6 +39,7 @@ def delete_test_run(db, test_run_id, org_id, user_id):
 ```
 
 **Problems:**
+
 - **Repetitive code** across multiple functions
 - **Error-prone** (easy to miss child relationships)
 - **Hard to maintain** (adding new relationships requires code changes everywhere)
@@ -65,6 +66,7 @@ def delete_test_run(db, test_run_id, org_id, user_id):
 ```
 
 **Benefits:**
+
 - **Single source of truth** for cascade relationships
 - **Automatic cascade** for both delete and restore
 - **No code changes** needed in CRUD functions
@@ -122,24 +124,24 @@ def cascade_soft_delete(
     """
     total_deleted = 0
     relationships = get_cascade_relationships(parent_model)
-    
+
     for rel in relationships:
         if not rel.cascade_delete:
             continue
-        
+
         query = db.query(rel.child_model).filter(
             getattr(rel.child_model, rel.foreign_key) == parent_id
         )
-        
+
         if organization_id and hasattr(rel.child_model, 'organization_id'):
             query = query.filter(rel.child_model.organization_id == organization_id)
-        
+
         count = query.update(
             {"deleted_at": datetime.utcnow()},
             synchronize_session=False
         )
         total_deleted += count
-    
+
     return total_deleted
 ```
 
@@ -159,15 +161,15 @@ def delete_item(
     Soft delete an item with automatic cascade.
     """
     from rhesis.backend.app.services import cascade as cascade_service
-    
+
     item = get_item(db, model, item_id, organization_id, user_id)
     if not item:
         return None
-    
+
     try:
         # Automatic cascade to configured children
         cascade_service.cascade_soft_delete(db, model, item_id, organization_id)
-        
+
         # Soft delete the parent
         item.soft_delete()
         db.commit()
@@ -184,6 +186,7 @@ Adding a new cascade relationship is a **5-line change** in `config/cascade_conf
 ### Step 1: Identify the Relationship
 
 Determine:
+
 - **Parent model**: The entity being deleted/restored
 - **Child model**: The dependent entity
 - **Foreign key**: The column in the child table that references the parent
@@ -202,7 +205,7 @@ CASCADE_RELATIONSHIPS: Dict[Type, List[CascadeRelationship]] = {
             description="Test results belong to a test run"
         )
     ],
-    
+
     # NEW: Add cascade for Project -> TestSet
     models.Project: [
         CascadeRelationship(
@@ -213,7 +216,7 @@ CASCADE_RELATIONSHIPS: Dict[Type, List[CascadeRelationship]] = {
             description="Test sets belong to a project"
         )
     ],
-    
+
     # NEW: Add cascade for TestSet -> Test (with multiple children)
     models.TestSet: [
         CascadeRelationship(
@@ -239,13 +242,13 @@ def test_delete_project_cascades_to_test_sets(test_db, db_project, db_test_sets)
     """Verify that deleting a project cascades to test sets"""
     project_id = db_project.id
     test_set_ids = [ts.id for ts in db_test_sets]
-    
+
     # Delete the project (cascade happens automatically)
     crud.delete_project(test_db, project_id, org_id, user_id)
-    
+
     # Verify project is soft deleted
     assert db_project.deleted_at is not None
-    
+
     # Verify all test sets are also soft deleted
     with without_soft_delete_filter():
         for test_set_id in test_set_ids:
@@ -293,6 +296,7 @@ models.Test: [
 ```
 
 When you delete a `Project`:
+
 1. All `TestSet` records are soft deleted
 2. All `Test` records in those test sets are soft deleted
 3. All `TestResult` records for those tests are soft deleted
@@ -315,6 +319,7 @@ for obj in query.all():
 ```
 
 **Benefits:**
+
 - **Fast**: Single UPDATE query regardless of how many children
 - **Memory-efficient**: No objects loaded into memory
 - **Transaction-safe**: All updates happen in one transaction
@@ -329,6 +334,7 @@ if organization_id and hasattr(rel.child_model, 'organization_id'):
 ```
 
 This ensures:
+
 - **Security**: Only cascade to entities in the same organization
 - **Performance**: Smaller result sets to process
 - **Data integrity**: Cross-org cascades are prevented
@@ -341,10 +347,10 @@ All cascade operations are fully transactional:
 try:
     # Cascade to children (bulk UPDATE)
     cascade_service.cascade_soft_delete(db, model, item_id, org_id)
-    
+
     # Soft delete parent
     item.soft_delete()
-    
+
     # SINGLE COMMIT - atomicity guaranteed
     db.commit()
     return item
@@ -355,6 +361,7 @@ except Exception as e:
 ```
 
 **Guarantees:**
+
 - **Atomic**: Either all entities are deleted/restored, or none are
 - **Consistent**: Database remains in valid state even on errors
 - **Isolated**: Other transactions don't see partial cascades
@@ -373,11 +380,11 @@ def test_cascade_soft_delete(test_db, db_parent, db_children):
     """Test that soft deleting parent cascades to children"""
     parent_id = db_parent.id
     child_ids = [c.id for c in db_children]
-    
+
     # Perform cascade delete
     cascade_soft_delete(test_db, models.Parent, parent_id, org_id)
     test_db.commit()
-    
+
     # Verify all children are soft deleted
     with without_soft_delete_filter():
         for child_id in child_ids:
@@ -397,7 +404,7 @@ def test_delete_test_run_api_cascades(client, db_test_run, db_test_results):
     """Test that API delete endpoint properly cascades"""
     response = client.delete(f"/test-runs/{db_test_run.id}")
     assert response.status_code == 200
-    
+
     # Verify cascade happened
     with without_soft_delete_filter():
         for result in db_test_results:
@@ -420,7 +427,7 @@ def db_test_run_with_results(test_db, test_organization, db_user):
     )
     test_db.add(test_run)
     test_db.flush()
-    
+
     test_results = []
     for i in range(5):
         result = models.TestResult(
@@ -430,7 +437,7 @@ def db_test_run_with_results(test_db, test_organization, db_user):
         )
         test_db.add(result)
         test_results.append(result)
-    
+
     test_db.commit()
     return test_run, test_results
 ```
@@ -567,6 +574,7 @@ models.Organization: [
 **Symptom:** Children are not being soft deleted when parent is deleted.
 
 **Solutions:**
+
 1. Check that the relationship is configured in `CASCADE_RELATIONSHIPS`
 2. Verify the `foreign_key` name matches the actual column name
 3. Ensure `cascade_delete=True` (default)
@@ -577,6 +585,7 @@ models.Organization: [
 **Symptom:** Cascade operations are slow.
 
 **Solutions:**
+
 1. Add an index on the foreign key column
 2. Verify bulk UPDATE is being used (not loading objects)
 3. Check for unnecessary filters or joins
@@ -587,6 +596,7 @@ models.Organization: [
 **Symptom:** Children remain after parent is permanently deleted.
 
 **Solutions:**
+
 1. Soft delete cascade should happen **before** hard delete
 2. Check that hard delete operations go through proper channels
 3. Use database foreign key constraints with `ON DELETE` clauses as backup
@@ -618,11 +628,11 @@ Replace manual cascade code:
 # BEFORE: Manual cascade (remove this)
 def delete_your_parent(db, parent_id, org_id, user_id):
     parent = get_item(db, models.YourParent, parent_id, org_id, user_id)
-    
+
     # Manual cascade logic (50+ lines) - DELETE THIS
     query = db.query(models.YourChild).filter(...)
     query.update({"deleted_at": datetime.utcnow()})
-    
+
     parent.soft_delete()
     db.commit()
     return parent
@@ -641,7 +651,7 @@ Update tests to use the new pattern:
 def test_delete_parent_cascades(test_db, db_parent, db_children):
     # Delete now happens automatically
     deleted = crud.delete_your_parent(test_db, parent_id, org_id, user_id)
-    
+
     # Verify cascade with context manager
     with without_soft_delete_filter():
         for child in db_children:
@@ -666,4 +676,3 @@ The cascade system provides a **scalable, maintainable, and efficient** way to h
 - **Testable**: Clear patterns for unit and integration tests
 
 When adding new cascade relationships, simply update `config/cascade_config.py` and add tests. The system handles the rest automatically.
-

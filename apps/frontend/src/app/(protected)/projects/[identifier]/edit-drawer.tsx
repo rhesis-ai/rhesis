@@ -172,9 +172,7 @@ export default function EditDrawer({
         if (isMounted) {
           setUsers(fetchedUsers.data);
         }
-      } catch (error) {
-        console.error('Failed to fetch users:', error);
-      }
+      } catch (error) {}
     };
 
     if (open) {
@@ -305,7 +303,6 @@ export default function EditDrawer({
       await onSave(projectUpdate);
       onClose();
     } catch (error) {
-      console.error('Failed to save project:', error);
       // Show generic error if backend doesn't provide specific ones
       setErrors(prev => ({
         ...prev,

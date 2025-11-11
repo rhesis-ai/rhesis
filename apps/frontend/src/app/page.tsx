@@ -90,15 +90,12 @@ export default function LandingPage() {
               method: 'GET',
               headers: { Accept: 'application/json' },
             });
-          } catch (logoutError) {
-            console.warn('Backend logout failed:', logoutError);
-          }
+          } catch (logoutError) {}
 
           setBackendSessionValid(false);
           setSessionExpired(true);
           signOut({ redirect: false, callbackUrl: '/' });
         } catch (error) {
-          console.error('Backend session validation error:', error);
           setBackendSessionValid(false);
           setSessionExpired(true);
           signOut({ redirect: false, callbackUrl: '/' });

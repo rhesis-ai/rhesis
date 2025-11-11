@@ -16,6 +16,7 @@ Rosalind is a pre-configured insurance expert chatbot powered by Google's Gemini
 - **Per-User Rate Limiting**: Track usage per user/organization when authenticated
 - **Domain-Specific**: Trained specifically for insurance-related queries
 - **Session Management**: Maintains conversation context across multiple messages
+- **Automatic Garbage Collection**: Automatically cleans up stale sessions to prevent memory issues
 - **Health Monitoring**: Built-in health check endpoint for service monitoring
 
 ## Quick Start
@@ -51,6 +52,10 @@ export GEMINI_MODEL_NAME="gemini-2.0-flash-001"
 # Rate Limiting
 export CHATBOT_RATE_LIMIT="1000"  # Optional, defaults to 1000 requests/day for authenticated users
 export CHATBOT_API_KEY="your-secret-api-key"  # Optional, enables backend authentication
+
+# Session Management (Garbage Collection)
+export SESSION_TIMEOUT_HOURS="24"  # Optional, defaults to 24 hours
+export SESSION_CLEANUP_INTERVAL_MINUTES="60"  # Optional, defaults to 60 minutes
 ```
 
 3. **Run the server:**
@@ -148,11 +153,30 @@ API information and available endpoints.
 
 ### GET /sessions/{session_id}
 
-Retrieve conversation history.
+Retrieve conversation history for a specific session.
+
+**Response:**
+```json
+{
+  "messages": [
+    {"role": "user", "content": "Hello"},
+    {"role": "assistant", "content": "Hi there!"}
+  ],
+  "created_at": "2025-11-02T10:00:00",
+  "last_accessed": "2025-11-02T14:30:00"
+}
+```
 
 ### DELETE /sessions/{session_id}
 
-Delete a conversation session.
+Delete a conversation session manually.
+
+**Response:**
+```json
+{
+  "message": "Session deleted"
+}
+```
 
 ### GET /use-cases
 
@@ -162,10 +186,23 @@ List available use cases (currently only "insurance").
 
 ### Environment Variables
 
-- `GEMINI_API_KEY` (required): Google Gemini API key
-- `GEMINI_MODEL_NAME` (optional): Model to use, defaults to "gemini-2.0-flash-001"
+#### Model Configuration
+- `DEFAULT_GENERATION_MODEL` (optional): Model provider to use, defaults to "vertex_ai"
+- `DEFAULT_MODEL_NAME` (optional): Model name, defaults to "gemini-2.5-flash"
+- `GEMINI_API_KEY` (optional): Google Gemini API key (if using gemini provider)
+- `GOOGLE_APPLICATION_CREDENTIALS` (optional): Vertex AI credentials (if using vertex_ai provider)
+- `VERTEX_AI_LOCATION` (optional): Vertex AI region, defaults to "europe-west4"
+
+#### Rate Limiting
 - `CHATBOT_RATE_LIMIT` (optional): Maximum requests per day for authenticated users, defaults to 1000
 - `CHATBOT_API_KEY` (optional): API key for backend authentication. Enables dual-tier rate limiting (1000/day authenticated, 100/day public)
+- `WORKERS` (optional): Number of Gunicorn workers, defaults to 4
+
+#### Session Management
+- `SESSION_TIMEOUT_HOURS` (optional): Hours before sessions are considered stale, defaults to 24
+- `SESSION_CLEANUP_INTERVAL_MINUTES` (optional): Minutes between cleanup runs, defaults to 60
+
+#### Other
 - `PORT` (optional): Server port, defaults to 8080
 
 ### Rate Limiting
@@ -264,6 +301,60 @@ Rate limit exceeded (429):
 - The `/health`, `/`, and `/use-cases` endpoints are always accessible without authentication
 - The root endpoint (`/`) only displays authentication information when `CHATBOT_API_KEY` is configured
 - No sensitive information (like the actual API key) is ever exposed in API responses
+
+### Session Management & Garbage Collection
+
+The chatbot maintains conversation context through sessions and automatically cleans up stale sessions to prevent memory issues.
+
+#### How It Works
+
+1. **Session Creation**: When a user sends a message, a session is created (or reused if `session_id` is provided)
+2. **Conversation History**: All messages are stored in the session and passed to the LLM for context-aware responses
+3. **Access Tracking**: Each time a session is accessed, the `last_accessed` timestamp is updated
+4. **Automatic Cleanup**: A background task runs periodically to remove stale sessions
+
+#### Configuration
+
+```bash
+# Hours before a session is considered stale (default: 24)
+export SESSION_TIMEOUT_HOURS="24"
+
+# Minutes between cleanup runs (default: 60)
+export SESSION_CLEANUP_INTERVAL_MINUTES="60"
+```
+
+#### Session Lifecycle
+
+- **Active**: Session is being used, last accessed within timeout period
+- **Idle**: No recent activity, but still within timeout period
+- **Stale**: Not accessed for longer than `SESSION_TIMEOUT_HOURS`, marked for deletion
+- **Deleted**: Automatically removed by the garbage collector
+
+#### Session Management
+
+```bash
+# Get specific session history
+curl http://localhost:8080/sessions/{session_id}
+
+# Delete a session manually
+curl -X DELETE http://localhost:8080/sessions/{session_id}
+```
+
+#### Best Practices
+
+1. **Reuse Sessions**: Pass the same `session_id` in subsequent requests to maintain conversation context
+2. **Adjust Timeouts**: For high-traffic deployments, consider shorter timeout periods (e.g., 6-12 hours)
+3. **Load Balancing**: Sessions are stored in-memory per worker. For multi-worker deployments, use sticky sessions or shared storage
+4. **Security**: Session IDs should be treated as sensitive tokens - only the session owner should have access
+
+#### Monitoring
+
+The cleanup task logs statistics when it runs:
+```
+🧹 Cleaned up 5 stale sessions. Active sessions: 25
+```
+
+Monitor your application logs to track session cleanup activity and adjust timeout settings as needed.
 
 ## Use Cases
 

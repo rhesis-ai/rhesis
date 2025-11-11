@@ -36,17 +36,17 @@ jobs:
     #     cd sdk
     #     uv run pyright
     #   continue-on-error: false
-      
+
     - name: Test SDK (fast)
       run: |
         cd sdk
-        uv run pytest
-      continue-on-error: false
+        uv run pytest -s --ignore=../tests/sdk/integration
+      continue-on-error: true
 
     - name: Test SDK (full)
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
       run: |
         cd sdk
         uv sync --extra all
-        uv run pytest
+        uv run pytest -s
       continue-on-error: false

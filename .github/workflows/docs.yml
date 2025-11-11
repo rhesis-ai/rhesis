@@ -1,4 +1,4 @@
-name: Documentation CI/CD
+name: "[Deploy] Docs"
 
 # Workflow file for building and deploying the documentation (Nextra) application
 

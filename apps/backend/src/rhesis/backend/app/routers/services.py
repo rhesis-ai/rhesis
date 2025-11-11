@@ -131,7 +131,7 @@ async def get_ai_chat_response(chat_request: ChatRequest):
         if chat_request.stream:
             return StreamingResponse(
                 get_chat_response(
-                    messages=[msg.dict() for msg in chat_request.messages],
+                    messages=[msg.model_dump() for msg in chat_request.messages],
                     response_format=chat_request.response_format,
                     stream=True,
                 ),
@@ -139,7 +139,7 @@ async def get_ai_chat_response(chat_request: ChatRequest):
             )
 
         return get_chat_response(
-            messages=[msg.dict() for msg in chat_request.messages],
+            messages=[msg.model_dump() for msg in chat_request.messages],
             response_format=chat_request.response_format,
         )
     except Exception as e:

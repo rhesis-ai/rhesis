@@ -73,7 +73,6 @@ export function TaskCreationDrawer({
         setPriorities(fetchedPriorities);
         setUsers(fetchedUsers);
       } catch (error) {
-        console.error('Error loading task creation data:', error);
       } finally {
         setIsLoadingData(false);
       }

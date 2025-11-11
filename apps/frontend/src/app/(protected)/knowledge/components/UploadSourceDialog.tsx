@@ -103,10 +103,14 @@ export default function UploadSourceDialog({
       handleClose();
       onSuccess?.();
     } catch (error) {
-      console.error('Error uploading source:', error);
       const errorMessage =
-        error instanceof Error && (error as any).data
-          ? JSON.stringify((error as any).data, null, 2)
+        error instanceof Error &&
+        (error as Error & { data?: Record<string, unknown> }).data
+          ? JSON.stringify(
+              (error as Error & { data?: Record<string, unknown> }).data,
+              null,
+              2
+            )
           : error instanceof Error
             ? error.message
             : 'Failed to upload source. Please try again.';

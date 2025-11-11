@@ -131,17 +131,14 @@ export const pieChartUtils = {
    */
   validateProps: (props: BasePieChartProps): void => {
     if (props.data.length === 0) {
-      console.warn('BasePieChart: Empty data array provided');
     }
     if (props.height && props.height <= 0) {
-      console.error('BasePieChart: Height must be positive');
     }
     if (
       props.innerRadius &&
       props.outerRadius &&
       props.innerRadius >= props.outerRadius
     ) {
-      console.error('BasePieChart: innerRadius must be less than outerRadius');
     }
   },
 };

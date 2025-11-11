@@ -224,7 +224,6 @@ export function ConnectionDialog({
         }
       }
     } catch (err) {
-      console.error('Failed to update user settings:', err);
       // Don't throw - we don't want to block model creation/update if settings fail
     }
   };

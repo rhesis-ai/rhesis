@@ -36,6 +36,9 @@ interface TestDetailReviewsTabProps {
   sessionToken: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   currentUserId: string;
+  initialComment?: string;
+  initialStatus?: 'passed' | 'failed';
+  onCommentUsed?: () => void;
 }
 
 export default function TestDetailReviewsTab({
@@ -43,6 +46,9 @@ export default function TestDetailReviewsTab({
   sessionToken,
   onTestResultUpdate,
   currentUserId,
+  initialComment = '',
+  initialStatus,
+  onCommentUsed,
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
 
@@ -59,6 +65,18 @@ export default function TestDetailReviewsTab({
   const [reviewToDelete, setReviewToDelete] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Handle initial comment and status from turn review
+  useEffect(() => {
+    if (initialComment) {
+      setReason(initialComment);
+      setShowReviewForm(true);
+      if (initialStatus) {
+        setNewStatus(initialStatus);
+      }
+      onCommentUsed?.();
+    }
+  }, [initialComment, initialStatus, onCommentUsed]);
+
   // Fetch available statuses
   useEffect(() => {
     const fetchStatuses = async () => {
@@ -69,9 +87,7 @@ export default function TestDetailReviewsTab({
           entity_type: 'TestResult',
         });
         setStatuses(statusList);
-      } catch (err) {
-        console.error('Error fetching statuses:', err);
-      }
+      } catch (err) {}
     };
 
     if (showReviewForm) {
@@ -163,7 +179,6 @@ export default function TestDetailReviewsTab({
       setDeleteDialogOpen(false);
       setReviewToDelete(null);
     } catch (err) {
-      console.error('Error deleting review:', err);
       // Could add error handling here
     } finally {
       setDeleting(false);

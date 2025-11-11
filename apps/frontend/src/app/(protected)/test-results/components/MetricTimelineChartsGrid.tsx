@@ -66,8 +66,6 @@ export default function MetricTimelineChartsGrid({
       const statsData =
         await testResultsClient.getComprehensiveTestResultsStats(options);
       if (statsData && typeof statsData === 'object') {
-        console.log('Metrics Timeline API Response:', statsData);
-        console.log('Timeline data for metrics:', statsData.timeline);
         setStats(statsData);
         setError(null);
       } else {

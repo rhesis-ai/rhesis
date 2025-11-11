@@ -1,15 +1,16 @@
-import { CodeBlock } from '@/components/CodeBlock'
-import { FileTree } from '@/components/FileTree'
-import { ArchitectureOverview } from '@/components/ArchitectureOverview'
-import { DevelopmentResourcesGrid } from '@/components/DevelopmentResourcesGrid'
+import { CodeBlock } from "@/components/CodeBlock";
+import { FileTree } from "@/components/FileTree";
+import { ArchitectureOverview } from "@/components/ArchitectureOverview";
+import { DevelopmentResourcesGrid } from "@/components/DevelopmentResourcesGrid";
 
 # Development
 
 Technical documentation for developers working with Rhesis.
 
 <Callout type="default">
-  **Developer Resources** This section contains comprehensive technical documentation, API
-  references, and development guides for building with and contributing to Rhesis.
+  **Developer Resources** This section contains comprehensive technical
+  documentation, API references, and development guides for building with and
+  contributing to Rhesis.
 </Callout>
 
 ## Development Resources
@@ -40,15 +41,16 @@ router = APIRouter()
 
 @router.post("/tests", response_model=TestResponse)
 async def create_test(
-    test: TestCreate,
-    db: Session = Depends(get_db)
+test: TestCreate,
+db: Session = Depends(get_db)
 ):
-    """Create a new test case."""
-    db_test = Test(**test.dict())
-    db.add(db_test)
-    db.commit()
-    db.refresh(db_test)
-    return db_test`}
+"""Create a new test case."""
+db_test = Test(\*\*test.dict())
+db.add(db_test)
+db.commit()
+db.refresh(db_test)
+return db_test`}
+
 </CodeBlock>
 
 **Frontend**: React 18 with TypeScript, Next.js 15, and Tailwind CSS
@@ -61,8 +63,8 @@ async def create_test(
 import { Test } from '@/types/test'
 
 interface TestCardProps {
-  test: Test
-  onSelect: (id: string) => void
+test: Test
+onSelect: (id: string) => void
 }
 
 export const TestCard: React.FC<TestCardProps> = ({ test, onSelect }) => {
@@ -91,24 +93,28 @@ export const TestCard: React.FC<TestCardProps> = ({ test, onSelect }) => {
 from rhesis.sdk.synthesizers import PromptSynthesizer
 
 # Initialize the client
+
 client = RhesisClient(
-    api_key="your-api-key",
-    base_url="https://api.rhesis.ai"
+api_key="your-api-key",
+base_url="https://api.rhesis.ai"
 )
 
 # Create a prompt synthesizer
+
 synthesizer = PromptSynthesizer(client=client)
 
 # Generate test cases
+
 test_cases = synthesizer.synthesize(
-    behavior="Reliability",
-    domain="Healthcare",
-    count=10
+behavior="Reliability",
+domain="Healthcare",
+count=10
 )
 
 for test in test_cases:
-    print(f"Test: {test.prompt}")
-    print(f"Expected: {test.expected_behavior}")`}
+print(f"Test: {test.prompt}")
+print(f"Expected: {test.expected_behavior}")`}
+
 </CodeBlock>
 
 **Infrastructure**: Docker, Kubernetes, and cloud-native deployment options
@@ -120,30 +126,26 @@ for test in test_cases:
 {`version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: your_database
-      POSTGRES_USER: your_username
-      POSTGRES_PASSWORD: your_password
-    ports:
-      - "5432:5432"
+postgres:
+image: postgres:15
+environment:
+POSTGRES_DB: your_database
+POSTGRES_USER: your_username
+POSTGRES_PASSWORD: your_password
+ports: - "5432:5432"
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
+redis:
+image: redis:7-alpine
+ports: - "6379:6379"
 
-  backend:
-    build: ./backend
-    ports:
-      - "8000:8000"
-    depends_on:
-      - postgres
-      - redis
-    environment:
-      DATABASE_URL: postgresql://your_username:your_password@postgres:5432/your_database
-      REDIS_URL: redis://redis:6379`}
+backend:
+build: ./backend
+ports: - "8000:8000"
+depends_on: - postgres - redis
+environment:
+DATABASE_URL: postgresql://your_username:your_password@postgres:5432/your_database
+REDIS_URL: redis://redis:6379`}
+
 </CodeBlock>
 
 ## Project Structure
@@ -152,72 +154,96 @@ services:
   title="Rhesis Repository Structure"
   data={[
     {
-      name: 'backend/',
-      type: 'folder',
-      description: 'FastAPI backend service',
+      name: "backend/",
+      type: "folder",
+      description: "FastAPI backend service",
       children: [
-        { name: 'app/', type: 'folder', description: 'Application code' },
-        { name: 'tests/', type: 'folder', description: 'Backend tests' },
-        { name: 'alembic/', type: 'folder', description: 'Database migrations' },
-        { name: 'pyproject.toml', type: 'file', description: 'Python dependencies' }
-      ]
+        { name: "app/", type: "folder", description: "Application code" },
+        { name: "tests/", type: "folder", description: "Backend tests" },
+        {
+          name: "alembic/",
+          type: "folder",
+          description: "Database migrations",
+        },
+        {
+          name: "pyproject.toml",
+          type: "file",
+          description: "Python dependencies",
+        },
+      ],
     },
     {
-      name: 'platform/',
-      type: 'folder',
-      description: 'React frontend application',
+      name: "platform/",
+      type: "folder",
+      description: "React frontend application",
       children: [
-        { name: 'src/', type: 'folder', description: 'Source code' },
-        { name: 'public/', type: 'folder', description: 'Static assets' },
-        { name: 'package.json', type: 'file', description: 'Node dependencies' }
-      ]
+        { name: "src/", type: "folder", description: "Source code" },
+        { name: "public/", type: "folder", description: "Static assets" },
+        {
+          name: "package.json",
+          type: "file",
+          description: "Node dependencies",
+        },
+      ],
     },
     {
-      name: 'worker/',
-      type: 'folder',
-      description: 'Celery background workers',
+      name: "worker/",
+      type: "folder",
+      description: "Celery background workers",
       children: [
-        { name: 'tasks/', type: 'folder', description: 'Task definitions' },
-        { name: 'pyproject.toml', type: 'file', description: 'Python dependencies' }
-      ]
+        { name: "tasks/", type: "folder", description: "Task definitions" },
+        {
+          name: "pyproject.toml",
+          type: "file",
+          description: "Python dependencies",
+        },
+      ],
     },
     {
-      name: 'chatbot/',
-      type: 'folder',
-      description: 'AI chatbot application',
+      name: "chatbot/",
+      type: "folder",
+      description: "AI chatbot application",
       children: [
-        { name: 'src/', type: 'folder', description: 'Chatbot source code' }
-      ]
+        { name: "src/", type: "folder", description: "Chatbot source code" },
+      ],
     },
     {
-      name: 'sdk/',
-      type: 'folder',
-      description: 'Python SDK',
+      name: "sdk/",
+      type: "folder",
+      description: "Python SDK",
       children: [
-        { name: 'rhesis/', type: 'folder', description: 'SDK package' },
-        { name: 'tests/', type: 'folder', description: 'SDK tests' },
-        { name: 'pyproject.toml', type: 'file', description: 'Python dependencies' }
-      ]
+        { name: "rhesis/", type: "folder", description: "SDK package" },
+        { name: "tests/", type: "folder", description: "SDK tests" },
+        {
+          name: "pyproject.toml",
+          type: "file",
+          description: "Python dependencies",
+        },
+      ],
     },
     {
-      name: 'docs/',
-      type: 'folder',
-      description: 'Documentation site',
+      name: "docs/",
+      type: "folder",
+      description: "Documentation site",
       children: [
-        { name: 'content/', type: 'folder', description: 'Documentation pages' },
-        { name: 'src/', type: 'folder', description: 'Site components' }
-      ]
+        {
+          name: "content/",
+          type: "folder",
+          description: "Documentation pages",
+        },
+        { name: "src/", type: "folder", description: "Site components" },
+      ],
     },
     {
-      name: 'docker-compose.yml',
-      type: 'file',
-      description: 'Local development setup'
+      name: "docker-compose.yml",
+      type: "file",
+      description: "Local development setup",
     },
     {
-      name: 'README.md',
-      type: 'file',
-      description: 'Project overview'
-    }
+      name: "README.md",
+      type: "file",
+      description: "Project overview",
+    },
   ]}
 />
 
@@ -227,47 +253,67 @@ services:
   title="backend/ - FastAPI Service"
   data={[
     {
-      name: 'app/',
-      type: 'folder',
-      description: 'Main application code',
+      name: "app/",
+      type: "folder",
+      description: "Main application code",
       children: [
         {
-          name: 'api/',
-          type: 'folder',
-          description: 'API routes and endpoints',
+          name: "api/",
+          type: "folder",
+          description: "API routes and endpoints",
           children: [
-            { name: 'routes/', type: 'folder', description: 'Route handlers' },
-            { name: 'deps.py', type: 'file', description: 'Dependency injection' }
-          ]
+            { name: "routes/", type: "folder", description: "Route handlers" },
+            {
+              name: "deps.py",
+              type: "file",
+              description: "Dependency injection",
+            },
+          ],
         },
         {
-          name: 'models/',
-          type: 'folder',
-          description: 'SQLAlchemy models',
+          name: "models/",
+          type: "folder",
+          description: "SQLAlchemy models",
           children: [
-            { name: 'test.py', type: 'file', description: 'Test model' },
-            { name: 'user.py', type: 'file', description: 'User model' },
-            { name: 'project.py', type: 'file', description: 'Project model' }
-          ]
+            { name: "test.py", type: "file", description: "Test model" },
+            { name: "user.py", type: "file", description: "User model" },
+            { name: "project.py", type: "file", description: "Project model" },
+          ],
         },
         {
-          name: 'schemas/',
-          type: 'folder',
-          description: 'Pydantic schemas',
+          name: "schemas/",
+          type: "folder",
+          description: "Pydantic schemas",
           children: [
-            { name: 'test.py', type: 'file', description: 'Test schemas' },
-            { name: 'user.py', type: 'file', description: 'User schemas' }
-          ]
+            { name: "test.py", type: "file", description: "Test schemas" },
+            { name: "user.py", type: "file", description: "User schemas" },
+          ],
         },
-        { name: 'core/', type: 'folder', description: 'Core config and security' },
-        { name: 'db/', type: 'folder', description: 'Database session and utils' },
-        { name: 'services/', type: 'folder', description: 'Business logic' },
-        { name: 'main.py', type: 'file', description: 'Application entry point' }
-      ]
+        {
+          name: "core/",
+          type: "folder",
+          description: "Core config and security",
+        },
+        {
+          name: "db/",
+          type: "folder",
+          description: "Database session and utils",
+        },
+        { name: "services/", type: "folder", description: "Business logic" },
+        {
+          name: "main.py",
+          type: "file",
+          description: "Application entry point",
+        },
+      ],
     },
-    { name: 'tests/', type: 'folder', description: 'Test suite' },
-    { name: 'alembic/', type: 'folder', description: 'Database migrations' },
-    { name: 'pyproject.toml', type: 'file', description: 'Dependencies and config' }
+    { name: "tests/", type: "folder", description: "Test suite" },
+    { name: "alembic/", type: "folder", description: "Database migrations" },
+    {
+      name: "pyproject.toml",
+      type: "file",
+      description: "Dependencies and config",
+    },
   ]}
 />
 
@@ -277,48 +323,56 @@ services:
   title="platform/ - React Application"
   data={[
     {
-      name: 'src/',
-      type: 'folder',
-      description: 'Source code',
+      name: "src/",
+      type: "folder",
+      description: "Source code",
       children: [
         {
-          name: 'components/',
-          type: 'folder',
-          description: 'Reusable components',
+          name: "components/",
+          type: "folder",
+          description: "Reusable components",
           children: [
-            { name: 'TestCard.tsx', type: 'file', description: 'Test card component' },
-            { name: 'Button.tsx', type: 'file', description: 'Button component' },
-            { name: 'Modal.tsx', type: 'file', description: 'Modal component' }
-          ]
+            {
+              name: "TestCard.tsx",
+              type: "file",
+              description: "Test card component",
+            },
+            {
+              name: "Button.tsx",
+              type: "file",
+              description: "Button component",
+            },
+            { name: "Modal.tsx", type: "file", description: "Modal component" },
+          ],
         },
         {
-          name: 'pages/',
-          type: 'folder',
-          description: 'Next.js pages',
+          name: "pages/",
+          type: "folder",
+          description: "Next.js pages",
           children: [
-            { name: 'index.tsx', type: 'file', description: 'Home page' },
-            { name: 'tests/', type: 'folder', description: 'Test pages' },
-            { name: 'projects/', type: 'folder', description: 'Project pages' }
-          ]
+            { name: "index.tsx", type: "file", description: "Home page" },
+            { name: "tests/", type: "folder", description: "Test pages" },
+            { name: "projects/", type: "folder", description: "Project pages" },
+          ],
         },
         {
-          name: 'hooks/',
-          type: 'folder',
-          description: 'Custom React hooks',
+          name: "hooks/",
+          type: "folder",
+          description: "Custom React hooks",
           children: [
-            { name: 'useApi.ts', type: 'file', description: 'API hook' },
-            { name: 'useAuth.ts', type: 'file', description: 'Auth hook' }
-          ]
+            { name: "useApi.ts", type: "file", description: "API hook" },
+            { name: "useAuth.ts", type: "file", description: "Auth hook" },
+          ],
         },
-        { name: 'types/', type: 'folder', description: 'TypeScript types' },
-        { name: 'utils/', type: 'folder', description: 'Utility functions' },
-        { name: 'styles/', type: 'folder', description: 'Global styles' }
-      ]
+        { name: "types/", type: "folder", description: "TypeScript types" },
+        { name: "utils/", type: "folder", description: "Utility functions" },
+        { name: "styles/", type: "folder", description: "Global styles" },
+      ],
     },
-    { name: 'public/', type: 'folder', description: 'Static assets' },
-    { name: 'package.json', type: 'file', description: 'Node dependencies' },
-    { name: 'tsconfig.json', type: 'file', description: 'TypeScript config' },
-    { name: 'next.config.js', type: 'file', description: 'Next.js config' }
+    { name: "public/", type: "folder", description: "Static assets" },
+    { name: "package.json", type: "file", description: "Node dependencies" },
+    { name: "tsconfig.json", type: "file", description: "TypeScript config" },
+    { name: "next.config.js", type: "file", description: "Next.js config" },
   ]}
 />
 
@@ -338,17 +392,22 @@ git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 
 # Install uv (Python package manager)
+
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Start the development environment
+
 docker-compose up -d
 
 # Install backend dependencies
+
 cd backend
 uv sync
 
 # Run backend tests
+
 uv run pytest`}
+
 </CodeBlock>
 
 ### Development Workflow
@@ -372,13 +431,17 @@ cd backend
 uv run pytest
 
 # Run with coverage
+
 uv run pytest --cov=app --cov-report=html
 
 # Run specific test file
+
 uv run pytest tests/test_api.py
 
 # Run tests in watch mode
+
 uv run pytest-watch`}
+
 </CodeBlock>
 
 **Frontend Tests**
@@ -393,13 +456,17 @@ cd platform
 npm test
 
 # Run tests in watch mode
+
 npm test -- --watch
 
 # Run tests with coverage
+
 npm test -- --coverage
 
 # Run end-to-end tests
+
 npm run test:e2e`}
+
 </CodeBlock>
 
 ### Common Development Commands
@@ -416,13 +483,17 @@ cd backend
 uv run alembic revision --autogenerate -m "Add new table"
 
 # Apply migrations
+
 uv run alembic upgrade head
 
 # Rollback migration
+
 uv run alembic downgrade -1
 
 # View migration history
+
 uv run alembic history`}
+
 </CodeBlock>
 
 **Code Quality**
@@ -437,17 +508,22 @@ cd backend
 uv run ruff format .
 
 # Lint Python code
+
 uv run ruff check .
 
 # Type check Python code
+
 uv run mypy app
 
 # Format TypeScript code
+
 cd platform
 npm run format
 
 # Lint TypeScript code
+
 npm run lint`}
+
 </CodeBlock>
 
 ### Environment Configuration
@@ -462,26 +538,32 @@ Create a `.env` file in the backend directory:
 DATABASE_URL=postgresql://rhesis:rhesis@localhost:5432/rhesis
 
 # Redis
+
 REDIS_URL=redis://localhost:6379
 
 # API Keys
+
 OPENAI_API_KEY=your-openai-key
 ANTHROPIC_API_KEY=your-anthropic-key
 
 # Security
+
 SECRET_KEY=your-secret-key-here
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 # Environment
+
 ENVIRONMENT=development
 DEBUG=true`}
+
 </CodeBlock>
 
 ---
 
 <Callout type="default">
   **Ready to Contribute?** Start with our [Development Setup
-  Guide](/docs/development/contributing/development-setup) and check out issues labeled "good first
-  issue" in our [GitHub repository](https://github.com/rhesis-ai/rhesis).
+  Guide](/docs/development/contributing/development-setup) and check out issues
+  labeled "good first issue" in our [GitHub
+  repository](https://github.com/rhesis-ai/rhesis).
 </Callout>

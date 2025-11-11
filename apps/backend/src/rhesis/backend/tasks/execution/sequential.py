@@ -91,7 +91,8 @@ def execute_tests_sequentially(
         f"Sequential execution completed for test run {test_run.id} in {execution_time:.2f} seconds"
     )
 
-    # Trigger results collection as a proper Celery task to get the same processing as parallel execution
+    # Trigger results collection as a proper Celery task to get the same
+    # processing as parallel execution
     try:
         collection_task = trigger_results_collection(test_config, str(test_run.id), results)
         logger.info(f"Results collection task started: {collection_task.id}")

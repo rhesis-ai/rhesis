@@ -6,8 +6,6 @@ if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
   );
 }
 
-console.log('API_CONFIG: baseUrl set to:', getBaseUrl());
-
 export const API_CONFIG = {
   baseUrl: getBaseUrl(),
   defaultHeaders: {

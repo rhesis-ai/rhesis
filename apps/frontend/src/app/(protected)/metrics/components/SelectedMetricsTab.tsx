@@ -189,7 +189,6 @@ export default function SelectedMetricsTab({
       }
       setDrawerOpen(false);
     } catch (err) {
-      console.error('Error saving behavior:', err);
       setDrawerError(
         err instanceof Error ? err.message : 'Failed to save dimension'
       );
@@ -217,7 +216,6 @@ export default function SelectedMetricsTab({
           try {
             await Promise.all(removePromises);
           } catch (err) {
-            console.error('Error removing metrics from behavior:', err);
             notifications.show(
               'Failed to remove all metrics from dimension. Please try again.',
               { severity: 'error', autoHideDuration: 4000 }
@@ -249,7 +247,6 @@ export default function SelectedMetricsTab({
         });
         setDrawerOpen(false);
       } catch (err) {
-        console.error('Error deleting behavior:', err);
         notifications.show(
           err instanceof Error ? err.message : 'Failed to delete dimension',
           { severity: 'error', autoHideDuration: 4000 }
@@ -307,7 +304,6 @@ export default function SelectedMetricsTab({
         autoHideDuration: 4000,
       });
     } catch (err) {
-      console.error('Error removing metric from behavior:', err);
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -393,20 +389,27 @@ export default function SelectedMetricsTab({
                     zIndex: 1,
                   }}
                 >
-                  <IconButton
-                    size="small"
-                    onClick={() => handleMetricDetail(metric.id)}
-                    sx={{
-                      padding: '2px',
-                      '& .MuiSvgIcon-root': {
-                        fontSize:
-                          theme?.typography?.helperText?.fontSize || '0.75rem',
-                        color: 'currentColor',
-                      },
-                    }}
-                  >
-                    <OpenInNewIcon fontSize="inherit" />
-                  </IconButton>
+                  {/* Only show detail button for rhesis and custom metrics */}
+                  {(metric.backend_type?.type_value?.toLowerCase() ===
+                    'rhesis' ||
+                    metric.backend_type?.type_value?.toLowerCase() ===
+                      'custom') && (
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMetricDetail(metric.id)}
+                      sx={{
+                        padding: theme.spacing(0.25),
+                        '& .MuiSvgIcon-root': {
+                          fontSize:
+                            theme?.typography?.helperText?.fontSize ||
+                            '0.75rem',
+                          color: 'currentColor',
+                        },
+                      }}
+                    >
+                      <OpenInNewIcon fontSize="inherit" />
+                    </IconButton>
+                  )}
                   <IconButton
                     size="small"
                     onClick={e => {
@@ -417,10 +420,9 @@ export default function SelectedMetricsTab({
                       );
                     }}
                     sx={{
-                      padding: '2px',
+                      padding: theme => theme.spacing(0.25),
                       '& .MuiSvgIcon-root': {
-                        fontSize:
-                          theme?.typography?.helperText?.fontSize || '0.75rem',
+                        fontSize: theme.typography.caption.fontSize,
                         color: 'currentColor',
                       },
                     }}
@@ -439,6 +441,7 @@ export default function SelectedMetricsTab({
                   backend={metric.backend_type?.type_value}
                   metricType={metric.metric_type?.type_value}
                   scoreType={metric.score_type}
+                  metricScope={metric.metric_scope}
                   usedIn={[behaviorWithMetrics.name]}
                   showUsage={false}
                 />
@@ -496,7 +499,7 @@ export default function SelectedMetricsTab({
           justifyContent: 'center',
           alignItems: 'center',
           p: 4,
-          minHeight: '200px',
+          minHeight: theme => theme.spacing(25),
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -532,7 +535,7 @@ export default function SelectedMetricsTab({
         sx={{
           mt: 4,
           p: 3,
-          border: '2px dashed',
+          border: theme => `${theme.spacing(0.25)} dashed`,
           borderColor: 'divider',
           borderRadius: theme => theme.shape.borderRadius * 0.25,
           display: 'flex',

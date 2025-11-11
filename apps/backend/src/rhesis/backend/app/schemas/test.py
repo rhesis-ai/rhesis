@@ -1,9 +1,10 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, ValidationError, field_validator
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.multi_turn_test_config import validate_multi_turn_config
 from rhesis.backend.app.schemas.user import UserReference
 
 
@@ -99,11 +100,71 @@ class TestBase(Base):
 
 
 class TestCreate(TestBase):
-    pass
+    @field_validator("test_configuration")
+    @classmethod
+    def validate_test_configuration(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Validate test_configuration JSON based on content.
+
+        For multi-turn tests (when goal is present), validates against MultiTurnTestConfig schema.
+        """
+        if v is None:
+            return None
+
+        # If 'goal' is present, this is a multi-turn test configuration
+        if "goal" in v:
+            try:
+                # Validate using multi-turn config schema
+                validated_config = validate_multi_turn_config(v)
+                # Return as dict for storage
+                return validated_config.model_dump(exclude_none=True)
+            except ValidationError as e:
+                # Re-raise with more context
+                error_messages = []
+                for error in e.errors():
+                    field = " -> ".join(str(loc) for loc in error["loc"])
+                    error_messages.append(f"{field}: {error['msg']}")
+                raise ValueError(
+                    f"Invalid multi-turn test configuration: {'; '.join(error_messages)}"
+                )
+
+        # For other configurations, allow any valid JSON
+        return v
 
 
 class TestUpdate(TestBase):
     prompt_id: Optional[UUID4] = None
+
+    @field_validator("test_configuration")
+    @classmethod
+    def validate_test_configuration(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Validate test_configuration JSON based on content.
+
+        For multi-turn tests (when goal is present), validates against MultiTurnTestConfig schema.
+        """
+        if v is None:
+            return None
+
+        # If 'goal' is present, this is a multi-turn test configuration
+        if "goal" in v:
+            try:
+                # Validate using multi-turn config schema
+                validated_config = validate_multi_turn_config(v)
+                # Return as dict for storage
+                return validated_config.model_dump(exclude_none=True)
+            except ValidationError as e:
+                # Re-raise with more context
+                error_messages = []
+                for error in e.errors():
+                    field = " -> ".join(str(loc) for loc in error["loc"])
+                    error_messages.append(f"{field}: {error['msg']}")
+                raise ValueError(
+                    f"Invalid multi-turn test configuration: {'; '.join(error_messages)}"
+                )
+
+        # For other configurations, allow any valid JSON
+        return v
 
 
 class Test(TestBase):

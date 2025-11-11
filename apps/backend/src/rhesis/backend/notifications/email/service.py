@@ -3,8 +3,9 @@ Main email service that orchestrates SMTP and template services.
 """
 
 import os
+import re
 from email.mime.text import MIMEText
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from rhesis.backend.logging.rhesis_logger import logger
 
@@ -15,6 +16,14 @@ from .template_service import EmailTemplate, TemplateService
 class EmailService:
     """Main email service for sending HTML notifications."""
 
+    # List of regex patterns for email addresses that should not receive welcome emails
+    WELCOME_EMAIL_EXCLUSION_PATTERNS: List[str] = [
+        r"new_user_",  # Exclude test users with new_user_ prefix
+        # Add more patterns here as needed, e.g.:
+        # r"test@",
+        # r".*@example\.com$",
+    ]
+
     def __init__(self):
         self.smtp_service = SMTPService()
         self.template_service = TemplateService()
@@ -23,6 +32,24 @@ class EmailService:
     def is_configured(self) -> bool:
         """Check if email service is properly configured."""
         return self.smtp_service.is_configured
+
+    def _should_exclude_from_welcome_email(self, email: str) -> bool:
+        """
+        Check if an email address matches any exclusion pattern.
+
+        Args:
+            email: The email address to check
+
+        Returns:
+            bool: True if the email should be excluded, False otherwise
+        """
+        for pattern in self.WELCOME_EMAIL_EXCLUSION_PATTERNS:
+            if re.search(pattern, email):
+                logger.info(
+                    f"Email {email} matched exclusion pattern '{pattern}', skipping welcome email"
+                )
+                return True
+        return False
 
     def send_email(
         self,
@@ -183,7 +210,7 @@ class EmailService:
 
         # Get welcome-specific from email (defaults to hello@rhesis.ai for founder emails)
         welcome_from_email = os.getenv(
-            "WELCOME_FROM_EMAIL", "Nicolai from Rhesis AI <hello@rhesis.ai>"
+            "WELCOME_FROM_EMAIL", '"Nicolai from Rhesis AI" <hello@rhesis.ai>'
         )
 
         subject = "Welcome to Rhesis AI!"
@@ -194,6 +221,10 @@ class EmailService:
             "frontend_url": frontend_url,
             "calendar_link": calendar_link,
         }
+
+        # Check if email should be excluded based on patterns
+        if self._should_exclude_from_welcome_email(recipient_email):
+            return False
 
         return self.send_email(
             template=EmailTemplate.WELCOME,
