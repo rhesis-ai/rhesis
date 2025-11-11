@@ -27,6 +27,7 @@ import { TestSetStatsResponse } from '@/utils/api-client/interfaces/test-set';
 
 interface DashboardKPIsProps {
   sessionToken: string;
+  onLoadComplete?: () => void;
 }
 
 interface KPICardProps {
@@ -35,6 +36,7 @@ interface KPICardProps {
   icon: React.ReactNode;
   color: string;
   sparklineData?: number[];
+  sparklineLabels?: string[];
   trend?: 'up' | 'down' | 'neutral';
   trendValue?: string;
   subtitle?: string;
@@ -46,6 +48,7 @@ const KPICard: React.FC<KPICardProps> = ({
   icon,
   color,
   sparklineData,
+  sparklineLabels,
   trend,
   trendValue,
   subtitle,
@@ -108,15 +111,16 @@ const KPICard: React.FC<KPICardProps> = ({
         )}
 
         {sparklineData && sparklineData.length > 0 && (
-          <Box sx={{ height: 40, mt: 1 }}>
+          <Box sx={{ height: 60, mt: 1 }}>
             <SparkLineChart
               data={sparklineData}
-              height={40}
+              height={60}
               showTooltip
               showHighlight
               color={color}
               curve="natural"
               area
+              valueFormatter={value => value?.toLocaleString() || '0'}
               sx={{
                 '& .MuiAreaElement-root': {
                   fill: color,
@@ -156,12 +160,17 @@ const KPICard: React.FC<KPICardProps> = ({
   );
 };
 
-export default function DashboardKPIs({ sessionToken }: DashboardKPIsProps) {
+export default function DashboardKPIs({
+  sessionToken,
+  onLoadComplete,
+}: DashboardKPIsProps) {
   const theme = useTheme();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [testStats, setTestStats] = useState<TestStats | null>(null);
   const [testResultsStats, setTestResultsStats] =
+    useState<TestResultsStats | null>(null);
+  const [currentMonthResultsStats, setCurrentMonthResultsStats] =
     useState<TestResultsStats | null>(null);
   const [testSetStats, setTestSetStats] = useState<TestSetStatsResponse | null>(
     null
@@ -173,25 +182,37 @@ export default function DashboardKPIs({ sessionToken }: DashboardKPIsProps) {
         setLoading(true);
         const clientFactory = new ApiClientFactory(sessionToken);
 
-        const [testStatsResponse, testResultsResponse, testSetStatsResponse] =
-          await Promise.all([
-            clientFactory.getTestsClient().getTestStats({ top: 5, months: 6 }),
-            clientFactory
-              .getTestResultsClient()
-              .getComprehensiveTestResultsStats({
-                mode: 'timeline',
-                months: 6,
-              }),
-            clientFactory.getTestSetsClient().getTestSetStats({ months: 6 }),
-          ]);
+        const [
+          testStatsResponse,
+          testResultsResponse,
+          currentMonthResultsResponse,
+          testSetStatsResponse,
+        ] = await Promise.all([
+          clientFactory.getTestsClient().getTestStats({ months: 6 }),
+          clientFactory
+            .getTestResultsClient()
+            .getComprehensiveTestResultsStats({
+              mode: 'timeline',
+              months: 6,
+            }),
+          clientFactory
+            .getTestResultsClient()
+            .getComprehensiveTestResultsStats({
+              mode: 'timeline',
+              months: 2,
+            }),
+          clientFactory.getTestSetsClient().getTestSetStats({ months: 6 }),
+        ]);
 
         setTestStats(testStatsResponse);
         setTestResultsStats(testResultsResponse);
+        setCurrentMonthResultsStats(currentMonthResultsResponse);
         setTestSetStats(testSetStatsResponse);
       } catch (err) {
         console.error('Error fetching KPIs:', err);
       } finally {
         setLoading(false);
+        onLoadComplete?.();
       }
     };
 
@@ -212,15 +233,39 @@ export default function DashboardKPIs({ sessionToken }: DashboardKPIsProps) {
   const totalTests = testStats?.total || 0;
   const totalTestSets = testSetStats?.total || 0;
 
-  // Get pass rate from latest timeline data
-  const latestPassRate =
-    testResultsStats?.timeline?.[testResultsStats.timeline.length - 1]?.overall
-      ?.pass_rate || 0;
+  // Get current month's pass rate (latest data from 2-month query)
+  const currentMonthPassRate =
+    currentMonthResultsStats?.timeline?.[
+      currentMonthResultsStats.timeline.length - 1
+    ]?.overall?.pass_rate || 0;
+
+  // Get last month's pass rate for trend calculation
+  const lastMonthPassRate =
+    currentMonthResultsStats?.timeline?.[
+      currentMonthResultsStats.timeline.length - 2
+    ]?.overall?.pass_rate || 0;
+
+  // Calculate month-over-month trend
+  const passRateTrend =
+    lastMonthPassRate > 0 ? currentMonthPassRate - lastMonthPassRate : 0;
+
+  const passRateTrendFormatted =
+    passRateTrend > 0
+      ? `+${passRateTrend.toFixed(1)}%`
+      : passRateTrend < 0
+        ? `${passRateTrend.toFixed(1)}%`
+        : '—';
 
   // Calculate test trend from history
-  const testTrend = testStats?.history?.monthly_counts
-    ? Object.values(testStats.history.monthly_counts).slice(-6)
-    : [];
+  const testMonthlyData = testStats?.history?.monthly_counts || {};
+  const testMonthKeys = Object.keys(testMonthlyData).slice(-6);
+  const testTrend = testMonthKeys.map(key => testMonthlyData[key]);
+
+  // Format month labels (e.g., "2024-01" -> "Jan")
+  const testMonthLabels = testMonthKeys.map(monthKey => {
+    const date = new Date(monthKey + '-01');
+    return date.toLocaleDateString('en-US', { month: 'short' });
+  });
 
   // Calculate cumulative tests for sparkline
   const cumulativeTests: number[] = [];
@@ -231,18 +276,33 @@ export default function DashboardKPIs({ sessionToken }: DashboardKPIsProps) {
   });
 
   // Get test execution counts from timeline
-  const executionCounts =
-    testResultsStats?.timeline
-      ?.map(item => item.overall?.total || 0)
-      .slice(-6) || [];
+  const executionTimeline = testResultsStats?.timeline?.slice(-6) || [];
+  const executionCounts = executionTimeline.map(
+    item => item.overall?.total || 0
+  );
+
+  // Format month labels for executions (using 'date' field)
+  const executionMonthLabels = executionTimeline.map(item => {
+    if (item.date) {
+      const date = new Date(item.date + '-01');
+      return date.toLocaleDateString('en-US', { month: 'short' });
+    }
+    return '';
+  });
 
   // Calculate recent test runs count (from last month)
   const recentTestRuns = executionCounts[executionCounts.length - 1] || 0;
 
   // Calculate test set trend
-  const testSetTrend = testSetStats?.history?.monthly_counts
-    ? Object.values(testSetStats.history.monthly_counts).slice(-6)
-    : [];
+  const testSetMonthlyData = testSetStats?.history?.monthly_counts || {};
+  const testSetMonthKeys = Object.keys(testSetMonthlyData).slice(-6);
+  const testSetTrend = testSetMonthKeys.map(key => testSetMonthlyData[key]);
+
+  // Format month labels for test sets
+  const testSetMonthLabels = testSetMonthKeys.map(monthKey => {
+    const date = new Date(monthKey + '-01');
+    return date.toLocaleDateString('en-US', { month: 'short' });
+  });
 
   const cumulativeTestSets: number[] = [];
   let cumulativeSets = 0;
@@ -260,7 +320,7 @@ export default function DashboardKPIs({ sessionToken }: DashboardKPIsProps) {
   return (
     <Box sx={{ mb: 4 }}>
       <Grid container spacing={3}>
-        {/* Overall Quality Score */}
+        {/* This Month's Pass Rate */}
         <Grid item xs={12} sm={6} md={3}>
           <Card
             elevation={2}
@@ -296,7 +356,7 @@ export default function DashboardKPIs({ sessionToken }: DashboardKPIsProps) {
                     color="text.secondary"
                     sx={{ fontWeight: 500 }}
                   >
-                    Quality Score
+                    Overall Pass Rate
                   </Typography>
                 </Box>
               </Box>
@@ -315,88 +375,77 @@ export default function DashboardKPIs({ sessionToken }: DashboardKPIsProps) {
                 onClick={() => router.push('/test-results')}
               >
                 <Gauge
-                  value={latestPassRate}
+                  value={currentMonthPassRate}
                   valueMin={0}
                   valueMax={100}
                   width={100}
                   height={100}
-                  text={({ value }) => `${value?.toFixed(0)}%`}
+                  text={({ value }) => `${value?.toFixed(1)}%`}
                   sx={{
                     [`& .MuiGauge-valueArc`]: {
                       fill:
-                        latestPassRate > 60
+                        currentMonthPassRate > 60
                           ? theme.palette.success.main
-                          : latestPassRate >= 30
+                          : currentMonthPassRate >= 30
                             ? theme.palette.warning.main
                             : theme.palette.error.main,
                     },
                   }}
                 />
               </Box>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', textAlign: 'center', mt: 1 }}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mt: 1,
+                  gap: 0.5,
+                }}
               >
-                Pass Rate
-              </Typography>
+                {passRateTrend !== 0 && (
+                  <>
+                    {passRateTrend > 0 ? (
+                      <TrendingUpIcon
+                        sx={{
+                          fontSize: 16,
+                          color: theme.palette.success.main,
+                        }}
+                      />
+                    ) : (
+                      <TrendingDownIcon
+                        sx={{
+                          fontSize: 16,
+                          color: theme.palette.error.main,
+                        }}
+                      />
+                    )}
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 600,
+                        color:
+                          passRateTrend > 0
+                            ? theme.palette.success.main
+                            : theme.palette.error.main,
+                      }}
+                    >
+                      {passRateTrendFormatted}
+                    </Typography>
+                  </>
+                )}
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontWeight: 600 }}
+                >
+                  this month
+                </Typography>
+              </Box>
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Total Tests */}
-        <Grid item xs={12} sm={6} md={3}>
-          <KPICard
-            title="Total Tests"
-            value={totalTests.toLocaleString()}
-            icon={<ScienceIcon />}
-            color={theme.palette.primary.main}
-            sparklineData={
-              cumulativeTests.length > 0 ? cumulativeTests : undefined
-            }
-            trend={
-              cumulativeTests.length >= 2 &&
-              cumulativeTests[cumulativeTests.length - 1] >
-                cumulativeTests[cumulativeTests.length - 2]
-                ? 'up'
-                : 'neutral'
-            }
-            trendValue={
-              testTrend.length > 0
-                ? `+${testTrend[testTrend.length - 1]} this month`
-                : undefined
-            }
-            subtitle="Test cases managed"
-          />
-        </Grid>
-
-        {/* Active Test Sets */}
-        <Grid item xs={12} sm={6} md={3}>
-          <KPICard
-            title="Test Sets"
-            value={totalTestSets.toLocaleString()}
-            icon={<HorizontalSplitIcon />}
-            color={theme.palette.secondary.main}
-            sparklineData={
-              cumulativeTestSets.length > 0 ? cumulativeTestSets : undefined
-            }
-            trend={
-              cumulativeTestSets.length >= 2 &&
-              cumulativeTestSets[cumulativeTestSets.length - 1] >
-                cumulativeTestSets[cumulativeTestSets.length - 2]
-                ? 'up'
-                : 'neutral'
-            }
-            trendValue={
-              testSetTrend.length > 0
-                ? `+${testSetTrend[testSetTrend.length - 1]} this month`
-                : undefined
-            }
-            subtitle="Test set collections"
-          />
-        </Grid>
-
-        {/* Recent Test Runs */}
+        {/* Test Executions */}
         <Grid item xs={12} sm={6} md={3}>
           <KPICard
             title="Test Executions"
@@ -405,6 +454,9 @@ export default function DashboardKPIs({ sessionToken }: DashboardKPIsProps) {
             color={theme.palette.info.main}
             sparklineData={
               executionCounts.length > 0 ? executionCounts : undefined
+            }
+            sparklineLabels={
+              executionMonthLabels.length > 0 ? executionMonthLabels : undefined
             }
             trend={
               executionCounts.length >= 2 &&
@@ -423,6 +475,64 @@ export default function DashboardKPIs({ sessionToken }: DashboardKPIsProps) {
                 : 'Last month'
             }
             subtitle="Tests executed"
+          />
+        </Grid>
+
+        {/* Total Test Sets */}
+        <Grid item xs={12} sm={6} md={3}>
+          <KPICard
+            title="Test Sets"
+            value={totalTestSets.toLocaleString()}
+            icon={<HorizontalSplitIcon />}
+            color={theme.palette.secondary.main}
+            sparklineData={
+              cumulativeTestSets.length > 0 ? cumulativeTestSets : undefined
+            }
+            sparklineLabels={
+              testSetMonthLabels.length > 0 ? testSetMonthLabels : undefined
+            }
+            trend={
+              cumulativeTestSets.length >= 2 &&
+              cumulativeTestSets[cumulativeTestSets.length - 1] >
+                cumulativeTestSets[cumulativeTestSets.length - 2]
+                ? 'up'
+                : 'neutral'
+            }
+            trendValue={
+              testSetTrend.length > 0
+                ? `+${testSetTrend[testSetTrend.length - 1]} this month`
+                : undefined
+            }
+            subtitle="Test set collections"
+          />
+        </Grid>
+
+        {/* Total Tests */}
+        <Grid item xs={12} sm={6} md={3}>
+          <KPICard
+            title="Tests"
+            value={totalTests.toLocaleString()}
+            icon={<ScienceIcon />}
+            color={theme.palette.primary.main}
+            sparklineData={
+              cumulativeTests.length > 0 ? cumulativeTests : undefined
+            }
+            sparklineLabels={
+              testMonthLabels.length > 0 ? testMonthLabels : undefined
+            }
+            trend={
+              cumulativeTests.length >= 2 &&
+              cumulativeTests[cumulativeTests.length - 1] >
+                cumulativeTests[cumulativeTests.length - 2]
+                ? 'up'
+                : 'neutral'
+            }
+            trendValue={
+              testTrend.length > 0
+                ? `+${testTrend[testTrend.length - 1]} this month`
+                : undefined
+            }
+            subtitle="Test cases managed"
           />
         </Grid>
       </Grid>

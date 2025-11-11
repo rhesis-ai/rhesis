@@ -1,55 +1,74 @@
 'use client';
 
 import * as React from 'react';
-import Typography from '@mui/material/Typography';
 import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
-import DashboardCharts from './components/DashboardCharts';
+import CircularProgress from '@mui/material/CircularProgress';
 import DashboardKPIs from './components/DashboardKPIs';
 import TestRunPerformance from './components/TestRunPerformance';
 import ActivityTimeline from './components/ActivityTimeline';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { UUID } from 'crypto';
-import {
-  ScienceIcon,
-  HorizontalSplitIcon,
-  PlayArrowIcon,
-} from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
 
 export default function DashboardPage() {
   const { data: session } = useSession();
+  const [loadingStates, setLoadingStates] = React.useState({
+    kpis: true,
+    testRuns: true,
+    activities: true,
+  });
+
+  const allLoaded =
+    !loadingStates.kpis && !loadingStates.testRuns && !loadingStates.activities;
+
+  const handleComponentLoad = React.useCallback(
+    (component: 'kpis' | 'testRuns' | 'activities') => {
+      setLoadingStates(prev => ({ ...prev, [component]: false }));
+    },
+    []
+  );
 
   return (
     <PageContainer>
-      {/* Hero KPI Section */}
-      <DashboardKPIs sessionToken={session?.session_token || ''} />
+      {!allLoaded && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '60vh',
+          }}
+        >
+          <CircularProgress size={48} />
+        </Box>
+      )}
 
-      {/* Main Content Grid - Rows 2-3 */}
-      <Grid container spacing={3}>
-        {/* Left Column: 2x2 Grid (Behavior, Category, Test Runs) */}
-        <Grid item xs={12} md={8}>
-          <Stack spacing={3}>
-            {/* Top Row: Behavior and Category Distribution side by side */}
-            <Box>
-              <Grid container spacing={3}>
-                <DashboardCharts />
-              </Grid>
-            </Box>
+      <Box sx={{ display: allLoaded ? 'block' : 'none' }}>
+        {/* Hero KPI Section */}
+        <DashboardKPIs
+          sessionToken={session?.session_token || ''}
+          onLoadComplete={() => handleComponentLoad('kpis')}
+        />
 
-            {/* Bottom Row: Recent Test Runs spanning full width */}
-            <TestRunPerformance sessionToken={session?.session_token || ''} />
-          </Stack>
+        {/* Main Content Grid - 2x3 Layout (each takes half the width) */}
+        <Grid container spacing={3}>
+          {/* Recent Test Runs - 3x2 (6 columns = 50% width) */}
+          <Grid item xs={12} md={6}>
+            <TestRunPerformance
+              sessionToken={session?.session_token || ''}
+              onLoadComplete={() => handleComponentLoad('testRuns')}
+            />
+          </Grid>
+
+          {/* Recent Activity Timeline - 1x3 (6 columns = 50% width) */}
+          <Grid item xs={12} md={6}>
+            <ActivityTimeline
+              sessionToken={session?.session_token || ''}
+              onLoadComplete={() => handleComponentLoad('activities')}
+            />
+          </Grid>
         </Grid>
-
-        {/* Right Column: Recent Activity Timeline spanning full height */}
-        <Grid item xs={12} md={4}>
-          <ActivityTimeline sessionToken={session?.session_token || ''} />
-        </Grid>
-      </Grid>
+      </Box>
     </PageContainer>
   );
 }

@@ -18,7 +18,11 @@ import {
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import {
+  TestResultsStats,
+  TestRunSummaryItem,
+} from '@/utils/api-client/interfaces/test-results';
+import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -28,6 +32,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 
 interface TestRunPerformanceProps {
   sessionToken: string;
+  onLoadComplete?: () => void;
 }
 
 const getStatusColor = (
@@ -50,16 +55,10 @@ const getStatusIcon = (status?: string, taskState?: string) => {
   return <PlayArrowIcon fontSize="small" />;
 };
 
-const calculatePassRate = (testRun: TestRunDetail): number => {
-  // Check if attributes contain result data
-  if (testRun.attributes) {
-    const total =
-      testRun.attributes.total_tests || testRun.attributes.test_count || 0;
-    const passed =
-      testRun.attributes.passed_tests || testRun.attributes.passed || 0;
-    if (total > 0) {
-      return Math.round((passed / total) * 100);
-    }
+const calculatePassRate = (testRun: TestRunSummaryItem): number => {
+  // Use backend-calculated pass_rate with 1 decimal precision
+  if (testRun.overall?.pass_rate != null) {
+    return Math.round(testRun.overall.pass_rate * 10) / 10;
   }
   // Return -1 to indicate no data available
   return -1;
@@ -67,38 +66,80 @@ const calculatePassRate = (testRun: TestRunDetail): number => {
 
 export default function TestRunPerformance({
   sessionToken,
+  onLoadComplete,
 }: TestRunPerformanceProps) {
   const router = useRouter();
-  const [testRuns, setTestRuns] = useState<TestRunDetail[]>([]);
+  const [testRuns, setTestRuns] = useState<TestRunSummaryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewportHeight, setViewportHeight] = useState(0);
+
+  // Calculate how many test runs can fit based on viewport height
+  // Each card is approximately 180px tall in 2-column grid, plus spacing
+  // Account for dashboard header (~64px), KPIs (~200px), margins (~100px)
+  const calculateLimit = useCallback(() => {
+    if (viewportHeight === 0) return 6; // Default
+    const availableHeight = viewportHeight - 364; // Header + KPIs + margins
+    const cardHeight = 180; // Approximate height per card row (2 cards side-by-side)
+    const calculatedLimit = Math.floor(availableHeight / cardHeight) * 2; // *2 for 2-column grid
+    return Math.max(6, Math.min(calculatedLimit, 20)); // Min 6, max 20
+  }, [viewportHeight]);
 
   const fetchTestRuns = useCallback(async () => {
     try {
       setLoading(true);
       const apiFactory = new ApiClientFactory(sessionToken);
-      const testRunsClient = apiFactory.getTestRunsClient();
+      const testResultsClient = apiFactory.getTestResultsClient();
 
-      const response = await testRunsClient.getTestRuns({
-        skip: 0,
-        limit: 6,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-      });
+      const options: TestResultsStatsOptions = {
+        mode: 'test_runs',
+        months: 6,
+      };
 
-      setTestRuns(response.data);
+      const response =
+        await testResultsClient.getComprehensiveTestResultsStats(options);
+
+      const limit = calculateLimit();
+
+      // Sort by created_at (most recent first) and take calculated limit
+      const sortedRuns = (response.test_run_summary || [])
+        .filter(run => run.created_at)
+        .sort((a, b) => {
+          const dateA = new Date(a.created_at!).getTime();
+          const dateB = new Date(b.created_at!).getTime();
+          return dateB - dateA;
+        })
+        .slice(0, limit);
+
+      setTestRuns(sortedRuns);
       setError(null);
     } catch (err) {
       setError('Unable to load test run data');
       setTestRuns([]);
     } finally {
       setLoading(false);
+      onLoadComplete?.();
     }
-  }, [sessionToken]);
+  }, [sessionToken, calculateLimit]);
 
   useEffect(() => {
-    fetchTestRuns();
-  }, [fetchTestRuns]);
+    // Set initial viewport height
+    setViewportHeight(window.innerHeight);
+
+    // Track viewport height changes
+    const handleResize = () => {
+      setViewportHeight(window.innerHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (viewportHeight > 0) {
+      fetchTestRuns();
+    }
+  }, [fetchTestRuns, viewportHeight]);
 
   const handleCardClick = (testRunId: string) => {
     router.push(`/test-runs/${testRunId}`);
@@ -108,11 +149,15 @@ export default function TestRunPerformance({
     router.push('/test-runs');
   };
 
+  // Calculate dynamic container height
+  const containerHeight =
+    calculateLimit() > 6
+      ? `${Math.min(calculateLimit() * 90 + 150, viewportHeight - 364)}px`
+      : '700px';
+
   if (loading) {
     return (
-      <Paper
-        sx={{ p: 3, height: '500px', maxHeight: '500px', overflow: 'hidden' }}
-      >
+      <Paper sx={{ p: 3, height: containerHeight, overflow: 'hidden' }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
           <CircularProgress />
         </Box>
@@ -121,7 +166,7 @@ export default function TestRunPerformance({
   }
 
   return (
-    <Paper sx={{ p: 3, height: '500px', maxHeight: '500px', overflow: 'auto' }}>
+    <Paper sx={{ p: 3, height: containerHeight, overflow: 'auto' }}>
       <Box
         sx={{
           display: 'flex',
@@ -154,31 +199,33 @@ export default function TestRunPerformance({
           </Grid>
         ) : (
           testRuns.map(testRun => {
-            const status =
-              testRun.status?.name || testRun.attributes?.task_state;
-            const statusColor = getStatusColor(
-              testRun.status?.name,
-              testRun.attributes?.task_state
-            );
-            const statusIcon = getStatusIcon(
-              testRun.status?.name,
-              testRun.attributes?.task_state
-            );
+            // Test runs in summary are completed - show pass/fail based on pass rate
             const passRate = calculatePassRate(testRun);
-            const testSetName =
-              testRun.test_configuration?.test_set?.name || 'Unknown Test Set';
-            const executor = testRun.user
-              ? `${testRun.user.given_name || ''} ${testRun.user.family_name || ''}`.trim() ||
-                testRun.user.email
-              : 'Unknown';
-            const startedAt = testRun.attributes?.started_at
-              ? formatDistanceToNow(parseISO(testRun.attributes.started_at), {
+            const status = passRate >= 60 ? 'Completed' : 'Failed';
+            const statusColor = passRate >= 60 ? 'success' : 'error';
+            const statusIcon =
+              passRate >= 60 ? (
+                <CheckCircleIcon fontSize="small" />
+              ) : (
+                <ErrorIcon fontSize="small" />
+              );
+            const testSetName = testRun.name || 'Unknown Test Run';
+            const startedAt = testRun.started_at
+              ? formatDistanceToNow(parseISO(testRun.started_at), {
                   addSuffix: true,
-                })
-              : 'N/A';
+                }).replace('about ', '~')
+              : testRun.created_at
+                ? formatDistanceToNow(parseISO(testRun.created_at), {
+                    addSuffix: true,
+                  }).replace('about ', '~')
+                : 'N/A';
+
+            // Get test count for display
+            const totalTests =
+              testRun.overall?.total || testRun.total_tests || 0;
 
             return (
-              <Grid item xs={12} sm={6} md={4} key={testRun.id}>
+              <Grid item xs={12} sm={6} md={6} key={testRun.id}>
                 <Card
                   elevation={1}
                   sx={{
@@ -273,7 +320,7 @@ export default function TestRunPerformance({
                                     : 'error.main',
                             }}
                           >
-                            {passRate}%
+                            {passRate.toFixed(1)}%
                           </Typography>
                         </Box>
                         <LinearProgress
@@ -291,26 +338,19 @@ export default function TestRunPerformance({
                       </Box>
                     )}
 
-                    {/* Executor */}
+                    {/* Test Count */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Avatar
-                        sx={{ width: 22, height: 22, bgcolor: 'primary.main' }}
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
                       >
-                        <PersonIcon sx={{ fontSize: 15 }} />
-                      </Avatar>
-                      <Tooltip title={executor}>
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {executor}
-                        </Typography>
-                      </Tooltip>
+                        {totalTests} test{totalTests !== 1 ? 's' : ''}
+                      </Typography>
                     </Box>
                   </CardContent>
                 </Card>

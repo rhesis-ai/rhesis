@@ -31,10 +31,13 @@ import UpdateIcon from '@mui/icons-material/Update';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TimelineIcon from '@mui/icons-material/Timeline';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import EditIcon from '@mui/icons-material/Edit';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
 interface ActivityTimelineProps {
   sessionToken: string;
+  onLoadComplete?: () => void;
 }
 
 type ActivityType =
@@ -43,7 +46,9 @@ type ActivityType =
   | 'test_run'
   | 'test_set_created'
   | 'task_created'
-  | 'task_completed';
+  | 'task_completed'
+  | 'task_assigned'
+  | 'task_updated';
 
 interface Activity {
   id: string;
@@ -68,6 +73,10 @@ const getActivityIcon = (type: ActivityType) => {
       return <AssignmentIcon fontSize="small" />;
     case 'task_completed':
       return <CheckCircleIcon fontSize="small" />;
+    case 'task_assigned':
+      return <PersonAddIcon fontSize="small" />;
+    case 'task_updated':
+      return <EditIcon fontSize="small" />;
     default:
       return <ScienceIcon fontSize="small" />;
   }
@@ -89,6 +98,10 @@ const getActivityColor = (
       return 'info';
     case 'task_completed':
       return 'success';
+    case 'task_assigned':
+      return 'warning';
+    case 'task_updated':
+      return 'info';
     default:
       return 'primary';
   }
@@ -96,43 +109,66 @@ const getActivityColor = (
 
 export default function ActivityTimeline({
   sessionToken,
+  onLoadComplete,
 }: ActivityTimelineProps) {
   const theme = useTheme();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [viewportHeight, setViewportHeight] = useState(0);
+
+  // Calculate how many activities can fit based on viewport height
+  // Each activity item is approximately 120px tall
+  // Account for dashboard header (~64px), KPIs (~200px), margins (~100px)
+  const calculateLimit = useCallback(() => {
+    if (viewportHeight === 0) return 6; // Default
+    const availableHeight = viewportHeight - 364; // Header + KPIs + margins
+    const itemHeight = 120; // Approximate height per timeline item
+    const calculatedLimit = Math.floor(availableHeight / itemHeight);
+    return Math.max(6, Math.min(calculatedLimit, 15)); // Min 6, max 15
+  }, [viewportHeight]);
 
   const fetchActivities = useCallback(async () => {
     try {
       setLoading(true);
       const clientFactory = new ApiClientFactory(sessionToken);
 
+      const limit = calculateLimit();
+      // Fetch more items per source to ensure we get the most recent activities
+      // Fetch at least 5 items per source to have enough to choose from
+      const perSourceLimit = Math.max(5, Math.ceil(limit / 2));
+
       // Fetch multiple activity sources in parallel
-      // Optimized: 4 calls × 2 items = 8 total (displays 6)
-      const [newTests, recentTestRuns, newTestSets, recentTasks] =
+      const [newTests, updatedTests, recentTestRuns, newTestSets, recentTasks] =
         await Promise.all([
           clientFactory.getTestsClient().getTests({
             skip: 0,
-            limit: 2,
+            limit: perSourceLimit,
             sort_by: 'created_at',
+            sort_order: 'desc',
+          }),
+          clientFactory.getTestsClient().getTests({
+            skip: 0,
+            limit: perSourceLimit,
+            sort_by: 'updated_at',
             sort_order: 'desc',
           }),
           clientFactory.getTestRunsClient().getTestRuns({
             skip: 0,
-            limit: 2,
+            limit: perSourceLimit,
             sort_by: 'created_at',
             sort_order: 'desc',
           }),
           clientFactory.getTestSetsClient().getTestSets({
             skip: 0,
-            limit: 2,
+            limit: perSourceLimit,
             sort_by: 'created_at',
             sort_order: 'desc',
           }),
           clientFactory.getTasksClient().getTasks({
             skip: 0,
-            limit: 2,
+            limit: perSourceLimit,
             sort_by: 'created_at',
             sort_order: 'desc',
           }),
@@ -154,15 +190,33 @@ export default function ActivityTimeline({
         });
       });
 
+      // Add updated tests (only if updated_at differs from created_at)
+      updatedTests.data.forEach((test: TestDetail) => {
+        if (test.updated_at && test.updated_at !== test.created_at) {
+          allActivities.push({
+            id: `test_updated_${test.id}`,
+            type: 'test_updated',
+            title: 'Test Updated',
+            subtitle:
+              test.prompt?.content?.substring(0, 60) + '...' || 'Test modified',
+            timestamp: test.updated_at,
+            metadata: { testId: test.id, behavior: test.behavior?.name },
+          });
+        }
+      });
+
       // Add test runs
       recentTestRuns.data.forEach((testRun: TestRunDetail) => {
+        // Use started_at from attributes if available, otherwise fall back to created_at
+        const timestamp = testRun.attributes?.started_at || testRun.created_at;
+
         allActivities.push({
           id: `test_run_${testRun.id}`,
           type: 'test_run',
           title: 'Test Run Executed',
           subtitle:
             testRun.test_configuration?.test_set?.name || 'Test run completed',
-          timestamp: testRun.created_at,
+          timestamp: timestamp,
           metadata: {
             testRunId: testRun.id,
             status: testRun.status?.name || testRun.attributes?.task_state,
@@ -172,33 +226,58 @@ export default function ActivityTimeline({
 
       // Add new test sets
       newTestSets.data.forEach((testSet: TestSet) => {
-        if (testSet.created_at) {
-          allActivities.push({
-            id: `test_set_created_${testSet.id}`,
-            type: 'test_set_created',
-            title: 'Test Set Created',
-            subtitle: testSet.name,
-            timestamp: testSet.created_at,
-            metadata: { testSetId: testSet.id },
-          });
-        }
+        // Use created_at, updated_at, or current time as fallback
+        const testSetTimestamp =
+          testSet.created_at || testSet.updated_at || new Date().toISOString();
+
+        allActivities.push({
+          id: `test_set_created_${testSet.id}`,
+          type: 'test_set_created',
+          title: 'Test Set Created',
+          subtitle: testSet.name,
+          timestamp: testSetTimestamp,
+          metadata: { testSetId: testSet.id },
+        });
       });
 
-      // Add tasks
+      // Add tasks with enhanced activity tracking
       recentTasks.data.forEach((task: Task) => {
+        // Use created_at, updated_at, or current time as fallback
+        const taskTimestamp =
+          task.created_at || task.updated_at || new Date().toISOString();
+
         // Add task created activity
-        if (task.created_at) {
+        allActivities.push({
+          id: `task_created_${task.id}`,
+          type: 'task_created',
+          title: 'Task Created',
+          subtitle: task.title,
+          timestamp: taskTimestamp,
+          metadata: {
+            taskId: task.id,
+            status: task.status?.name,
+            assignee: task.assignee?.name || task.assignee?.email,
+            entity_type: task.entity_type,
+          },
+        });
+
+        // Add task assignment activity if assigned
+        if (
+          task.assignee &&
+          task.updated_at &&
+          task.updated_at !== task.created_at
+        ) {
           allActivities.push({
-            id: `task_created_${task.id}`,
-            type: 'task_created',
-            title: 'Task Created',
-            subtitle: task.title,
-            timestamp: task.created_at,
+            id: `task_assigned_${task.id}`,
+            type: 'task_assigned',
+            title: 'Task Assigned',
+            subtitle: `${task.title} → ${task.assignee.name || task.assignee.email}`,
+            timestamp: task.updated_at,
             metadata: {
               taskId: task.id,
-              status: task.status?.name,
-              assignee: task.assignee?.name || task.assignee?.email,
+              assignee: task.assignee.name || task.assignee.email,
               entity_type: task.entity_type,
+              status: task.status?.name,
             },
           });
         }
@@ -213,18 +292,42 @@ export default function ActivityTimeline({
             timestamp: task.completed_at,
             metadata: {
               taskId: task.id,
+              status: task.status?.name,
               entity_type: task.entity_type,
+              assignee: task.assignee?.name || task.assignee?.email,
+            },
+          });
+        }
+
+        // Add task updated activity for status changes (if not completed)
+        if (
+          task.updated_at &&
+          task.updated_at !== task.created_at &&
+          !task.completed_at &&
+          task.status?.name !== 'Open'
+        ) {
+          allActivities.push({
+            id: `task_updated_${task.id}`,
+            type: 'task_updated',
+            title: 'Task Updated',
+            subtitle: `${task.title} → ${task.status?.name}`,
+            timestamp: task.updated_at,
+            metadata: {
+              taskId: task.id,
+              status: task.status?.name,
+              entity_type: task.entity_type,
+              assignee: task.assignee?.name || task.assignee?.email,
             },
           });
         }
       });
 
-      // Sort by timestamp (most recent first) and take top 6
+      // Sort by timestamp (most recent first) and take calculated limit
       allActivities.sort(
         (a, b) =>
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
-      setActivities(allActivities.slice(0, 6));
+      setActivities(allActivities.slice(0, limit));
 
       setError(null);
     } catch (err) {
@@ -232,12 +335,28 @@ export default function ActivityTimeline({
       setActivities([]);
     } finally {
       setLoading(false);
+      onLoadComplete?.();
     }
-  }, [sessionToken]);
+  }, [sessionToken, calculateLimit]);
 
   useEffect(() => {
-    fetchActivities();
-  }, [fetchActivities]);
+    // Set initial viewport height
+    setViewportHeight(window.innerHeight);
+
+    // Track viewport height changes
+    const handleResize = () => {
+      setViewportHeight(window.innerHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (viewportHeight > 0) {
+      fetchActivities();
+    }
+  }, [fetchActivities, viewportHeight]);
 
   const handleActivityClick = (activity: Activity) => {
     switch (activity.type) {
@@ -259,6 +378,8 @@ export default function ActivityTimeline({
         break;
       case 'task_created':
       case 'task_completed':
+      case 'task_assigned':
+      case 'task_updated':
         if (activity.metadata?.taskId) {
           router.push(`/tasks/${activity.metadata.taskId}`);
         }
@@ -266,9 +387,15 @@ export default function ActivityTimeline({
     }
   };
 
+  // Calculate dynamic container height
+  const containerHeight =
+    calculateLimit() > 6
+      ? `${Math.min(calculateLimit() * 120 + 150, viewportHeight - 364)}px`
+      : '700px';
+
   if (loading) {
     return (
-      <Paper sx={{ p: 3, height: '100%' }}>
+      <Paper sx={{ p: 3, height: containerHeight, overflow: 'hidden' }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
           <CircularProgress />
         </Box>
@@ -277,7 +404,7 @@ export default function ActivityTimeline({
   }
 
   return (
-    <Paper sx={{ p: 3, height: '100%', minHeight: '924px', overflow: 'auto' }}>
+    <Paper sx={{ p: 3, height: containerHeight, overflow: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <TimelineIcon color="primary" />
         <Typography variant="h6">Recent Activity</Typography>
@@ -311,7 +438,7 @@ export default function ActivityTimeline({
             const timeAgo = activity.timestamp
               ? formatDistanceToNow(parseISO(activity.timestamp), {
                   addSuffix: true,
-                })
+                }).replace('about ', '~')
               : 'Unknown';
 
             return (
@@ -398,11 +525,16 @@ export default function ActivityTimeline({
                     )}
                     {activity.metadata?.assignee && (
                       <Chip
-                        label={`Assignee: ${activity.metadata.assignee}`}
+                        label={`@${activity.metadata.assignee}`}
                         size="small"
-                        color="primary"
-                        variant="outlined"
-                        sx={{ mt: 0.5, height: 20, fontSize: '0.688rem' }}
+                        sx={{
+                          mt: 0.5,
+                          mr: 0.5,
+                          height: 20,
+                          fontSize: '0.688rem',
+                          backgroundColor: theme.palette.secondary.light,
+                          color: theme.palette.secondary.contrastText,
+                        }}
                       />
                     )}
                   </Box>
