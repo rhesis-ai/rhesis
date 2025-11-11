@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Optional
+from typing import ClassVar, Dict, Optional
 
 from jinja2 import Template
 from pydantic import BaseModel
@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from rhesis.sdk.client import Endpoints
 from rhesis.sdk.entities import BaseEntity
 from rhesis.sdk.entities.base_collection import BaseCollection
+from rhesis.sdk.entities.test import Test
 from rhesis.sdk.utils import count_tokens
 
 ENDPOINT = Endpoints.TEST_SETS
@@ -19,32 +20,10 @@ class TestSetProperties(BaseModel):
 
 
 class TestSet(BaseEntity):
-    """A class representing a test set in the API.
-
-    This class provides functionality to interact with test sets, including
-    retrieving prompts, loading data in different formats, and downloading test sets.
-
-    Examples:
-        Create and load a test set:
-        >>> test_set = TestSet(id='123')
-        >>> df = test_set.load(format='pandas')  # Load as pandas DataFrame
-        >>> prompts = test_set.load(format='dict')  # Load as list of dictionaries
-
-        Get prompts directly:
-        >>> prompts = test_set.get_prompts()
-        >>> print(f"Number of prompts: {len(prompts)}")
-
-        Download test set to local file:
-        >>> # Download to current directory as CSV
-        >>> test_set.download()
-        >>> # Download to specific path as different format
-        >>> test_set.download(format='json', path='data/my_test_set.json')
-    """
-
     endpoint: ClassVar[Endpoints] = ENDPOINT
 
     id: Optional[str] = None
-    tests: Optional[list[Any]] = None
+    tests: Optional[list[Test]] = None
     categories: Optional[list[str]] = None
     topics: Optional[list[str]] = None
     test_count: Optional[int] = None
@@ -52,24 +31,6 @@ class TestSet(BaseEntity):
     description: str
     short_description: str
     metadata: Optional[dict] = None
-
-    def _prepare_test_set_data(self) -> dict:
-        """Prepare the test set data for upload.
-
-        Returns:
-            dict: The prepared test set data.
-        """
-        if not self.tests:
-            raise ValueError("No tests to upload. Please add tests to the test set first.")
-
-        return {
-            "name": self.name,
-            "description": self.description,
-            "short_description": self.short_description,
-            "test_set_type": self.test_set_type,
-            "metadata": self.metadata,
-            "tests": self.tests,
-        }
 
     def count_tokens(self, encoding_name: str = "cl100k_base") -> Dict[str, int]:
         """Count tokens for all prompts in the test set.
