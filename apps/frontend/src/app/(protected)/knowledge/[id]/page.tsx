@@ -58,9 +58,9 @@ export default async function SourcePreviewPage({
             entityType="Source"
             entityId={source.id}
             sessionToken={session.session_token}
-            currentUserId={session.user_id}
-            currentUserName={session.user_name}
-            currentUserPicture={session.user_picture}
+            currentUserId={session.user?.id || ''}
+            currentUserName={session.user?.name || ''}
+            currentUserPicture={session.user?.picture || undefined}
           />
         </Paper>
       </Box>
