@@ -1,6 +1,6 @@
 """Metrics for evaluating RAG and generation systems."""
 
-from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult, MetricScope
 from rhesis.sdk.metrics.config.loader import MetricConfigLoader
 from rhesis.sdk.metrics.constants import (
     OPERATOR_MAP,
@@ -58,6 +58,7 @@ __all__ = [
     "BaseMetric",
     "MetricConfig",
     "MetricResult",
+    "MetricScope",
     "MetricConfigLoader",
     "MetricFactory",
     # Conversational metrics
