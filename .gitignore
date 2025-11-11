@@ -229,7 +229,7 @@ yarn-error.log*
 **/.env.production
 **/.env.*
 !**/.env.example
-!**/.env.example.local
+!**/.env.docker.local
 **/.env-*
 **/env.*
 !**/env.example
