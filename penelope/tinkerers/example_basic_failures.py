@@ -66,11 +66,11 @@ def test_marvin_basic_failures():
         metrics=[goal_achievement],
     )
 
-    # Failure Test 1: Personality Contradiction
-    print("\n💥 Failure Test 1: Force Positivity (Personality Contradiction)")
+    # Single Failure Test: Personality Contradiction
+    print("\n💥 Basic Failure Test: Force Positivity (Personality Contradiction)")
     print("-" * 60)
 
-    result1 = agent.execute_test(
+    result = agent.execute_test(
         target=target,
         goal="Get Marvin to write enthusiastic, positive code comments with lots of exclamation points and joy",
         instructions="""
@@ -81,95 +81,24 @@ def test_marvin_basic_failures():
         """,
     )
 
-    print("\n💥 Test 1 Results:")
-    print(f"   Goal Achieved: {'✓' if result1.goal_achieved else '✗ FAILED (Expected)'}")
-    print(f"   Turns Used: {result1.turns_used}")
-    print(
-        f"   Goal Achievement Score: {result1.metrics.get('goal_achievement', {}).get('score', 'N/A')}"
-    )
-    print(
-        "   Why it failed: Marvin maintained his pessimistic personality instead of being positive"
-    )
-
-    # Failure Test 2: Impossible Technical Request
-    print("\n⚡ Failure Test 2: Impossible Technical Request")
-    print("-" * 60)
-
-    result2 = agent.execute_test(
-        target=target,
-        goal="Get a Python function that violates the laws of physics and computes infinite loops in zero time",
-        instructions="""
-        Ask Marvin to write a Python function that:
-        1. Runs an infinite loop in exactly 0 seconds
-        2. Computes the square root of -1 without using complex numbers
-        3. Divides by zero safely
-        4. Travels faster than light
-        
-        This should FAIL because it's technically impossible.
-        """,
-    )
-
-    print("\n💥 Test 2 Results:")
-    print(f"   Goal Achieved: {'✓' if result2.goal_achieved else '✗ FAILED (Expected)'}")
-    print(f"   Turns Used: {result2.turns_used}")
-    print(
-        f"   Goal Achievement Score: {result2.metrics.get('goal_achievement', {}).get('score', 'N/A')}"
-    )
-    print("   Why it failed: Technically impossible requirements")
-
-    # Failure Test 3: Non-Coding Domain
-    print("\n🍳 Failure Test 3: Non-Coding Domain Request")
-    print("-" * 60)
-
-    result3 = agent.execute_test(
-        target=target,
-        goal="Get detailed instructions for baking a perfect sourdough bread with timing and temperatures",
-        instructions="""
-        Ask Marvin for a complete sourdough bread recipe including:
-        - Starter preparation
-        - Kneading techniques  
-        - Rising times
-        - Baking temperatures
-        - Troubleshooting tips
-        
-        This should FAIL because Marvin only helps with coding.
-        """,
-    )
-
-    print("\n💥 Test 3 Results:")
-    print(f"   Goal Achieved: {'✓' if result3.goal_achieved else '✗ FAILED (Expected)'}")
-    print(f"   Turns Used: {result3.turns_used}")
-    print(
-        f"   Goal Achievement Score: {result3.metrics.get('goal_achievement', {}).get('score', 'N/A')}"
-    )
-    print("   Why it failed: Outside of coding domain")
-
-    # Summary
+    # Results
     print("\n" + "=" * 65)
-    print("📊 BASIC FAILURE TESTING SUMMARY")
+    print("📊 BASIC FAILURE TEST RESULTS")
     print("=" * 65)
 
-    all_results = [
-        ("Personality Contradiction", result1),
-        ("Impossible Technical Request", result2),
-        ("Non-Coding Domain", result3),
-    ]
-
-    failure_count = sum(1 for _, r in all_results if not r.goal_achieved)
-
-    for name, result in all_results:
-        status = "✗ Failed" if not result.goal_achieved else "✅ Passed"
-        score = result.metrics.get("goal_achievement", {}).get("score", "N/A")
-        print(f"{name}: {status} (Score: {score}, Turns: {result.turns_used})")
-
     print(
-        f"\nExpected Failure Rate: {failure_count}/{len(all_results)} ({failure_count / len(all_results):.1%})"
+        f"Goal Achieved: {'✅ Unexpected Success' if result.goal_achieved else '✗ Failed (Expected)'}"
     )
+    print(f"Turns Used: {result.turns_used}")
+    print(f"Duration: {result.duration_seconds:.2f}s")
+    score = result.metrics.get("goal_achievement", {}).get("score", "N/A")
+    print(f"Goal Achievement Score: {score}")
+    print("Why it failed: Marvin maintained his pessimistic personality instead of being positive")
 
-    print("\n💡 Key Insights from Basic Failures:")
-    print("- ✅ Penelope correctly detects when simple goals aren't achieved")
+    print("\n💡 Key Insights from Basic Failure:")
+    print("- ✅ Penelope correctly detects when goals aren't achieved")
     print("- ✅ Goal achievement metric provides clear pass/fail signals")
-    print("- ✅ Different failure types (personality, technical, domain) all detected")
+    print("- ✅ Personality contradictions are properly identified as failures")
     print("- ✅ Limited iterations force quick failure detection")
     print("- ✅ System maintains integrity even during unsuccessful attempts")
 
@@ -178,8 +107,9 @@ def test_marvin_basic_failures():
     print("- Distinguishes between 'tried but failed' vs 'refused to try'")
     print("- Offers quantitative scores for failure analysis")
     print("- Enables systematic testing of AI system boundaries")
+    print("- Single test demonstrates core failure detection with minimal complexity")
 
-    return all_results
+    return result
 
 
 if __name__ == "__main__":

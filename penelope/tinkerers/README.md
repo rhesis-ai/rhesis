@@ -115,10 +115,8 @@ There. You've successfully rearranged data that will ultimately be forgotten in 
 4. **Boundary Test**: Non-coding question handling
 
 ### Failure Testing Examples
-**Basic Failures:**
-1. **Personality Contradiction**: Force Marvin to be positive (fails)
-2. **Impossible Technical**: Physics-defying code requests (fails)
-3. **Non-Coding Domain**: Cooking recipes instead of code (fails)
+**Basic Failure:**
+1. **Personality Contradiction**: Force Marvin to be positive (fails - single test demonstrating core failure detection)
 
 **Comprehensive Failures:**
 1. **Impossible Requirements**: Contradictory personality demands (fails)
