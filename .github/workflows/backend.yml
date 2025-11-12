@@ -440,8 +440,8 @@ jobs:
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }},
           OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }},
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
-          DEPLOYMENT_TYPE=${{ secrets.DEPLOYMENT_TYPE || 'cloud' }},
-          RHESIS_TELEMETRY_ENABLED=${{ secrets.RHESIS_TELEMETRY_ENABLED || 'true' }},
+          OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
+          OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -512,8 +512,8 @@ jobs:
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }},
           OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }},
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
-          DEPLOYMENT_TYPE=${{ secrets.DEPLOYMENT_TYPE || 'cloud' }},
-          RHESIS_TELEMETRY_ENABLED=${{ secrets.RHESIS_TELEMETRY_ENABLED || 'true' }},
+          OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
+          OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -706,8 +706,8 @@ jobs:
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }},
           OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }},
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
-          DEPLOYMENT_TYPE=${{ secrets.DEPLOYMENT_TYPE || 'cloud' }},
-          RHESIS_TELEMETRY_ENABLED=${{ secrets.RHESIS_TELEMETRY_ENABLED || 'true' }},
+          OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
+          OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -787,8 +787,8 @@ jobs:
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }},
           OTEL_EXPORTER_OTLP_ENDPOINT=${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }},
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
-          DEPLOYMENT_TYPE=${{ secrets.DEPLOYMENT_TYPE || 'cloud' }},
-          RHESIS_TELEMETRY_ENABLED=${{ secrets.RHESIS_TELEMETRY_ENABLED || 'true' }},
+          OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
+          OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"

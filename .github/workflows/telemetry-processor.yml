@@ -257,7 +257,7 @@ jobs:
 
       - name: Allow OTel Collector to invoke Telemetry Processor
         run: |
-          echo "ℹ️ Note: Service is --allow-unauthenticated but secured by TELEMETRY_API_KEY (x-api-key header)"
+          echo "ℹ️ Note: Service is --allow-unauthenticated but secured by OTEL_API_KEY (x-api-key header)"
           echo "🔐 Configuring IAM permissions for OTel Collector to invoke Telemetry Processor..."
           
           # Determine otel-collector service name
