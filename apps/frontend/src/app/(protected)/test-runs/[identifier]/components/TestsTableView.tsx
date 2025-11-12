@@ -31,6 +31,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer from './TestResultDrawer';
 import ReviewJudgementDrawer, { ReviewData } from './ReviewJudgementDrawer';
+import { findStatusByCategory } from '@/utils/testResultStatus';
 
 interface TestsTableViewProps {
   tests: TestResultDetail[];
@@ -174,14 +175,10 @@ export default function TestsTableView({
       const automatedPassed =
         totalMetrics > 0 && passedMetrics === totalMetrics;
 
-      // Find appropriate status ID
-      const statusKeywords = automatedPassed
-        ? ['pass', 'success', 'completed']
-        : ['fail', 'error'];
-      const targetStatus = statuses.find(status =>
-        statusKeywords.some(keyword =>
-          status.name.toLowerCase().includes(keyword)
-        )
+      // Find appropriate status ID using centralized utility
+      const targetStatus = findStatusByCategory(
+        statuses,
+        automatedPassed ? 'passed' : 'failed'
       );
 
       if (!targetStatus) {

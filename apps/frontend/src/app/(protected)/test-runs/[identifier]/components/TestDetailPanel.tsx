@@ -26,6 +26,7 @@ import TestDetailReviewsTab from './TestDetailReviewsTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { findStatusByCategory } from '@/utils/testResultStatus';
 
 interface TestDetailPanelProps {
   test: TestResultDetail | null;
@@ -162,14 +163,10 @@ export default function TestDetailPanel({
       const automatedPassed =
         test.test_output?.goal_evaluation?.all_criteria_met || false;
 
-      // Find appropriate status ID
-      const statusKeywords = automatedPassed
-        ? ['pass', 'success', 'completed']
-        : ['fail', 'error'];
-      const targetStatus = statuses.find(status =>
-        statusKeywords.some(keyword =>
-          status.name.toLowerCase().includes(keyword)
-        )
+      // Find appropriate status ID using centralized utility
+      const targetStatus = findStatusByCategory(
+        statuses,
+        automatedPassed ? 'passed' : 'failed'
       );
 
       if (!targetStatus) {
