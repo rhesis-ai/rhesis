@@ -8,6 +8,7 @@ from rhesis.sdk.client import Endpoints
 from rhesis.sdk.entities import BaseEntity
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.test import Test
+from rhesis.sdk.models.base import BaseLLM
 
 ENDPOINT = Endpoints.TEST_SETS
 
@@ -32,7 +33,7 @@ class TestSet(BaseEntity):
     short_description: str
     metadata: Optional[dict] = None
 
-    def set_properties(self) -> None:
+    def set_properties(self, model: BaseLLM) -> None:
         """Set test set attributes using LLM based on categories and topics in tests.
 
         This method:
@@ -75,7 +76,7 @@ class TestSet(BaseEntity):
 
         # Get response from LLLM
 
-        response = self.model.generate(formatted_prompt, schema=TestSetProperties)
+        response = model.generate(formatted_prompt, schema=TestSetProperties)
         # Update test set attributes
         if isinstance(response, dict):
             self.name = response.get("name")
