@@ -2508,7 +2508,8 @@ def update_model(
     # First check if the model is protected
     existing_model = get_model(db, model_id, organization_id)
     if existing_model and getattr(existing_model, "is_protected", False):
-        # For protected models, only allow updating certain fields (tags, comments, status, owner, assignee)
+        # For protected models, only allow updating certain fields
+        # (tags, comments, status, owner, assignee)
         # Block updates to core model configuration properties
         protected_fields = {
             "name",
@@ -2538,8 +2539,9 @@ def update_model(
                     attempted_protected_updates.append(field)
 
         if attempted_protected_updates:
+            fields_str = ", ".join(attempted_protected_updates)
             raise ValueError(
-                f"Cannot update protected fields ({', '.join(attempted_protected_updates)}) on system model. "
+                f"Cannot update protected fields ({fields_str}) on system model. "
                 "Only tags, status, owner, and assignee can be modified."
             )
 
@@ -2660,6 +2662,7 @@ def delete_tool(
 
 
 # Comment CRUD
+
 
 def get_comment(
     db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None

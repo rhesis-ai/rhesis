@@ -32,6 +32,7 @@ from .test_result import router as test_result_router
 from .test_run import router as test_run_router
 from .test_set import router as test_set_router
 from .token import router as token_router
+from .tool import router as tool_router
 from .topic import router as topic_router
 from .type_lookup import router as type_lookup_router
 from .use_case import router as use_case_router
@@ -109,6 +110,7 @@ routers = sorted(
         model_router,
         task_router,
         task_management_router,
+        tool_router,
         recycle_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
