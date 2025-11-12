@@ -3,9 +3,10 @@
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.services.mcp.client import MCPClient
 from rhesis.sdk.services.mcp.executor import ToolExecutor
 from rhesis.sdk.services.mcp.schemas import (
@@ -48,8 +49,8 @@ Remember: You must explicitly use action="finish" when done."""
 
     def __init__(
         self,
-        model: BaseLLM,
-        mcp_client: MCPClient,
+        model: Optional[Union[str, BaseLLM]] = None,
+        mcp_client: MCPClient = None,
         system_prompt: Optional[str] = None,
         max_iterations: int = 10,
         verbose: bool = False,
@@ -59,7 +60,8 @@ Remember: You must explicitly use action="finish" when done."""
         Initialize the MCP agent.
 
         Args:
-            model: Language model for reasoning and decision-making
+            model: Language model for reasoning and decision-making.
+                Can be a string (provider name), BaseLLM instance, or None (uses default).
             mcp_client: Client connected to an MCP server
             system_prompt: Custom system prompt to define agent behavior (optional)
             max_iterations: Maximum reasoning loops before stopping (default: 10)
@@ -68,13 +70,21 @@ Remember: You must explicitly use action="finish" when done."""
         """
         if not mcp_client:
             raise ValueError("mcp_client is required")
-        self.model = model
+
+        # Convert model to BaseLLM instance if needed
+        self.model = self._set_model(model)
         self.mcp_client = mcp_client
         self.system_prompt = system_prompt or self.DEFAULT_SYSTEM_PROMPT
         self.max_iterations = max_iterations
         self.verbose = verbose
         self.stop_on_error = stop_on_error
         self.executor = ToolExecutor(mcp_client)
+
+    def _set_model(self, model: Optional[Union[str, BaseLLM]]) -> BaseLLM:
+        """Convert model string or instance to BaseLLM instance."""
+        if isinstance(model, BaseLLM):
+            return model
+        return get_model(model)
 
     async def run_async(self, user_query: str) -> AgentResult:
         """
@@ -369,7 +379,7 @@ Remember: You must explicitly use action="finish" when done."""
             reasoning=f"Error: {error_msg}",
             action="finish",
             tool_calls=[],
-            tool_results=[ToolResult(tool_name="llm_error", success=False, error=error_msg)],
+            tool_results=[ToolResult(tool_name="error", success=False, error=error_msg)],
         )
 
     def _build_prompt(
