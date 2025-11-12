@@ -10,8 +10,8 @@ WORKDIR /app
 COPY src/package.json src/package-lock.json ./
 
 # Install all dependencies (including devDependencies for build tools)
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci
+# Note: Removed cache mount to avoid corruption in CI environments
+RUN npm ci --prefer-offline --no-audit
 
 # Copy source files needed for build
 COPY src/next.config.mjs src/mdx-components.js src/theme.config.jsx ./
@@ -47,8 +47,8 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY src/package.json src/package-lock.json ./
 
 # Install only production dependencies
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --only=production && \
+# Note: Removed cache mount to avoid corruption in CI environments
+RUN npm ci --only=production --prefer-offline --no-audit && \
     npm cache clean --force && \
     rm -rf /tmp/*
 

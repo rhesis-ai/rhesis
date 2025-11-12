@@ -311,3 +311,82 @@ async def demo_redirect(request: Request):
     except Exception as e:
         logger.error(f"Demo redirect error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Demo redirect failed: {str(e)}")
+
+
+@router.post("/local-login")
+async def local_login(request: Request, db: Session = Depends(get_db_session)):
+    """
+    Local development authentication endpoint.
+
+    ⚠️ WARNING: This endpoint is for LOCAL DEVELOPMENT ONLY!
+    It bypasses Auth0 and logs in as the default admin@local.dev user.
+
+    This endpoint only works when LOCAL_AUTH_ENABLED=true environment variable is set.
+    """
+    from rhesis.backend.app import crud
+
+    # Check if local auth is enabled
+    local_auth_enabled = os.getenv("LOCAL_AUTH_ENABLED", "false").lower() == "true"
+
+    if not local_auth_enabled:
+        logger.warning("Attempted to use /auth/local-login but LOCAL_AUTH_ENABLED is not set")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Local authentication is not enabled. This endpoint is only available in local development mode.",
+        )
+
+    logger.warning("⚠️  LOCAL DEVELOPMENT LOGIN - Bypassing Auth0 authentication!")
+    logger.warning("⚠️  This should NEVER be used in production!")
+
+    try:
+        # Find the local development user
+        user = crud.get_user_by_email(db, "admin@local.dev")
+
+        if not user:
+            logger.error("Local development user (admin@local.dev) not found in database")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Local development user not found. Please ensure the database was initialized with init_local_user.sql",
+            )
+
+        # Set up session
+        request.session["user_id"] = str(user.id)
+        session_token = create_session_token(user)
+
+        logger.info(f"Local development login successful for user: {user.email}")
+
+        # Track login activity if telemetry is enabled
+        if is_telemetry_enabled():
+            set_telemetry_enabled(
+                enabled=True,
+                user_id=str(user.id),
+                org_id=str(user.organization_id) if user.organization_id else None,
+            )
+            track_user_activity(
+                event_type="login",
+                session_id=request.session.get("_id"),
+                login_method="local_dev",
+                auth_provider="local",
+            )
+
+        # Return session token
+        return {
+            "success": True,
+            "session_token": session_token,
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "name": user.name,
+                "organization_id": str(user.organization_id) if user.organization_id else None,
+            },
+            "message": "⚠️  Local development login - Not for production use!",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Local login error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Local login failed: {str(e)}",
+        )
