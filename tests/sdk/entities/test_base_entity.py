@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import BaseModel
 from requests.exceptions import HTTPError
+
 from rhesis.sdk.client import HTTPStatus
 from rhesis.sdk.entities.base_entity import BaseEntity
 
@@ -70,7 +71,7 @@ def test_delete_by_id(mock_request, test_entity):
 
     record_id = 1
     entity = TestEntity(name="Test", description="Test", id=1)
-    result = entity._delete_by_id(record_id)
+    result = entity._delete(record_id)
     assert result is False
 
 

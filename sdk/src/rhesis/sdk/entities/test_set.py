@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import ClassVar, Dict, Optional
+from typing import ClassVar, Optional
 
 from jinja2 import Template
 from pydantic import BaseModel
@@ -8,7 +8,6 @@ from rhesis.sdk.client import Endpoints
 from rhesis.sdk.entities import BaseEntity
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.test import Test
-from rhesis.sdk.utils import count_tokens
 
 ENDPOINT = Endpoints.TEST_SETS
 
@@ -32,57 +31,6 @@ class TestSet(BaseEntity):
     description: str
     short_description: str
     metadata: Optional[dict] = None
-
-    def count_tokens(self, encoding_name: str = "cl100k_base") -> Dict[str, int]:
-        """Count tokens for all prompts in the test set.
-
-        Args:
-            encoding_name: The name of the encoding to use. Defaults to cl100k_base
-                          (used by GPT-4 and GPT-3.5-turbo)
-
-        Returns:
-            Dict[str, int]: A dictionary containing token statistics
-        """
-        # Ensure prompts are loaded
-        if self.tests is None:
-            self.get_tests()
-
-        if not self.tests:
-            return {
-                "total": 0,
-                "average": 0,
-                "max": 0,
-                "min": 0,
-                "test_count": 0,
-            }
-
-        # Count tokens for each prompt's content
-        token_counts = []
-        for test in self.tests:
-            content = test.get("content", "")
-            if not isinstance(content, str):
-                continue
-
-            token_count = count_tokens(content, encoding_name)
-            if token_count is not None:
-                token_counts.append(token_count)
-
-        if not token_counts:
-            return {
-                "total": 0,
-                "average": 0,
-                "max": 0,
-                "min": 0,
-                "test_count": 0,
-            }
-
-        return {
-            "total": sum(token_counts),
-            "average": int(round(sum(token_counts) / len(token_counts))),
-            "max": max(token_counts),
-            "min": min(token_counts),
-            "test_count": len(token_counts),
-        }
 
     def set_properties(self) -> None:
         """Set test set attributes using LLM based on categories and topics in tests.
