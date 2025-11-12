@@ -22,7 +22,7 @@ export const TEST_RESULT_STATUS_NAMES = {
 /**
  * Keywords to match for each status category.
  * Used as a fallback when searching for statuses by semantic meaning.
- * 
+ *
  * Note: These use substring matching (case-insensitive), so:
  * - 'pass' will match 'Pass', 'Passed', 'passing'
  * - 'success' will match 'Success', 'Successful'
@@ -30,45 +30,45 @@ export const TEST_RESULT_STATUS_NAMES = {
 const STATUS_KEYWORDS = {
   // Passed: Test executed and all metrics passed
   passed: [
-    'pass',        // Matches: Pass, Passed, Passing
-    'success',     // Matches: Success, Successful
-    'completed',   // Matches: Completed, Complete
-    'done',        // Matches: Done
-    'approved',    // Matches: Approved
+    'pass', // Matches: Pass, Passed, Passing
+    'success', // Matches: Success, Successful
+    'completed', // Matches: Completed, Complete
+    'done', // Matches: Done
+    'approved', // Matches: Approved
   ],
-  
+
   // Failed: Test executed but some/all metrics failed
   failed: [
-    'fail',        // Matches: Fail, Fails, Failing
-    'failed',      // Explicit match for 'Failed'
-    'failure',     // Matches: Failure, Failures
-    'unsuccessful',// Matches: Unsuccessful
-    'rejected',    // Matches: Rejected (for review context)
+    'fail', // Matches: Fail, Fails, Failing
+    'failed', // Explicit match for 'Failed'
+    'failure', // Matches: Failure, Failures
+    'unsuccessful', // Matches: Unsuccessful
+    'rejected', // Matches: Rejected (for review context)
   ],
-  
+
   // Error: Test execution error (no metrics to evaluate)
   error: [
-    'error',       // Matches: Error, Errors
-    'abort',       // Matches: Abort, Aborted (execution aborted)
-    'cancel',      // Matches: Cancel, Cancelled, Canceled (execution cancelled)
-    'timeout',     // Matches: Timeout, Timed out (execution timeout)
-    'exception',   // Matches: Exception (execution threw exception)
-    'crash',       // Matches: Crash, Crashed (execution crashed)
-    'skip',        // Matches: Skip, Skipped (test skipped/not evaluated)
+    'error', // Matches: Error, Errors
+    'abort', // Matches: Abort, Aborted (execution aborted)
+    'cancel', // Matches: Cancel, Cancelled, Canceled (execution cancelled)
+    'timeout', // Matches: Timeout, Timed out (execution timeout)
+    'exception', // Matches: Exception (execution threw exception)
+    'crash', // Matches: Crash, Crashed (execution crashed)
+    'skip', // Matches: Skip, Skipped (test skipped/not evaluated)
   ],
 } as const;
 
 /**
  * Find a status by semantic category (passed/failed/error).
- * 
+ *
  * This provides a centralized way to find the appropriate status when creating
  * or updating test result reviews. It first tries to find the canonical status
  * name, then falls back to keyword matching if needed.
- * 
+ *
  * @param statuses - Array of available statuses for TestResult entity type
  * @param category - The semantic category: 'passed' or 'failed'
  * @returns The matching Status object, or undefined if not found
- * 
+ *
  * @example
  * ```typescript
  * const statuses = await statusClient.getStatuses({ entity_type: 'TestResult' });
@@ -87,16 +87,15 @@ export function findStatusByCategory(
   }
 
   // First, try to find by canonical name (exact match)
-  const canonicalName = category === 'passed' 
-    ? TEST_RESULT_STATUS_NAMES.PASSED
-    : category === 'failed'
-    ? TEST_RESULT_STATUS_NAMES.FAILED
-    : TEST_RESULT_STATUS_NAMES.ERROR;
+  const canonicalName =
+    category === 'passed'
+      ? TEST_RESULT_STATUS_NAMES.PASSED
+      : category === 'failed'
+        ? TEST_RESULT_STATUS_NAMES.FAILED
+        : TEST_RESULT_STATUS_NAMES.ERROR;
 
-  const exactMatch = statuses.find(
-    status => status.name === canonicalName
-  );
-  
+  const exactMatch = statuses.find(status => status.name === canonicalName);
+
   if (exactMatch) {
     return exactMatch;
   }
@@ -104,9 +103,7 @@ export function findStatusByCategory(
   // Fallback: search by keywords (case-insensitive)
   const keywords = STATUS_KEYWORDS[category];
   return statuses.find(status =>
-    keywords.some(keyword =>
-      status.name.toLowerCase().includes(keyword)
-    )
+    keywords.some(keyword => status.name.toLowerCase().includes(keyword))
   );
 }
 
