@@ -15,6 +15,7 @@ class Test(BaseEntity):
     topic: str
     behavior: str
     prompt: Prompt
+    metadata: dict
     id: Optional[str] = None
 
     def count_tokens(self, encoding_name: str = "cl100k_base") -> Dict[str, int]:
