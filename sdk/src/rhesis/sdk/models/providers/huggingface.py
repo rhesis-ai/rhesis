@@ -87,14 +87,23 @@ class HuggingFaceLLM(BaseLLM):
 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
+            device_map="auto",
         )
-
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name,
         )
+
+        # Get the device for input tensors
+        # When using device_map="auto", the model may be split across devices
+        # We need to send inputs to the device of the first layer
+        if hasattr(self.model, "hf_device_map"):
+            # Model is split across devices - get the device of the first module
+            first_device = next(iter(self.model.hf_device_map.values()))
+            self.device = torch.device(first_device)
+        else:
+            # Model is on a single device
+            self.device = self.model.device
 
         return self
 
@@ -212,10 +221,13 @@ class HuggingFaceLLM(BaseLLM):
             )
             inputs = self.tokenizer.apply_chat_template(
                 messages, add_generation_prompt=True, return_dict=True, return_tensors="pt"
-            ).to(self.device)
+            )
         else:
             messages = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
-            inputs = self.tokenizer(messages, return_tensors="pt").to(self.device)
+            inputs = self.tokenizer(messages, return_tensors="pt")
+
+        # Move inputs to the model's device
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
         # Capture essential metrics
         input_tokens = inputs["input_ids"].shape[1]

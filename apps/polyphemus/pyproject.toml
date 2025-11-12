@@ -8,6 +8,7 @@ dependencies = [
     "transformers",
     "tqdm",
     "jinja2",
+    "accelerate",
 ]
 
 [project.optional-dependencies]

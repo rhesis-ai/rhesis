@@ -43,7 +43,8 @@ class TestHuggingFaceLLM:
         self, mock_auto_model, mock_auto_tokenizer, mock_torch_device
     ):
         """Should auto-load model when auto_loading=True and no defaults"""
-        mock_model = Mock()
+        mock_model = Mock(spec=['device', 'generate', 'parameters', 'buffers'])  # No hf_device_map
+        mock_model.device = torch.device("cpu")  # Set device attribute for single-device case
         mock_tokenizer = Mock()
         mock_device = Mock()
 
@@ -57,9 +58,9 @@ class TestHuggingFaceLLM:
         assert llm.model_name == model_name
         assert llm.model is mock_model
         assert llm.tokenizer is mock_tokenizer
-        assert llm.device is mock_device
+        assert llm.device == mock_model.device
         assert llm.default_kwargs is None
-        mock_auto_model.from_pretrained.assert_called_once_with(model_name)
+        mock_auto_model.from_pretrained.assert_called_once_with(model_name, device_map="auto")
         mock_auto_tokenizer.from_pretrained.assert_called_once_with(model_name)
 
     @patch("rhesis.sdk.models.providers.huggingface.torch.device")
@@ -69,7 +70,8 @@ class TestHuggingFaceLLM:
         self, mock_auto_model, mock_auto_tokenizer, mock_torch_device
     ):
         """Should auto-load model when auto_loading=True and defaults provided"""
-        mock_model = Mock()
+        mock_model = Mock(spec=['device', 'generate', 'parameters', 'buffers'])  # No hf_device_map
+        mock_model.device = torch.device("cpu")  # Set device attribute for single-device case
         mock_tokenizer = Mock()
         mock_device = Mock()
 
@@ -84,9 +86,9 @@ class TestHuggingFaceLLM:
         assert llm.model_name == model_name
         assert llm.model is mock_model
         assert llm.tokenizer is mock_tokenizer
-        assert llm.device is mock_device
+        assert llm.device == mock_model.device
         assert llm.default_kwargs is default_kwargs
-        mock_auto_model.from_pretrained.assert_called_once_with(model_name)
+        mock_auto_model.from_pretrained.assert_called_once_with(model_name, device_map="auto")
         mock_auto_tokenizer.from_pretrained.assert_called_once_with(model_name)
 
     def test_init_raises_with_no_model_name(self):
@@ -104,7 +106,7 @@ class TestHuggingFaceLLM:
     def setup_model_with_mocks(self, has_chat_template=True):
         """Helper to create a HuggingFaceLLM with mocked model + tokenizer"""
         llm = HuggingFaceLLM("provider/model", auto_loading=False)
-        llm.device = "cpu"
+        llm.device = torch.device("cpu")
 
         # Mock tokenizer
         mock_tokenizer = Mock()
@@ -112,18 +114,17 @@ class TestHuggingFaceLLM:
         mock_tokenizer.eos_token_id = 42
         mock_tokenizer.decode.return_value = "Generated response"
 
+        # Create actual dict with tensors (not a Mock)
+        # This will be returned by tokenizer and support .items()
         inputs = {
             "input_ids": torch.tensor([[1, 995, 460, 10032, 13, 13, 22467, 528, 264, 13015]]),
             "attention_mask": torch.tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]),
         }
 
-        # the object returned when calling tokenizer(...)
-        tokenizer_call_ret = Mock()
-        tokenizer_call_ret.to.return_value = inputs
         if has_chat_template:
-            mock_tokenizer.apply_chat_template.return_value = tokenizer_call_ret
+            mock_tokenizer.apply_chat_template.return_value = inputs
         else:
-            mock_tokenizer.return_value = tokenizer_call_ret
+            mock_tokenizer.return_value = inputs
 
         # Mock model
         mock_model = Mock()
