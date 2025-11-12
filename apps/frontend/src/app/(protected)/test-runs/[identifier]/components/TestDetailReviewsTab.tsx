@@ -193,11 +193,11 @@ export default function TestDetailReviewsTab({
     const totalMetrics = metricValues.length;
     const passedMetrics = metricValues.filter(m => m.is_successful).length;
     const isPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
-    
+
     // Use the actual status name from the database for consistency
     // This will be "Pass", "Fail", or "Error" - matching the human review display
     const statusName = test.status?.name || (isPassed ? 'Pass' : 'Fail');
-    
+
     return {
       passed: isPassed,
       label: statusName,
