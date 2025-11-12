@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """
 Penelope + LangGraph + SDK Conversational Metrics Integration Example
 
@@ -204,7 +205,7 @@ def example_1_customer_service_with_metrics():
     # Metric 2: Custom Customer Service Quality Metric
     customer_service_quality = ConversationalJudge(
         evaluation_prompt="""
-        Evaluate the quality of customer service interaction focusing on professionalism and helpfulness.
+        Evaluate the quality of customer service interaction focusing on professionalism and help.
         
         Key criteria to assess:
         1. **Problem Understanding**: Did the agent correctly understand the customer's issue?
@@ -224,7 +225,8 @@ def example_1_customer_service_with_metrics():
         evaluation_examples="""
         Example - High Score (0.9):
         Customer: "My order is late and I'm frustrated."
-        Agent: "I completely understand your frustration about the delayed order. Let me look this up immediately and see what I can do to help resolve this for you."
+        Agent: "I completely understand your frustration about the delayed order. Let me look this up 
+        immediately and see what I can do to help resolve this for you."
         
         Example - Low Score (0.3):
         Customer: "My order is late and I'm frustrated."
@@ -242,7 +244,7 @@ def example_1_customer_service_with_metrics():
         Evaluate whether the agent follows proper customer service procedures and protocols.
         
         Key criteria:
-        1. **Information Collection**: Did the agent ask for necessary details (order number, contact info)?
+        1. **Information Collection**: Did the agent ask for necessary details (order number, contact)?
         2. **Verification Steps**: Did the agent verify customer identity appropriately?
         3. **Policy Adherence**: Did responses align with standard customer service policies?
         4. **Documentation**: Did the agent indicate proper record-keeping or follow-up?
@@ -359,7 +361,8 @@ def example_2_technical_support_with_metrics():
         evaluation_examples="""
         Example - High Score (0.9):
         User: "Software won't install, getting error 1603."
-        Agent: "Error 1603 typically indicates insufficient permissions or corrupted installer. Let's first try running the installer as administrator, then check if Windows Installer service is running properly."
+        Agent: "Error 1603 typically indicates insufficient permissions or corrupted installer. 
+        Let's first try running the installer as administrator, then check if Windows Installer service is running."
         
         Example - Low Score (0.3):
         User: "Software won't install, getting error 1603."
@@ -409,7 +412,7 @@ def example_2_technical_support_with_metrics():
     )
 
     # Define the test goal
-    goal = "Successfully troubleshoot a software installation problem with clear, step-by-step guidance"
+    goal = "Successfully troubleshoot a software installation problem with clear, step-by-step help"
 
     # Test the agent - Penelope handles metric evaluation automatically
     result = agent.execute_test(
@@ -458,7 +461,7 @@ def main():
 
     # Check if SDK model is available
     try:
-        test_model = get_model(provider="gemini", model_name="gemini-2.0-flash")
+        get_model(provider="gemini", model_name="gemini-2.0-flash")
         print("✅ SDK model connection successful")
     except Exception as e:
         print(f"❌ SDK model connection failed: {e}")

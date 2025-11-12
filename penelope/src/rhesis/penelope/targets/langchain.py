@@ -141,5 +141,5 @@ Type: LangChain {type(self.runnable).__name__}
 Memory: {"Yes (conversational)" if has_memory else "No (stateless)"}
 
 Send messages using send_message_to_target(message, session_id).
-{"Maintain session_id for conversation continuity." if has_memory else "Each message is independent."}
+{"Maintain session_id for continuity." if has_memory else "Each message is independent."}
 """
