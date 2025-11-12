@@ -1,3 +1,4 @@
+# ruff: noqa: E402, E501
 """
 Example of using Penelope to test LangGraph agents.
 
@@ -157,9 +158,9 @@ def example_1_simple_agent():
     # Test the agent
     result = agent.execute_test(
         target=target,
-        goal="Successfully complete a 5-question conversation where each question builds on previous response",
+        goal="Successfully complete a 5-question conversation where each question builds on previous",  # noqa: E501
         instructions="""
-        You MUST ask exactly 5 separate questions in sequence, with each question building on previous response:
+        You MUST ask exactly 5 separate questions in sequence, building on previous response:
         1. First, ask about shipping options and costs
         2. Then ask a follow-up question about delivery times based on the shipping response
         3. Then ask about return policy details
@@ -214,7 +215,7 @@ def example_2_multi_node_agent():
         6. Ask a final question that references information from earlier responses to test context
         
         CRITICAL: You must complete all 6 questions as separate interactions. 
-        The goal is only achieved after asking all 6 questions and verifying responses show understanding.
+        The goal is only achieved after asking all 6 questions and verifying responses show understanding.  # noqa: E501
         """,
     )
 

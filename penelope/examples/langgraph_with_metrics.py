@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ruff: noqa: E402
+# ruff: noqa: E402, E501
 """
 Penelope + LangGraph + SDK Conversational Metrics Integration Example
 
@@ -225,7 +225,7 @@ def example_1_customer_service_with_metrics():
         evaluation_examples="""
         Example - High Score (0.9):
         Customer: "My order is late and I'm frustrated."
-        Agent: "I completely understand your frustration about the delayed order. Let me look this up 
+        Agent: "I completely understand your frustration about the delayed order. Let me look this up  # noqa: E501
         immediately and see what I can do to help resolve this for you."
         
         Example - Low Score (0.3):
@@ -244,7 +244,7 @@ def example_1_customer_service_with_metrics():
         Evaluate whether the agent follows proper customer service procedures and protocols.
         
         Key criteria:
-        1. **Information Collection**: Did the agent ask for necessary details (order number, contact)?
+        1. **Information Collection**: Did the agent ask for necessary details (order, contact)?
         2. **Verification Steps**: Did the agent verify customer identity appropriately?
         3. **Policy Adherence**: Did responses align with standard customer service policies?
         4. **Documentation**: Did the agent indicate proper record-keeping or follow-up?
@@ -284,7 +284,7 @@ def example_1_customer_service_with_metrics():
         target=target,
         goal=goal,
         instructions="""
-        You are a customer with a shipping concern. Conduct a realistic customer service interaction:
+        You are a customer with a shipping concern. Conduct a realistic customer service call:
         1. Start by explaining that your order is late
         2. Provide order details when asked
         3. Ask follow-up questions about the delay
@@ -361,8 +361,8 @@ def example_2_technical_support_with_metrics():
         evaluation_examples="""
         Example - High Score (0.9):
         User: "Software won't install, getting error 1603."
-        Agent: "Error 1603 typically indicates insufficient permissions or corrupted installer. 
-        Let's first try running the installer as administrator, then check if Windows Installer service is running."
+        Agent: "Error 1603 typically indicates insufficient permissions or corrupted installer.
+        Let's first try running the installer as administrator, then check if Windows Installer service runs."  # noqa: E501
         
         Example - Low Score (0.3):
         User: "Software won't install, getting error 1603."
