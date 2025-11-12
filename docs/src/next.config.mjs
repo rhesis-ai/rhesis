@@ -14,9 +14,9 @@ const withNextra = nextra({
 
 export default withNextra({
   outputFileTracingRoot: path.join(__dirname, '../..'),
-  webpack: (config) => {
+  webpack: config => {
     config.resolve.alias['@'] = path.resolve(__dirname)
-    
+
     // Resolve @theguild/remark-mermaid/mermaid to the actual file
     // The package uses wildcard exports (./*) which may not resolve correctly in all contexts
     const mermaidPath = path.resolve(
@@ -24,7 +24,7 @@ export default withNextra({
       'node_modules/@theguild/remark-mermaid/dist/mermaid.js'
     )
     config.resolve.alias['@theguild/remark-mermaid/mermaid'] = mermaidPath
-    
+
     return config
   },
 })
