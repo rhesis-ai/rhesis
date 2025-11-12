@@ -191,3 +191,79 @@ class GenerateMultiTurnTestsResponse(BaseModel):
     """Response containing generated multi-turn test cases."""
 
     tests: List[MultiTurnTest]
+
+
+# MCP Schemas
+
+
+class ItemResult(BaseModel):
+    """Minimal item metadata for search results."""
+
+    id: str
+    url: str
+    title: str
+
+
+class SearchMCPRequest(BaseModel):
+    """Request to search MCP server."""
+
+    query: str
+    server_name: str
+
+
+class ExtractMCPRequest(BaseModel):
+    """Request to extract MCP item content."""
+
+    id: str
+    server_name: str
+
+
+class QueryMCPRequest(BaseModel):
+    """General-purpose request to query MCP server with custom task."""
+
+    query: str
+    server_name: str
+    system_prompt: Optional[str] = None
+    max_iterations: Optional[int] = 10
+
+
+class ExtractMCPResponse(BaseModel):
+    """Response containing extracted content from MCP item."""
+
+    content: str
+
+
+class ToolCall(BaseModel):
+    """Tool call in agent execution."""
+
+    tool_name: str
+    arguments: Dict[str, Any]
+
+
+class ToolResult(BaseModel):
+    """Result from tool execution."""
+
+    tool_name: str
+    success: bool
+    content: Optional[str] = None
+    error: Optional[str] = None
+
+
+class ExecutionStep(BaseModel):
+    """Single step in agent execution history."""
+
+    iteration: int
+    reasoning: str
+    action: str
+    tool_calls: List[ToolCall]
+    tool_results: List[ToolResult]
+
+
+class QueryMCPResponse(BaseModel):
+    """Response from general-purpose MCP query."""
+
+    final_answer: str
+    success: bool
+    iterations_used: int
+    max_iterations_reached: bool
+    execution_history: List[ExecutionStep]
