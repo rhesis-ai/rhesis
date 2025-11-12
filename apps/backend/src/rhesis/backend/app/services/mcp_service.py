@@ -2,14 +2,13 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import jinja2
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
-from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientManager
 
 # Initialize Jinja2 environment for loading prompt templates
@@ -54,7 +53,7 @@ async def search_mcp(query: str, server_name: str, db: Session, user: User) -> L
         ... )
         >>> print(results[0]["title"])
     """
-    model: Union[str, BaseLLM] = get_user_generation_model(db, user)
+    model = get_user_generation_model(db, user)
 
     manager = MCPClientManager()
     client = manager.create_client(server_name)
@@ -105,7 +104,7 @@ async def extract_mcp(id: str, server_name: str, db: Session, user: User) -> str
         ... )
         >>> print(content[:100])  # First 100 chars
     """
-    model: Union[str, BaseLLM] = get_user_generation_model(db, user)
+    model = get_user_generation_model(db, user)
 
     manager = MCPClientManager()
     client = manager.create_client(server_name)
@@ -162,7 +161,7 @@ async def query_mcp(
         ...     "notionApi", db, user
         ... )
     """
-    model: Union[str, BaseLLM] = get_user_generation_model(db, user)
+    model = get_user_generation_model(db, user)
 
     manager = MCPClientManager()
     client = manager.create_client(server_name)
