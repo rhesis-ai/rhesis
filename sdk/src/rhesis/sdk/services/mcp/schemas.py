@@ -1,6 +1,6 @@
 """Pydantic schemas for MCP Agent structured outputs."""
 
-from typing import Any, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +11,9 @@ class ToolCall(BaseModel):
     model_config = {"extra": "forbid"}
 
     tool_name: str = Field(description="Name of the MCP tool to call")
-    arguments: Any = Field(default={}, description="Arguments for the tool as a JSON object")
+    arguments: Dict[str, Any] = Field(
+        default_factory=dict, description="Arguments for the tool as a JSON object"
+    )
 
 
 class AgentAction(BaseModel):
