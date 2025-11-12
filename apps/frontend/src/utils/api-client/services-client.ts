@@ -102,6 +102,17 @@ interface ExtractDocumentResponse {
   format: string;
 }
 
+// MCP Types
+export interface MCPItem {
+  id: string;
+  url: string;
+  title: string;
+}
+
+export interface MCPExtractResponse {
+  content: string;
+}
+
 export class ServicesClient extends BaseApiClient {
   async getGitHubContents(repo_url: string): Promise<string> {
     return this.fetch<string>(
@@ -212,5 +223,49 @@ export class ServicesClient extends BaseApiClient {
         description: '',
       };
     }
+  }
+
+  /**
+   * Search MCP server for items matching the query
+   * @param query - Search query string
+   * @param serverName - MCP server name (e.g., "notionApi")
+   * @returns Array of MCP items with id, url, and title
+   */
+  async searchMCP(query: string, serverName: string): Promise<MCPItem[]> {
+    return this.fetch<MCPItem[]>(`${API_ENDPOINTS.services}/mcp/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        server_name: serverName,
+      }),
+    });
+  }
+
+  /**
+   * Extract full content from an MCP item as markdown
+   * @param id - MCP item ID
+   * @param serverName - MCP server name (e.g., "notionApi")
+   * @returns Extracted content as markdown
+   */
+  async extractMCP(
+    id: string,
+    serverName: string
+  ): Promise<MCPExtractResponse> {
+    return this.fetch<MCPExtractResponse>(
+      `${API_ENDPOINTS.services}/mcp/extract`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+          server_name: serverName,
+        }),
+      }
+    );
   }
 }
