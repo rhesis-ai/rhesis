@@ -258,11 +258,11 @@ def is_telemetry_enabled() -> bool:
     - See https://www.rhesis.ai/terms-conditions for full details
 
     SELF-HOSTED DEPLOYMENTS:
-    - Telemetry is disabled by default
-    - Opt-in by setting OTEL_RHESIS_TELEMETRY_ENABLED=true
+    - Telemetry is ENABLED by default (opt-out)
+    - Opt-out by setting OTEL_RHESIS_TELEMETRY_ENABLED=false
 
     IMPORTANT FOR SELF-HOSTED ADMINISTRATORS:
-    Setting OTEL_RHESIS_TELEMETRY_ENABLED=true opts in to anonymous usage analytics.
+    Telemetry is enabled by default to help improve Rhesis. You can disable it anytime by setting OTEL_RHESIS_TELEMETRY_ENABLED=false.
 
     Data Collected:
     - Login/logout events with hashed user IDs (SHA-256, irreversible, 16-char truncated)
@@ -287,18 +287,17 @@ def is_telemetry_enabled() -> bool:
     All data is sent to Rhesis's telemetry servers for product improvement.
     For full privacy details, see: https://rhesis.ai/privacy-policy
 
-    You may disable telemetry at any time by setting OTEL_RHESIS_TELEMETRY_ENABLED=false
-    or omitting this variable entirely (defaults to disabled).
+    You may disable telemetry at any time by setting OTEL_RHESIS_TELEMETRY_ENABLED=false.
 
     Returns:
         bool: True if telemetry should be collected
 
     Examples:
-        # Self-hosted: Enable telemetry
+        # Self-hosted: Enabled by default (opt-out)
         OTEL_DEPLOYMENT_TYPE=self-hosted
-        OTEL_RHESIS_TELEMETRY_ENABLED=true
+        # OTEL_RHESIS_TELEMETRY_ENABLED not set -> defaults to true
 
-        # Self-hosted: Disable telemetry (default)
+        # Self-hosted: Explicitly disable telemetry (opt-out)
         OTEL_DEPLOYMENT_TYPE=self-hosted
         OTEL_RHESIS_TELEMETRY_ENABLED=false
 
@@ -307,13 +306,14 @@ def is_telemetry_enabled() -> bool:
     """
     deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
 
-    # Cloud users: User consent collected via Terms & Conditions agreement
+    # Cloud users: Always enabled (user consent collected via Terms & Conditions agreement)
     if deployment_type == "cloud":
         return True
 
-    # Self-hosted users: Check environment variable (default: disabled)
+    # Self-hosted users: Enabled by default (opt-out)
+    # Users can disable by setting OTEL_RHESIS_TELEMETRY_ENABLED=false
     if deployment_type == "self-hosted":
-        return os.getenv("OTEL_RHESIS_TELEMETRY_ENABLED", "false").lower() in ("true", "1", "yes")
+        return os.getenv("OTEL_RHESIS_TELEMETRY_ENABLED", "true").lower() in ("true", "1", "yes")
 
     # Unknown deployment type: Disable telemetry for safety
     return False

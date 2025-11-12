@@ -579,27 +579,78 @@ OPENAI_MODEL_NAME=gpt-4o`}
 
 > **Note**: At least one AI provider configuration is recommended for full platform functionality. You can choose between Gemini, Azure OpenAI, or OpenAI based on your preferences and requirements.
 
-#### Telemetry Configuration (Optional)
-Configure OpenTelemetry for monitoring and observability of your Rhesis deployment:
+## 📊 Telemetry & Privacy
 
-<CodeBlock filename=".env.docker" language="bash">
-{`# OpenTelemetry Configuration (Optional)
-# Used for collecting telemetry data (traces, metrics) for monitoring
+<Callout type="warning">
+**Important**: Rhesis collects anonymous usage data by default to improve the platform. All telemetry is privacy-focused and transparent. You can opt-out anytime.
+</Callout>
 
-# OTel Collector endpoint (where telemetry data is sent)
-OTEL_EXPORTER_OTLP_ENDPOINT=https://rhesis-otel-collector-dev-235yqdecwq-uc.a.run.app/
+### Telemetry Status
 
-# Service name for telemetry identification
-OTEL_SERVICE_NAME=rhesis
+**For self-hosted deployments: Telemetry is ENABLED by default** (opt-out).
+**For cloud deployments: Telemetry is ALWAYS enabled** (user consent via Terms & Conditions).
 
-# Deployment type: "self-hosted" or "cloud"
-OTEL_DEPLOYMENT_TYPE=self-hosted
+Telemetry helps us improve Rhesis by understanding:
+- Which features are most valuable
+- Performance bottlenecks
+- Common error patterns
 
-# Enable/disable telemetry collection
-# self-hosted: opt-in (set to true to enable)
-# Cloud: typically enabled by default
-OTEL_RHESIS_TELEMETRY_ENABLED=true`}
+### What We Collect
+
+✅ **Anonymous usage data:**
+- Feature usage patterns (which features are used, how often)
+- API performance metrics (response times, error rates)
+- Deployment information (self-hosted vs cloud, version)
+- Hashed user/org IDs (SHA-256, irreversible, 16-char truncated)
+
+### What We DON'T Collect
+
+❌ **Your private data is NEVER collected:**
+- Your prompts, responses, or generated content
+- Document contents or uploaded files
+- API keys, passwords, or credentials
+- Personal information (names, emails, etc.)
+- IP addresses or organization names
+- Any identifiable or sensitive data
+
+### Data Retention & Usage
+
+- **Retention**: 90 days, then automatically deleted
+- **Usage**: Only by Rhesis team for product improvement
+- **Sharing**: Never sold or shared with third parties
+- **Storage**: Separate analytics database (isolated from your data)
+
+### How to Disable Telemetry (Opt-Out)
+
+Telemetry is **enabled by default**. To opt-out, add to your `.env` file:
+
+<CodeBlock filename=".env" language="bash">
+{`# Disable telemetry (opt-out)
+OTEL_RHESIS_TELEMETRY_ENABLED=false`}
 </CodeBlock>
+
+Then restart your services:
+
+```bash
+docker-compose restart
+# or
+./rh backend start
+```
+
+### Telemetry Configuration (Optional)
+
+If telemetry is enabled (default), you can optionally configure these settings:
+
+<CodeBlock filename=".env" language="bash">
+{`# Telemetry configuration (optional - these are the defaults)
+OTEL_DEPLOYMENT_TYPE=self-hosted
+OTEL_EXPORTER_OTLP_ENDPOINT=https://rhesis-otel-collector-dev-235yqdecwq-uc.a.run.app/
+OTEL_SERVICE_NAME=rhesis`}
+</CodeBlock>
+
+<Callout type="default">
+**Learn More**: For technical details about the telemetry architecture, see [Telemetry System Documentation](/telemetry).
+</Callout>
 
 ## Management Commands
 
