@@ -64,6 +64,41 @@ uv run python basic_example.py -e <your-endpoint-id> --quiet
 uv run python basic_example.py --endpoint-id <your-endpoint-id>
 ```
 
+## LangChain Integration
+
+**`langchain_minimal.py`** - Minimal LangChain example (5 minutes)
+
+**Demonstrates:**
+- Creating a simple LangChain chain with Gemini
+- Wrapping it in a LangChainTarget
+- Testing with Penelope
+
+**Prerequisites:**
+```bash
+uv sync --group langchain
+```
+
+**Run it:**
+```bash
+uv run python langchain_minimal.py
+```
+
+**`langchain_example.py`** - Comprehensive LangChain examples
+
+**Demonstrates:**
+- Testing stateless chains
+- Testing conversational chains with memory
+- Using restrictions for safe testing
+- Context maintenance verification
+
+**Run it:**
+```bash
+uv run python langchain_example.py
+```
+
+
+📝 **Note:** Uses Gemini models. Configuration is loaded from `.env` file.
+
 ## More Examples
 
 ### Security Testing
