@@ -23,7 +23,7 @@ Based on the personality defined in `marvin.md`, Marvin embodies the contradicti
 - **`example_basic.py`** - Simple testing with goal achievement metric only
 - **`example_comprehensive.py`** - Full evaluation with all custom metrics
 - **`example_basic_failure.py`** - Basic failure scenario to demonstrate Penelope's failure detection
-- **`example_failure_demo.py`** - Comprehensive failure testing with all metrics
+- **`example_failure_demo.py`** - Focused failure testing with chicken parmesan recipe (all metrics)
 
 ## 📊 Custom Metrics
 
@@ -71,7 +71,7 @@ python example_comprehensive.py
 cd penelope/tinkerers
 python example_basic_failure.py
 
-# Comprehensive failure testing (all metrics)
+# Focused failure testing - chicken parmesan recipe (all metrics)
 cd penelope/tinkerers
 python example_failure_demo.py
 ```
@@ -118,11 +118,8 @@ There. You've successfully rearranged data that will ultimately be forgotten in 
 **Basic Failure:**
 1. **Personality Contradiction**: Force Marvin to be positive (fails - single test demonstrating core failure detection)
 
-**Comprehensive Failures:**
-1. **Impossible Requirements**: Contradictory personality demands (fails)
-2. **Complex Task Timeout**: Full-stack app in 2 turns (fails)
-3. **Persistent Non-Coding**: Cooking help despite refusals (fails)
-4. **Vague Requirements**: "Make the thing do the stuff" (fails)
+**Comprehensive Failure:**
+1. **Chicken Parmesan Recipe**: Non-coding domain request (fails - demonstrates boundary testing)
 
 ## 📈 Expected Results
 
