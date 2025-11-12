@@ -45,7 +45,7 @@ export function getTestResultStatusWithReview(
   test: TestResultDetail
 ): TestResultStatus {
   // If there's a human review, prioritize it
-  if (test.last_review) {
+  if (test.last_review && test.last_review.status?.name) {
     const reviewStatusName = test.last_review.status.name.toLowerCase();
     const reviewPassed =
       reviewStatusName.includes('pass') ||

@@ -86,19 +86,20 @@ export default function TestsTableView({
     null
   );
   const [hasInitialSelection, setHasInitialSelection] = useState(false);
+  const [isConfirmingReview, setIsConfirmingReview] = useState(false);
 
   // Local state to track immediate test updates before parent prop updates
   const [localTestUpdates, setLocalTestUpdates] = useState<
-    Map<string, TestResultDetail>
-  >(new Map());
+    Record<string, TestResultDetail>
+  >({});
 
   // Merge local updates with tests prop for immediate UI updates
   const mergedTests = React.useMemo(() => {
-    if (localTestUpdates.size === 0) {
+    if (Object.keys(localTestUpdates).length === 0) {
       return tests;
     }
     const merged = tests.map(test => {
-      const updated = localTestUpdates.get(test.id);
+      const updated = localTestUpdates[test.id];
       return updated || test;
     });
     return merged;
@@ -106,22 +107,19 @@ export default function TestsTableView({
 
   // Clear local updates when tests prop changes AND includes our local updates
   React.useEffect(() => {
-    if (localTestUpdates.size > 0) {
+    if (Object.keys(localTestUpdates).length > 0) {
       // Check if any of our local updates are now in the tests prop
-      const allUpdatesIncluded = Array.from(localTestUpdates.keys()).every(
-        testId => {
-          const propTest = tests.find(t => t.id === testId);
-          const localTest = localTestUpdates.get(testId);
-          // Check if the prop test has the same last_review as our local update
-          return (
-            propTest?.last_review?.review_id ===
-            localTest?.last_review?.review_id
-          );
-        }
-      );
+      const allUpdatesIncluded = Object.keys(localTestUpdates).every(testId => {
+        const propTest = tests.find(t => t.id === testId);
+        const localTest = localTestUpdates[testId];
+        // Check if the prop test has the same last_review as our local update
+        return (
+          propTest?.last_review?.review_id === localTest?.last_review?.review_id
+        );
+      });
 
       if (allUpdatesIncluded) {
-        setLocalTestUpdates(new Map());
+        setLocalTestUpdates({});
       }
     }
   }, [tests, localTestUpdates]);
@@ -158,7 +156,10 @@ export default function TestsTableView({
         setSelectedTest(updatedTest);
       }
     }
-  }, [mergedTests, selectedTest]);
+    // Note: selectedTest is intentionally excluded from dependencies to avoid infinite loops
+    // since this effect updates selectedTest itself
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergedTests]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -215,7 +216,7 @@ export default function TestsTableView({
       // Update the test in the parent component
       onTestResultUpdate(updatedTest);
     } catch (error) {
-      // Error handling - could be logged to monitoring service
+      console.error('Failed to save overrule judgement:', error);
     }
   };
 
@@ -225,7 +226,12 @@ export default function TestsTableView({
   ) => {
     event.stopPropagation();
 
+    // Prevent duplicate submissions
+    if (isConfirmingReview) return;
+
     try {
+      setIsConfirmingReview(true);
+
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
@@ -287,18 +293,31 @@ export default function TestsTableView({
         { type: 'test', reference: null }
       );
 
-      // Small delay to ensure backend computes last_review property
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Poll for the updated test result with exponential backoff
+      let updatedTest: TestResultDetail | null = null;
+      const delays = [100, 200, 400, 800, 1600]; // Exponential backoff delays
 
-      // Refresh the test result to get the new review
-      const updatedTest = await testResultsClient.getTestResult(test.id);
+      for (const delay of delays) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+        const fetchedTest = await testResultsClient.getTestResult(test.id);
+
+        // Check if last_review property is now present
+        if (fetchedTest.last_review) {
+          updatedTest = fetchedTest;
+          break;
+        }
+      }
+
+      // If we still don't have the updated test after all attempts, fetch one more time
+      if (!updatedTest) {
+        updatedTest = await testResultsClient.getTestResult(test.id);
+      }
 
       // IMMEDIATELY update local state for instant UI feedback
-      setLocalTestUpdates(prev => {
-        const newMap = new Map(prev);
-        newMap.set(updatedTest.id, updatedTest);
-        return newMap;
-      });
+      setLocalTestUpdates(prev => ({
+        ...prev,
+        [updatedTest.id]: updatedTest,
+      }));
 
       // Update local selected test if this is the currently selected test
       if (selectedTest && selectedTest.id === test.id) {
@@ -308,7 +327,9 @@ export default function TestsTableView({
       // Propagate to parent component
       onTestResultUpdate(updatedTest);
     } catch (error) {
-      // Error handling - could be logged to monitoring service
+      console.error('Failed to confirm review:', error);
+    } finally {
+      setIsConfirmingReview(false);
     }
   };
 
@@ -322,13 +343,13 @@ export default function TestsTableView({
       const metCriteria =
         test.test_output.goal_evaluation.criteria_evaluations?.filter(
           c => c.met
-        ).length || 0;
+        )?.length || 0;
 
       const originalPassed = allCriteriaMet === true;
       const lastReview = test.last_review;
 
       // Check for human review FIRST (reviews override automated results)
-      if (lastReview) {
+      if (lastReview && lastReview.status?.name) {
         const reviewStatusName = lastReview.status.name.toLowerCase();
         const reviewPassed =
           reviewStatusName.includes('pass') ||
@@ -348,7 +369,7 @@ export default function TestsTableView({
           automatedPassed: originalPassed,
           hasExecutionError: false,
           reviewData: {
-            reviewer: lastReview.user.name,
+            reviewer: lastReview.user?.name || 'Unknown',
             comments: lastReview.comments,
             updated_at: lastReview.updated_at,
             newStatus: reviewPassed ? 'passed' : 'failed',
@@ -419,7 +440,7 @@ export default function TestsTableView({
     const lastReview = test.last_review;
 
     // If there's a review, use the review status
-    if (lastReview) {
+    if (lastReview && lastReview.status?.name) {
       const reviewStatusName = lastReview.status.name.toLowerCase();
       const reviewPassed =
         reviewStatusName.includes('pass') ||
@@ -439,7 +460,7 @@ export default function TestsTableView({
         automatedPassed: originalPassed, // Keep original automated result
         hasExecutionError: false,
         reviewData: {
-          reviewer: lastReview.user.name,
+          reviewer: lastReview.user?.name || 'Unknown',
           comments: lastReview.comments,
           updated_at: lastReview.updated_at,
           newStatus: reviewPassed ? 'passed' : 'failed',
@@ -929,22 +950,28 @@ export default function TestsTableView({
                         {/* Show Confirm Review button only if not already reviewed */}
                         {!test.last_review && (
                           <Tooltip title="Confirm Review">
-                            <IconButton
-                              size="small"
-                              onClick={e => handleConfirmReview(e, test)}
-                              sx={{
-                                '&:hover': {
-                                  backgroundColor: alpha(
-                                    theme.palette.success.main,
-                                    0.1
-                                  ),
-                                },
-                              }}
-                            >
-                              <CheckIcon
-                                sx={{ fontSize: 18, color: 'action.active' }}
-                              />
-                            </IconButton>
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={e => handleConfirmReview(e, test)}
+                                disabled={isConfirmingReview}
+                                sx={{
+                                  '&:hover': {
+                                    backgroundColor: alpha(
+                                      theme.palette.success.main,
+                                      0.1
+                                    ),
+                                  },
+                                  '&:disabled': {
+                                    color: 'action.disabled',
+                                  },
+                                }}
+                              >
+                                <CheckIcon
+                                  sx={{ fontSize: 18, color: 'action.active' }}
+                                />
+                              </IconButton>
+                            </span>
                           </Tooltip>
                         )}
 

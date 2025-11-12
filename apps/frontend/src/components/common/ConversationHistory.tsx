@@ -34,6 +34,7 @@ interface ConversationHistoryProps {
   onConfirmAutomatedReview?: () => void;
   hasExistingReview?: boolean;
   reviewMatchesAutomated?: boolean; // True if review matches automated result, false if conflict
+  isConfirmingReview?: boolean;
   maxHeight?: number | string;
 }
 
@@ -51,6 +52,7 @@ export default function ConversationHistory({
   onConfirmAutomatedReview,
   hasExistingReview = false,
   reviewMatchesAutomated = true,
+  isConfirmingReview = false,
   maxHeight = 600,
 }: ConversationHistoryProps) {
   const theme = useTheme();
@@ -89,8 +91,10 @@ export default function ConversationHistory({
   // Get relevant criteria evaluations for a specific turn
   const getCriteriaForTurn = (turnNumber: number) => {
     if (!goalEvaluation?.criteria_evaluations) return [];
-    return goalEvaluation.criteria_evaluations.filter(criterion =>
-      criterion.relevant_turns.includes(turnNumber)
+    return (
+      goalEvaluation.criteria_evaluations?.filter(criterion =>
+        criterion.relevant_turns.includes(turnNumber)
+      ) || []
     );
   };
 
@@ -491,19 +495,26 @@ export default function ConversationHistory({
           />
         ) : !hasExistingReview && onConfirmAutomatedReview ? (
           <Tooltip title="Confirm automated review">
-            <IconButton
-              size="small"
-              onClick={onConfirmAutomatedReview}
-              sx={{
-                color: theme.palette.success.main,
-                border: `1px solid ${theme.palette.success.main}`,
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.success.main, 0.1),
-                },
-              }}
-            >
-              <CheckIcon sx={{ fontSize: 18 }} />
-            </IconButton>
+            <span>
+              <IconButton
+                size="small"
+                onClick={onConfirmAutomatedReview}
+                disabled={isConfirmingReview}
+                sx={{
+                  color: theme.palette.success.main,
+                  border: `1px solid ${theme.palette.success.main}`,
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.success.main, 0.1),
+                  },
+                  '&:disabled': {
+                    color: theme.palette.action.disabled,
+                    borderColor: theme.palette.action.disabled,
+                  },
+                }}
+              >
+                <CheckIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </span>
           </Tooltip>
         ) : null}
       </Box>
