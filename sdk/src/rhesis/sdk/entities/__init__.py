@@ -6,6 +6,8 @@ This module providess the entity classes for interacting with the Rhesis API.
 
 from dotenv import load_dotenv
 
+from rhesis.sdk.entities.endpoint import Endpoint
+
 from .base_collection import BaseCollection
 from .base_entity import BaseEntity
 from .behavior import Behavior, Behaviors
@@ -20,6 +22,7 @@ load_dotenv("/Users/arek/Desktop/rhesis/.env")
 __all__ = [
     "BaseEntity",
     "BaseCollection",
+    "Endpoint",
     "Behavior",
     "Behaviors",
     "Category",
