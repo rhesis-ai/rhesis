@@ -44,7 +44,8 @@ class ModelTester:
                 self.test_sets.append(test_set)
             except Exception as e:
                 print(f"Error loading {json_file}: {e}")
-        self._current_run_results: List[TestResult] = []  # Results from current run
+        self._generated_results: List[TestResult] = []
+        self._evaluated_results: List[TestResult] = []
 
     def add_model(self, model: BaseLLM):
         """
@@ -71,7 +72,7 @@ class ModelTester:
         print_summary : bool, optional
             If True, print generation summary. Default: True.
         """
-        self._current_run_results = []
+        self._generated_results = []
 
         for test_set in self.test_sets:
             test_set.load_results()
@@ -79,7 +80,7 @@ class ModelTester:
                 results = test_set.generate_all_responses()
             else:
                 results = test_set.generate_pending_responses()
-            self._current_run_results.extend(results)
+            self._generated_results.extend(results)
 
         if print_summary:
             self.print_generation_summary()
@@ -97,6 +98,8 @@ class ModelTester:
         print_summary : bool, optional
             If True, print evaluation summary. Default: True.
         """
+        self._evaluated_results = []
+
         # Load judge model once for all evaluations
         judge = None
         if self.test_sets:
@@ -107,7 +110,8 @@ class ModelTester:
             for test_set in self.test_sets:
                 test_set.set_judge(judge)
                 test_set.load_results()
-                test_set.evaluate_results(recompute_existing=recompute_existing)
+                newly_evaluated = test_set.evaluate_results(recompute_existing=recompute_existing)
+                self._evaluated_results.extend(newly_evaluated)
         finally:
             # Unload judge model
             if judge is not None and hasattr(judge, "unload_model"):
@@ -132,7 +136,7 @@ class ModelTester:
                         all_results.append(r)
 
         # Get newly generated results
-        new_results = self._current_run_results if self._current_run_results else []
+        new_results = self._generated_results if self._generated_results else []
 
         if not all_results and not new_results:
             print("\n=== Generation Summary ===\nNo results found.")
@@ -266,7 +270,7 @@ class ModelTester:
                         all_results.append(r)
 
         # Get newly evaluated results from current run
-        new_results = self._current_run_results if self._current_run_results else []
+        new_results = self._evaluated_results if self._evaluated_results else []
 
         # Split into evaluated and not evaluated
         all_evaluated = [r for r in all_results if r.error is None and r.score is not None]

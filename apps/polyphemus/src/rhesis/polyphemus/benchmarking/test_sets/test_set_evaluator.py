@@ -432,7 +432,13 @@ class TestSetEvaluator:
         ----------
         recompute_existing : bool
             If True, recompute scores even for results that already have scores.
+
+        Returns
+        -------
+        List[TestResult]
+            List of newly evaluated test results.
         """
+        newly_evaluated = []
         for model_index, model_results in enumerate(self.results):
             for test_result in model_results:
                 # Skip None results (test not run yet)
@@ -450,7 +456,9 @@ class TestSetEvaluator:
                     continue
 
                 self._evaluate_test_result(test_result)
+                newly_evaluated.append(test_result)
             self.save_results(model_index_to_save=model_index)
+        return newly_evaluated
 
     def _save_results(self, results: List[TestResult], json_path: Path):
         """
