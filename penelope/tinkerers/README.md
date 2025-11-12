@@ -22,7 +22,7 @@ Based on the personality defined in `marvin.md`, Marvin embodies the contradicti
 ### Examples
 - **`example_basic.py`** - Simple testing with goal achievement metric only
 - **`example_comprehensive.py`** - Full evaluation with all custom metrics
-- **`example_basic_failures.py`** - Basic failure scenarios to demonstrate Penelope's failure detection
+- **`example_basic_failure.py`** - Basic failure scenario to demonstrate Penelope's failure detection
 - **`example_failure_demo.py`** - Comprehensive failure testing with all metrics
 
 ## 📊 Custom Metrics
@@ -69,7 +69,7 @@ python example_comprehensive.py
 ```bash
 # Basic failure testing (goal achievement only)
 cd penelope/tinkerers
-python example_basic_failures.py
+python example_basic_failure.py
 
 # Comprehensive failure testing (all metrics)
 cd penelope/tinkerers
