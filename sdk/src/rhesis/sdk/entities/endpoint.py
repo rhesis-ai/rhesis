@@ -1,7 +1,8 @@
-from typing import Any, Dict, Optional
+from typing import Any, ClassVar, Dict, Optional
 
 import requests
 
+from rhesis.sdk.client import Endpoints
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 
 
@@ -28,7 +29,7 @@ class Endpoint(BaseEntity):
         ...     print(endpoint.fields.get('name'))
     """
 
-    endpoint = "endpoints"
+    endpoint: ClassVar[Endpoints] = Endpoints.ENDPOINTS
 
     @handle_http_errors
     def invoke(self, input: str, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
