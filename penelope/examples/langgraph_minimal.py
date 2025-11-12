@@ -11,6 +11,7 @@ Usage:
 """
 
 import warnings
+
 from dotenv import load_dotenv
 
 # Suppress Google API Python version warnings
@@ -23,12 +24,12 @@ load_dotenv()
 
 # 1. Create a simple LangGraph agent using Gemini
 from typing import Annotated
-from typing_extensions import TypedDict
 
 from langchain_core.messages import BaseMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
+from typing_extensions import TypedDict
 
 
 # Define the state for our agent
