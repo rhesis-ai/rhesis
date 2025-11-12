@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
@@ -12,12 +13,18 @@ from rhesis.backend.app.schemas.services import (
     DocumentUploadResponse,
     ExtractDocumentRequest,
     ExtractDocumentResponse,
+    ExtractMCPRequest,
+    ExtractMCPResponse,
     GenerateContentRequest,
     GenerateMultiTurnTestsRequest,
     GenerateMultiTurnTestsResponse,
     GenerateTestsRequest,
     GenerateTestsResponse,
+    ItemResult,
     PromptRequest,
+    QueryMCPRequest,
+    QueryMCPResponse,
+    SearchMCPRequest,
     TestConfigRequest,
     TestConfigResponse,
     TextResponse,
@@ -34,6 +41,7 @@ from rhesis.backend.app.services.generation import (
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.handlers import DocumentHandler
+from rhesis.backend.app.services.mcp_service import extract_mcp, query_mcp, search_mcp
 from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
@@ -505,3 +513,125 @@ async def generate_test_config(
     except Exception as e:
         logger.error(f"Unexpected error in test config generation: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/mcp/search", response_model=List[ItemResult])
+async def search_mcp_server(
+    request: SearchMCPRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Search MCP server for items matching a natural language query.
+
+    Uses an AI agent to intelligently search the connected MCP server and
+    return structured results. The agent automatically selects the appropriate
+    search tools and formats results consistently.
+
+    Args:
+        request: SearchMCPRequest with query and server_name
+
+    Returns:
+        List of items, each containing:
+        - id: Item identifier (use this for extraction)
+        - url: Direct link to view the item
+        - title: Human-readable item title
+
+    Raises:
+        HTTPException: 500 error if search fails
+
+    Example:
+        POST /mcp/search
+        {
+            "query": "Find pages about authentication",
+            "server_name": "notionApi"
+        }
+    """
+    try:
+        return await search_mcp(request.query, request.server_name, db, current_user)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/mcp/extract", response_model=ExtractMCPResponse)
+async def extract_mcp_item(
+    request: ExtractMCPRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Extract full content from an MCP item as markdown.
+
+    Uses an AI agent to retrieve and convert item content to markdown format.
+    The agent navigates the item structure and extracts all relevant content
+    including text, headings, lists, and nested blocks.
+
+    Args:
+        request: ExtractMCPRequest with item id and server_name
+
+    Returns:
+        ExtractMCPResponse containing markdown-formatted content
+
+    Raises:
+        HTTPException: 500 error if extraction fails or item not found
+
+    Example:
+        POST /mcp/extract
+        {
+            "id": "page-id-from-search",
+            "server_name": "notionApi"
+        }
+    """
+    try:
+        content = await extract_mcp(request.id, request.server_name, db, current_user)
+        return {"content": content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/mcp/query", response_model=QueryMCPResponse)
+async def query_mcp_server(
+    request: QueryMCPRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Execute arbitrary tasks on an MCP server with full flexibility.
+
+    Unlike /search and /extract, this endpoint handles any MCP task with
+    custom prompts and returns detailed execution traces. Use this for
+    complex operations like creating, updating, or analyzing content.
+
+    Args:
+        request: QueryMCPRequest with query, server_name, optional system_prompt and max_iterations
+
+    Returns:
+        QueryMCPResponse with result and execution history
+
+    Raises:
+        HTTPException: 500 error if task execution fails
+
+    Examples:
+        # Create content
+        {"query": "Create a page titled 'Q1 Planning'", "server_name": "notionApi"}
+
+        # Custom agent behavior
+        {
+            "query": "Analyze authentication issues",
+            "server_name": "github",
+            "system_prompt": "You are a security analyst...",
+            "max_iterations": 15
+        }
+    """
+    try:
+        result = await query_mcp(
+            query=request.query,
+            server_name=request.server_name,
+            db=db,
+            user=current_user,
+            system_prompt=request.system_prompt,
+            max_iterations=request.max_iterations,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
