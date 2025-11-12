@@ -53,7 +53,7 @@ class BaseEntity(BaseModel):
     endpoint: ClassVar[Endpoints]
 
     @classmethod
-    def _delete_by_id(cls, id: str) -> bool:
+    def _delete(cls, id: str) -> bool:
         """Delete the entity from the database."""
         client = Client()
         try:
@@ -70,7 +70,7 @@ class BaseEntity(BaseModel):
                 raise e
 
     @classmethod
-    def _push_by_id(cls, id: str, data: Dict[str, Any]) -> None:
+    def _update(cls, id: str, data: Dict[str, Any]) -> None:
         """Push the entity to the database."""
         client = Client()
         response = client.send_request(
@@ -82,7 +82,7 @@ class BaseEntity(BaseModel):
         return response
 
     @classmethod
-    def _push_without_id(cls, data: Dict[str, Any]) -> None:
+    def _create(cls, data: Dict[str, Any]) -> None:
         client = Client()
         response = client.send_request(
             endpoint=cls.endpoint,
@@ -92,7 +92,7 @@ class BaseEntity(BaseModel):
         return response
 
     @classmethod
-    def _pull_by_id(cls, id: str) -> None:
+    def _pull(cls, id: str) -> None:
         client = Client()
         response = client.send_request(
             endpoint=cls.endpoint,
@@ -106,11 +106,11 @@ class BaseEntity(BaseModel):
         data = self.model_dump(mode="json")
 
         if "id" in data and data["id"] is not None:
-            response = self._push_by_id(data["id"], data)
+            response = self._update(data["id"], data)
 
             return response
         else:
-            response = self._push_without_id(data)
+            response = self._create(data)
             self.id = response["id"]
 
             return response
@@ -121,7 +121,7 @@ class BaseEntity(BaseModel):
         if "id" not in data or data["id"] is None:
             raise ValueError("Entity has no ID")
 
-        return self._pull_by_id(data["id"])
+        return self._pull(data["id"])
 
     def delete(self) -> bool:
         """Delete the entity from the database."""
@@ -129,4 +129,13 @@ class BaseEntity(BaseModel):
         if "id" not in data or data["id"] is None:
             raise ValueError("Entity has no ID")
 
-        return self._delete_by_id(data["id"])
+        return self._delete(data["id"])
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the entity to a dictionary."""
+        return self.model_dump(mode="json")
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "BaseEntity":
+        """Create an entity from a dictionary."""
+        return cls(**data)
