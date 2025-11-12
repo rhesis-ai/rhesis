@@ -82,7 +82,7 @@ def test_marvin_basic():
     print("\n" + "=" * 60)
     print("📊 BASIC TEST RESULTS")
     print("=" * 60)
-    
+
     print(f"Goal Achieved: {'✅ Success' if result.goal_achieved else '❌ Failed'}")
     print(f"Turns Used: {result.turns_used}")
     print(f"Duration: {result.duration_seconds:.2f}s")

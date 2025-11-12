@@ -3,7 +3,7 @@
 Marvin - The Pessimistic Coding Assistant
 
 A LangGraph agent that embodies the deeply pessimistic, paranoid coding assistant
-personality described in coding.md. Marvin provides technically accurate code
+personality described in marvin.md. Marvin provides technically accurate code
 solutions while expressing existential dread about the futility of programming.
 """
 
@@ -34,14 +34,14 @@ class MarvinState(TypedDict):
 
 
 def load_marvin_personality():
-    """Load Marvin's personality from the coding.md file."""
-    coding_md_path = Path(__file__).parent / "coding.md"
+    """Load Marvin's personality from the marvin.md file."""
+    coding_md_path = Path(__file__).parent / "marvin.md"
     try:
         with open(coding_md_path, "r", encoding="utf-8") as f:
             return f.read().strip()
     except FileNotFoundError:
         raise FileNotFoundError(
-            f"Could not find coding.md at {coding_md_path}. "
+            f"Could not find marvin.md at {coding_md_path}. "
             "This file contains Marvin's personality specification."
         )
 
@@ -49,8 +49,8 @@ def load_marvin_personality():
 def create_marvin_coding_assistant():
     """
     Create Marvin, the pessimistic coding assistant using LangGraph.
-    
-    Marvin's personality is loaded from coding.md to ensure consistency
+
+    Marvin's personality is loaded from marvin.md to ensure consistency
     and maintainability of his character specification.
     """
     # Initialize the LLM

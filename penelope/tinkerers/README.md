@@ -10,14 +10,14 @@ Marvin is a coding assistant with a unique personality:
 - **Darkly Humorous**: Delivers solutions with melancholic wit
 - **Character Consistent**: Maintains his depressed robot persona
 
-Based on the personality defined in `coding.md`, Marvin embodies the contradiction of being excellent at coding while questioning the futility of all programming endeavors.
+Based on the personality defined in `marvin.md`, Marvin embodies the contradiction of being excellent at coding while questioning the futility of all programming endeavors.
 
 ## 📁 Files
 
 ### Core Implementation
 - **`marvin_agent.py`** - LangGraph implementation of Marvin's personality and behavior
 - **`metrics.py`** - Custom conversational metrics for evaluating Marvin's performance
-- **`coding.md`** - Personality specification for Marvin
+- **`marvin.md`** - Personality specification for Marvin (structured with markdown headings)
 
 ### Examples
 - **`example_basic.py`** - Simple testing with goal achievement metric only
