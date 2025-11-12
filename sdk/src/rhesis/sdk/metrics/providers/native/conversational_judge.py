@@ -3,11 +3,14 @@
 from pathlib import Path
 from typing import Any, Dict, Optional, TypeVar, Union
 
-from rhesis.sdk.metrics.base import MetricResult, ScoreType
+from pydantic import BaseModel, Field
+
+from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.conversational.base import ConversationalMetricBase
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
+from rhesis.sdk.metrics.providers.native.evaluation_patterns import NumericEvaluationMixin
 from rhesis.sdk.metrics.providers.native.serialization import BackendSyncMixin, SerializationMixin
 from rhesis.sdk.metrics.providers.native.shared_utils import (
     get_base_details,
@@ -23,7 +26,20 @@ GOAL_DEFAULT = "Infer from conversation"
 T = TypeVar("T", bound="ConversationalJudge")
 
 
-class ConversationalJudge(ConversationalMetricBase, SerializationMixin, BackendSyncMixin):
+class ConversationalScoreResponse(BaseModel):
+    """Response schema for conversational judge evaluation."""
+
+    score: float = Field(
+        description="Numeric score between min_score and max_score indicating quality of the conversation"
+    )
+    reason: str = Field(
+        description="Detailed reasoning for the assigned score, referencing specific parts of the conversation"
+    )
+
+
+class ConversationalJudge(
+    ConversationalMetricBase, SerializationMixin, BackendSyncMixin, NumericEvaluationMixin
+):
     """
     Base class for native Rhesis conversational metrics using LLM-as-judge.
 
@@ -88,16 +104,67 @@ class ConversationalJudge(ConversationalMetricBase, SerializationMixin, BackendS
     """
 
     def __init__(
-        self, config: ConversationalNumericConfig, model: Optional[Union[BaseLLM, str]] = None
+        self,
+        config: Optional[ConversationalNumericConfig] = None,
+        evaluation_prompt: Optional[str] = None,
+        evaluation_steps: Optional[str] = None,
+        reasoning: Optional[str] = None,
+        evaluation_examples: Optional[str] = None,
+        min_score: Optional[float] = None,
+        max_score: Optional[float] = None,
+        threshold: Optional[float] = None,
+        threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        metric_type: Optional[Union[str, MetricType]] = None,
+        model: Optional[Union[BaseLLM, str]] = None,
+        **kwargs,
     ):
         """
         Initialize conversational judge.
 
         Args:
-            config: Metric configuration with judge-specific fields
-            model: LLM model for evaluation
+            config: Metric configuration with judge-specific fields. If None, creates config from other parameters.
+            evaluation_prompt: The main evaluation criteria. Used if config is None.
+            evaluation_steps: Step-by-step evaluation process. Used if config is None.
+            reasoning: Guidelines for reasoning. Used if config is None.
+            evaluation_examples: Examples to guide evaluation. Used if config is None.
+            min_score: Minimum possible score. Defaults to 0.0. Used if config is None.
+            max_score: Maximum possible score. Defaults to 1.0. Used if config is None.
+            threshold: Success threshold. Defaults to midpoint. Used if config is None.
+            threshold_operator: Operator for threshold comparison. Used if config is None.
+            name: Unique name for this metric. Used if config is None.
+            description: Description of what this metric measures. Used if config is None.
+            metric_type: Type of metric (defaults to CONVERSATIONAL). Used if config is None.
+            model: LLM model for evaluation.
+            **kwargs: Additional keyword arguments.
+
+        Note:
+            Either provide a config object OR the individual parameters. If config is provided,
+            individual parameters are ignored. This allows for both legacy usage (with config)
+            and modern usage (with direct parameters like GoalAchievementJudge).
         """
-        self.config = config
+        # If config is provided, use it directly (legacy mode)
+        if config is not None:
+            self.config = config
+        else:
+            # Create config from individual parameters (modern mode)
+            self.config = ConversationalNumericConfig(
+                evaluation_prompt=evaluation_prompt,
+                evaluation_steps=evaluation_steps,
+                reasoning=reasoning,
+                evaluation_examples=evaluation_examples,
+                min_score=min_score,
+                max_score=max_score,
+                threshold=threshold,
+                threshold_operator=threshold_operator,
+                name=name or "conversational_judge",
+                description=description or "Evaluates conversational interactions",
+                metric_type=metric_type or MetricType.CONVERSATIONAL,
+                score_type=ScoreType.NUMERIC,
+                class_name=self.__class__.__name__,
+            )
+
         super().__init__(config=self.config, model=model)
         self.evaluation_prompt = self.config.evaluation_prompt
         self.evaluation_steps = self.config.evaluation_steps
@@ -110,9 +177,116 @@ class ConversationalJudge(ConversationalMetricBase, SerializationMixin, BackendS
         self.threshold = self.config.threshold
         self.threshold_operator = self.config.threshold_operator
 
-    def evaluate(self, *args, **kwargs) -> MetricResult:
-        """Subclasses must implement this method."""
-        raise NotImplementedError("Subclasses should override this method")
+        # Set up Jinja environment
+        self._setup_jinja_environment()
+
+    def _setup_jinja_environment(self) -> None:
+        """Set up Jinja2 environment for template rendering."""
+        self.jinja_env = setup_jinja_environment()
+
+    def _get_prompt_template(
+        self,
+        conversation_history: ConversationHistory,
+        goal: Optional[str] = None,
+        **additional_template_vars,
+    ) -> str:
+        """
+        Generate the evaluation prompt using Jinja2 template.
+
+        Args:
+            conversation_history: The conversation to evaluate
+            goal: Optional conversation goal
+            **additional_template_vars: Additional variables for template rendering
+
+        Returns:
+            Rendered prompt string
+        """
+        # Load the template
+        template_path = Path(__file__).parent / "templates" / "conversational_prompt_metric.jinja"
+
+        try:
+            with open(template_path, "r", encoding="utf-8") as f:
+                template_content = f.read()
+        except FileNotFoundError:
+            # Fallback to a simple template if file doesn't exist
+            template_content = """
+{{ evaluation_prompt or "Evaluate the quality of this conversation." }}
+
+{% if evaluation_steps %}
+{{ evaluation_steps }}
+{% endif %}
+
+{% if reasoning %}
+{{ reasoning }}
+{% endif %}
+
+{% if evaluation_examples %}
+Examples:
+{{ evaluation_examples }}
+{% endif %}
+
+Conversation to evaluate:
+{% for message in conversation_history %}
+{{ message.role }}: {{ message.content }}
+{% endfor %}
+
+{% if goal %}
+Goal: {{ goal }}
+{% endif %}
+
+Provide your evaluation as a numeric score between {{ min_score }} and {{ max_score }}.
+            """.strip()
+
+        template = self.jinja_env.from_string(template_content)
+
+        # Prepare template variables
+        template_vars = {
+            "conversation_history": conversation_history,
+            "goal": goal or GOAL_DEFAULT,
+            "evaluation_prompt": self.evaluation_prompt,
+            "evaluation_steps": self.evaluation_steps,
+            "reasoning": self.reasoning,
+            "evaluation_examples": self.evaluation_examples,
+            "min_score": self.min_score,
+            "max_score": self.max_score,
+            "threshold": self.threshold,
+            **additional_template_vars,
+        }
+
+        # Render the template
+        prompt = template.render(**template_vars)
+        return prompt
+
+    def evaluate(
+        self,
+        conversation_history: ConversationHistory,
+        goal: Optional[str] = None,
+    ) -> MetricResult:
+        """
+        Evaluate the conversation using the configured criteria.
+
+        Args:
+            conversation_history: The conversation to evaluate
+            goal: Optional explicit goal statement
+
+        Returns:
+            MetricResult with numeric score and detailed evaluation information
+        """
+        # Validate inputs
+        self._validate_evaluate_inputs(conversation_history, goal)
+
+        # Generate the evaluation prompt
+        prompt = self._get_prompt_template(conversation_history, goal)
+
+        # Use the shared numeric evaluation pattern
+        return self._execute_numeric_evaluation(
+            prompt=prompt,
+            response_schema=ConversationalScoreResponse,
+            additional_details={
+                "turn_count": len(conversation_history),
+                "goal": goal or GOAL_DEFAULT,
+            },
+        )
 
     def _validate_evaluate_inputs(
         self,
