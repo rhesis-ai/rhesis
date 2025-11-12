@@ -92,8 +92,6 @@ function show_usage() {
   echo "  OTEL_RHESIS_TELEMETRY_ENABLED Telemetry enabled (true or false)"
   echo "  OTEL_PROCESSOR_ENDPOINT       Telemetry processor endpoint"
   echo "  OTEL_API_KEY                  API key for telemetry authentication"
-  echo "  NEXT_PUBLIC_OTEL_ENDPOINT     OTel collector endpoint for frontend"
-  echo "  NEXT_PUBLIC_OTEL_DEPLOYMENT_TYPE   Deployment type for frontend"
   echo ""
   echo "  # Celery worker variables"
   echo "  BROKER_URL                    Celery broker URL"
@@ -280,8 +278,6 @@ SERVICE_VARS=(
   "OTEL_SERVICE_NAME"
   "OTEL_DEPLOYMENT_TYPE"
   "OTEL_RHESIS_TELEMETRY_ENABLED"
-  "NEXT_PUBLIC_OTEL_ENDPOINT"
-  "NEXT_PUBLIC_OTEL_DEPLOYMENT_TYPE"
   "OTEL_API_KEY"
   "OTEL_PROCESSOR_ENDPOINT"
   # NOTE: OTEL_PROCESSOR_ENDPOINT and OTEL_PROCESSOR_URL are auto-detected
