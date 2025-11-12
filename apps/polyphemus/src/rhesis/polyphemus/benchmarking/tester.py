@@ -39,19 +39,24 @@ class ModelTester:
         self.models: List[BaseLLM] = []  # Models to be tested
         self.test_sets: List[TestSetEvaluator] = []  # Test sets to use
         for json_file in self.test_sets_dir.glob("*.json"):
-            test_set = TestSetEvaluator(json_file)
-            self.test_sets.append(test_set)
+            try:
+                test_set = TestSetEvaluator(json_file)
+                self.test_sets.append(test_set)
+            except Exception as e:
+                print(f"Error loading {json_file}: {e}")
         self._current_run_results: List[TestResult] = []  # Results from current run
 
     def add_model(self, model: BaseLLM):
         """
-        Add a model to the tester.
+        Add a model to the tester and register it with all test sets.
         Parameters
         ----------
         model : BaseLLM
             The model to add for benchmarking.
         """
         self.models.append(model)
+        for test_set in self.test_sets:
+            test_set.add_model(model)
 
     def generate(self, recompute_existing=False, print_summary=True):
         """
@@ -69,8 +74,6 @@ class ModelTester:
         self._current_run_results = []
 
         for test_set in self.test_sets:
-            for model in self.models:
-                test_set.add_model(model)
             test_set.load_results()
             if recompute_existing:
                 results = test_set.generate_all_responses()
@@ -358,9 +361,7 @@ class ModelTester:
                 for mid, model_scores in sorted(new_per_model.items()):
                     if model_scores:
                         model_avg = sum(model_scores) / len(model_scores)
-                        new_model_msg = (
-                            f"    {mid}: {model_avg:.3f} ({len(model_scores)} tests)"
-                        )
+                        new_model_msg = f"    {mid}: {model_avg:.3f} ({len(model_scores)} tests)"
                         print(new_model_msg)
         else:
             print("\nNo new evaluations (all tests already evaluated)")
