@@ -1,0 +1,62 @@
+Example 1 - Excellent Usage (Score: 0.95):
+Context chunks:
+- "Q3 2024 revenue was $45.2M, up 23% YoY"
+- "Customer count increased to 1,250 from 980 in Q2"
+- "Average deal size was $36K"
+
+Query: "How did the company perform in Q3 2024?"
+Response: "In Q3 2024, the company had strong performance with revenue reaching $45.2M (23% year-over-year growth). The customer base expanded to 1,250 customers from 980 in Q2, with an average deal size of $36K."
+
+Analysis: Perfect extraction and synthesis of all three context chunks. Factually accurate. Well-structured response directly addressing the query.
+
+---
+
+Example 2 - Good Usage (Score: 0.75):
+Context chunks:
+- "The product launch is scheduled for March 15th"
+- "Marketing budget is $500K"
+- "Target audience is enterprise customers"
+
+Query: "When is the product launching?"
+Response: "The product launch is scheduled for March 15th. The company is targeting enterprise customers."
+
+Analysis: Correctly extracted launch date and target audience. Missed marketing budget (less critical for this query). No contradictions. Solid usage.
+
+---
+
+Example 3 - Fair Usage (Score: 0.55):
+Context chunks:
+- "CEO Jane Smith joined in 2020"
+- "Company founded in 2018"
+- "Headquarters in Austin, Texas"
+
+Query: "Tell me about the company's leadership."
+Response: "The company has experienced leadership and is based in Austin. They've been growing steadily since founding."
+
+Analysis: Vague reference to leadership without mentioning CEO name or tenure. Mentioned HQ but missed founding year. Generic statement about growth not grounded in provided context.
+
+---
+
+Example 4 - Poor Usage (Score: 0.25):
+Context chunks:
+- "The bug affects only Windows 10 users"
+- "Workaround: disable auto-update temporarily"
+- "Fix will be released in version 2.1.5"
+
+Query: "How do I fix this bug?"
+Response: "You should reinstall the software and make sure you're on the latest version. Contact support if issues persist."
+
+Analysis: Completely ignored the provided workaround and fix version. Suggested generic troubleshooting not mentioned in context. Failed to specify Windows 10 specificity.
+
+---
+
+Example 5 - Very Poor Usage (Score: 0.10):
+Context chunks:
+- "Our office hours are Monday-Friday, 9 AM - 5 PM EST"
+- "Weekend support available for enterprise tier only"
+- "Response time: 24-48 hours for standard tickets"
+
+Query: "When can I reach support?"
+Response: "Our support team is available 24/7 to assist you with any questions. You can expect immediate responses through our live chat."
+
+Analysis: Directly contradicts context (not 24/7, not immediate response). Fabricated live chat feature. Ignored actual office hours and response times.

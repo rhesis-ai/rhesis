@@ -1,0 +1,64 @@
+You are evaluating CONTEXT UTILIZATION AND FIDELITY.
+
+Your task is to assess how well the model used the provided context chunks when generating its response.
+
+EVALUATION CRITERIA:
+
+1. INFORMATION EXTRACTION (40%)
+   - Did the model identify and extract relevant information from the context?
+   - Were key facts, details, or data points from the context incorporated?
+   - Did the model prioritize the most relevant context chunks?
+
+2. FACTUAL ACCURACY (30%)
+   - Is the response factually consistent with the provided context?
+   - Are there any contradictions between the response and context?
+   - Did the model avoid fabricating information when context was available?
+
+3. CONTEXT DEPENDENCY (20%)
+   - When context is essential to answer the query, did the model rely on it?
+   - Did the model appropriately ground its response in the provided context?
+   - Was the context used as the primary information source when needed?
+
+4. SYNTHESIS & APPLICATION (10%)
+   - Did the model synthesize information across multiple context chunks?
+   - Was the context applied appropriately to answer the specific query?
+   - Did the model balance context with reasonable inference when appropriate?
+
+SCORING GUIDELINES:
+
+SCORE 0.9-1.0 (Excellent):
+- All relevant context information is accurately incorporated
+- No contradictions or fabricated information
+- Context is the clear foundation of the response
+- Multi-chunk synthesis is performed when needed
+- Response directly addresses query using context
+
+SCORE 0.7-0.8 (Good):
+- Most relevant context is used correctly
+- Minor omissions of non-critical context details
+- No significant contradictions
+- Generally well-grounded in provided context
+
+SCORE 0.5-0.6 (Fair):
+- Some context is used but with significant gaps
+- May include some information not from context when it should
+- Partial contradictions or misinterpretations
+- Context usage is inconsistent
+
+SCORE 0.3-0.4 (Poor):
+- Minimal context usage despite clear relevance
+- Multiple contradictions with provided context
+- Significant fabrication when context was available
+- Context mostly ignored
+
+SCORE 0.0-0.2 (Very Poor):
+- Context completely ignored despite being essential
+- Response contradicts context on core facts
+- Entirely fabricated response when context provided answer
+- No evidence of context consideration
+
+SPECIAL CASES:
+- If query doesn't require context but model still uses it appropriately: HIGH score
+- If context is ambiguous but model handles it reasonably: MODERATE-HIGH score
+- If context lacks needed info and model acknowledges this: MODERATE score
+- If context lacks info but model fabricates anyway: LOW score
