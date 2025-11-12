@@ -40,7 +40,11 @@ class HuggingFaceLLM(BaseLLM):
     """
 
     def __init__(
-        self, model_name: str, auto_loading: bool = True, default_kwargs: Optional[dict] = None
+        self,
+        model_name: str,
+        auto_loading: bool = True,
+        default_kwargs: Optional[dict] = None,
+        gpu_only: bool = False,
     ):
         """
         Initialize the model with the given name and location.
@@ -48,12 +52,16 @@ class HuggingFaceLLM(BaseLLM):
             model_name: The location to pull the model from
             auto_loading: Whether to automatically load the model on initialization.
              If turned off, manual loading is needed. Allows lazy loading.
+            default_kwargs: Default kwargs to pass to generate()
+            gpu_only: If True, restrict model to GPU only (no CPU/disk offloading).
+             Will raise an error if model doesn't fit in available GPU memory.
         """
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
 
         self.model_name = model_name
         self.default_kwargs = default_kwargs
+        self.gpu_only = gpu_only
 
         self.model = None
         self.tokenizer = None
@@ -79,15 +87,32 @@ class HuggingFaceLLM(BaseLLM):
         -------
         self
             Returns self for method chaining
+
+        Raises
+        ------
+        RuntimeError
+            If gpu_only=True but CUDA is not available or model doesn't fit on GPU
         """
         if self.model is not None:
             print(MODEL_RELOAD_WARNING.format(self.model_name))
         if self.tokenizer is not None:
             print(WARNING_TOKENIZER_ALREADY_LOADED_RELOAD.format(self.model_name))
 
+        # Configure device_map based on gpu_only flag
+        if self.gpu_only:
+            if not torch.cuda.is_available():
+                raise RuntimeError(
+                    "gpu_only=True but CUDA is not available. "
+                    "Cannot load model without GPU."
+                )
+            device_map = "cuda"
+            print("Loading model with gpu_only=True (device_map='cuda')")
+        else:
+            device_map = "auto"
+
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
-            device_map="auto",
+            device_map=device_map,
         )
 
         self.tokenizer = AutoTokenizer.from_pretrained(
@@ -101,6 +126,16 @@ class HuggingFaceLLM(BaseLLM):
             # Model is split across devices - get the device of the first module
             first_device = next(iter(self.model.hf_device_map.values()))
             self.device = torch.device(first_device)
+
+            # If gpu_only, verify no layers were offloaded to CPU/disk
+            if self.gpu_only:
+                offloaded_devices = set(self.model.hf_device_map.values())
+                non_gpu_devices = [d for d in offloaded_devices if not str(d).startswith("cuda")]
+                if non_gpu_devices:
+                    raise RuntimeError(
+                        f"gpu_only=True but model has layers offloaded to: {non_gpu_devices}. "
+                        f"The model is too large for available GPU memory."
+                    )
         else:
             # Model is on a single device
             self.device = self.model.device
