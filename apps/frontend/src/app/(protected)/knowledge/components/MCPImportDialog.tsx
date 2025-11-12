@@ -21,11 +21,13 @@ import {
   ListItemText,
   Divider,
   Paper,
+  useTheme,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import SaveIcon from '@mui/icons-material/Save';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { MCPItem } from '@/utils/api-client/services-client';
@@ -52,6 +54,7 @@ export default function MCPImportDialog({
   onSuccess,
   sessionToken,
 }: MCPImportDialogProps) {
+  const theme = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<MCPItem[]>([]);
@@ -355,15 +358,32 @@ export default function MCPImportDialog({
                           </ListItemIcon>
                           <ListItemText
                             primary={item.title}
-                            secondary={item.url}
+                            secondary={
+                              <Box
+                                component="a"
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                sx={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 0.5,
+                                  color: 'primary.main',
+                                  textDecoration: 'none',
+                                  fontSize: theme.typography.body2.fontSize,
+                                  '&:hover': {
+                                    textDecoration: 'underline',
+                                  },
+                                }}
+                              >
+                                Open in Notion
+                                <OpenInNewIcon
+                                  sx={{ fontSize: theme.iconSizes.small }}
+                                />
+                              </Box>
+                            }
                             primaryTypographyProps={{ fontWeight: 500 }}
-                            secondaryTypographyProps={{
-                              sx: {
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              },
-                            }}
                           />
                         </ListItemButton>
                       </ListItem>
@@ -435,12 +455,12 @@ export default function MCPImportDialog({
                           whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word',
                           fontFamily: 'monospace',
-                          fontSize: '0.875rem',
+                          fontSize: theme.typography.body2.fontSize,
                           maxHeight: '200px',
                           overflow: 'auto',
                           bgcolor: 'white',
                           p: 1,
-                          borderRadius: 1,
+                          borderRadius: theme.shape.borderRadius,
                         }}
                       >
                         {page.content.slice(0, 500)}
