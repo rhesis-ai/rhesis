@@ -200,8 +200,6 @@ services:
     environment:
       <<: [*common-auth0, *nextjs-frontend, *google-client, *common-environment, *rhesis-config]
       PORT: ${FRONTEND_PORT:-3000}
-      NEXT_PUBLIC_OTEL_ENDPOINT: ${NEXT_PUBLIC_OTEL_ENDPOINT:-}
-      NEXT_PUBLIC_DEPLOYMENT_TYPE: ${NEXT_PUBLIC_DEPLOYMENT_TYPE:-self-hosted}
     ports:
       - "3000:3000"
     depends_on:
