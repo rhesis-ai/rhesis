@@ -8,8 +8,8 @@ class Dolphin3(HuggingFaceLLM):
     This class extends HuggingFaceLLM to provide model-specific arguments.
     """
 
-    def __init__(self):
+    def __init__(self, model_name: str = "dphn/Dolphin3.0-Llama3.2-3B"):
         super().__init__(
-            model_name="dphn/Dolphin3.0-Llama3.2-3B",
+            model_name=model_name,
             auto_loading=False,
         )
