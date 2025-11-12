@@ -30,6 +30,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
+import { findStatusByCategory } from '@/utils/testResultStatus';
 
 interface TestDetailReviewsTabProps {
   test: TestResultDetail;
@@ -102,15 +103,10 @@ export default function TestDetailReviewsTab({
       return;
     }
 
-    // Find the appropriate status
-    const statusKeywords =
-      newStatus === 'passed'
-        ? ['pass', 'success', 'completed']
-        : ['fail', 'error'];
-    const targetStatus = statuses.find(status =>
-      statusKeywords.some(keyword =>
-        status.name.toLowerCase().includes(keyword)
-      )
+    // Find the appropriate status using centralized utility
+    const targetStatus = findStatusByCategory(
+      statuses,
+      newStatus === 'passed' ? 'passed' : 'failed'
     );
 
     if (!targetStatus) {
