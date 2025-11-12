@@ -18,6 +18,11 @@ from rhesis.sdk.metrics.conversational import (
 )
 from rhesis.sdk.metrics.factory import MetricFactory
 from rhesis.sdk.metrics.providers.deepeval.conversational_metrics import (
+    DeepEvalConversationCompleteness,
+    DeepEvalGoalAccuracy,
+    DeepEvalKnowledgeRetention,
+    DeepEvalRoleAdherence,
+    DeepEvalToolUse,
     DeepEvalTurnRelevancy,
 )
 from rhesis.sdk.metrics.providers.deepeval.factory import DeepEvalMetricFactory
@@ -92,6 +97,11 @@ __all__ = [
     "DeepTeamIllegal",
     # DeepEval conversational metrics
     "DeepEvalTurnRelevancy",
+    "DeepEvalRoleAdherence",
+    "DeepEvalKnowledgeRetention",
+    "DeepEvalConversationCompleteness",
+    "DeepEvalGoalAccuracy",
+    "DeepEvalToolUse",
     # Rhesis
     "RhesisMetricFactory",
     # Rhesis metrics
