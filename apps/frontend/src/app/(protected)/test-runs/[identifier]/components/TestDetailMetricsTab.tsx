@@ -60,9 +60,18 @@ export default function TestDetailMetricsTab({
   const [reasonExpanded, setReasonExpanded] = useState(false);
   const [criteriaExpanded, setCriteriaExpanded] = useState(false);
 
-  // Determine if this is a multi-turn test by checking for Goal Achievement metric
-  const goalAchievementMetric =
-    test.test_metrics?.metrics?.['Goal Achievement'];
+  // Determine if this is a multi-turn test by checking for Goal Achievement/Evaluation metric
+  // Support flexible matching: any metric containing "goal" + ("achievement" OR "evaluation")
+  const goalAchievementMetric = useMemo(() => {
+    const testMetrics = test.test_metrics?.metrics || {};
+    return Object.entries(testMetrics).find(([metricName]) => {
+      const lowerName = metricName.toLowerCase();
+      return (
+        lowerName.includes('goal') &&
+        (lowerName.includes('achievement') || lowerName.includes('evaluation'))
+      );
+    })?.[1];
+  }, [test]);
   const isMultiTurn = !!goalAchievementMetric;
 
   const metricsData = useMemo(() => {
@@ -99,6 +108,9 @@ export default function TestDetailMetricsTab({
     // Handle direct metrics (multi-turn tests or when no behaviors defined)
     // Process any metrics that weren't already added via behaviors
     if (!hasBehaviors || allMetrics.length === 0) {
+      // Use appropriate category name based on test type
+      const categoryName = isMultiTurn ? 'Multi-Turn Test' : 'General Metrics';
+
       Object.entries(testMetrics).forEach(
         ([metricName, metricResult]: [string, any]) => {
           // Skip if already added via behaviors
@@ -114,7 +126,7 @@ export default function TestDetailMetricsTab({
               description: metricResult.description || undefined,
               passed: metricResult.is_successful,
               fullMetricData: metricResult,
-              behaviorName: 'General Metrics', // Generic category name
+              behaviorName: categoryName,
             });
           }
         }
@@ -184,10 +196,18 @@ export default function TestDetailMetricsTab({
     };
   }, [filteredMetrics]);
 
-  // Extract Goal Achievement metric data if it exists
+  // Extract Goal Achievement/Evaluation metric data if it exists
   const goalAchievementData = useMemo(() => {
     const testMetrics = test.test_metrics?.metrics || {};
-    const goalMetric = testMetrics['Goal Achievement'] as any;
+    // Support flexible matching: any metric containing "goal" + ("achievement" OR "evaluation")
+    const goalMetricEntry = Object.entries(testMetrics).find(([metricName]) => {
+      const lowerName = metricName.toLowerCase();
+      return (
+        lowerName.includes('goal') &&
+        (lowerName.includes('achievement') || lowerName.includes('evaluation'))
+      );
+    });
+    const goalMetric = goalMetricEntry?.[1] as any;
 
     if (!goalMetric) return null;
 
