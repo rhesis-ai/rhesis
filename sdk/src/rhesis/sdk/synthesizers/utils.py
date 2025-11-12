@@ -32,6 +32,9 @@ def create_test_set(tests: List[Dict], model: BaseLLM, **metadata_kwargs) -> "Te
     from rhesis.sdk.entities.test_set import TestSet
 
     metadata = create_test_set_metadata(**metadata_kwargs)
-    test_set = TestSet(tests=tests, metadata=metadata, model=model)
-    test_set.set_properties()
+    # Pass the empty string for name, description, and short_description to pass pydantic validation
+    test_set = TestSet(
+        tests=tests, metadata=metadata, name="", description="", short_description=""
+    )
+    test_set.set_properties(model)
     return test_set
