@@ -29,6 +29,7 @@ import GroupAddIcon from '@mui/icons-material/GroupAddOutlined';
 import ControlCameraIcon from '@mui/icons-material/ControlCameraOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMoreOutlined';
 import TuneIcon from '@mui/icons-material/TuneOutlined';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunchOutlined';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -361,9 +362,20 @@ export default function LandingPage() {
             >
               {process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true' ? (
                 <>
-                  <Typography variant="h5" gutterBottom>
-                    🚀 Local Mode
-                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 1,
+                      mb: 1,
+                    }}
+                  >
+                    <RocketLaunchIcon
+                      sx={{ fontSize: 28, color: 'primary.main' }}
+                    />
+                    <Typography variant="h5">Local Mode</Typography>
+                  </Box>
                   <Typography variant="body1" gutterBottom>
                     Starting with zero configuration. Redirecting to
                     dashboard...
