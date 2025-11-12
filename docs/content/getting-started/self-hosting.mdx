@@ -8,14 +8,14 @@ You can self-host Rhesis on your own infrastructure.
 
 This guide covers two deployment scenarios:
 
-1. **Zero-Configuration Local Development** - Get started immediately with pre-configured defaults
+1. **Zero-Configuration Local Deployment** - Get started immediately with pre-configured defaults
 2. **Production Deployment** - Full configuration for production environments
 
 > **Important**: This guide uses Docker Compose V2 syntax (`docker compose` without hyphen). If you're using an older version of Docker, you may need to install Docker Compose V2 or use the legacy `docker-compose` command.
 
 ---
 
-## Zero-Configuration Local Development
+## Zero-Configuration Local Deployment
 
 Perfect for quickly testing Rhesis locally without any configuration hassles. This setup includes:
 
@@ -26,9 +26,9 @@ Perfect for quickly testing Rhesis locally without any configuration hassles. Th
 - ✅ **All secrets included** - Development-safe defaults provided
 
 <Callout type="warning">
-**Development Only**
+**Local Deployment Only**
 
-This configuration is **NOT suitable for production**. It includes hardcoded secrets and disabled security features for ease of local development.
+This configuration is **NOT suitable for production**. It includes hardcoded secrets and disabled security features for ease of local deployment.
 </Callout>
 
 ### Prerequisites
@@ -81,7 +81,7 @@ That's it! The `./rh start` command automatically:
 The zero-configuration setup uses these files:
 
 <FileTree
-  title="Local Development Files"
+  title="Local Deployment Files"
   data={[
     {
       name: '.env.docker.local',
@@ -294,9 +294,9 @@ This section covers deploying Rhesis for production use with proper security con
 
 ### System Requirements
 
-#### Development Environment
+#### Local Deployment Environment
 
-For local development, testing, and evaluation:
+For local deployment, testing, and evaluation:
 
 <Table
   headers={["Resource", "Minimum", "Recommended"]}
@@ -309,7 +309,7 @@ For local development, testing, and evaluation:
   align={["left", "center", "center"]}
 />
 
-**Development Notes:**
+**Local Deployment Notes:**
 
 - Includes hot-reload and development tools
 - Lower concurrent user load
@@ -343,7 +343,7 @@ For production deployment with real users:
 **Memory Usage by Environment:**
 
 <Table
-  headers={["Service", "Development", "Production"]}
+  headers={["Service", "Local Deployment", "Production"]}
   rows={[
     ["PostgreSQL", "~256 MB", "~1-2 GB"],
     ["Redis", "~50 MB", "~500 MB - 1 GB"],
@@ -359,7 +359,7 @@ For production deployment with real users:
 **Storage Requirements:**
 
 <Table
-  headers={["Component", "Development", "Production"]}
+  headers={["Component", "Local Deployment", "Production"]}
   rows={[
     ["Application Code", "~2 GB", "~2 GB"],
     ["Database", "~500 MB", "~5-50 GB+"],
@@ -405,14 +405,14 @@ If you encounter errors with `docker-compose`, you're likely using the deprecate
 1. **Clone the repository**
 
 <CodeBlock filename="Terminal" language="bash">
-  {`git clone <repository-url>
+{`git clone <repository-url>
 cd rhesis`}
 </CodeBlock>
 
 2. **Copy environment variables**
 
 <CodeBlock filename="Terminal" language="bash">
-  {`cp .env.example .env.docker`}
+{`cp .env.example .env.docker`}
 </CodeBlock>
 
 3. **Configure environment variables**
@@ -429,7 +429,7 @@ cd rhesis`}
 4. **Start all services**
 
 <CodeBlock filename="Terminal" language="bash">
-  {`docker compose --env-file .env.docker up -d`}
+{`docker compose --env-file .env.docker up -d`}
 </CodeBlock>
 
 5. **Access the applications**
@@ -458,7 +458,7 @@ The Rhesis platform consists of several interconnected services:
 #### Service Dependencies
 
 <CodeBlock filename="Architecture Diagram" isTerminal={true}>
-  {`Frontend → Backend → PostgreSQL
+{`Frontend → Backend → PostgreSQL
              ↓
            Redis ← Worker`}
 </CodeBlock>
@@ -528,7 +528,7 @@ NEXT_PUBLIC_AUTH0_CLIENT_ID=your-auth0-client-id`}
 Additional authentication providers for user login options:
 
 <CodeBlock filename=".env.docker" language="bash">
-  {`# Google OAuth (Optional)
+{`# Google OAuth (Optional)
 # Enables Google sign-in for users
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret`}
@@ -539,7 +539,7 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret`}
 Required for sending system emails, notifications, and user communications:
 
 <CodeBlock filename=".env.docker" language="bash">
-  {`# SMTP Configuration (Optional)
+{`# SMTP Configuration (Optional)
 # Used for sending emails (notifications, invitations, etc.)
 SMTP_HOST=your_smtp_host
 SMTP_PORT=465
@@ -642,7 +642,7 @@ docker compose logs -f backend`}
 **Check service status:**
 
 <CodeBlock filename="Terminal" language="bash">
-  {`# View running containers and their status
+{`# View running containers and their status
 docker compose ps`}
 </CodeBlock>
 
@@ -695,19 +695,19 @@ docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic history"`}
 1. Check migration status:
 
 <CodeBlock filename="Terminal" language="bash">
-  {`docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic current"`}
+{`docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic current"`}
 </CodeBlock>
 
 2. View migration logs:
 
 <CodeBlock filename="Terminal" language="bash">
-  {`docker compose logs backend | grep -i migration`}
+{`docker compose logs backend | grep -i migration`}
 </CodeBlock>
 
 3. Reset database (WARNING: deletes all data):
 
 <CodeBlock filename="Terminal" language="bash">
-  {`docker compose down -v
+{`docker compose down -v
 docker compose --env-file .env.docker up -d`}
 </CodeBlock>
 
@@ -716,19 +716,19 @@ docker compose --env-file .env.docker up -d`}
 1. Check service status:
 
 <CodeBlock filename="Terminal" language="bash">
-  {`docker compose ps`}
+{`docker compose ps`}
 </CodeBlock>
 
 2. Verify environment variables:
 
 <CodeBlock filename="Terminal" language="bash">
-  {`docker exec rhesis-backend env | grep AUTH0`}
+{`docker exec rhesis-backend env | grep AUTH0`}
 </CodeBlock>
 
 3. Check resource usage:
 
 <CodeBlock filename="Terminal" language="bash">
-  {`docker stats`}
+{`docker stats`}
 </CodeBlock>
 
 **Port Conflicts:**
@@ -818,4 +818,4 @@ If you encounter issues:
 
 ---
 
-For development setup and local development without Docker, see the 🔧 [Environment Setup Guide](https://docs.rhesis.ai/development/environment-setup).
+For local development setup without Docker (for contributing to Rhesis), see the 🔧 [Environment Setup Guide](https://docs.rhesis.ai/development/environment-setup).
