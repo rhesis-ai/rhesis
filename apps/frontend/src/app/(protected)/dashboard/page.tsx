@@ -9,6 +9,7 @@ import LatestTestRunsGrid from './components/LatestTestRunsGrid';
 import RecentTestsGrid from './components/RecentTestsGrid';
 import RecentTestSetsGrid from './components/RecentTestSetsGrid';
 import RecentActivitiesGrid from './components/RecentActivitiesGrid';
+import OnboardingDashboardCard from '@/components/onboarding/OnboardingDashboardCard';
 import { useSession } from 'next-auth/react';
 import {
   ScienceIcon,
@@ -19,6 +20,11 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 
 export default function DashboardPage() {
   const { data: session } = useSession();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <PageContainer>
@@ -28,6 +34,13 @@ export default function DashboardPage() {
       {/* DataGrids Section */}
 
       <Grid container spacing={3} sx={{ mt: 2 }}>
+        {/* Onboarding Card - Full width (only render on client) */}
+        {mounted && (
+          <Grid item xs={12}>
+            <OnboardingDashboardCard />
+          </Grid>
+        )}
+
         {/* First row of DataGrids */}
 
         <Grid item xs={12} md={6}>

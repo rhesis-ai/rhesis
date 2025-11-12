@@ -218,6 +218,7 @@ export default function EndpointGrid({
           href="/endpoints/new"
           variant="outlined"
           startIcon={<AddIcon />}
+          data-tour="create-endpoint-button"
         >
           New Endpoint
         </Button>

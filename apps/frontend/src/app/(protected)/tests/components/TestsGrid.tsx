@@ -440,6 +440,7 @@ export default function TestsTable({
       icon: <AddIcon />,
       variant: 'contained' as const,
       onClick: handleGenerateTests,
+      dataTour: 'create-test-button',
     });
 
     if (selectedRows.length > 0) {

@@ -7,9 +7,11 @@ import EndpointsGrid from './components/EndpointsGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { GridPaginationModel } from '@mui/x-data-grid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { useOnboardingTour } from '@/hooks/useOnboardingTour';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function EndpointsPage() {
   const { data: session } = useSession();
@@ -21,6 +23,17 @@ export default function EndpointsPage() {
     page: 0,
     pageSize: 10,
   });
+  const { markStepComplete, progress } = useOnboarding();
+
+  // Enable tour for this page
+  useOnboardingTour('endpoint');
+
+  // Mark step as complete when user has endpoints
+  useEffect(() => {
+    if (endpoints.length > 0 && !progress.endpointSetup) {
+      markStepComplete('endpointSetup');
+    }
+  }, [endpoints.length, progress.endpointSetup, markStepComplete]);
 
   const fetchEndpoints = useCallback(async () => {
     if (!session?.session_token) {

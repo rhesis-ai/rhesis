@@ -391,6 +391,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
               placeholder="colleague@company.com"
               variant="outlined"
               size="small"
+              data-tour={index === 0 ? 'invite-email-input' : undefined}
             />
             {formData.invites.length > 1 && (
               <IconButton
@@ -433,6 +434,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
               <SendIcon />
             )
           }
+          data-tour="send-invites-button"
         >
           {isSubmitting ? 'Sending Invitations...' : 'Send Invitations'}
         </Button>

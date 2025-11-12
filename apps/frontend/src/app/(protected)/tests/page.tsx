@@ -12,15 +12,48 @@ import TestCharts from './components/TestCharts';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import LandingScreen from './new-generated/components/LandingScreen';
 import { TestTemplate } from './new-generated/components/shared/types';
+import { useOnboardingTour } from '@/hooks/useOnboardingTour';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [showModal, setShowModal] = React.useState(false);
+  const [testCount, setTestCount] = React.useState(0);
+  const { markStepComplete, progress } = useOnboarding();
 
   // Set document title
   useDocumentTitle('Tests');
+
+  // Enable tour for this page
+  useOnboardingTour('testCases');
+
+  // Fetch test count to check if user has created tests
+  React.useEffect(() => {
+    const fetchTestCount = async () => {
+      if (!session?.session_token) return;
+
+      try {
+        const apiFactory = new ApiClientFactory(session.session_token);
+        const testsClient = apiFactory.getTestsClient();
+        const response = await testsClient.getTests({ skip: 0, limit: 1 });
+        setTestCount(response.pagination?.totalCount || 0);
+      } catch (error) {
+        // Silently fail
+      }
+    };
+
+    fetchTestCount();
+  }, [session?.session_token, refreshKey]);
+
+  // Mark step as complete when user has tests
+  React.useEffect(() => {
+    if (testCount > 0 && !progress.testCasesCreated) {
+      markStepComplete('testCasesCreated');
+    }
+  }, [testCount, progress.testCasesCreated, markStepComplete]);
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
