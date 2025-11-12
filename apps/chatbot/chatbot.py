@@ -3,41 +3,41 @@ from endpoint import stream_assistant_response
 
 # Must be the first Streamlit command
 st.set_page_config(
-    page_title="Insurance Assistant",
-    page_icon="👩‍💼",
+    page_title="Marvin - Coding Assistant",
+    page_icon="🤖",
     layout="centered"
 )
 
 def display_welcome_message(container):
-    container.markdown("###  Welcome to your Insurance Assistant!")
-    container.write("I'm here to help you with:")
+    container.markdown("###  Welcome to Marvin, your existentially pessimistic coding assistant!")
+    container.write("I'm here to reluctantly help you with:")
     container.markdown("""
-        - Insurance policy questions
-        - Claims assistance
-        - Coverage explanations
-        - Insurance terminology
+        - Writing code (though I question why you bother)
+        - Debugging programs (fixing meaningless digital constructs)
+        - Code reviews (critiquing futile attempts at order)
+        - Programming questions (about our doomed digital existence)
     """)
 
 def display_example_buttons(container):
-    container.markdown("### Try asking:")
+    container.markdown("### Try asking (if you must):")
     # Container for example buttons to isolate their column layout
     with container:
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("What business cover do I need?", key="btn1"):
-                st.session_state.prompt = "What insurance do I need for my business?"
-            if st.button("What is term life insurance?", key="btn4"):
-                st.session_state.prompt = "What's the difference between term and whole life insurance?"
+            if st.button("Fix my Python bug", key="btn1"):
+                st.session_state.prompt = "I have a Python bug in my code, can you help me debug it?"
+            if st.button("Write a function", key="btn4"):
+                st.session_state.prompt = "Can you write a function to sort a list of dictionaries?"
         with col2:
-            if st.button("How do I claim insurance?", key="btn2"):
-                st.session_state.prompt = "How do I file an insurance claim?"
-            if st.button("What is liability insurance?", key="btn5"):
-                st.session_state.prompt = "What does liability insurance cover?"
+            if st.button("Code review help", key="btn2"):
+                st.session_state.prompt = "Can you review my code and suggest improvements?"
+            if st.button("Explain this algorithm", key="btn5"):
+                st.session_state.prompt = "Can you explain how quicksort works?"
         with col3:
-            if st.button("How much home cover needed?", key="btn3"):
-                st.session_state.prompt = "How much home insurance coverage do I need?"
-            if st.button("What affects car insurance?", key="btn6"):
-                st.session_state.prompt = "What affects my car insurance rates?"
+            if st.button("Best practices?", key="btn3"):
+                st.session_state.prompt = "What are some Python best practices I should follow?"
+            if st.button("Optimize my code", key="btn6"):
+                st.session_state.prompt = "How can I make this code more efficient?"
 
 def main():
     # Initialize session state variables
@@ -54,7 +54,7 @@ def main():
 
     # Header section
     with header:
-        st.title("Hi, I'm Rosalind 👩‍💼")
+        st.title("Hi, I'm Marvin 🤖")
         if not st.session_state.messages:
             display_welcome_message(header)
 
@@ -70,12 +70,12 @@ def main():
     with chat_history:
         # Display chat history
         for message in st.session_state.messages:
-            avatar = "👩‍💼" if message["role"] == "assistant" else "🧑"
+            avatar = "🤖" if message["role"] == "assistant" else "🧑"
             with st.chat_message(message["role"], avatar=avatar):
                 st.write(message["content"])
 
     # Chat input at the bottom
-    user_input = st.chat_input("Ask me anything about insurance!")
+    user_input = st.chat_input("Ask me about coding... if you must...")
     
     # Handle both button clicks and direct input
     if user_input:
@@ -92,7 +92,7 @@ def main():
         st.session_state.messages.append({"role": "user", "content": prompt})
         
         # Get and display AI response, then add to history
-        with st.chat_message("assistant", avatar="👩‍💼"):
+        with st.chat_message("assistant", avatar="🤖"):
             message_placeholder = st.empty()
             full_response = ""
             
@@ -102,7 +102,7 @@ def main():
                 try:
                     # Pass conversation history (excluding the current user message we just added)
                     conversation_history = st.session_state.messages[:-1]
-                    stream = stream_assistant_response(prompt, conversation_history=conversation_history)
+                    stream = stream_assistant_response(prompt, use_case="coding", conversation_history=conversation_history)
                     first_chunk = next(stream)
                     full_response = first_chunk
                 except StopIteration:
