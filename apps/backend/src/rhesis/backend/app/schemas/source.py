@@ -81,6 +81,7 @@ class Source(SourceBase):
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
     tags: Optional[List[Tag]] = []
+    counts: Optional[Dict[str, int]] = None  # Comment and task counts from CountsMixin
     # Related objects
     source_type: Optional[TypeLookup] = None
     status: Optional[Status] = None

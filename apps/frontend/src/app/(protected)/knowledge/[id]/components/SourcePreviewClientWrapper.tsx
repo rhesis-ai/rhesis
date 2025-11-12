@@ -11,6 +11,7 @@ import {
   Collapse,
   useTheme,
   TextField,
+  Divider,
 } from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { PageContainer } from '@toolpad/core/PageContainer';
@@ -31,6 +32,7 @@ import {
   getFileExtension,
   truncateFilename,
 } from '@/constants/knowledge';
+import SourceTags from './SourceTags';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
@@ -438,6 +440,10 @@ export default function SourcePreviewClientWrapper({
             </Typography>
           </Box>
         </Box>
+
+        {/* Tags Section */}
+        <Divider sx={{ my: 2 }} />
+        <SourceTags sessionToken={sessionToken} source={source} />
       </Paper>
 
       {/* Content preview */}

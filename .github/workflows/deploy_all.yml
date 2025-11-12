@@ -19,23 +19,25 @@ on:
         description: 'Environment to deploy to'
         required: true
         type: string
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
   backend-deploy:
     uses: ./.github/workflows/backend.yml
     with:
-      environment: ${{ inputs.environment }}
+      environment: ${{ inputs.environment || 'dev' }}
     secrets: inherit
 
   frontend-deploy:
     uses: ./.github/workflows/frontend.yml
     with:
-      environment: ${{ inputs.environment }}
+      environment: ${{ inputs.environment || 'dev' }}
       reason: "Release deployment to staging"
     secrets: inherit
 
   worker-deploy:
     uses: ./.github/workflows/worker.yml
     with:
-      environment: ${{ inputs.environment }}
+      environment: ${{ inputs.environment || 'dev' }}
     secrets: inherit

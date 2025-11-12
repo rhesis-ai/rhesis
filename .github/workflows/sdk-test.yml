@@ -10,6 +10,8 @@ on:
     branches: [ main ]
     paths:
       - 'sdk/**'
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
   test-sdk:
@@ -44,7 +46,7 @@ jobs:
       continue-on-error: true
 
     - name: Test SDK (full)
-      if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
       run: |
         cd sdk
         uv sync --extra all

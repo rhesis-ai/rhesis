@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -518,7 +518,7 @@ wheels = [
 
 [[package]]
 name = "deepeval"
-version = "3.6.7"
+version = "3.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -554,9 +554,9 @@ dependencies = [
     { name = "typer" },
     { name = "wheel" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/90/f9/090957836bd7e9ab0dd5052c3802041cd4868dc26cb58955c6d83597e166/deepeval-3.6.7.tar.gz", hash = "sha256:4bb2266c35d7b2521a1f9def4562236728c9bbbaf373d956fba2e69eb8061f31", size = 447687, upload-time = "2025-10-15T18:44:23.903Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5c/a5/8159463f689c95c6f0a860db87bc2cd145b2d46c1b29725f74890c400a31/deepeval-3.7.0.tar.gz", hash = "sha256:c84a9a7d68d043e1705a18f2cd4cce7f237790eea99c8b9ec5160dfe60dca3e3", size = 496787, upload-time = "2025-11-04T11:18:48.796Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/63/e04cb87aa45c903be71706d9378954a6607a8240a693fb5a5f436ab5eb3f/deepeval-3.6.7-py3-none-any.whl", hash = "sha256:46fe72869359a7afb7baa34880300ed3660e9b387dfd3341a461e1d96bc5f021", size = 645173, upload-time = "2025-10-15T18:44:21.029Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/81/97f4ed9ca65880624e0e2d84ed89a71a19a9c8dc79e5da8b2423800790de/deepeval-3.7.0-py3-none-any.whl", hash = "sha256:d78852576e5569b06afa2fd4285d8c3c73caf34f897578c3e55f17a3d83d3053", size = 708629, upload-time = "2025-11-04T11:18:45.185Z" },
 ]
 
 [[package]]
@@ -2877,7 +2877,7 @@ wheels = [
 
 [[package]]
 name = "posthog"
-version = "6.7.8"
+version = "5.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "backoff" },
@@ -2885,11 +2885,10 @@ dependencies = [
     { name = "python-dateutil" },
     { name = "requests" },
     { name = "six" },
-    { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/40/b1/a23c9d092de37e9ce39e27166f38f81b0bd7704022fe23f90734eb4b7ad4/posthog-6.7.8.tar.gz", hash = "sha256:999e65134571827061332f1f311df9b24730b386c6eabe0057bf768e514d87a8", size = 119085, upload-time = "2025-10-16T14:46:53.126Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/20/60ae67bb9d82f00427946218d49e2e7e80fb41c15dc5019482289ec9ce8d/posthog-5.4.0.tar.gz", hash = "sha256:701669261b8d07cdde0276e5bc096b87f9e200e3b9589c5ebff14df658c5893c", size = 88076, upload-time = "2025-06-20T23:19:23.485Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1e/ce/5e5ede2f0b24db113544f9f7ce08d395a4107cbc66d77b8d05d9eaeaeada/posthog-6.7.8-py3-none-any.whl", hash = "sha256:842ccb518f925425f714bae29e4ac36a059a8948c45f6ed155543ca7386d554b", size = 137299, upload-time = "2025-10-16T14:46:51.547Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/98/e480cab9a08d1c09b1c59a93dade92c1bb7544826684ff2acbfd10fcfbd4/posthog-5.4.0-py3-none-any.whl", hash = "sha256:284dfa302f64353484420b52d4ad81ff5c2c2d1d607c4e2db602ac72761831bd", size = 105364, upload-time = "2025-06-20T23:19:22.001Z" },
 ]
 
 [[package]]
@@ -3687,7 +3686,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "deepeval", specifier = "==3.6.7" },
+    { name = "deepeval", specifier = "==3.7.0" },
     { name = "deepteam", specifier = ">=0.2.5" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "langchain-google-genai", specifier = ">=2.1.12" },

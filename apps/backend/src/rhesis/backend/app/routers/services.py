@@ -15,6 +15,8 @@ from rhesis.backend.app.schemas.services import (
     ExtractDocumentRequest,
     ExtractDocumentResponse,
     GenerateContentRequest,
+    GenerateMultiTurnTestsRequest,
+    GenerateMultiTurnTestsResponse,
     GenerateTestsRequest,
     GenerateTestsResponse,
     PromptRequest,
@@ -28,6 +30,7 @@ from rhesis.backend.app.services.gemini_client import (
     get_json_response,
 )
 from rhesis.backend.app.services.generation import (
+    generate_multiturn_tests,
     generate_tests,
     process_sources_to_documents,
 )
@@ -283,6 +286,53 @@ async def generate_tests_endpoint(
             chip_states=chip_states,
             rated_samples=rated_samples,
             previous_messages=previous_messages,
+        )
+        return {"tests": test_cases}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/generate/multiturn-tests", response_model=GenerateMultiTurnTestsResponse)
+async def generate_multiturn_tests_endpoint(
+    request: GenerateMultiTurnTestsRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Generate multi-turn test cases using the MultiTurnSynthesizer.
+
+    Multi-turn tests include structured prompts with goals, instructions, and restrictions
+    for testing LLM agents across multiple conversation turns.
+
+    Args:
+        request: The request containing the generation prompt and optional parameters
+            - generation_prompt: Description of what to test
+            - behavior: Optional behavior type (e.g., "Compliance", "Reliability")
+            - category: Optional category (e.g., "Harmful", "Harmless")
+            - topic: Optional specific topic
+            - num_tests: Number of tests to generate (default: 5)
+        db: Database session
+        tenant_context: Tenant context containing organization_id and user_id
+        current_user: Current authenticated user
+
+    Returns:
+        GenerateMultiTurnTestsResponse: The generated multi-turn test cases
+    """
+    try:
+        # Prepare config dict from request
+        config = {
+            "generation_prompt": request.generation_prompt,
+            "behavior": request.behavior,
+            "category": request.category,
+            "topic": request.topic,
+        }
+
+        test_cases = await generate_multiturn_tests(
+            db=db,
+            user=current_user,
+            config=config,
+            num_tests=request.num_tests,
         )
         return {"tests": test_cases}
     except Exception as e:

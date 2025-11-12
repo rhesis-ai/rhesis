@@ -16,6 +16,7 @@ export enum EntityType {
   ORGANIZATION = 'Organization',
   METRIC = 'Metric',
   MODEL = 'Model',
+  SOURCE = 'Source',
 }
 
 export interface TagBase {

@@ -3,6 +3,7 @@ import { User } from './user';
 import { TypeLookup } from './type-lookup';
 import { Status } from './status';
 import { PaginationParams } from './pagination';
+import { Tag } from './tag';
 
 export interface Source {
   id: UUID;
@@ -15,7 +16,7 @@ export interface Source {
   citation?: string;
   language_code?: string;
   source_metadata?: Record<string, any>;
-  tags: string[];
+  tags?: Tag[];
   created_at?: string;
   updated_at?: string;
   counts?: {
@@ -40,7 +41,7 @@ export interface SourceCreate {
   citation?: string;
   language_code?: string;
   source_metadata?: Record<string, any>;
-  tags?: string[];
+  tags?: Tag[];
 }
 
 export interface SourceUpdate {
@@ -52,7 +53,7 @@ export interface SourceUpdate {
   citation?: string;
   language_code?: string;
   source_metadata?: Record<string, any>;
-  tags?: string[];
+  tags?: Tag[];
 }
 
 export interface SourcesQueryParams extends PaginationParams {
