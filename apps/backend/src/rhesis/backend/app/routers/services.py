@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
@@ -36,7 +36,7 @@ from rhesis.backend.app.services.generation import (
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.handlers import DocumentHandler
-from rhesis.backend.app.services.mcp_service import extract_mcp, search_mcp
+from rhesis.backend.app.services.mcp_service import extract_mcp, query_mcp, search_mcp
 from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
@@ -64,6 +64,15 @@ class ExtractMCPRequest(BaseModel):
 
     id: str
     server_name: str
+
+
+class QueryMCPRequest(BaseModel):
+    """General-purpose request to query MCP server with custom task."""
+
+    query: str
+    server_name: str
+    system_prompt: Optional[str] = None
+    max_iterations: Optional[int] = 10
 
 
 router = APIRouter(
@@ -537,6 +546,7 @@ async def generate_test_config(
 @router.post("/mcp/search", response_model=List[ItemResult])
 async def search_mcp_server(
     request: SearchMCPRequest,
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -546,7 +556,7 @@ async def search_mcp_server(
     Returns list of items with id, url, and title.
     """
     try:
-        return await search_mcp(request.query, request.server_name)
+        return await search_mcp(request.query, request.server_name, db, current_user)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -554,6 +564,7 @@ async def search_mcp_server(
 @router.post("/mcp/extract")
 async def extract_mcp_item(
     request: ExtractMCPRequest,
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -563,7 +574,65 @@ async def extract_mcp_item(
     Returns markdown content.
     """
     try:
-        content = await extract_mcp(request.id, request.server_name)
+        content = await extract_mcp(request.id, request.server_name, db, current_user)
         return {"content": content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/mcp/query")
+async def query_mcp_server(
+    request: QueryMCPRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    General-purpose MCP agent query endpoint.
+
+    This is a flexible endpoint that can handle any MCP task without assumptions
+    about the query format or expected output. Unlike the specialized /search and
+    /extract endpoints, this allows you to:
+
+    - Perform any arbitrary task with the MCP server
+    - Provide custom system prompts to guide agent behavior
+    - Control max iterations for complex tasks
+    - Get detailed execution history and reasoning traces
+
+    Use this endpoint when you need more flexibility than the specialized endpoints
+    provide, or when you want to prototype new MCP workflows.
+
+    Args:
+        request: QueryMCPRequest with query, server_name, optional system_prompt and max_iterations
+
+    Returns:
+        Dict containing:
+        - final_answer: The agent's response
+        - success: Whether task completed successfully
+        - iterations_used: Number of iterations taken
+        - execution_history: Detailed trace of agent's reasoning and actions
+        - error: Error message if task failed
+
+    Examples:
+        # Create a Notion page
+        {"query": "Create a page titled 'Q1 Planning'", "server_name": "notionApi"}
+
+        # Complex analysis with custom prompt
+        {
+            "query": "Find all open issues related to authentication",
+            "server_name": "github",
+            "system_prompt": "You are a security analyst...",
+            "max_iterations": 15
+        }
+    """
+    try:
+        result = await query_mcp(
+            query=request.query,
+            server_name=request.server_name,
+            db=db,
+            user=current_user,
+            system_prompt=request.system_prompt,
+            max_iterations=request.max_iterations,
+        )
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
