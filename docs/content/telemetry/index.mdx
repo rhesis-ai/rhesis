@@ -214,7 +214,7 @@ Configured via `apps/otel-collector/otel-collector-config.yaml`:
 **Environment Variables:**
 
 ```bash
-TELEMETRY_PROCESSOR_ENDPOINT=telemetry-processor:4317
+OTEL_PROCESSOR_ENDPOINT=telemetry-processor:4317
 ```
 
 ### Telemetry Processor
@@ -358,8 +358,8 @@ SELECT 'feature_usage', COUNT(*) FROM feature_usage;
 
    ```bash
    # In your .env file
-   RHESIS_TELEMETRY_ENABLED=true
-   DEPLOYMENT_TYPE=self-hosted  # or "cloud"
+   OTEL_RHESIS_TELEMETRY_ENABLED=true
+   OTEL_DEPLOYMENT_TYPE=self-hosted  # or "cloud"
    ```
 
 2. **Verify OTel Collector is receiving data:**
@@ -461,7 +461,7 @@ cd apps/otel-collector
 docker build -t rhesis-otel-collector .
 
 docker run -p 4317:4317 -p 4318:4318 -p 13133:13133 \
-  -e TELEMETRY_PROCESSOR_ENDPOINT=host.docker.internal:4317 \
+  -e OTEL_PROCESSOR_ENDPOINT=host.docker.internal:4317 \
   rhesis-otel-collector
 ```
 

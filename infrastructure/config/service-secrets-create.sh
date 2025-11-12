@@ -75,7 +75,7 @@ function show_usage() {
   echo "  STORAGE_SERVICE_URI           Google Cloud Storage bucket URI"
   echo "  STORAGE_SERVICE_ACCOUNT_KEY   Google Cloud Storage service account key (Base64 encoded JSON)"
   echo "  LOCAL_STORAGE_PATH            Local storage path for temporary files"
-  echo "  DEPLOYMENT_TYPE               Deployment type (cloud or self-hosted)"
+  echo "  OTEL_DEPLOYMENT_TYPE          Deployment type (cloud or self-hosted)"
   echo ""
   echo "  # Analytics Database (Telemetry Processor)"
   echo "  ANALYTICS_DATABASE_URL        Full analytics database URL (alternative to individual vars)"
@@ -88,12 +88,12 @@ function show_usage() {
   echo "  # Telemetry variables"
   echo "  OTEL_EXPORTER_OTLP_ENDPOINT   OTel collector endpoint"
   echo "  OTEL_SERVICE_NAME             OTel service name"
-  echo "  DEPLOYMENT_TYPE               Deployment type (cloud or self-hosted)"
-  echo "  RHESIS_TELEMETRY_ENABLED      Telemetry enabled (true or false)"
+  echo "  OTEL_DEPLOYMENT_TYPE          Deployment type (cloud or self-hosted)"
+  echo "  OTEL_RHESIS_TELEMETRY_ENABLED Telemetry enabled (true or false)"
+  echo "  OTEL_PROCESSOR_ENDPOINT       Telemetry processor endpoint"
+  echo "  OTEL_API_KEY                  API key for telemetry authentication"
   echo "  NEXT_PUBLIC_OTEL_ENDPOINT     OTel collector endpoint for frontend"
-  echo "  NEXT_PUBLIC_DEPLOYMENT_TYPE   Deployment type for frontend"
-  echo ""
-  echo "  NOTE: TELEMETRY_PROCESSOR_ENDPOINT/URL are auto-detected by otel-collector workflow"
+  echo "  NEXT_PUBLIC_OTEL_DEPLOYMENT_TYPE   Deployment type for frontend"
   echo ""
   echo "  # Celery worker variables"
   echo "  BROKER_URL                    Celery broker URL"
@@ -266,7 +266,6 @@ SERVICE_VARS=(
   "STORAGE_SERVICE_URI"
   "STORAGE_SERVICE_ACCOUNT_KEY"
   "LOCAL_STORAGE_PATH"
-  "DEPLOYMENT_TYPE"
   
   # Analytics Database (Telemetry Processor)
   "ANALYTICS_DATABASE_URL"
@@ -279,12 +278,13 @@ SERVICE_VARS=(
   # Telemetry variables
   "OTEL_EXPORTER_OTLP_ENDPOINT"
   "OTEL_SERVICE_NAME"
-  "DEPLOYMENT_TYPE"
-  "RHESIS_TELEMETRY_ENABLED"
+  "OTEL_DEPLOYMENT_TYPE"
+  "OTEL_RHESIS_TELEMETRY_ENABLED"
   "NEXT_PUBLIC_OTEL_ENDPOINT"
-  "NEXT_PUBLIC_DEPLOYMENT_TYPE"
-  "TELEMETRY_API_KEY"
-  # NOTE: TELEMETRY_PROCESSOR_ENDPOINT and TELEMETRY_PROCESSOR_URL are auto-detected
+  "NEXT_PUBLIC_OTEL_DEPLOYMENT_TYPE"
+  "OTEL_API_KEY"
+  "OTEL_PROCESSOR_ENDPOINT"
+  # NOTE: OTEL_PROCESSOR_ENDPOINT and OTEL_PROCESSOR_URL are auto-detected
   
   # Celery worker variables
   "BROKER_URL"

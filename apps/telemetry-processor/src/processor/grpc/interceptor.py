@@ -2,7 +2,7 @@
 gRPC Interceptor for API Key Authentication
 
 Validates incoming requests have the correct x-api-key header.
-Reads TELEMETRY_API_KEY from environment variable for validation.
+Reads OTEL_API_KEY from environment variable for validation.
 """
 
 import logging
@@ -18,17 +18,17 @@ class APIKeyInterceptor(grpc.ServerInterceptor):
     """
     Intercepts all gRPC requests to validate API key.
 
-    Checks for x-api-key header and compares with TELEMETRY_API_KEY env var.
+    Checks for x-api-key header and compares with OTEL_API_KEY env var.
     Rejects requests with invalid or missing API keys.
     """
 
     def __init__(self):
         """Initialize the interceptor with API key from environment."""
-        self.api_key = os.getenv("TELEMETRY_API_KEY")
+        self.api_key = os.getenv("OTEL_API_KEY")
         if not self.api_key:
             logger.error(
-                "🚨 CRITICAL: TELEMETRY_API_KEY not set! All requests will be rejected. "
-                "Set TELEMETRY_API_KEY environment variable to enable authentication."
+                "🚨 CRITICAL: OTEL_API_KEY not set! All requests will be rejected. "
+                "Set OTEL_API_KEY environment variable to enable authentication."
             )
         else:
             logger.info("✅ API Key authentication enabled")
@@ -57,9 +57,7 @@ class APIKeyInterceptor(grpc.ServerInterceptor):
 
             # Validate API key (reject if not configured or doesn't match)
             if not self.api_key or provided_key != self.api_key:
-                reason = (
-                    "TELEMETRY_API_KEY not configured" if not self.api_key else "Invalid API key"
-                )
+                reason = "OTEL_API_KEY not configured" if not self.api_key else "Invalid API key"
                 logger.warning(
                     f"🚫 Unauthorized request attempt from "
                     f"{metadata.get('user-agent', 'unknown')} - {reason}"

@@ -237,9 +237,9 @@ jobs:
           ANALYTICS_DB_HOST=${{ secrets.ANALYTICS_DB_HOST }},
           ANALYTICS_DB_PORT=${{ secrets.ANALYTICS_DB_PORT || '5432' }},
           ANALYTICS_DB_NAME=${{ secrets.ANALYTICS_DB_NAME }},
-          TELEMETRY_API_KEY=${{ secrets.TELEMETRY_API_KEY }},
+          OTEL_API_KEY=${{ secrets.OTEL_API_KEY }},
           LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }},
-          DEPLOYMENT_TYPE=${{ secrets.DEPLOYMENT_TYPE || 'cloud' }},
+          OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
           ENVIRONMENT=${{ env.ENVIRONMENT }}
           EOF
           )"

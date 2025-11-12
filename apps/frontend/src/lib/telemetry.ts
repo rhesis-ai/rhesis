@@ -68,7 +68,7 @@ export function initTelemetry() {
     return;
   }
 
-  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
+  const deploymentType = process.env.NEXT_PUBLIC_OTEL_DEPLOYMENT_TYPE || 'unknown';
   const appVersion = process.env.APP_VERSION || 'unknown';
 
   // Create resource
@@ -149,7 +149,7 @@ export async function trackPageView(
     span.setAttribute('organization.id', hashedOrgId);
   }
 
-  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
+  const deploymentType = process.env.NEXT_PUBLIC_OTEL_DEPLOYMENT_TYPE || 'unknown';
   span.setAttribute('deployment.type', deploymentType);
 
   span.end();
@@ -192,7 +192,7 @@ export async function trackEvent(
     span.setAttribute('organization.id', hashedOrgId);
   }
 
-  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
+  const deploymentType = process.env.NEXT_PUBLIC_OTEL_DEPLOYMENT_TYPE || 'unknown';
   span.setAttribute('deployment.type', deploymentType);
 
   span.end();
@@ -237,7 +237,7 @@ export async function trackFeatureUsage(
     span.setAttribute('organization.id', hashedOrgId);
   }
 
-  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
+  const deploymentType = process.env.NEXT_PUBLIC_OTEL_DEPLOYMENT_TYPE || 'unknown';
   span.setAttribute('deployment.type', deploymentType);
 
   span.end();
@@ -265,7 +265,7 @@ export async function trackUserLogin(userId: string, organizationId?: string) {
     span.setAttribute('organization.id', hashedOrgId);
   }
 
-  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
+  const deploymentType = process.env.NEXT_PUBLIC_OTEL_DEPLOYMENT_TYPE || 'unknown';
   span.setAttribute('deployment.type', deploymentType);
 
   span.end();

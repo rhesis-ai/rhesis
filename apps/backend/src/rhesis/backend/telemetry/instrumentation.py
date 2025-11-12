@@ -164,13 +164,15 @@ def initialize_telemetry():
 
     Telemetry Configuration:
     - Cloud deployments: Always enabled (user consent via Terms & Conditions)
-    - Self-hosted deployments: Opt-in via RHESIS_TELEMETRY_ENABLED environment variable
+    - Self-hosted deployments: Opt-in via OTEL_RHESIS_TELEMETRY_ENABLED environment variable
 
     Environment Variables:
-        DEPLOYMENT_TYPE: "cloud" or "self-hosted"
-        RHESIS_TELEMETRY_ENABLED: "true" or "false" (self-hosted only, defaults to false)
+        OTEL_DEPLOYMENT_TYPE: "cloud" or "self-hosted"
+        OTEL_RHESIS_TELEMETRY_ENABLED: "true" or "false" (self-hosted only, defaults to false)
         OTEL_EXPORTER_OTLP_ENDPOINT: Telemetry collector endpoint URL
         OTEL_SERVICE_NAME: Service identifier (default: "rhesis-backend")
+        OTEL_PROCESSOR_ENDPOINT: Telemetry processor endpoint (default: telemetry-processor:4317)
+        OTEL_API_KEY: API key for telemetry authentication
 
     See is_telemetry_enabled() docstring for detailed information about
     data collection practices and privacy protections.
@@ -181,7 +183,7 @@ def initialize_telemetry():
     _TELEMETRY_GLOBALLY_ENABLED = is_telemetry_enabled()
 
     if not _TELEMETRY_GLOBALLY_ENABLED:
-        deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+        deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
         logger.info(f"Telemetry disabled for deployment_type={deployment_type}")
         # Don't set NoOpTracerProvider to avoid conflicts with other libraries (e.g., deepeval)
         # Just return early and let OpenTelemetry use its default behavior
@@ -197,7 +199,7 @@ def initialize_telemetry():
         return
 
     # Determine deployment type
-    deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+    deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
     service_name = os.getenv("OTEL_SERVICE_NAME", "rhesis-backend")
 
     # Create resource with service information
@@ -257,10 +259,10 @@ def is_telemetry_enabled() -> bool:
 
     SELF-HOSTED DEPLOYMENTS:
     - Telemetry is disabled by default
-    - Opt-in by setting RHESIS_TELEMETRY_ENABLED=true
+    - Opt-in by setting OTEL_RHESIS_TELEMETRY_ENABLED=true
 
     IMPORTANT FOR SELF-HOSTED ADMINISTRATORS:
-    Setting RHESIS_TELEMETRY_ENABLED=true opts in to anonymous usage analytics.
+    Setting OTEL_RHESIS_TELEMETRY_ENABLED=true opts in to anonymous usage analytics.
 
     Data Collected:
     - Login/logout events with hashed user IDs (SHA-256, irreversible, 16-char truncated)
@@ -285,7 +287,7 @@ def is_telemetry_enabled() -> bool:
     All data is sent to Rhesis's telemetry servers for product improvement.
     For full privacy details, see: https://rhesis.ai/privacy-policy
 
-    You may disable telemetry at any time by setting RHESIS_TELEMETRY_ENABLED=false
+    You may disable telemetry at any time by setting OTEL_RHESIS_TELEMETRY_ENABLED=false
     or omitting this variable entirely (defaults to disabled).
 
     Returns:
@@ -293,17 +295,17 @@ def is_telemetry_enabled() -> bool:
 
     Examples:
         # Self-hosted: Enable telemetry
-        DEPLOYMENT_TYPE=self-hosted
-        RHESIS_TELEMETRY_ENABLED=true
+        OTEL_DEPLOYMENT_TYPE=self-hosted
+        OTEL_RHESIS_TELEMETRY_ENABLED=true
 
         # Self-hosted: Disable telemetry (default)
-        DEPLOYMENT_TYPE=self-hosted
-        RHESIS_TELEMETRY_ENABLED=false
+        OTEL_DEPLOYMENT_TYPE=self-hosted
+        OTEL_RHESIS_TELEMETRY_ENABLED=false
 
         # Cloud: Always enabled
-        DEPLOYMENT_TYPE=cloud
+        OTEL_DEPLOYMENT_TYPE=cloud
     """
-    deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+    deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
 
     # Cloud users: User consent collected via Terms & Conditions agreement
     if deployment_type == "cloud":
@@ -311,7 +313,7 @@ def is_telemetry_enabled() -> bool:
 
     # Self-hosted users: Check environment variable (default: disabled)
     if deployment_type == "self-hosted":
-        return os.getenv("RHESIS_TELEMETRY_ENABLED", "false").lower() in ("true", "1", "yes")
+        return os.getenv("OTEL_RHESIS_TELEMETRY_ENABLED", "false").lower() in ("true", "1", "yes")
 
     # Unknown deployment type: Disable telemetry for safety
     return False
@@ -426,7 +428,7 @@ def track_user_activity(event_type: str, session_id: Optional[str] = None, **met
             span.set_attribute("session.id", session_id)
 
         # Set deployment type
-        deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+        deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
         span.set_attribute("deployment.type", deployment_type)
 
         # Add custom metadata (sanitized to prevent sensitive data leakage)
@@ -488,7 +490,7 @@ def track_feature_usage(feature_name: str, action: str, **metadata):
             span.set_attribute("organization.id", org_id)
 
         # Set deployment type
-        deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+        deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
         span.set_attribute("deployment.type", deployment_type)
 
         # Add custom metadata (sanitized to prevent sensitive data leakage)

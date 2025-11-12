@@ -68,14 +68,14 @@ exporters:
   # Note: This is a custom exporter - we'll use the SQL exporter
   # For now, we'll use OTLP to bridge, then create a custom service
   otlp/postgres:
-    endpoint: ${env:TELEMETRY_PROCESSOR_ENDPOINT}
+    endpoint: ${env:OTEL_PROCESSOR_ENDPOINT}
     tls:
       # Use insecure for local Docker (plain gRPC), secure for Cloud Run (TLS)
       # Set OTEL_INSECURE=true for local development, false for production
       insecure: ${env:OTEL_INSECURE}
     # API Key authentication via custom header
     headers:
-      x-api-key: ${env:TELEMETRY_API_KEY}
+      x-api-key: ${env:OTEL_API_KEY}
     sending_queue:
       enabled: true
       num_consumers: 10
