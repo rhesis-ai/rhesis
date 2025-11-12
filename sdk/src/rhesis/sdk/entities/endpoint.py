@@ -1,9 +1,9 @@
 from typing import Any, ClassVar, Dict, Optional
 
-import requests
-
-from rhesis.sdk.client import Endpoints
+from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
+
+ENDPOINT = Endpoints.ENDPOINTS
 
 
 class Endpoint(BaseEntity):
@@ -29,7 +29,10 @@ class Endpoint(BaseEntity):
         ...     print(endpoint.fields.get('name'))
     """
 
-    endpoint: ClassVar[Endpoints] = Endpoints.ENDPOINTS
+    endpoint: ClassVar[Endpoints] = ENDPOINT
+    name: str
+    description: str
+    id: Optional[str] = None
 
     @handle_http_errors
     def invoke(self, input: str, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -77,16 +80,14 @@ class Endpoint(BaseEntity):
         if not self.id:
             raise ValueError("Endpoint ID must be set before invoking")
 
-        # Construct input_data dictionary
         input_data: Dict[str, Any] = {"input": input}
         if session_id is not None:
             input_data["session_id"] = session_id
 
-        url = f"{self.client.get_url(self.endpoint)}/{self.id}/invoke"
-        response = requests.post(
-            url,
-            json=input_data,
-            headers=self.headers,
+        client = Client()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            data=input_data,
+            url_params=f"{self.id}/invoke",
         )
-        response.raise_for_status()
-        return dict(response.json())
