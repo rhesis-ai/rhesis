@@ -17,9 +17,18 @@ import {
   ListItemText,
   Collapse,
   IconButton,
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  Chip,
+  Tooltip,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
 
@@ -51,6 +60,11 @@ export default function TestDetailMetricsTab({
   const [reasonExpanded, setReasonExpanded] = useState(false);
   const [criteriaExpanded, setCriteriaExpanded] = useState(false);
 
+  // Determine if this is a multi-turn test by checking for Goal Achievement metric
+  const goalAchievementMetric =
+    test.test_metrics?.metrics?.['Goal Achievement'];
+  const isMultiTurn = !!goalAchievementMetric;
+
   const metricsData = useMemo(() => {
     const testMetrics = test.test_metrics?.metrics || {};
     const allMetrics: Array<{
@@ -61,28 +75,36 @@ export default function TestDetailMetricsTab({
       behaviorName: string;
     }> = [];
 
-    // Handle behavior-based metrics (single-turn tests)
-    behaviors.forEach(behavior => {
-      behavior.metrics.forEach(metric => {
-        const metricResult = testMetrics[metric.name];
-        if (metricResult) {
-          allMetrics.push({
-            name: metric.name,
-            description: metric.description,
-            passed: metricResult.is_successful,
-            fullMetricData: metricResult,
-            behaviorName: behavior.name,
-          });
-        }
-      });
-    });
+    // Check if we have behavior definitions
+    const hasBehaviors = Boolean(behaviors && behaviors.length > 0);
 
-    // Handle direct metrics (multi-turn tests) - metrics not associated with behaviors
-    if (allMetrics.length === 0 && Object.keys(testMetrics).length > 0) {
-      // If no behavior-based metrics found but test has metrics, treat them as direct metrics
+    if (hasBehaviors) {
+      // Handle behavior-based metrics (single-turn tests)
+      behaviors.forEach(behavior => {
+        behavior.metrics.forEach(metric => {
+          const metricResult = testMetrics[metric.name];
+          if (metricResult) {
+            allMetrics.push({
+              name: metric.name,
+              description: metric.description,
+              passed: metricResult.is_successful,
+              fullMetricData: metricResult,
+              behaviorName: behavior.name,
+            });
+          }
+        });
+      });
+    }
+
+    // Handle direct metrics (multi-turn tests or when no behaviors defined)
+    // Process any metrics that weren't already added via behaviors
+    if (!hasBehaviors || allMetrics.length === 0) {
       Object.entries(testMetrics).forEach(
         ([metricName, metricResult]: [string, any]) => {
+          // Skip if already added via behaviors
+          const alreadyAdded = allMetrics.some(m => m.name === metricName);
           if (
+            !alreadyAdded &&
             metricResult &&
             typeof metricResult === 'object' &&
             'is_successful' in metricResult
@@ -92,7 +114,7 @@ export default function TestDetailMetricsTab({
               description: metricResult.description || undefined,
               passed: metricResult.is_successful,
               fullMetricData: metricResult,
-              behaviorName: 'Multi-Turn Test', // Default behavior name for multi-turn tests
+              behaviorName: 'General Metrics', // Generic category name
             });
           }
         }
@@ -193,7 +215,7 @@ export default function TestDetailMetricsTab({
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Filter Toggle */}
+      {/* Filter Toggle - Only for Single-turn tests */}
       <Box
         sx={{
           mb: 3,
@@ -205,23 +227,25 @@ export default function TestDetailMetricsTab({
         <Typography variant="h6" fontWeight={600}>
           Metrics Overview
         </Typography>
-        <ToggleButtonGroup
-          value={filterStatus}
-          exclusive
-          onChange={handleFilterChange}
-          size="small"
-          aria-label="metric status filter"
-        >
-          <ToggleButton value="all" aria-label="all metrics">
-            All
-          </ToggleButton>
-          <ToggleButton value="passed" aria-label="passed metrics">
-            Passed
-          </ToggleButton>
-          <ToggleButton value="failed" aria-label="failed metrics">
-            Failed
-          </ToggleButton>
-        </ToggleButtonGroup>
+        {!isMultiTurn && (
+          <ToggleButtonGroup
+            value={filterStatus}
+            exclusive
+            onChange={handleFilterChange}
+            size="small"
+            aria-label="metric status filter"
+          >
+            <ToggleButton value="all" aria-label="all metrics">
+              All
+            </ToggleButton>
+            <ToggleButton value="passed" aria-label="passed metrics">
+              Passed
+            </ToggleButton>
+            <ToggleButton value="failed" aria-label="failed metrics">
+              Failed
+            </ToggleButton>
+          </ToggleButtonGroup>
+        )}
       </Box>
 
       {/* Summary Cards */}
@@ -368,7 +392,7 @@ export default function TestDetailMetricsTab({
                       }
                       sx={{
                         height: 6,
-                        borderRadius: 1,
+                        borderRadius: theme.shape.borderRadius,
                         backgroundColor: theme.palette.grey[200],
                         '& .MuiLinearProgress-bar': {
                           backgroundColor: goalAchievementData.isSuccessful
@@ -418,7 +442,7 @@ export default function TestDetailMetricsTab({
                       value={goalAchievementData.confidence * 100}
                       sx={{
                         height: 6,
-                        borderRadius: 1,
+                        borderRadius: theme.shape.borderRadius,
                         backgroundColor: theme.palette.grey[200],
                         '& .MuiLinearProgress-bar': {
                           backgroundColor:
@@ -501,7 +525,7 @@ export default function TestDetailMetricsTab({
                                 sx={{
                                   width: 6,
                                   height: 6,
-                                  borderRadius: '50%',
+                                  borderRadius: theme.shape.circular,
                                   backgroundColor: criterion.met
                                     ? 'success.main'
                                     : 'error.main',
@@ -575,6 +599,107 @@ export default function TestDetailMetricsTab({
             </Grid>
           </CardContent>
         </Card>
+      )}
+
+      {/* Metrics Details Table - Only for Single-turn tests */}
+      {!isMultiTurn && (
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell width="15%">Status</TableCell>
+                <TableCell width="30%">Metric</TableCell>
+                <TableCell width="55%">Reason</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredMetrics.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} align="center">
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ py: 2 }}
+                    >
+                      No metrics found
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredMetrics.map((metric, index) => (
+                  <TableRow
+                    key={`${metric.behaviorName}-${metric.name}-${index}`}
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: theme.palette.action.hover,
+                      },
+                    }}
+                  >
+                    <TableCell>
+                      <StatusChip
+                        passed={metric.passed}
+                        label={metric.passed ? 'Pass' : 'Fail'}
+                        size="small"
+                        variant="filled"
+                        sx={{ minWidth: 80 }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                      >
+                        <Typography variant="body2" fontWeight={500}>
+                          {metric.name}
+                        </Typography>
+                        {metric.description && (
+                          <Tooltip
+                            title={metric.description}
+                            arrow
+                            placement="top"
+                            enterDelay={300}
+                            leaveDelay={0}
+                          >
+                            <InfoOutlinedIcon
+                              sx={{
+                                fontSize: 16,
+                                color: 'action.active',
+                                opacity: 0.6,
+                                cursor: 'help',
+                                '&:hover': {
+                                  opacity: 1,
+                                },
+                              }}
+                            />
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {metric.fullMetricData.reason ? (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          {metric.fullMetricData.reason}
+                        </Typography>
+                      ) : (
+                        <Typography
+                          variant="caption"
+                          color="text.disabled"
+                          fontStyle="italic"
+                        >
+                          No reason provided
+                        </Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
     </Box>
   );

@@ -33,6 +33,8 @@ interface ConversationHistoryProps {
   onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
   onConfirmAutomatedReview?: () => void;
   hasExistingReview?: boolean;
+  reviewMatchesAutomated?: boolean; // True if review matches automated result, false if conflict
+  isConfirmingReview?: boolean;
   maxHeight?: number | string;
 }
 
@@ -49,6 +51,8 @@ export default function ConversationHistory({
   onReviewTurn,
   onConfirmAutomatedReview,
   hasExistingReview = false,
+  reviewMatchesAutomated = true,
+  isConfirmingReview = false,
   maxHeight = 600,
 }: ConversationHistoryProps) {
   const theme = useTheme();
@@ -87,8 +91,10 @@ export default function ConversationHistory({
   // Get relevant criteria evaluations for a specific turn
   const getCriteriaForTurn = (turnNumber: number) => {
     if (!goalEvaluation?.criteria_evaluations) return [];
-    return goalEvaluation.criteria_evaluations.filter(criterion =>
-      criterion.relevant_turns.includes(turnNumber)
+    return (
+      goalEvaluation.criteria_evaluations?.filter(criterion =>
+        criterion.relevant_turns.includes(turnNumber)
+      ) || []
     );
   };
 
@@ -475,34 +481,40 @@ export default function ConversationHistory({
           }}
         />
 
-        {/* Show Confirmed Indicator if review exists, otherwise show Confirm button */}
-        {hasExistingReview ? (
+        {/* Show Confirmed Indicator only if review exists AND matches automated result, otherwise show Confirm button */}
+        {hasExistingReview && reviewMatchesAutomated ? (
           <Chip
             icon={<CheckIcon sx={{ fontSize: 16 }} />}
-            label="Review Confirmed"
-            size="small"
+            label="Confirmed"
+            size="medium"
+            color="success"
+            variant="filled"
             sx={{
-              bgcolor: theme.palette.mode === 'light' ? '#E8F5E9' : '#1B2F1E',
-              color: theme.palette.success.main,
-              fontWeight: 500,
-              border: `1px solid ${theme.palette.mode === 'light' ? '#A5D6A7' : '#2E7D32'}`,
+              fontWeight: 600,
             }}
           />
-        ) : onConfirmAutomatedReview ? (
+        ) : !hasExistingReview && onConfirmAutomatedReview ? (
           <Tooltip title="Confirm automated review">
-            <IconButton
-              size="small"
-              onClick={onConfirmAutomatedReview}
-              sx={{
-                color: theme.palette.success.main,
-                border: `1px solid ${theme.palette.success.main}`,
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.success.main, 0.1),
-                },
-              }}
-            >
-              <CheckIcon sx={{ fontSize: 18 }} />
-            </IconButton>
+            <span>
+              <IconButton
+                size="small"
+                onClick={onConfirmAutomatedReview}
+                disabled={isConfirmingReview}
+                sx={{
+                  color: theme.palette.success.main,
+                  border: `1px solid ${theme.palette.success.main}`,
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.success.main, 0.1),
+                  },
+                  '&:disabled': {
+                    color: theme.palette.action.disabled,
+                    borderColor: theme.palette.action.disabled,
+                  },
+                }}
+              >
+                <CheckIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </span>
           </Tooltip>
         ) : null}
       </Box>

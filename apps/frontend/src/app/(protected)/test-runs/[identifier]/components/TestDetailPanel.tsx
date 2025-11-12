@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -133,7 +133,13 @@ export default function TestDetailPanel({
   const [reviewInitialStatus, setReviewInitialStatus] = useState<
     'passed' | 'failed' | undefined
   >(undefined);
+  const [isConfirmingReview, setIsConfirmingReview] = useState(false);
+  const isConfirmingRef = useRef(false);
   const theme = useTheme();
+
+  // Determine if this is a multi-turn test
+  const isMultiTurn =
+    testSetType?.toLowerCase().includes('multi-turn') || false;
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -143,13 +149,19 @@ export default function TestDetailPanel({
     setReviewInitialComment(`Turn ${turnNumber}: `);
     // Set initial status to opposite of automated result
     setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
-    setActiveTab(3); // Switch to reviews tab (index 3)
+    setActiveTab(isMultiTurn ? 3 : 2); // Switch to reviews tab (index depends on multi-turn)
   };
 
   const handleConfirmAutomatedReview = async () => {
     if (!test) return;
 
+    // Atomic check-and-set to prevent duplicate submissions
+    if (isConfirmingRef.current) return;
+    isConfirmingRef.current = true;
+
     try {
+      setIsConfirmingReview(true);
+
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
@@ -185,7 +197,10 @@ export default function TestDetailPanel({
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
     } catch (error) {
-      // Error handling - could be logged to monitoring service
+      console.error('Failed to confirm automated review:', error);
+    } finally {
+      setIsConfirmingReview(false);
+      isConfirmingRef.current = false;
     }
   };
 
@@ -242,40 +257,42 @@ export default function TestDetailPanel({
             id="test-detail-tab-0"
             aria-controls="test-detail-tabpanel-0"
           />
-          <Tab
-            icon={<ChatOutlinedIcon fontSize="small" />}
-            iconPosition="start"
-            label="Conversation"
-            id="test-detail-tab-1"
-            aria-controls="test-detail-tabpanel-1"
-          />
+          {isMultiTurn && (
+            <Tab
+              icon={<ChatOutlinedIcon fontSize="small" />}
+              iconPosition="start"
+              label="Conversation"
+              id="test-detail-tab-1"
+              aria-controls="test-detail-tabpanel-1"
+            />
+          )}
           <Tab
             icon={<AssessmentOutlinedIcon fontSize="small" />}
             iconPosition="start"
             label="Metrics"
-            id="test-detail-tab-2"
-            aria-controls="test-detail-tabpanel-2"
+            id={`test-detail-tab-${isMultiTurn ? '2' : '1'}`}
+            aria-controls={`test-detail-tabpanel-${isMultiTurn ? '2' : '1'}`}
           />
           <Tab
             icon={<RateReviewIcon fontSize="small" />}
             iconPosition="start"
             label="Reviews"
-            id="test-detail-tab-3"
-            aria-controls="test-detail-tabpanel-3"
+            id={`test-detail-tab-${isMultiTurn ? '3' : '2'}`}
+            aria-controls={`test-detail-tabpanel-${isMultiTurn ? '3' : '2'}`}
           />
           <Tab
             icon={<HistoryIcon fontSize="small" />}
             iconPosition="start"
             label="History"
-            id="test-detail-tab-4"
-            aria-controls="test-detail-tabpanel-4"
+            id={`test-detail-tab-${isMultiTurn ? '4' : '3'}`}
+            aria-controls={`test-detail-tabpanel-${isMultiTurn ? '4' : '3'}`}
           />
           <Tab
             icon={<CommentOutlinedIcon fontSize="small" />}
             iconPosition="start"
             label="Tasks & Comments"
-            id="test-detail-tab-5"
-            aria-controls="test-detail-tabpanel-5"
+            id={`test-detail-tab-${isMultiTurn ? '5' : '4'}`}
+            aria-controls={`test-detail-tabpanel-${isMultiTurn ? '5' : '4'}`}
           />
         </Tabs>
       </Box>
@@ -312,22 +329,25 @@ export default function TestDetailPanel({
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={1}>
-          <TestDetailConversationTab
-            test={test}
-            testSetType={testSetType}
-            project={project}
-            projectName={projectName}
-            onReviewTurn={handleReviewTurn}
-            onConfirmAutomatedReview={handleConfirmAutomatedReview}
-          />
-        </TabPanel>
+        {isMultiTurn && (
+          <TabPanel value={activeTab} index={1}>
+            <TestDetailConversationTab
+              test={test}
+              testSetType={testSetType}
+              project={project}
+              projectName={projectName}
+              onReviewTurn={handleReviewTurn}
+              onConfirmAutomatedReview={handleConfirmAutomatedReview}
+              isConfirmingReview={isConfirmingReview}
+            />
+          </TabPanel>
+        )}
 
-        <TabPanel value={activeTab} index={2}>
+        <TabPanel value={activeTab} index={isMultiTurn ? 2 : 1}>
           <TestDetailMetricsTab test={test} behaviors={behaviors} />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={3}>
+        <TabPanel value={activeTab} index={isMultiTurn ? 3 : 2}>
           <TestDetailReviewsTab
             test={test}
             sessionToken={sessionToken}
@@ -342,7 +362,7 @@ export default function TestDetailPanel({
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={4}>
+        <TabPanel value={activeTab} index={isMultiTurn ? 4 : 3}>
           <TestDetailHistoryTab
             test={test}
             testRunId={testRunId}
@@ -350,16 +370,15 @@ export default function TestDetailPanel({
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={5}>
+        <TabPanel value={activeTab} index={isMultiTurn ? 5 : 4}>
           <TasksAndCommentsWrapper
-            entityType="TestRun"
-            entityId={testRunId}
+            entityType="TestResult"
+            entityId={test.id}
             sessionToken={sessionToken}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
             currentUserPicture={currentUserPicture}
             elevation={0}
-            additionalMetadata={{ test_result_id: test.id }}
           />
         </TabPanel>
       </Box>
