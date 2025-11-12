@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -87,6 +87,7 @@ export default function TestsTableView({
   );
   const [hasInitialSelection, setHasInitialSelection] = useState(false);
   const [isConfirmingReview, setIsConfirmingReview] = useState(false);
+  const isConfirmingRef = useRef(false);
 
   // Local state to track immediate test updates before parent prop updates
   const [localTestUpdates, setLocalTestUpdates] = useState<
@@ -150,15 +151,11 @@ export default function TestsTableView({
 
   // Sync selectedTest with tests array when tests are updated (e.g., after review changes)
   React.useEffect(() => {
-    if (selectedTest) {
-      const updatedTest = mergedTests.find(t => t.id === selectedTest.id);
-      if (updatedTest && updatedTest !== selectedTest) {
-        setSelectedTest(updatedTest);
-      }
-    }
-    // Note: selectedTest is intentionally excluded from dependencies to avoid infinite loops
-    // since this effect updates selectedTest itself
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setSelectedTest(prev => {
+      if (!prev) return prev;
+      const updated = mergedTests.find(t => t.id === prev.id);
+      return updated && updated !== prev ? updated : prev;
+    });
   }, [mergedTests]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
@@ -226,8 +223,9 @@ export default function TestsTableView({
   ) => {
     event.stopPropagation();
 
-    // Prevent duplicate submissions
-    if (isConfirmingReview) return;
+    // Atomic check-and-set to prevent duplicate submissions
+    if (isConfirmingRef.current) return;
+    isConfirmingRef.current = true;
 
     try {
       setIsConfirmingReview(true);
@@ -294,8 +292,10 @@ export default function TestsTableView({
       );
 
       // Poll for the updated test result with exponential backoff
+      // Use a timestamp to ensure we only use the most recent response
+      const requestTimestamp = Date.now();
       let updatedTest: TestResultDetail | null = null;
-      const delays = [100, 200, 400, 800, 1600]; // Exponential backoff delays
+      const delays = [100, 200, 400, 800]; // Exponential backoff delays
 
       for (const delay of delays) {
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -308,10 +308,10 @@ export default function TestsTableView({
         }
       }
 
-      // If we still don't have the updated test after all attempts, fetch one more time
-      if (!updatedTest) {
-        updatedTest = await testResultsClient.getTestResult(test.id);
-      }
+      // Final fetch to get the most recent state
+      // This ensures we get the latest data regardless of previous poll results
+      const finalTest = await testResultsClient.getTestResult(test.id);
+      updatedTest = finalTest;
 
       // IMMEDIATELY update local state for instant UI feedback
       setLocalTestUpdates(prev => ({
@@ -330,6 +330,7 @@ export default function TestsTableView({
       console.error('Failed to confirm review:', error);
     } finally {
       setIsConfirmingReview(false);
+      isConfirmingRef.current = false;
     }
   };
 

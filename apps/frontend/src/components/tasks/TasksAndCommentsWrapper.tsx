@@ -52,7 +52,7 @@ export function TasksAndCommentsWrapper({
         }
         await createTask(enrichedTaskData);
         // Notify parent that counts have changed
-        onCountsChange?.();
+        await onCountsChange?.();
       } catch (error) {}
     },
     [createTask, onCountsChange, additionalMetadata]
@@ -68,7 +68,7 @@ export function TasksAndCommentsWrapper({
       try {
         await deleteTask(taskId);
         // Notify parent that counts have changed
-        onCountsChange?.();
+        await onCountsChange?.();
       } catch (error) {}
     },
     [deleteTask, onCountsChange]

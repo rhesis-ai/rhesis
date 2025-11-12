@@ -267,7 +267,7 @@ export interface TestResult extends TestResultBase {
   created_at: string;
   updated_at: string;
   last_review?: Review;
-  matches_review: boolean;
+  matches_review?: boolean;
 }
 
 export interface TestResultDetail extends TestResult {

@@ -76,7 +76,7 @@ export default function TestDetailMetricsTab({
     }> = [];
 
     // Check if we have behavior definitions
-    const hasBehaviors = behaviors && behaviors.length > 0;
+    const hasBehaviors = Boolean(behaviors && behaviors.length > 0);
 
     if (hasBehaviors) {
       // Handle behavior-based metrics (single-turn tests)
