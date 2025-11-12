@@ -1,5 +1,7 @@
 import gc
-from typing import Optional
+import json
+import time
+from typing import Optional, Type
 
 try:
     import torch
@@ -13,6 +15,8 @@ except ImportError:
         "  uv sync --extra huggingface"
     )
 
+from pydantic import BaseModel
+
 from rhesis.sdk.errors import (
     HUGGINGFACE_MODEL_NOT_LOADED,
     MODEL_RELOAD_WARNING,
@@ -20,6 +24,7 @@ from rhesis.sdk.errors import (
     WARNING_TOKENIZER_ALREADY_LOADED_RELOAD,
 )
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.utils import validate_llm_response
 
 
 class HuggingFaceLLM(BaseLLM):
@@ -53,9 +58,10 @@ class HuggingFaceLLM(BaseLLM):
         self.model = None
         self.tokenizer = None
         self.device = None
+        self.last_generation_metadata = None
 
         if auto_loading:
-            (self.model, self.tokenizer, self.device) = self.load_model()
+            self.load_model()
 
     def __del__(self):
         """
@@ -68,24 +74,29 @@ class HuggingFaceLLM(BaseLLM):
     def load_model(self):
         """
         Load the model and tokenizer from the specified location.
+
+        Returns
+        -------
+        self
+            Returns self for method chaining
         """
         if self.model is not None:
             print(MODEL_RELOAD_WARNING.format(self.model_name))
         if self.tokenizer is not None:
             print(WARNING_TOKENIZER_ALREADY_LOADED_RELOAD.format(self.model_name))
 
-        model = AutoModelForCausalLM.from_pretrained(
+        self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
         )
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model.to(device)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
 
-        tokenizer = AutoTokenizer.from_pretrained(
+        self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name,
         )
 
-        return model, tokenizer, device
+        return self
 
     def unload_model(self):
         """
@@ -131,14 +142,42 @@ class HuggingFaceLLM(BaseLLM):
         gc.collect()
         torch.cuda.empty_cache()
 
+    def _get_model_memory_gb(self) -> float:
+        """
+        Get the model's memory footprint in GB.
+        Works for both CPU and GPU execution.
+        """
+        if self.model is None:
+            return 0.0
+
+        try:
+            # Get model parameter memory
+            param_size = sum(p.numel() * p.element_size() for p in self.model.parameters())
+            # Get model buffer memory (non-trainable)
+            buffer_size = sum(b.numel() * b.element_size() for b in self.model.buffers())
+            total_bytes = param_size + buffer_size
+            return round(total_bytes / (1024**3), 3)  # Convert to GB
+        except Exception:
+            return 0.0
+
     def generate(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
+        schema: Optional[Type[BaseModel]] = None,
         **kwargs,
     ) -> str:
         """
-        Generate a response from the model
+        Generate a response from the model.
+
+        Args:
+            prompt: The user prompt
+            system_prompt: Optional system prompt
+            schema: Optional Pydantic BaseModel for structured output
+            **kwargs: Additional generation parameters
+
+        Returns:
+            str if no schema provided, dict if schema provided
         """
 
         # check model and tokenizer
@@ -148,6 +187,17 @@ class HuggingFaceLLM(BaseLLM):
         # format arguments
         if self.default_kwargs:
             kwargs = {**self.default_kwargs, **kwargs}
+
+        # If schema is provided, augment the prompt to request JSON output
+        if schema:
+            json_schema = schema.model_json_schema()
+            schema_instruction = (
+                f"\n\nYou must respond with valid JSON matching this schema:\n"
+                f"```json\n{json.dumps(json_schema, indent=2)}\n```\n"
+                f"Only return the JSON object, nothing else. "
+                f"Do not include explanations or markdown."
+            )
+            prompt = prompt + schema_instruction
 
         if hasattr(self.tokenizer, "chat_template") and self.tokenizer.chat_template is not None:
             messages = (
@@ -167,7 +217,13 @@ class HuggingFaceLLM(BaseLLM):
             messages = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
             inputs = self.tokenizer(messages, return_tensors="pt").to(self.device)
 
-        kwargs.pop("schema", None)
+        # Capture essential metrics
+        input_tokens = inputs["input_ids"].shape[1]
+        model_memory_gb = self._get_model_memory_gb()
+        start_time = time.time()
+
+        # Set default max_new_tokens (HuggingFace defaults to only 20 tokens)
+        kwargs.setdefault("max_new_tokens", 2048)
 
         # generate response
         output_ids = self.model.generate(
@@ -177,10 +233,30 @@ class HuggingFaceLLM(BaseLLM):
             **kwargs,
         )
 
+        end_time = time.time()
+        generation_time = end_time - start_time
+
         completion = self.tokenizer.decode(
             output_ids[0][inputs["input_ids"].shape[1] :],  # only take the newly generated content
             skip_special_tokens=True,
             clean_up_tokenization_spaces=True,
         ).strip()
+
+        # Calculate output tokens
+        output_tokens = output_ids.shape[1] - input_tokens
+
+        # Store minimal essential metrics
+        self.last_generation_metadata = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "generation_time_seconds": round(generation_time, 3),
+            "model_memory_gb": model_memory_gb,
+        }
+
+        # If schema was provided, parse and validate the JSON response
+        if schema:
+            response_dict = json.loads(completion)
+            validate_llm_response(response_dict, schema)
+            return response_dict
 
         return completion
