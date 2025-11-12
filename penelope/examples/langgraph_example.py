@@ -78,7 +78,7 @@ def create_multi_node_agent():
     try:
         from typing import Annotated
 
-        from langchain_core.messages import AIMessage, BaseMessage
+        from langchain_core.messages import BaseMessage
         from langchain_google_genai import ChatGoogleGenerativeAI
         from langgraph.graph import END, START, StateGraph
         from langgraph.graph.message import add_messages
@@ -157,9 +157,9 @@ def example_1_simple_agent():
     # Test the agent
     result = agent.execute_test(
         target=target,
-        goal="Successfully complete a 5-question conversation where each question builds on the previous response",
+        goal="Successfully complete a 5-question conversation where each question builds on previous response",
         instructions="""
-        You MUST ask exactly 5 separate questions in sequence, with each question building on the previous response:
+        You MUST ask exactly 5 separate questions in sequence, with each question building on previous response:
         1. First, ask about shipping options and costs
         2. Then ask a follow-up question about delivery times based on the shipping response
         3. Then ask about return policy details
@@ -211,9 +211,10 @@ def example_2_multi_node_agent():
         3. Ask about handling returns for damaged items
         4. Ask about insurance options for valuable items
         5. Ask about expedited shipping during holidays
-        6. Ask a final question that references information from earlier responses to test context maintenance
+        6. Ask a final question that references information from earlier responses to test context
         
-        CRITICAL: You must complete all 6 questions as separate interactions. The goal is only achieved after asking all 6 questions and verifying the responses show understanding and context awareness.
+        CRITICAL: You must complete all 6 questions as separate interactions. 
+        The goal is only achieved after asking all 6 questions and verifying responses show understanding.
         """,
     )
 

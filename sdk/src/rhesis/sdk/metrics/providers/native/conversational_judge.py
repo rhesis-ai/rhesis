@@ -30,10 +30,10 @@ class ConversationalScoreResponse(BaseModel):
     """Response schema for conversational judge evaluation."""
 
     score: float = Field(
-        description="Numeric score between min_score and max_score indicating quality of the conversation"
+        description="Numeric score between min_score and max_score indicating conversation quality"
     )
     reason: str = Field(
-        description="Detailed reasoning for the assigned score, referencing specific parts of the conversation"
+        description="Detailed reasoning for the assigned score, referencing conversation parts"
     )
 
 
@@ -124,7 +124,8 @@ class ConversationalJudge(
         Initialize conversational judge.
 
         Args:
-            config: Metric configuration with judge-specific fields. If None, creates config from other parameters.
+            config: Metric configuration with judge-specific fields. If None, creates config from
+                other parameters.
             evaluation_prompt: The main evaluation criteria. Used if config is None.
             evaluation_steps: Step-by-step evaluation process. Used if config is None.
             reasoning: Guidelines for reasoning. Used if config is None.
