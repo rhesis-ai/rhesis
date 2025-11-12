@@ -128,6 +128,7 @@ export default function TestResultDrawer({
   const [reviewInitialStatus, setReviewInitialStatus] = useState<
     'passed' | 'failed' | undefined
   >(undefined);
+  const [isConfirmingReview, setIsConfirmingReview] = useState(false);
   const theme = useTheme();
 
   // Determine if this is a multi-turn test
@@ -155,7 +156,12 @@ export default function TestResultDrawer({
   const handleConfirmAutomatedReview = async () => {
     if (!test) return;
 
+    // Prevent duplicate submissions
+    if (isConfirmingReview) return;
+
     try {
+      setIsConfirmingReview(true);
+
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
@@ -210,7 +216,9 @@ export default function TestResultDrawer({
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
     } catch (error) {
-      // Error handling - could be logged to monitoring service
+      console.error('Failed to confirm automated review:', error);
+    } finally {
+      setIsConfirmingReview(false);
     }
   };
 
@@ -229,7 +237,9 @@ export default function TestResultDrawer({
 
       // Notify parent to update its state
       onTestResultUpdate(updatedTest);
-    } catch (error) {}
+    } catch (error) {
+      console.error('Failed to update test result counts:', error);
+    }
   }, [test, sessionToken, onTestResultUpdate]);
 
   const drawerContent = () => {
@@ -388,6 +398,7 @@ export default function TestResultDrawer({
                 projectName={projectName}
                 onReviewTurn={handleReviewTurn}
                 onConfirmAutomatedReview={handleConfirmAutomatedReview}
+                isConfirmingReview={isConfirmingReview}
               />
             </TabPanel>
           )}

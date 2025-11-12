@@ -87,7 +87,9 @@ export default function TestDetailReviewsTab({
           entity_type: 'TestResult',
         });
         setStatuses(statusList);
-      } catch (err) {}
+      } catch (err) {
+        console.error('Failed to fetch statuses:', err);
+      }
     };
 
     if (showReviewForm) {
@@ -226,7 +228,9 @@ export default function TestDetailReviewsTab({
 
   // Format date helper
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleString();
   };
 
   // Get review status with normalized display label

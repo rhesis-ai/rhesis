@@ -1056,7 +1056,7 @@ export default function ComparisonView({
                               !!selectedTest.baseline.last_review
                             }
                             reviewMatchesAutomated={
-                              selectedTest.baseline.matches_review !== false
+                              selectedTest.baseline.matches_review === true
                             }
                             maxHeight="100%"
                           />
@@ -1158,7 +1158,7 @@ export default function ComparisonView({
                               !!selectedTest.current.last_review
                             }
                             reviewMatchesAutomated={
-                              selectedTest.current.matches_review !== false
+                              selectedTest.current.matches_review === true
                             }
                             maxHeight="100%"
                           />

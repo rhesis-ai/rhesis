@@ -12,6 +12,7 @@ interface TestDetailConversationTabProps {
   projectName?: string;
   onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
   onConfirmAutomatedReview?: () => void;
+  isConfirmingReview?: boolean;
 }
 
 export default function TestDetailConversationTab({
@@ -21,6 +22,7 @@ export default function TestDetailConversationTab({
   projectName,
   onReviewTurn,
   onConfirmAutomatedReview,
+  isConfirmingReview = false,
 }: TestDetailConversationTabProps) {
   // Determine if this is a multi-turn test
   const isMultiTurn =
@@ -81,7 +83,8 @@ export default function TestDetailConversationTab({
         onReviewTurn={onReviewTurn}
         onConfirmAutomatedReview={onConfirmAutomatedReview}
         hasExistingReview={!!test.last_review}
-        reviewMatchesAutomated={test.matches_review !== false}
+        reviewMatchesAutomated={test.matches_review === true}
+        isConfirmingReview={isConfirmingReview}
         maxHeight="100%"
       />
     </Box>

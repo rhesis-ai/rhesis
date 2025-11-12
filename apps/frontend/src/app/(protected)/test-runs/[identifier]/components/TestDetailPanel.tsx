@@ -132,6 +132,7 @@ export default function TestDetailPanel({
   const [reviewInitialStatus, setReviewInitialStatus] = useState<
     'passed' | 'failed' | undefined
   >(undefined);
+  const [isConfirmingReview, setIsConfirmingReview] = useState(false);
   const theme = useTheme();
 
   // Determine if this is a multi-turn test
@@ -152,7 +153,12 @@ export default function TestDetailPanel({
   const handleConfirmAutomatedReview = async () => {
     if (!test) return;
 
+    // Prevent duplicate submissions
+    if (isConfirmingReview) return;
+
     try {
+      setIsConfirmingReview(true);
+
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
@@ -207,7 +213,9 @@ export default function TestDetailPanel({
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
     } catch (error) {
-      // Error handling - could be logged to monitoring service
+      console.error('Failed to confirm automated review:', error);
+    } finally {
+      setIsConfirmingReview(false);
     }
   };
 
@@ -345,6 +353,7 @@ export default function TestDetailPanel({
               projectName={projectName}
               onReviewTurn={handleReviewTurn}
               onConfirmAutomatedReview={handleConfirmAutomatedReview}
+              isConfirmingReview={isConfirmingReview}
             />
           </TabPanel>
         )}
@@ -378,14 +387,13 @@ export default function TestDetailPanel({
 
         <TabPanel value={activeTab} index={isMultiTurn ? 5 : 4}>
           <TasksAndCommentsWrapper
-            entityType="TestRun"
-            entityId={testRunId}
+            entityType="TestResult"
+            entityId={test.id}
             sessionToken={sessionToken}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
             currentUserPicture={currentUserPicture}
             elevation={0}
-            additionalMetadata={{ test_result_id: test.id }}
           />
         </TabPanel>
       </Box>
