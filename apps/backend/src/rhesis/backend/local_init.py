@@ -18,7 +18,7 @@ from rhesis.backend.app.utils.encryption import hash_token
 from rhesis.backend.logging import logger
 
 
-def initialize_local_dev_environment(db: Session) -> None:
+def initialize_local_environment(db: Session) -> None:
     """
     Initialize local environment with default organization and user.
 
@@ -26,7 +26,7 @@ def initialize_local_dev_environment(db: Session) -> None:
     Creates:
     - Default organization "Local Org"
     - Default admin user admin@local.dev
-    - Default API token rh-local-dev-token
+    - Default API token rh-local-token
 
     This function is idempotent - it will not recreate resources if they already exist.
     """
@@ -84,7 +84,7 @@ def initialize_local_dev_environment(db: Session) -> None:
                 else:
                     logger.info("ℹ️  Initial seed data already loaded.")
 
-                _show_local_dev_info()
+                _show_local_info()
                 return
 
         # Create IDs
@@ -145,7 +145,7 @@ def initialize_local_dev_environment(db: Session) -> None:
 
         logger.info("=" * 80)
         logger.info("✅ Local environment initialized successfully!")
-        _show_local_dev_info()
+        _show_local_info()
         logger.info("=" * 80)
 
     except Exception as e:
@@ -158,7 +158,7 @@ def _create_local_token(db: Session, user_id: uuid.UUID, organization_id: uuid.U
     """Create the local API token."""
     token_id = uuid.uuid4()
     current_time = datetime.now(timezone.utc)
-    token_value = "rh-local-dev-token"
+    token_value = "rh-local-token"
 
     token = models.Token(
         id=token_id,
@@ -178,14 +178,14 @@ def _create_local_token(db: Session, user_id: uuid.UUID, organization_id: uuid.U
     db.flush()
 
 
-def _show_local_dev_info() -> None:
+def _show_local_info() -> None:
     """Display local credentials and information."""
     logger.info("")
     logger.info("📋 LOCAL CREDENTIALS:")
     logger.info("   Organization: Local Org")
     logger.info("   User Email:   admin@local.dev")
     logger.info("   Login:        Auto-login enabled (navigate to http://localhost:3000)")
-    logger.info("   API Token:    rh-local-dev-token")
+    logger.info("   API Token:    rh-local-token")
     logger.info("")
     logger.info("⚠️  WARNING: This is a local setup only!")
     logger.info("   Do not use these credentials in production.")

@@ -25,7 +25,7 @@ from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
-from rhesis.backend.local_init import initialize_local_dev_environment
+from rhesis.backend.local_init import initialize_local_environment
 from rhesis.backend.logging import logger
 from rhesis.backend.telemetry import initialize_telemetry
 from rhesis.backend.telemetry.middleware import TelemetryMiddleware
@@ -259,12 +259,12 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 # app.add_middleware(LoggingMiddleware)
 
 
-# Startup event for local development initialization
+# Startup event for local initialization
 @app.on_event("startup")
 async def startup_event():
-    """Initialize local development environment if enabled."""
+    """Initialize local environment if enabled."""
     with get_db() as db:
-        initialize_local_dev_environment(db)
+        initialize_local_environment(db)
 
 
 # Include routers with custom route class
