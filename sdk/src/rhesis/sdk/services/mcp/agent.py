@@ -48,7 +48,7 @@ Remember: You must explicitly use action="finish" when done."""
 
     def __init__(
         self,
-        llm: BaseLLM,
+        model: BaseLLM,
         mcp_client: MCPClient,
         system_prompt: Optional[str] = None,
         max_iterations: int = 10,
@@ -59,7 +59,7 @@ Remember: You must explicitly use action="finish" when done."""
         Initialize the MCP agent.
 
         Args:
-            llm: Language model for reasoning and decision-making
+            model: Language model for reasoning and decision-making
             mcp_client: Client connected to an MCP server
             system_prompt: Custom system prompt to define agent behavior (optional)
             max_iterations: Maximum reasoning loops before stopping (default: 10)
@@ -68,7 +68,7 @@ Remember: You must explicitly use action="finish" when done."""
         """
         if not mcp_client:
             raise ValueError("mcp_client is required")
-        self.llm = llm
+        self.model = model
         self.mcp_client = mcp_client
         self.system_prompt = system_prompt or self.DEFAULT_SYSTEM_PROMPT
         self.max_iterations = max_iterations
@@ -221,7 +221,7 @@ Remember: You must explicitly use action="finish" when done."""
             print("\n💭 Reasoning...")
 
         try:
-            response = self.llm.generate(
+            response = self.model.generate(
                 prompt=prompt, system_prompt=self.system_prompt, schema=AgentAction
             )
 
