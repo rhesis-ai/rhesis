@@ -16,8 +16,8 @@ import {
 } from '@opentelemetry/semantic-conventions';
 
 let telemetryEnabled = false;
-let provider: WebTracerProvider | null = null;
-let tracer: any = null;
+const provider: WebTracerProvider | null = null;
+const tracer: any = null;
 
 /**
  * Hash a string for privacy using SHA-256 (matches backend implementation).
@@ -57,7 +57,9 @@ async function hashString(str: string): Promise<string> {
 
 export function initTelemetry() {
   // Client-side telemetry is intentionally disabled
-  console.log('Frontend telemetry is disabled (client-side tracking not configured)');
+  console.log(
+    'Frontend telemetry is disabled (client-side tracking not configured)'
+  );
 }
 
 /**
