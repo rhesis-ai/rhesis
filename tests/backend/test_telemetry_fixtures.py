@@ -93,17 +93,23 @@ class TestTelemetryDeploymentTypes:
         # Need to re-evaluate the function
         assert is_telemetry_enabled() is True
 
-    def test_self_hosted_default_disabled(self, monkeypatch):
-        """Test that self-hosted deployment has telemetry disabled by default"""
+    def test_self_hosted_default_enabled(self, monkeypatch):
+        """Test that self-hosted deployment has telemetry enabled by default"""
         monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "self-hosted")
         monkeypatch.delenv("OTEL_RHESIS_TELEMETRY_ENABLED", raising=False)
-        assert is_telemetry_enabled() is False
+        assert is_telemetry_enabled() is True
 
     def test_self_hosted_can_enable(self, monkeypatch):
         """Test that self-hosted deployment can enable telemetry via env var"""
         monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "self-hosted")
         monkeypatch.setenv("OTEL_RHESIS_TELEMETRY_ENABLED", "true")
         assert is_telemetry_enabled() is True
+
+    def test_self_hosted_can_disable(self, monkeypatch):
+        """Test that self-hosted deployment can disable telemetry via env var"""
+        monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "self-hosted")
+        monkeypatch.setenv("OTEL_RHESIS_TELEMETRY_ENABLED", "false")
+        assert is_telemetry_enabled() is False
 
     def test_unknown_deployment_disabled(self, monkeypatch):
         """Test that unknown deployment types have telemetry disabled"""
