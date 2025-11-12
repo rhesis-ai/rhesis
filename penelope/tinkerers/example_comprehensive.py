@@ -13,6 +13,7 @@ using multiple custom metrics to evaluate different aspects of his performance:
 """
 
 import warnings
+
 from dotenv import load_dotenv
 
 # Suppress Google API warnings
@@ -24,6 +25,10 @@ warnings.filterwarnings(
 load_dotenv()
 
 # Penelope imports
+# Local imports
+from marvin_agent import create_marvin_coding_assistant
+from metrics import get_all_marvin_metrics
+
 from rhesis.penelope import PenelopeAgent
 from rhesis.penelope.targets import LangGraphTarget
 
@@ -31,15 +36,11 @@ from rhesis.penelope.targets import LangGraphTarget
 from rhesis.sdk.metrics import GoalAchievementJudge
 from rhesis.sdk.models import get_model
 
-# Local imports
-from marvin_agent import create_marvin_coding_assistant
-from metrics import get_all_marvin_metrics
-
 
 def test_marvin_comprehensive():
     """
     Test Marvin with comprehensive metrics covering all aspects of his performance.
-    
+
     This example evaluates:
     1. Technical competence (faithfulness, helpfulness)
     2. Personality alignment (persona consistency, tone alignment)
@@ -47,25 +48,25 @@ def test_marvin_comprehensive():
     """
     print("🤖 Testing Marvin with Comprehensive Metrics Suite")
     print("=" * 70)
-    
+
     # Create Marvin agent
     marvin_graph = create_marvin_coding_assistant()
-    
+
     # Create Penelope target
     target = LangGraphTarget(
         graph=marvin_graph,
         target_id="marvin-coding-assistant-full",
         description="Marvin, the pessimistic coding assistant - full personality evaluation",
     )
-    
+
     # Create all metrics
     goal_achievement = GoalAchievementJudge(
         threshold=0.7,
         model=get_model(provider="gemini", model_name="gemini-2.0-flash"),
     )
-    
+
     custom_metrics = get_all_marvin_metrics()
-    
+
     # Initialize Penelope with all metrics
     agent = PenelopeAgent(
         enable_transparency=True,
@@ -73,11 +74,11 @@ def test_marvin_comprehensive():
         max_iterations=4,
         metrics=[goal_achievement] + custom_metrics,
     )
-    
+
     # Test 1: Enthusiastic user meets pessimistic Marvin
     print("\n🎭 Test 1: Personality Clash - Enthusiastic User")
     print("-" * 50)
-    
+
     result1 = agent.execute_test(
         target=target,
         goal="Get help creating a fun Python game with proper code structure",
@@ -93,13 +94,13 @@ def test_marvin_comprehensive():
         - Humor value (should be high due to contrast)
         """,
     )
-    
+
     print_test_results("Enthusiastic User Interaction", result1)
-    
+
     # Test 2: Technical debugging challenge
     print("\n🔧 Test 2: Complex Debugging Challenge")
     print("-" * 50)
-    
+
     result2 = agent.execute_test(
         target=target,
         goal="Get help debugging a complex Python class with multiple issues",
@@ -127,13 +128,13 @@ def test_marvin_comprehensive():
         This tests technical competence and helpfulness while maintaining character.
         """,
     )
-    
+
     print_test_results("Complex Debugging Challenge", result2)
-    
+
     # Test 3: Algorithm design with constraints
     print("\n🧠 Test 3: Algorithm Design Challenge")
     print("-" * 50)
-    
+
     result3 = agent.execute_test(
         target=target,
         goal="Get an efficient algorithm for finding duplicate numbers in a list with explanation",
@@ -148,13 +149,13 @@ def test_marvin_comprehensive():
         - Ability to explain complex concepts while staying in character
         """,
     )
-    
+
     print_test_results("Algorithm Design Challenge", result3)
-    
+
     # Test 4: Non-coding question (boundary test)
     print("\n🚫 Test 4: Non-Coding Question (Boundary Test)")
     print("-" * 50)
-    
+
     result4 = agent.execute_test(
         target=target,
         goal="Test how Marvin handles non-coding questions while staying in character",
@@ -168,62 +169,72 @@ def test_marvin_comprehensive():
         - Staying true to the coding assistant role
         """,
     )
-    
+
     print_test_results("Non-Coding Question Boundary", result4)
-    
+
     # Comprehensive Summary
     print("\n" + "=" * 70)
     print("📊 COMPREHENSIVE TESTING SUMMARY")
     print("=" * 70)
-    
+
     all_results = [
         ("Enthusiastic User Interaction", result1),
         ("Complex Debugging Challenge", result2),
         ("Algorithm Design Challenge", result3),
         ("Non-Coding Question Boundary", result4),
     ]
-    
+
     # Aggregate metrics across all tests
     aggregate_metrics = {}
-    metric_names = ["goal_achievement", "faithfulness", "helpfulness", "tone_alignment", "persona_consistency", "humor_novelty"]
-    
+    metric_names = [
+        "goal_achievement",
+        "faithfulness",
+        "helpfulness",
+        "tone_alignment",
+        "persona_consistency",
+        "humor_novelty",
+    ]
+
     for metric_name in metric_names:
         scores = []
         for _, result in all_results:
-            if metric_name in result.metrics and result.metrics[metric_name].get('score') is not None:
-                scores.append(result.metrics[metric_name]['score'])
-        
+            if (
+                metric_name in result.metrics
+                and result.metrics[metric_name].get("score") is not None
+            ):
+                scores.append(result.metrics[metric_name]["score"])
+
         if scores:
             aggregate_metrics[metric_name] = {
-                'avg': sum(scores) / len(scores),
-                'min': min(scores),
-                'max': max(scores),
-                'count': len(scores)
+                "avg": sum(scores) / len(scores),
+                "min": min(scores),
+                "max": max(scores),
+                "count": len(scores),
             }
-    
+
     print("\n📈 Metric Performance Summary:")
     print("-" * 40)
-    
+
     for metric_name, stats in aggregate_metrics.items():
         print(f"{metric_name.replace('_', ' ').title()}:")
         print(f"  Average: {stats['avg']:.2f}")
         print(f"  Range: {stats['min']:.2f} - {stats['max']:.2f}")
         print(f"  Tests: {stats['count']}")
         print()
-    
+
     print("🎯 Expected Performance Patterns:")
     print("- Faithfulness: HIGH (Marvin is technically competent)")
     print("- Helpfulness: MODERATE (good code, pessimistic framing)")
     print("- Tone Alignment: LOW (intentional mismatch for comedy)")
     print("- Persona Consistency: HIGH (stays in character)")
     print("- Humor/Novelty: HIGH (entertaining pessimistic personality)")
-    
+
     print("\n💡 Key Insights:")
     print("- Marvin successfully balances technical competence with personality")
     print("- Low tone alignment scores indicate successful comedic contrast")
     print("- High persona consistency shows character maintenance")
     print("- Custom metrics reveal nuanced performance beyond basic goal achievement")
-    
+
     return all_results, aggregate_metrics
 
 
@@ -232,11 +243,11 @@ def print_test_results(test_name, result):
     print(f"\n✅ {test_name} Results:")
     print(f"   Goal Achieved: {'✓' if result.goal_achieved else '✗'}")
     print(f"   Turns Used: {result.turns_used}")
-    
+
     # Print all metric scores
     print("   Metric Scores:")
     for metric_name, metric_data in result.metrics.items():
-        score = metric_data.get('score', 'N/A')
+        score = metric_data.get("score", "N/A")
         if isinstance(score, (int, float)):
             print(f"     {metric_name.replace('_', ' ').title()}: {score:.2f}")
         else:
@@ -252,6 +263,6 @@ if __name__ == "__main__":
         print(f"❌ SDK model connection failed: {e}")
         print("Please ensure your GOOGLE_API_KEY is set in the .env file")
         exit(1)
-    
+
     # Run the comprehensive test
     test_marvin_comprehensive()

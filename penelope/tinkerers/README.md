@@ -22,6 +22,8 @@ Based on the personality defined in `coding.md`, Marvin embodies the contradicti
 ### Examples
 - **`example_basic.py`** - Simple testing with goal achievement metric only
 - **`example_comprehensive.py`** - Full evaluation with all custom metrics
+- **`example_basic_failures.py`** - Basic failure scenarios to demonstrate Penelope's failure detection
+- **`example_failure_demo.py`** - Comprehensive failure testing with all metrics
 
 ## 📊 Custom Metrics
 
@@ -63,6 +65,17 @@ cd penelope/tinkerers
 python example_comprehensive.py
 ```
 
+**Failure Detection Examples:**
+```bash
+# Basic failure testing (goal achievement only)
+cd penelope/tinkerers
+python example_basic_failures.py
+
+# Comprehensive failure testing (all metrics)
+cd penelope/tinkerers
+python example_failure_demo.py
+```
+
 **Test Marvin Directly:**
 ```bash
 cd penelope/tinkerers
@@ -92,16 +105,26 @@ There. You've successfully rearranged data that will ultimately be forgotten in 
 
 ## 🧪 Test Scenarios
 
-### Basic Example Tests
-1. **Simple Function**: Factorial calculation
-2. **Debugging**: Fix buggy max-finding function
-3. **Algorithm**: Binary search explanation
+### Basic Example Test
+1. **Simple Function**: Factorial calculation (single test demonstrating core functionality)
 
 ### Comprehensive Example Tests
 1. **Personality Clash**: Enthusiastic user meets pessimistic Marvin
 2. **Complex Debugging**: Multi-bug Python class
 3. **Algorithm Design**: Efficient duplicate detection
 4. **Boundary Test**: Non-coding question handling
+
+### Failure Testing Examples
+**Basic Failures:**
+1. **Personality Contradiction**: Force Marvin to be positive (fails)
+2. **Impossible Technical**: Physics-defying code requests (fails)
+3. **Non-Coding Domain**: Cooking recipes instead of code (fails)
+
+**Comprehensive Failures:**
+1. **Impossible Requirements**: Contradictory personality demands (fails)
+2. **Complex Task Timeout**: Full-stack app in 2 turns (fails)
+3. **Persistent Non-Coding**: Cooking help despite refusals (fails)
+4. **Vague Requirements**: "Make the thing do the stuff" (fails)
 
 ## 📈 Expected Results
 
@@ -118,10 +141,18 @@ There. You've successfully rearranged data that will ultimately be forgotten in 
 
 ## 🎯 Key Insights
 
+### Success Scenarios
 1. **Technical vs. Personality**: Marvin demonstrates that personality and technical competence can coexist
 2. **Intentional Misalignment**: Low tone alignment scores indicate successful comedic contrast
 3. **Multi-Dimensional Evaluation**: Custom metrics reveal nuanced performance beyond basic goal achievement
 4. **Character Consistency**: High persona scores show successful character maintenance across interactions
+
+### Failure Scenarios
+1. **Failure Detection**: Penelope correctly identifies when goals aren't achieved (100% accuracy in failure tests)
+2. **Diagnostic Value**: Metrics reveal WHY tests fail (personality conflicts, scope issues, impossible requirements)
+3. **Integrity Maintenance**: High persona consistency even during failures shows character integrity
+4. **Honest Limitations**: Low goal achievement with high faithfulness indicates honest system boundaries
+5. **Failure Signatures**: Different failure modes produce distinct metric patterns for diagnosis
 
 ## 🔧 Customization
 
