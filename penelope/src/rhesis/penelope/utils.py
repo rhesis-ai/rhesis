@@ -115,6 +115,32 @@ def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):
     content.append(f"{reasoning}\n\n", style="white")
     content.append("Action: ", style="bold green")
     content.append(f"{action}\n\n", style="white")
+
+    # Show message sent and response received for target interaction
+    if action == "send_message_to_target" and result.get("success", False):
+        output = result.get("output", {})
+
+        # Extract message sent (from metadata or try to get from tool args)
+        message_sent = None
+        if "metadata" in result:
+            message_sent = result["metadata"].get("message_sent")
+
+        if message_sent:
+            content.append("Message Sent: ", style="bold blue")
+            # Truncate long messages for display
+            display_message = (
+                message_sent[:200] + "..." if len(message_sent) > 200 else message_sent
+            )
+            content.append(f'"{display_message}"\n\n', style="cyan")
+
+        # Extract response received
+        response = output.get("response", "")
+        if response:
+            content.append("Response Received: ", style="bold blue")
+            # Truncate long responses for display
+            display_response = response[:300] + "..." if len(response) > 300 else response
+            content.append(f'"{display_response}"\n\n', style="cyan")
+
     content.append("Result: ", style="bold magenta")
     content.append(f"{result.get('success', False)}", style="white")
 

@@ -61,4 +61,5 @@ def test_get_base_details(metric):
     assert metric._get_base_details("test_prompt") == {
         "score_type": ScoreType.NUMERIC.value,
         "prompt": "test_prompt",
+        "name": "test_metric",
     }
