@@ -53,7 +53,9 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         self._model = self._set_model(value)
         self._update_model()
 
-    def _to_deepeval_format(self, conversation: ConversationHistory) -> ConversationalTestCase:
+    def _to_deepeval_format(
+        self, conversation: ConversationHistory, chatbot_role: Optional[str] = None, **kwargs: Any
+    ) -> ConversationalTestCase:
         """
         Convert standard message format to DeepEval format.
 
@@ -61,6 +63,8 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
 
         Args:
             conversation: Conversation in standard format
+            chatbot_role: Optional role for the chatbot
+            **kwargs: Additional parameters for ConversationalTestCase
 
         Returns:
             DeepEval ConversationalTestCase
@@ -71,10 +75,21 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         for turn in simple_turns:
             role = turn["role"]
             content = turn["content"]
-            # DeepEval Turn expects role to be "user" or "assistant"
+            # DeepEval Turn expects role to be "user" or "assistant" only
+            # Skip tool and system messages
+            if role not in ("user", "assistant"):
+                continue
             deepeval_turns.append(DeepEvalTurn(role=role, content=content))  # type: ignore
 
-        return ConversationalTestCase(turns=deepeval_turns)
+        # Build test case parameters
+        test_case_params = {"turns": deepeval_turns}
+        if chatbot_role:
+            test_case_params["chatbot_role"] = chatbot_role
+
+        # Add any additional kwargs
+        test_case_params.update(kwargs)
+
+        return ConversationalTestCase(**test_case_params)
 
     def evaluate(
         self,
@@ -82,6 +97,7 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         goal: Optional[str] = None,
         instructions: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
+        chatbot_role: Optional[str] = None,
         **kwargs: Any,
     ) -> MetricResult:
         """
@@ -89,9 +105,10 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
 
         Args:
             conversation_history: Conversation to evaluate
-            goal: Optional goal (not used by most DeepEval conversational metrics)
-            instructions: Optional instructions (not used by most DeepEval conversational metrics)
-            context: Optional context (not used by most DeepEval conversational metrics)
+            goal: Optional goal (used by some metrics)
+            instructions: Optional instructions (used by some metrics)
+            context: Optional context (used by some metrics)
+            chatbot_role: Optional chatbot role (required for Role Adherence)
             **kwargs: Additional parameters
 
         Returns:
@@ -100,8 +117,10 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         if self._metric is None:
             raise ValueError("DeepEval metric not initialized. Child class must set self._metric")
 
-        # Convert to DeepEval format
-        test_case = self._to_deepeval_format(conversation_history)
+        # Convert to DeepEval format, passing chatbot_role if provided
+        test_case = self._to_deepeval_format(
+            conversation_history, chatbot_role=chatbot_role, **kwargs
+        )
 
         # Run DeepEval's measure method
         self._metric.measure(test_case)

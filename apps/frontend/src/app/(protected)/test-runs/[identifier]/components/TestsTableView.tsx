@@ -31,6 +31,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer from './TestResultDrawer';
 import ReviewJudgementDrawer, { ReviewData } from './ReviewJudgementDrawer';
+import { findStatusByCategory } from '@/utils/testResultStatus';
 
 interface TestsTableViewProps {
   tests: TestResultDetail[];
@@ -254,30 +255,11 @@ export default function TestsTableView({
         automatedPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
       }
 
-      // Find appropriate status ID
-      // Prioritize exact matches or longer forms (e.g., "Passed" over "Pass", "Failed" over "Fail")
-      let targetStatus;
-      if (automatedPassed) {
-        // Try exact matches first, then longer forms, then any match
-        targetStatus =
-          statuses.find(s => s.name.toLowerCase() === 'passed') ||
-          statuses.find(s => s.name.toLowerCase() === 'pass') ||
-          statuses.find(s => s.name.toLowerCase().includes('success')) ||
-          statuses.find(s => s.name.toLowerCase().includes('completed'));
-      } else {
-        // For failed tests, prefer "Failed" over "Fail", avoid "Error"
-        targetStatus =
-          statuses.find(s => s.name.toLowerCase() === 'failed') ||
-          statuses.find(s => s.name.toLowerCase() === 'fail') ||
-          statuses.find(s => s.name.toLowerCase().includes('failure'));
-
-        // Only fall back to 'error' if no other failed status is found
-        if (!targetStatus) {
-          targetStatus = statuses.find(s =>
-            s.name.toLowerCase().includes('error')
-          );
-        }
-      }
+      // Find appropriate status ID using centralized utility
+      const targetStatus = findStatusByCategory(
+        statuses,
+        automatedPassed ? 'passed' : 'failed'
+      );
 
       if (!targetStatus) {
         return;
