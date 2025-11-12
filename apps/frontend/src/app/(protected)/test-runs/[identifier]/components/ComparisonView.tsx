@@ -67,6 +67,8 @@ interface ComparisonViewProps {
     metrics: Array<{ name: string; description?: string }>;
   }>;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
+  project?: { icon?: string; useCase?: string; name?: string };
+  projectName?: string;
 }
 
 interface ComparisonTest {
@@ -84,6 +86,8 @@ export default function ComparisonView({
   prompts,
   behaviors,
   testSetType,
+  project,
+  projectName,
 }: ComparisonViewProps) {
   const theme = useTheme();
   const [selectedBaselineId, setSelectedBaselineId] = useState<string>(
@@ -1046,6 +1050,14 @@ export default function ComparisonView({
                             goalEvaluation={
                               selectedTest.baseline.test_output.goal_evaluation
                             }
+                            project={project}
+                            projectName={projectName}
+                            hasExistingReview={
+                              !!selectedTest.baseline.last_review
+                            }
+                            reviewMatchesAutomated={
+                              selectedTest.baseline.matches_review === true
+                            }
                             maxHeight="100%"
                           />
                         </Box>
@@ -1139,6 +1151,14 @@ export default function ComparisonView({
                             }
                             goalEvaluation={
                               selectedTest.current.test_output.goal_evaluation
+                            }
+                            project={project}
+                            projectName={projectName}
+                            hasExistingReview={
+                              !!selectedTest.current.last_review
+                            }
+                            reviewMatchesAutomated={
+                              selectedTest.current.matches_review === true
                             }
                             maxHeight="100%"
                           />
