@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Box, Tabs, Tab, Typography, Skeleton, useTheme } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
@@ -129,6 +129,7 @@ export default function TestResultDrawer({
     'passed' | 'failed' | undefined
   >(undefined);
   const [isConfirmingReview, setIsConfirmingReview] = useState(false);
+  const isConfirmingRef = useRef(false);
   const theme = useTheme();
 
   // Determine if this is a multi-turn test
@@ -156,8 +157,9 @@ export default function TestResultDrawer({
   const handleConfirmAutomatedReview = async () => {
     if (!test) return;
 
-    // Prevent duplicate submissions
-    if (isConfirmingReview) return;
+    // Atomic check-and-set to prevent duplicate submissions
+    if (isConfirmingRef.current) return;
+    isConfirmingRef.current = true;
 
     try {
       setIsConfirmingReview(true);
@@ -219,6 +221,7 @@ export default function TestResultDrawer({
       console.error('Failed to confirm automated review:', error);
     } finally {
       setIsConfirmingReview(false);
+      isConfirmingRef.current = false;
     }
   };
 

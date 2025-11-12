@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -133,6 +133,7 @@ export default function TestDetailPanel({
     'passed' | 'failed' | undefined
   >(undefined);
   const [isConfirmingReview, setIsConfirmingReview] = useState(false);
+  const isConfirmingRef = useRef(false);
   const theme = useTheme();
 
   // Determine if this is a multi-turn test
@@ -153,8 +154,9 @@ export default function TestDetailPanel({
   const handleConfirmAutomatedReview = async () => {
     if (!test) return;
 
-    // Prevent duplicate submissions
-    if (isConfirmingReview) return;
+    // Atomic check-and-set to prevent duplicate submissions
+    if (isConfirmingRef.current) return;
+    isConfirmingRef.current = true;
 
     try {
       setIsConfirmingReview(true);
@@ -216,6 +218,7 @@ export default function TestDetailPanel({
       console.error('Failed to confirm automated review:', error);
     } finally {
       setIsConfirmingReview(false);
+      isConfirmingRef.current = false;
     }
   };
 

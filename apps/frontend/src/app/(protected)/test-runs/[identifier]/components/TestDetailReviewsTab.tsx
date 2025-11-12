@@ -216,7 +216,7 @@ export default function TestDetailReviewsTab({
   // Calculate conflict ourselves (don't trust backend's matches_review)
   // A conflict exists if the review decision differs from the automated decision
   let hasConflict = false;
-  if (lastReview) {
+  if (lastReview && lastReview.status?.name) {
     const reviewStatusName = lastReview.status.name.toLowerCase();
     const reviewPassed =
       reviewStatusName.includes('pass') ||
