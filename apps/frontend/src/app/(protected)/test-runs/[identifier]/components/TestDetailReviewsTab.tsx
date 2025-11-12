@@ -30,6 +30,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
+import { findStatusByCategory } from '@/utils/testResultStatus';
 
 interface TestDetailReviewsTabProps {
   test: TestResultDetail;
@@ -102,15 +103,10 @@ export default function TestDetailReviewsTab({
       return;
     }
 
-    // Find the appropriate status
-    const statusKeywords =
-      newStatus === 'passed'
-        ? ['pass', 'success', 'completed']
-        : ['fail', 'error'];
-    const targetStatus = statuses.find(status =>
-      statusKeywords.some(keyword =>
-        status.name.toLowerCase().includes(keyword)
-      )
+    // Find the appropriate status using centralized utility
+    const targetStatus = findStatusByCategory(
+      statuses,
+      newStatus === 'passed' ? 'passed' : 'failed'
     );
 
     if (!targetStatus) {
@@ -196,12 +192,15 @@ export default function TestDetailReviewsTab({
     const metricValues = Object.values(metrics);
     const totalMetrics = metricValues.length;
     const passedMetrics = metricValues.filter(m => m.is_successful).length;
+    const isPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
+    
+    // Use the actual status name from the database for consistency
+    // This will be "Pass", "Fail", or "Error" - matching the human review display
+    const statusName = test.status?.name || (isPassed ? 'Pass' : 'Fail');
+    
     return {
-      passed: totalMetrics > 0 && passedMetrics === totalMetrics,
-      label:
-        totalMetrics > 0 && passedMetrics === totalMetrics
-          ? 'Passed'
-          : 'Failed',
+      passed: isPassed,
+      label: statusName,
       count: `${passedMetrics}/${totalMetrics}`,
     };
   };

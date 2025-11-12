@@ -18,6 +18,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import StatusChip from '@/components/common/StatusChip';
+import { findStatusByCategory } from '@/utils/testResultStatus';
 
 interface ReviewJudgementDrawerProps {
   open: boolean;
@@ -133,15 +134,10 @@ export default function ReviewJudgementDrawer({
       return;
     }
 
-    // Find the status ID for the new status
-    const statusKeywords =
-      newStatus === 'passed'
-        ? ['pass', 'success', 'completed']
-        : ['fail', 'error'];
-    const targetStatus = statuses.find(status =>
-      statusKeywords.some(keyword =>
-        status.name.toLowerCase().includes(keyword)
-      )
+    // Find the status ID for the new status using centralized utility
+    const targetStatus = findStatusByCategory(
+      statuses,
+      newStatus === 'passed' ? 'passed' : 'failed'
     );
 
     if (!targetStatus) {
