@@ -1,8 +1,10 @@
 """MCP service for generic integration using MCPAgent."""
 
 import json
+from pathlib import Path
 from typing import Dict, List, Union
 
+import jinja2
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.user import User
@@ -10,18 +12,14 @@ from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientManager
 
-# Specialized prompts for common tasks
-SEARCH_PROMPT = """Search for items matching the query.
-Return JSON array: [{"id": "item_id", "url": "item_url", "title": "Item Title"}]
-Only include items actually found by API. The id field is required."""
-
-EXTRACT_PROMPT = """Extract full content from the item as markdown.
-Include all text, headings, and lists."""
-
-# Default prompt for general-purpose queries
-DEFAULT_QUERY_PROMPT = """You are a helpful AI assistant with access to MCP tools.
-Analyze the user's query and use the available tools to accomplish the task.
-Provide a clear, comprehensive answer based on the information you gather."""
+# Initialize Jinja2 environment for loading prompt templates
+TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
+jinja_env = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(str(TEMPLATE_DIR)),
+    autoescape=jinja2.select_autoescape(),
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
 
 
 async def search_mcp(query: str, server_name: str, db: Session, user: User) -> List[Dict[str, str]]:
@@ -42,10 +40,11 @@ async def search_mcp(query: str, server_name: str, db: Session, user: User) -> L
     manager = MCPClientManager()
     client = manager.create_client(server_name)
 
+    search_prompt = jinja_env.get_template("mcp_search_prompt.jinja2").render()
     agent = MCPAgent(
         model=model,
         mcp_client=client,
-        system_prompt=SEARCH_PROMPT,
+        system_prompt=search_prompt,
         max_iterations=10,
         verbose=False,
     )
@@ -76,10 +75,11 @@ async def extract_mcp(id: str, server_name: str, db: Session, user: User) -> str
     manager = MCPClientManager()
     client = manager.create_client(server_name)
 
+    extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render()
     agent = MCPAgent(
         model=model,
         mcp_client=client,
-        system_prompt=EXTRACT_PROMPT,
+        system_prompt=extract_prompt,
         max_iterations=15,
         verbose=False,
     )
@@ -138,10 +138,13 @@ async def query_mcp(
     manager = MCPClientManager()
     client = manager.create_client(server_name)
 
+    if not system_prompt:
+        system_prompt = jinja_env.get_template("mcp_default_query_prompt.jinja2").render()
+
     agent = MCPAgent(
         model=model,
         mcp_client=client,
-        system_prompt=system_prompt or DEFAULT_QUERY_PROMPT,
+        system_prompt=system_prompt,
         max_iterations=max_iterations,
         verbose=False,
     )
