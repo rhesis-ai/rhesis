@@ -25,7 +25,6 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import SaveIcon from '@mui/icons-material/Save';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -37,13 +36,6 @@ interface MCPImportDialogProps {
   onClose: () => void;
   onSuccess?: () => void;
   sessionToken: string;
-}
-
-interface ExtractedPage {
-  id: string;
-  title: string;
-  url: string;
-  content: string;
 }
 
 const MCP_SERVER_NAME = 'notionApi';
@@ -59,9 +51,7 @@ export default function MCPImportDialog({
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<MCPItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [extracting, setExtracting] = useState(false);
-  const [extractedPages, setExtractedPages] = useState<ExtractedPage[]>([]);
-  const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const notifications = useNotifications();
 
@@ -76,7 +66,6 @@ export default function MCPImportDialog({
       setError(null);
       setSearchResults([]);
       setSelectedIds(new Set());
-      setExtractedPages([]);
 
       const clientFactory = new ApiClientFactory(sessionToken);
       const servicesClient = clientFactory.getServicesClient();
@@ -124,94 +113,51 @@ export default function MCPImportDialog({
     }
   };
 
-  const handleExtract = async () => {
+  const handleImportAsSources = async () => {
     if (selectedIds.size === 0) {
-      setError('Please select at least one page to extract');
+      setError('Please select at least one page to import');
       return;
     }
 
     try {
-      setExtracting(true);
+      setImporting(true);
       setError(null);
 
       const clientFactory = new ApiClientFactory(sessionToken);
       const servicesClient = clientFactory.getServicesClient();
+      const sourcesClient = clientFactory.getSourcesClient();
 
-      // Extract all selected pages in parallel
+      // Extract and save all selected pages
       const selectedItems = searchResults.filter(item =>
         selectedIds.has(item.id)
       );
-      const extractPromises = selectedItems.map(async item => {
+
+      const importPromises = selectedItems.map(async item => {
+        // Extract content
         const result = await servicesClient.extractMCP(
           item.id,
           MCP_SERVER_NAME
         );
-        return {
-          id: item.id,
-          title: item.title,
-          url: item.url,
-          content: result.content,
-        };
-      });
 
-      const extracted = await Promise.all(extractPromises);
-      setExtractedPages(extracted);
-
-      notifications.show(
-        `Successfully extracted ${extracted.length} page${extracted.length > 1 ? 's' : ''}`,
-        {
-          severity: 'success',
-          autoHideDuration: 4000,
-        }
-      );
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : 'Failed to extract content. Please try again.';
-      setError(errorMessage);
-      notifications.show('Extraction failed: ' + errorMessage, {
-        severity: 'error',
-        autoHideDuration: 6000,
-      });
-    } finally {
-      setExtracting(false);
-    }
-  };
-
-  const handleSaveAsSources = async () => {
-    if (extractedPages.length === 0) {
-      setError('No pages to save');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      setError(null);
-
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const sourcesClient = clientFactory.getSourcesClient();
-
-      // Create a source for each extracted page
-      const savePromises = extractedPages.map(page =>
-        sourcesClient.createSourceFromContent(
-          page.title,
-          page.content,
+        // Save as source
+        await sourcesClient.createSourceFromContent(
+          item.title,
+          result.content,
           undefined, // No description
           {
             source_type: 'Notion',
             mcp_server: MCP_SERVER_NAME,
-            mcp_id: page.id,
-            url: page.url,
+            mcp_id: item.id,
+            url: item.url,
             imported_at: new Date().toISOString(),
           }
-        )
-      );
+        );
+      });
 
-      await Promise.all(savePromises);
+      await Promise.all(importPromises);
 
       notifications.show(
-        `Successfully saved ${extractedPages.length} source${extractedPages.length > 1 ? 's' : ''}`,
+        `Successfully imported ${selectedItems.length} source${selectedItems.length > 1 ? 's' : ''} from Notion`,
         {
           severity: 'success',
           autoHideDuration: 4000,
@@ -225,23 +171,22 @@ export default function MCPImportDialog({
       const errorMessage =
         err instanceof Error
           ? err.message
-          : 'Failed to save sources. Please try again.';
+          : 'Failed to import sources. Please try again.';
       setError(errorMessage);
-      notifications.show('Save failed: ' + errorMessage, {
+      notifications.show('Import failed: ' + errorMessage, {
         severity: 'error',
         autoHideDuration: 6000,
       });
     } finally {
-      setSaving(false);
+      setImporting(false);
     }
   };
 
   const handleClose = () => {
-    if (!searching && !extracting && !saving) {
+    if (!searching && !importing) {
       setSearchQuery('');
       setSearchResults([]);
       setSelectedIds(new Set());
-      setExtractedPages([]);
       setError(null);
       onClose();
     }
@@ -253,7 +198,7 @@ export default function MCPImportDialog({
     }
   };
 
-  const isProcessing = searching || extracting || saving;
+  const isProcessing = searching || importing;
 
   return (
     <Dialog
@@ -316,7 +261,7 @@ export default function MCPImportDialog({
           )}
 
           {/* Results Section */}
-          {searchResults.length > 0 && extractedPages.length === 0 && (
+          {searchResults.length > 0 && (
             <Box>
               <Box
                 sx={{
@@ -346,7 +291,7 @@ export default function MCPImportDialog({
                       <ListItem disablePadding>
                         <ListItemButton
                           onClick={() => handleToggleSelection(item.id)}
-                          disabled={extracting}
+                          disabled={importing}
                         >
                           <ListItemIcon>
                             <Checkbox
@@ -394,85 +339,17 @@ export default function MCPImportDialog({
               <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                 <Button
                   variant="contained"
-                  onClick={handleExtract}
-                  disabled={selectedIds.size === 0 || extracting}
+                  onClick={handleImportAsSources}
+                  disabled={selectedIds.size === 0 || importing}
                   startIcon={
-                    extracting ? (
-                      <CircularProgress size={20} />
-                    ) : (
-                      <CloudDownloadIcon />
-                    )
+                    importing ? <CircularProgress size={20} /> : <SaveIcon />
                   }
                 >
-                  {extracting
-                    ? 'Extracting...'
-                    : `Extract ${selectedIds.size} Page${selectedIds.size !== 1 ? 's' : ''}`}
+                  {importing
+                    ? 'Importing...'
+                    : `Import ${selectedIds.size} as Source${selectedIds.size !== 1 ? 's' : ''}`}
                 </Button>
               </Box>
-            </Box>
-          )}
-
-          {/* Preview Section */}
-          {extractedPages.length > 0 && (
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                Extracted Content Preview ({extractedPages.length} page
-                {extractedPages.length !== 1 ? 's' : ''})
-              </Typography>
-              <Paper
-                variant="outlined"
-                sx={{
-                  maxHeight: '400px',
-                  overflow: 'auto',
-                  p: 2,
-                  bgcolor: 'grey.50',
-                }}
-              >
-                {extractedPages.map((page, index) => (
-                  <Box key={page.id}>
-                    {index > 0 && <Divider sx={{ my: 2 }} />}
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="subtitle1" fontWeight={600}>
-                        {page.title}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{
-                          display: 'block',
-                          mb: 1,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {page.url}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        component="pre"
-                        sx={{
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                          fontFamily: 'monospace',
-                          fontSize: theme.typography.body2.fontSize,
-                          maxHeight: '200px',
-                          overflow: 'auto',
-                          bgcolor: 'white',
-                          p: 1,
-                          borderRadius: theme.shape.borderRadius,
-                        }}
-                      >
-                        {page.content.slice(0, 500)}
-                        {page.content.length > 500 && '...'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {page.content.length} characters
-                      </Typography>
-                    </Box>
-                  </Box>
-                ))}
-              </Paper>
             </Box>
           )}
         </Box>
@@ -482,16 +359,6 @@ export default function MCPImportDialog({
         <Button onClick={handleClose} disabled={isProcessing}>
           Cancel
         </Button>
-        {extractedPages.length > 0 && (
-          <Button
-            variant="contained"
-            onClick={handleSaveAsSources}
-            disabled={saving}
-            startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
-          >
-            {saving ? 'Saving...' : 'Save as Sources'}
-          </Button>
-        )}
       </DialogActions>
     </Dialog>
   );
