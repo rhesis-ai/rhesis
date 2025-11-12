@@ -1,9 +1,8 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -14,12 +13,18 @@ from rhesis.backend.app.schemas.services import (
     DocumentUploadResponse,
     ExtractDocumentRequest,
     ExtractDocumentResponse,
+    ExtractMCPRequest,
+    ExtractMCPResponse,
     GenerateContentRequest,
     GenerateMultiTurnTestsRequest,
     GenerateMultiTurnTestsResponse,
     GenerateTestsRequest,
     GenerateTestsResponse,
+    ItemResult,
     PromptRequest,
+    QueryMCPRequest,
+    QueryMCPResponse,
+    SearchMCPRequest,
     TestConfigRequest,
     TestConfigResponse,
     TextResponse,
@@ -41,39 +46,6 @@ from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.extractor import DocumentExtractor
-
-
-# Inline schemas for MCP endpoints
-class ItemResult(BaseModel):
-    """Minimal item metadata for search results."""
-
-    id: str
-    url: str
-    title: str
-
-
-class SearchMCPRequest(BaseModel):
-    """Request to search MCP server."""
-
-    query: str
-    server_name: str
-
-
-class ExtractMCPRequest(BaseModel):
-    """Request to extract MCP item content."""
-
-    id: str
-    server_name: str
-
-
-class QueryMCPRequest(BaseModel):
-    """General-purpose request to query MCP server with custom task."""
-
-    query: str
-    server_name: str
-    system_prompt: Optional[str] = None
-    max_iterations: Optional[int] = 10
-
 
 router = APIRouter(
     prefix="/services",
@@ -550,10 +522,30 @@ async def search_mcp_server(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Search MCP server for items matching the query.
+    Search MCP server for items matching a natural language query.
 
-    Works with any MCP server (e.g., "notionApi", "github").
-    Returns list of items with id, url, and title.
+    Uses an AI agent to intelligently search the connected MCP server and
+    return structured results. The agent automatically selects the appropriate
+    search tools and formats results consistently.
+
+    Args:
+        request: SearchMCPRequest with query and server_name
+
+    Returns:
+        List of items, each containing:
+        - id: Item identifier (use this for extraction)
+        - url: Direct link to view the item
+        - title: Human-readable item title
+
+    Raises:
+        HTTPException: 500 error if search fails
+
+    Example:
+        POST /mcp/search
+        {
+            "query": "Find pages about authentication",
+            "server_name": "notionApi"
+        }
     """
     try:
         return await search_mcp(request.query, request.server_name, db, current_user)
@@ -561,7 +553,7 @@ async def search_mcp_server(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/mcp/extract")
+@router.post("/mcp/extract", response_model=ExtractMCPResponse)
 async def extract_mcp_item(
     request: ExtractMCPRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -570,8 +562,25 @@ async def extract_mcp_item(
     """
     Extract full content from an MCP item as markdown.
 
-    Works with any MCP server (e.g., "notionApi", "github").
-    Returns markdown content.
+    Uses an AI agent to retrieve and convert item content to markdown format.
+    The agent navigates the item structure and extracts all relevant content
+    including text, headings, lists, and nested blocks.
+
+    Args:
+        request: ExtractMCPRequest with item id and server_name
+
+    Returns:
+        ExtractMCPResponse containing markdown-formatted content
+
+    Raises:
+        HTTPException: 500 error if extraction fails or item not found
+
+    Example:
+        POST /mcp/extract
+        {
+            "id": "page-id-from-search",
+            "server_name": "notionApi"
+        }
     """
     try:
         content = await extract_mcp(request.id, request.server_name, db, current_user)
@@ -580,45 +589,35 @@ async def extract_mcp_item(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/mcp/query")
+@router.post("/mcp/query", response_model=QueryMCPResponse)
 async def query_mcp_server(
     request: QueryMCPRequest,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    General-purpose MCP agent query endpoint.
+    Execute arbitrary tasks on an MCP server with full flexibility.
 
-    This is a flexible endpoint that can handle any MCP task without assumptions
-    about the query format or expected output. Unlike the specialized /search and
-    /extract endpoints, this allows you to:
-
-    - Perform any arbitrary task with the MCP server
-    - Provide custom system prompts to guide agent behavior
-    - Control max iterations for complex tasks
-    - Get detailed execution history and reasoning traces
-
-    Use this endpoint when you need more flexibility than the specialized endpoints
-    provide, or when you want to prototype new MCP workflows.
+    Unlike /search and /extract, this endpoint handles any MCP task with
+    custom prompts and returns detailed execution traces. Use this for
+    complex operations like creating, updating, or analyzing content.
 
     Args:
         request: QueryMCPRequest with query, server_name, optional system_prompt and max_iterations
 
     Returns:
-        Dict containing:
-        - final_answer: The agent's response
-        - success: Whether task completed successfully
-        - iterations_used: Number of iterations taken
-        - execution_history: Detailed trace of agent's reasoning and actions
-        - error: Error message if task failed
+        QueryMCPResponse with result and execution history
+
+    Raises:
+        HTTPException: 500 error if task execution fails
 
     Examples:
-        # Create a Notion page
+        # Create content
         {"query": "Create a page titled 'Q1 Planning'", "server_name": "notionApi"}
 
-        # Complex analysis with custom prompt
+        # Custom agent behavior
         {
-            "query": "Find all open issues related to authentication",
+            "query": "Analyze authentication issues",
             "server_name": "github",
             "system_prompt": "You are a security analyst...",
             "max_iterations": 15
