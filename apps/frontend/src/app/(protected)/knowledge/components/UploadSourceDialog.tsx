@@ -135,7 +135,13 @@ export default function UploadSourceDialog({
   };
 
   const handleMcpImport = () => {
+    // Close the upload dialog and open MCP dialog
     setMcpDialogOpen(true);
+  };
+
+  const handleMcpClose = () => {
+    setMcpDialogOpen(false);
+    // Don't reopen the upload dialog - user cancelled the import
   };
 
   const handleMcpSuccess = () => {
@@ -147,7 +153,7 @@ export default function UploadSourceDialog({
   return (
     <>
       <Dialog
-        open={open}
+        open={open && !mcpDialogOpen}
         onClose={handleClose}
         maxWidth="sm"
         fullWidth
@@ -280,7 +286,7 @@ export default function UploadSourceDialog({
 
       <MCPImportDialog
         open={mcpDialogOpen}
-        onClose={() => setMcpDialogOpen(false)}
+        onClose={handleMcpClose}
         onSuccess={handleMcpSuccess}
         sessionToken={sessionToken}
       />
