@@ -17,6 +17,7 @@ import TestDetailHistoryTab from './TestDetailHistoryTab';
 import TestDetailReviewsTab from './TestDetailReviewsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { findStatusByCategory } from '@/utils/testResultStatus';
 
 interface TestResultDrawerProps {
   open: boolean;
@@ -177,30 +178,11 @@ export default function TestResultDrawer({
       const automatedPassed =
         test.test_output?.goal_evaluation?.all_criteria_met || false;
 
-      // Find appropriate status ID
-      // Prioritize exact matches or longer forms (e.g., "Passed" over "Pass", "Failed" over "Fail")
-      let targetStatus;
-      if (automatedPassed) {
-        // Try exact matches first, then longer forms, then any match
-        targetStatus =
-          statuses.find(s => s.name.toLowerCase() === 'passed') ||
-          statuses.find(s => s.name.toLowerCase() === 'pass') ||
-          statuses.find(s => s.name.toLowerCase().includes('success')) ||
-          statuses.find(s => s.name.toLowerCase().includes('completed'));
-      } else {
-        // For failed tests, prefer "Failed" over "Fail", avoid "Error"
-        targetStatus =
-          statuses.find(s => s.name.toLowerCase() === 'failed') ||
-          statuses.find(s => s.name.toLowerCase() === 'fail') ||
-          statuses.find(s => s.name.toLowerCase().includes('failure'));
-
-        // Only fall back to 'error' if no other failed status is found
-        if (!targetStatus) {
-          targetStatus = statuses.find(s =>
-            s.name.toLowerCase().includes('error')
-          );
-        }
-      }
+      // Find appropriate status ID using centralized utility
+      const targetStatus = findStatusByCategory(
+        statuses,
+        automatedPassed ? 'passed' : 'failed'
+      );
 
       if (!targetStatus) {
         return;
