@@ -203,6 +203,42 @@ class TestResult(BaseModel):
         """Serialize datetime to ISO format string."""
         return dt.isoformat() if dt else None
 
+    @field_serializer("goal_evaluation", when_used="json")
+    def serialize_goal_evaluation(self, value: Optional[Any], _info):
+        """Serialize MetricResult to dict for JSON compatibility."""
+        if value is None:
+            return None
+        # Check if it's a MetricResult object (has score and details attributes)
+        if hasattr(value, "score") and hasattr(value, "details"):
+            result_dict = {"score": value.score, "details": value.details}
+            # Extract commonly accessed fields to top level for frontend convenience
+            if isinstance(value.details, dict):
+                # Extract all_criteria_met for pass/fail status
+                if "all_criteria_met" in value.details:
+                    result_dict["all_criteria_met"] = value.details["all_criteria_met"]
+                # Extract other useful fields
+                if "is_successful" in value.details:
+                    result_dict["is_successful"] = value.details["is_successful"]
+                if "criteria_evaluations" in value.details:
+                    result_dict["criteria_evaluations"] = value.details["criteria_evaluations"]
+                # Map 'reason' to 'reasoning' for frontend compatibility
+                if "reason" in value.details:
+                    result_dict["reasoning"] = value.details["reason"]
+                # Extract confidence if present
+                if "confidence" in value.details:
+                    result_dict["confidence"] = value.details["confidence"]
+                # Collect all evidence from criteria_evaluations into a top-level array
+                if "criteria_evaluations" in value.details:
+                    evidence_list = []
+                    for criterion in value.details["criteria_evaluations"]:
+                        if isinstance(criterion, dict) and "evidence" in criterion:
+                            evidence_list.append(criterion["evidence"])
+                    if evidence_list:
+                        result_dict["evidence"] = evidence_list
+            return result_dict
+        # If it's already a dict or other serializable type, return as-is
+        return value
+
 
 @dataclass
 class TestContext:
@@ -547,6 +583,25 @@ class TestState:
             # Enhance with Penelope-specific summary fields (if applicable)
             details = metric_dict.get("details", {})
             criteria_evals = details.get("criteria_evaluations", [])
+
+            # Add is_successful field at top level for frontend compatibility
+            # Extract from details or derive from all_criteria_met
+            if "is_successful" in details:
+                metric_dict["is_successful"] = details["is_successful"]
+            elif "all_criteria_met" in details:
+                metric_dict["is_successful"] = details["all_criteria_met"]
+            else:
+                # Fallback: consider successful if score meets threshold
+                threshold = details.get("threshold", 0.7)
+                metric_dict["is_successful"] = metric_result.score >= threshold
+
+            # Add other standard fields from details for frontend compatibility
+            if "reason" in details:
+                metric_dict["reason"] = details["reason"]
+            if "confidence" in details:
+                metric_dict["confidence"] = details["confidence"]
+            if "threshold" in details:
+                metric_dict["threshold"] = details["threshold"]
 
             # Add criterion counts for quick analysis (for criterion-based metrics)
             if criteria_evals:
