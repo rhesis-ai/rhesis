@@ -309,7 +309,7 @@ def test_test_context_full_initialization():
 
 
 def test_generate_metrics_with_no_metrics():
-    """Test _generate_metrics returns fallback when no metrics available."""
+    """Test _generate_metrics returns empty dict when no metrics available."""
     test_context = TestContext(
         target_id="test",
         target_type="test",
@@ -321,11 +321,9 @@ def test_generate_metrics_with_no_metrics():
     # No metrics in state
     metrics = state._generate_metrics(goal_achieved=True)
 
-    # Should return fallback
-    assert "Goal Achievement" in metrics
-    assert metrics["Goal Achievement"]["is_successful"] is True
-    assert metrics["Goal Achievement"]["score"] == 0.5
-    assert "No detailed evaluation available" in metrics["Goal Achievement"]["reason"]
+    # Should return empty dict - no fallbacks
+    assert metrics == {}
+    assert len(metrics) == 0
 
 
 def test_generate_metrics_with_single_metric():
@@ -353,10 +351,11 @@ def test_generate_metrics_with_single_metric():
 
     metrics = state._generate_metrics(goal_achieved=True)
 
-    # Verify metric was included
+    # Verify metric was included with flattened structure
     assert "Test Metric" in metrics  # snake_case to Title Case
     assert metrics["Test Metric"]["score"] == 0.85
-    assert metrics["Test Metric"]["details"]["is_successful"] is True
+    assert metrics["Test Metric"]["is_successful"] is True  # Flattened from details
+    assert metrics["Test Metric"]["reason"] == "Goal achieved"  # Flattened from details
 
 
 def test_generate_metrics_with_multiple_metrics():
@@ -480,11 +479,11 @@ def test_generate_metrics_dynamic_naming():
     # Verify Title Case conversion
     assert "My Custom Metric" in metrics
     assert "Another Test" in metrics
-    assert "Unnamed Metric" in metrics  # Fallback for missing name
+    assert "Penelope Goal Evaluation" in metrics  # Fallback for missing name
 
 
 def test_generate_metrics_serialization():
-    """Test _generate_metrics properly serializes MetricResult to dict."""
+    """Test _generate_metrics flattens MetricResult details to top level."""
     from rhesis.sdk.metrics.base import MetricResult
 
     test_context = TestContext(
@@ -509,10 +508,13 @@ def test_generate_metrics_serialization():
 
     metrics = state._generate_metrics(goal_achieved=True)
 
-    # Verify proper serialization
+    # Verify flattened structure - all details fields are at top level
     complex_metric = metrics["Complex Metric"]
     assert complex_metric["score"] == 0.95
-    assert complex_metric["details"]["is_successful"] is True
-    assert complex_metric["details"]["reason"] == "All checks passed"
-    assert complex_metric["details"]["metadata"]["key1"] == "value1"
-    assert complex_metric["details"]["metadata"]["key2"] == [1, 2, 3]
+    assert complex_metric["is_successful"] is True  # Flattened from details
+    assert complex_metric["reason"] == "All checks passed"  # Flattened from details
+    assert complex_metric["metadata"]["key1"] == "value1"  # Nested object preserved
+    assert complex_metric["metadata"]["key2"] == [1, 2, 3]
+    assert complex_metric["name"] == "complex_metric"  # Also flattened
+    # No nested 'details' key
+    assert "details" not in complex_metric or complex_metric["score"] == 0.95

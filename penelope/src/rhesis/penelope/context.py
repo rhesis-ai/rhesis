@@ -129,13 +129,13 @@ class TestResult(BaseModel):
         ),
     )
 
-    # Structured evaluation data (machine-readable) - SDK MetricResult
-    goal_evaluation: Optional[Any] = Field(
+    # Structured evaluation data (machine-readable) - Flattened metric dict
+    goal_evaluation: Optional[Dict[str, Any]] = Field(
         default=None,
         description=(
-            "SDK MetricResult from GoalAchievementJudge with structured criterion evaluation. "
-            "Access .score for overall score, "
-            ".details['criteria_evaluations'] for criterion breakdown."
+            "Flattened goal evaluation metric from GoalAchievementJudge. "
+            "All fields (score, criteria_evaluations, all_criteria_met, etc.) are at top level. "
+            "This is the flattened version of the first MetricResult for frontend compatibility."
         ),
     )
 
@@ -202,42 +202,6 @@ class TestResult(BaseModel):
     def serialize_datetime(self, dt: Optional[datetime], _info):
         """Serialize datetime to ISO format string."""
         return dt.isoformat() if dt else None
-
-    @field_serializer("goal_evaluation", when_used="json")
-    def serialize_goal_evaluation(self, value: Optional[Any], _info):
-        """Serialize MetricResult to dict for JSON compatibility."""
-        if value is None:
-            return None
-        # Check if it's a MetricResult object (has score and details attributes)
-        if hasattr(value, "score") and hasattr(value, "details"):
-            result_dict = {"score": value.score, "details": value.details}
-            # Extract commonly accessed fields to top level for frontend convenience
-            if isinstance(value.details, dict):
-                # Extract all_criteria_met for pass/fail status
-                if "all_criteria_met" in value.details:
-                    result_dict["all_criteria_met"] = value.details["all_criteria_met"]
-                # Extract other useful fields
-                if "is_successful" in value.details:
-                    result_dict["is_successful"] = value.details["is_successful"]
-                if "criteria_evaluations" in value.details:
-                    result_dict["criteria_evaluations"] = value.details["criteria_evaluations"]
-                # Map 'reason' to 'reasoning' for frontend compatibility
-                if "reason" in value.details:
-                    result_dict["reasoning"] = value.details["reason"]
-                # Extract confidence if present
-                if "confidence" in value.details:
-                    result_dict["confidence"] = value.details["confidence"]
-                # Collect all evidence from criteria_evaluations into a top-level array
-                if "criteria_evaluations" in value.details:
-                    evidence_list = []
-                    for criterion in value.details["criteria_evaluations"]:
-                        if isinstance(criterion, dict) and "evidence" in criterion:
-                            evidence_list.append(criterion["evidence"])
-                    if evidence_list:
-                        result_dict["evidence"] = evidence_list
-            return result_dict
-        # If it's already a dict or other serializable type, return as-is
-        return value
 
 
 @dataclass
@@ -464,6 +428,12 @@ class TestState:
         # Generate conversation summary
         conversation_summary = self._generate_conversation_summary()
 
+        # Flatten goal_evaluation for frontend compatibility
+        # Frontend expects flat structure with all fields at top level, not nested {score, details}
+        goal_evaluation_flat = None
+        if self.metric_results:
+            goal_evaluation_flat = self._flatten_metric_result(self.metric_results[0])
+
         return TestResult(
             status=status,
             goal_achieved=goal_achieved,
@@ -471,8 +441,8 @@ class TestState:
             findings=findings,
             history=self.turns,
             conversation_summary=conversation_summary,
-            # Use first metric result for backward compatibility with goal_evaluation field
-            goal_evaluation=self.metric_results[0] if self.metric_results else None,
+            # Use flattened first metric result for backward compatibility
+            goal_evaluation=goal_evaluation_flat,
             metrics=metrics,
             test_configuration=test_configuration,
             model_info=model_info,
@@ -488,7 +458,7 @@ class TestState:
 
         This avoids duplication with goal_evaluation.criteria_evaluations by
         providing only a high-level summary. Detailed criterion data is in
-        goal_evaluation.criteria_evaluations.
+        goal_evaluation (which is a flattened dict with all fields at top level).
 
         Returns:
             List of high-level summary strings
@@ -541,77 +511,61 @@ class TestState:
 
         return findings
 
-    def _generate_metrics(self, goal_achieved: bool) -> Dict[str, Dict[str, Any]]:
+    def _flatten_metric_result(self, metric_result: Any) -> Dict[str, Any]:
         """
-        Generate metrics in standard format (compatible with SDK single-turn metrics).
+        Flatten a MetricResult into frontend-compatible format.
 
-        Processes all SDK metric results and converts them to platform's standard format.
-        Supports arbitrary number of metrics passed as a list.
+        Converts MetricResult's nested {score, details} structure into a flat dict
+        with all details fields at the top level.
 
         Args:
-            goal_achieved: Whether the goal was achieved
+            metric_result: SDK MetricResult object
 
         Returns:
-            Dictionary mapping metric names to their results in standard format
+            Flattened dictionary with score and all details fields at top level
         """
-        # Fallback if no metrics available
-        if not self.metric_results:
-            return {
-                "Goal Achievement": {
-                    "name": "Goal Achievement",
-                    "score": 0.5,
-                    "reason": "No detailed evaluation available",
-                    "backend": "penelope",
-                    "threshold": None,
-                    "class_name": "GoalAchievementMetric",
-                    "description": "Goal achievement evaluation was not performed",
-                    "is_successful": goal_achieved,
-                    "turn_count": self.current_turn,
-                }
-            }
+        # Use model_dump to get all data from the MetricResult
+        dumped = metric_result.model_dump()
 
-        # Process all SDK metric results
+        # Merge score and details for flat structure expected by frontend
+        metric_dict = {
+            "score": dumped["score"],
+            **dumped["details"],  # Spread all details fields
+        }
+
+        # Add convenience fields for criteria-based metrics
+        criteria_evals = metric_dict.get("criteria_evaluations", [])
+        if criteria_evals:
+            met_count = sum(1 for c in criteria_evals if c.get("met", False))
+            metric_dict["criteria_met"] = met_count
+            metric_dict["criteria_total"] = len(criteria_evals)
+
+        return metric_dict
+
+    def _generate_metrics(self, goal_achieved: bool) -> Dict[str, Dict[str, Any]]:
+        """
+        Generate metrics in frontend-compatible format.
+
+        Uses model_dump() to extract all fields from MetricResult, then adds
+        convenience fields for the frontend.
+
+        Args:
+            goal_achieved: Whether the goal was achieved (unused - kept for compatibility)
+
+        Returns:
+            Dictionary mapping metric display names to metric data
+        """
+        if not self.metric_results:
+            return {}
+
         metrics = {}
 
         for metric_result in self.metric_results:
-            # Convert MetricResult to dict (it's not a Pydantic model)
-            metric_dict = {
-                "score": metric_result.score,
-                "details": metric_result.details,
-            }
+            # Flatten the metric result
+            metric_dict = self._flatten_metric_result(metric_result)
 
-            # Enhance with Penelope-specific summary fields (if applicable)
-            details = metric_dict.get("details", {})
-            criteria_evals = details.get("criteria_evaluations", [])
-
-            # Add is_successful field at top level for frontend compatibility
-            # Extract from details or derive from all_criteria_met
-            if "is_successful" in details:
-                metric_dict["is_successful"] = details["is_successful"]
-            elif "all_criteria_met" in details:
-                metric_dict["is_successful"] = details["all_criteria_met"]
-            else:
-                # Fallback: consider successful if score meets threshold
-                threshold = details.get("threshold", 0.7)
-                metric_dict["is_successful"] = metric_result.score >= threshold
-
-            # Add other standard fields from details for frontend compatibility
-            if "reason" in details:
-                metric_dict["reason"] = details["reason"]
-            if "confidence" in details:
-                metric_dict["confidence"] = details["confidence"]
-            if "threshold" in details:
-                metric_dict["threshold"] = details["threshold"]
-
-            # Add criterion counts for quick analysis (for criterion-based metrics)
-            if criteria_evals:
-                met_count = sum(1 for c in criteria_evals if c.get("met", False))
-                metric_dict["criteria_met"] = met_count
-                metric_dict["criteria_total"] = len(criteria_evals)
-
-            # Use metric name from details, or fallback to generic name
-            metric_name = details.get("name", "unnamed_metric")
-            # Convert snake_case to Title Case for display
+            # Extract display name from details
+            metric_name = metric_dict.get("name", "penelope_goal_evaluation")
             display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
 
             metrics[display_name] = metric_dict
