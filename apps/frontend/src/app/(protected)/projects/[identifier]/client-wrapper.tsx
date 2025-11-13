@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { ArrowBackIcon, EditIcon, DeleteIcon } from '@/components/icons';
 import ProjectContent from '../components/ProjectContent';
 import ProjectEditDrawer from './edit-drawer';
+import ProjectEndpoints from './components/ProjectEndpoints';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter, useParams } from 'next/navigation';
@@ -161,6 +162,21 @@ export default function ClientWrapper({
 
       {/* Project Content */}
       <ProjectContent project={currentProject} />
+
+      {/* Endpoints Section */}
+      <Box sx={{ mt: 3 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            mb: 2,
+            fontWeight: 600,
+            color: 'text.primary',
+          }}
+        >
+          Endpoints
+        </Typography>
+        <ProjectEndpoints projectId={projectId} sessionToken={sessionToken} />
+      </Box>
 
       {/* Edit Drawer */}
       <ProjectEditDrawer
