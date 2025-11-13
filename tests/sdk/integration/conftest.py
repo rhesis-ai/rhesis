@@ -28,12 +28,6 @@ def set_env():
     print(f"{GREEN}✅ Environment variables set for docker-compose mode{NC}")
 
 
-@pytest.fixture(scope="session", autouse=True)
-def set_env():
-    os.environ["RHESIS_API_KEY"] = "rh-test-token"
-    os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
-
-
 def clear_all_tables() -> None:
     """Clear all data from key tables."""
     print(f"{BLUE}🗑️  Clearing database...{NC}")
