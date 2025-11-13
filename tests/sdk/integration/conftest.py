@@ -146,7 +146,7 @@ def setup_test_data() -> None:
         pytest.fail(f"❌ Unexpected error: {e}")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def docker_compose_test_env() -> Generator[dict, None, None]:
     compose_file = Path(__file__).parent / "docker-compose.yml"
     # Test if backend is running
@@ -227,7 +227,7 @@ def db_cleanup(docker_compose_test_env):
         )
         conn.autocommit = True
         cur = conn.cursor()
-        cur.execute("TRUNCATE TABLE metric CASCADE;")
+        cur.execute("TRUNCATE TABLE metric, behavior CASCADE;")
         cur.close()
         conn.close()
     except Exception as e:
@@ -249,7 +249,7 @@ def db_cleanup(docker_compose_test_env):
         )
         conn.autocommit = True
         cur = conn.cursor()
-        cur.execute("TRUNCATE TABLE metric CASCADE;")
+        cur.execute("TRUNCATE TABLE metric, behavior CASCADE;")
         cur.close()
         conn.close()
     except Exception as e:
