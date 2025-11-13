@@ -57,6 +57,9 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
       });
       setDriverInstance(instance);
 
+      // Clear activeTour on mount in case it's stuck from a previous session
+      setActiveTour(null);
+
       return () => {
         instance.destroy();
       };
@@ -92,15 +95,126 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     (tourId: string) => {
       if (!driverInstance) return;
 
+      // Check if driver is already active
+      const state = driverInstance.getState();
+      if (state.isInitialized) return;
+
       const steps = getTourSteps(tourId);
       if (steps.length === 0) return;
 
       setActiveTour(tourId);
-      driverInstance.setSteps(steps);
+
+      // Enhance steps with tour-specific behavior
+      const enhancedSteps = steps.map((step, index) => {
+        // For project/endpoint tours: auto-close when button is clicked
+        if ((tourId === 'project' || tourId === 'endpoint') && index === 0) {
+          return {
+            ...step,
+            onHighlightStarted: (element: Element | undefined) => {
+              if (element) {
+                element.addEventListener('click', () => {
+                  setTimeout(() => driverInstance.destroy(), 100);
+                });
+              }
+            },
+          };
+        }
+
+        // For testCases tour
+        if (tourId === 'testCases') {
+          if (index === 0) {
+            // Step 0: When "Next" is clicked, click the button AND advance to next step
+            // Per driver.js docs: when overriding onNextClick, you MUST call a driver method
+            return {
+              ...step,
+              popover: {
+                ...step.popover,
+                onNextClick: (element: Element | undefined) => {
+                  if (element) {
+                    (element as HTMLElement).click();
+                  }
+                  // Wait for modal to open, then advance
+                  setTimeout(() => {
+                    driverInstance.moveNext();
+                  }, 400);
+                },
+              },
+            };
+          }
+
+          if (index === 1) {
+            // Step 1: Override only onPrevClick to handle modal closing
+            // For onNextClick (last step), let driver.js use default behavior (destroy)
+            return {
+              ...step,
+              popover: {
+                ...step.popover,
+                onPrevClick: () => {
+                  const dialog = document.querySelector(
+                    '[data-tour="test-generation-modal"]'
+                  )?.parentElement?.parentElement as HTMLElement;
+                  if (dialog) {
+                    const closeButton = dialog.querySelector(
+                      '.MuiDialogTitle-root .MuiIconButton-root'
+                    ) as HTMLButtonElement;
+                    if (closeButton) {
+                      closeButton.click();
+                    }
+                  }
+                  setTimeout(() => {
+                    driverInstance.movePrevious();
+                  }, 400);
+                },
+              },
+              // Add onDeselected to mark completion and close modal when tour ends
+              onDeselected: () => {
+                // Only run this when tour is being destroyed (not when going back)
+                const state = driverInstance.getState();
+                if (!state.isInitialized) {
+                  // Tour is ending - mark complete and close modal
+                  setProgress(prev => ({
+                    ...prev,
+                    testCasesCreated: true,
+                    lastUpdated: Date.now(),
+                  }));
+
+                  setTimeout(() => {
+                    const dialog = document.querySelector(
+                      '[data-tour="test-generation-modal"]'
+                    )?.parentElement?.parentElement as HTMLElement;
+                    if (dialog) {
+                      const closeButton = dialog.querySelector(
+                        '.MuiDialogTitle-root .MuiIconButton-root'
+                      ) as HTMLButtonElement;
+                      if (closeButton) {
+                        closeButton.click();
+                      }
+                    }
+                  }, 100);
+                }
+              },
+            };
+          }
+        }
+
+        return step;
+      });
+
+      driverInstance.setSteps(enhancedSteps);
       driverInstance.drive();
     },
     [driverInstance]
   );
+
+  const moveToNextStep = useCallback(() => {
+    if (!driverInstance) return;
+    driverInstance.moveNext();
+  }, [driverInstance]);
+
+  const closeTour = useCallback(() => {
+    if (!driverInstance) return;
+    driverInstance.destroy();
+  }, [driverInstance]);
 
   const isComplete = isOnboardingComplete(progress);
   const completionPercentage = calculateCompletionPercentage(progress);
@@ -114,6 +228,8 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     resetOnboarding,
     startTour,
     activeTour,
+    moveToNextStep,
+    closeTour,
   };
 
   return (

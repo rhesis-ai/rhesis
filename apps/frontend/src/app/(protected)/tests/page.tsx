@@ -22,13 +22,30 @@ export default function TestsPage() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [showModal, setShowModal] = React.useState(false);
   const [testCount, setTestCount] = React.useState(0);
-  const { markStepComplete, progress } = useOnboarding();
+  const [chartsLoaded, setChartsLoaded] = React.useState(false);
+  const { markStepComplete, progress, activeTour, startTour } = useOnboarding();
 
   // Set document title
   useDocumentTitle('Tests');
 
-  // Enable tour for this page
-  useOnboardingTour('testCases');
+  // Don't use the auto-tour hook, we'll manually control it after charts load
+  const searchParams = new URLSearchParams(
+    typeof window !== 'undefined' ? window.location.search : ''
+  );
+  const tourParam = searchParams.get('tour');
+
+  // Start tour only after charts are loaded
+  React.useEffect(() => {
+    if (tourParam === 'testCases' && chartsLoaded) {
+      // Small additional delay to ensure button is positioned correctly
+      const timeout = setTimeout(() => {
+        startTour('testCases');
+      }, 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [tourParam, chartsLoaded, startTour]);
+
+  // No auto-close logic needed - tour handles modal closing
 
   // Fetch test count to check if user has created tests
   React.useEffect(() => {
@@ -48,15 +65,15 @@ export default function TestsPage() {
     fetchTestCount();
   }, [session?.session_token, refreshKey]);
 
-  // Mark step as complete when user has tests
-  React.useEffect(() => {
-    if (testCount > 0 && !progress.testCasesCreated) {
-      markStepComplete('testCasesCreated');
-    }
-  }, [testCount, progress.testCasesCreated, markStepComplete]);
+  // Tour completion is handled in OnboardingContext when "Got it!" is clicked
+  // We don't auto-complete based on test count to avoid marking it done prematurely
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
+  }, []);
+
+  const handleChartsLoaded = React.useCallback(() => {
+    setChartsLoaded(true);
   }, []);
 
   const handleOpenModal = React.useCallback(() => {
@@ -125,6 +142,7 @@ export default function TestsPage() {
         <TestCharts
           sessionToken={session.session_token}
           key={`charts-${refreshKey}`}
+          onLoadComplete={handleChartsLoaded}
         />
 
         {/* Table Section */}

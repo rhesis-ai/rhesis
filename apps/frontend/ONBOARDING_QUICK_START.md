@@ -79,12 +79,12 @@ resetOnboarding();
 
 ## 📋 Onboarding Checklist Items
 
-| Step           | ID                 | Page                  | Required    |
-| -------------- | ------------------ | --------------------- | ----------- |
-| Create Project | `projectCreated`   | `/projects`           | ✅ Yes      |
-| Setup Endpoint | `endpointSetup`    | `/endpoints`          | ✅ Yes      |
-| Invite Team    | `usersInvited`     | `/organizations/team` | ⚠️ Optional |
-| Create Tests   | `testCasesCreated` | `/tests`              | ✅ Yes      |
+| Step           | ID                 | Page                  | Required |
+| -------------- | ------------------ | --------------------- | -------- |
+| Create Project | `projectCreated`   | `/projects`           | ✅ Yes   |
+| Setup Endpoint | `endpointSetup`    | `/endpoints`          | ✅ Yes   |
+| Invite Team    | `usersInvited`     | `/organizations/team` | ✅ Yes   |
+| Create Tests   | `testCasesCreated` | `/tests`              | ✅ Yes   |
 
 ## 🎨 Styling Tours
 
@@ -192,6 +192,71 @@ React.useEffect(() => {
 1. User might have dismissed it
 2. Onboarding might be 100% complete
 3. Check if user is on protected route
+
+## ⚠️ Important: Overriding Navigation Callbacks
+
+**Critical Rule:** When you override `onNextClick` or `onPrevClick`, you take full control of navigation. According to [driver.js documentation](https://driverjs.com/docs/configuration):
+
+> By overriding `onNextClick`, you control the navigation of the driver. You MUST call `driverObj.moveNext()`, `driverObj.movePrevious()`, or `driverObj.destroy()` explicitly.
+
+### Best Practices:
+
+1. **Avoid global `onNextClick`/`onPrevClick` overrides** - Let driver.js handle default navigation
+2. **Only override at step-level when absolutely necessary** - For example, to trigger an action before advancing
+3. **Always call a driver method** - Either `moveNext()`, `movePrevious()`, or `destroy()`
+4. **Don't rely on external code to call driver methods** - Keep all navigation logic in the step callbacks
+5. **Use appropriate hooks for side effects** - Use `onHighlighted`, `onDeselected`, etc. for non-navigation logic
+
+### Example: Proper Step-Level Override
+
+```typescript
+{
+  element: '[data-tour="my-button"]',
+  popover: {
+    title: 'Click to Continue',
+    onNextClick: (element) => {
+      // Perform custom action (e.g., click the button)
+      if (element) {
+        (element as HTMLElement).click();
+      }
+
+      // CRITICAL: You MUST call a driver method
+      // Wait for async operation if needed, then advance
+      setTimeout(() => {
+        driverInstance.moveNext();
+      }, 300);
+    },
+  },
+}
+```
+
+### Common Mistakes to Avoid:
+
+❌ **Bad:** Overriding `onNextClick` without calling a driver method
+
+```typescript
+onNextClick: element => {
+  element.click(); // No driver method call!
+};
+```
+
+❌ **Bad:** Relying on external code to handle navigation
+
+```typescript
+onNextClick: element => {
+  element.click();
+  // Hoping some other code will call moveNext() - DON'T DO THIS
+};
+```
+
+✅ **Good:** Complete navigation handling in the callback
+
+```typescript
+onNextClick: element => {
+  element.click();
+  setTimeout(() => driverInstance.moveNext(), 300); // ✓ Proper navigation
+};
+```
 
 ## 💡 Tips
 
