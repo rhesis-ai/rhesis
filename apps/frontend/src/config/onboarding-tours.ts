@@ -31,10 +31,13 @@ export const endpointTourSteps: DriveStep[] = [
     },
   },
   {
+    element: '[data-tour="import-swagger-button"]',
     popover: {
-      title: 'Import or Create Manually',
+      title: 'Import from Swagger',
       description:
-        "You can import endpoints from a Swagger/OpenAPI spec or create them manually. We'll guide you through the manual process.",
+        "You can quickly import endpoints from a Swagger/OpenAPI spec, or create them manually using the 'New Endpoint' button.",
+      side: 'left',
+      align: 'start',
     },
   },
 ];
@@ -46,7 +49,7 @@ export const inviteUsersTourSteps: DriveStep[] = [
   {
     element: '[data-tour="invite-email-input"]',
     popover: {
-      title: 'Invite Your Team (Optional)',
+      title: 'Invite Your Team',
       description:
         "Enter your team members' email addresses here. You can invite multiple people at once.",
       side: 'bottom',
@@ -57,8 +60,7 @@ export const inviteUsersTourSteps: DriveStep[] = [
     element: '[data-tour="send-invites-button"]',
     popover: {
       title: 'Send Invitations',
-      description:
-        'Click here to send invitation emails to your team members. You can skip this step and invite users later.',
+      description: 'Click here to send invitation emails to your team members.',
       side: 'left',
       align: 'start',
     },
@@ -74,16 +76,21 @@ export const testCasesTourSteps: DriveStep[] = [
     popover: {
       title: 'Create Your First Test Cases',
       description:
-        'Test cases define what to test in your AI endpoints. You have multiple options to create them.',
+        'Test cases define what to test in your AI endpoints. Click this button to see your options.',
       side: 'left',
       align: 'start',
+      // onNextClick handler is added dynamically in OnboardingContext
     },
   },
   {
+    element: '[data-tour="test-generation-modal"]',
     popover: {
       title: 'Choose Your Method',
       description:
         'You can create tests manually, generate them with AI, or import them. Pick the method that works best for you!',
+      side: 'top',
+      align: 'center',
+      // Don't specify showButtons - let driver.js automatically show correct buttons for last step
     },
   },
 ];
@@ -96,7 +103,7 @@ export const driverConfig = {
   progressText: '{{current}} of {{total}}',
   nextBtnText: 'Next',
   prevBtnText: 'Back',
-  doneBtnText: 'Done',
+  doneBtnText: 'Got it!',
   showButtons: ['next', 'previous', 'close'],
   allowClose: true,
   overlayClickNext: false,
@@ -104,6 +111,8 @@ export const driverConfig = {
   animate: true,
   stagePadding: 10,
   stageRadius: 10,
+  // Let driver.js handle destruction by default
+  // Only override onDestroyed in OnboardingContext for cleanup logic
 };
 
 /**

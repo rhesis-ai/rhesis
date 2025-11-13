@@ -43,7 +43,7 @@ The system guides users through 4 key steps:
    - Tour shows "New Endpoint" button and creation options
    - Marks complete when user has at least one endpoint
 
-3. **Invite Team Members** (`/organizations/team`) - OPTIONAL
+3. **Invite Team Members** (`/organizations/team`)
    - Tour points to email input and send button
    - Marks complete when user has invited at least one team member
 
