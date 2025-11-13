@@ -13,6 +13,7 @@ import {
   Alert,
   LinearProgress,
   IconButton,
+  Chip,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import UploadIcon from '@mui/icons-material/Upload';
@@ -218,11 +219,23 @@ export default function UploadSourceDialog({
                 <Button
                   variant="outlined"
                   startIcon={<CloudIcon />}
-                  onClick={handleMcpImport}
-                  disabled={uploading}
+                  disabled
                   fullWidth
+                  sx={{
+                    justifyContent: 'space-between',
+                    textTransform: 'none',
+                  }}
                 >
-                  Import from Notion
+                  <span>Import from Notion</span>
+                  <Chip
+                    label="Coming Soon"
+                    size="small"
+                    sx={{
+                      height: '20px',
+                      fontSize: theme => theme.typography.caption.fontSize,
+                      backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                    }}
+                  />
                 </Button>
               </Box>
             </Box>
