@@ -108,12 +108,11 @@ class BaseEntity(BaseModel):
         if "id" in data and data["id"] is not None:
             response = self._update(data["id"], data)
 
-            return response
         else:
             response = self._create(data)
             self.id = response["id"]
 
-            return response
+        return response
 
     def pull(self) -> None:
         """Pull the entity from the database."""
