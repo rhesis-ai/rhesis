@@ -91,13 +91,6 @@ class PromptSynthesizer(TestSetSynthesizer):
                 template_context["previous_messages"] = previous_messages
             formatted_prompt = self.system_prompt.render(**template_context)
 
-            # Debug: Log full rendered template
-            print("\n" + "=" * 80, file=sys.stderr, flush=True)
-            print("DEBUG: Full Rendered Template (without config):", file=sys.stderr, flush=True)
-            print("=" * 80, file=sys.stderr, flush=True)
-            print(formatted_prompt, file=sys.stderr, flush=True)
-            print("=" * 80 + "\n", file=sys.stderr, flush=True)
-
         # Use utility function for retry logic
         response = retry_llm_call(self.model, formatted_prompt)
 
