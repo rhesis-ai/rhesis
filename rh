@@ -72,26 +72,13 @@ start_all() {
     if [ ! -f ".env.docker.local" ] || ! grep -q "^DB_ENCRYPTION_KEY=.\+" .env.docker.local 2>/dev/null; then
         echo -e "${YELLOW}🔑 Generating DB_ENCRYPTION_KEY...${NC}"
         
-        # Check if cryptography is installed, install if not
-        if ! python3 -c "import cryptography" 2>/dev/null; then
-            echo -e "${YELLOW}📦 Installing cryptography package...${NC}"
-            pip3 install cryptography > /dev/null 2>&1
-            if [ $? -ne 0 ]; then
-                echo -e "${RED}❌ Error: Failed to install cryptography package${NC}"
-                echo -e "${YELLOW}💡 Please install it manually:${NC}"
-                echo -e "   ${BLUE}pip3 install cryptography${NC}"
-                exit 1
-            fi
-            echo -e "${GREEN}✅ Cryptography package installed${NC}"
-        fi
-        
-        # Generate encryption key using Python
-        ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" 2>/dev/null)
+        # Generate encryption key using Docker to avoid installing cryptography globally
+        # Use Python 3.10-slim image (same as backend) with cryptography pre-installed
+        ENCRYPTION_KEY=$(docker run --rm python:3.10.17-slim sh -c "pip install --quiet --no-cache-dir cryptography > /dev/null 2>&1 && python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'" 2>/dev/null)
         
         if [ $? -ne 0 ] || [ -z "$ENCRYPTION_KEY" ]; then
-            echo -e "${RED}❌ Error: Failed to generate encryption key${NC}"
-            echo -e "${YELLOW}💡 Make sure Python 3 and cryptography package are installed:${NC}"
-            echo -e "   ${BLUE}pip install cryptography${NC}"
+            echo -e "${RED}❌ Error: Failed to generate encryption key using Docker${NC}"
+            echo -e "${YELLOW}💡 Make sure Docker is running and can pull images${NC}"
             exit 1
         fi
         
