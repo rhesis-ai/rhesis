@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
+from pydantic import BaseModel, Field
+
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 
@@ -105,12 +107,17 @@ class MetricConfig:
             self.metric_scope = converted_scopes
 
 
-class MetricResult:
+class MetricResult(BaseModel):
     """Result of a metric evaluation."""
 
-    def __init__(self, score: float, details: Optional[Dict[str, Any]] = None):
-        self.score = score
-        self.details = details or {}
+    score: Union[float, str] = Field(
+        description=(
+            "The evaluation score (float for numeric/binary metrics, str for categorical metrics)"
+        )
+    )
+    details: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional evaluation details"
+    )
 
     def __str__(self):
         return f"MetricResult(score={self.score}, details={self.details})"

@@ -537,321 +537,323 @@ export default function NewMetricPage() {
 
   const renderConfirmation = () => (
     <Box>
-      <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
-        Review Your Metric
-      </Typography>
+      {/* General Section Review */}
+      <Box sx={{ mb: 5 }}>
+        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+          General Information
+        </Typography>
 
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-          gap: 3,
-          maxWidth: theme => theme.spacing(125),
-          mx: 'auto',
-        }}
-      >
-        {/* Left Column */}
-        <Box>
-          {/* General Section Review */}
-          <Paper sx={{ p: 3, mb: 3, bgcolor: 'background.default' }}>
-            <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
-              General Information
-            </Typography>
-
-            <Box sx={{ mb: 2 }}>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                sx={{ fontWeight: 'medium' }}
-              >
-                Name
-              </Typography>
-              <Typography sx={{ color: 'text.primary' }}>
-                {formData.name}
-              </Typography>
-            </Box>
-
-            <Box sx={{ mb: 2 }}>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                sx={{ fontWeight: 'medium' }}
-              >
-                Description
-              </Typography>
-              <Typography sx={{ color: 'text.primary' }}>
-                {formData.description || 'No description provided'}
-              </Typography>
-            </Box>
-
-            <Box>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                sx={{ fontWeight: 'medium', mb: 1 }}
-              >
-                Tags
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {formData.tags.length > 0 ? (
-                  formData.tags.map(tag => (
-                    <Box
-                      key={tag}
-                      sx={{
-                        bgcolor: 'primary.main',
-                        color: 'primary.contrastText',
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: theme => theme.shape.borderRadius * 0.25,
-                        fontSize: theme.typography.helperText.fontSize,
-                      }}
-                    >
-                      {tag}
-                    </Box>
-                  ))
-                ) : (
-                  <Typography
-                    variant="body2"
-                    sx={{ color: 'text.secondary', fontStyle: 'italic' }}
-                  >
-                    No tags added
-                  </Typography>
-                )}
-              </Box>
-            </Box>
-          </Paper>
-
-          {/* Evaluation Section Review */}
-          <Paper sx={{ p: 3, bgcolor: 'background.default' }}>
-            <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
-              Evaluation Process
-            </Typography>
-
-            <Box sx={{ mb: 2 }}>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                sx={{ fontWeight: 'medium' }}
-              >
-                Evaluation Model
-              </Typography>
-              <Typography sx={{ color: 'text.primary' }}>
-                {models.find(model => model.id === formData.model_id)?.name ||
-                  'No model selected'}
-              </Typography>
-            </Box>
-
-            <Box sx={{ mb: 2 }}>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                sx={{ fontWeight: 'medium' }}
-              >
-                Evaluation Prompt
-              </Typography>
-              <Paper
-                variant="outlined"
-                sx={{ p: 2, bgcolor: 'action.hover', mt: 1 }}
-              >
-                <Typography
-                  sx={{
-                    fontFamily: 'monospace',
-                    fontSize: theme.typography.helperText.fontSize,
-                    whiteSpace: 'pre-wrap',
-                    color: 'text.primary',
-                  }}
-                >
-                  {formData.evaluation_prompt}
-                </Typography>
-              </Paper>
-            </Box>
-
-            <Box>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                sx={{ fontWeight: 'medium', mb: 1 }}
-              >
-                Reasoning Instructions
-              </Typography>
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
-                <Typography
-                  sx={{
-                    fontFamily: 'monospace',
-                    fontSize: theme.typography.helperText.fontSize,
-                    whiteSpace: 'pre-wrap',
-                    color: 'text.primary',
-                  }}
-                >
-                  {formData.reasoning}
-                </Typography>
-              </Paper>
-            </Box>
-          </Paper>
+        <Box sx={{ mb: 2 }}>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ fontWeight: 'medium' }}
+          >
+            Name
+          </Typography>
+          <Typography sx={{ color: 'text.primary' }}>
+            {formData.name}
+          </Typography>
         </Box>
 
-        {/* Right Column */}
-        <Box>
-          {/* Evaluation Steps */}
-          <Paper sx={{ p: 3, mb: 3, bgcolor: 'background.default' }}>
-            <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
-              Evaluation Steps
-            </Typography>
+        <Box sx={{ mb: 2 }}>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ fontWeight: 'medium' }}
+          >
+            Description
+          </Typography>
+          <Typography sx={{ color: 'text.primary' }}>
+            {formData.description || 'No description provided'}
+          </Typography>
+        </Box>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {formData.evaluation_steps
-                ?.filter(step => step.trim())
-                .map((step, index) => (
-                  <Paper
-                    key={index}
-                    variant="outlined"
+        <Box>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ fontWeight: 'medium', mb: 1 }}
+          >
+            Tags
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {formData.tags.length > 0 ? (
+              formData.tags.map(tag => (
+                <Chip key={tag} label={tag} color="primary" variant="filled" />
+              ))
+            ) : (
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.secondary', fontStyle: 'italic' }}
+              >
+                No tags added
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Evaluation Section Review */}
+      <Box sx={{ mb: 5 }}>
+        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+          Evaluation Process
+        </Typography>
+
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ fontWeight: 'medium', mb: 1 }}
+          >
+            Evaluation Model
+          </Typography>
+          <Typography sx={{ color: 'text.primary' }}>
+            {models.find(model => model.id === formData.model_id)?.name ||
+              'No model selected'}
+          </Typography>
+        </Box>
+
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ fontWeight: 'medium', mb: 1 }}
+          >
+            Evaluation Prompt
+          </Typography>
+          <Box
+            sx={{
+              p: 2,
+              bgcolor: 'action.hover',
+              borderRadius: theme.shape.borderRadius / 4,
+              border: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <Typography
+              sx={{
+                fontFamily: 'monospace',
+                fontSize: theme.typography.body2.fontSize,
+                whiteSpace: 'pre-wrap',
+                color: 'text.primary',
+              }}
+            >
+              {formData.evaluation_prompt}
+            </Typography>
+          </Box>
+        </Box>
+
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ fontWeight: 'medium', mb: 1 }}
+          >
+            Evaluation Steps
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {formData.evaluation_steps
+              ?.filter(step => step.trim())
+              .map((step, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    p: 2,
+                    bgcolor: 'action.hover',
+                    borderRadius: theme.shape.borderRadius / 4,
+                    position: 'relative',
+                    pl: 4,
+                    border: 1,
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Typography
                     sx={{
-                      p: 2,
-                      bgcolor: 'background.paper',
-                      position: 'relative',
-                      pl: 4,
+                      position: 'absolute',
+                      left: 12,
+                      top: 12,
+                      color: 'text.secondary',
+                      fontWeight: 'bold',
+                      fontSize: theme.typography.body2.fontSize,
                     }}
                   >
-                    <Typography
-                      sx={{
-                        position: 'absolute',
-                        left: 12,
-                        top: 12,
-                        color: 'primary.main',
-                        fontWeight: 'bold',
-                        fontSize: theme.typography.helperText.fontSize,
-                      }}
-                    >
-                      {index + 1}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: 'text.primary',
-                      }}
-                    >
-                      {step}
-                    </Typography>
-                  </Paper>
-                ))}
-            </Box>
-          </Paper>
+                    {index + 1}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'text.primary',
+                    }}
+                  >
+                    {step}
+                  </Typography>
+                </Box>
+              ))}
+          </Box>
+        </Box>
 
-          {/* Result Configuration */}
-          <Paper sx={{ p: 3, bgcolor: 'background.default' }}>
-            <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
-              Result Configuration
+        <Box>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ fontWeight: 'medium', mb: 1 }}
+          >
+            Reasoning Instructions
+          </Typography>
+          <Box
+            sx={{
+              p: 2,
+              bgcolor: 'action.hover',
+              borderRadius: theme.shape.borderRadius / 4,
+              border: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <Typography
+              sx={{
+                fontFamily: 'monospace',
+                fontSize: theme.typography.body2.fontSize,
+                whiteSpace: 'pre-wrap',
+                color: 'text.primary',
+              }}
+            >
+              {formData.reasoning}
             </Typography>
+          </Box>
+        </Box>
+      </Box>
 
-            <Box sx={{ mb: 2 }}>
+      {/* Result Configuration */}
+      <Box>
+        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+          Result Configuration
+        </Typography>
+
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ fontWeight: 'medium', mb: 1 }}
+          >
+            Score Type
+          </Typography>
+          <Chip
+            label={
+              formData.score_type === 'categorical' ? 'Categorical' : 'Numeric'
+            }
+            color="primary"
+            variant="filled"
+          />
+        </Box>
+
+        {formData.score_type === 'numeric' && (
+          <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
+            <Box>
               <Typography
                 variant="subtitle2"
                 color="text.secondary"
                 sx={{ fontWeight: 'medium' }}
               >
-                Score Type
+                Min Score
               </Typography>
-              <Box
+              <Typography
                 sx={{
-                  bgcolor: 'primary.main',
-                  color: 'primary.contrastText',
-                  px: 1.5,
-                  py: 0.5,
-                  borderRadius: theme => theme.shape.borderRadius * 0.25,
-                  fontSize: theme.typography.helperText.fontSize,
-                  display: 'inline-block',
-                  mt: 0.5,
+                  fontSize: theme.typography.subtitle1.fontSize,
+                  fontWeight: 500,
+                  color: 'text.primary',
                 }}
               >
-                {formData.score_type === 'categorical'
-                  ? 'Categorical'
-                  : 'Numeric'}
-              </Box>
+                {formData.min_score}
+              </Typography>
             </Box>
-
-            {formData.score_type === 'numeric' && (
-              <>
-                <Box sx={{ display: 'flex', gap: 3, mb: 2 }}>
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      sx={{ fontWeight: 'medium' }}
-                    >
-                      Min Score
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: theme.typography.subtitle1.fontSize,
-                        fontWeight: 500,
-                        color: 'text.primary',
-                      }}
-                    >
-                      {formData.min_score}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      sx={{ fontWeight: 'medium' }}
-                    >
-                      Max Score
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: theme.typography.subtitle1.fontSize,
-                        fontWeight: 500,
-                        color: 'text.primary',
-                      }}
-                    >
-                      {formData.max_score}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      sx={{ fontWeight: 'medium' }}
-                    >
-                      Threshold
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: theme.typography.subtitle1.fontSize,
-                        fontWeight: 500,
-                        color: 'success.main',
-                      }}
-                    >
-                      ≥ {formData.threshold}
-                    </Typography>
-                  </Box>
-                </Box>
-              </>
-            )}
-
             <Box>
               <Typography
                 variant="subtitle2"
                 color="text.secondary"
-                sx={{ fontWeight: 'medium', mb: 1 }}
+                sx={{ fontWeight: 'medium' }}
               >
-                Result Explanation
+                Max Score
               </Typography>
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
-                <Typography
-                  sx={{
-                    fontFamily: 'monospace',
-                    fontSize: theme.typography.helperText.fontSize,
-                    whiteSpace: 'pre-wrap',
-                    color: 'text.primary',
-                  }}
-                >
-                  {formData.explanation}
-                </Typography>
-              </Paper>
+              <Typography
+                sx={{
+                  fontSize: theme.typography.subtitle1.fontSize,
+                  fontWeight: 500,
+                  color: 'text.primary',
+                }}
+              >
+                {formData.max_score}
+              </Typography>
             </Box>
-          </Paper>
+            <Box>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontWeight: 'medium' }}
+              >
+                Threshold
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: theme.typography.subtitle1.fontSize,
+                  fontWeight: 500,
+                  color: 'success.main',
+                }}
+              >
+                ≥ {formData.threshold}
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ fontWeight: 'medium', mb: 1 }}
+          >
+            Metric Scope
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {formData.metric_scope.map((scope, index) => (
+              <Chip
+                key={`scope-${index}`}
+                label={scope}
+                color="primary"
+                variant="filled"
+              />
+            ))}
+          </Box>
+        </Box>
+
+        <Box>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ fontWeight: 'medium', mb: 1 }}
+          >
+            Result Explanation
+          </Typography>
+          <Box
+            sx={{
+              p: 2,
+              bgcolor: 'action.hover',
+              borderRadius: theme.shape.borderRadius / 4,
+              border: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <Typography
+              sx={{
+                fontFamily: 'monospace',
+                fontSize: theme.typography.body2.fontSize,
+                whiteSpace: 'pre-wrap',
+                color: 'text.primary',
+              }}
+            >
+              {formData.explanation}
+            </Typography>
+          </Box>
         </Box>
       </Box>
     </Box>
@@ -918,7 +920,14 @@ export default function NewMetricPage() {
           <form onSubmit={handleSubmit}>
             {getStepContent(activeStep)}
 
-            <Box sx={{ display: 'flex', gap: 2, mt: 4 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 2,
+                mt: 4,
+              }}
+            >
               <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={
