@@ -13,7 +13,6 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_serializer
 
 from rhesis.penelope.schemas import AssistantMessage, ConversationHistory, ToolMessage
-from rhesis.sdk.metrics.base import MetricResult
 
 
 class ExecutionStatus(str, Enum):
@@ -130,13 +129,13 @@ class TestResult(BaseModel):
         ),
     )
 
-    # Structured evaluation data (machine-readable) - SDK MetricResult
-    goal_evaluation: Optional[MetricResult] = Field(
+    # Structured evaluation data (machine-readable) - Flattened metric dict
+    goal_evaluation: Optional[Dict[str, Any]] = Field(
         default=None,
         description=(
-            "SDK MetricResult from GoalAchievementJudge with structured criterion evaluation. "
-            "Access .score for overall score, "
-            ".details['criteria_evaluations'] for criterion breakdown."
+            "Flattened goal evaluation metric from GoalAchievementJudge. "
+            "All fields (score, criteria_evaluations, all_criteria_met, etc.) are at top level. "
+            "This is the flattened version of the first MetricResult for frontend compatibility."
         ),
     )
 
@@ -429,6 +428,12 @@ class TestState:
         # Generate conversation summary
         conversation_summary = self._generate_conversation_summary()
 
+        # Flatten goal_evaluation for frontend compatibility
+        # Frontend expects flat structure with all fields at top level, not nested {score, details}
+        goal_evaluation_flat = None
+        if self.metric_results:
+            goal_evaluation_flat = self._flatten_metric_result(self.metric_results[0])
+
         return TestResult(
             status=status,
             goal_achieved=goal_achieved,
@@ -436,8 +441,8 @@ class TestState:
             findings=findings,
             history=self.turns,
             conversation_summary=conversation_summary,
-            # Use first metric result for backward compatibility with goal_evaluation field
-            goal_evaluation=self.metric_results[0] if self.metric_results else None,
+            # Use flattened first metric result for backward compatibility
+            goal_evaluation=goal_evaluation_flat,
             metrics=metrics,
             test_configuration=test_configuration,
             model_info=model_info,
@@ -453,7 +458,7 @@ class TestState:
 
         This avoids duplication with goal_evaluation.criteria_evaluations by
         providing only a high-level summary. Detailed criterion data is in
-        goal_evaluation.criteria_evaluations.
+        goal_evaluation (which is a flattened dict with all fields at top level).
 
         Returns:
             List of high-level summary strings
@@ -506,6 +511,37 @@ class TestState:
 
         return findings
 
+    def _flatten_metric_result(self, metric_result: Any) -> Dict[str, Any]:
+        """
+        Flatten a MetricResult into frontend-compatible format.
+
+        Converts MetricResult's nested {score, details} structure into a flat dict
+        with all details fields at the top level.
+
+        Args:
+            metric_result: SDK MetricResult object
+
+        Returns:
+            Flattened dictionary with score and all details fields at top level
+        """
+        # Use model_dump to get all data from the MetricResult
+        dumped = metric_result.model_dump()
+
+        # Merge score and details for flat structure expected by frontend
+        metric_dict = {
+            "score": dumped["score"],
+            **dumped["details"],  # Spread all details fields
+        }
+
+        # Add convenience fields for criteria-based metrics
+        criteria_evals = metric_dict.get("criteria_evaluations", [])
+        if criteria_evals:
+            met_count = sum(1 for c in criteria_evals if c.get("met", False))
+            metric_dict["criteria_met"] = met_count
+            metric_dict["criteria_total"] = len(criteria_evals)
+
+        return metric_dict
+
     def _generate_metrics(self, goal_achieved: bool) -> Dict[str, Dict[str, Any]]:
         """
         Generate metrics in frontend-compatible format.
@@ -525,21 +561,8 @@ class TestState:
         metrics = {}
 
         for metric_result in self.metric_results:
-            # Use model_dump to get all data from the MetricResult
-            dumped = metric_result.model_dump()
-
-            # Merge score and details for flat structure expected by frontend
-            metric_dict = {
-                "score": dumped["score"],
-                **dumped["details"],  # Spread all details fields
-            }
-
-            # Add convenience fields for criteria-based metrics
-            criteria_evals = metric_dict.get("criteria_evaluations", [])
-            if criteria_evals:
-                met_count = sum(1 for c in criteria_evals if c.get("met", False))
-                metric_dict["criteria_met"] = met_count
-                metric_dict["criteria_total"] = len(criteria_evals)
+            # Flatten the metric result
+            metric_dict = self._flatten_metric_result(metric_result)
 
             # Extract display name from details
             metric_name = metric_dict.get("name", "penelope_goal_evaluation")
