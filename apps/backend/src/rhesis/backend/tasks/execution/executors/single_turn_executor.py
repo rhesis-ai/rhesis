@@ -95,7 +95,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
             )
 
             # Prepare metrics - filter to Single-Turn scope only
-            metrics = get_test_metrics(test)
+            metrics = get_test_metrics(test, db, organization_id, user_id)
             metric_configs = prepare_metric_configs(metrics, test_id, scope=MetricScope.SINGLE_TURN)
             logger.debug(
                 f"[SingleTurnExecutor] Prepared {len(metric_configs)} valid Single-Turn metrics"
