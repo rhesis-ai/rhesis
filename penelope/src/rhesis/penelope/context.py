@@ -508,39 +508,37 @@ class TestState:
 
     def _generate_metrics(self, goal_achieved: bool) -> Dict[str, Dict[str, Any]]:
         """
-        Generate metrics in standard format (compatible with SDK single-turn metrics).
+        Generate metrics in frontend-compatible format.
 
-        Simply uses MetricResult's native Pydantic serialization - no processing needed.
-        MetricResult already contains all fields expected by the frontend.
+        Flattens MetricResult.details to top level for direct frontend consumption.
+        The backend multiturn executor extracts this directly without processing.
 
         Args:
             goal_achieved: Whether the goal was achieved (unused - kept for compatibility)
 
         Returns:
-            Dictionary mapping metric names to their MetricResult data
+            Dictionary mapping metric display names to flattened metric data
         """
         if not self.metric_results:
-            # No metrics available - this shouldn't happen in normal flow
             return {}
 
         metrics = {}
 
         for metric_result in self.metric_results:
-            # Use Pydantic's model_dump() - gets everything including score and details
-            metric_dict = metric_result.model_dump()
+            # Get the details dict which contains all the metric information
+            details = metric_result.details
 
-            # Extract display name from details.name, fallback to generic
-            metric_name = metric_dict.get("details", {}).get("name", "penelope_goal_evaluation")
-            # Convert snake_case to Title Case for display
+            # Extract display name, convert snake_case to Title Case
+            metric_name = details.get("name", "penelope_goal_evaluation")
             display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
 
-            # Flatten fields to top level as expected by frontend MetricResult interface
-            details = metric_dict.get("details", {})
-            for field_name in ["reason", "is_successful", "threshold", "backend", "description"]:
-                if field_name in details:
-                    metric_dict[field_name] = details[field_name]
+            # Start with score at top level (from MetricResult.score)
+            metric_dict = {"score": metric_result.score}
 
-            # Add convenience fields for criteria-based metrics
+            # Flatten ALL details to top level (no nested details dict)
+            metric_dict.update(details)
+
+            # Add convenience fields for criteria-based metrics (used by frontend)
             criteria_evals = details.get("criteria_evaluations", [])
             if criteria_evals:
                 met_count = sum(1 for c in criteria_evals if c.get("met", False))
