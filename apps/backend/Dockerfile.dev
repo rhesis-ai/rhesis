@@ -24,14 +24,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only the dependency files for backend
-COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/README.md ./
+COPY apps/backend/pyproject.toml apps/backend/uv.lock  ./
+# RUN uv remove rhesis-sdk --no-sync
+RUN uv remove rhesis-sdk --frozen && uv remove rhesis-penelope --frozen && uv sync --no-install-project
 
-# Copy ONLY the minimal Python package structure needed for dependency resolution
-# This prevents migration files from being cached in an early layer
-# We only need __init__.py files for the package to be recognized
-RUN mkdir -p /app/src/rhesis/backend
-COPY apps/backend/src/rhesis/__init__.py /app/src/rhesis/__init__.py
-COPY apps/backend/src/rhesis/backend/__init__.py /app/src/rhesis/backend/__init__.py
 
 # Compile bytecode to improve performance
 ENV UV_COMPILE_BYTECODE=1
@@ -40,7 +36,8 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_NO_MANAGED_PYTHON=1
 
 
-# Copy the SDK and Penelope directories
+# Copy the SDK and Penelope directories, and the backend source code
+
 COPY sdk /app/sdk/
 COPY penelope /app/penelope/
 
