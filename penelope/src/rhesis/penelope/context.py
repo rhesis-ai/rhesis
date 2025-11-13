@@ -510,14 +510,14 @@ class TestState:
         """
         Generate metrics in frontend-compatible format.
 
-        Flattens MetricResult.details to top level for direct frontend consumption.
-        The backend multiturn executor extracts this directly without processing.
+        Uses model_dump() to extract all fields from MetricResult, then adds
+        convenience fields for the frontend.
 
         Args:
             goal_achieved: Whether the goal was achieved (unused - kept for compatibility)
 
         Returns:
-            Dictionary mapping metric display names to flattened metric data
+            Dictionary mapping metric display names to metric data
         """
         if not self.metric_results:
             return {}
@@ -525,25 +525,25 @@ class TestState:
         metrics = {}
 
         for metric_result in self.metric_results:
-            # Get the details dict which contains all the metric information
-            details = metric_result.details
+            # Use model_dump to get all data from the MetricResult
+            dumped = metric_result.model_dump()
 
-            # Extract display name, convert snake_case to Title Case
-            metric_name = details.get("name", "penelope_goal_evaluation")
-            display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
+            # Merge score and details for flat structure expected by frontend
+            metric_dict = {
+                "score": dumped["score"],
+                **dumped["details"],  # Spread all details fields
+            }
 
-            # Start with score at top level (from MetricResult.score)
-            metric_dict = {"score": metric_result.score}
-
-            # Flatten ALL details to top level (no nested details dict)
-            metric_dict.update(details)
-
-            # Add convenience fields for criteria-based metrics (used by frontend)
-            criteria_evals = details.get("criteria_evaluations", [])
+            # Add convenience fields for criteria-based metrics
+            criteria_evals = metric_dict.get("criteria_evaluations", [])
             if criteria_evals:
                 met_count = sum(1 for c in criteria_evals if c.get("met", False))
                 metric_dict["criteria_met"] = met_count
                 metric_dict["criteria_total"] = len(criteria_evals)
+
+            # Extract display name from details
+            metric_name = metric_dict.get("name", "penelope_goal_evaluation")
+            display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
 
             metrics[display_name] = metric_dict
 
