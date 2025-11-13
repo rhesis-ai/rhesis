@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import {
   Box,
   Button,
@@ -92,6 +92,8 @@ const getProjectIcon = (project: Project) => {
 
 export default function SwaggerEndpointForm() {
   const router = useRouter();
+  const params = useParams<{ identifier?: string }>();
+  const projectIdFromUrl = params?.identifier || '';
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [swaggerUrl, setSwaggerUrl] = useState('');
@@ -107,6 +109,16 @@ export default function SwaggerEndpointForm() {
     config_source: 'openapi',
     project_id: '',
   });
+
+  // Set project_id from URL parameter if provided
+  useEffect(() => {
+    if (projectIdFromUrl) {
+      setFormData(prev => ({
+        ...prev,
+        project_id: projectIdFromUrl,
+      }));
+    }
+  }, [projectIdFromUrl]);
 
   // Fetch projects when component mounts
   useEffect(() => {
@@ -182,7 +194,7 @@ export default function SwaggerEndpointForm() {
 
     try {
       await createEndpoint(formData as unknown as Omit<Endpoint, 'id'>);
-      router.push('/endpoints');
+      router.push('/projects/endpoints');
     } catch (error) {
       setError((error as Error).message);
     }
@@ -202,7 +214,7 @@ export default function SwaggerEndpointForm() {
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
-              onClick={() => router.push('/endpoints')}
+              onClick={() => router.push('/projects/endpoints')}
             >
               Cancel
             </Button>

@@ -79,8 +79,8 @@ const initialFilterOptions: FilterOptions = {
   backend: [],
   type: [],
   scoreType: [
-    { value: 'binary', label: 'Binary (Pass/Fail)' },
     { value: 'numeric', label: 'Numeric' },
+    { value: 'categorical', label: 'Categorical' },
   ],
   metricScope: [
     { value: 'Single-Turn', label: 'Single-Turn' },

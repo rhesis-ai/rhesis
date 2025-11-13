@@ -1,4 +1,5 @@
 import json
+import uuid
 from typing import Any, Dict
 
 import requests
@@ -38,7 +39,9 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         """Invoke the REST endpoint with proper authentication."""
         try:
             # Prepare request components
-            method, headers, request_body, url = self._prepare_request(db, endpoint, input_data)
+            method, headers, request_body, url, session_id = self._prepare_request(
+                db, endpoint, input_data
+            )
 
             # Make request and handle response
             response = self._make_request_without_raise(
@@ -53,7 +56,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 return self._handle_http_error(response, method, url, headers, request_body)
 
             return self._handle_successful_response(
-                response, endpoint, method, url, headers, request_body
+                response, endpoint, method, url, headers, request_body, session_id
             )
 
         except requests.exceptions.RequestException as e:
@@ -92,11 +95,29 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             endpoint.request_body_template or {}, input_data
         )
 
+        # Handle session_id for multi-turn conversations
+        session_id = None
+        if isinstance(request_body, dict):
+            if "session_id" in request_body:
+                # session_id was set by template rendering (from input_data or auto-generated)
+                session_id = request_body["session_id"]
+                logger.info(f"Using session_id from rendered template: {session_id}")
+            elif "session_id" in input_data:
+                # Explicitly provided in input_data but not used in template
+                session_id = input_data["session_id"]
+                request_body["session_id"] = session_id
+                logger.info(f"Using session_id from input_data: {session_id}")
+            else:
+                # Generate new session_id for first turn
+                session_id = str(uuid.uuid4())
+                request_body["session_id"] = session_id
+                logger.info(f"Generated new session_id for first turn: {session_id}")
+
         # Build URL
         url = endpoint.url + (endpoint.endpoint_path or "")
         logger.debug(f"Making {method} request to: {url}")
 
-        return method, headers, request_body, url
+        return method, headers, request_body, url, session_id
 
     def _create_request_details(self, method: str, url: str, headers: Dict, body: Any) -> Dict:
         """Create request details dictionary with sanitized headers."""
@@ -147,6 +168,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         url: str,
         headers: Dict,
         request_body: Any,
+        session_id: str = None,
     ) -> Dict:
         """Handle successful response with JSON parsing."""
         try:
@@ -155,6 +177,11 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             mapped_response = self.response_mapper.map_response(
                 response_data, endpoint.response_mappings or {}
             )
+
+            # Add session_id to response for multi-turn tracking
+            if session_id:
+                mapped_response["session_id"] = session_id
+                logger.debug(f"Added session_id to response: {session_id}")
 
             return mapped_response
         except (json.JSONDecodeError, requests.exceptions.JSONDecodeError) as json_error:

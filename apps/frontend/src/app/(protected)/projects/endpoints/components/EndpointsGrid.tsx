@@ -87,6 +87,7 @@ interface EndpointGridProps {
   onPaginationModelChange?: (model: GridPaginationModel) => void;
   paginationModel?: GridPaginationModel;
   onEndpointDeleted?: () => void;
+  projectId?: string;
 }
 
 export default function EndpointGrid({
@@ -99,6 +100,7 @@ export default function EndpointGrid({
     pageSize: 10,
   },
   onEndpointDeleted,
+  projectId,
 }: EndpointGridProps) {
   const theme = useTheme();
   const [projects, setProjects] = useState<Record<string, Project>>({});
@@ -215,7 +217,11 @@ export default function EndpointGrid({
       <Box sx={{ display: 'flex', gap: 2 }}>
         <Button
           component={Link}
-          href="/endpoints/new"
+          href={
+            projectId
+              ? `/projects/${projectId}/endpoints/new`
+              : '/projects/endpoints/new'
+          }
           variant="outlined"
           startIcon={<AddIcon />}
         >
@@ -223,7 +229,11 @@ export default function EndpointGrid({
         </Button>
         <Button
           component={Link}
-          href="/endpoints/swagger"
+          href={
+            projectId
+              ? `/projects/${projectId}/endpoints/swagger`
+              : '/projects/endpoints/swagger'
+          }
           variant="contained"
           startIcon={<UploadIcon />}
         >
@@ -297,7 +307,11 @@ export default function EndpointGrid({
           loading={loading || loadingProjects}
           density="comfortable"
           customToolbarContent={customToolbar}
-          linkPath="/endpoints"
+          linkPath={
+            projectId
+              ? `/projects/${projectId}/endpoints`
+              : '/projects/endpoints'
+          }
           linkField="id"
           serverSidePagination={true}
           totalRows={totalCount}

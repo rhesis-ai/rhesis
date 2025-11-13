@@ -47,9 +47,18 @@ class RhesisMetricFactory(BaseMetricFactory):
         "threshold_operator",
     }
 
+    # Categorical-specific params (subset of base params that CategoricalJudge accepts)
+    # Note: CategoricalJudge hardcodes score_type and metric_type, so they're not in __init__
+    _categorical_base_params = {
+        "name",
+        "description",
+        "requires_ground_truth",
+        "requires_context",
+    }
+
     # Metric-specific parameters (in addition to common, base metric, and base judge params)
     _supported_params = {
-        "CategoricalJudge": _base_metric_params
+        "CategoricalJudge": _categorical_base_params
         | _base_judge_params
         | {
             "categories",

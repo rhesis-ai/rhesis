@@ -39,6 +39,7 @@ export { default as AutoGraphIcon } from '@mui/icons-material/AutoGraphOutlined'
 export { default as IntegrationInstructionsIcon } from '@mui/icons-material/IntegrationInstructionsOutlined';
 export { default as GridViewIcon } from '@mui/icons-material/GridViewOutlined';
 export { default as ApiIcon } from '@mui/icons-material/ApiOutlined';
+export { default as ViewListIcon } from '@mui/icons-material/ViewListOutlined';
 
 // Common action icons
 export { default as AddIcon } from '@mui/icons-material/AddOutlined';

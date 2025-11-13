@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.evaluator import MetricEvaluator
+from rhesis.backend.tasks.execution.constants import MetricScope
 from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
 from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
 from rhesis.backend.tasks.execution.executors.shared import (
@@ -93,10 +94,12 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 f"[SingleTurnExecutor] Retrieved test data - prompt length: {len(prompt_content)}"
             )
 
-            # Prepare metrics
-            metrics = get_test_metrics(test)
-            metric_configs = prepare_metric_configs(metrics, test_id)
-            logger.debug(f"[SingleTurnExecutor] Prepared {len(metric_configs)} valid metrics")
+            # Prepare metrics - filter to Single-Turn scope only
+            metrics = get_test_metrics(test, db, organization_id, user_id)
+            metric_configs = prepare_metric_configs(metrics, test_id, scope=MetricScope.SINGLE_TURN)
+            logger.debug(
+                f"[SingleTurnExecutor] Prepared {len(metric_configs)} valid Single-Turn metrics"
+            )
 
             # Execute endpoint
             endpoint_service = get_endpoint_service()
