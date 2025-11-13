@@ -76,11 +76,16 @@ class GoalAchievedCondition(StoppingCondition):
         self.result = result
 
     def should_stop(self, state: TestState) -> tuple[bool, str]:
-        """Check if we should stop based on SDK evaluation."""
+        """
+        Check if we should stop based on SDK evaluation.
+
+        Note: This accesses the MetricResult object directly (which has .score and .details).
+        This is different from the flattened metrics in TestResult.metrics (output format).
+        """
         if not self.result:
             return False, ""
 
-        # Check if goal achieved (from SDK)
+        # Check if goal achieved (from SDK MetricResult.details)
         if self.result.details.get("is_successful", False):
             reason = self.result.details.get("reason", "Goal achieved")
             return True, f"Goal achieved: {reason}"
