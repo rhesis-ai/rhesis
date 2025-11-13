@@ -14,7 +14,6 @@ import {
   LinearProgress,
   IconButton,
   Chip,
-  Tooltip,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import UploadIcon from '@mui/icons-material/Upload';
@@ -217,31 +216,27 @@ export default function UploadSourceDialog({
 
               {/* Import from Notion Button */}
               <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-                <Tooltip title="User authentication for Notion is not yet available">
-                  <span style={{ width: '100%' }}>
-                    <Button
-                      variant="outlined"
-                      startIcon={<CloudIcon />}
-                      disabled
-                      fullWidth
-                      sx={{
-                        justifyContent: 'space-between',
-                        textTransform: 'none',
-                      }}
-                    >
-                      <span>Import from Notion</span>
-                      <Chip
-                        label="Coming Soon"
-                        size="small"
-                        sx={{
-                          height: '20px',
-                          fontSize: '0.7rem',
-                          backgroundColor: 'rgba(0, 0, 0, 0.08)',
-                        }}
-                      />
-                    </Button>
-                  </span>
-                </Tooltip>
+                <Button
+                  variant="outlined"
+                  startIcon={<CloudIcon />}
+                  disabled
+                  fullWidth
+                  sx={{
+                    justifyContent: 'space-between',
+                    textTransform: 'none',
+                  }}
+                >
+                  <span>Import from Notion</span>
+                  <Chip
+                    label="Coming Soon"
+                    size="small"
+                    sx={{
+                      height: '20px',
+                      fontSize: theme => theme.typography.caption.fontSize,
+                      backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                    }}
+                  />
+                </Button>
               </Box>
             </Box>
 
