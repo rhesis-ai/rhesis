@@ -185,18 +185,22 @@ export default function TestSetTestsGrid({
 
           return (
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-              {test.tags.slice(0, 2).map((tag: Tag) => (
+              {test.tags
+                .filter(tag => tag && tag.id && tag.name)
+                .slice(0, 2)
+                .map((tag: Tag) => (
+                  <Chip
+                    key={tag.id}
+                    label={tag.name}
+                    size="small"
+                    variant="filled"
+                    color="primary"
+                  />
+                ))}
+              {test.tags.filter(tag => tag && tag.id && tag.name).length >
+                2 && (
                 <Chip
-                  key={tag.id}
-                  label={tag.name}
-                  size="small"
-                  variant="filled"
-                  color="primary"
-                />
-              ))}
-              {test.tags.length > 2 && (
-                <Chip
-                  label={`+${test.tags.length - 2}`}
+                  label={`+${test.tags.filter(tag => tag && tag.id && tag.name).length - 2}`}
                   size="small"
                   variant="outlined"
                 />
