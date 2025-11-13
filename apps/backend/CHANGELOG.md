@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2025-11-13
+
+### Added
+- Added support for multi-turn tests, including configuration validation, max turns slider (1-50 range), and test type detection.
+- Added 5 Rhesis conversational metrics with database migration.
+- Added 6 conversational metrics to initial data.
+- Added tags and comments infrastructure for sources.
+- Added scenarios feature.
+- Added generic MCP (Model Control Plane) integration endpoints, including user model configuration and a general query endpoint.
+- Added `metric_scope` field to support single-turn/multi-turn test applicability.
+- Added a procedure to delete user and organization data.
+- Added local development setup with Docker Compose and enhanced command-line interface.
+- Added environment-based URL configuration.
+
+### Changed
+- Refactored test executors using the Strategy Pattern.
+- Refactored local initialization functions and updated API token.
+- Refactored MCP service to use `MCPAgent`'s `Union[str, BaseLLM]` support.
+- Refactored MCP prompts to Jinja2 templates.
+- Implemented settings caching and auto-persistence.
+- Simplified multi-turn test executor to preserve Penelope trace as-is.
+- Updated email sender name format for SendGrid SMTP.
+
+### Fixed
+- Improved multi-turn test metrics serialization and frontend display.
+- Resolved Penelope dependency path issues in Docker builds.
+- Restored backward compatibility imports in `test_execution.py`.
+- Resolved remaining test failures.
+- Resolved dataclass serialization error with documents.
+- Ensured context headers are forwarded and added secure auth token field.
+- Fixed welcome email recipient by adding configurable regex patterns for exclusions.
+- Sanitized auth tokens and headers in logs.
+- Fixed an issue where `user_id` was not being passed to `crud.get_endpoint` in `BackendEndpointTarget`.
+
+### Removed
+- Removed `Mixed` test set type.
+
+
 ## [0.4.1] - 2025-10-30
 
 ### Added

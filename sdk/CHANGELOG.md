@@ -13,6 +13,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-11-13
+
+### Added
+- Added support for Penelope Langchain integration.
+- Added LangGraph metrics example.
+- Added multi-turn test synthesizer functionality.
+- Added scenarios feature for test case generation.
+- Added cost heuristic for Polyphemus benchmarking.
+- Added schema support for Hugging Face models.
+- Added SDK support for metric scope and test set type.
+- Added example workflow demonstrating MCPAgent usage.
+- Added schemas for search and extraction results within MCPAgent.
+- Added `stop_on_error` parameter to MCPAgent.
+- Added Endpoint entity with invoke method for easier API interaction.
+- Implemented structured output for tool calling via Pydantic schemas.
+- Implemented native Rhesis conversational metrics with Goal Achievement Judge.
+- Added core conversational metrics infrastructure, including Turn Relevancy and Goal Achievement.
+- Added goal-achievement-specific template with excellent defaults for metrics.
+- Added ConversationalJudge architecture demo.
+- Added comprehensive GoalAchievementJudge test cases.
+- Added optional `chatbot_role` support in conversational metrics.
+
+### Changed
+- Refactored MCPAgent to accept `Union[str, BaseLLM]` for the `model` parameter.
+- Renamed `llm` parameter to `model` in MCPAgent for consistency.
+- Refactored MCPAgent architecture for improved modularity and reusability.
+- Consolidated agent ReAct loop into BaseMCPAgent.
+- ConversationalJudge is now numeric by default.
+- Upgraded DeepEval dependency to version 3.7.0.
+- Output size now defaults to 2048 tokens.
+
+### Fixed
+- Resolved linting issues in various SDK components.
+- Improved VertexAI provider reliability and error handling.
+- Resolved Vertex AI empty OBJECT properties error in MCPAgent.
+- Improved JSON parsing error handling in MCPAgent.
+- Fixed Hugging Face model loading behavior.
+- Fixed comprehensive code review fixes for multi-turn metrics.
+
+### Removed
+- Removed obsolete design documents.
+- Removed non-conversational DeepEval metrics.
+- Removed provider-specific filtering from MCPAgent executor.
+- Removed application-specific schemas from MCPAgent.
+- Removed redundant verbose output in MCPAgent.
+- Removed old files after MCPAgent restructure.
+- Removed sql alchemy dependency.
+
+
 ## [0.4.0] - 2025-10-30
 
 ### Added
