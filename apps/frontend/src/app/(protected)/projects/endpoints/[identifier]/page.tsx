@@ -28,6 +28,7 @@ export default function EndpointPage({ params }: PageProps) {
 
   const { data: session, status } = useSession();
   const [endpoint, setEndpoint] = useState<Endpoint | null>(null);
+  const [projectName, setProjectName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,6 +58,17 @@ export default function EndpointPage({ params }: PageProps) {
         const endpointsClient = apiFactory.getEndpointsClient();
         const data = await endpointsClient.getEndpoint(identifier);
         setEndpoint(data);
+
+        // Fetch project name if endpoint has a project_id
+        if (data.project_id) {
+          try {
+            const projectsClient = apiFactory.getProjectsClient();
+            const project = await projectsClient.getProject(data.project_id);
+            setProjectName(project.name);
+          } catch (error) {
+            console.error('Error fetching project:', error);
+          }
+        }
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -109,14 +121,20 @@ export default function EndpointPage({ params }: PageProps) {
     );
   }
 
+  const breadcrumbs =
+    endpoint.project_id && projectName
+      ? [
+          { title: 'Projects', path: '/projects' },
+          { title: projectName, path: `/projects/${endpoint.project_id}` },
+          { title: endpoint.name },
+        ]
+      : [
+          { title: 'Endpoints', path: '/projects/endpoints' },
+          { title: endpoint.name },
+        ];
+
   return (
-    <PageContainer
-      title={endpoint.name}
-      breadcrumbs={[
-        { title: 'Endpoints', path: '/endpoints' },
-        { title: endpoint.name },
-      ]}
-    >
+    <PageContainer title={endpoint.name} breadcrumbs={breadcrumbs}>
       <Box sx={{ flexGrow: 1, pt: 3 }}>
         <EndpointDetail endpoint={endpoint} />
       </Box>
