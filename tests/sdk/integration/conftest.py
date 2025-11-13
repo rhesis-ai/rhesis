@@ -1,4 +1,5 @@
 import hashlib
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -15,6 +16,12 @@ GREEN = "\033[0;32m"
 RED = "\033[0;31m"
 CYAN = "\033[0;36m"
 NC = "\033[0m"  # No Color
+
+
+@pytest.fixture(scope="session", autouse=True)
+def set_env():
+    os.environ["RHESIS_API_KEY"] = "rh-test-token"
+    os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
 
 
 def clear_all_tables() -> None:
