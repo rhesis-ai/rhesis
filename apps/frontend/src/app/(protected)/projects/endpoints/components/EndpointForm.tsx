@@ -329,7 +329,7 @@ export default function EndpointForm() {
       notifications.show('Endpoint created successfully!', {
         severity: 'success',
       });
-      router.push('/endpoints');
+      router.push('/projects/endpoints');
     } catch (error) {
       setError((error as Error).message);
     }
@@ -349,7 +349,7 @@ export default function EndpointForm() {
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
-              onClick={() => router.push('/endpoints')}
+              onClick={() => router.push('/projects/endpoints')}
             >
               Cancel
             </Button>
