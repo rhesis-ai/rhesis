@@ -3,8 +3,7 @@
 import React from 'react';
 import {
   Box,
-  Card,
-  CardContent,
+  Paper,
   Typography,
   List,
   ListItem,
@@ -74,143 +73,141 @@ export default function OnboardingDashboardCard() {
   const nextStep = ONBOARDING_STEPS.find(step => !progress[step.id]);
 
   return (
-    <Card
+    <Paper
+      elevation={2}
       sx={{
+        p: 2,
         height: '100%',
         border: '2px solid',
         borderColor: 'primary.main',
-        bgcolor: 'background.paper',
       }}
     >
-      <CardContent>
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <LightbulbIcon color="primary" sx={{ fontSize: 28 }} />
-          <Typography variant="h6" fontWeight={600}>
-            Getting Started with Rhesis
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <LightbulbIcon
+          color="primary"
+          sx={{ verticalAlign: 'middle', mr: 1 }}
+        />
+        <Typography variant="h6" sx={{ mb: 0 }}>
+          Getting Started with Rhesis
+        </Typography>
+      </Box>
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Complete these steps to get the most out of Rhesis
+      </Typography>
+
+      {/* Progress bar */}
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            Your Progress
+          </Typography>
+          <Typography variant="body2" fontWeight={600} color="primary">
+            {completionPercentage}% Complete
           </Typography>
         </Box>
+        <LinearProgress
+          variant="determinate"
+          value={completionPercentage}
+          sx={{
+            height: 10,
+            borderRadius: theme => theme.shape.borderRadius * 1.25,
+            bgcolor: 'action.hover',
+          }}
+        />
+      </Box>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Complete these steps to get the most out of Rhesis
-        </Typography>
-
-        {/* Progress bar */}
-        <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Your Progress
-            </Typography>
-            <Typography variant="body2" fontWeight={600} color="primary">
-              {completionPercentage}% Complete
-            </Typography>
-          </Box>
-          <LinearProgress
-            variant="determinate"
-            value={completionPercentage}
-            sx={{
-              height: 10,
-              borderRadius: 5,
-              bgcolor: 'action.hover',
-            }}
-          />
-        </Box>
-
-        {/* Checklist */}
-        <List sx={{ py: 0, mb: 2 }}>
-          {ONBOARDING_STEPS.map((step, index) => {
-            const isCompleted = progress[step.id];
-            return (
-              <ListItem
-                key={step.id}
-                disablePadding
+      {/* Checklist */}
+      <List sx={{ py: 0, mb: 2 }}>
+        {ONBOARDING_STEPS.map((step, index) => {
+          const isCompleted = progress[step.id];
+          return (
+            <ListItem
+              key={step.id}
+              disablePadding
+              sx={{
+                borderTop: index > 0 ? 1 : 0,
+                borderColor: 'divider',
+              }}
+            >
+              <ListItemButton
+                onClick={() => handleStepClick(step)}
+                disabled={isCompleted}
                 sx={{
-                  borderTop: index > 0 ? 1 : 0,
-                  borderColor: 'divider',
+                  py: 2,
+                  '&:hover': {
+                    bgcolor: isCompleted ? 'transparent' : 'action.hover',
+                  },
                 }}
               >
-                <ListItemButton
-                  onClick={() => handleStepClick(step)}
-                  disabled={isCompleted}
-                  sx={{
-                    py: 2,
-                    '&:hover': {
-                      bgcolor: isCompleted ? 'transparent' : 'action.hover',
-                    },
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 48 }}>
-                    {isCompleted ? (
-                      <CheckCircleIcon color="success" sx={{ fontSize: 28 }} />
-                    ) : (
-                      <RadioButtonUncheckedIcon
-                        color="action"
-                        sx={{ fontSize: 28 }}
-                      />
-                    )}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Box
-                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                <ListItemIcon sx={{ minWidth: 48 }}>
+                  {isCompleted ? (
+                    <CheckCircleIcon color="success" sx={{ fontSize: 28 }} />
+                  ) : (
+                    <RadioButtonUncheckedIcon
+                      color="action"
+                      sx={{ fontSize: 28 }}
+                    />
+                  )}
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography
+                        variant="body1"
+                        sx={{
+                          fontWeight: isCompleted ? 400 : 600,
+                          textDecoration: isCompleted ? 'line-through' : 'none',
+                          color: isCompleted
+                            ? 'text.secondary'
+                            : 'text.primary',
+                        }}
                       >
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            fontWeight: isCompleted ? 400 : 600,
-                            textDecoration: isCompleted
-                              ? 'line-through'
-                              : 'none',
-                            color: isCompleted
-                              ? 'text.secondary'
-                              : 'text.primary',
-                          }}
-                        >
-                          {step.title}
-                        </Typography>
-                        {step.optional && (
-                          <Chip
-                            label="Optional"
-                            size="small"
-                            variant="outlined"
-                            sx={{ height: 20 }}
-                          />
-                        )}
-                      </Box>
-                    }
-                    secondary={
-                      <Typography variant="body2" color="text.secondary">
-                        {step.description}
+                        {step.title}
                       </Typography>
-                    }
-                  />
-                </ListItemButton>
-              </ListItem>
-            );
-          })}
-        </List>
+                      {step.optional && (
+                        <Chip
+                          label="Optional"
+                          size="small"
+                          variant="outlined"
+                          sx={{ height: 20 }}
+                        />
+                      )}
+                    </Box>
+                  }
+                  secondary={
+                    <Typography variant="body2" color="text.secondary">
+                      {step.description}
+                    </Typography>
+                  }
+                />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
+      </List>
 
-        {/* Action buttons */}
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-between' }}>
-          {nextStep && (
-            <Button
-              variant="contained"
-              endIcon={<ArrowForwardIcon />}
-              onClick={() => handleStepClick(nextStep)}
-              fullWidth
-            >
-              Continue: {nextStep.title}
-            </Button>
-          )}
+      {/* Action buttons */}
+      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-between' }}>
+        {nextStep && (
           <Button
-            variant="text"
-            onClick={dismissOnboarding}
-            sx={{ minWidth: 'auto', whiteSpace: 'nowrap' }}
+            variant="contained"
+            endIcon={<ArrowForwardIcon />}
+            onClick={() => handleStepClick(nextStep)}
+            fullWidth
           >
-            Dismiss
+            Continue: {nextStep.title}
           </Button>
-        </Box>
-      </CardContent>
-    </Card>
+        )}
+        <Button
+          variant="text"
+          onClick={dismissOnboarding}
+          sx={{ minWidth: 'auto', whiteSpace: 'nowrap' }}
+        >
+          Dismiss
+        </Button>
+      </Box>
+    </Paper>
   );
 }

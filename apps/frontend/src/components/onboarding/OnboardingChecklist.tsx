@@ -24,7 +24,7 @@ import {
   Close as CloseIcon,
   Lightbulb as LightbulbIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { OnboardingStep } from '@/types/onboarding';
 
@@ -62,10 +62,18 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
 
 export default function OnboardingChecklist() {
   const router = useRouter();
+  const pathname = usePathname();
   const { progress, isComplete, completionPercentage, dismissOnboarding } =
     useOnboarding();
-  const [expanded, setExpanded] = useState(true);
+
+  // Start collapsed by default, adjust based on pathname after mount
+  const [expanded, setExpanded] = useState(false);
   const [visible, setVisible] = useState(true);
+
+  // Update expanded state based on pathname after mount (avoid hydration issues)
+  React.useEffect(() => {
+    setExpanded(pathname !== '/dashboard');
+  }, [pathname]);
 
   // Don't show if dismissed or completed
   if (progress.dismissed || isComplete || !visible) {
@@ -99,7 +107,7 @@ export default function OnboardingChecklist() {
       <Card
         elevation={8}
         sx={{
-          borderRadius: 2,
+          borderRadius: theme => theme.shape.borderRadius / 2,
           overflow: 'hidden',
           border: '2px solid',
           borderColor: 'primary.main',
@@ -117,9 +125,25 @@ export default function OnboardingChecklist() {
             justifyContent: 'space-between',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <LightbulbIcon />
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          {/* Clickable header area */}
+          <Box
+            onClick={() => setExpanded(!expanded)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              flex: 1,
+              cursor: 'pointer',
+              '&:hover': {
+                opacity: 0.9,
+              },
+            }}
+          >
+            <LightbulbIcon sx={{ fontSize: 24, color: '#fff' }} />
+            <Typography
+              variant="subtitle1"
+              sx={{ fontWeight: 600, color: '#fff' }}
+            >
               Getting Started
             </Typography>
             {incompletedSteps > 0 && (
@@ -127,6 +151,7 @@ export default function OnboardingChecklist() {
                 badgeContent={incompletedSteps}
                 color="error"
                 sx={{
+                  ml: 1,
                   '& .MuiBadge-badge': {
                     bgcolor: 'warning.main',
                     color: 'warning.contrastText',
@@ -135,13 +160,13 @@ export default function OnboardingChecklist() {
               />
             )}
           </Box>
-          <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Tooltip title={expanded ? 'Collapse' : 'Expand'}>
               <IconButton
                 size="small"
                 onClick={() => setExpanded(!expanded)}
                 sx={{
-                  color: 'inherit',
+                  color: '#fff',
                   transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
                   transition: 'transform 0.3s',
                 }}
@@ -153,7 +178,7 @@ export default function OnboardingChecklist() {
               <IconButton
                 size="small"
                 onClick={handleDismiss}
-                sx={{ color: 'inherit' }}
+                sx={{ color: '#fff' }}
               >
                 <CloseIcon />
               </IconButton>
@@ -180,7 +205,7 @@ export default function OnboardingChecklist() {
                 value={completionPercentage}
                 sx={{
                   height: 8,
-                  borderRadius: 4,
+                  borderRadius: theme => theme.shape.borderRadius,
                   bgcolor: 'action.hover',
                 }}
               />

@@ -23,9 +23,13 @@ interface FormData {
 
 interface TeamInviteFormProps {
   onInvitesSent?: (emails: string[]) => void;
+  disableDuringTour?: boolean;
 }
 
-export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
+export default function TeamInviteForm({
+  onInvitesSent,
+  disableDuringTour = false,
+}: TeamInviteFormProps) {
   const { data: session } = useSession();
   const notifications = useNotifications();
 
@@ -426,7 +430,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           type="submit"
           variant="contained"
           color="primary"
-          disabled={isSubmitting}
+          disabled={isSubmitting || disableDuringTour}
           startIcon={
             isSubmitting ? (
               <CircularProgress size={20} color="inherit" />

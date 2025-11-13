@@ -28,7 +28,29 @@ export default function EndpointsPage() {
   // Enable tour for this page
   useOnboardingTour('endpoint');
 
-  // Mark step as complete when user has endpoints
+  // Mark step as complete when user clicks the new endpoint button
+  // (checked when they navigate to the create page)
+  useEffect(() => {
+    const checkNavigation = () => {
+      // If user navigates away or clicks the button, mark as complete
+      if (!progress.endpointSetup) {
+        markStepComplete('endpointSetup');
+      }
+    };
+
+    // Listen for when the "New Endpoint" button is clicked
+    const button = document.querySelector(
+      '[data-tour="create-endpoint-button"]'
+    );
+    if (button) {
+      button.addEventListener('click', checkNavigation);
+      return () => {
+        button.removeEventListener('click', checkNavigation);
+      };
+    }
+  }, [progress.endpointSetup, markStepComplete]);
+
+  // Also mark complete when user has endpoints (fallback)
   useEffect(() => {
     if (endpoints.length > 0 && !progress.endpointSetup) {
       markStepComplete('endpointSetup');

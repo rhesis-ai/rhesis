@@ -27,11 +27,13 @@
   transition: all 0.2s;
 }
 
-:global(.driver-popover-next-btn) {
+:global(.driver-popover-next-btn),
+:global(.driver-popover-done-btn) {
   background-color: var(--mui-palette-primary-main, #1976d2);
 }
 
-:global(.driver-popover-next-btn:hover) {
+:global(.driver-popover-next-btn:hover),
+:global(.driver-popover-done-btn:hover) {
   background-color: var(--mui-palette-primary-dark, #1565c0);
 }
 
@@ -41,6 +43,19 @@
 
 :global(.driver-popover-prev-btn:hover) {
   background-color: var(--mui-palette-action-hover, rgba(0, 0, 0, 0.04));
+}
+
+/* Disabled previous button styling */
+:global(.driver-popover-prev-btn[disabled]),
+:global(.driver-popover-prev-btn.disabled) {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+:global(.driver-popover-prev-btn[disabled]:hover),
+:global(.driver-popover-prev-btn.disabled:hover) {
+  background-color: transparent;
 }
 
 /* Progress text */

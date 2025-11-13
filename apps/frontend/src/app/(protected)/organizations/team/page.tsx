@@ -15,7 +15,7 @@ export default function TeamPage() {
   const { data: session } = useSession();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [userCount, setUserCount] = useState(0);
-  const { markStepComplete, progress } = useOnboarding();
+  const { markStepComplete, progress, activeTour } = useOnboarding();
 
   // Enable tour for this page
   useOnboardingTour('invite');
@@ -58,7 +58,10 @@ export default function TeamPage() {
     <PageContainer>
       {/* Invitation Section */}
       <Paper sx={{ p: 3, mb: 4 }}>
-        <TeamInviteForm onInvitesSent={handleInvitesSent} />
+        <TeamInviteForm
+          onInvitesSent={handleInvitesSent}
+          disableDuringTour={activeTour === 'invite'}
+        />
       </Paper>
 
       {/* Team Members Grid */}

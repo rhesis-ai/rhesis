@@ -47,4 +47,6 @@ export interface OnboardingContextValue {
   resetOnboarding: () => void;
   startTour: (tourId: string) => void;
   activeTour: string | null;
+  moveToNextStep: () => void;
+  closeTour: () => void;
 }
