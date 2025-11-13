@@ -93,6 +93,7 @@ interface BaseDataGridProps {
         disabled?: boolean;
       }[];
     };
+    dataTour?: string;
   }[];
   // CRUD related props
   enableEditing?: boolean;
@@ -633,6 +634,7 @@ export default function BaseDataGrid({
                     variant={button.variant || 'contained'}
                     color={button.color || 'primary'}
                     startIcon={button.icon}
+                    data-tour={button.dataTour}
                   >
                     {button.label}
                   </Button>
@@ -644,6 +646,7 @@ export default function BaseDataGrid({
                   color={button.color || 'primary'}
                   onClick={button.onClick}
                   startIcon={button.icon}
+                  data-tour={button.dataTour}
                 >
                   {button.label}
                 </Button>

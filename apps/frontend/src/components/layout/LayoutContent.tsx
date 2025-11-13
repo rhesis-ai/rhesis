@@ -7,6 +7,8 @@ import { SessionProvider } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import { NavigationProvider } from '../navigation/NavigationProvider';
 import { NotificationProvider } from '../common/NotificationContext';
+import { OnboardingProvider } from '@/contexts/OnboardingContext';
+import OnboardingChecklist from '../onboarding/OnboardingChecklist';
 import { type NavigationItem, type LayoutProps } from '../../types/navigation';
 
 function getAllSegments(items: NavigationItem[]): string[] {
@@ -49,25 +51,29 @@ export function LayoutContent({
     <SessionProvider session={session} refetchOnWindowFocus={false}>
       <AppRouterCacheProvider options={{ enableCssLayer: true }}>
         <NotificationProvider>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: '100vh',
-            }}
-          >
-            <Box sx={{ flex: 1 }}>
-              <NavigationProvider
-                navigation={navigation}
-                branding={branding}
-                session={session}
-                authentication={authentication}
-                theme={theme}
-              >
-                {children}
-              </NavigationProvider>
+          <OnboardingProvider>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: '100vh',
+              }}
+            >
+              <Box sx={{ flex: 1 }}>
+                <NavigationProvider
+                  navigation={navigation}
+                  branding={branding}
+                  session={session}
+                  authentication={authentication}
+                  theme={theme}
+                >
+                  {children}
+                </NavigationProvider>
+              </Box>
             </Box>
-          </Box>
+            {/* Show onboarding checklist for authenticated users */}
+            {session && isProtectedRoute && <OnboardingChecklist />}
+          </OnboardingProvider>
         </NotificationProvider>
       </AppRouterCacheProvider>
     </SessionProvider>

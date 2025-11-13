@@ -12,18 +12,68 @@ import TestCharts from './components/TestCharts';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import LandingScreen from './new-generated/components/LandingScreen';
 import { TestTemplate } from './new-generated/components/shared/types';
+import { useOnboardingTour } from '@/hooks/useOnboardingTour';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [showModal, setShowModal] = React.useState(false);
+  const [testCount, setTestCount] = React.useState(0);
+  const [chartsLoaded, setChartsLoaded] = React.useState(false);
+  const { markStepComplete, progress, activeTour, startTour } = useOnboarding();
 
   // Set document title
   useDocumentTitle('Tests');
 
+  // Don't use the auto-tour hook, we'll manually control it after charts load
+  const searchParams = new URLSearchParams(
+    typeof window !== 'undefined' ? window.location.search : ''
+  );
+  const tourParam = searchParams.get('tour');
+
+  // Start tour only after charts are loaded
+  React.useEffect(() => {
+    if (tourParam === 'testCases' && chartsLoaded) {
+      // Small additional delay to ensure button is positioned correctly
+      const timeout = setTimeout(() => {
+        startTour('testCases');
+      }, 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [tourParam, chartsLoaded, startTour]);
+
+  // No auto-close logic needed - tour handles modal closing
+
+  // Fetch test count to check if user has created tests
+  React.useEffect(() => {
+    const fetchTestCount = async () => {
+      if (!session?.session_token) return;
+
+      try {
+        const apiFactory = new ApiClientFactory(session.session_token);
+        const testsClient = apiFactory.getTestsClient();
+        const response = await testsClient.getTests({ skip: 0, limit: 1 });
+        setTestCount(response.pagination?.totalCount || 0);
+      } catch (error) {
+        // Silently fail
+      }
+    };
+
+    fetchTestCount();
+  }, [session?.session_token, refreshKey]);
+
+  // Tour completion is handled in OnboardingContext when "Got it!" is clicked
+  // We don't auto-complete based on test count to avoid marking it done prematurely
+
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
+  }, []);
+
+  const handleChartsLoaded = React.useCallback(() => {
+    setChartsLoaded(true);
   }, []);
 
   const handleOpenModal = React.useCallback(() => {
@@ -92,6 +142,7 @@ export default function TestsPage() {
         <TestCharts
           sessionToken={session.session_token}
           key={`charts-${refreshKey}`}
+          onLoadComplete={handleChartsLoaded}
         />
 
         {/* Table Section */}

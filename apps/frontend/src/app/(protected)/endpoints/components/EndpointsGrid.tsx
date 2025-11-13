@@ -218,6 +218,7 @@ export default function EndpointGrid({
           href="/endpoints/new"
           variant="outlined"
           startIcon={<AddIcon />}
+          data-tour="create-endpoint-button"
         >
           New Endpoint
         </Button>
@@ -226,6 +227,7 @@ export default function EndpointGrid({
           href="/endpoints/swagger"
           variant="contained"
           startIcon={<UploadIcon />}
+          data-tour="import-swagger-button"
         >
           Import Swagger
         </Button>

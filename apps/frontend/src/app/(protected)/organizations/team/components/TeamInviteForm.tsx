@@ -23,9 +23,13 @@ interface FormData {
 
 interface TeamInviteFormProps {
   onInvitesSent?: (emails: string[]) => void;
+  disableDuringTour?: boolean;
 }
 
-export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
+export default function TeamInviteForm({
+  onInvitesSent,
+  disableDuringTour = false,
+}: TeamInviteFormProps) {
   const { data: session } = useSession();
   const notifications = useNotifications();
 
@@ -391,6 +395,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
               placeholder="colleague@company.com"
               variant="outlined"
               size="small"
+              data-tour={index === 0 ? 'invite-email-input' : undefined}
             />
             {formData.invites.length > 1 && (
               <IconButton
@@ -425,7 +430,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           type="submit"
           variant="contained"
           color="primary"
-          disabled={isSubmitting}
+          disabled={isSubmitting || disableDuringTour}
           startIcon={
             isSubmitting ? (
               <CircularProgress size={20} color="inherit" />
@@ -433,6 +438,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
               <SendIcon />
             )
           }
+          data-tour="send-invites-button"
         >
           {isSubmitting ? 'Sending Invitations...' : 'Send Invitations'}
         </Button>

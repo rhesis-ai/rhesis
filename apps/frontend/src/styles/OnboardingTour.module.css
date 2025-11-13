@@ -1,0 +1,88 @@
+/* Custom driver.js theme overrides to match Material-UI */
+
+/* Popover styling */
+:global(.driver-popover) {
+  border-radius: 8px;
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+:global(.driver-popover-title) {
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+
+:global(.driver-popover-description) {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Button styling */
+:global(.driver-popover-next-btn),
+:global(.driver-popover-prev-btn),
+:global(.driver-popover-close-btn) {
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 500;
+  text-transform: none;
+  transition: all 0.2s;
+}
+
+:global(.driver-popover-next-btn),
+:global(.driver-popover-done-btn) {
+  background-color: var(--mui-palette-primary-main, #1976d2);
+}
+
+:global(.driver-popover-next-btn:hover),
+:global(.driver-popover-done-btn:hover) {
+  background-color: var(--mui-palette-primary-dark, #1565c0);
+}
+
+:global(.driver-popover-prev-btn) {
+  color: var(--mui-palette-text-secondary, #666);
+}
+
+:global(.driver-popover-prev-btn:hover) {
+  background-color: var(--mui-palette-action-hover, rgba(0, 0, 0, 0.04));
+}
+
+/* Disabled previous button styling */
+:global(.driver-popover-prev-btn[disabled]),
+:global(.driver-popover-prev-btn.disabled) {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+:global(.driver-popover-prev-btn[disabled]:hover),
+:global(.driver-popover-prev-btn.disabled:hover) {
+  background-color: transparent;
+}
+
+/* Progress text */
+:global(.driver-popover-progress-text) {
+  font-size: 0.75rem;
+  color: var(--mui-palette-text-secondary, #666);
+}
+
+/* Floating widget animations */
+.floatingWidget {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 600px) {
+  :global(.driver-popover) {
+    max-width: calc(100vw - 32px);
+  }
+}

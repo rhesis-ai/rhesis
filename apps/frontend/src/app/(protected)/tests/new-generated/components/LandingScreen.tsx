@@ -69,6 +69,7 @@ export default function LandingScreen({
           borderRadius: theme => theme.shape.borderRadius,
           maxHeight: '90vh',
         },
+        'data-tour': 'test-generation-modal',
       }}
     >
       <DialogTitle
