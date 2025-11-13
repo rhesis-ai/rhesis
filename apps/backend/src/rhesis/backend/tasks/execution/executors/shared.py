@@ -93,15 +93,33 @@ def get_test_and_prompt(
     return test, prompt.content, prompt.expected_response or ""
 
 
-def get_test_metrics(test: Test) -> List:
+def get_test_metrics(
+    test: Test, db: Session, organization_id: Optional[str] = None, user_id: Optional[str] = None
+) -> List:
     """
     Retrieve and validate metrics for a test from its associated behavior.
+
+    Args:
+        test: Test model instance
+        db: Database session (needed for RLS context)
+        organization_id: Organization ID for RLS policies
+        user_id: User ID for RLS policies
 
     Returns:
         List of valid Metric models
     """
     metrics = []
     behavior = test.behavior
+
+    # CRITICAL: Set RLS session variables before accessing relationships
+    # Without this, the behavior.metrics query will fail or return empty due to RLS policies
+    from rhesis.backend.app.database import set_session_variables
+
+    if organization_id or user_id:
+        try:
+            set_session_variables(db, organization_id or "", user_id or "")
+        except Exception as e:
+            logger.error(f"Failed to set RLS session variables: {e}")
 
     if behavior and behavior.metrics:
         # Return Metric models directly - evaluator accepts them
@@ -264,7 +282,6 @@ def prepare_metric_configs(
     Returns:
         List of valid Metric models that match the scope
     """
-    logger.debug(f"🔍 [DEBUG] prepare_metric_configs received {len(metrics)} metrics")
 
     # Validate that each metric has required fields
     valid_metrics = []
