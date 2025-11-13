@@ -159,12 +159,12 @@ export default function TestRunHeader({
       const status = getTestResultStatus(result);
 
       if (status === 'Error') {
-        executionErrors++;
+          executionErrors++;
       } else if (status === 'Pass') {
-        passed++;
+          passed++;
       } else if (status === 'Fail') {
-        failed++;
-      }
+          failed++;
+        }
 
       // For multi-turn tests, track turn depth
       if (isMultiTurn && result.test_output) {
