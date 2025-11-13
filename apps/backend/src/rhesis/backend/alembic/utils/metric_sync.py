@@ -176,6 +176,7 @@ def sync_metrics_to_organizations(
                         "reference_score": metric_item.get("reference_score"),
                         "categories": metric_item.get("categories"),
                         "passing_categories": metric_item.get("passing_categories"),
+                        "metric_scope": metric_item.get("metric_scope"),
                         "metric_type_id": metric_type.id,
                         "backend_type_id": backend_type.id,
                         "status_id": status.id,

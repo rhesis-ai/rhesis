@@ -9,12 +9,13 @@ import {
   Paper,
   Stack,
   Divider,
+  Tooltip,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import DescriptionIcon from '@mui/icons-material/Description';
 
 interface ContextPreviewProps {
-  context?: Array<{ name: string; description?: string; content?: string }>;
+  context?: Array<{ name: string; content?: string }>;
 }
 
 /**
@@ -22,9 +23,9 @@ interface ContextPreviewProps {
  * Shows a small info icon that on click reveals which sources/context were used for the test
  */
 export default function ContextPreview({ context }: ContextPreviewProps) {
-  const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+  const [anchorEl, setAnchorEl] = useState<SVGSVGElement | null>(null);
 
-  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = (event: React.MouseEvent<SVGSVGElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
@@ -41,17 +42,21 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
 
   return (
     <>
-      <IconButton
-        size="small"
-        onClick={handleClick}
-        sx={{
-          color: 'primary.main',
-          '&:hover': { bgcolor: 'action.hover' },
-        }}
-        aria-label="show context"
+      <Tooltip
+        title="Click to view the portion of source used to generate this test"
+        arrow
+        placement="top"
       >
-        <InfoOutlinedIcon fontSize="small" />
-      </IconButton>
+        <InfoOutlinedIcon
+          onClick={handleClick}
+          sx={{
+            fontSize: 14,
+            opacity: 0.7,
+            cursor: 'help',
+            '&:hover': { opacity: 1 },
+          }}
+        />
+      </Tooltip>
 
       <Popover
         open={open}
@@ -67,17 +72,6 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
         }}
       >
         <Paper sx={{ p: 2, maxWidth: 500, maxHeight: 600, overflow: 'auto' }}>
-          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-            Context Sources
-          </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', mb: 1.5 }}
-          >
-            Sources used to generate this test
-          </Typography>
-
           <Stack spacing={2}>
             {context.map((source, index) => (
               <Box key={index}>
@@ -87,7 +81,7 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
                     alignItems: 'flex-start',
                     gap: 1,
                     p: 1,
-                    borderRadius: theme => theme.shape.borderRadius * 2,
+                    borderRadius: theme => theme.shape.borderRadius,
                     bgcolor: 'action.hover',
                     mb: 1,
                   }}
@@ -97,11 +91,6 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>
                       {source.name}
                     </Typography>
-                    {source.description && (
-                      <Typography variant="caption" color="text.secondary">
-                        {source.description}
-                      </Typography>
-                    )}
                   </Box>
                 </Box>
                 {source.content && (
@@ -113,7 +102,7 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
                         overflow: 'auto',
                         bgcolor: 'background.default',
                         p: 1.5,
-                        borderRadius: theme => theme.shape.borderRadius * 2,
+                        borderRadius: theme => theme.shape.borderRadius,
                       }}
                     >
                       <Typography

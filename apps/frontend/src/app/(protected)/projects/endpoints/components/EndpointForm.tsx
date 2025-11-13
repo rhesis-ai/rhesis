@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import {
   Box,
   Button,
@@ -164,12 +164,9 @@ const getProjectIcon = (project: Project) => {
 
 export default function EndpointForm() {
   const router = useRouter();
+  const params = useParams<{ identifier?: string }>();
   const theme = useTheme();
-  const searchParams =
-    typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search)
-      : null;
-  const projectIdFromUrl = searchParams?.get('project_id') || '';
+  const projectIdFromUrl = params?.identifier || '';
   const [error, setError] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState(0);
   const [urlError] = useState<string | null>(null);
@@ -344,7 +341,7 @@ export default function EndpointForm() {
       notifications.show('Endpoint created successfully!', {
         severity: 'success',
       });
-      router.push('/endpoints');
+      router.push('/projects/endpoints');
     } catch (error) {
       setError((error as Error).message);
     }
@@ -364,7 +361,7 @@ export default function EndpointForm() {
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
-              onClick={() => router.push('/endpoints')}
+              onClick={() => router.push('/projects/endpoints')}
             >
               Cancel
             </Button>

@@ -6,7 +6,7 @@ import { Box, Typography } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { GridPaginationModel } from '@mui/x-data-grid';
-import EndpointsGrid from '../../../endpoints/components/EndpointsGrid';
+import EndpointsGrid from '../../endpoints/components/EndpointsGrid';
 
 interface ProjectEndpointsProps {
   projectId: string;
