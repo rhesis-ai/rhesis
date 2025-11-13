@@ -111,7 +111,9 @@ class MetricResult(BaseModel):
     """Result of a metric evaluation."""
 
     score: Union[float, str] = Field(
-        description="The evaluation score (float for numeric/binary metrics, str for categorical metrics)"
+        description=(
+            "The evaluation score (float for numeric/binary metrics, str for categorical metrics)"
+        )
     )
     details: Dict[str, Any] = Field(
         default_factory=dict, description="Additional evaluation details"
