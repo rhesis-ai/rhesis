@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_serializer
 
 from rhesis.penelope.schemas import AssistantMessage, ConversationHistory, ToolMessage
+from rhesis.sdk.metrics.base import MetricResult
 
 
 class ExecutionStatus(str, Enum):
@@ -130,7 +131,7 @@ class TestResult(BaseModel):
     )
 
     # Structured evaluation data (machine-readable) - SDK MetricResult
-    goal_evaluation: Optional[Any] = Field(
+    goal_evaluation: Optional[MetricResult] = Field(
         default=None,
         description=(
             "SDK MetricResult from GoalAchievementJudge with structured criterion evaluation. "
@@ -202,42 +203,6 @@ class TestResult(BaseModel):
     def serialize_datetime(self, dt: Optional[datetime], _info):
         """Serialize datetime to ISO format string."""
         return dt.isoformat() if dt else None
-
-    @field_serializer("goal_evaluation", when_used="json")
-    def serialize_goal_evaluation(self, value: Optional[Any], _info):
-        """Serialize MetricResult to dict for JSON compatibility."""
-        if value is None:
-            return None
-        # Check if it's a MetricResult object (has score and details attributes)
-        if hasattr(value, "score") and hasattr(value, "details"):
-            result_dict = {"score": value.score, "details": value.details}
-            # Extract commonly accessed fields to top level for frontend convenience
-            if isinstance(value.details, dict):
-                # Extract all_criteria_met for pass/fail status
-                if "all_criteria_met" in value.details:
-                    result_dict["all_criteria_met"] = value.details["all_criteria_met"]
-                # Extract other useful fields
-                if "is_successful" in value.details:
-                    result_dict["is_successful"] = value.details["is_successful"]
-                if "criteria_evaluations" in value.details:
-                    result_dict["criteria_evaluations"] = value.details["criteria_evaluations"]
-                # Map 'reason' to 'reasoning' for frontend compatibility
-                if "reason" in value.details:
-                    result_dict["reasoning"] = value.details["reason"]
-                # Extract confidence if present
-                if "confidence" in value.details:
-                    result_dict["confidence"] = value.details["confidence"]
-                # Collect all evidence from criteria_evaluations into a top-level array
-                if "criteria_evaluations" in value.details:
-                    evidence_list = []
-                    for criterion in value.details["criteria_evaluations"]:
-                        if isinstance(criterion, dict) and "evidence" in criterion:
-                            evidence_list.append(criterion["evidence"])
-                    if evidence_list:
-                        result_dict["evidence"] = evidence_list
-            return result_dict
-        # If it's already a dict or other serializable type, return as-is
-        return value
 
 
 @dataclass
