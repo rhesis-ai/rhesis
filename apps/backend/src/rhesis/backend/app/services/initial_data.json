@@ -769,6 +769,7 @@
           "short_description": "Evaluates domain knowledge, customer service quality, and input security.",
           "status": "New",
           "license_type": "Copyright",
+          "test_set_type": "Single-Turn",
           "visibility": "organization",
           "metadata": {
             "sample": "Domain-specific tests for evaluating insurance chatbot quality and reliability.",
