@@ -163,11 +163,22 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 f"Rendered message data: {json.dumps(message_data, indent=2, default=str)}"
             )
 
-            # Generate session_id if not provided
-            if "session_id" not in message_data:
+            # Handle session_id for multi-turn conversations
+            session_id = None
+            if "session_id" in message_data:
+                # session_id was set by template rendering (from input_data or auto-generated)
+                session_id = message_data["session_id"]
+                logger.info(f"Using session_id from rendered template: {session_id}")
+            elif "session_id" in input_data:
+                # Explicitly provided in input_data but not used in template
+                session_id = input_data["session_id"]
+                message_data["session_id"] = session_id
+                logger.info(f"Using session_id from input_data: {session_id}")
+            else:
+                # Generate new session_id for first turn
                 session_id = str(uuid.uuid4())
                 message_data["session_id"] = session_id
-                logger.debug(f"Generated session_id: {session_id}")
+                logger.info(f"Generated new session_id for first turn: {session_id}")
 
             # Build WebSocket URI
             logger.debug("Building WebSocket URI...")
@@ -325,6 +336,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     logger.debug("Preparing final response...")
                     final_response = {
                         "output": main_content if main_content else None,
+                        "session_id": session_id,  # Return session_id for multi-turn tracking
                         "conversation_id": conversation_id,
                         "error": error_message,
                         "status": "completed" if not error_message else "error",
