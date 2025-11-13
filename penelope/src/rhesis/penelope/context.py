@@ -510,74 +510,42 @@ class TestState:
         """
         Generate metrics in standard format (compatible with SDK single-turn metrics).
 
-        Processes all SDK metric results and converts them to platform's standard format.
-        Supports arbitrary number of metrics passed as a list.
+        Simply uses MetricResult's native Pydantic serialization - no processing needed.
+        MetricResult already contains all fields expected by the frontend.
 
         Args:
-            goal_achieved: Whether the goal was achieved
+            goal_achieved: Whether the goal was achieved (unused - kept for compatibility)
 
         Returns:
-            Dictionary mapping metric names to their results in standard format
+            Dictionary mapping metric names to their MetricResult data
         """
-        # Fallback if no metrics available
         if not self.metric_results:
-            return {
-                "Goal Achievement": {
-                    "name": "Goal Achievement",
-                    "score": 0.5,
-                    "reason": "No detailed evaluation available",
-                    "backend": "penelope",
-                    "threshold": None,
-                    "class_name": "GoalAchievementMetric",
-                    "description": "Goal achievement evaluation was not performed",
-                    "is_successful": goal_achieved,
-                    "turn_count": self.current_turn,
-                }
-            }
+            # No metrics available - this shouldn't happen in normal flow
+            return {}
 
-        # Process all SDK metric results
         metrics = {}
 
         for metric_result in self.metric_results:
-            # Convert MetricResult to dict (it's not a Pydantic model)
-            metric_dict = {
-                "score": metric_result.score,
-                "details": metric_result.details,
-            }
+            # Use Pydantic's model_dump() - gets everything including score and details
+            metric_dict = metric_result.model_dump()
 
-            # Enhance with Penelope-specific summary fields (if applicable)
+            # Extract display name from details.name, fallback to generic
+            metric_name = metric_dict.get("details", {}).get("name", "penelope_goal_evaluation")
+            # Convert snake_case to Title Case for display
+            display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
+
+            # Flatten fields to top level as expected by frontend MetricResult interface
             details = metric_dict.get("details", {})
+            for field_name in ["reason", "is_successful", "threshold", "backend", "description"]:
+                if field_name in details:
+                    metric_dict[field_name] = details[field_name]
+
+            # Add convenience fields for criteria-based metrics
             criteria_evals = details.get("criteria_evaluations", [])
-
-            # Add is_successful field at top level for frontend compatibility
-            # Extract from details or derive from all_criteria_met
-            if "is_successful" in details:
-                metric_dict["is_successful"] = details["is_successful"]
-            elif "all_criteria_met" in details:
-                metric_dict["is_successful"] = details["all_criteria_met"]
-            else:
-                # Fallback: consider successful if score meets threshold
-                threshold = details.get("threshold", 0.7)
-                metric_dict["is_successful"] = metric_result.score >= threshold
-
-            # Add other standard fields from details for frontend compatibility
-            if "reason" in details:
-                metric_dict["reason"] = details["reason"]
-            if "confidence" in details:
-                metric_dict["confidence"] = details["confidence"]
-            if "threshold" in details:
-                metric_dict["threshold"] = details["threshold"]
-
-            # Add criterion counts for quick analysis (for criterion-based metrics)
             if criteria_evals:
                 met_count = sum(1 for c in criteria_evals if c.get("met", False))
                 metric_dict["criteria_met"] = met_count
                 metric_dict["criteria_total"] = len(criteria_evals)
-
-            # Use metric name from details, or fallback to generic name
-            metric_name = details.get("name", "unnamed_metric")
-            # Convert snake_case to Title Case for display
-            display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
 
             metrics[display_name] = metric_dict
 
