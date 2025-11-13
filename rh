@@ -72,6 +72,19 @@ start_all() {
     if [ ! -f ".env.docker.local" ] || ! grep -q "^DB_ENCRYPTION_KEY=.\+" .env.docker.local 2>/dev/null; then
         echo -e "${YELLOW}🔑 Generating DB_ENCRYPTION_KEY...${NC}"
         
+        # Check if cryptography is installed, install if not
+        if ! python3 -c "import cryptography" 2>/dev/null; then
+            echo -e "${YELLOW}📦 Installing cryptography package...${NC}"
+            pip3 install cryptography > /dev/null 2>&1
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}❌ Error: Failed to install cryptography package${NC}"
+                echo -e "${YELLOW}💡 Please install it manually:${NC}"
+                echo -e "   ${BLUE}pip3 install cryptography${NC}"
+                exit 1
+            fi
+            echo -e "${GREEN}✅ Cryptography package installed${NC}"
+        fi
+        
         # Generate encryption key using Python
         ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" 2>/dev/null)
         
