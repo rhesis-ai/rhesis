@@ -8,7 +8,7 @@ All authentication, request mapping, and response parsing is handled by the
 Rhesis backend - Penelope simply uses the SDK to invoke endpoints.
 """
 
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from rhesis.penelope.targets.base import Target, TargetResponse
 from rhesis.sdk.entities import Endpoint
@@ -37,6 +37,9 @@ class EndpointTarget(Target):
         >>> response = target.send_message("Hello!")
     """
 
+    endpoint: Endpoint  # Type annotation for the instance variable
+    endpoint_id: str
+
     def __init__(
         self,
         endpoint_id: Optional[str] = None,
@@ -63,10 +66,13 @@ class EndpointTarget(Target):
             self.endpoint_id = endpoint.id or "unknown"
         else:
             # Load endpoint from SDK
-            self.endpoint_id = endpoint_id  # type: ignore
-            self.endpoint = Endpoint.from_id(self.endpoint_id)
-            if self.endpoint is None:
+            assert endpoint_id is not None  # Already validated above
+            self.endpoint_id = endpoint_id
+            loaded_endpoint = Endpoint.from_id(self.endpoint_id)
+            if loaded_endpoint is None:
                 raise ValueError(f"Endpoint not found: {endpoint_id}")
+            # Cast from BaseEntity to Endpoint (from_id returns BaseEntity)
+            self.endpoint = cast(Endpoint, loaded_endpoint)
 
         # Validate on initialization
         is_valid, error = self.validate_configuration()

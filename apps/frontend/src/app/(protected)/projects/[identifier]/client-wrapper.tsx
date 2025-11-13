@@ -160,7 +160,7 @@ export default function ClientWrapper({
         </Button>
       </Box>
 
-      {/* Project Content */}
+      {/* Project Overview */}
       <ProjectContent project={currentProject} />
 
       {/* Endpoints Section */}

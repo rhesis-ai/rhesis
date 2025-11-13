@@ -87,7 +87,7 @@ interface EndpointGridProps {
   onPaginationModelChange?: (model: GridPaginationModel) => void;
   paginationModel?: GridPaginationModel;
   onEndpointDeleted?: () => void;
-  projectId?: string; // Optional project context for dynamic links
+  projectId?: string;
 }
 
 export default function EndpointGrid({
@@ -187,14 +187,6 @@ export default function EndpointGrid({
     }
   };
 
-  // Build dynamic URLs based on project context
-  const newEndpointUrl = projectId
-    ? `/endpoints/new?project_id=${projectId}`
-    : '/endpoints/new';
-  const importSwaggerUrl = projectId
-    ? `/endpoints/swagger?project_id=${projectId}`
-    : '/endpoints/swagger';
-
   // Custom toolbar with right-aligned buttons
   const customToolbar = (
     <Box
@@ -225,7 +217,11 @@ export default function EndpointGrid({
       <Box sx={{ display: 'flex', gap: 2 }}>
         <Button
           component={Link}
-          href={newEndpointUrl}
+          href={
+            projectId
+              ? `/projects/${projectId}/endpoints/new`
+              : '/projects/endpoints/new'
+          }
           variant="outlined"
           startIcon={<AddIcon />}
         >
@@ -233,7 +229,11 @@ export default function EndpointGrid({
         </Button>
         <Button
           component={Link}
-          href={importSwaggerUrl}
+          href={
+            projectId
+              ? `/projects/${projectId}/endpoints/swagger`
+              : '/projects/endpoints/swagger'
+          }
           variant="contained"
           startIcon={<UploadIcon />}
         >
@@ -307,7 +307,11 @@ export default function EndpointGrid({
           loading={loading || loadingProjects}
           density="comfortable"
           customToolbarContent={customToolbar}
-          linkPath="/endpoints"
+          linkPath={
+            projectId
+              ? `/projects/${projectId}/endpoints`
+              : '/projects/endpoints'
+          }
           linkField="id"
           serverSidePagination={true}
           totalRows={totalCount}
