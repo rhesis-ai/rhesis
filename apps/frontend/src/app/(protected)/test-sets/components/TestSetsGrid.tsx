@@ -159,6 +159,7 @@ export default function TestSetsGrid({
       creator: testSet.user,
       counts: testSet.counts,
       sources: testSet.attributes?.metadata?.sources || [],
+      tags: testSet.tags || [],
     };
   });
 
@@ -289,6 +290,40 @@ export default function TestSetsGrid({
               sx={{ fontSize: 16, color: 'text.secondary' }}
             />
             <Typography variant="body2">{count}</Typography>
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'tags',
+      headerName: 'Tags',
+      flex: 1.5,
+      minWidth: 140,
+      sortable: false,
+      renderCell: params => {
+        const testSet = params.row;
+        if (!testSet.tags || testSet.tags.length === 0) {
+          return null;
+        }
+
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            {testSet.tags.slice(0, 2).map(tag => (
+              <Chip
+                key={tag.id}
+                label={tag.name}
+                size="small"
+                variant="filled"
+                color="primary"
+              />
+            ))}
+            {testSet.tags.length > 2 && (
+              <Chip
+                label={`+${testSet.tags.length - 2}`}
+                size="small"
+                variant="outlined"
+              />
+            )}
           </Box>
         );
       },

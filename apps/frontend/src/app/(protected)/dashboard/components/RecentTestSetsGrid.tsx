@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Typography, Box, CircularProgress, Alert } from '@mui/material';
+import { Typography, Box, CircularProgress, Alert, Chip } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -80,6 +80,39 @@ export default function RecentTestSetsGrid({
       minWidth: 220,
       valueGetter: (_, row) =>
         row.short_description || row.description || 'No description',
+    },
+    {
+      field: 'tags',
+      headerName: 'Tags',
+      width: 140,
+      sortable: false,
+      renderCell: params => {
+        const testSet = params.row;
+        if (!testSet.tags || testSet.tags.length === 0) {
+          return null;
+        }
+
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            {testSet.tags.slice(0, 2).map(tag => (
+              <Chip
+                key={tag.id}
+                label={tag.name}
+                size="small"
+                variant="filled"
+                color="primary"
+              />
+            ))}
+            {testSet.tags.length > 2 && (
+              <Chip
+                label={`+${testSet.tags.length - 2}`}
+                size="small"
+                variant="outlined"
+              />
+            )}
+          </Box>
+        );
+      },
     },
   ];
 

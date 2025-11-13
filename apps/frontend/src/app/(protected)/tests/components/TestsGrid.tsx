@@ -255,6 +255,40 @@ export default function TestsTable({
           );
         },
       },
+      {
+        field: 'tags',
+        headerName: 'Tags',
+        flex: 1.5,
+        minWidth: 140,
+        sortable: false,
+        renderCell: params => {
+          const test = params.row;
+          if (!test.tags || test.tags.length === 0) {
+            return null;
+          }
+
+          return (
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+              {test.tags.slice(0, 2).map(tag => (
+                <Chip
+                  key={tag.id}
+                  label={tag.name}
+                  size="small"
+                  variant="filled"
+                  color="primary"
+                />
+              ))}
+              {test.tags.length > 2 && (
+                <Chip
+                  label={`+${test.tags.length - 2}`}
+                  size="small"
+                  variant="outlined"
+                />
+              )}
+            </Box>
+          );
+        },
+      },
     ],
     []
   );
