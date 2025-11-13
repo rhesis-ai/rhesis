@@ -408,14 +408,79 @@ class MetricEvaluator:
                 factory_params = {**config_dict}
                 factory_params.update(params_dict)
 
-                # Remove non-parameter fields
-                factory_params.pop("class_name", None)
-                factory_params.pop("backend", None)
-                factory_params.pop("parameters", None)
+                # Remove database-specific fields that shouldn't be passed to SDK metrics
+                # These are metadata/configuration fields used by the backend, not metric constructors
+                db_specific_fields = [
+                    "class_name",
+                    "backend",
+                    "parameters",
+                    "score_type",  # Backend validation field, not used by SDK
+                    "min_score",  # Backend validation field
+                    "max_score",  # Backend validation field
+                    "reference_score",  # Deprecated field
+                    "threshold",  # Used for result evaluation, not metric instantiation
+                    "threshold_operator",  # Used for result evaluation
+                    "ground_truth_required",  # Metadata field
+                    "context_required",  # Metadata field
+                    "metric_scope",  # Filtering field, not metric parameter
+                    "explanation",  # Backend display field
+                    # Foreign keys and IDs
+                    "id",
+                    "metric_type_id",
+                    "status_id",
+                    "assignee_id",
+                    "owner_id",
+                    "model_id",
+                    "backend_type_id",
+                    "organization_id",
+                    "user_id",
+                    "created_at",
+                    "updated_at",
+                    "deleted_at",
+                    "nano_id",
+                ]
+                for field in db_specific_fields:
+                    factory_params.pop(field, None)
 
                 # Create metric directly via SDK factory
                 try:
                     metric = MetricFactory.create(backend, class_name, **factory_params)
+                except TypeError as type_error:
+                    error_msg = str(type_error)
+                    
+                    # Provide helpful error messages for common issues
+                    if "missing" in error_msg and "required positional argument" in error_msg:
+                        # Extract the missing parameter name from error
+                        import re
+                        match = re.search(r"'(\w+)'", error_msg)
+                        missing_param = match.group(1) if match else "unknown"
+                        
+                        logger.error(
+                            f"[SDK_DIRECT] Metric '{metric_name or class_name}' (class: {class_name}) "
+                            f"requires parameter '{missing_param}' but it's not in the database.\n"
+                            f"  Solution: Update the metric in the database to include "
+                            f"'{missing_param}' in the 'parameters' JSONB field.\n"
+                            f"  Current parameters: {params_dict}"
+                        )
+                    elif "unexpected keyword argument" in error_msg:
+                        # Extract the unexpected parameter name
+                        import re
+                        match = re.search(r"'(\w+)'", error_msg)
+                        unexpected_param = match.group(1) if match else "unknown"
+                        
+                        logger.error(
+                            f"[SDK_DIRECT] Metric '{metric_name or class_name}' (class: {class_name}) "
+                            f"received unexpected parameter '{unexpected_param}'.\n"
+                            f"  This parameter exists in the database but shouldn't be passed to the metric.\n"
+                            f"  Parameters passed: {list(factory_params.keys())}"
+                        )
+                    else:
+                        logger.error(
+                            f"[SDK_DIRECT] Failed to create metric '{metric_name or class_name}' "
+                            f"(class: {class_name}, backend: {backend}): {type_error}",
+                            exc_info=True,
+                        )
+                    continue
                 except Exception as create_error:
                     logger.error(
                         f"[SDK_DIRECT] Failed to create metric '{metric_name or class_name}' "
