@@ -158,6 +158,9 @@ def filter_metrics_by_scope(metrics: List, scope: MetricScope, test_id: str) -> 
     """
     Filter metrics by scope (Single-Turn or Multi-Turn).
 
+    Only includes metrics that explicitly have the requested scope in their metric_scope array.
+    Metrics without a metric_scope field are excluded.
+
     Args:
         metrics: List of Metric models
         scope: MetricScope enum value (MetricScope.SINGLE_TURN or MetricScope.MULTI_TURN)
@@ -171,40 +174,74 @@ def filter_metrics_by_scope(metrics: List, scope: MetricScope, test_id: str) -> 
 
     filtered_metrics = []
     filtered_out_count = 0
+    no_scope_count = 0
 
     # Get the string value from the enum for comparison with DB values
     scope_value = scope.value
+
+    logger.debug(f"Filtering metrics for test {test_id} with scope: {scope_value}")
 
     for metric in metrics:
         # Check if metric has metric_scope attribute (stored as array in DB)
         metric_scope = getattr(metric, "metric_scope", None)
 
-        # If no scope defined, include it (backward compatibility)
-        if not metric_scope:
-            filtered_metrics.append(metric)
+        logger.debug(
+            f"Checking metric '{metric.name}' (class: {metric.class_name}): "
+            f"metric_scope={metric_scope}"
+        )
+
+        # Strict filtering: only include metrics with explicit scope
+        if not metric_scope or (isinstance(metric_scope, list) and len(metric_scope) == 0):
+            # Exclude metrics without scope definition
+            no_scope_count += 1
+            filtered_out_count += 1
+            logger.warning(
+                f"Excluded metric '{metric.name}' (class: {metric.class_name}) "
+                f"for test {test_id}: metric_scope is not defined. "
+                f"Please update the database to set metric_scope for this metric."
+            )
             continue
 
-        # metric_scope is stored as a list/array in the database
+        # metric_scope must be a list/array in the database
         if isinstance(metric_scope, list):
             # Check if the desired scope is in the metric's supported scopes
-            # Compare with string value since DB stores strings
             if scope_value in metric_scope:
                 filtered_metrics.append(metric)
+                logger.debug(
+                    f"Including metric '{metric.name}': scope {scope_value} found in {metric_scope}"
+                )
             else:
                 filtered_out_count += 1
                 logger.debug(
-                    f"Filtered out metric '{metric.name}' (class: {metric.class_name}) "
-                    f"for test {test_id}: requires scope {metric_scope}, test is {scope_value}"
+                    f"Excluded metric '{metric.name}' (class: {metric.class_name}) "
+                    f"for test {test_id}: requires scope {metric_scope}, "
+                    f"test requires {scope_value}"
                 )
         else:
-            # If it's not a list, include it (backward compatibility)
-            filtered_metrics.append(metric)
+            # Invalid metric_scope type - exclude it
+            filtered_out_count += 1
+            logger.warning(
+                f"Excluded metric '{metric.name}' (class: {metric.class_name}) "
+                f"for test {test_id}: metric_scope has invalid type {type(metric_scope)}. "
+                f"Expected list/array."
+            )
+
+    if no_scope_count > 0:
+        logger.warning(
+            f"Excluded {no_scope_count} metrics without metric_scope for test {test_id}. "
+            f"Please update the database to set metric_scope for all metrics."
+        )
 
     if filtered_out_count > 0:
         logger.info(
             f"Filtered out {filtered_out_count} metrics for test {test_id} "
-            f"due to scope mismatch (test scope: {scope_value})"
+            f"(test scope: {scope_value})"
         )
+
+    logger.info(
+        f"Scope filtering complete for test {test_id}: "
+        f"{len(filtered_metrics)}/{len(metrics)} metrics included for scope {scope_value}"
+    )
 
     return filtered_metrics
 
