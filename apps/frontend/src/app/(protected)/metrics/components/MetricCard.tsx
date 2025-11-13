@@ -25,6 +25,8 @@ import {
 import TurnedInIcon from '@mui/icons-material/TurnedIn';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import MessageIcon from '@mui/icons-material/Message';
+import HandymanIcon from '@mui/icons-material/Handyman';
+import FaceIcon from '@mui/icons-material/Face';
 
 // Custom Rhesis AI icon component using inline SVG
 const RhesisAIIcon = ({
@@ -78,9 +80,11 @@ const getMetricIcon = (type: string) => {
 const getBackendIcon = (backend: string) => {
   switch (backend.toLowerCase()) {
     case 'custom':
-      return <StorageIcon fontSize="small" />;
+      return <FaceIcon fontSize="small" />;
     case 'deepeval':
-      return <ApiIcon fontSize="small" />;
+      return <HandymanIcon fontSize="small" />;
+    case 'ragas':
+      return <HandymanIcon fontSize="small" />;
     case 'rhesis ai':
     case 'rhesis':
       return <RhesisAIIcon fontSize="small" />;
@@ -204,13 +208,14 @@ export default function MetricCard({
         }}
       >
         <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1.5 }}>
             <Box
               sx={{
                 mr: 1.5,
                 color: 'primary.main',
                 display: 'flex',
                 alignItems: 'center',
+                mt: 0.25,
               }}
             >
               {getMetricIcon(type || '')}
@@ -221,6 +226,9 @@ export default function MetricCard({
               sx={{
                 fontWeight: 500,
                 lineHeight: 1.2,
+                maxWidth: '30ch', // Reverted to 30ch
+                wordWrap: 'break-word',
+                overflowWrap: 'break-word',
               }}
             >
               {title}
@@ -266,15 +274,6 @@ export default function MetricCard({
               <Chip
                 icon={getBackendIcon(backend || '')}
                 label={capitalizedBackend}
-                size="small"
-                variant="outlined"
-              />
-            )}
-            {(metricType ||
-              getMetricTypeDisplay(metricType || '') !== 'Unknown') && (
-              <Chip
-                icon={getMetricTypeIcon(metricType || '')}
-                label={getMetricTypeDisplay(metricType || '')}
                 size="small"
                 variant="outlined"
               />
