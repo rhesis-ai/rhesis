@@ -87,6 +87,7 @@ interface EndpointGridProps {
   onPaginationModelChange?: (model: GridPaginationModel) => void;
   paginationModel?: GridPaginationModel;
   onEndpointDeleted?: () => void;
+  projectId?: string; // Optional project context for dynamic links
 }
 
 export default function EndpointGrid({
@@ -99,6 +100,7 @@ export default function EndpointGrid({
     pageSize: 10,
   },
   onEndpointDeleted,
+  projectId,
 }: EndpointGridProps) {
   const theme = useTheme();
   const [projects, setProjects] = useState<Record<string, Project>>({});
@@ -185,6 +187,14 @@ export default function EndpointGrid({
     }
   };
 
+  // Build dynamic URLs based on project context
+  const newEndpointUrl = projectId
+    ? `/endpoints/new?project_id=${projectId}`
+    : '/endpoints/new';
+  const importSwaggerUrl = projectId
+    ? `/endpoints/swagger?project_id=${projectId}`
+    : '/endpoints/swagger';
+
   // Custom toolbar with right-aligned buttons
   const customToolbar = (
     <Box
@@ -215,7 +225,7 @@ export default function EndpointGrid({
       <Box sx={{ display: 'flex', gap: 2 }}>
         <Button
           component={Link}
-          href="/endpoints/new"
+          href={newEndpointUrl}
           variant="outlined"
           startIcon={<AddIcon />}
         >
@@ -223,7 +233,7 @@ export default function EndpointGrid({
         </Button>
         <Button
           component={Link}
-          href="/endpoints/swagger"
+          href={importSwaggerUrl}
           variant="contained"
           startIcon={<UploadIcon />}
         >

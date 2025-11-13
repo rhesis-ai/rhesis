@@ -92,6 +92,11 @@ const getProjectIcon = (project: Project) => {
 
 export default function SwaggerEndpointForm() {
   const router = useRouter();
+  const searchParams =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search)
+      : null;
+  const projectIdFromUrl = searchParams?.get('project_id') || '';
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [swaggerUrl, setSwaggerUrl] = useState('');
@@ -107,6 +112,16 @@ export default function SwaggerEndpointForm() {
     config_source: 'openapi',
     project_id: '',
   });
+
+  // Set project_id from URL parameter if provided
+  useEffect(() => {
+    if (projectIdFromUrl) {
+      setFormData(prev => ({
+        ...prev,
+        project_id: projectIdFromUrl,
+      }));
+    }
+  }, [projectIdFromUrl]);
 
   // Fetch projects when component mounts
   useEffect(() => {
