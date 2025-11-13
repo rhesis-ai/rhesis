@@ -626,7 +626,7 @@ export default function NewMetricPage() {
             sx={{
               p: 2,
               bgcolor: 'action.hover',
-              borderRadius: 1,
+              borderRadius: theme.shape.borderRadius / 4,
               border: 1,
               borderColor: 'divider',
             }}
@@ -661,7 +661,7 @@ export default function NewMetricPage() {
                   sx={{
                     p: 2,
                     bgcolor: 'action.hover',
-                    borderRadius: 1,
+                    borderRadius: theme.shape.borderRadius / 4,
                     position: 'relative',
                     pl: 4,
                     border: 1,
@@ -705,7 +705,7 @@ export default function NewMetricPage() {
             sx={{
               p: 2,
               bgcolor: 'action.hover',
-              borderRadius: 1,
+              borderRadius: theme.shape.borderRadius / 4,
               border: 1,
               borderColor: 'divider',
             }}
@@ -838,7 +838,7 @@ export default function NewMetricPage() {
             sx={{
               p: 2,
               bgcolor: 'action.hover',
-              borderRadius: 1,
+              borderRadius: theme.shape.borderRadius / 4,
               border: 1,
               borderColor: 'divider',
             }}
