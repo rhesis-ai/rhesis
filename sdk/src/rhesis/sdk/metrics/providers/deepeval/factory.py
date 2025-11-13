@@ -100,12 +100,20 @@ class DeepEvalMetricFactory(BaseMetricFactory):
                 f"Unknown metric class: {class_name}. Available classes: {available_classes}"
             )
 
+        # Extract parameters from the 'parameters' dictionary if present
+        parameters = (
+            kwargs.pop("parameters", {}) if isinstance(kwargs.get("parameters"), dict) else {}
+        )
+
+        # Combine parameters with kwargs, with kwargs taking precedence
+        combined_kwargs = {**parameters, **kwargs}
+
         # Merge common params with metric-specific params
         metric_params = self._supported_params.get(class_name, set())
         supported_params = self._common_params | metric_params
 
         # Filter kwargs to only include supported parameters for this class
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in supported_params}
+        filtered_kwargs = {k: v for k, v in combined_kwargs.items() if k in supported_params}
 
         return self._metrics[class_name](**filtered_kwargs)
 
