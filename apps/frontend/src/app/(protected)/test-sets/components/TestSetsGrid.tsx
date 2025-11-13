@@ -9,6 +9,7 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
+import { Tag } from '@/utils/api-client/interfaces/tag';
 import {
   Box,
   Chip,
@@ -308,7 +309,7 @@ export default function TestSetsGrid({
 
         return (
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-            {testSet.tags.slice(0, 2).map(tag => (
+            {testSet.tags.slice(0, 2).map((tag: Tag) => (
               <Chip
                 key={tag.id}
                 label={tag.name}

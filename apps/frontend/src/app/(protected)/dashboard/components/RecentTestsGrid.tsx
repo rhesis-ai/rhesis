@@ -5,6 +5,7 @@ import { Typography, Box, CircularProgress, Alert, Chip } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
+import { Tag } from '@/utils/api-client/interfaces/tag';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 
@@ -91,7 +92,7 @@ export default function RecentTestsGrid({
 
         return (
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-            {test.tags.slice(0, 2).map(tag => (
+            {test.tags.slice(0, 2).map((tag: Tag) => (
               <Chip
                 key={tag.id}
                 label={tag.name}

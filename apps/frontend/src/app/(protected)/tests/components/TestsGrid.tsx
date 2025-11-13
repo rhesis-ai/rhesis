@@ -13,6 +13,7 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
+import { Tag } from '@/utils/api-client/interfaces/tag';
 import { Typography, Box, Alert, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
@@ -269,7 +270,7 @@ export default function TestsTable({
 
           return (
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-              {test.tags.slice(0, 2).map(tag => (
+              {test.tags.slice(0, 2).map((tag: Tag) => (
                 <Chip
                   key={tag.id}
                   label={tag.name}

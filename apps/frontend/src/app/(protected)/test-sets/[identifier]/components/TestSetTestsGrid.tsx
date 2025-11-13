@@ -11,6 +11,7 @@ import { Typography, Box, Alert, Button, Chip } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
+import { Tag } from '@/utils/api-client/interfaces/tag';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -184,7 +185,7 @@ export default function TestSetTestsGrid({
 
           return (
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-              {test.tags.slice(0, 2).map(tag => (
+              {test.tags.slice(0, 2).map((tag: Tag) => (
                 <Chip
                   key={tag.id}
                   label={tag.name}
