@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import {
   Box,
   Button,
@@ -164,7 +164,9 @@ const getProjectIcon = (project: Project) => {
 
 export default function EndpointForm() {
   const router = useRouter();
+  const params = useParams<{ identifier?: string }>();
   const theme = useTheme();
+  const projectIdFromUrl = params?.identifier || '';
   const [error, setError] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState(0);
   const [urlError] = useState<string | null>(null);
@@ -211,6 +213,16 @@ export default function EndpointForm() {
     request_body_template: '{}',
     response_mappings: '{}',
   });
+
+  // Set project_id from URL parameter if provided
+  useEffect(() => {
+    if (projectIdFromUrl) {
+      setFormData(prev => ({
+        ...prev,
+        project_id: projectIdFromUrl,
+      }));
+    }
+  }, [projectIdFromUrl]);
 
   // Fetch projects when component mounts
   useEffect(() => {
