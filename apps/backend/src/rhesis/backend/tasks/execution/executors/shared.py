@@ -17,6 +17,7 @@ from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ResultStatus
+from rhesis.backend.tasks.execution.constants import MetricScope
 from rhesis.backend.tasks.execution.response_extractor import extract_response_with_fallback
 
 # ============================================================================
@@ -153,15 +154,78 @@ def check_existing_result(
 # ============================================================================
 
 
-def prepare_metric_configs(metrics: List, test_id: str) -> List:
+def filter_metrics_by_scope(metrics: List, scope: MetricScope, test_id: str) -> List:
+    """
+    Filter metrics by scope (Single-Turn or Multi-Turn).
+
+    Args:
+        metrics: List of Metric models
+        scope: MetricScope enum value (MetricScope.SINGLE_TURN or MetricScope.MULTI_TURN)
+        test_id: Test ID for logging
+
+    Returns:
+        List of metrics that support the specified scope
+    """
+    if not scope:
+        return metrics
+
+    filtered_metrics = []
+    filtered_out_count = 0
+
+    # Get the string value from the enum for comparison with DB values
+    scope_value = scope.value
+
+    for metric in metrics:
+        # Check if metric has metric_scope attribute (stored as array in DB)
+        metric_scope = getattr(metric, "metric_scope", None)
+
+        # If no scope defined, include it (backward compatibility)
+        if not metric_scope:
+            filtered_metrics.append(metric)
+            continue
+
+        # metric_scope is stored as a list/array in the database
+        if isinstance(metric_scope, list):
+            # Check if the desired scope is in the metric's supported scopes
+            # Compare with string value since DB stores strings
+            if scope_value in metric_scope:
+                filtered_metrics.append(metric)
+            else:
+                filtered_out_count += 1
+                logger.debug(
+                    f"Filtered out metric '{metric.name}' (class: {metric.class_name}) "
+                    f"for test {test_id}: requires scope {metric_scope}, test is {scope_value}"
+                )
+        else:
+            # If it's not a list, include it (backward compatibility)
+            filtered_metrics.append(metric)
+
+    if filtered_out_count > 0:
+        logger.info(
+            f"Filtered out {filtered_out_count} metrics for test {test_id} "
+            f"due to scope mismatch (test scope: {scope_value})"
+        )
+
+    return filtered_metrics
+
+
+def prepare_metric_configs(
+    metrics: List, test_id: str, scope: Optional[MetricScope] = None
+) -> List:
     """
     Validate and filter metric models.
 
     The evaluator accepts Metric models directly. This function validates that
-    models have required fields and filters out any that are invalid.
+    models have required fields and filters out any that are invalid or don't
+    match the specified scope.
+
+    Args:
+        metrics: List of Metric models
+        test_id: Test ID for logging
+        scope: Optional MetricScope enum to filter by
 
     Returns:
-        List of valid Metric models
+        List of valid Metric models that match the scope
     """
     logger.debug(f"🔍 [DEBUG] prepare_metric_configs received {len(metrics)} metrics")
 
@@ -185,6 +249,10 @@ def prepare_metric_configs(metrics: List, test_id: str) -> List:
 
     if invalid_count > 0:
         logger.warning(f"Skipped {invalid_count} invalid metrics for test {test_id}")
+
+    # Filter by scope if specified
+    if scope:
+        valid_metrics = filter_metrics_by_scope(valid_metrics, scope, test_id)
 
     if not valid_metrics:
         logger.warning(
