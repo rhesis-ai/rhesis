@@ -148,7 +148,6 @@ export default function TestSampleCard({
                   maxWidth: '80%',
                   bgcolor: 'background.light2',
                   borderRadius: theme => theme.shape.borderRadius,
-                  borderBottomLeftRadius: 0.5,
                   px: 1.5,
                   py: 1,
                 }}
@@ -182,7 +181,6 @@ export default function TestSampleCard({
                       ? 'error.main'
                       : 'divider',
                     borderRadius: theme => theme.shape.borderRadius,
-                    borderBottomRightRadius: 0.5,
                     px: 1.5,
                     py: 1,
                     bgcolor: sample.responseError

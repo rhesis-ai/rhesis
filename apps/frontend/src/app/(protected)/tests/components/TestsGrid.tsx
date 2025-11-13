@@ -271,7 +271,7 @@ export default function TestsTable({
           return (
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
               {test.tags
-                .filter(tag => tag && tag.id && tag.name)
+                .filter((tag: Tag) => tag && tag.id && tag.name)
                 .slice(0, 2)
                 .map((tag: Tag) => (
                   <Chip
@@ -282,10 +282,10 @@ export default function TestsTable({
                     color="primary"
                   />
                 ))}
-              {test.tags.filter(tag => tag && tag.id && tag.name).length >
-                2 && (
+              {test.tags.filter((tag: Tag) => tag && tag.id && tag.name)
+                .length > 2 && (
                 <Chip
-                  label={`+${test.tags.filter(tag => tag && tag.id && tag.name).length - 2}`}
+                  label={`+${test.tags.filter((tag: Tag) => tag && tag.id && tag.name).length - 2}`}
                   size="small"
                   variant="outlined"
                 />

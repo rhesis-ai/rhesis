@@ -96,7 +96,7 @@ export default function RecentTestSetsGrid({
         return (
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
             {testSet.tags
-              .filter(tag => tag && tag.id && tag.name)
+              .filter((tag: Tag) => tag && tag.id && tag.name)
               .slice(0, 2)
               .map((tag: Tag) => (
                 <Chip
@@ -107,10 +107,10 @@ export default function RecentTestSetsGrid({
                   color="primary"
                 />
               ))}
-            {testSet.tags.filter(tag => tag && tag.id && tag.name).length >
-              2 && (
+            {testSet.tags.filter((tag: Tag) => tag && tag.id && tag.name)
+              .length > 2 && (
               <Chip
-                label={`+${testSet.tags.filter(tag => tag && tag.id && tag.name).length - 2}`}
+                label={`+${testSet.tags.filter((tag: Tag) => tag && tag.id && tag.name).length - 2}`}
                 size="small"
                 variant="outlined"
               />
