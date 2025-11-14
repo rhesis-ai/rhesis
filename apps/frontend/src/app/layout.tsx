@@ -213,16 +213,19 @@ const BRANDING: BrandingProps = {
   logo: <ThemeAwareLogo />,
 };
 
-const AUTHENTICATION: AuthenticationProps = {
-  signIn: handleSignIn,
-  signOut: handleSignOut,
-};
-
 export default async function RootLayout(props: { children: React.ReactNode }) {
   const session = await auth().catch(() => null);
 
   // Get navigation with dynamic organization name
   const navigation = await getNavigationItems(session);
+
+  // Check if local auth is enabled - if true, hide logout button by not providing signOut
+  const isLocalAuthEnabled = process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true';
+  
+  const AUTHENTICATION: AuthenticationProps = {
+    signIn: handleSignIn,
+    signOut: isLocalAuthEnabled ? undefined : handleSignOut,
+  };
 
   return (
     <html lang="en" suppressHydrationWarning>

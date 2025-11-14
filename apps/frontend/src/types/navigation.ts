@@ -33,7 +33,7 @@ export interface BrandingProps {
 
 export interface AuthenticationProps {
   signIn: () => Promise<void>;
-  signOut: () => Promise<void>;
+  signOut?: () => Promise<void>;
 }
 
 export interface NavigationContextProps {

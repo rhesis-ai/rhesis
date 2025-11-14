@@ -45,6 +45,9 @@ export function LayoutContent({
     );
   }, [pathname, protectedSegments]);
 
+  // Check if local auth is enabled to hide the account menu
+  const isLocalAuthEnabled = process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true';
+
   return (
     <SessionProvider session={session} refetchOnWindowFocus={false}>
       <AppRouterCacheProvider options={{ enableCssLayer: true }}>
@@ -54,6 +57,27 @@ export function LayoutContent({
               display: 'flex',
               flexDirection: 'column',
               minHeight: '100vh',
+              // Hide the account menu button when local auth is enabled
+              ...(isLocalAuthEnabled && {
+                // Target the Toolpad account button by various selectors
+                '& [aria-label="Account"]': {
+                  display: 'none !important',
+                },
+                '& button[aria-label*="account" i]': {
+                  display: 'none !important',
+                },
+                // Target the account preview/popover button
+                '& .ToolpadAccountButton, & [class*="AccountButton"]': {
+                  display: 'none !important',
+                },
+                // Target any button in the toolbar that has an avatar (account button)
+                '& header button:has(.MuiAvatar-root)': {
+                  display: 'none !important',
+                },
+                '& .MuiToolbar-root button:has(.MuiAvatar-root)': {
+                  display: 'none !important',
+                },
+              }),
             }}
           >
             <Box sx={{ flex: 1 }}>
