@@ -82,6 +82,66 @@ Extract specific values from API responses using JSONPath syntax:
 
 This tells Rhesis where to find the actual response text and any metadata you want to track.
 
+<Callout type="info">
+  **Platform-Managed Fields**: Rhesis actively uses certain mapped fields:
+  - `output`: The main response text from your API (required)
+  - `context`: Additional context or reasoning from the response
+  - Conversation tracking fields (see below) for multi-turn conversations
+  
+  Other fields like `model_used` or `tokens` are stored but not actively used by the platform.
+</Callout>
+
+**Conversation Tracking for Multi-Turn Conversations**
+
+Rhesis automatically tracks conversation state across multiple turns when you include a conversation identifier in your response mappings. This enables testing of conversational AI systems that maintain context across interactions.
+
+To enable conversation tracking, simply map the conversation field from your API response:
+
+<CodeBlock filename="response-mappings-with-conversation.json" language="json">
+  {`{
+  "output": "$.choices[0].message.content",
+  "conversation_id": "$.conversation_id"
+}`}
+</CodeBlock>
+
+Rhesis automatically detects and handles the following conversation field names:
+
+**Most Common (Tier 1)**:
+- `conversation_id`
+- `session_id`
+- `thread_id`
+- `chat_id`
+
+**Common Variants (Tier 2)**:
+- `dialog_id`
+- `dialogue_id`
+- `context_id`
+- `interaction_id`
+
+When a conversation field is mapped, Rhesis will:
+1. Extract the conversation ID from each API response
+2. Automatically include it in subsequent requests for the same conversation
+3. Maintain conversation context across multiple test turns
+
+This works for both REST and WebSocket endpoints without any additional configuration.
+
+<CodeBlock filename="multi-turn-example.json" language="json">
+  {`// First request - no conversation_id
+{
+  "query": "What is the capital of France?"
+}
+
+// API returns: { "output": "Paris", "conversation_id": "abc-123" }
+
+// Second request - conversation_id automatically included
+{
+  "query": "What is its population?",
+  "conversation_id": "abc-123"
+}
+
+// API maintains context and responds about Paris`}
+</CodeBlock>
+
 **[SCREENSHOT HERE: Endpoint configuration form showing the Request Body Template editor with JSON syntax highlighting and the Response Mappings section below it. Both should be filled with example OpenAI API configuration.]**
 
 ### Importing from Swagger/OpenAPI

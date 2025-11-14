@@ -361,9 +361,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     )
                     if main_content:
                         preview_suffix = "..." if len(main_content) > 200 else ""
-                        logger.debug(
-                            f"Main content preview: {main_content[:200]}{preview_suffix}"
-                        )
+                        logger.debug(f"Main content preview: {main_content[:200]}{preview_suffix}")
 
                     # Prepare the final response - merge all response data
                     logger.debug("Preparing final response...")
@@ -428,9 +426,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 logger.error(f"WebSocket connection rejected after {connection_duration:.2f}s")
                 logger.error(f"Status code: {status_err.response.status_code}")
                 response_headers_str = (
-                    dict(status_err.response.headers)
-                    if status_err.response.headers
-                    else "None"
+                    dict(status_err.response.headers) if status_err.response.headers else "None"
                 )
                 logger.error(f"Response headers: {response_headers_str}")
                 logger.error(f"Response body: {status_err.response.body}")
@@ -450,8 +446,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     error_type="websocket_connection_error",
                     output_message=error_output,
                     message=(
-                        f"WebSocket connection rejected: "
-                        f"HTTP {status_err.response.status_code}"
+                        f"WebSocket connection rejected: HTTP {status_err.response.status_code}"
                     ),
                     request_details={
                         "protocol": "WebSocket",
@@ -557,7 +552,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
     def _prepare_additional_headers(self, endpoint: Endpoint) -> Dict[str, str]:
         """Prepare additional headers for WebSocket connection.
-        
+
         Excludes standard WebSocket headers.
         """
         logger.debug("Preparing additional headers...")
@@ -593,7 +588,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         self, endpoint: Endpoint, auth_token: Optional[str], input_data: Dict[str, Any] = None
     ) -> Dict[str, str]:
         """Prepare additional headers for WebSocket connection.
-        
+
         Excludes Authorization header for WebSocket handshake.
         """
         logger.debug("Preparing additional headers with auth...")
