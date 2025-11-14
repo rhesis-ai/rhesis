@@ -500,7 +500,7 @@ class ResultsCurator:
                     collections["costs"].append(cost)
 
                 # Metadata
-                metadata = result.get("metadata", {})
+                metadata = result.get("metadata") or {}
                 gen_time = metadata.get("generation_time_seconds")
                 input_tok = metadata.get("input_tokens")
                 output_tok = metadata.get("output_tokens")
