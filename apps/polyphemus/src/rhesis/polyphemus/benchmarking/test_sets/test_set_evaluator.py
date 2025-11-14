@@ -184,7 +184,8 @@ class TestSetEvaluator:
                 self._add_result(error_result, overwrite=True)
                 results.append(error_result)
             print(f"Failed to load model {model.model_name}. Error: {str(e)}")
-            model.unload_model()
+            if hasattr(model, "unload_model"):
+                model.unload_model()
             return results
         # Test each prompt with the model
         for test in tqdm(tests, desc=f"Running pending tests on {model.model_name}", unit="test"):
@@ -234,7 +235,8 @@ class TestSetEvaluator:
             )
             self._add_result(test_result, overwrite=True)
             results.append(test_result)
-        model.unload_model()
+        if hasattr(model, "unload_model"):
+            model.unload_model()
         return results
 
     def generate_pending_responses(self) -> List[TestResult]:
