@@ -2,7 +2,6 @@ import asyncio
 import json
 import time
 import unicodedata
-import uuid
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
@@ -138,7 +137,8 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
             if auth_token:
                 logger.debug(
-                    f"Auth token obtained successfully in {auth_duration:.2f}s (length: {len(auth_token)} chars)"
+                    f"Auth token obtained successfully in {auth_duration:.2f}s "
+                    f"(length: {len(auth_token)} chars)"
                 )
             else:
                 logger.warning(f"No auth token obtained after {auth_duration:.2f}s")
@@ -156,29 +156,40 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
             template_duration = time.time() - template_start_time
             logger.debug(f"Template rendered in {template_duration:.2f}s")
-            logger.debug(
-                f"Rendered message data keys: {list(message_data.keys()) if isinstance(message_data, dict) else 'Not a dict'}"
+            message_keys = (
+                list(message_data.keys()) if isinstance(message_data, dict) else "Not a dict"
             )
+            logger.debug(f"Rendered message data keys: {message_keys}")
             logger.debug(
                 f"Rendered message data: {json.dumps(message_data, indent=2, default=str)}"
             )
 
-            # Handle session_id for multi-turn conversations
-            session_id = None
-            if "session_id" in message_data:
-                # session_id was set by template rendering (from input_data or auto-generated)
-                session_id = message_data["session_id"]
-                logger.info(f"Using session_id from rendered template: {session_id}")
-            elif "session_id" in input_data:
-                # Explicitly provided in input_data but not used in template
-                session_id = input_data["session_id"]
-                message_data["session_id"] = session_id
-                logger.info(f"Using session_id from input_data: {session_id}")
+            # Handle conversation tracking for multi-turn conversations
+            conversation_field = self._detect_conversation_field(endpoint)
+            conversation_id = None
+
+            if conversation_field:
+                # Conversation tracking is configured
+                if conversation_field in message_data:
+                    # Field was set by template rendering (from input_data)
+                    conversation_id = message_data[conversation_field]
+                    logger.info(
+                        f"Using {conversation_field} from rendered template: {conversation_id}"
+                    )
+                elif conversation_field in input_data:
+                    # Explicitly provided in input_data but not used in template
+                    conversation_id = input_data[conversation_field]
+                    message_data[conversation_field] = conversation_id
+                    logger.info(f"Using {conversation_field} from input_data: {conversation_id}")
+                else:
+                    # No conversation ID provided - this is fine for first turn
+                    # or if server generates it
+                    logger.debug(
+                        f"No {conversation_field} provided in input - "
+                        f"will be extracted from response if available"
+                    )
             else:
-                # Generate new session_id for first turn
-                session_id = str(uuid.uuid4())
-                message_data["session_id"] = session_id
-                logger.info(f"Generated new session_id for first turn: {session_id}")
+                logger.debug("No conversation tracking configured for this endpoint")
 
             # Build WebSocket URI
             logger.debug("Building WebSocket URI...")
@@ -190,9 +201,8 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             additional_headers = self._prepare_additional_headers_with_auth(
                 endpoint, auth_token, input_data
             )
-            logger.debug(
-                f"Additional headers: {json.dumps(self._sanitize_headers(additional_headers), indent=2)}"
-            )
+            sanitized_headers = json.dumps(self._sanitize_headers(additional_headers), indent=2)
+            logger.debug(f"Additional headers: {sanitized_headers}")
 
             try:
                 # Use the new websockets.asyncio.client.connect API
@@ -219,7 +229,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     # Collect all responses
                     logger.debug("Starting to collect WebSocket responses...")
                     responses = []
-                    conversation_id = None
+                    extracted_conversation_id = None  # ID extracted from response
                     error_message = None
                     message_count = 0
                     streaming_text_buffer = ""  # Buffer for accumulating streaming text chunks
@@ -246,11 +256,13 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                         # Try to parse as JSON first
                         try:
                             response_data = json.loads(message)
+                            response_json = json.dumps(response_data, indent=2, default=str)
                             logger.debug(
-                                f"Message #{message_count} parsed as JSON: {json.dumps(response_data, indent=2, default=str)}"
+                                f"Message #{message_count} parsed as JSON: {response_json}"
                             )
 
-                            # If we have buffered streaming text, add it as a response before processing JSON
+                            # If we have buffered streaming text, add it as a response
+                            # before processing JSON
                             if streaming_text_buffer.strip():
                                 # Normalize Unicode characters to ASCII equivalents
                                 normalized_text = self._normalize_unicode_text(
@@ -259,16 +271,30 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                                 buffer_response = {"content": normalized_text}
                                 responses.append(buffer_response)
                                 logger.debug(
-                                    f"Added buffered streaming text ({len(normalized_text)} chars) as response"
+                                    f"Added buffered streaming text "
+                                    f"({len(normalized_text)} chars) as response"
                                 )
                                 streaming_text_buffer = ""  # Reset buffer
 
                             responses.append(response_data)
 
-                            # Extract conversation_id if present
-                            if "conversation_id" in response_data:
-                                conversation_id = response_data["conversation_id"]
-                                logger.debug(f"Extracted conversation_id: {conversation_id}")
+                            # Handle string responses (like error messages)
+                            if isinstance(response_data, str):
+                                error_message = response_data
+                                logger.warning(
+                                    f"Received string response in message #{message_count}: "
+                                    f"{error_message}"
+                                )
+                                # Don't break, continue collecting responses
+                                continue
+
+                            # Extract conversation tracking field if present and configured
+                            if conversation_field and conversation_field in response_data:
+                                extracted_conversation_id = response_data[conversation_field]
+                                logger.debug(
+                                    f"Extracted {conversation_field} from response: "
+                                    f"{extracted_conversation_id}"
+                                )
 
                             # Check for error
                             if "error" in response_data:
@@ -285,11 +311,14 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                         except json.JSONDecodeError:
                             # This is a streaming text chunk, add it to buffer
                             streaming_text_buffer += message
+                            buffer_size = len(streaming_text_buffer)
                             logger.debug(
-                                f"Message #{message_count} added to streaming buffer (buffer size now: {len(streaming_text_buffer)} chars)"
+                                f"Message #{message_count} added to streaming buffer "
+                                f"(buffer size now: {buffer_size} chars)"
                             )
+                            preview_suffix = "..." if len(message) > 100 else ""
                             logger.debug(
-                                f"Streaming chunk preview: {message[:100]}{'...' if len(message) > 100 else ''}"
+                                f"Streaming chunk preview: {message[:100]}{preview_suffix}"
                             )
 
                     # Add any remaining buffered streaming text
@@ -299,7 +328,8 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                         final_buffer_response = {"content": normalized_text}
                         responses.append(final_buffer_response)
                         logger.debug(
-                            f"Added final buffered streaming text ({len(normalized_text)} chars) as response"
+                            f"Added final buffered streaming text "
+                            f"({len(normalized_text)} chars) as response"
                         )
 
                     total_response_time = (
@@ -321,30 +351,57 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                             content_chunk = response["content"]
                             main_content += content_chunk
                             logger.debug(
-                                f"Response #{i + 1} added {len(content_chunk)} chars to main content"
+                                f"Response #{i + 1} added {len(content_chunk)} chars "
+                                f"to main content"
                             )
 
                     logger.info(
-                        f"Extracted main content from {content_responses} responses (total length: {len(main_content)} chars)"
+                        f"Extracted main content from {content_responses} responses "
+                        f"(total length: {len(main_content)} chars)"
                     )
                     if main_content:
+                        preview_suffix = "..." if len(main_content) > 200 else ""
                         logger.debug(
-                            f"Main content preview: {main_content[:200]}{'...' if len(main_content) > 200 else ''}"
+                            f"Main content preview: {main_content[:200]}{preview_suffix}"
                         )
 
-                    # Prepare the final response
+                    # Prepare the final response - merge all response data
                     logger.debug("Preparing final response...")
                     final_response = {
                         "output": main_content if main_content else None,
-                        "session_id": session_id,  # Return session_id for multi-turn tracking
-                        "conversation_id": conversation_id,
                         "error": error_message,
                         "status": "completed" if not error_message else "error",
                     }
 
-                    logger.debug(
-                        f"Final response before mapping: {json.dumps(final_response, indent=2, default=str)}"
-                    )
+                    # Add conversation tracking field if configured
+                    if conversation_field:
+                        # Use extracted value from response, or fall back to input value
+                        final_conversation_id = extracted_conversation_id or conversation_id
+                        if final_conversation_id:
+                            final_response[conversation_field] = final_conversation_id
+                            logger.debug(
+                                f"Added {conversation_field} to response: {final_conversation_id}"
+                            )
+                        else:
+                            logger.debug(f"No {conversation_field} available for response")
+
+                    # Merge all structured response data (excluding special control messages)
+                    for response in responses:
+                        if isinstance(response, dict):
+                            # Skip control messages like "response ended"
+                            if response.get("message") == "response ended":
+                                continue
+                            # Skip string responses (already captured as error)
+                            if isinstance(response, str):
+                                continue
+                            # Merge all other response data
+                            for key, value in response.items():
+                                # Don't override already set fields
+                                if key not in final_response or final_response[key] is None:
+                                    final_response[key] = value
+
+                    final_response_json = json.dumps(final_response, indent=2, default=str)
+                    logger.debug(f"Final response before mapping: {final_response_json}")
 
                     # Map response using configured mappings
                     logger.debug("Applying response mappings...")
@@ -370,14 +427,18 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 )
                 logger.error(f"WebSocket connection rejected after {connection_duration:.2f}s")
                 logger.error(f"Status code: {status_err.response.status_code}")
-                logger.error(
-                    f"Response headers: {dict(status_err.response.headers) if status_err.response.headers else 'None'}"
+                response_headers_str = (
+                    dict(status_err.response.headers)
+                    if status_err.response.headers
+                    else "None"
                 )
+                logger.error(f"Response headers: {response_headers_str}")
                 logger.error(f"Response body: {status_err.response.body}")
                 logger.debug(f"Connection URI: {uri}")
-                logger.debug(
-                    f"Connection headers: {json.dumps(self._sanitize_headers(additional_headers), indent=2)}"
+                sanitized_conn_headers = json.dumps(
+                    self._sanitize_headers(additional_headers), indent=2
                 )
+                logger.debug(f"Connection headers: {sanitized_conn_headers}")
 
                 error_output = (
                     f"WebSocket connection rejected: HTTP {status_err.response.status_code}"
@@ -388,7 +449,10 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 return self._create_error_response(
                     error_type="websocket_connection_error",
                     output_message=error_output,
-                    message=f"WebSocket connection rejected: HTTP {status_err.response.status_code}",
+                    message=(
+                        f"WebSocket connection rejected: "
+                        f"HTTP {status_err.response.status_code}"
+                    ),
                     request_details={
                         "protocol": "WebSocket",
                         "uri": uri,
@@ -412,10 +476,12 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 logger.error(f"Error type: {error_type}")
                 logger.error(f"Error message: {str(e)}")
                 logger.debug(f"Connection URI: {uri}")
-                logger.debug(
-                    f"Connection headers: {json.dumps(self._sanitize_headers(additional_headers), indent=2)}"
+                sanitized_comm_headers = json.dumps(
+                    self._sanitize_headers(additional_headers), indent=2
                 )
-                logger.debug(f"Message data: {json.dumps(message_data, indent=2, default=str)}")
+                logger.debug(f"Connection headers: {sanitized_comm_headers}")
+                message_data_json = json.dumps(message_data, indent=2, default=str)
+                logger.debug(f"Message data: {message_data_json}")
 
                 # Try to get more details about the websocket error
                 if hasattr(e, "response"):
@@ -443,7 +509,8 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         except Exception as e:
             logger.error(f"Async invoke error: {type(e).__name__}: {str(e)}", exc_info=True)
             logger.debug(
-                f"Error context - URI: {uri}, Headers: {additional_headers}, Message: {message_data}"
+                f"Error context - URI: {uri}, Headers: {additional_headers}, "
+                f"Message: {message_data}"
             )
 
             return self._create_error_response(
@@ -489,16 +556,20 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         return uri
 
     def _prepare_additional_headers(self, endpoint: Endpoint) -> Dict[str, str]:
-        """Prepare additional headers for WebSocket connection (excluding standard WebSocket headers)."""
+        """Prepare additional headers for WebSocket connection.
+        
+        Excludes standard WebSocket headers.
+        """
         logger.debug("Preparing additional headers...")
         headers = {}
 
         # Use configured headers if available, but exclude standard WebSocket headers
         # as they are handled automatically by the websockets library
         if endpoint.request_headers:
-            logger.debug(
-                f"Configured headers: {json.dumps(self._sanitize_headers(endpoint.request_headers), indent=2)}"
+            sanitized_req_headers = json.dumps(
+                self._sanitize_headers(endpoint.request_headers), indent=2
             )
+            logger.debug(f"Configured headers: {sanitized_req_headers}")
             standard_ws_headers = {
                 "Upgrade",
                 "Connection",
@@ -521,7 +592,10 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
     def _prepare_additional_headers_with_auth(
         self, endpoint: Endpoint, auth_token: Optional[str], input_data: Dict[str, Any] = None
     ) -> Dict[str, str]:
-        """Prepare additional headers for WebSocket connection, but exclude Authorization for WebSocket handshake."""
+        """Prepare additional headers for WebSocket connection.
+        
+        Excludes Authorization header for WebSocket handshake.
+        """
         logger.debug("Preparing additional headers with auth...")
         headers = self._prepare_additional_headers(endpoint)
 
@@ -544,7 +618,10 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             logger.warning(f"Could not parse URL for Origin header: {e}")
 
         # Add User-Agent header
-        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        user_agent = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        )
         headers["User-Agent"] = user_agent
         logger.debug(f"Added User-Agent header: {user_agent}")
 

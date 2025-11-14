@@ -14,6 +14,21 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointAuthType
 from rhesis.backend.logging import logger
 
+# Conversation tracking field names (priority-ordered)
+# Used for convention-based detection of conversation tracking fields in response_mappings
+# Tier 1: Most common (90% of APIs)
+CONVERSATION_FIELD_NAMES = [
+    "conversation_id",
+    "session_id",
+    "thread_id",
+    "chat_id",
+    # Tier 2: Common variants (8% of APIs)
+    "dialog_id",
+    "dialogue_id",
+    "context_id",
+    "interaction_id",
+]
+
 
 class BaseEndpointInvoker(ABC):
     """Base class for endpoint invokers with shared functionality."""
@@ -36,6 +51,32 @@ class BaseEndpointInvoker(ABC):
             Dict containing the mapped response from the endpoint
         """
         pass
+
+    # Shared conversation tracking methods
+    def _detect_conversation_field(self, endpoint: Endpoint) -> Optional[str]:
+        """
+        Detect which conversation tracking field is configured in response_mappings.
+        Uses convention-based detection by checking common field names.
+
+        This enables automatic conversation tracking when a field like 'conversation_id',
+        'session_id', 'thread_id', etc. is mapped in response_mappings.
+
+        Args:
+            endpoint: The endpoint configuration
+
+        Returns:
+            The field name to use for conversation tracking, or None if not configured.
+        """
+        response_mappings = endpoint.response_mappings or {}
+
+        # Check common field names (auto-detection)
+        for field_name in CONVERSATION_FIELD_NAMES:
+            if field_name in response_mappings:
+                logger.info(f"Auto-detected conversation tracking field: {field_name}")
+                return field_name
+
+        logger.debug("No conversation tracking field detected in response_mappings")
+        return None
 
     # Shared authentication methods
     def _get_valid_token(self, db: Session, endpoint: Endpoint) -> Optional[str]:

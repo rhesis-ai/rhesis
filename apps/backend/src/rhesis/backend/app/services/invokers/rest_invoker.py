@@ -1,5 +1,4 @@
 import json
-import uuid
 from typing import Any, Dict
 
 import requests
@@ -39,7 +38,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         """Invoke the REST endpoint with proper authentication."""
         try:
             # Prepare request components
-            method, headers, request_body, url, session_id = self._prepare_request(
+            method, headers, request_body, url, conversation_id = self._prepare_request(
                 db, endpoint, input_data
             )
 
@@ -56,7 +55,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 return self._handle_http_error(response, method, url, headers, request_body)
 
             return self._handle_successful_response(
-                response, endpoint, method, url, headers, request_body, session_id
+                response, endpoint, method, url, headers, request_body, conversation_id
             )
 
         except requests.exceptions.RequestException as e:
@@ -95,29 +94,34 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             endpoint.request_body_template or {}, input_data
         )
 
-        # Handle session_id for multi-turn conversations
-        session_id = None
-        if isinstance(request_body, dict):
-            if "session_id" in request_body:
-                # session_id was set by template rendering (from input_data or auto-generated)
-                session_id = request_body["session_id"]
-                logger.info(f"Using session_id from rendered template: {session_id}")
-            elif "session_id" in input_data:
+        # Handle conversation tracking for multi-turn conversations
+        conversation_field = self._detect_conversation_field(endpoint)
+        conversation_id = None
+
+        if conversation_field and isinstance(request_body, dict):
+            # Conversation tracking is configured
+            if conversation_field in request_body:
+                # Field was set by template rendering (from input_data)
+                conversation_id = request_body[conversation_field]
+                logger.info(f"Using {conversation_field} from rendered template: {conversation_id}")
+            elif conversation_field in input_data:
                 # Explicitly provided in input_data but not used in template
-                session_id = input_data["session_id"]
-                request_body["session_id"] = session_id
-                logger.info(f"Using session_id from input_data: {session_id}")
+                conversation_id = input_data[conversation_field]
+                request_body[conversation_field] = conversation_id
+                logger.info(f"Using {conversation_field} from input_data: {conversation_id}")
             else:
-                # Generate new session_id for first turn
-                session_id = str(uuid.uuid4())
-                request_body["session_id"] = session_id
-                logger.info(f"Generated new session_id for first turn: {session_id}")
+                # No conversation ID provided - this is fine for first turn
+                # or if server generates it
+                logger.debug(
+                    f"No {conversation_field} provided in input - "
+                    f"will be extracted from response if available"
+                )
 
         # Build URL
         url = endpoint.url + (endpoint.endpoint_path or "")
         logger.debug(f"Making {method} request to: {url}")
 
-        return method, headers, request_body, url, session_id
+        return method, headers, request_body, url, conversation_id
 
     def _create_request_details(self, method: str, url: str, headers: Dict, body: Any) -> Dict:
         """Create request details dictionary with sanitized headers."""
@@ -168,7 +172,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         url: str,
         headers: Dict,
         request_body: Any,
-        session_id: str = None,
+        conversation_id: str = None,
     ) -> Dict:
         """Handle successful response with JSON parsing."""
         try:
@@ -178,10 +182,17 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 response_data, endpoint.response_mappings or {}
             )
 
-            # Add session_id to response for multi-turn tracking
-            if session_id:
-                mapped_response["session_id"] = session_id
-                logger.debug(f"Added session_id to response: {session_id}")
+            # Add conversation tracking field to response if configured and available
+            conversation_field = self._detect_conversation_field(endpoint)
+            if conversation_field:
+                # Use extracted value from mapped response, or fall back to input value
+                if conversation_field in mapped_response:
+                    logger.debug(
+                        f"Conversation field {conversation_field} already in mapped response"
+                    )
+                elif conversation_id:
+                    mapped_response[conversation_field] = conversation_id
+                    logger.debug(f"Added {conversation_field} to response: {conversation_id}")
 
             return mapped_response
         except (json.JSONDecodeError, requests.exceptions.JSONDecodeError) as json_error:
