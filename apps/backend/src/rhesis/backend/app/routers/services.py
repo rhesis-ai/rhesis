@@ -549,9 +549,7 @@ async def search_mcp_server(
     """
     try:
         organization_id, user_id = tenant_context
-        return await search_mcp(
-            request.query, request.server_name, db, current_user, organization_id
-        )
+        return await search_mcp(request.query, request.tool_id, db, current_user, organization_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -588,9 +586,7 @@ async def extract_mcp_item(
     """
     try:
         organization_id, user_id = tenant_context
-        content = await extract_mcp(
-            request.id, request.server_name, db, current_user, organization_id
-        )
+        content = await extract_mcp(request.id, request.tool_id, db, current_user, organization_id)
         return {"content": content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -635,7 +631,7 @@ async def query_mcp_server(
         organization_id, user_id = tenant_context
         result = await query_mcp(
             query=request.query,
-            server_name=request.server_name,
+            tool_id=request.tool_id,
             db=db,
             user=current_user,
             organization_id=organization_id,
