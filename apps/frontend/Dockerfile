@@ -84,7 +84,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Create a non-root user and switch to it
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+    adduser --system --uid 1001 nextjs && \
+    chown -R nextjs:nodejs /app
 
 # Copy all necessary files from the builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/package.json /app/package-lock.json ./
