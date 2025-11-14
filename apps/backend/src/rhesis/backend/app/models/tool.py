@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Column, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -31,8 +31,3 @@ class Tool(Base, OrganizationMixin):
     tool_type = relationship("TypeLookup", foreign_keys=[tool_type_id])
     tool_provider = relationship("TypeLookup", foreign_keys=[tool_provider_id])
     status = relationship("Status", foreign_keys=[status_id])
-
-    # Constraints
-    __table_args__ = (
-        UniqueConstraint("organization_id", "tool_provider_id", name="uq_org_tool_provider"),
-    )

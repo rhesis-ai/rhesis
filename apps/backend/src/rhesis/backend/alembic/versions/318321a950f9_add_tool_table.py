@@ -53,7 +53,6 @@ def upgrade() -> None:
             ["type_lookup.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("organization_id", "tool_provider_id", name="uq_org_tool_provider"),
     )
     op.create_index(op.f("ix_tool_deleted_at"), "tool", ["deleted_at"], unique=False)
     op.create_index(op.f("ix_tool_id"), "tool", ["id"], unique=True)

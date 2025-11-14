@@ -28,7 +28,8 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Tool)
 @handle_database_exceptions(
-    entity_name="tool", custom_unique_message="A tool for this provider already exists in your organization"
+    entity_name="tool",
+    custom_unique_message="A tool for this provider already exists in your organization",
 )
 def create_tool(
     tool: schemas.ToolCreate,
@@ -99,7 +100,8 @@ def read_tool(
 
 @router.patch("/{tool_id}", response_model=schemas.Tool)
 @handle_database_exceptions(
-    entity_name="tool", custom_unique_message="A tool for this provider already exists in your organization"
+    entity_name="tool",
+    custom_unique_message="A tool for this provider already exists in your organization",
 )
 def update_tool(
     tool_id: uuid.UUID,
