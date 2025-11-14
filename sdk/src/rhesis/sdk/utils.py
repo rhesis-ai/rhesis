@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional
 
 import tiktoken
 
+CUSTOM_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 
 def count_tokens(text: str, encoding_name: str = "cl100k_base") -> Optional[int]:
     """Count the number of tokens in a given text string using tiktoken.

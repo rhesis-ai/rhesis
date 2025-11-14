@@ -1,11 +1,11 @@
 import functools
 import logging
-from datetime import datetime
-from typing import Any, Callable, Dict, Optional, TypeVar, cast
+from typing import Any, Callable, ClassVar, Dict, Optional, TypeVar
 
 import requests
+from pydantic import BaseModel
 
-from rhesis.sdk.client import Client
+from rhesis.sdk.client import Client, Endpoints, HTTPStatus, Methods
 
 T = TypeVar("T")
 
@@ -39,7 +39,7 @@ def handle_http_errors(func: Callable[..., T]) -> Callable[..., Optional[T]]:
     return wrapper
 
 
-class BaseEntity:
+class BaseEntity(BaseModel):
     """Base class for API entity interactions.
 
     This class provides basic CRUD operations for interacting with REST API endpoints.
@@ -50,264 +50,91 @@ class BaseEntity:
         headers (Dict[str, str]): HTTP headers for API requests.
     """
 
-    endpoint: str
-    fields: Dict[str, Any]
+    endpoint: ClassVar[Endpoints]
 
-    def __init__(self, **fields: Any) -> None:
-        """Initialize the entity with given fields.
-
-        Args:
-            **fields: Arbitrary keyword arguments representing entity fields.
-        """
-        self.fields = fields
-        self.client = Client()
-        self.headers = {
-            "Authorization": f"Bearer {self.client.api_key}",
-            "Content-Type": "application/json",
-        }
-
-    @property
-    def id(self) -> Optional[str]:
-        """Get the entity's ID.
-
-        Provides convenient access to the entity's ID without having to access
-        the fields dictionary directly. This is the recommended way to get an
-        entity's ID throughout the codebase.
-
-        Returns:
-            Optional[str]: The entity's ID if it exists, otherwise None.
-
-        Example:
-            >>> entity = BaseEntity(id="123")
-            >>> print(entity.id)  # "123"
-            >>> entity = BaseEntity()
-            >>> print(entity.id)  # None
-        """
-        return self.fields.get("id")
-
-    @handle_http_errors
-    def save(self) -> Optional[Dict[str, Any]]:
-        """Save the entity to the database."""
-        # try:
-        data = {k: v for k, v in self.fields.items() if k != "id"}
-
-        if "id" in self.fields:
-            url = f"{self.client.get_url(self.endpoint)}/{self.fields['id']}/"
-            try:
-                response = requests.put(
-                    url,
-                    json=data,
-                    headers=self.headers,
-                )
-                response.raise_for_status()
-                return dict(response.json())
-            except requests.exceptions.RequestException:
-                raise
-        else:
-            url = f"{self.client.get_url(self.endpoint)}/"
-            response = requests.post(
-                url,
-                json=data,
-                headers=self.headers,
-            )
-            response.raise_for_status()
-            return dict(response.json())
-        # except requests.exceptions.HTTPError:
-        #    return None
-
-    @handle_http_errors
-    def delete(self, record_id: str) -> bool:
+    @classmethod
+    def _delete(cls, id: str) -> bool:
         """Delete the entity from the database."""
+        client = Client()
         try:
-            url = f"{self.client.get_url(self.endpoint)}/{record_id}/"
-            response = requests.delete(
-                url,
-                headers=self.headers,
+            client.send_request(
+                endpoint=cls.endpoint,
+                method=Methods.DELETE,
+                url_params=id,
             )
-            return response.status_code in [200, 204]
-        except requests.exceptions.HTTPError:
-            return False
+            return True
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == HTTPStatus.NOT_FOUND:
+                return False
+            else:
+                raise e
 
-    @handle_http_errors
-    def fetch(self) -> None:
-        """Fetch the current entity's data from the API and update local fields."""
-        response = requests.get(
-            self.client.get_url(f"{self.endpoint}/{self.fields['id']}"),
-            headers=self.headers,
+    @classmethod
+    def _update(cls, id: str, data: Dict[str, Any]) -> None:
+        """Push the entity to the database."""
+        client = Client()
+        response = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.PUT,
+            url_params=id,
+            data=data,
         )
-        response.raise_for_status()
-        self.fields.update(response.json())
-
-    @handle_http_errors
-    def to_record(self) -> Dict[str, Any]:
-        """Convert the entity to a dictionary representation.
-
-        Returns:
-            Dict[str, Any]: The entity's fields as a dictionary.
-        """
-        return self.fields
+        return response
 
     @classmethod
-    @handle_http_errors
-    def exists(cls, record_id: str) -> bool:
-        """Check if an entity exists."""
+    def _create(cls, data: Dict[str, Any]) -> None:
         client = Client()
-        headers = {
-            "Authorization": f"Bearer {client.api_key}",
-            "Content-Type": "application/json",
-        }
-        url = f"{client.get_url(cls.endpoint)}/{record_id}/"
-        logger.debug(f"GET request to {url} for exists check")
-        response = requests.get(
-            url,
-            headers=headers,
+        response = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.POST,
+            data=data,
         )
-        return response.status_code == 200
+        return response
 
     @classmethod
-    @handle_http_errors
-    def all(cls, **kwargs: Any) -> Optional[list[Any]]:
-        """Retrieve all records from the API."""
+    def _pull(cls, id: str) -> None:
         client = Client()
-        headers = {
-            "Authorization": f"Bearer {client.api_key}",
-            "Content-Type": "application/json",
-        }
-        url = f"{client.get_url(cls.endpoint)}/"
-
-        try:
-            response = requests.get(
-                url,
-                params=kwargs,
-                headers=headers,
-            )
-            if response.status_code == 200:
-                result = response.json()
-                if not isinstance(result, list):
-                    result = [result] if result else []
-                return cast(list[Any], result)
-            response.raise_for_status()
-        except requests.exceptions.RequestException:
-            raise
-
-        return None
-
-    @handle_http_errors
-    def first(cls, **kwargs: Any) -> Optional[Dict[str, Any]]:
-        """Retrieve the first record matching the query parameters."""
-        records = cls.all(**kwargs)
-        return records[0] if records else None
-
-    @classmethod
-    @handle_http_errors
-    def from_id(cls, record_id: str) -> Optional["BaseEntity"]:
-        """Create an entity instance from a record ID."""
-        client = Client()
-        headers = {
-            "Authorization": f"Bearer {client.api_key}",
-            "Content-Type": "application/json",
-        }
-        url = f"{client.get_url(cls.endpoint)}/{record_id}/"
-        logger.debug(f"GET request to {url} for from_id")
-        response = requests.get(
-            url,
-            headers=headers,
+        response = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.GET,
+            url_params=id,
         )
-        response.raise_for_status()
-        return cls(**response.json())
+        return cls(**response)
 
-    def update(self) -> None:
-        """Update entity in database."""
-        if not self.exists(self.fields["id"]):
-            raise ValueError(
-                f"Cannot update {self.__class__.__name__}: "
-                f"entity with id {self.fields['id']} does not exist"
-            )
+    def push(self) -> Optional[Dict[str, Any]]:
+        """Save the entity to the database."""
+        data = self.model_dump(mode="json")
 
-    @handle_http_errors
-    def get_by_id(cls, id: str) -> Dict[str, Any]:
-        """Get entity by id."""
-        entity_dict = cls.fields.get(id)
-        if entity_dict is None:
-            raise ValueError(
-                f"Cannot get {cls.__class__.__name__}: "
-                f"entity with id {id} does not exist in database"
-            )
-        return dict(entity_dict)
+        if "id" in data and data["id"] is not None:
+            response = self._update(data["id"], data)
+
+        else:
+            response = self._create(data)
+            self.id = response["id"]
+
+        return response
+
+    def pull(self) -> None:
+        """Pull the entity from the database."""
+        data = self.model_dump(mode="json")
+        if "id" not in data or data["id"] is None:
+            raise ValueError("Entity has no ID")
+
+        return self._pull(data["id"])
+
+    def delete(self) -> bool:
+        """Delete the entity from the database."""
+        data = self.model_dump(mode="json")
+        if "id" not in data or data["id"] is None:
+            raise ValueError("Entity has no ID")
+
+        return self._delete(data["id"])
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the entity to a dictionary."""
+        return self.model_dump(mode="json")
 
     @classmethod
-    @handle_http_errors
-    def get_fields_with_types(cls) -> Optional[Dict[str, Any]]:
-        """Get field names for this entity type using the OpenAPI schema.
-
-        This method retrieves the OpenAPI schema from the API and extracts
-        the field names for this entity type. This provides the most accurate
-        and complete field information including types and descriptions.
-
-        Returns:
-            Optional[Dict[str, Any]]: Dictionary of field names and their types if successful,
-             None if failed.
-
-        Example:
-            >>> field_names_with_types = Behavior.get_fields_with_types()
-            >>> print(field_names_with_types)  # {'id': ['string'], 'name': ['string'],
-             'description': ['string'], 'status_id': ['string'], ...}
-        """
-        client = Client()
-        headers = {
-            "Authorization": f"Bearer {client.api_key}",
-            "Content-Type": "application/json",
-        }
-
-        # Get OpenAPI schema
-        url = f"{client.base_url}/openapi.json"
-        logger.debug(f"GET request to {url} for schema discovery")
-
-        try:
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-
-            schema = response.json()
-            # Extract entity schema fields
-            # The entity name in OpenAPI schema is typically the class name
-            entity_schema = schema.get("components", {}).get("schemas", {}).get(cls.__name__, {})
-            properties = entity_schema.get("properties", {})
-
-            if not properties:
-                logger.warning(f"No schema found for entity {cls.__name__}")
-                return []
-
-            fields_with_types = {}
-            for field_name, field_type in properties.items():
-                type_list = []
-                # Handle anyOf (optional fields)
-                if "anyOf" in field_type:
-                    for type_option in field_type["anyOf"]:
-                        field_type = type_option.get("type")
-                        if field_type:
-                            type_list.append(field_type)
-
-                else:
-                    # Direct type
-                    field_type = field_type.get("type")
-                    if field_type:
-                        type_list.append(field_type)
-
-                if type_list:
-                    fields_with_types[field_name] = type_list
-
-            return fields_with_types
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to get field names for {cls.__name__}: {e}")
-            return None
-
-    def _validate_update(self) -> None:
-        """Validate entity before update."""
-        if not (
-            isinstance(self.fields.get("created_at"), datetime)
-            and isinstance(self.fields.get("updated_at"), datetime)
-        ):
-            raise ValueError(
-                f"Cannot update {self.__class__.__name__}: "
-                f"created_at and updated_at must be datetime objects"
-            )
+    def from_dict(cls, data: Dict[str, Any]) -> "BaseEntity":
+        """Create an entity from a dictionary."""
+        return cls(**data)

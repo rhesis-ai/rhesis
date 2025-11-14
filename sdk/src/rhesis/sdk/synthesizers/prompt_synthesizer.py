@@ -73,12 +73,6 @@ class PromptSynthesizer(TestSetSynthesizer):
             formatted_prompt = self.system_prompt.render(
                 generation_prompt=self.prompt, **config_dict, num_tests=num_tests, context=context
             )
-            # Debug: Log full rendered template
-            print("\n" + "=" * 80, file=sys.stderr, flush=True)
-            print("DEBUG: Full Rendered Template (with config):", file=sys.stderr, flush=True)
-            print("=" * 80, file=sys.stderr, flush=True)
-            print(formatted_prompt, file=sys.stderr, flush=True)
-            print("=" * 80 + "\n", file=sys.stderr, flush=True)
         else:
             template_context = {"generation_prompt": self.prompt, "num_tests": num_tests}
             if context:

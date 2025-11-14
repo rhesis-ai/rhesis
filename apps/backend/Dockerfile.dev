@@ -1,0 +1,96 @@
+# Hint: Build this image with an expanded build context
+# `docker build -t rhesis-backend -f apps/backend/Dockerfile .`
+#
+# IMPORTANT: This Dockerfile is optimized for layer caching while ensuring migration files
+# are always up-to-date. It copies only __init__.py files before dependency installation,
+# then copies ALL source code (including migrations) in a later layer.
+#
+# For critical deployments, use --no-cache to force a complete rebuild:
+# `docker build --no-cache -t rhesis-backend -f apps/backend/Dockerfile .`
+
+# ============================================================================
+# STAGE 1: Builder - Install dependencies and build artifacts
+# ============================================================================
+FROM mirror.gcr.io/library/python:3.10.17-slim AS builder
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_NO_MANAGED_PYTHON=1
+
+# Copy only the dependency files for backend and install backend dependencies
+COPY apps/backend/uv.lock apps/backend/pyproject.toml apps/backend/README.md ./
+RUN uv remove rhesis-sdk --frozen && uv remove rhesis-penelope --frozen && uv sync --no-install-project
+
+# Install the project
+COPY sdk /app/sdk/
+COPY penelope /app/penelope/
+COPY apps/backend/src /app/src/
+RUN uv add ./sdk --frozen && uv add ./penelope --frozen && cd penelope && uv remove rhesis-sdk --frozen
+
+# # Install dependencies
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=apps/backend/src,target=src \
+    uv sync
+
+
+# ============================================================================
+# STAGE 2: Runtime - Create minimal runtime image
+# ============================================================================
+FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+# Install only runtime dependencies (no build tools)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    postgresql-client \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user first
+RUN adduser --disabled-password --gecos '' rhesis-user && \
+    mkdir -p /app && \
+    chown rhesis-user:rhesis-user /app
+
+# Copy the virtual environment from builder
+COPY --from=builder --chown=rhesis-user:rhesis-user /app/.venv /app/.venv
+
+# Copy source code and scripts with proper ownership and permissions
+COPY --from=builder --chown=rhesis-user:rhesis-user /app/src /app/src
+COPY --from=builder --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
+COPY --from=builder --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
+COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh /app/migrate.sh
+COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh /app/start.sh
+
+# Remove .env files
+RUN find /app -name ".env" -type f -delete
+
+# Switch to the non-root user
+USER rhesis-user
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app \
+    PATH="/app/.venv/bin:$PATH"
+
+# Expose port
+EXPOSE 8080
+
+# Use the improved startup script
+CMD ["/app/start.sh"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1

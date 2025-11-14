@@ -24,7 +24,7 @@ services:
       POSTGRES_USER: rhesis-user
       POSTGRES_PASSWORD: your-secured-password
     ports:
-      - "5432:5432"
+      - "10000:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-db"]
       interval: 10s
@@ -38,12 +38,12 @@ services:
   backend:
     build:
       context: ../../..
-      dockerfile: apps/backend/Dockerfile
+      dockerfile: apps/backend/Dockerfile.dev
     container_name: rhesis-backend-test
     environment:
       <<: [*database-config, *backend-config]
     ports:
-      - "8080:8080"
+      - "10001:8080"
     depends_on:
       postgres:
         condition: service_healthy

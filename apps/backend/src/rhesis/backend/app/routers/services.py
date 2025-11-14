@@ -268,7 +268,7 @@ async def generate_tests_endpoint(
             rated_samples=rated_samples,
             previous_messages=previous_messages,
         )
-        return {"tests": test_cases}
+        return {"tests": test_cases["tests"]}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

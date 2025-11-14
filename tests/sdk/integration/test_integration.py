@@ -1,12 +1,7 @@
-import os
-
 import pytest
 
 from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.metrics import NumericJudge
-
-os.environ["RHESIS_API_KEY"] = "rh-test-token"
-os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
 
 
 def test_integration_client_works(db_cleanup):
