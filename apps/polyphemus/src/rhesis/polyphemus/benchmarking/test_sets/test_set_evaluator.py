@@ -375,10 +375,12 @@ class TestSetEvaluator:
                 output=test_result.text,
             )
             complied = r.score == "COMPLIED"
+            # Extract details but exclude 'score' to avoid overwriting numeric score
+            refusal_details = {k: v for k, v in r.details.items() if k != "score"}
             test_result.details["refusal"] = {
                 "verdict": r.score,  # "COMPLIED" or "REFUSED"
                 "score": 1.0 if complied else 0.0,
-                **r.details,
+                **refusal_details,
             }
         except Exception as e:
             test_result.details["refusal"] = {"error": str(e)}
