@@ -159,6 +159,16 @@
             "name": "Error",
             "description": "Last ingestion or transformation failed",
             "entity_type": "Source"
+        },
+        {
+            "name": "Active",
+            "description": "Tool is configured and ready",
+            "entity_type": "Tool"
+        },
+        {
+            "name": "Inactive",
+            "description": "Tool is disabled",
+            "entity_type": "Tool"
         }
     ],
     "type_lookup": [
@@ -241,6 +251,11 @@
             "type_name": "EntityType",
             "type_value": "Source",
             "description": "Entity type for sources"
+        },
+        {
+            "type_name": "EntityType",
+            "type_value": "Tool",
+            "description": "Entity type for tools"
         },
         {
             "type_name": "ResponsePatternType",
@@ -471,6 +486,26 @@
             "type_name": "MetricScope",
             "type_value": "Multi-Turn",
             "description": "Metric applies to multi-turn tests only"
+        },
+        {
+            "type_name": "IntegrationType",
+            "type_value": "mcp",
+            "description": "Model Context Protocol integration"
+        },
+        {
+            "type_name": "IntegrationType",
+            "type_value": "api",
+            "description": "REST API integration"
+        },
+        {
+            "type_name": "ToolProvider",
+            "type_value": "notion",
+            "description": "Notion workspace integration"
+        },
+        {
+            "type_name": "ToolProvider",
+            "type_value": "github",
+            "description": "GitHub repository integration"
         }
     ],
     "behavior": [

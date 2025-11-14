@@ -34,6 +34,7 @@ from .test_result import TestResult
 from .test_run import TestRun
 from .test_set import TestSet
 from .token import Token
+from .tool import Tool
 from .topic import Topic
 from .type_lookup import TypeLookup
 from .use_case import UseCase
@@ -77,6 +78,7 @@ __all__ = [
     "Task",
     "Test",
     "TestContext",
+    "Tool",
     "behavior_metric_association",
     "test_test_set_association",
 ]

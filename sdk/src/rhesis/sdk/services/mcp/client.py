@@ -167,19 +167,26 @@ class MCPClientManager:
     Loads server configurations from mcp.json and creates MCPClient instances.
     """
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, config_dict: Optional[Dict] = None):
         """
-        Initialize client manager with config file path.
+        Initialize client manager with config file path or config dict.
 
         Args:
             config_path: Path to mcp.json config file.
                         Defaults to ~/.cursor/mcp.json if not provided
+            config_dict: Direct configuration dictionary (for database tools)
         """
         self.config_path = config_path
+        self.config_dict = config_dict
         self.clients: Dict[str, MCPClient] = {}
 
     def _load_config(self) -> Dict[str, Any]:
-        """Load MCP configuration from file."""
+        """Load MCP configuration from file or use provided config dict."""
+        # If config_dict is provided, use it directly
+        if self.config_dict:
+            return self.config_dict
+
+        # Otherwise load from file
         from pathlib import Path
 
         if self.config_path:
@@ -241,3 +248,39 @@ class MCPClientManager:
         """Disconnect from all MCP clients."""
         for client in self.clients.values():
             await client.disconnect()
+
+    @classmethod
+    def from_tool_config(cls, tool_name: str, tool_config: Dict, auth_token: str):
+        """
+        Create MCPClientManager from database tool configuration.
+
+        The user provides the complete tool_metadata JSON with {{auth_token}} placeholders.
+        This method substitutes the placeholders with the actual encrypted token.
+
+        Args:
+            tool_name: Name for the MCP server (e.g., "notionApi")
+            tool_config: Tool metadata dict with {{auth_token}} placeholders
+            auth_token: The decrypted authentication token
+
+        Returns:
+            MCPClientManager instance configured with the tool
+
+        Example:
+            tool_config = {
+                "command": "npx",
+                "args": ["-y", "@notionhq/notion-mcp-server"],
+                "env": {
+                    "OPENAPI_MCP_HEADERS": '{"Authorization": "Bearer {{auth_token}}"}'
+                }
+            }
+            manager = MCPClientManager.from_tool_config("notionApi", tool_config, "ntn_abc123...")
+        """
+        # Serialize to string, replace placeholder, parse back
+        config_str = json.dumps(tool_config)
+        config_str = config_str.replace("{{auth_token}}", auth_token)
+        processed_config = json.loads(config_str)
+
+        # Wrap in mcpServers format expected by create_client
+        config_dict = {"mcpServers": {tool_name: processed_config}}
+
+        return cls(config_dict=config_dict)
