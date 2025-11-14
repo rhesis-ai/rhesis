@@ -55,7 +55,7 @@ RUN echo "🔍 FRONTEND_ENV value is: '${FRONTEND_ENV}'"
 
 # Build the Next.js application
 #RUN npm run build
-RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ]; then \
+RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ] || [ "$FRONTEND_ENV" = "local" ]; then \
         npm run build; \
     else \
         echo "Skipping build for non-production environment"; \
@@ -98,7 +98,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.eslintrc.json ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 # Do NOT copy src, tsconfig.json, .eslintrc.json or any .env files to production image
 # Install dependencies and handle environment-specific setup
-RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ]; then \
+RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ] || [ "$FRONTEND_ENV" = "local" ]; then \
         echo "Production mode detected"; \
         rm -rf ./src ./tsconfig.json ./.eslintrc.json && \
         echo "Source files removed for production mode"; \
@@ -120,4 +120,4 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
 
 # Start the appropriate server based on FRONTEND_ENV
-CMD ["sh", "-c", "export PORT=${PORT:-3000} && if [ \"$FRONTEND_ENV\" = \"production\" ] || [ \"$FRONTEND_ENV\" = \"staging\" ] || [ \"$FRONTEND_ENV\" = \"development\" ]; then npm start; else npm run dev; fi"]
+CMD ["sh", "-c", "export PORT=${PORT:-3000} && if [ \"$FRONTEND_ENV\" = \"production\" ] || [ \"$FRONTEND_ENV\" = \"staging\" ] || [ \"$FRONTEND_ENV\" = \"development\" ] || [ \"$FRONTEND_ENV\" = \"local\" ]; then npm start; else npm run dev; fi"]
