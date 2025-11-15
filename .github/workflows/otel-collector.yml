@@ -214,19 +214,25 @@ jobs:
           
           if [ -z "$PROCESSOR_URL" ]; then
             echo "⚠️ Warning: Telemetry processor service not found. Using placeholder."
-            PROCESSOR_URL="https://telemetry-processor-not-deployed.placeholder"
+            PROCESSOR_ENDPOINT="telemetry-processor-not-deployed.placeholder:443"
           else
             echo "✅ Found telemetry processor URL: $PROCESSOR_URL"
+            # Convert HTTPS URL to gRPC endpoint format (host:port)
+            # Remove https:// prefix and add :443 for Cloud Run gRPC
+            PROCESSOR_HOST=$(echo "$PROCESSOR_URL" | sed 's|https://||')
+            PROCESSOR_ENDPOINT="${PROCESSOR_HOST}:443"
+            echo "✅ Converted to gRPC endpoint: $PROCESSOR_ENDPOINT"
           fi
           
           echo "PROCESSOR_URL=$PROCESSOR_URL" >> $GITHUB_ENV
+          echo "PROCESSOR_ENDPOINT=$PROCESSOR_ENDPOINT" >> $GITHUB_ENV
 
       - name: Deploy to Cloud Run
         id: deploy
         run: |
           echo "🚀 Deploying OTel Collector"
           echo "Image: ${{ env.IMAGE_NAME }}:latest"
-          echo "Processor endpoint: ${{ env.PROCESSOR_URL }}"
+          echo "Processor endpoint (gRPC): ${{ env.PROCESSOR_ENDPOINT }}"
 
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:latest \
@@ -244,7 +250,9 @@ jobs:
             --max-instances=3 \
             --min-instances=1 \
             --set-env-vars="$(cat <<EOF
-          TELEMETRY_PROCESSOR_ENDPOINT=${{ env.PROCESSOR_URL }}
+          OTEL_PROCESSOR_ENDPOINT=${{ env.PROCESSOR_ENDPOINT }},
+          OTEL_API_KEY=${{ secrets.OTEL_API_KEY }},
+          OTEL_INSECURE=false
           EOF
           )"
 
@@ -258,18 +266,6 @@ jobs:
             --region=${{ env.REGION }}
 
           echo "✅ Traffic successfully routed to new revision"
-
-      - name: Output deployed service URL
-        id: output_service_url
-        run: |
-          DEPLOYED_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }} \
-            --format="value(status.url)")
-          
-          echo "📍 OTel Collector URL: $DEPLOYED_URL"
-          echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
-          echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
 
       - name: Set actual service name
         id: set_service_name
@@ -294,15 +290,3 @@ jobs:
           env-display: ${{ env.ENV_DISPLAY }}
           service-url: ''
           actual-service-name: ${{ env.ACTUAL_SERVICE_NAME }}
-
-      - name: Display important endpoints
-        run: |
-          echo "## 📡 OTel Collector Endpoints" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **OTLP/HTTP:** ${{ env.DEPLOYED_URL }}:4318" >> $GITHUB_STEP_SUMMARY
-          echo "- **OTLP/gRPC:** ${{ env.DEPLOYED_URL }}:4317" >> $GITHUB_STEP_SUMMARY
-          echo "- **Health Check:** ${{ env.DEPLOYED_URL }}:13133/health" >> $GITHUB_STEP_SUMMARY
-          echo "- **Prometheus Metrics:** ${{ env.DEPLOYED_URL }}:8889/metrics" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "⚠️ **Note:** Update backend/frontend \`OTEL_EXPORTER_OTLP_ENDPOINT\` to point to this collector" >> $GITHUB_STEP_SUMMARY
-

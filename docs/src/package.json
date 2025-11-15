@@ -12,6 +12,8 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.3.0",
     "@mui/material": "^6.3.0",
+    "@theguild/remark-mermaid": "^0.3.0",
+    "mermaid": "^11.12.1",
     "next": "^15.5.2",
     "nextra": "^4.4.0",
     "nextra-theme-docs": "^4.4.0",

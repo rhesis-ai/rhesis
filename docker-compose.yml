@@ -52,8 +52,8 @@ x-rhesis-config: &rhesis-config
 x-telemetry-config: &telemetry-config
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318/}
   OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-rhesis}
-  DEPLOYMENT_TYPE: ${DEPLOYMENT_TYPE:-self-hosted}
-  TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-false}
+  OTEL_DEPLOYMENT_TYPE: ${OTEL_DEPLOYMENT_TYPE:-self-hosted}
+  OTEL_RHESIS_TELEMETRY_ENABLED: ${OTEL_RHESIS_TELEMETRY_ENABLED:-true}  # Self-hosted: opt-out via env var
 
 x-gemini-google: &gemini-google
   GEMINI_API_KEY: ${GEMINI_API_KEY:-}
@@ -200,8 +200,6 @@ services:
     environment:
       <<: [*common-auth0, *nextjs-frontend, *google-client, *common-environment, *rhesis-config]
       PORT: ${FRONTEND_PORT:-3000}
-      NEXT_PUBLIC_OTEL_ENDPOINT: ${NEXT_PUBLIC_OTEL_ENDPOINT:-}
-      NEXT_PUBLIC_DEPLOYMENT_TYPE: ${NEXT_PUBLIC_DEPLOYMENT_TYPE:-self-hosted}
     ports:
       - "3000:3000"
     depends_on:
@@ -237,7 +235,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-
 volumes:
   postgres_data:
     driver: local

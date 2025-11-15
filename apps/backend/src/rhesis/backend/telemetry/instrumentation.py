@@ -11,8 +11,7 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.trace import NoOpTracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 
 from rhesis.backend.logging.rhesis_logger import logger
 
@@ -53,17 +52,44 @@ _telemetry_org_id: ContextVar[Optional[str]] = ContextVar("telemetry_org_id", de
 class ConditionalSpanProcessor(BatchSpanProcessor):
     """
     Span processor that only exports spans if telemetry is enabled for the current context.
-
-    This ensures we respect user's opt-in/opt-out preferences without
-    modifying the tracer creation logic throughout the codebase.
+    Uses BatchSpanProcessor for async processing (production).
     """
 
     def on_end(self, span):
-        """Only process spans if telemetry is enabled in current context"""
-        telemetry_enabled = _telemetry_enabled.get(False)
-        logger.debug(f"Span ending: {span.name}, telemetry_enabled={telemetry_enabled}")
+        """Only process spans if telemetry is enabled (checked via span attribute)"""
+        # Check span attribute instead of context variable because BatchSpanProcessor
+        # runs in a background thread where context variables are not available
+        try:
+            telemetry_enabled = (
+                span.attributes.get("_rhesis.telemetry_enabled", False)
+                if hasattr(span.attributes, "get")
+                else span.attributes.get("_rhesis.telemetry_enabled", False)
+            )
+        except Exception as e:
+            logger.error(f"Error checking telemetry_enabled attribute: {e}")
+            telemetry_enabled = True  # Default to enabled if we can't check
+
         if telemetry_enabled:
-            logger.debug(f"Exporting span: {span.name}")
+            super().on_end(span)
+        else:
+            logger.debug(f"Skipping span: {span.name} (telemetry disabled)")
+
+
+class ConditionalSimpleSpanProcessor(SimpleSpanProcessor):
+    """
+    Span processor that only exports spans if telemetry is enabled.
+    Uses SimpleSpanProcessor for synchronous processing (local development).
+    """
+
+    def on_end(self, span):
+        """Only process spans if telemetry is enabled (can check context variable)"""
+        # SimpleSpanProcessor runs synchronously in the same thread,
+        # so we can check context variable
+        telemetry_enabled = _telemetry_enabled.get(False) or span.attributes.get(
+            "_rhesis.telemetry_enabled", False
+        )
+
+        if telemetry_enabled:
             super().on_end(span)
         else:
             logger.debug(f"Skipping span: {span.name} (telemetry disabled)")
@@ -138,13 +164,15 @@ def initialize_telemetry():
 
     Telemetry Configuration:
     - Cloud deployments: Always enabled (user consent via Terms & Conditions)
-    - Self-hosted deployments: Opt-in via TELEMETRY_ENABLED environment variable
+    - Self-hosted deployments: Opt-in via OTEL_RHESIS_TELEMETRY_ENABLED environment variable
 
     Environment Variables:
-        DEPLOYMENT_TYPE: "cloud" or "self-hosted"
-        TELEMETRY_ENABLED: "true" or "false" (self-hosted only, defaults to false)
+        OTEL_DEPLOYMENT_TYPE: "cloud" or "self-hosted"
+        OTEL_RHESIS_TELEMETRY_ENABLED: "true" or "false" (self-hosted only, defaults to false)
         OTEL_EXPORTER_OTLP_ENDPOINT: Telemetry collector endpoint URL
         OTEL_SERVICE_NAME: Service identifier (default: "rhesis-backend")
+        OTEL_PROCESSOR_ENDPOINT: Telemetry processor endpoint (default: telemetry-processor:4317)
+        OTEL_API_KEY: API key for telemetry authentication
 
     See is_telemetry_enabled() docstring for detailed information about
     data collection practices and privacy protections.
@@ -155,10 +183,10 @@ def initialize_telemetry():
     _TELEMETRY_GLOBALLY_ENABLED = is_telemetry_enabled()
 
     if not _TELEMETRY_GLOBALLY_ENABLED:
-        deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+        deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
         logger.info(f"Telemetry disabled for deployment_type={deployment_type}")
-        # Set NoOp provider to prevent span creation entirely (zero performance overhead)
-        trace.set_tracer_provider(NoOpTracerProvider())
+        # Don't set NoOpTracerProvider to avoid conflicts with other libraries (e.g., deepeval)
+        # Just return early and let OpenTelemetry use its default behavior
         return
 
     otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
@@ -166,12 +194,12 @@ def initialize_telemetry():
     if not otel_endpoint:
         logger.info("Telemetry disabled: OTEL_EXPORTER_OTLP_ENDPOINT not set")
         _TELEMETRY_GLOBALLY_ENABLED = False
-        # Set NoOp provider to prevent span creation entirely
-        trace.set_tracer_provider(NoOpTracerProvider())
+        # Don't set NoOpTracerProvider to avoid conflicts with other libraries (e.g., deepeval)
+        # Just return early and let OpenTelemetry use its default behavior
         return
 
     # Determine deployment type
-    deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+    deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
     service_name = os.getenv("OTEL_SERVICE_NAME", "rhesis-backend")
 
     # Create resource with service information
@@ -199,8 +227,16 @@ def initialize_telemetry():
             timeout=5,  # 5 second timeout - don't block app if telemetry is slow
         )
 
-        # Use conditional processor
-        processor = ConditionalSpanProcessor(exporter)
+        # Use SimpleSpanProcessor for local development (synchronous, respects context)
+        # Use BatchSpanProcessor for production (asynchronous, better performance)
+        is_local = deployment_type in ["local", "self-hosted", "unknown"]
+        if is_local:
+            logger.info("Using ConditionalSimpleSpanProcessor for local development")
+            processor = ConditionalSimpleSpanProcessor(exporter)
+        else:
+            logger.info("Using ConditionalBatchSpanProcessor for production")
+            processor = ConditionalSpanProcessor(exporter)
+
         provider.add_span_processor(processor)
 
         # Set as global tracer provider
@@ -219,14 +255,14 @@ def is_telemetry_enabled() -> bool:
     CLOUD DEPLOYMENTS:
     - Telemetry is always enabled
     - User consent collected via agreement to Terms & Conditions
-    - See https://rhesis.ai/terms for full details
+    - See https://www.rhesis.ai/terms-conditions for full details
 
     SELF-HOSTED DEPLOYMENTS:
-    - Telemetry is disabled by default
-    - Opt-in by setting TELEMETRY_ENABLED=true
+    - Telemetry is ENABLED by default (opt-out)
+    - Opt-out by setting OTEL_RHESIS_TELEMETRY_ENABLED=false
 
     IMPORTANT FOR SELF-HOSTED ADMINISTRATORS:
-    Setting TELEMETRY_ENABLED=true opts in to anonymous usage analytics.
+    Telemetry is enabled by default to help improve Rhesis. You can disable it anytime by setting OTEL_RHESIS_TELEMETRY_ENABLED=false.
 
     Data Collected:
     - Login/logout events with hashed user IDs (SHA-256, irreversible, 16-char truncated)
@@ -251,33 +287,33 @@ def is_telemetry_enabled() -> bool:
     All data is sent to Rhesis's telemetry servers for product improvement.
     For full privacy details, see: https://rhesis.ai/privacy-policy
 
-    You may disable telemetry at any time by setting TELEMETRY_ENABLED=false
-    or omitting this variable entirely (defaults to disabled).
+    You may disable telemetry at any time by setting OTEL_RHESIS_TELEMETRY_ENABLED=false.
 
     Returns:
         bool: True if telemetry should be collected
 
     Examples:
-        # Self-hosted: Enable telemetry
-        DEPLOYMENT_TYPE=self-hosted
-        TELEMETRY_ENABLED=true
+        # Self-hosted: Enabled by default (opt-out)
+        OTEL_DEPLOYMENT_TYPE=self-hosted
+        # OTEL_RHESIS_TELEMETRY_ENABLED not set -> defaults to true
 
-        # Self-hosted: Disable telemetry (default)
-        DEPLOYMENT_TYPE=self-hosted
-        TELEMETRY_ENABLED=false
+        # Self-hosted: Explicitly disable telemetry (opt-out)
+        OTEL_DEPLOYMENT_TYPE=self-hosted
+        OTEL_RHESIS_TELEMETRY_ENABLED=false
 
         # Cloud: Always enabled
-        DEPLOYMENT_TYPE=cloud
+        OTEL_DEPLOYMENT_TYPE=cloud
     """
-    deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+    deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
 
-    # Cloud users: User consent collected via Terms & Conditions agreement
+    # Cloud users: Always enabled (user consent collected via Terms & Conditions agreement)
     if deployment_type == "cloud":
         return True
 
-    # Self-hosted users: Check environment variable (default: disabled)
+    # Self-hosted users: Enabled by default (opt-out)
+    # Users can disable by setting OTEL_RHESIS_TELEMETRY_ENABLED=false
     if deployment_type == "self-hosted":
-        return os.getenv("TELEMETRY_ENABLED", "false").lower() in ("true", "1", "yes")
+        return os.getenv("OTEL_RHESIS_TELEMETRY_ENABLED", "true").lower() in ("true", "1", "yes")
 
     # Unknown deployment type: Disable telemetry for safety
     return False
@@ -373,6 +409,9 @@ def track_user_activity(event_type: str, session_id: Optional[str] = None, **met
     tracer = get_tracer(__name__)
 
     with tracer.start_as_current_span("user.activity") as span:
+        # Store telemetry enabled status in span attribute for processor
+        span.set_attribute("_rhesis.telemetry_enabled", True)
+
         # Set standard attributes
         span.set_attribute("event.category", "user_activity")
         span.set_attribute("event.type", event_type)
@@ -389,7 +428,7 @@ def track_user_activity(event_type: str, session_id: Optional[str] = None, **met
             span.set_attribute("session.id", session_id)
 
         # Set deployment type
-        deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+        deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
         span.set_attribute("deployment.type", deployment_type)
 
         # Add custom metadata (sanitized to prevent sensitive data leakage)
@@ -433,6 +472,9 @@ def track_feature_usage(feature_name: str, action: str, **metadata):
     tracer = get_tracer(__name__)
 
     with tracer.start_as_current_span(f"feature.{feature_name}") as span:
+        # Store telemetry enabled status in span attribute for processor
+        span.set_attribute("_rhesis.telemetry_enabled", True)
+
         # Set standard attributes
         span.set_attribute("event.category", "feature_usage")
         span.set_attribute("feature.name", feature_name)
@@ -448,7 +490,7 @@ def track_feature_usage(feature_name: str, action: str, **metadata):
             span.set_attribute("organization.id", org_id)
 
         # Set deployment type
-        deployment_type = os.getenv("DEPLOYMENT_TYPE", "unknown")
+        deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
         span.set_attribute("deployment.type", deployment_type)
 
         # Add custom metadata (sanitized to prevent sensitive data leakage)

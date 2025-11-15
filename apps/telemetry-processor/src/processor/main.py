@@ -12,7 +12,7 @@ import grpc
 from opentelemetry.proto.collector.trace.v1 import trace_service_pb2_grpc
 
 from processor.database import get_database_manager
-from processor.grpc import TelemetryTraceService
+from processor.grpc import APIKeyInterceptor, TelemetryTraceService
 from processor.services import SpanRouter
 
 # Configure logging
@@ -40,9 +40,15 @@ def serve():
     # Create gRPC service
     trace_service = TelemetryTraceService(db_manager, span_router)
 
-    # Create gRPC server
+    # Create API key interceptor for authentication
+    api_key_interceptor = APIKeyInterceptor()
+
+    # Create gRPC server with interceptor
     max_workers = int(os.getenv("GRPC_MAX_WORKERS", "10"))
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=max_workers),
+        interceptors=(api_key_interceptor,),
+    )
 
     # Register trace service
     trace_service_pb2_grpc.add_TraceServiceServicer_to_server(

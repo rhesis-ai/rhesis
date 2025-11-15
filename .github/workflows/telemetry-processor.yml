@@ -220,7 +220,8 @@ jobs:
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
-            --no-allow-unauthenticated \
+            --ingress=all \
+            --allow-unauthenticated \
             --port=4317 \
             --memory=512Mi \
             --cpu=1 \
@@ -236,9 +237,9 @@ jobs:
           ANALYTICS_DB_HOST=${{ secrets.ANALYTICS_DB_HOST }},
           ANALYTICS_DB_PORT=${{ secrets.ANALYTICS_DB_PORT || '5432' }},
           ANALYTICS_DB_NAME=${{ secrets.ANALYTICS_DB_NAME }},
-          PORT=4317,
+          OTEL_API_KEY=${{ secrets.OTEL_API_KEY }},
           LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }},
-          DEPLOYMENT_TYPE=${{ secrets.DEPLOYMENT_TYPE || 'cloud' }},
+          OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
           ENVIRONMENT=${{ env.ENVIRONMENT }}
           EOF
           )"
@@ -256,6 +257,7 @@ jobs:
 
       - name: Allow OTel Collector to invoke Telemetry Processor
         run: |
+          echo "ℹ️ Note: Service is --allow-unauthenticated but secured by OTEL_API_KEY (x-api-key header)"
           echo "🔐 Configuring IAM permissions for OTel Collector to invoke Telemetry Processor..."
           
           # Determine otel-collector service name
@@ -287,18 +289,6 @@ jobs:
             echo "✅ OTel Collector can now invoke Telemetry Processor"
           fi
 
-      - name: Output deployed service URL
-        id: output_service_url
-        run: |
-          DEPLOYED_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }} \
-            --format="value(status.url)")
-          
-          echo "📍 Telemetry Processor URL: $DEPLOYED_URL"
-          echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
-          echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
-
       - name: Set actual service name
         id: set_service_name
         run: |
@@ -322,25 +312,3 @@ jobs:
           env-display: ${{ env.ENV_DISPLAY }}
           service-url: ''
           actual-service-name: ${{ env.ACTUAL_SERVICE_NAME }}
-
-      - name: Next steps reminder
-        run: |
-          echo "## 🔄 Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. **Deploy/Redeploy OTel Collector** to use this processor URL:" >> $GITHUB_STEP_SUMMARY
-          echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "   TELEMETRY_PROCESSOR_ENDPOINT=${{ env.DEPLOYED_URL }}" >> $GITHUB_STEP_SUMMARY
-          echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "2. **Update Backend/Frontend** to use the collector URL" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📊 Database Configuration" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "This service connects to a **separate analytics database** (not the main application database):" >> $GITHUB_STEP_SUMMARY
-          echo "- Database: \`${{ secrets.ANALYTICS_DB_NAME || 'rhesis-analytics' }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Cloud SQL Instance: \`${{ env.CLOUDSQL_INSTANCE }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Tables: \`user_activity\`, \`endpoint_usage\`, \`feature_usage\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "⚠️ **Security Note:** This service is NOT publicly accessible (no-allow-unauthenticated)" >> $GITHUB_STEP_SUMMARY
-          echo "It can only be called from within the VPC or by authorized service accounts." >> $GITHUB_STEP_SUMMARY
-
