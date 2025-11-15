@@ -10,6 +10,7 @@ using the `Base` object from the `database` module.
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -113,11 +114,30 @@ Web browsers handle this automatically.
     return description
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for FastAPI application.
+
+    Handles startup and shutdown events using the modern lifespan approach.
+    Replaces the deprecated @app.on_event("startup") and @app.on_event("shutdown").
+    """
+    # Startup: Initialize local environment if enabled
+    with get_db() as db:
+        initialize_local_environment(db)
+
+    yield  # Application is running
+
+    # Shutdown: Add any cleanup code here if needed in the future
+    pass
+
+
 app = FastAPI(
     title="Rhesis Backend",
     description=get_api_description(),
     version=__version__,
     route_class=AuthenticatedAPIRoute,
+    lifespan=lifespan,
 )
 
 # Instrument FastAPI with OpenTelemetry
@@ -257,14 +277,6 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
 # Add the middleware to the app
 # app.add_middleware(LoggingMiddleware)
-
-
-# Startup event for local initialization
-@app.on_event("startup")
-async def startup_event():
-    """Initialize local environment if enabled."""
-    with get_db() as db:
-        initialize_local_environment(db)
 
 
 # Include routers with custom route class
