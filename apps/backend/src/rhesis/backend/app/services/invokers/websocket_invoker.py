@@ -147,7 +147,11 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             logger.debug("Rendering request body template...")
             template_start_time = time.time()
 
-            template_context = {**input_data, "auth_token": auth_token}
+            # Prepare template context with conversation tracking
+            template_context, conversation_field = self._prepare_conversation_context(
+                endpoint, input_data, auth_token=auth_token
+            )
+
             logger.debug(f"Template context keys: {list(template_context.keys())}")
 
             message_data = self.template_renderer.render(
@@ -164,32 +168,10 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 f"Rendered message data: {json.dumps(message_data, indent=2, default=str)}"
             )
 
-            # Handle conversation tracking for multi-turn conversations
-            conversation_field = self._detect_conversation_field(endpoint)
-            conversation_id = None
-
-            if conversation_field:
-                # Conversation tracking is configured
-                if conversation_field in message_data:
-                    # Field was set by template rendering (from input_data)
-                    conversation_id = message_data[conversation_field]
-                    logger.info(
-                        f"Using {conversation_field} from rendered template: {conversation_id}"
-                    )
-                elif conversation_field in input_data:
-                    # Explicitly provided in input_data but not used in template
-                    conversation_id = input_data[conversation_field]
-                    message_data[conversation_field] = conversation_id
-                    logger.info(f"Using {conversation_field} from input_data: {conversation_id}")
-                else:
-                    # No conversation ID provided - this is fine for first turn
-                    # or if server generates it
-                    logger.debug(
-                        f"No {conversation_field} provided in input - "
-                        f"will be extracted from response if available"
-                    )
-            else:
-                logger.debug("No conversation tracking configured for this endpoint")
+            # Extract conversation ID from rendered message
+            conversation_id = self._extract_conversation_id(
+                message_data, input_data, conversation_field
+            )
 
             # Build WebSocket URI
             logger.debug("Building WebSocket URI...")
@@ -416,6 +398,15 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     mapping_duration = time.time() - mapping_start_time
 
                     logger.debug(f"Response mapping completed in {mapping_duration:.2f}s")
+
+                    # Preserve important unmapped fields (error info, status, message)
+                    important_fields = ["error", "status", "message"]
+                    for field in important_fields:
+                        if field in final_response and field not in mapped_response:
+                            mapped_response[field] = final_response[field]
+                            logger.debug(
+                                f"Preserved unmapped field '{field}': {final_response[field]}"
+                            )
 
                     return mapped_response
 

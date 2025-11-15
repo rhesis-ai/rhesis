@@ -53,7 +53,7 @@ Define authentication and other required headers in JSON format:
 
 **Request Body Template**
 
-Create a template with placeholders for dynamic values. Rhesis will replace `{input}` with your test prompt:
+Templates use Jinja2 syntax for dynamic values. Use the `tojson` filter for proper JSON formatting:
 
 <CodeBlock filename="request-body.json" language="json">
   {`{
@@ -61,16 +61,19 @@ Create a template with placeholders for dynamic values. Rhesis will replace `{in
   "messages": [
     {
       "role": "user",
-      "content": "{input}"
+      "content": "{{ input }}"
     }
   ],
-  "temperature": 0.7
+  "temperature": 0.7,
+  "conversation_id": {{ conversation_id | tojson }}
 }`}
 </CodeBlock>
 
+The `tojson` filter ensures values are properly formatted as JSON (e.g., `null` instead of `None`, properly quoted strings).
+
 **Response Mappings**
 
-Extract specific values from API responses using JSONPath syntax:
+Extract values using JSONPath or Jinja2 templates with conditional logic:
 
 <CodeBlock filename="response-mappings.json" language="json">
   {`{
@@ -80,7 +83,16 @@ Extract specific values from API responses using JSONPath syntax:
 }`}
 </CodeBlock>
 
-This tells Rhesis where to find the actual response text and any metadata you want to track.
+For conditional logic or nested fields, use Jinja2 templates with the `jsonpath()` function:
+
+<CodeBlock filename="response-mappings-advanced.json" language="json">
+  {`{
+  "output": "{{ jsonpath('$.text_response') or jsonpath('$.result.content') }}",
+  "conversation_id": "$.conversation_id"
+}`}
+</CodeBlock>
+
+The first value evaluates as a Jinja2 template (returns first non-empty field), while pure JSONPath expressions (starting with `$`) work as before.
 
 <Callout type="info">
   **Platform-Managed Fields**: Rhesis actively uses certain mapped fields:

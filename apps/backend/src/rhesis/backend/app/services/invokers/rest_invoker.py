@@ -88,34 +88,23 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         if method not in self.request_handlers:
             raise HTTPException(status_code=400, detail=f"Unsupported HTTP method: {method}")
 
+        # Prepare template context with conversation tracking
+        template_context, conversation_field = self._prepare_conversation_context(
+            endpoint, input_data
+        )
+
         # Prepare headers and body
         headers = self._prepare_headers(db, endpoint, input_data)
         request_body = self.template_renderer.render(
-            endpoint.request_body_template or {}, input_data
+            endpoint.request_body_template or {}, template_context
         )
 
-        # Handle conversation tracking for multi-turn conversations
-        conversation_field = self._detect_conversation_field(endpoint)
+        # Extract conversation ID from rendered body
         conversation_id = None
-
-        if conversation_field and isinstance(request_body, dict):
-            # Conversation tracking is configured
-            if conversation_field in request_body:
-                # Field was set by template rendering (from input_data)
-                conversation_id = request_body[conversation_field]
-                logger.info(f"Using {conversation_field} from rendered template: {conversation_id}")
-            elif conversation_field in input_data:
-                # Explicitly provided in input_data but not used in template
-                conversation_id = input_data[conversation_field]
-                request_body[conversation_field] = conversation_id
-                logger.info(f"Using {conversation_field} from input_data: {conversation_id}")
-            else:
-                # No conversation ID provided - this is fine for first turn
-                # or if server generates it
-                logger.debug(
-                    f"No {conversation_field} provided in input - "
-                    f"will be extracted from response if available"
-                )
+        if isinstance(request_body, dict):
+            conversation_id = self._extract_conversation_id(
+                request_body, input_data, conversation_field
+            )
 
         # Build URL
         url = endpoint.url + (endpoint.endpoint_path or "")
@@ -193,6 +182,13 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 elif conversation_id:
                     mapped_response[conversation_field] = conversation_id
                     logger.debug(f"Added {conversation_field} to response: {conversation_id}")
+
+            # Preserve important unmapped fields from original response (error info, message, etc.)
+            important_fields = ["error", "status", "message"]
+            for field in important_fields:
+                if field in response_data and field not in mapped_response:
+                    mapped_response[field] = response_data[field]
+                    logger.debug(f"Preserved unmapped field '{field}': {response_data[field]}")
 
             return mapped_response
         except (json.JSONDecodeError, requests.exceptions.JSONDecodeError) as json_error:
