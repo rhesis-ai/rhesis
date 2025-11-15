@@ -105,8 +105,10 @@ class HuggingFaceLLM(BaseLLM):
                     "gpu_only=True but CUDA is not available. "
                     "Cannot load model without GPU."
                 )
-            device_map = "cuda"
-            print("Loading model with gpu_only=True (device_map='cuda')")
+            # Use "auto" to support multi-GPU distribution
+            # The validation below will ensure no CPU/disk offloading occurs
+            device_map = "auto"
+            print("Loading model with gpu_only=True (device_map='auto', multi-GPU enabled)")
         else:
             device_map = "auto"
 
