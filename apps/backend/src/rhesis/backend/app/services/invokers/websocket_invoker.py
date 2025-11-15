@@ -399,13 +399,18 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
                     logger.debug(f"Response mapping completed in {mapping_duration:.2f}s")
 
-                    # Preserve important unmapped fields (error info, status, message)
-                    important_fields = ["error", "status", "message"]
-                    for field in important_fields:
-                        if field in final_response and field not in mapped_response:
-                            mapped_response[field] = final_response[field]
+                    # Preserve all fields from final_response that aren't in mapped_response
+                    # or where mapped value is None but original had a value
+                    for field, value in final_response.items():
+                        if field not in mapped_response:
+                            # Field wasn't mapped, preserve original value
+                            mapped_response[field] = value
+                            logger.debug(f"Preserved unmapped field '{field}': {value}")
+                        elif mapped_response[field] is None and value is not None:
+                            # Mapping returned None but we have a valid original value
+                            mapped_response[field] = value
                             logger.debug(
-                                f"Preserved unmapped field '{field}': {final_response[field]}"
+                                f"Restored field '{field}' from None to original value: {value}"
                             )
 
                     return mapped_response

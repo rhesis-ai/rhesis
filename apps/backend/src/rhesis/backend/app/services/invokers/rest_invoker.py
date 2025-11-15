@@ -65,6 +65,15 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 message=f"Network/connection error: {str(e)}",
                 request_details=self._safe_request_details(locals(), "REST"),
             )
+        except (ValueError, json.JSONDecodeError) as e:
+            # Handle JSON parsing errors specifically
+            logger.error(f"JSON parsing error: {str(e)}")
+            return self._create_error_response(
+                error_type="json_parsing_error",
+                output_message=f"Failed to parse JSON response: {str(e)}",
+                message=f"Failed to parse JSON response: {str(e)}",
+                request_details=self._safe_request_details(locals(), "REST"),
+            )
         except HTTPException:
             # Re-raise HTTPExceptions (configuration errors that should still fail)
             raise
