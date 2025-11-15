@@ -102,9 +102,9 @@ class TestTaskExecution:
                 organization_id=test_org_id
             )
     
-    def test_get_test_metrics(self, test_with_prompt):
+    def test_get_test_metrics(self, test_db, test_with_prompt):
         """Test retrieving metrics from test's behavior."""
-        metrics = get_test_metrics(test_with_prompt)
+        metrics = get_test_metrics(test_with_prompt, test_db)
         
         assert isinstance(metrics, list)
         assert len(metrics) > 0
@@ -126,7 +126,7 @@ class TestTaskExecution:
         test_db.commit()
         test_db.refresh(test)
         
-        metrics = get_test_metrics(test)
+        metrics = get_test_metrics(test, test_db)
         
         # Should return empty list when no behavior (no defaults in SDK)
         assert isinstance(metrics, list)
@@ -156,7 +156,7 @@ class TestTaskExecution:
         test_db.commit()
         test_db.refresh(test)
         
-        metrics = get_test_metrics(test)
+        metrics = get_test_metrics(test, test_db)
         
         # Should return empty list (no defaults in SDK)
         assert isinstance(metrics, list)
@@ -484,7 +484,7 @@ class TestTaskExecution:
         test_db.commit()
         test_db.refresh(test)
         
-        metrics = get_test_metrics(test)
+        metrics = get_test_metrics(test, test_db)
         
         # Should filter out invalid metrics
         assert isinstance(metrics, list)
