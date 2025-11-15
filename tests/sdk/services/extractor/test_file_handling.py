@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rhesis.sdk.services.extractor import DocumentExtractor
+from rhesis.sdk.types import Document
 
 
 class TestDocumentExtractorFileHandling:
@@ -24,6 +25,7 @@ class TestDocumentExtractorFileHandling:
             ".xlsx",
             ".pdf",
             ".txt",
+            ".md",
             ".csv",
             ".json",
             ".xml",
@@ -37,15 +39,10 @@ class TestDocumentExtractorFileHandling:
     def test_extract_with_file_path(self):
         """Test extraction from file path."""
         documents = [
-            {
-                "name": "test_doc",
-                "description": "Test document",
-                "path": "/path/to/test.pdf",
-                "content": ""
-            }
+            Document(name="test_doc", description="Test document", path="/path/to/test.pdf")
         ]
 
-        with patch.object(self.extractor, '_extract_from_file') as mock_extract:
+        with patch.object(self.extractor, "_extract_from_file") as mock_extract:
             mock_extract.return_value = "Extracted text from PDF"
             result = self.extractor.extract(documents)
 
@@ -55,12 +52,7 @@ class TestDocumentExtractorFileHandling:
     def test_extract_file_not_found(self):
         """Test extraction when file is not found."""
         documents = [
-            {
-                "name": "missing_doc",
-                "description": "Missing file",
-                "path": "/nonexistent/file.pdf",
-                "content": ""
-            }
+            Document(name="missing_doc", description="Missing file", path="/nonexistent/file.pdf")
         ]
 
         with pytest.raises(FileNotFoundError, match="File not found: /nonexistent/file.pdf"):
@@ -74,12 +66,9 @@ class TestDocumentExtractorFileHandling:
 
         try:
             documents = [
-                {
-                    "name": "unsupported_doc",
-                    "description": "Unsupported file type",
-                    "path": temp_file_path,
-                    "content": ""
-                }
+                Document(
+                    name="unsupported_doc", description="Unsupported file type", path=temp_file_path
+                )
             ]
 
             with pytest.raises(ValueError, match="Unsupported file type: .exe"):
@@ -95,12 +84,12 @@ class TestDocumentExtractorFileHandling:
 
         try:
             # Patch the converter instance, not the class
-            with patch.object(self.extractor, 'converter') as mock_converter:
+            with patch.object(self.extractor, "converter") as mock_converter:
                 mock_result = Mock()
                 mock_result.text_content = "Extracted PDF text"
                 mock_result.markdown = "# Extracted PDF text"
-                mock_converter.convert_local.return_value = mock_result
-                
+                mock_converter.convert.return_value = mock_result
+
                 result = self.extractor._extract_from_file(temp_file_path)
 
             assert result == "Extracted PDF text"
@@ -130,9 +119,9 @@ class TestDocumentExtractorFileHandling:
 
         try:
             # Patch the converter instance, not the class
-            with patch.object(self.extractor, 'converter') as mock_converter:
-                mock_converter.convert_local.side_effect = Exception("Markitdown error")
-                
+            with patch.object(self.extractor, "converter") as mock_converter:
+                mock_converter.convert.side_effect = Exception("Markitdown error")
+
                 with pytest.raises(ValueError, match="Failed to extract text from"):
                     self.extractor._extract_from_file(temp_file_path)
         finally:
@@ -145,14 +134,14 @@ class TestDocumentExtractorFileHandling:
 
         try:
             # Patch the converter instance, not the class
-            with patch.object(self.extractor, 'converter') as mock_converter:
+            with patch.object(self.extractor, "converter") as mock_converter:
                 mock_result = Mock()
                 mock_result.text_content = ""
                 mock_result.markdown = ""
                 # Set the string representation to return empty string
                 mock_result.__str__ = Mock(return_value="")
-                mock_converter.convert_local.return_value = mock_result
-                
+                mock_converter.convert.return_value = mock_result
+
                 result = self.extractor._extract_from_file(temp_file_path)
 
             assert result == ""
@@ -161,20 +150,19 @@ class TestDocumentExtractorFileHandling:
 
     def test_extract_txt_file(self):
         """Test extraction from a .txt file."""
-        test_content = "This is a test text file.\nWith multiple lines.\nAnd some content to extract."
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix=".txt", delete=False, encoding='utf-8') as temp_file:
+        test_content = (
+            "This is a test text file.\nWith multiple lines.\nAnd some content to extract."
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False, encoding="utf-8"
+        ) as temp_file:
             temp_file.write(test_content)
             temp_file_path = temp_file.name
 
         try:
             documents = [
-                {
-                    "name": "test_txt",
-                    "description": "Test text document",
-                    "path": temp_file_path,
-                    "content": ""
-                }
+                Document(name="test_txt", description="Test text document", path=temp_file_path)
             ]
 
             result = self.extractor.extract(documents)
@@ -185,8 +173,10 @@ class TestDocumentExtractorFileHandling:
     def test_extract_from_txt_file_direct(self):
         """Test direct extraction from .txt file using _extract_from_file method."""
         test_content = "Direct text file extraction test.\nMultiple lines of content."
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix=".txt", delete=False, encoding='utf-8') as temp_file:
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False, encoding="utf-8"
+        ) as temp_file:
             temp_file.write(test_content)
             temp_file_path = temp_file.name
 
@@ -205,6 +195,7 @@ class TestDocumentExtractorFileHandling:
             ".xlsx",
             ".pdf",
             ".txt",
+            ".md",
             ".csv",
             ".json",
             ".xml",
@@ -212,8 +203,6 @@ class TestDocumentExtractorFileHandling:
             ".htm",
             ".zip",
             ".epub",
-            ".url",
-            ".youtube",
         }
         assert extensions == expected
         # Ensure it returns a copy, not the original
@@ -222,14 +211,25 @@ class TestDocumentExtractorFileHandling:
     def test_supported_file_types(self):
         """Test that all supported file types are properly handled."""
         supported_types = [
-            ".docx", ".pptx", ".xlsx", ".pdf", ".txt", ".csv", ".json",
-            ".xml", ".html", ".htm", ".zip", ".epub", ".url", ".youtube"
+            ".docx",
+            ".pptx",
+            ".xlsx",
+            ".pdf",
+            ".txt",
+            ".md",
+            ".csv",
+            ".json",
+            ".xml",
+            ".html",
+            ".htm",
+            ".zip",
+            ".epub",
         ]
-        
+
         for file_type in supported_types:
             with tempfile.NamedTemporaryFile(suffix=file_type, delete=False) as temp_file:
                 temp_file_path = temp_file.name
-                
+
                 # For .txt files, write some content since they're read directly
                 if file_type == ".txt":
                     temp_file.write(b"Test content for text file")
@@ -244,12 +244,12 @@ class TestDocumentExtractorFileHandling:
                     assert result == "Test content for text file"
                 else:
                     # Other files use Markitdown - patch the converter instance
-                    with patch.object(self.extractor, 'converter') as mock_converter:
+                    with patch.object(self.extractor, "converter") as mock_converter:
                         mock_result = Mock()
                         mock_result.text_content = f"Extracted text from {file_type}"
                         mock_result.markdown = f"# Extracted text from {file_type}"
-                        mock_converter.convert_local.return_value = mock_result
-                        
+                        mock_converter.convert.return_value = mock_result
+
                         result = self.extractor._extract_from_file(temp_file_path)
                         assert result == f"Extracted text from {file_type}"
             finally:
@@ -262,19 +262,19 @@ class TestDocumentExtractorFileHandling:
 
         # Set your PDF path here directly
         pdf_path = "/path/to/your/pdf"  # Replace with your actual PDF path
-                
+
         if not pdf_path or not os.path.exists(pdf_path):
             pytest.skip(f"PDF file not found: {pdf_path}")
-        
+
         documents = [
             {
                 "name": "manual_test_pdf",
                 "description": "Manual test PDF",
                 "path": pdf_path,
-                "content": ""
+                "content": "",
             }
         ]
-        
+
         result = self.extractor.extract(documents)
         assert "manual_test_pdf" in result
         extracted_text = result["manual_test_pdf"]

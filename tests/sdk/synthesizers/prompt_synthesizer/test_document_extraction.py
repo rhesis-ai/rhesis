@@ -1,7 +1,7 @@
-from test_utils import create_temp_document, cleanup_file
-from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
+from rhesis.sdk.synthesizers.document_synthesizer import DocumentSynthesizer
+from rhesis.sdk.types import Document
 
-
+from .synthesizer_test_utils import cleanup_file, create_temp_document
 
 # Test document contents
 INSURANCE_POLICY_CONTENT = """
@@ -56,28 +56,26 @@ def test_document_extraction_from_file():
 
     try:
         documents = [
-            {
-                "name": "insurance_policy",
-                "description": "Insurance policy guidelines",
-                "path": temp_path
-            }
+            Document(
+                name="insurance_policy",
+                description="Insurance policy guidelines",
+                path=temp_path,
+            )
         ]
 
-        synthesizer = PromptSynthesizer(
+        synthesizer = DocumentSynthesizer(
             prompt="Generate test cases for an insurance chatbot.",
-            documents=documents,
-            batch_size=5
+            batch_size=5,
         )
 
-        # Verify document was extracted
-        assert synthesizer.extracted_documents, "No documents extracted"
-        assert "insurance_policy" in synthesizer.extracted_documents, "Document not found in extracted documents"
+        # Generate tests from the documents
+        test_set = synthesizer.generate(documents=documents, num_tests=2)
 
-        # Check content
-        content = synthesizer.extracted_documents["insurance_policy"]
-        assert "Coverage Limits" in content, "Insurance content not properly extracted"
-        assert "Pre-existing Conditions" in content, "Insurance content not properly extracted"
-        assert "Claims Process" in content, "Insurance content not properly extracted"
+        # Verify tests were generated
+        assert len(test_set.tests) > 0, "No tests generated from documents"
+        assert test_set.metadata["documents_used"] == ["insurance_policy"], (
+            "Document not tracked in metadata"
+        )
 
     finally:
         cleanup_file(temp_path)
@@ -86,28 +84,25 @@ def test_document_extraction_from_file():
 def test_document_extraction_from_content():
     """Test that documents are correctly extracted from inline content."""
     documents = [
-        {
-            "name": "technical_spec",
-            "description": "API documentation",
-            "content": TECHNICAL_SPEC_CONTENT
-        }
+        Document(
+            name="technical_spec",
+            description="API documentation",
+            content=TECHNICAL_SPEC_CONTENT,
+        )
     ]
 
-    synthesizer = PromptSynthesizer(
-        prompt="Generate test cases for an API chatbot.",
-        documents=documents,
-        batch_size=5
+    synthesizer = DocumentSynthesizer(
+        prompt="Generate test cases for an API chatbot.", batch_size=5
     )
 
-    # Verify document was extracted
-    assert synthesizer.extracted_documents, "No documents extracted"
-    assert "technical_spec" in synthesizer.extracted_documents, "Document not found in extracted documents"
+    # Generate tests from the documents
+    test_set = synthesizer.generate(documents=documents, num_tests=2)
 
-    # Check content
-    content = synthesizer.extracted_documents["technical_spec"]
-    assert "API Documentation" in content, "Technical content not properly extracted"
-    assert "Endpoints:" in content, "Technical content not properly extracted"
-    assert "Authentication:" in content, "Technical content not properly extracted"
+    # Verify tests were generated
+    assert len(test_set.tests) > 0, "No tests generated from documents"
+    assert test_set.metadata["documents_used"] == ["technical_spec"], (
+        "Document not tracked in metadata"
+    )
 
 
 def test_mixed_document_extraction():
@@ -116,87 +111,69 @@ def test_mixed_document_extraction():
 
     try:
         documents = [
-            {
-                "name": "insurance_policy",
-                "description": "Insurance policy guidelines",
-                "path": temp_path
-            },
-            {
-                "name": "technical_spec",
-                "description": "API documentation",
-                "content": TECHNICAL_SPEC_CONTENT
-            }
+            Document(
+                name="insurance_policy",
+                description="Insurance policy guidelines",
+                path=temp_path,
+            ),
+            Document(
+                name="technical_spec",
+                description="API documentation",
+                content=TECHNICAL_SPEC_CONTENT,
+            ),
         ]
 
-        synthesizer = PromptSynthesizer(
+        synthesizer = DocumentSynthesizer(
             prompt="Generate test cases for a multi-domain chatbot.",
-            documents=documents,
-            batch_size=5
+            batch_size=5,
         )
 
-        # Verify both documents were extracted
-        assert len(synthesizer.extracted_documents) == 2, "Expected 2 documents to be extracted"
-        assert "insurance_policy" in synthesizer.extracted_documents, "Insurance document not extracted"
-        assert "technical_spec" in synthesizer.extracted_documents, "Technical document not extracted"
+        # Generate tests from both documents
+        test_set = synthesizer.generate(documents=documents, num_tests=3)
+
+        # Verify tests were generated
+        assert len(test_set.tests) > 0, "No tests generated from documents"
+        assert set(test_set.metadata["documents_used"]) == {"insurance_policy", "technical_spec"}, (
+            "Both documents should be tracked in metadata"
+        )
 
     finally:
         cleanup_file(temp_path)
 
 
 def test_context_in_prompt():
-    """Test that context is correctly included in the prompt template."""
+    """Test that DocumentSynthesizer correctly uses context from documents."""
     temp_path = create_temp_document(INSURANCE_POLICY_CONTENT)
 
     try:
         documents = [
-            {
-                "name": "insurance_policy",
-                "description": "Insurance policy guidelines",
-                "path": temp_path
-            },
-            {
-                "name": "manual_content",
-                "description": "Manual inline content",
-                "content": "This is manual content for testing document extraction."
-            }
+            Document(
+                name="insurance_policy",
+                description="Insurance policy guidelines",
+                path=temp_path,
+            ),
+            Document(
+                name="manual_content",
+                description="Manual inline content",
+                content="This is manual content for testing document extraction.",
+            ),
         ]
 
-        synthesizer = PromptSynthesizer(
+        synthesizer = DocumentSynthesizer(
             prompt="Generate test cases for an insurance chatbot.",
-            documents=documents,
-            batch_size=5
+            batch_size=5,
         )
 
-        # Verify documents were extracted
-        assert synthesizer.extracted_documents, "No documents extracted"
-        assert "insurance_policy" in synthesizer.extracted_documents, "File document not extracted"
-        assert "manual_content" in synthesizer.extracted_documents, "Manual content not extracted"
+        # Generate tests from documents with context
+        test_set = synthesizer.generate(documents=documents, num_tests=2)
 
-        # Check that the extracted content contains expected text
-        insurance_content = synthesizer.extracted_documents["insurance_policy"]
-        manual_content = synthesizer.extracted_documents["manual_content"]
+        # Verify tests were generated
+        assert len(test_set.tests) > 0, "No tests generated from documents"
 
-        assert "Coverage Limits" in insurance_content, "Insurance content not properly extracted"
-        assert "manual content for testing" in manual_content, "Manual content not properly extracted"
-
-        # Create context the same way the synthesizer does
-        context = "\n\n".join([
-            f"Document '{name}':\n{content}"
-            for name, content in synthesizer.extracted_documents.items()
-        ])
-
-        # Test prompt rendering with documents
-        formatted_prompt = synthesizer.system_prompt.render(
-            generation_prompt="Generate test cases for an insurance chatbot.",
-            num_tests=3,
-            context=context
-        )
-
-        # Verify context is included in the prompt
-        assert "Context" in formatted_prompt, "Context section not found in prompt"
-        assert "insurance_policy" in formatted_prompt, "Document name not found in prompt"
-        assert "Coverage Limits" in formatted_prompt, "Document content not found in prompt"
-        assert "manual content for testing" in formatted_prompt, "Manual content not found in prompt"
+        # Verify tests have source metadata
+        for test in test_set.tests:
+            assert "metadata" in test, "Test should have metadata"
+            assert "sources" in test["metadata"], "Test metadata should include sources"
 
     finally:
         cleanup_file(temp_path)
@@ -205,46 +182,52 @@ def test_context_in_prompt():
 def test_document_extraction_error_handling():
     """Test that the synthesizer handles document extraction errors gracefully."""
     documents = [
-        {
-            "name": "nonexistent_file",
-            "description": "A file that doesn't exist",
-            "path": "/path/to/nonexistent/file.txt"
-        }
+        Document(
+            name="nonexistent_file",
+            description="A file that doesn't exist",
+            path="/path/to/nonexistent/file.txt",
+        )
     ]
 
-    # This should not raise an exception, but should log a warning
-    synthesizer = PromptSynthesizer(
-        prompt="Generate test cases for a chatbot.",
-        documents=documents,
-        batch_size=5
-    )
+    synthesizer = DocumentSynthesizer(prompt="Generate test cases for a chatbot.", batch_size=5)
 
-    # Should have empty extracted documents due to error
-    assert not synthesizer.extracted_documents, "Should have empty extracted documents when file doesn't exist"
+    # Should raise an error when trying to extract from nonexistent file
+    try:
+        test_set = synthesizer.generate(documents=documents, num_tests=2)
+        assert False, "Should have raised an error for nonexistent file"
+    except (ValueError, FileNotFoundError):
+        # Expected behavior - error raised for missing file
+        pass
 
 
 def test_no_documents():
-    """Test that synthesizer works correctly without any documents."""
-    synthesizer = PromptSynthesizer(
-        prompt="Generate test cases for a general chatbot.",
-        documents=None,
-        batch_size=5
+    """Test that DocumentSynthesizer requires documents."""
+    synthesizer = DocumentSynthesizer(
+        prompt="Generate test cases for a general chatbot.", batch_size=5
     )
 
-    # Should have empty extracted documents
-    assert not synthesizer.extracted_documents, "Should have empty extracted documents when no documents provided"
+    # Should raise an error when no documents provided
+    try:
+        test_set = synthesizer.generate(documents=[], num_tests=2)
+        assert False, "Should have raised an error for empty documents"
+    except ValueError:
+        # Expected behavior - error raised for empty documents
+        pass
 
 
 def test_empty_documents_list():
-    """Test that synthesizer works correctly with empty documents list."""
-    synthesizer = PromptSynthesizer(
-        prompt="Generate test cases for a general chatbot.",
-        documents=[],
-        batch_size=5
+    """Test that DocumentSynthesizer handles empty documents list."""
+    synthesizer = DocumentSynthesizer(
+        prompt="Generate test cases for a general chatbot.", batch_size=5
     )
 
-    # Should have empty extracted documents
-    assert not synthesizer.extracted_documents, "Should have empty extracted documents when documents list is empty"
+    # Should raise an error when empty documents list provided
+    try:
+        test_set = synthesizer.generate(documents=[], num_tests=2)
+        assert False, "Should have raised an error for empty documents list"
+    except ValueError:
+        # Expected behavior - error raised for empty documents
+        pass
 
 
 def test_document_metadata_in_test_set():
@@ -253,31 +236,33 @@ def test_document_metadata_in_test_set():
 
     try:
         documents = [
-            {
-                "name": "insurance_policy",
-                "description": "Insurance policy guidelines",
-                "path": temp_path
-            }
+            Document(
+                name="insurance_policy",
+                description="Insurance policy guidelines",
+                path=temp_path,
+            )
         ]
 
-        synthesizer = PromptSynthesizer(
+        synthesizer = DocumentSynthesizer(
             prompt="Generate test cases for an insurance chatbot.",
-            documents=documents,
-            batch_size=5
+            batch_size=5,
         )
 
         # Generate test set
-        test_set = synthesizer.generate(num_tests=2)
+        test_set = synthesizer.generate(documents=documents, num_tests=2)
 
         # Check that document information is in metadata
-        assert "documents_used" in test_set.metadata, "Documents used not found in test set metadata"
-        assert "insurance_policy" in test_set.metadata["documents_used"], "Document name not found in metadata"
+        assert "documents_used" in test_set.metadata, (
+            "Documents used not found in test set metadata"
+        )
+        assert "insurance_policy" in test_set.metadata["documents_used"], (
+            "Document name not found in metadata"
+        )
 
-        # Check that individual test cases also have document metadata
+        # Check that individual test cases have source metadata
         for test in test_set.tests:
             assert "metadata" in test, "Test case missing metadata"
-            assert "documents_used" in test["metadata"], "Test case missing documents_used metadata"
-            assert "insurance_policy" in test["metadata"]["documents_used"], "Document name not found in test case metadata"
+            assert "sources" in test["metadata"], "Test case missing sources in metadata"
 
     finally:
         cleanup_file(temp_path)

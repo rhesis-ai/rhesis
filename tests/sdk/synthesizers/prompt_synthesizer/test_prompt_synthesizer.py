@@ -1,5 +1,8 @@
+from rhesis.sdk.synthesizers.document_synthesizer import DocumentSynthesizer
 from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
-from test_utils import create_temp_document, cleanup_file
+from rhesis.sdk.types import Document
+
+from .synthesizer_test_utils import cleanup_file, create_temp_document
 
 INSURANCE_CONTENT = """
 Insurance Policy Guidelines
@@ -11,34 +14,26 @@ Insurance Policy Guidelines
 """
 
 
-
 def test_with_documents():
-    """Test PromptSynthesizer with both file and inline documents."""
+    """Test DocumentSynthesizer with both file and inline documents."""
     temp_path = create_temp_document(INSURANCE_CONTENT)
 
     documents = [
-        {
-            "name": "insurance_policy",
-            "description": "Insurance policy details",
-            "path": temp_path
-        },
-        {
-            "name": "manual_content",
-            "description": "Manual inline content",
-            "content": "Manual override for chatbot insurance questions."
-        }
+        Document(name="insurance_policy", description="Insurance policy details", path=temp_path),
+        Document(
+            name="manual_content",
+            description="Manual inline content",
+            content="Manual override for chatbot insurance questions.",
+        ),
     ]
 
     try:
-        synthesizer = PromptSynthesizer(
+        synthesizer = DocumentSynthesizer(
             prompt="Generate test cases for an insurance chatbot.",
-            documents=documents,
-            batch_size=5
+            batch_size=5,
         )
 
-        assert synthesizer.extracted_documents, "No documents extracted"
-
-        test_set = synthesizer.generate(num_tests=3)
+        test_set = synthesizer.generate(documents=documents, num_tests=3)
         assert len(test_set.tests) == 3, "Incorrect number of tests generated"
 
     finally:
@@ -48,8 +43,7 @@ def test_with_documents():
 def test_without_documents():
     """Test PromptSynthesizer without any documents."""
     synthesizer = PromptSynthesizer(
-        prompt="Generate test cases for a general chatbot.",
-        batch_size=5
+        prompt="Generate test cases for a general chatbot.", batch_size=5
     )
 
     test_set = synthesizer.generate(num_tests=2)
