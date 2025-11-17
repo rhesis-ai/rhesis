@@ -11,8 +11,8 @@ Every test execution produces a `TestResult` object that contains:
 - **Test outcomes** - Status, goal achievement, findings
 - **Complete conversation history** - Every turn with full message context
 - **Easy-to-read conversation summary** - Simplified turn-by-turn flow with clear roles
-- **Structured evaluation data** - Criterion-by-criterion results with traceability
-- **Standardized metrics** - SDK-compatible metric format
+- **Structured evaluation data** - Complete goal evaluation with detailed criteria analysis
+- **Standardized metrics** - SDK-compatible metric summaries (no duplication)
 - **Test configuration** - Full reproducibility information
 - **Performance statistics** - Timing, tool usage, token consumption
 
@@ -27,11 +27,18 @@ Every test execution produces a `TestResult` object that contains:
   "findings": ["All success criteria met"],
   
   "goal_evaluation": {
+    "score": 1.0,
     "all_criteria_met": true,
     "confidence": 1.0,
-    "reasoning": "All criteria satisfied",
-    "evidence": ["Turn 2: User confirmed coverage details"],
-    "criteria_evaluations": [...]
+    "reason": "All criteria satisfied",
+    "criteria_evaluations": [
+      {
+        "criterion": "Information accuracy",
+        "met": true,
+        "evidence": "Turn 2: User confirmed coverage details",
+        "relevant_turns": [2]
+      }
+    ]
   },
   
   "history": [
@@ -56,9 +63,12 @@ Every test execution produces a `TestResult` object that contains:
   ],
   
   "metrics": {
-    "Goal Achievement": {
+    "Penelope Goal Evaluation": {
       "score": 1.0,
       "is_successful": true,
+      "confidence": 1.0,
+      "criteria_met": 1,
+      "criteria_total": 1,
       "reason": "All criteria met"
     }
   },
@@ -80,6 +90,15 @@ Every test execution produces a `TestResult` object that contains:
 
 ## Key Fields
 
+### Data Structure Overview
+
+Penelope's execution trace uses an optimized structure to avoid data duplication:
+
+- **`goal_evaluation`**: Complete goal evaluation data with detailed `criteria_evaluations`, evidence, and turn references
+- **`metrics`**: Summary-only data for goal achievement metrics (score, criteria counts) - detailed data is in `goal_evaluation`
+- **`conversation_summary`**: Easy-to-read turn-by-turn flow for UI display
+- **`history`**: Complete technical conversation history with full message context
+
 ### Status & Outcome
 
 - **status**: `"success"`, `"failure"`, `"timeout"`, or `"error"`
@@ -89,24 +108,25 @@ Every test execution produces a `TestResult` object that contains:
 
 ### Goal Evaluation
 
-Structured assessment of success criteria:
+Complete goal evaluation with detailed criteria analysis. This field contains the full evaluation data, while `metrics` contains only summary information to avoid duplication:
 
 <CodeBlock filename="goal_evaluation.json" language="json">
   {`{
+  "score": 1.0,
   "all_criteria_met": true,
   "confidence": 1.0,
-  "reasoning": "Detailed explanation of evaluation",
-  "evidence": ["Supporting evidence from conversation"],
+  "reason": "Detailed explanation of evaluation",
   "criteria_evaluations": [
     {
-      "criterion": "Criterion description",
+      "criterion": "Information accuracy",
       "met": true,
       "evidence": "Evidence for this criterion",
-      "reasoning": "Why this criterion was met/not met"
+      "relevant_turns": [1, 2]
     }
   ],
-  "turn_count": 3,
-  "evaluated_at": "2024-01-15T10:30:00Z"
+  "criteria_met": 1,
+  "criteria_total": 1,
+  "is_successful": true
 }`}
 </CodeBlock>
 
@@ -175,19 +195,17 @@ Each turn in the detailed history contains:
 
 ### Metrics
 
-SDK-compatible format for integration with Rhesis platform:
+SDK-compatible format for integration with Rhesis platform. For goal achievement metrics, contains summary data only (detailed criteria are in `goal_evaluation`):
 
 <CodeBlock filename="metrics.json" language="json">
   {`{
-  "Goal Achievement": {
-    "name": "Goal Achievement",
+  "Penelope Goal Evaluation": {
     "score": 1.0,
     "is_successful": true,
-    "reason": "All success criteria met",
-    "backend": "penelope",
     "confidence": 1.0,
     "criteria_met": 3,
-    "criteria_total": 3
+    "criteria_total": 3,
+    "reason": "All success criteria met"
   }
 }`}
 </CodeBlock>
@@ -293,10 +311,10 @@ Findings: {', '.join(result.findings)}
 # Check for issues
 
 if not result.goal_achieved:
-print("Failure reasons:")
-for criterion in result.goal_evaluation.criteria_evaluations:
-if not criterion.met:
-print(f" ❌ {criterion.criterion}: {criterion.reasoning}")`}
+    print("Failure reasons:")
+    for criterion in result.goal_evaluation.criteria_evaluations:
+        if not criterion.met:
+            print(f" ❌ {criterion.criterion}: {criterion.evidence}")`}
 
 </CodeBlock>
 

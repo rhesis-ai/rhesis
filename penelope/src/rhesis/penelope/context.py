@@ -143,9 +143,10 @@ class TestResult(BaseModel):
     goal_evaluation: Optional[Dict[str, Any]] = Field(
         default=None,
         description=(
-            "Flattened goal evaluation metric from GoalAchievementJudge. "
-            "All fields (score, criteria_evaluations, all_criteria_met, etc.) are at top level. "
-            "This is the flattened version of the first MetricResult for frontend compatibility."
+            "Complete goal evaluation data from GoalAchievementJudge. "
+            "Contains detailed criteria_evaluations, reasoning, and evidence. "
+            "This is the primary source for detailed goal evaluation data, "
+            "while test_metrics contains only summary information to avoid duplication."
         ),
     )
 
@@ -153,9 +154,10 @@ class TestResult(BaseModel):
     metrics: Dict[str, Dict[str, Any]] = Field(
         default_factory=dict,
         description=(
-            "Evaluation metrics in standard format. Includes goal achievement metric "
-            "and any additional SDK metrics that were computed. Format matches single-turn "
-            "metrics for consistency across the platform."
+            "Evaluation metrics in standard format. For goal evaluation metrics, "
+            "contains summary data only (score, confidence, criteria counts) to avoid "
+            "duplication with goal_evaluation field. Other metrics contain full data. "
+            "Format matches single-turn metrics for consistency across the platform."
         ),
     )
 
@@ -495,6 +497,9 @@ class TestState:
         if self.metric_results:
             goal_evaluation_flat = self._flatten_metric_result(self.metric_results[0])
 
+            # Add metric reference for traceability (already in flattened result)
+            # The metric name is already included in the flattened result
+
         return TestResult(
             status=status,
             goal_achieved=goal_achieved,
@@ -607,8 +612,8 @@ class TestState:
         """
         Generate metrics in frontend-compatible format.
 
-        Uses model_dump() to extract all fields from MetricResult, then adds
-        convenience fields for the frontend.
+        For goal achievement metrics, creates a simplified summary version to avoid
+        duplication with test_output.goal_evaluation. Other metrics get full data.
 
         Args:
             goal_achieved: Whether the goal was achieved (unused - kept for compatibility)
@@ -621,7 +626,7 @@ class TestState:
 
         metrics = {}
 
-        for metric_result in self.metric_results:
+        for i, metric_result in enumerate(self.metric_results):
             # Flatten the metric result
             metric_dict = self._flatten_metric_result(metric_result)
 
@@ -629,9 +634,56 @@ class TestState:
             metric_name = metric_dict.get("name", "penelope_goal_evaluation")
             display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
 
-            metrics[display_name] = metric_dict
+            # Check if this is a goal achievement metric using stored property
+            # Fall back to name check for backward compatibility
+            is_goal_metric = metric_dict.get("is_goal_achievement_metric", False)
+            if not is_goal_metric:
+                # Fallback: check by name for backward compatibility
+                is_goal_metric = metric_name == "penelope_goal_evaluation"
+
+            # For goal achievement metrics, create simplified summary version
+            # to avoid duplication with test_output.goal_evaluation
+            if is_goal_metric:
+                metrics[display_name] = self._create_goal_metric_summary(metric_dict)
+            else:
+                # Other metrics get full data
+                metrics[display_name] = metric_dict
 
         return metrics
+
+    def _create_goal_metric_summary(self, full_metric_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create a simplified summary version of goal achievement metric.
+
+        Excludes detailed fields that are duplicated in test_output.goal_evaluation
+        to reduce data duplication while maintaining essential metric information.
+
+        Args:
+            full_metric_dict: Complete flattened metric dictionary
+
+        Returns:
+            Simplified metric dictionary with summary fields only
+        """
+        # Essential fields for metrics overview
+        summary_fields = {
+            "score",
+            "confidence",
+            "criteria_met",
+            "criteria_total",
+            "is_successful",
+            "reason",
+            "name",
+            "max_score",
+            "min_score",
+            "threshold",
+            "threshold_operator",
+            "score_type",
+        }
+
+        # Create summary by including only essential fields
+        summary = {key: value for key, value in full_metric_dict.items() if key in summary_fields}
+
+        return summary
 
     def _generate_execution_stats(self) -> Dict[str, Any]:
         """

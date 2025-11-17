@@ -94,8 +94,9 @@ class PenelopeAgent:
 
         Strategy:
         1. If explicit goal_metric provided: validate and use it
-        2. Else search metrics for GoalAchievementJudge
-        3. Else create default GoalAchievementJudge
+        2. Else search metrics for GoalAchievementJudge instances
+        3. Else search metrics with is_goal_achievement_metric property
+        4. Else create default GoalAchievementJudge
 
         Args:
             goal_metric: Optional explicit goal metric
@@ -117,6 +118,28 @@ class PenelopeAgent:
                     f"goal_metric must have an 'evaluate' method. Got: {type(goal_metric).__name__}"
                 )
 
+            # Validate that it's suitable for goal achievement evaluation
+            is_goal_achievement_metric = (
+                isinstance(goal_metric, GoalAchievementJudge) or
+                getattr(goal_metric, 'is_goal_achievement_metric', False)
+            )
+            
+            if not is_goal_achievement_metric:
+                # Option 1: Strict validation (uncomment to enable)
+                # raise ValueError(
+                #     f"Explicit goal_metric '{goal_metric.name}' is not a goal achievement metric. "
+                #     f"It must be a GoalAchievementJudge or have 'is_goal_achievement_metric=True' property. "
+                #     f"Goal metrics must provide 'is_successful' in result details for stopping conditions."
+                # )
+                
+                # Option 2: Warning with graceful handling (current approach)
+                logger.warning(
+                    f"Explicit goal_metric '{goal_metric.name}' is not a goal achievement metric. "
+                    f"It lacks 'is_goal_achievement_metric=True' property and is not a GoalAchievementJudge. "
+                    f"This may cause issues with stopping conditions that expect 'is_successful' in result details. "
+                    f"Consider using a GoalAchievementJudge or adding 'is_goal_achievement_metric=True' to your metric."
+                )
+
             logger.info(f"Using explicit goal metric: {goal_metric.name}")
 
             # Ensure it's in metrics list
@@ -126,12 +149,17 @@ class PenelopeAgent:
 
             return goal_metric, metrics
 
-        # Case 2: Search for existing GoalAchievementJudge
+        # Case 2: Search for existing goal achievement metrics
+        # Priority: GoalAchievementJudge instances, then metrics with is_goal_achievement_metric property
         goal_judges = [m for m in metrics if isinstance(m, GoalAchievementJudge)]
+        
+        if not goal_judges:
+            # Fallback: check for metrics with goal achievement property
+            goal_judges = [m for m in metrics if getattr(m, 'is_goal_achievement_metric', False)]
 
         if goal_judges:
             selected = goal_judges[0]
-            logger.info(f"Auto-selected GoalAchievementJudge for stopping: {selected.name}")
+            logger.info(f"Auto-selected goal achievement metric for stopping: {selected.name}")
             return selected, metrics
 
         # Case 3: Create default GoalAchievementJudge
@@ -184,9 +212,11 @@ class PenelopeAgent:
                         # Add more metrics as needed
                     ]
             goal_metric: Metric to use for stopping condition.
-                Must be (or behave like) a GoalAchievementJudge with 'is_successful' in details.
+                Should be a GoalAchievementJudge or have 'is_goal_achievement_metric=True' property.
+                Must have 'is_successful' in result details for stopping conditions to work properly.
                 If None:
-                - Searches metrics for a GoalAchievementJudge
+                - Searches metrics for GoalAchievementJudge instances
+                - Falls back to metrics with 'is_goal_achievement_metric=True' property  
                 - If not found, creates and adds default GoalAchievementJudge to metrics
 
         Raises:
@@ -512,6 +542,10 @@ class PenelopeAgent:
                 else:
                     # Directly evaluate other metrics
                     result = metric.evaluate(state.conversation, goal=goal)
+
+                # Store metric property in result details for robust detection
+                if hasattr(metric, "is_goal_achievement_metric"):
+                    result.details["is_goal_achievement_metric"] = metric.is_goal_achievement_metric
 
                 # Store all metric results for reporting
                 state.metric_results.append(result)

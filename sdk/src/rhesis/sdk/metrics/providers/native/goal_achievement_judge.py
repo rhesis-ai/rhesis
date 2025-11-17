@@ -74,6 +74,20 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
     passing custom values for evaluation_prompt, evaluation_steps, or reasoning.
     """
 
+    @property
+    def is_goal_achievement_metric(self) -> bool:
+        """
+        Identify this metric as a goal achievement metric.
+
+        This property is used by systems like Penelope to determine whether
+        to create simplified summary versions of this metric's results to
+        avoid duplication with detailed goal evaluation data.
+
+        Returns:
+            True for GoalAchievementJudge, False for other metrics
+        """
+        return True
+
     def __init__(
         self,
         evaluation_prompt: Optional[str] = None,
