@@ -57,10 +57,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    environment: ${{ github.event.inputs.environment || 'dev' }}
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
 
     env:
-      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       SERVICE: worker
 
     outputs:
@@ -143,10 +143,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    environment: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
+    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
 
     env:
-      ENVIRONMENT: ${{ needs.build.outputs.environment || github.event.inputs.environment || 'dev' }}
+      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment || 'dev' }}
 
     steps:
       - uses: actions/checkout@v4
