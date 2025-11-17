@@ -45,6 +45,7 @@ export default function LandingPage() {
   // Auto-login for Quick Start mode
   useEffect(() => {
     // Use robust multi-factor detection to determine if Quick Start mode is enabled
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { isQuickStartEnabled } = require('@/utils/quick_start');
     const quickStartEnabled = isQuickStartEnabled();
 
@@ -362,6 +363,7 @@ export default function LandingPage() {
               }}
             >
               {(() => {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
                 const { isQuickStartEnabled } = require('@/utils/quick_start');
                 return isQuickStartEnabled();
               })() ? (
