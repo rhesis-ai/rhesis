@@ -3,7 +3,7 @@ import logging
 from typing import Any, Callable, ClassVar, Dict, Optional, TypeVar
 
 import requests
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from rhesis.sdk.client import Client, Endpoints, HTTPStatus, Methods
 
@@ -50,6 +50,8 @@ class BaseEntity(BaseModel):
         headers (Dict[str, str]): HTTP headers for API requests.
     """
 
+    model_config = ConfigDict(validate_assignment=True)
+
     endpoint: ClassVar[Endpoints]
 
     @classmethod
@@ -70,7 +72,7 @@ class BaseEntity(BaseModel):
                 raise e
 
     @classmethod
-    def _update(cls, id: str, data: Dict[str, Any]) -> None:
+    def _update(cls, id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """Push the entity to the database."""
         client = Client()
         response = client.send_request(
@@ -82,7 +84,7 @@ class BaseEntity(BaseModel):
         return response
 
     @classmethod
-    def _create(cls, data: Dict[str, Any]) -> None:
+    def _create(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         client = Client()
         response = client.send_request(
             endpoint=cls.endpoint,
@@ -92,14 +94,17 @@ class BaseEntity(BaseModel):
         return response
 
     @classmethod
-    def _pull(cls, id: str) -> None:
+    def _pull(cls, id: str) -> Dict[str, Any]:
+        """Pull entity data from the database and validate against schema."""
         client = Client()
         response = client.send_request(
             endpoint=cls.endpoint,
             method=Methods.GET,
             url_params=id,
         )
-        return cls(**response)
+        # Validate response using Pydantic - automatically filters fields not in schema
+        validated_instance = cls.model_validate(response)
+        return validated_instance.model_dump(mode="json")
 
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the entity to the database."""
@@ -114,13 +119,22 @@ class BaseEntity(BaseModel):
 
         return response
 
-    def pull(self) -> None:
-        """Pull the entity from the database."""
+    def pull(self) -> "BaseEntity":
+        """Pull the entity from the database and update this instance.
+
+        Returns:
+            BaseEntity: Returns self for method chaining.
+        """
         data = self.model_dump(mode="json")
         if "id" not in data or data["id"] is None:
             raise ValueError("Entity has no ID")
 
-        return self._pull(data["id"])
+        pulled_data = self._pull(data["id"])
+        # Update self with validated data (already filtered by _pull)
+        for field, value in pulled_data.items():
+            setattr(self, field, value)
+
+        return self
 
     def delete(self) -> bool:
         """Delete the entity from the database."""
