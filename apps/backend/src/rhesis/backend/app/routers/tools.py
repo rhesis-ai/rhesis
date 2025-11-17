@@ -11,7 +11,6 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -27,10 +26,6 @@ router = APIRouter(
 
 
 @router.post("/", response_model=schemas.Tool)
-@handle_database_exceptions(
-    entity_name="tool",
-    custom_unique_message="A tool for this provider already exists in your organization",
-)
 def create_tool(
     tool: schemas.ToolCreate,
     db: Session = Depends(get_tenant_db_session),
@@ -99,10 +94,6 @@ def read_tool(
 
 
 @router.patch("/{tool_id}", response_model=schemas.Tool)
-@handle_database_exceptions(
-    entity_name="tool",
-    custom_unique_message="A tool for this provider already exists in your organization",
-)
 def update_tool(
     tool_id: uuid.UUID,
     tool: schemas.ToolUpdate,
