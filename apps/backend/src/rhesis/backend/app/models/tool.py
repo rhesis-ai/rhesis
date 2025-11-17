@@ -17,9 +17,9 @@ class Tool(Base, OrganizationMixin):
     description = Column(Text, nullable=True)
 
     # Tool configuration
-    tool_type_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=False)
-    tool_provider_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=False)
-    status_id = Column(GUID(), ForeignKey("status.id"), nullable=False)
+    tool_type_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=True)
+    tool_provider_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=True)
+    status_id = Column(GUID(), ForeignKey("status.id"), nullable=True)
 
     # Authentication (encrypted)
     auth_token = Column(EncryptedString(), nullable=False)
@@ -28,6 +28,8 @@ class Tool(Base, OrganizationMixin):
     tool_metadata = Column(JSONB, nullable=False, default=dict)
 
     # Relationships
-    tool_type = relationship("TypeLookup", foreign_keys=[tool_type_id])
-    tool_provider = relationship("TypeLookup", foreign_keys=[tool_provider_id])
-    status = relationship("Status", foreign_keys=[status_id])
+    tool_type = relationship("TypeLookup", foreign_keys=[tool_type_id], back_populates="tool_types")
+    tool_provider = relationship(
+        "TypeLookup", foreign_keys=[tool_provider_id], back_populates="tool_providers"
+    )
+    status = relationship("Status", foreign_keys=[status_id], back_populates="tools")
