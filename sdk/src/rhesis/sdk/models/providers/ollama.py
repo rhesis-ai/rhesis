@@ -9,7 +9,13 @@ from pydantic import BaseModel
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-PROVIDER = "ollama"
+"""
+According to the LiteLLM documentation, the Provider has to be set to ollama_chat for better
+responses.
+https://docs.litellm.ai/docs/providers/ollama#using-ollama-apichat
+"""
+
+PROVIDER = "ollama_chat"
 DEFAULT_MODEL_NAME = "llama3.1"
 
 
