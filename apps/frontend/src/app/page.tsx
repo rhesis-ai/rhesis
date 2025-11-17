@@ -42,17 +42,18 @@ export default function LandingPage() {
   >(null);
   const [autoLoggingIn, setAutoLoggingIn] = useState(false);
 
-  // Auto-login for local development
+  // Auto-login for Quick Start mode
   useEffect(() => {
-    const isLocalAuthEnabled =
-      process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true';
+    // Use robust multi-factor detection to determine if Quick Start mode is enabled
+    const { isQuickStartEnabled } = require('@/utils/quick_start');
+    const quickStartEnabled = isQuickStartEnabled();
 
     // Only auto-login if:
-    // 1. Local auth is enabled
+    // 1. Quick Start mode is enabled
     // 2. User is not authenticated
     // 3. Not already in the process of logging in
     // 4. No session expiration flag
-    if (isLocalAuthEnabled && status === 'unauthenticated' && !autoLoggingIn) {
+    if (quickStartEnabled && status === 'unauthenticated' && !autoLoggingIn) {
       const urlParams = new URLSearchParams(window.location.search);
       const isSessionExpired = urlParams.get('session_expired') === 'true';
       const isForcedLogout = urlParams.get('force_logout') === 'true';
@@ -360,7 +361,10 @@ export default function LandingPage() {
                     : 'rgba(255, 255, 255, 0.9)',
               }}
             >
-              {process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true' ? (
+              {(() => {
+                const { isQuickStartEnabled } = require('@/utils/quick_start');
+                return isQuickStartEnabled();
+              })() ? (
                 <>
                   <Box
                     sx={{

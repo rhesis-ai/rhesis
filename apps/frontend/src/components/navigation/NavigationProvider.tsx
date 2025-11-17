@@ -3,6 +3,7 @@
 import { NextAppProvider } from '@toolpad/core/nextjs';
 import { type NavigationContextProps } from '../../types/navigation';
 import { useEffect, useState } from 'react';
+import { isQuickStartEnabled } from '@/utils/quick_start';
 
 type NavigationProviderProps = NavigationContextProps & {
   children: React.ReactNode;
@@ -20,11 +21,9 @@ export function NavigationProvider({
     setMounted(true);
   }, []);
 
-  // Check if local auth is enabled - if true, pass null authentication to hide logout button
-  const isLocalAuthEnabled = process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true';
-  
-  // Pass null authentication when local auth is enabled to hide account menu
-  const filteredAuthentication = isLocalAuthEnabled ? null : authentication;
+  // Use robust multi-factor detection to determine if Quick Start mode is enabled
+  // Pass null authentication when Quick Start is enabled to hide account menu
+  const filteredAuthentication = isQuickStartEnabled() ? null : authentication;
 
   // Prevent hydration mismatch by not rendering navigation until client-side
   if (!mounted) {
