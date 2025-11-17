@@ -72,28 +72,7 @@ Your task is to generate a comprehensive test configuration by analyzing the use
   - Behaviors: Select from the available list (e.g., if "Compliance" and "Data Privacy" are in the list, select those)
   - Topics: "patient data", "HIPAA compliance", "audit trails"
 
-Return your response as a JSON object with this structure:
-
-{
-  "behaviors": [
-    {"name": "Exact Behavior Name from Available List", "description": "Description from the available list"},
-    {"name": "Another Behavior Name from Available List", "description": "Description from the available list"}
-  ],
-  "topics": [
-    {"name": "Topic Name 1", "description": "Concise description of what this topic covers in testing"},
-    {"name": "Topic Name 2", "description": "Concise description of what this topic covers in testing"},
-    {"name": "Topic Name 3", "description": "Concise description of what this topic covers in testing"}
-  ],
-  "categories": [
-    {"name": "Category Name 1", "description": "Concise description of what this test category involves"},
-    {"name": "Category Name 2", "description": "Concise description of what this test category involves"},
-    {"name": "Category Name 3", "description": "Concise description of what this test category involves"}
-  ]
-}
-
 **IMPORTANT**:
 - For behaviors: Select up to {{ sample_size }} items from the available list above. Use exact names and descriptions.
 - For topics and categories: Generate exactly {{ sample_size }} new items for each.
 - Each item must have both "name" and "description" fields.
-
-Select relevant behaviors from the available list and generate specific topics and categories that are tailored to the user's description and testing needs.
