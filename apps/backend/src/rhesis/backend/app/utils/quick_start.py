@@ -75,13 +75,13 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
         # Check for Rhesis cloud domains
         for cloud_domain in rhesis_cloud_domains:
             if cloud_domain in hostname_lower:
-                logger.warning(f"⚠️  Quick Start disabled: Cloud hostname detected ({hostname})")
+                logger.warning(f" Quick Start disabled: Cloud hostname detected ({hostname})")
                 return False
 
         # Check for Cloud Run domains
         for cloud_domain in cloud_run_domains:
             if cloud_domain in hostname_lower:
-                logger.warning(f"⚠️  Quick Start disabled: Cloud Run domain detected ({hostname})")
+                logger.warning(f" Quick Start disabled: Cloud Run domain detected ({hostname})")
                 return False
 
     # 3. HTTP HEADERS CHECKS - Fail if cloud headers detected
@@ -100,14 +100,14 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
 
             for cloud_domain in rhesis_cloud_domains:
                 if cloud_domain in host:
-                    logger.warning(f"⚠️  Quick Start disabled: Cloud Host header detected ({host})")
+                    logger.warning(f" Quick Start disabled: Cloud Host header detected ({host})")
                     return False
 
         # Check for X-Forwarded-Host (proxy/load balancer indicator)
         forwarded_host = headers.get("x-forwarded-host", headers.get("X-Forwarded-Host", ""))
         if forwarded_host:
             logger.warning(
-                f"⚠️  Quick Start disabled: X-Forwarded-Host header present ({forwarded_host})"
+                f" Quick Start disabled: X-Forwarded-Host header present ({forwarded_host})"
             )
             return False
 
@@ -121,7 +121,7 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
 
         for header_key in headers.keys():
             if any(header_key.lower().startswith(h.lower()) for h in cloud_run_headers):
-                logger.warning(f"⚠️  Quick Start disabled: Cloud Run header detected ({header_key})")
+                logger.warning(f" Quick Start disabled: Cloud Run header detected ({header_key})")
                 return False
 
     # 4. GOOGLE CLOUD ENVIRONMENT CHECKS - Fail if GCP env vars present
@@ -131,22 +131,22 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
 
     if k_service:
         logger.warning(
-            f"⚠️  Quick Start disabled: K_SERVICE environment variable present ({k_service})"
+            f" Quick Start disabled: K_SERVICE environment variable present ({k_service})"
         )
         return False
 
     if k_revision:
         logger.warning(
-            f"⚠️  Quick Start disabled: K_REVISION environment variable present ({k_revision})"
+            f" Quick Start disabled: K_REVISION environment variable present ({k_revision})"
         )
         return False
 
     if gcp_project:
         logger.warning(
-            f"⚠️  Quick Start disabled: GCP_PROJECT environment variable present ({gcp_project})"
+            f" Quick Start disabled: GCP_PROJECT environment variable present ({gcp_project})"
         )
         return False
 
     # All checks passed - Quick Start is enabled
-    logger.info("✅ Quick Start mode enabled - all signals confirm local development")
+    logger.info(" Quick Start mode enabled - all signals confirm local development")
     return True
