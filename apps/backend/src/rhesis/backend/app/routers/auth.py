@@ -328,7 +328,10 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
     from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 
     # Check if Quick Start mode is enabled
-    if not is_quick_start_enabled():
+    # Pass hostname and headers for security validation
+    if not is_quick_start_enabled(
+        hostname=str(request.url.hostname), headers=dict(request.headers)
+    ):
         logger.warning("Attempted to use /auth/local-login but Quick Start mode is not enabled")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
