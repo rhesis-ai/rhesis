@@ -488,14 +488,14 @@
             "description": "Metric applies to multi-turn tests only"
         },
         {
-            "type_name": "IntegrationType",
+            "type_name": "ToolType",
             "type_value": "mcp",
-            "description": "Model Context Protocol integration"
+            "description": "Model Context Protocol tool"
         },
         {
-            "type_name": "IntegrationType",
+            "type_name": "ToolType",
             "type_value": "api",
-            "description": "REST API integration"
+            "description": "REST API tool"
         },
         {
             "type_name": "ToolProvider",
@@ -506,6 +506,16 @@
             "type_name": "ToolProvider",
             "type_value": "github",
             "description": "GitHub repository integration"
+        },
+        {
+            "type_name": "ToolProvider",
+            "type_value": "google",
+            "description": "Google services integration"
+        },
+        {
+            "type_name": "ToolProvider",
+            "type_value": "gdrive",
+            "description": "Google Drive integration"
         }
     ],
     "behavior": [
