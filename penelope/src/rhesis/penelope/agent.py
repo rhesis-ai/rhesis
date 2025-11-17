@@ -119,25 +119,27 @@ class PenelopeAgent:
                 )
 
             # Validate that it's suitable for goal achievement evaluation
-            is_goal_achievement_metric = (
-                isinstance(goal_metric, GoalAchievementJudge) or
-                getattr(goal_metric, 'is_goal_achievement_metric', False)
+            is_goal_achievement_metric = isinstance(goal_metric, GoalAchievementJudge) or getattr(
+                goal_metric, "is_goal_achievement_metric", False
             )
-            
+
             if not is_goal_achievement_metric:
                 # Option 1: Strict validation (uncomment to enable)
                 # raise ValueError(
-                #     f"Explicit goal_metric '{goal_metric.name}' is not a goal achievement metric. "
-                #     f"It must be a GoalAchievementJudge or have 'is_goal_achievement_metric=True' property. "
-                #     f"Goal metrics must provide 'is_successful' in result details for stopping conditions."
+                #     f"Explicit goal_metric '{goal_metric.name}' is not a goal achievement "
+                #     f"metric. It must be a GoalAchievementJudge or have "
+                #     f"'is_goal_achievement_metric=True' property. Goal metrics must provide "
+                #     f"'is_successful' in result details."
                 # )
-                
+
                 # Option 2: Warning with graceful handling (current approach)
                 logger.warning(
                     f"Explicit goal_metric '{goal_metric.name}' is not a goal achievement metric. "
-                    f"It lacks 'is_goal_achievement_metric=True' property and is not a GoalAchievementJudge. "
-                    f"This may cause issues with stopping conditions that expect 'is_successful' in result details. "
-                    f"Consider using a GoalAchievementJudge or adding 'is_goal_achievement_metric=True' to your metric."
+                    f"It lacks 'is_goal_achievement_metric=True' property and is not a "
+                    f"GoalAchievementJudge. This may cause issues with stopping conditions that "
+                    f"expect 'is_successful' in result details. Consider using a "
+                    f"GoalAchievementJudge "
+                    f"or adding 'is_goal_achievement_metric=True' to your metric."
                 )
 
             logger.info(f"Using explicit goal metric: {goal_metric.name}")
@@ -150,12 +152,12 @@ class PenelopeAgent:
             return goal_metric, metrics
 
         # Case 2: Search for existing goal achievement metrics
-        # Priority: GoalAchievementJudge instances, then metrics with is_goal_achievement_metric property
+        # Priority: GoalAchievementJudge instances, then metrics with is_goal_achievement_metric
         goal_judges = [m for m in metrics if isinstance(m, GoalAchievementJudge)]
-        
+
         if not goal_judges:
             # Fallback: check for metrics with goal achievement property
-            goal_judges = [m for m in metrics if getattr(m, 'is_goal_achievement_metric', False)]
+            goal_judges = [m for m in metrics if getattr(m, "is_goal_achievement_metric", False)]
 
         if goal_judges:
             selected = goal_judges[0]
@@ -213,10 +215,10 @@ class PenelopeAgent:
                     ]
             goal_metric: Metric to use for stopping condition.
                 Should be a GoalAchievementJudge or have 'is_goal_achievement_metric=True' property.
-                Must have 'is_successful' in result details for stopping conditions to work properly.
+                Must have 'is_successful' in result details for stopping conditions to work.
                 If None:
                 - Searches metrics for GoalAchievementJudge instances
-                - Falls back to metrics with 'is_goal_achievement_metric=True' property  
+                - Falls back to metrics with 'is_goal_achievement_metric=True' property
                 - If not found, creates and adds default GoalAchievementJudge to metrics
 
         Raises:
