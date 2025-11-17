@@ -4252,7 +4252,7 @@ wheels = [
 
 [[package]]
 name = "rhesis-backend"
-version = "0.4.2"
+version = "0.4.3"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -4438,7 +4438,7 @@ langgraph = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.4.1"
+version = "0.4.2"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "deepeval" },

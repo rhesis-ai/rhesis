@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2025-11-17
+
+### Added
+- Implemented centralized conversation tracking for multi-turn conversations. This allows for improved context management and more seamless user experiences in conversational flows. (#856)
+
+
 ## [0.4.2] - 2025-11-13
 
 ### Added

@@ -13,6 +13,36 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.4.3] - 2025-11-17
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.3**
+- **Frontend 0.4.3**
+- **SDK 0.4.2**
+
+### Summary of Changes
+
+**Backend v0.4.3:**
+- Added centralized conversation tracking for improved multi-turn conversation handling.
+
+
+**Frontend v0.4.3:**
+- Fixes a bug that caused the frontend Docker image to fail during local deployment.
+- Resolves a file ownership issue (chown bug).
+
+
+**SDK v0.4.2:**
+Initial release or no significant changes.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.4.2] - 2025-11-13
 
 ### Platform Release
