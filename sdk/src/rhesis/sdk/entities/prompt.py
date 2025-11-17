@@ -16,3 +16,4 @@ class Prompt(BaseEntity):
 
 class Prompts(BaseCollection):
     endpoint = ENDPOINT
+    entity_class = Prompt

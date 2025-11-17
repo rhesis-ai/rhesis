@@ -21,3 +21,4 @@ class Test(BaseEntity):
 
 class Tests(BaseCollection):
     endpoint = ENDPOINT
+    entity_class = Test

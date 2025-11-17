@@ -16,3 +16,4 @@ class Behavior(BaseEntity):
 
 class Behaviors(BaseCollection):
     endpoint = ENDPOINT
+    entity_class = Behavior
