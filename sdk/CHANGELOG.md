@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2025-11-17
+
+### Added
+- Added support for custom HTTP headers in API requests. Users can now configure specific headers for authentication or other purposes.
+
+### Changed
+- Improved error handling for network requests. More descriptive error messages are now provided to the user.
+- Updated the internal retry mechanism for failed API calls to be more robust.
+
+### Fixed
+- Fixed an issue where the SDK would incorrectly parse dates in certain locales.
+- Resolved a bug that caused occasional crashes when handling large data responses.
+
+
 ## [0.4.1] - 2025-11-13
 
 ### Added
