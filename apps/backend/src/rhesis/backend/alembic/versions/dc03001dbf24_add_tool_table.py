@@ -6,8 +6,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "318321a950f9"
-down_revision: Union[str, None] = "f9763398493e"
+revision: str = "dc03001dbf24"
+down_revision: Union[str, None] = "179eb8de14f1"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -18,9 +18,9 @@ def upgrade() -> None:
         "tool",
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("tool_type_id", rhesis.backend.app.models.guid.GUID(), nullable=False),
-        sa.Column("tool_provider_id", rhesis.backend.app.models.guid.GUID(), nullable=False),
-        sa.Column("status_id", rhesis.backend.app.models.guid.GUID(), nullable=False),
+        sa.Column("tool_type_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
+        sa.Column("tool_provider_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
+        sa.Column("status_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
         sa.Column(
             "auth_token", rhesis.backend.app.utils.encryption.EncryptedString(), nullable=False
         ),
