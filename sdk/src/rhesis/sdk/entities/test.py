@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Optional
 
 from rhesis.sdk.client import Endpoints
 from rhesis.sdk.entities.base_collection import BaseCollection
@@ -17,9 +17,6 @@ class Test(BaseEntity):
     prompt: Prompt
     metadata: dict
     id: Optional[str] = None
-
-    def count_tokens(self, encoding_name: str = "cl100k_base") -> Dict[str, int]:
-        pass
 
 
 class Tests(BaseCollection):
