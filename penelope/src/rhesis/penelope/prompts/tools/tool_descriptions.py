@@ -13,7 +13,8 @@ receive a response.
 {target_documentation}
 
 This is your PRIMARY tool for testing. Each call represents one conversational turn
-with the system under test.
+with the system under test. Only target interaction tools like this count as turns -
+internal tools (analyze_response, extract_information) do not increment the turn counter.
 
 ═══════════════════════════════════════════════════════════════════════════════
 

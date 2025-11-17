@@ -188,8 +188,8 @@ class TurnExecutor:
             tool_message=tool_message,
         )
 
-        # Display turn if verbose
+        # Display turn if verbose (use execution count for sequential numbering)
         if self.verbose and self.enable_transparency:
-            display_turn(state.current_turn, reasoning, action_name, tool_result_dict)
+            display_turn(state.execution_count, reasoning, action_name, tool_result_dict)
 
         return True

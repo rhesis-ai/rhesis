@@ -39,6 +39,20 @@ class Tool(ABC):
     5. Parameters that make sense to the model
     """
 
+    def is_target_interaction_tool(self) -> bool:
+        """
+        Determine if this tool represents a target interaction (counts as a turn).
+        
+        Target interaction tools are those that communicate with the system under test.
+        Internal tools (analysis, extraction, etc.) do not count as turns.
+        
+        Returns:
+            True if this tool interacts with the target, False for internal tools
+        """
+        # Default implementation: only TargetInteractionTool counts as target interaction
+        # Subclasses can override this for custom target interaction tools
+        return self.name == "send_message_to_target"
+
     @property
     @abstractmethod
     def name(self) -> str:

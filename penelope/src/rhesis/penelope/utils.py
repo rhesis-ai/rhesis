@@ -91,7 +91,7 @@ class GoalAchievedCondition(StoppingCondition):
             return True, f"Goal achieved: {reason}"
 
         # Check if goal is impossible (Penelope's stopping logic)
-        # Give up after 5+ turns with very low score
+        # Give up after 5+ tool executions with very low score
         if (
             len(state.turns) >= 5
             and isinstance(self.result.score, (int, float))

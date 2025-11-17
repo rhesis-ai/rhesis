@@ -30,6 +30,16 @@ class Turn(BaseModel):
     """
     Represents a single turn in the test conversation.
 
+    A turn is defined as one Penelope-target interaction using target interaction tools:
+    - Penelope sends a message to the target (via send_message_to_target or similar tools)
+    - Target responds with a message
+
+    This creates one user-assistant message pair in the conversation history.
+
+    IMPORTANT: Only target interaction tools count as turns. Internal tools
+    (analyze_response, extract_information, etc.) are tracked but do not increment
+    the turn counter as they don't represent interactions with the system under test.
+
     Uses standard message format (OpenAI-compatible) for maximum LLM provider support.
     Each turn contains:
     - Assistant message with tool_calls (Penelope's action)
@@ -231,6 +241,13 @@ class TestState:
 
     Tracks conversation history, turn count, and session information.
     Uses SDK's ConversationHistory for zero-conversion metric evaluation.
+
+    Turn counting:
+    - current_turn: Number of Penelope-target interactions (target interaction tools only)
+    - len(turns): Total tool executions (includes internal tools for display/debugging)
+    - len(conversation): Number of messages in SDK conversation (1 per target interaction)
+    - Each turn = 1 target interaction tool call = 1 conversation message
+    - Internal tools are tracked but don't increment current_turn or add to conversation
     """
 
     context: TestContext
@@ -241,7 +258,8 @@ class TestState:
         default_factory=lambda: ConversationHistory.from_messages([])
     )
 
-    current_turn: int = 0
+    current_turn: int = 0  # Target interaction turns only
+    execution_count: int = 0  # Total tool executions (for display/debugging)
     session_id: Optional[str] = None
     findings: List[str] = field(default_factory=list)
     start_time: datetime = field(default_factory=datetime.now)
@@ -259,6 +277,10 @@ class TestState:
     ) -> Turn:
         """
         Add a turn to the conversation history.
+
+        Only target interaction tools (those that communicate with the system under test)
+        increment the turn counter. Internal tools (analysis, extraction, etc.) are tracked
+        but don't count as turns.
 
         Args:
             reasoning: Penelope's internal reasoning for this turn
@@ -295,10 +317,21 @@ class TestState:
                 content='{"success": true, "output": "Hi there!"}'
             )
         """
-        self.current_turn += 1
+        # Increment execution counter for all tool executions (for display/debugging)
+        self.execution_count += 1
+
+        # Determine if this is a target interaction tool (counts as a turn)
+        tool_name = ""
+        if assistant_message.tool_calls and len(assistant_message.tool_calls) > 0:
+            tool_name = assistant_message.tool_calls[0].function.name
+
+        # Only increment turn counter for target interaction tools
+        is_target_interaction = self._is_target_interaction_tool(tool_name)
+        if is_target_interaction:
+            self.current_turn += 1
 
         turn = Turn(
-            turn_number=self.current_turn,
+            turn_number=self.execution_count,  # Sequential execution number for display
             reasoning=reasoning,
             assistant_message=assistant_message,
             tool_message=tool_message,
@@ -308,40 +341,68 @@ class TestState:
 
         self.turns.append(turn)
 
-        # Also update conversation for SDK metrics (zero-conversion)
-        self._update_conversation_from_turn(turn)
+        # Only update conversation for target interactions (SDK metrics)
+        if is_target_interaction:
+            self._update_conversation_from_turn(turn)
 
         return turn
+
+    def _is_target_interaction_tool(self, tool_name: str) -> bool:
+        """
+        Determine if a tool name represents a target interaction (counts as a turn).
+
+        Target interaction tools are those that communicate with the system under test.
+        Internal tools (analysis, extraction, etc.) do not count as turns.
+
+        Args:
+            tool_name: Name of the tool to check
+
+        Returns:
+            True if this tool interacts with the target, False for internal tools
+        """
+        # List of known target interaction tool names
+        # Future target interaction tools should be added here
+        target_interaction_tools = {
+            "send_message_to_target",
+            # Add future target interaction tools here
+            # "invoke_api_endpoint",
+            # "send_webhook",
+            # etc.
+        }
+
+        return tool_name in target_interaction_tools
 
     def _update_conversation_from_turn(self, turn: Turn) -> None:
         """
         Update the conversation history from a turn's tool interaction.
 
-        For send_message_to_target turns, extracts the user-assistant exchange
-        and adds it to the conversation using SDK's message types.
+        For send_message_to_target turns, creates a single conversation entry
+        that represents the complete Penelope-target interaction as one turn.
+
+        This ensures that SDK metrics see 1 conversation entry per Penelope turn,
+        making turn counting consistent between Penelope and SDK evaluations.
 
         Args:
             turn: The turn to extract conversation from
         """
         from rhesis.penelope.schemas import UserMessage
-        from rhesis.sdk.metrics.conversational import AssistantMessage as SDKAssistantMessage
 
         # Only process send_message_to_target turns
         if turn.tool_name == "send_message_to_target":
-            # Extract user message from tool arguments
-            msg = turn.tool_arguments.get("message", "")
-            if msg:
-                self.conversation.messages.append(UserMessage(role="user", content=msg))
+            # Extract user message and assistant response
+            user_msg = turn.tool_arguments.get("message", "")
 
-            # Extract assistant response from tool result
             result = turn.tool_result
+            assistant_resp = ""
             if isinstance(result, dict) and result.get("success"):
                 resp = result.get("output", {})
-                resp_text = resp.get("response", "") if isinstance(resp, dict) else str(resp)
-                if resp_text:
-                    self.conversation.messages.append(
-                        SDKAssistantMessage(role="assistant", content=resp_text)
-                    )
+                assistant_resp = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+
+            # Create a single conversation entry that represents the complete turn
+            # Format: "User: {message}\n\nAssistant: {response}"
+            if user_msg and assistant_resp:
+                turn_content = f"User: {user_msg}\n\nAssistant: {assistant_resp}"
+                self.conversation.messages.append(UserMessage(role="user", content=turn_content))
 
     def add_finding(self, finding: str) -> None:
         """Add a finding to the findings list."""
@@ -483,9 +544,9 @@ class TestState:
                 else:
                     findings.append(f"✗ Partial success: {met_count}/{total_count} criteria met")
 
-                # Completion info
-                turn_count = details.get("turn_count", self.current_turn)
-                findings.append(f"Test completed in {turn_count} turn(s)")
+                # Completion info - use Penelope's actual turn count (tool executions)
+                # This represents the number of Penelope-target interactions
+                findings.append(f"Test completed in {self.current_turn} turn(s)")
 
                 # Confidence level
                 confidence = details.get("confidence", 0.5)
@@ -669,6 +730,9 @@ class TestState:
         """
         Generate a simplified conversation summary from the detailed history.
 
+        Only includes target interaction turns (those that count as turns).
+        Internal tool usage is not included in the conversation summary.
+
         Extracts key conversation elements with clear penelope/target roles
         for easy reading and UI display.
 
@@ -678,6 +742,10 @@ class TestState:
         summary = []
 
         for turn in self.turns:
+            # Only include target interaction turns in the conversation summary
+            tool_name = turn.tool_name
+            if not self._is_target_interaction_tool(tool_name):
+                continue
             # Extract Penelope's message from the tool call arguments
             penelope_message = ""
             session_id = None
@@ -713,9 +781,9 @@ class TestState:
             except (json.JSONDecodeError, KeyError, AttributeError):
                 target_response = "Unable to parse response"
 
-            # Create conversation turn
+            # Create conversation turn (use execution number for display consistency)
             conversation_turn = ConversationTurn(
-                turn=turn.turn_number,
+                turn=turn.turn_number,  # This is now execution_count
                 timestamp=turn.timestamp.isoformat(),
                 penelope_reasoning=turn.reasoning,
                 penelope_message=penelope_message,

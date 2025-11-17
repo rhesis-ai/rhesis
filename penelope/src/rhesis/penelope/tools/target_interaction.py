@@ -46,6 +46,10 @@ class TargetInteractionTool(Tool):
     def name(self) -> str:
         return "send_message_to_target"
 
+    def is_target_interaction_tool(self) -> bool:
+        """This tool represents a target interaction and counts as a turn."""
+        return True
+
     @property
     def description(self) -> str:
         return TARGET_INTERACTION_TOOL_DESCRIPTION_TEMPLATE.format(

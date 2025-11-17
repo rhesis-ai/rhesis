@@ -44,14 +44,14 @@ class GoalEvaluator:
             SDK MetricResult (no conversion!)
         """
         # Need minimum conversation
-        if len(state.conversation) < 2:
+        if len(state.conversation) < 1:
             # Return minimal result for insufficient data
             return MetricResult(
                 score=0.0,
                 details={
                     "is_successful": False,
                     "confidence": 0.0,
-                    "reason": "Insufficient conversation for evaluation (< 2 messages)",
+                    "reason": "Insufficient conversation for evaluation (< 1 turn)",
                 },
             )
 
