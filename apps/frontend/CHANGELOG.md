@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2025-11-17
+
+### Fixed
+
+- Fixed a bug that caused the frontend Docker image to fail during local deployment.
+- Fixed a file ownership issue (chown bug) that could prevent the application from running correctly.
+
 ## [0.4.2] - 2025-11-13
 
 ### Added
