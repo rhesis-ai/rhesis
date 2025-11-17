@@ -28,14 +28,22 @@ export function NavigationProvider({
   // Prevent hydration mismatch by not rendering navigation until client-side
   if (!mounted) {
     return (
-      <NextAppProvider navigation={[]} authentication={filteredAuthentication} {...props}>
+      <NextAppProvider
+        navigation={[]}
+        authentication={filteredAuthentication}
+        {...props}
+      >
         {children}
       </NextAppProvider>
     );
   }
 
   return (
-    <NextAppProvider navigation={navigation} authentication={filteredAuthentication} {...props}>
+    <NextAppProvider
+      navigation={navigation}
+      authentication={filteredAuthentication}
+      {...props}
+    >
       {children}
     </NextAppProvider>
   );

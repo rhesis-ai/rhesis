@@ -28,19 +28,22 @@
 export function isQuickStartEnabled(hostname?: string): boolean {
   // 1. Check QUICK_START environment variable (default: false for safety)
   // In Next.js, check both NEXT_PUBLIC_QUICK_START (build-time) and QUICK_START (runtime)
-  const quickStartEnv = 
-    process.env.NEXT_PUBLIC_QUICK_START === 'true' || 
+  const quickStartEnv =
+    process.env.NEXT_PUBLIC_QUICK_START === 'true' ||
     process.env.QUICK_START === 'true';
 
   if (!quickStartEnv) {
-    console.debug('Quick Start disabled: QUICK_START not set to \'true\'');
+    console.debug("Quick Start disabled: QUICK_START not set to 'true'");
     return false;
   }
 
-  console.debug('Quick Start environment variable set to \'true\', validating deployment signals...');
+  console.debug(
+    "Quick Start environment variable set to 'true', validating deployment signals..."
+  );
 
   // 2. HOSTNAME/DOMAIN CHECKS - Fail if cloud domain detected
-  const checkHostname = hostname || (typeof window !== 'undefined' ? window.location.hostname : '');
+  const checkHostname =
+    hostname || (typeof window !== 'undefined' ? window.location.hostname : '');
   if (checkHostname) {
     const hostnameLower = checkHostname.toLowerCase();
 
@@ -57,16 +60,14 @@ export function isQuickStartEnabled(hostname?: string): boolean {
     ];
 
     // Google Cloud Run domains
-    const cloudRunDomains = [
-      '.run.app',
-      '.cloudrun.dev',
-      '.appspot.com',
-    ];
+    const cloudRunDomains = ['.run.app', '.cloudrun.dev', '.appspot.com'];
 
     // Check for Rhesis cloud domains
     for (const cloudDomain of rhesisCloudDomains) {
       if (hostnameLower.includes(cloudDomain)) {
-        console.warn(` Quick Start disabled: Cloud hostname detected (${checkHostname})`);
+        console.warn(
+          ` Quick Start disabled: Cloud hostname detected (${checkHostname})`
+        );
         return false;
       }
     }
@@ -74,14 +75,17 @@ export function isQuickStartEnabled(hostname?: string): boolean {
     // Check for Cloud Run domains
     for (const cloudDomain of cloudRunDomains) {
       if (hostnameLower.includes(cloudDomain)) {
-        console.warn(` Quick Start disabled: Cloud Run domain detected (${checkHostname})`);
+        console.warn(
+          ` Quick Start disabled: Cloud Run domain detected (${checkHostname})`
+        );
         return false;
       }
     }
   }
 
   // All checks passed - Quick Start is enabled
-  console.info(' Quick Start mode enabled - all signals confirm local development');
+  console.info(
+    ' Quick Start mode enabled - all signals confirm local development'
+  );
   return true;
 }
-
