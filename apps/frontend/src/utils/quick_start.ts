@@ -66,7 +66,7 @@ export function isQuickStartEnabled(hostname?: string): boolean {
     // Check for Rhesis cloud domains
     for (const cloudDomain of rhesisCloudDomains) {
       if (hostnameLower.includes(cloudDomain)) {
-        console.warn(`⚠️  Quick Start disabled: Cloud hostname detected (${checkHostname})`);
+        console.warn(` Quick Start disabled: Cloud hostname detected (${checkHostname})`);
         return false;
       }
     }
@@ -74,14 +74,14 @@ export function isQuickStartEnabled(hostname?: string): boolean {
     // Check for Cloud Run domains
     for (const cloudDomain of cloudRunDomains) {
       if (hostnameLower.includes(cloudDomain)) {
-        console.warn(`⚠️  Quick Start disabled: Cloud Run domain detected (${checkHostname})`);
+        console.warn(` Quick Start disabled: Cloud Run domain detected (${checkHostname})`);
         return false;
       }
     }
   }
 
   // All checks passed - Quick Start is enabled
-  console.info('✅ Quick Start mode enabled - all signals confirm local development');
+  console.info(' Quick Start mode enabled - all signals confirm local development');
   return true;
 }
 
