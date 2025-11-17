@@ -16,3 +16,4 @@ class Topic(BaseEntity):
 
 class Topics(BaseCollection):
     endpoint = ENDPOINT
+    entity_class = Topic

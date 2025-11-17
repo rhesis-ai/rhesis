@@ -1,12 +1,13 @@
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import Any, ClassVar, Dict, Optional
 
 from jinja2 import Template
 from pydantic import BaseModel
 
-from rhesis.sdk.client import Endpoints
-from rhesis.sdk.entities import BaseEntity
+from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.entities import BaseEntity, Endpoint
 from rhesis.sdk.entities.base_collection import BaseCollection
+from rhesis.sdk.entities.base_entity import handle_http_errors
 from rhesis.sdk.entities.test import Test
 from rhesis.sdk.models.base import BaseLLM
 
@@ -32,6 +33,39 @@ class TestSet(BaseEntity):
     description: str
     short_description: str
     metadata: Optional[dict] = None
+
+    @handle_http_errors
+    def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:
+        """Execute the test set against the given endpoint.
+
+        This method sends a request to the Rhesis backend to execute all tests
+        in the test set against the specified endpoint.
+
+        Args:
+            endpoint: The endpoint to execute tests against
+
+        Returns:
+            Dict containing the execution results, or None if error occurred.
+
+        Raises:
+            ValueError: If test set ID is not set
+            requests.exceptions.HTTPError: If the API request fails
+
+        Example:
+            >>> test_set = TestSet(id='test-set-123')
+            >>> test_set.fetch()
+            >>> result = test_set.execute(endpoint=Endpoint.TESTS)
+            >>> print(result)
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before executing")
+
+        client = Client()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            url_params=f"{self.id}/execute/{endpoint.id}",
+        )
 
     def set_properties(self, model: BaseLLM) -> None:
         """Set test set attributes using LLM based on categories and topics in tests.
@@ -91,3 +125,14 @@ class TestSet(BaseEntity):
 
 class TestSets(BaseCollection):
     endpoint = ENDPOINT
+    entity_class = TestSet
+
+
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    load_dotenv("/Users/arek/Desktop/rhesis/.env", override=True)
+    endpoint = Endpoint(id="be95b292-c3a9-42b9-a74d-142b28f0b9f0")
+
+    test_set = TestSets.pull("13af7c23-4e43-4257-b402-1ebae66de390")
+    test_set.execute(endpoint)

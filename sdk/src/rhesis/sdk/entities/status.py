@@ -15,3 +15,4 @@ class Status(BaseEntity):
 
 class Statuses(BaseCollection):
     endpoint = ENDPOINT
+    entity_class = Status

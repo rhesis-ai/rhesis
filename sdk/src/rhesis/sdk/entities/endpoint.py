@@ -30,8 +30,8 @@ class Endpoint(BaseEntity):
     """
 
     endpoint: ClassVar[Endpoints] = ENDPOINT
-    name: str
-    description: str
+    name: Optional[str] = None
+    description: Optional[str] = None
     id: Optional[str] = None
 
     @handle_http_errors
@@ -91,3 +91,9 @@ class Endpoint(BaseEntity):
             data=input_data,
             url_params=f"{self.id}/invoke",
         )
+
+    def test(self) -> None:
+        result = self.invoke(input="This is a test, answer shortly")
+        if result is None:
+            raise ValueError("Endpoint is not answering")
+        print("Endpoint is working correctly")

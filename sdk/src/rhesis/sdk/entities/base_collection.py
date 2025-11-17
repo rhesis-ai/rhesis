@@ -1,12 +1,14 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 from requests.exceptions import HTTPError
 
 from rhesis.sdk.client import Client, Endpoints, HTTPStatus, Methods
-from rhesis.sdk.entities.base_entity import handle_http_errors
+from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
+
+T = TypeVar("T", bound=BaseEntity)
 
 
-class BaseCollection:
+class BaseCollection(Generic[T]):
     """Base class for API collection interactions.
 
     This class provides basic CRUD operations for interacting with REST API endpoints.
@@ -14,6 +16,7 @@ class BaseCollection:
     """
 
     endpoint: Endpoints
+    entity_class: Type[T]
 
     @classmethod
     def all(cls) -> Optional[list[Any]]:
@@ -31,6 +34,19 @@ class BaseCollection:
         """Retrieve the first record matching the query parameters."""
         records = cls.all()
         return records[0] if records else None
+
+    @classmethod
+    def pull(cls, record_id: str) -> T:
+        """Pull entity data from the platform and return an instance of the entity class."""
+        client = Client()
+        response = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.GET,
+            url_params=record_id,
+        )
+        # Validate response using Pydantic - automatically filters fields not in schema
+        validated_instance = cls.entity_class.model_validate(response)
+        return validated_instance
 
     @classmethod
     def exists(cls, record_id: str) -> bool:

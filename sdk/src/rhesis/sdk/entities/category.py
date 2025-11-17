@@ -16,3 +16,4 @@ class Category(BaseEntity):
 
 class Categories(BaseCollection):
     endpoint = ENDPOINT
+    entity_class = Category
