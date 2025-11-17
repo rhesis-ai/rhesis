@@ -6,6 +6,7 @@ using LLM and Jinja2 templates.
 """
 
 from pathlib import Path
+from typing import Optional
 
 import jinja2
 
@@ -48,8 +49,11 @@ class TestConfigGeneratorService:
         self,
         prompt: str,
         sample_size: int = 5,
-        organization_id: str = None,
-        project_id: str = None,
+        organization_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        rated_samples: Optional[list] = None,
+        previous_messages: Optional[list] = None,
+        chip_states: Optional[list] = None,
     ) -> TestConfigResponse:
         """
         Generate test configuration based on user prompt.
@@ -120,6 +124,9 @@ class TestConfigGeneratorService:
                 "behaviors": behavior_list,
                 "project_name": project_name,
                 "project_description": project_description,
+                "rated_samples": rated_samples or [],
+                "previous_messages": previous_messages or [],
+                "chip_states": chip_states or [],
             }
         )
 

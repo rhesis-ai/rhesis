@@ -499,7 +499,10 @@ async def generate_test_config(
             request.prompt,
             request.sample_size,
             organization_id=organization_id,
-            project_id=request.project_id,
+            project_id=str(request.project_id) if request.project_id else None,
+            rated_samples=request.rated_samples,
+            previous_messages=request.previous_messages,
+            chip_states=request.chip_states,
         )
 
         logger.info("Test config generation successful")

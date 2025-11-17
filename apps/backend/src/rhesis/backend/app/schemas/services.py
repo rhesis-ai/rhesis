@@ -146,6 +146,9 @@ class TestConfigRequest(BaseModel):
     prompt: str
     sample_size: int = 5
     project_id: Optional[UUID4] = None
+    rated_samples: Optional[List[RatedSample]] = None
+    previous_messages: Optional[List[IterationMessage]] = None
+    chip_states: Optional[List[ChipState]] = None
 
 
 class TestConfigItem(BaseModel):
