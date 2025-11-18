@@ -18,8 +18,8 @@ def upgrade() -> None:
         "tool",
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("tool_type_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
-        sa.Column("tool_provider_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
+        sa.Column("tool_type_id", rhesis.backend.app.models.guid.GUID(), nullable=False),
+        sa.Column("tool_provider_id", rhesis.backend.app.models.guid.GUID(), nullable=False),
         sa.Column("status_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
         sa.Column(
             "auth_token", rhesis.backend.app.utils.encryption.EncryptedString(), nullable=False

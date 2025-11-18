@@ -17,8 +17,8 @@ class Tool(Base, OrganizationMixin):
     description = Column(Text, nullable=True)
 
     # Tool configuration
-    tool_type_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=True)
-    tool_provider_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=True)
+    tool_type_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=False)
+    tool_provider_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=False)
     status_id = Column(GUID(), ForeignKey("status.id"), nullable=True)
 
     # Authentication (encrypted)

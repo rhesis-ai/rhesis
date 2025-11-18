@@ -13,8 +13,8 @@ class ToolBase(Base):
 
     name: str
     description: Optional[str] = None
-    tool_type_id: Optional[UUID4] = None
-    tool_provider_id: Optional[UUID4] = None
+    tool_type_id: UUID4
+    tool_provider_id: UUID4
     status_id: Optional[UUID4] = None
     tool_metadata: Optional[Dict[str, Any]] = None
     organization_id: Optional[UUID4] = None
@@ -30,7 +30,9 @@ class ToolCreate(ToolBase):
 class ToolUpdate(ToolBase):
     """Schema for updating an existing Tool"""
 
-    name: Optional[str] = None  # Override to make name optional for updates
+    name: Optional[str] = None
+    tool_type_id: Optional[UUID4] = None
+    tool_provider_id: Optional[UUID4] = None
     auth_token: Optional[str] = None  # Optional - only update if provided, will be re-encrypted
 
 
@@ -49,8 +51,8 @@ class Tool(Base):
     updated_at: Union[datetime, str]
     name: str
     description: Optional[str] = None
-    tool_type_id: Optional[UUID4] = None
-    tool_provider_id: Optional[UUID4] = None
+    tool_type_id: UUID4
+    tool_provider_id: UUID4
     status_id: Optional[UUID4] = None
     tool_metadata: Dict[str, Any]
     organization_id: Optional[UUID4] = None
