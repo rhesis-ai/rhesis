@@ -146,6 +146,15 @@ class ToolExecution(BaseModel):
                         return {}
         return {}
 
+    @property
+    def tool_result(self) -> Any:
+        """Extract tool result from the tool message."""
+        content = self.tool_message.content
+        try:
+            return json.loads(content) if isinstance(content, str) else content
+        except json.JSONDecodeError:
+            return content
+
 
 class Turn(BaseModel):
     """
@@ -190,15 +199,6 @@ class Turn(BaseModel):
     def serialize_timestamp(self, timestamp: datetime, _info):
         """Serialize datetime to ISO format string."""
         return timestamp.isoformat()
-
-    @property
-    def tool_result(self) -> Any:
-        """Extract tool result from the tool message."""
-        content = self.tool_message.content
-        try:
-            return json.loads(content) if isinstance(content, str) else content
-        except json.JSONDecodeError:
-            return content
 
 
 class ConversationTurn(BaseModel):
@@ -735,11 +735,7 @@ class TestState:
             display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
 
             # Check if this is a goal achievement metric using stored property
-            # Fall back to name check for backward compatibility
             is_goal_metric = metric_dict.get("is_goal_achievement_metric", False)
-            if not is_goal_metric:
-                # Fallback: check by name for backward compatibility
-                is_goal_metric = metric_name == "penelope_goal_evaluation"
 
             # For goal achievement metrics, create simplified summary version
             # to avoid duplication with test_output.goal_evaluation
@@ -846,22 +842,33 @@ class TestState:
 
                 tool_calls[tool_name]["total_calls"] += 1
 
-                # Check if tool call was successful
-                if isinstance(execution.tool_result, dict):
-                    if execution.tool_result.get("success", False):
+                # Check if tool call was successful by parsing tool_message content
+                try:
+                    tool_result = json.loads(execution.tool_message.content)
+                    if tool_result.get("success", False):
                         tool_calls[tool_name]["successful_calls"] += 1
                     else:
                         tool_calls[tool_name]["failed_calls"] += 1
+                except (json.JSONDecodeError, AttributeError):
+                    # If we can't parse the result, count as failed
+                    tool_calls[tool_name]["failed_calls"] += 1
 
         stats["tool_usage"] = tool_calls
 
         # Overall statistics
         stats["total_turns"] = len(self.turns)
-        stats["successful_interactions"] = sum(
-            1
-            for t in self.turns
-            if isinstance(t.tool_result, dict) and t.tool_result.get("success", False)
-        )
+        # Count successful target interactions (turns where target interaction succeeded)
+        successful_interactions = 0
+        for turn in self.turns:
+            try:
+                target_result = json.loads(turn.target_interaction.tool_message.content)
+                if target_result.get("success", False):
+                    successful_interactions += 1
+            except (json.JSONDecodeError, AttributeError):
+                # If we can't parse the result, count as failed
+                pass
+        
+        stats["successful_interactions"] = successful_interactions
 
         # Token usage (placeholder for when LLM responses include token counts)
         # This will be populated when we add token tracking to LLM responses
@@ -894,16 +901,19 @@ class TestState:
         summary = []
 
         for turn in self.turns:
+            # Use the target interaction from the turn (which completed the turn)
+            target_interaction = turn.target_interaction
+            
             # Only include target interaction turns in the conversation summary
-            tool_name = turn.tool_name
-            if not self._is_target_interaction_tool(tool_name):
+            if not self._is_target_interaction_tool(target_interaction.tool_name):
                 continue
-            # Extract Penelope's message from the tool call arguments
+                
+            # Extract Penelope's message from the target interaction tool call arguments
             penelope_message = ""
             session_id = None
 
-            if turn.assistant_message.tool_calls:
-                tool_call = turn.assistant_message.tool_calls[0]
+            if target_interaction.assistant_message.tool_calls:
+                tool_call = target_interaction.assistant_message.tool_calls[0]
                 if tool_call.function.name == "send_message_to_target":
                     try:
                         args = json.loads(tool_call.function.arguments)
@@ -912,12 +922,12 @@ class TestState:
                     except (json.JSONDecodeError, KeyError):
                         penelope_message = "Unable to parse message"
 
-            # Extract target response from tool message
+            # Extract target response from target interaction tool message
             target_response = ""
             success = False
 
             try:
-                tool_content = json.loads(turn.tool_message.content)
+                tool_content = json.loads(target_interaction.tool_message.content)
                 success = tool_content.get("success", False)
 
                 if success and "output" in tool_content:
@@ -937,7 +947,7 @@ class TestState:
             conversation_turn = ConversationTurn(
                 turn=turn.turn_number,  # Actual turn number (target interactions only)
                 timestamp=turn.timestamp.isoformat(),
-                penelope_reasoning=turn.reasoning,
+                penelope_reasoning=target_interaction.reasoning,  # Use target interaction reasoning
                 penelope_message=penelope_message,
                 target_response=target_response,
                 session_id=session_id,
