@@ -867,7 +867,7 @@ class TestState:
             except (json.JSONDecodeError, AttributeError):
                 # If we can't parse the result, count as failed
                 pass
-        
+
         stats["successful_interactions"] = successful_interactions
 
         # Token usage (placeholder for when LLM responses include token counts)
@@ -903,24 +903,30 @@ class TestState:
         for turn in self.turns:
             # Use the target interaction from the turn (which completed the turn)
             target_interaction = turn.target_interaction
-            
+
             # Only include target interaction turns in the conversation summary
             if not self._is_target_interaction_tool(target_interaction.tool_name):
                 continue
-                
+
             # Extract Penelope's message from the target interaction tool call arguments
             penelope_message = ""
             session_id = None
 
-            if target_interaction.assistant_message.tool_calls:
-                tool_call = target_interaction.assistant_message.tool_calls[0]
-                if tool_call.function.name == "send_message_to_target":
-                    try:
-                        args = json.loads(tool_call.function.arguments)
-                        penelope_message = args.get("message", "")
-                        session_id = args.get("session_id")
-                    except (json.JSONDecodeError, KeyError):
-                        penelope_message = "Unable to parse message"
+            # Use the robust get_tool_call_arguments method instead of hard-coded access
+            tool_args = target_interaction.get_tool_call_arguments()
+            
+            if target_interaction.tool_name == ToolType.SEND_MESSAGE_TO_TARGET:
+                penelope_message = tool_args.get("message", "")
+                session_id = tool_args.get("session_id")
+            elif target_interaction.tool_name == ToolType.INVOKE_API_ENDPOINT:
+                # For API endpoints, use the request data or a summary
+                penelope_message = tool_args.get("data", str(tool_args)) if tool_args else "API call"
+            elif target_interaction.tool_name == ToolType.SEND_WEBHOOK:
+                # For webhooks, use the payload or a summary
+                penelope_message = tool_args.get("payload", str(tool_args)) if tool_args else "Webhook call"
+            else:
+                # Fallback for unknown target interaction types
+                penelope_message = f"{target_interaction.tool_name}: {str(tool_args)}" if tool_args else "Unknown interaction"
 
             # Extract target response from target interaction tool message
             target_response = ""
