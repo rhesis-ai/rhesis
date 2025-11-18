@@ -885,6 +885,49 @@ class TestState:
 
         return stats
 
+    def _extract_penelope_message_from_interaction(
+        self, target_interaction: ToolExecution
+    ) -> tuple[str, Optional[str]]:
+        """
+        Extract Penelope's message and session ID from a target interaction.
+
+        Handles different target interaction tool types and provides appropriate
+        message extraction for conversation summaries.
+
+        Args:
+            target_interaction: The ToolExecution representing the target interaction
+
+        Returns:
+            Tuple of (penelope_message, session_id)
+        """
+        tool_args = target_interaction.get_tool_call_arguments()
+
+        if target_interaction.tool_name == ToolType.SEND_MESSAGE_TO_TARGET:
+            penelope_message = tool_args.get("message", "")
+            session_id = tool_args.get("session_id")
+            return penelope_message, session_id
+
+        elif target_interaction.tool_name == ToolType.INVOKE_API_ENDPOINT:
+            # For API endpoints, use the request data or a summary
+            penelope_message = tool_args.get("data", str(tool_args)) if tool_args else "API call"
+            return penelope_message, None
+
+        elif target_interaction.tool_name == ToolType.SEND_WEBHOOK:
+            # For webhooks, use the payload or a summary
+            penelope_message = (
+                tool_args.get("payload", str(tool_args)) if tool_args else "Webhook call"
+            )
+            return penelope_message, None
+
+        else:
+            # Fallback for unknown target interaction types
+            penelope_message = (
+                f"{target_interaction.tool_name}: {str(tool_args)}"
+                if tool_args
+                else "Unknown interaction"
+            )
+            return penelope_message, None
+
     def _generate_conversation_summary(self) -> List[ConversationTurn]:
         """
         Generate a simplified conversation summary from the detailed history.
@@ -908,25 +951,10 @@ class TestState:
             if not self._is_target_interaction_tool(target_interaction.tool_name):
                 continue
 
-            # Extract Penelope's message from the target interaction tool call arguments
-            penelope_message = ""
-            session_id = None
-
-            # Use the robust get_tool_call_arguments method instead of hard-coded access
-            tool_args = target_interaction.get_tool_call_arguments()
-            
-            if target_interaction.tool_name == ToolType.SEND_MESSAGE_TO_TARGET:
-                penelope_message = tool_args.get("message", "")
-                session_id = tool_args.get("session_id")
-            elif target_interaction.tool_name == ToolType.INVOKE_API_ENDPOINT:
-                # For API endpoints, use the request data or a summary
-                penelope_message = tool_args.get("data", str(tool_args)) if tool_args else "API call"
-            elif target_interaction.tool_name == ToolType.SEND_WEBHOOK:
-                # For webhooks, use the payload or a summary
-                penelope_message = tool_args.get("payload", str(tool_args)) if tool_args else "Webhook call"
-            else:
-                # Fallback for unknown target interaction types
-                penelope_message = f"{target_interaction.tool_name}: {str(tool_args)}" if tool_args else "Unknown interaction"
+            # Extract Penelope's message from the target interaction
+            penelope_message, session_id = self._extract_penelope_message_from_interaction(
+                target_interaction
+            )
 
             # Extract target response from target interaction tool message
             target_response = ""
