@@ -85,7 +85,7 @@ class PenelopeConfig:
         if cls._default_model is not None:
             return cls._default_model
 
-        return os.getenv("PENELOPE_DEFAULT_MODEL", "vertex_ai")
+        return os.getenv("PENELOPE_DEFAULT_MODEL", "rhesis")
 
     @classmethod
     def get_default_model_name(cls) -> str:
