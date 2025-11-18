@@ -194,7 +194,7 @@ class TestTurnExecutorExecuteTurn:
         # Verify execution was added (but no turn completed since unknown_tool is not a target interaction)
         assert len(test_state.current_turn_executions) == 1
         assert len(test_state.turns) == 0  # No turn completed
-        
+
         # Check the execution that was added
         execution = test_state.current_turn_executions[0]
         tool_result = json.loads(execution.tool_message.content)
@@ -320,7 +320,7 @@ class TestTurnExecutorExecuteTurn:
 
         # Verify success
         assert success is True
-        
+
         # Verify tool was called with the parameters
         mock_tool.execute.assert_called_once_with(param1="value1")
 
@@ -342,11 +342,16 @@ class TestTurnExecutorExecuteTurn:
         assert isinstance(turn.target_interaction.assistant_message, AssistantMessage)
         assert turn.target_interaction.assistant_message.content == "Test reasoning"
         assert len(turn.target_interaction.assistant_message.tool_calls) == 1
-        assert turn.target_interaction.assistant_message.tool_calls[0].function.name == "send_message_to_target"
+        assert (
+            turn.target_interaction.assistant_message.tool_calls[0].function.name
+            == "send_message_to_target"
+        )
 
         # Verify ToolMessage
         assert isinstance(turn.target_interaction.tool_message, ToolMessage)
-        assert turn.target_interaction.tool_message.name == "send_message_to_target"  # Updated to match fixture
+        assert (
+            turn.target_interaction.tool_message.name == "send_message_to_target"
+        )  # Updated to match fixture
         tool_result = json.loads(turn.target_interaction.tool_message.content)
         assert tool_result["success"] is True
 
@@ -370,7 +375,7 @@ class TestTurnExecutorExecuteTurn:
 
         # Should fail due to validation (empty tool name is invalid)
         assert success is False
-        
+
         # Should have added a finding about the invalid response
         assert len(test_state.findings) > 0
         assert "Invalid response format" in test_state.findings[0]
@@ -436,7 +441,9 @@ class TestTurnExecutorEdgeCases:
         # Verify reasoning is preserved
         assert success is True
         assert test_state.turns[0].target_interaction.reasoning == detailed_reasoning
-        assert test_state.turns[0].target_interaction.assistant_message.content == detailed_reasoning
+        assert (
+            test_state.turns[0].target_interaction.assistant_message.content == detailed_reasoning
+        )
 
 
 if __name__ == "__main__":

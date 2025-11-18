@@ -65,37 +65,40 @@ def test_test_state_initialization(sample_test_context):
 
 
 def test_test_state_add_turn(sample_test_state):
-    """Test adding a turn to TestState."""
+    """Test adding a turn to TestState using add_execution."""
+    # Use a target interaction tool to complete a turn
     assistant_msg = AssistantMessage(
         content="Test reasoning",
         tool_calls=[
             MessageToolCall(
                 id="call_1",
                 type="function",
-                function=FunctionCall(name="test_tool", arguments='{"param": "value"}'),
+                function=FunctionCall(name="send_message_to_target", arguments='{"param": "value"}'),
             )
         ],
     )
 
     tool_msg = ToolMessage(
         tool_call_id="call_1",
-        name="test_tool",
+        name="send_message_to_target",
         content='{"success": true, "output": {"result": "test"}}',
     )
 
-    sample_test_state.add_turn(
+    completed_turn = sample_test_state.add_execution(
         reasoning="Test reasoning",
         assistant_message=assistant_msg,
         tool_message=tool_msg,
     )
 
+    # Verify turn was completed
+    assert completed_turn is not None
     assert sample_test_state.current_turn == 1
     assert len(sample_test_state.turns) == 1
 
     turn = sample_test_state.turns[0]
     assert turn.turn_number == 1
-    assert turn.reasoning == "Test reasoning"
-    assert turn.tool_name == "test_tool"
+    assert turn.target_interaction.reasoning == "Test reasoning"
+    assert turn.target_interaction.tool_name == "send_message_to_target"
 
 
 def test_test_state_add_finding(sample_test_state):
