@@ -200,9 +200,9 @@ We review PRs regularly and maintain a welcoming environment through our code of
 
 ## 📝 License
 
-**Community Edition**: MIT License - see [LICENSE](LICENSE) file for details.
+**Community Edition**: MIT License - see [LICENSE](LICENSE) file for details. Free forever.
 
-**Enterprise Edition**: Enterprise features located in `ee/` folders are subject to separate commercial licenses. Contact hello@rhesis.ai for enterprise licensing information.
+**Enterprise Edition**: Enterprise features in `ee/` folders are planned for 2026 and not yet available. Contact hello@rhesis.ai for early access information.
 
 ## 🆘 Support
 
