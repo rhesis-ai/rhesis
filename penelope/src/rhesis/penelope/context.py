@@ -363,6 +363,15 @@ class TestState:
 
     # Store SDK metric evaluation results (supports multiple metrics)
     metric_results: List[Any] = field(default_factory=list)  # List of SDK MetricResults
+    
+    @property
+    def all_executions(self) -> List[ToolExecution]:
+        """Get all tool executions across all turns and current turn."""
+        executions = []
+        for turn in self.turns:
+            executions.extend(turn.executions)
+        executions.extend(self.current_turn_executions)
+        return executions
 
     def add_execution(
         self,
@@ -424,6 +433,34 @@ class TestState:
         else:
             # Internal tool execution - turn not complete yet
             return None
+    
+    def add_turn(self, reasoning: str, assistant_message: AssistantMessage, tool_message: ToolMessage) -> None:
+        """
+        Backward compatibility method for tests.
+        
+        This method is deprecated. Use add_execution() instead.
+        """
+        # For backward compatibility, assume this is a target interaction
+        # Create a simple execution and complete the turn
+        execution = ToolExecution(
+            tool_name="send_message_to_target",  # Assume target interaction for tests
+            reasoning=reasoning,
+            assistant_message=assistant_message,
+            tool_message=tool_message,
+        )
+        
+        self.current_turn_executions.append(execution)
+        self.current_turn += 1
+        
+        turn = Turn(
+            turn_number=self.current_turn,
+            executions=self.current_turn_executions.copy(),
+            target_interaction=execution,
+        )
+        
+        self.turns.append(turn)
+        self._update_conversation_from_turn(turn)
+        self.current_turn_executions.clear()
 
     def _is_target_interaction_tool(self, tool_name: str) -> bool:
         """

@@ -7,7 +7,7 @@ including LLM interaction, tool invocation, and state updates.
 
 import json
 import logging
-from typing import List
+from typing import Any, Dict, List
 
 from rhesis.penelope.context import TestState
 from rhesis.penelope.prompts import FIRST_TURN_PROMPT, SUBSEQUENT_TURN_PROMPT
