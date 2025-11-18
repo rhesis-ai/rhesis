@@ -107,7 +107,9 @@ When you run `./rh start`, the `.env.docker.local` file is automatically created
 
 **Auto-Generated Keys:**
 - Database encryption key (using Python cryptography.fernet)
-- Local authentication bypass flags
+- Local authentication bypass flags:
+  - `QUICK_START=true` (enables backend auto-login endpoint)
+  - `NEXT_PUBLIC_QUICK_START=true` (enables frontend auto-login detection)
 
 **You can add (optional):**
 - Rhesis API key (for test generation)
@@ -273,6 +275,26 @@ pip install cryptography
 # Then run:
 ./rh start`}
 </CodeBlock>
+
+**Auto-login not working (still seeing login page):**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Check if Quick Start variables are set correctly
+cat .env.docker.local | grep QUICK_START
+
+# Should show:
+# QUICK_START=true
+# NEXT_PUBLIC_QUICK_START=true
+
+# If missing, add them:
+echo "QUICK_START=true" >> .env.docker.local
+echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
+
+# Then restart:
+./rh restart`}
+</CodeBlock>
+
+**Note:** The `./rh start` command automatically sets both variables. If you're manually configuring, ensure both `QUICK_START=true` (for backend) and `NEXT_PUBLIC_QUICK_START=true` (for frontend) are set in your `.env.docker.local` file. If you add these variables after the frontend container was already built, you may need to rebuild it: `docker compose --env-file .env.docker.local build frontend && ./rh restart`
 
 ---
 
