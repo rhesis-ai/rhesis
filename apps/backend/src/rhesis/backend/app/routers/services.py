@@ -476,7 +476,6 @@ async def generate_test_config(
 
     Args:
         request: Contains prompt (description) for test configuration generation,
-            optional sample_size (default: 5, max: 20) for number of items per category,
             and optional project_id to include project context
         db: Database session (injected)
         tenant_context: Organization and user context (injected)
@@ -491,13 +490,12 @@ async def generate_test_config(
 
         logger.info(
             f"Test config generation request for prompt: {request.prompt[:100]}... "
-            f"with sample_size: {request.sample_size} for organization: {organization_id}"
+            f"for organization: {organization_id}"
         )
 
         service = TestConfigGeneratorService(db=db, user=current_user)
         result = service.generate_config(
             request.prompt,
-            request.sample_size,
             organization_id=organization_id,
             project_id=str(request.project_id) if request.project_id else None,
             previous_messages=request.previous_messages,
