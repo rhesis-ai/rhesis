@@ -27,112 +27,116 @@ logger = logging.getLogger(__name__)
 
 class ResponseParser:
     """Robust parser for LLM responses with validation."""
-    
+
     @staticmethod
     def parse_tool_calls(response: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Parse tool calls from response with validation.
-        
+
         Args:
             response: Raw LLM response dictionary
-            
+
         Returns:
             List of validated tool call dictionaries
-            
+
         Raises:
             ValueError: If response format is invalid
         """
         if not isinstance(response, dict):
             raise ValueError(f"Expected dict response, got {type(response)}")
-        
+
         tool_calls_data = response.get("tool_calls", [])
         if not tool_calls_data:
             raise ValueError("No tool calls found in response")
-        
+
         if not isinstance(tool_calls_data, list):
             raise ValueError(f"Expected tool_calls to be list, got {type(tool_calls_data)}")
-        
+
         validated_calls = []
         for i, tool_call in enumerate(tool_calls_data):
             validated_call = ResponseParser._validate_tool_call(tool_call, i)
             validated_calls.append(validated_call)
-        
+
         return validated_calls
-    
+
     @staticmethod
     def _validate_tool_call(tool_call: Any, index: int) -> Dict[str, Any]:
         """Validate a single tool call."""
         if not isinstance(tool_call, dict):
             raise ValueError(f"Tool call {index} must be dict, got {type(tool_call)}")
-        
+
         tool_name = tool_call.get("tool_name")
         if not tool_name or not isinstance(tool_name, str):
             raise ValueError(f"Tool call {index} missing or invalid tool_name")
-        
+
         parameters = tool_call.get("parameters", {})
         if not isinstance(parameters, dict):
             raise ValueError(f"Tool call {index} parameters must be dict, got {type(parameters)}")
-        
-        return {
-            "tool_name": tool_name,
-            "parameters": parameters
-        }
+
+        return {"tool_name": tool_name, "parameters": parameters}
 
 
 class ToolCallIdGenerator:
     """Generates unique tool call IDs with configurable format."""
-    
+
     @staticmethod
-    def generate_id(execution_count: int, tool_name: str, format_template: str = "call_{count}_{tool}") -> str:
+    def generate_id(
+        execution_count: int, tool_name: str, format_template: str = "call_{count}_{tool}"
+    ) -> str:
         """
         Generate a tool call ID.
-        
+
         Args:
             execution_count: Current execution count
             tool_name: Name of the tool being called
             format_template: Template string with {count} and {tool} placeholders
-            
+
         Returns:
             Formatted tool call ID
         """
         return format_template.format(count=execution_count + 1, tool=tool_name)
-    
+
     @staticmethod
     def generate_uuid_id(tool_name: str) -> str:
         """Generate a UUID-based tool call ID for guaranteed uniqueness."""
         import uuid
+
         return f"{tool_name}_{uuid.uuid4().hex[:8]}"
 
 
 class ContextManager:
     """Manages conversation context with intelligent selection."""
-    
+
     @staticmethod
     def select_context_messages(
-        messages: List[Any], 
+        messages: List[Any],
         max_messages: int = None,
         max_tokens: int = None,
-        strategy: str = "recent"
+        strategy: str = "recent",
     ) -> List[Any]:
         """
         Select context messages based on strategy and limits.
-        
+
         Args:
             messages: All conversation messages
             max_messages: Maximum number of messages to include
             max_tokens: Maximum token count (if supported)
             strategy: Selection strategy ("recent", "relevant", "balanced")
-            
+
         Returns:
             Selected context messages
         """
         if not messages:
             return []
-        
+
         if max_messages is None:
             from rhesis.penelope.config import PenelopeConfig
+
             max_messages = PenelopeConfig.DEFAULT_CONTEXT_WINDOW_MESSAGES
-        
+
+        if max_messages == 0:
+            return []
+
         if strategy == "recent":
             return messages[-max_messages:]
         elif strategy == "relevant":
@@ -206,8 +210,7 @@ class TurnExecutor:
                 prompt = user_prompt
                 # Use context manager for intelligent message selection
                 context_messages = ContextManager.select_context_messages(
-                    conversation_messages, 
-                    strategy="recent"
+                    conversation_messages, strategy="recent"
                 )
                 for msg in context_messages:
                     prompt += f"\n\n{msg.role}: {msg.content}"
@@ -233,7 +236,7 @@ class TurnExecutor:
             return False
 
         reasoning = response.get("reasoning", "")
-        
+
         # Parse and validate tool calls
         try:
             tool_calls_data = ResponseParser.parse_tool_calls(response)
@@ -244,7 +247,7 @@ class TurnExecutor:
 
         # Execute all tool calls in sequence
         completed_turn = None
-        
+
         for i, tool_call_data in enumerate(tool_calls_data):
             action_name = tool_call_data.get("tool_name", "")
             params_obj = tool_call_data.get("parameters", {})
@@ -260,7 +263,9 @@ class TurnExecutor:
 
             # Debug: Log structured response
             if self.verbose:
-                logger.debug(f"Tool call {i+1}/{len(tool_calls_data)} - Tool: {action_name}, Params: {action_params}")
+                logger.debug(
+                    f"Tool call {i + 1}/{len(tool_calls_data)} - Tool: {action_name}, Params: {action_params}"
+                )
 
             # With structured output, we should always have an action
             if not action_name:
@@ -270,10 +275,14 @@ class TurnExecutor:
 
             # Create assistant message with tool_calls (Pydantic)
             # Use total execution count for unique IDs
-            total_executions = len(state.current_turn_executions) + sum(len(turn.executions) for turn in state.turns)
+            total_executions = len(state.current_turn_executions) + sum(
+                len(turn.executions) for turn in state.turns
+            )
             tool_call_id = ToolCallIdGenerator.generate_id(total_executions, action_name)
             assistant_message = AssistantMessage(
-                content=reasoning if i == 0 else f"Continuing with {action_name}",  # Only first gets full reasoning
+                content=reasoning
+                if i == 0
+                else f"Continuing with {action_name}",  # Only first gets full reasoning
                 tool_calls=[
                     MessageToolCall(
                         id=tool_call_id,
@@ -324,14 +333,25 @@ class TurnExecutor:
                 assistant_message=assistant_message,
                 tool_message=tool_message,
             )
-            
+
             # Track if any execution completed a turn
             if turn_result is not None:
                 completed_turn = turn_result
 
             # Display execution if verbose
             if self.verbose and self.enable_transparency:
-                current_total = len(state.current_turn_executions) + sum(len(turn.executions) for turn in state.turns)
-                display_turn(current_total, reasoning if i == 0 else f"Tool: {action_name}", action_name, tool_result_dict)
+                current_total = len(state.current_turn_executions) + sum(
+                    len(turn.executions) for turn in state.turns
+                )
+                display_turn(
+                    current_total,
+                    reasoning if i == 0 else f"Tool: {action_name}",
+                    action_name,
+                    tool_result_dict,
+                )
+
+            # Stop executing tools if a turn was completed (target interaction occurred)
+            if completed_turn is not None:
+                break
 
         return True

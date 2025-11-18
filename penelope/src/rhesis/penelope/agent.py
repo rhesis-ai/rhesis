@@ -42,13 +42,13 @@ logger = logging.getLogger(__name__)
 
 class DefaultToolRegistry:
     """Registry for default tools that can be configured."""
-    
+
     _default_tool_classes = [
         TargetInteractionTool,
-        AnalyzeTool, 
+        AnalyzeTool,
         ExtractTool,
     ]
-    
+
     @classmethod
     def get_default_tools(cls, target: Target) -> List[Tool]:
         """Get default tools, instantiating them with the target if needed."""
@@ -59,13 +59,13 @@ class DefaultToolRegistry:
             else:
                 tools.append(tool_class())
         return tools
-    
+
     @classmethod
     def register_default_tool(cls, tool_class: type[Tool]) -> None:
         """Register a new default tool class."""
         if tool_class not in cls._default_tool_classes:
             cls._default_tool_classes.append(tool_class)
-    
+
     @classmethod
     def remove_default_tool(cls, tool_class: type[Tool]) -> None:
         """Remove a default tool class."""

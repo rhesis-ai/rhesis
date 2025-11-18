@@ -51,6 +51,7 @@ class Tool(ABC):
         """
         # Use the ToolType enum for reliable classification
         from rhesis.penelope.context import ToolType
+
         return ToolType.is_target_interaction(self.name)
 
     @property

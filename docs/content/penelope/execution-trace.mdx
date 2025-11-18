@@ -311,9 +311,9 @@ Findings: {', '.join(result.findings)}
 # Check for issues
 
 if not result.goal_achieved:
-    print("Failure reasons:")
-    for criterion in result.goal_evaluation.criteria_evaluations:
-        if not criterion.met:
+print("Failure reasons:")
+for criterion in result.goal_evaluation.criteria_evaluations:
+if not criterion.met:
             print(f" ❌ {criterion.criterion}: {criterion.evidence}")`}
 
 </CodeBlock>

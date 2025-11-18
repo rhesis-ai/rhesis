@@ -13,7 +13,6 @@ from typing import List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # Import base conversation types from SDK
 from rhesis.sdk.metrics.conversational import (
     ConversationHistory,
@@ -119,7 +118,7 @@ class ExtractInformationParams(BaseModel):
 
 class ToolCallItem(BaseModel):
     """A single tool call within a response."""
-    
+
     tool_name: str = Field(
         description=(
             "The exact name of the tool to use. Must match one of the available tools. "
@@ -159,7 +158,7 @@ class ToolCall(BaseModel):
         description=(
             "One or more tool calls to execute in sequence. Each tool will be executed "
             "in order. The turn completes when a target interaction tool is executed."
-        )
+        ),
     )
 
     model_config = ConfigDict(

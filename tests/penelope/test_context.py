@@ -73,7 +73,9 @@ def test_test_state_add_turn(sample_test_state):
             MessageToolCall(
                 id="call_1",
                 type="function",
-                function=FunctionCall(name="send_message_to_target", arguments='{"param": "value"}'),
+                function=FunctionCall(
+                    name="send_message_to_target", arguments='{"param": "value"}'
+                ),
             )
         ],
     )
@@ -374,9 +376,7 @@ def test_generate_metrics_with_multiple_metrics():
     state = TestState(context=test_context)
 
     # Add multiple metric results
-    metric1 = MetricResult(
-        score=0.9, details={"name": "goal_achievement", "is_successful": True}
-    )
+    metric1 = MetricResult(score=0.9, details={"name": "goal_achievement", "is_successful": True})
     metric2 = MetricResult(score=0.75, details={"name": "turn_relevancy"})
     metric3 = MetricResult(score=0.85, details={"name": "custom_metric"})
 

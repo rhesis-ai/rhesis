@@ -18,22 +18,22 @@ from rhesis.penelope.schemas import AssistantMessage, ConversationHistory, ToolM
 class ToolType(str, Enum):
     """
     Enumeration of tool types for reliable tool classification.
-    
+
     This provides type safety and prevents hard-coded string comparisons.
     """
-    
+
     # Target interaction tools (complete turns)
     SEND_MESSAGE_TO_TARGET = "send_message_to_target"
     INVOKE_API_ENDPOINT = "invoke_api_endpoint"
     SEND_WEBHOOK = "send_webhook"
-    
+
     # Internal analysis tools (within turns)
     ANALYZE_RESPONSE = "analyze_response"
     EXTRACT_INFORMATION = "extract_information"
     EVALUATE_OUTPUT = "evaluate_output"
     CHECK_API_RESULT = "check_api_result"
     VALIDATE_RESPONSE = "validate_response"
-    
+
     @classmethod
     def get_target_interaction_tools(cls) -> set[str]:
         """Get all tools that represent target interactions (complete turns)."""
@@ -42,7 +42,7 @@ class ToolType(str, Enum):
             cls.INVOKE_API_ENDPOINT,
             cls.SEND_WEBHOOK,
         }
-    
+
     @classmethod
     def get_internal_tools(cls) -> set[str]:
         """Get all tools that are internal processing (within turns)."""
@@ -53,23 +53,23 @@ class ToolType(str, Enum):
             cls.CHECK_API_RESULT,
             cls.VALIDATE_RESPONSE,
         }
-    
+
     @classmethod
     def is_target_interaction(cls, tool_name: str) -> bool:
         """Check if a tool name represents a target interaction."""
         return tool_name in cls.get_target_interaction_tools()
-    
+
     @classmethod
     def is_internal_tool(cls, tool_name: str) -> bool:
         """Check if a tool name represents internal processing."""
         return tool_name in cls.get_internal_tools()
-    
+
     @classmethod
     def generate_tool_description(cls) -> str:
         """Generate dynamic tool description for schema."""
         target_tools = cls.get_target_interaction_tools()
         internal_tools = cls.get_internal_tools()
-        
+
         desc = "The exact name of the tool to use. Must match one of the available tools:\n"
         desc += "TARGET INTERACTION TOOLS (complete turns):\n"
         for tool in target_tools:
@@ -78,7 +78,7 @@ class ToolType(str, Enum):
         for tool in internal_tools:
             desc += f"- {tool}: {cls._get_tool_description(tool)}\n"
         return desc.rstrip()  # Remove trailing newline
-    
+
     @classmethod
     def _get_tool_description(cls, tool_name: str) -> str:
         """Get human-readable description for a tool."""
@@ -109,40 +109,41 @@ class ExecutionStatus(str, Enum):
 class ToolExecution(BaseModel):
     """
     Represents a single tool execution within a turn.
-    
+
     A tool execution is one LLM decision → tool call → tool result cycle.
     Multiple tool executions can happen within a single turn.
     """
-    
+
     tool_name: str = Field(description="Name of the tool that was executed")
     reasoning: str = Field(description="Penelope's reasoning for this tool execution")
     assistant_message: AssistantMessage = Field(description="Assistant message with tool_calls")
     tool_message: ToolMessage = Field(description="Tool response message")
     timestamp: datetime = Field(default_factory=datetime.now)
-    
+
     @field_serializer("timestamp")
     def serialize_timestamp(self, timestamp: datetime, _info):
         """Serialize datetime to ISO format string."""
         return timestamp.isoformat()
-    
+
     def get_tool_call_arguments(self, tool_name: Optional[str] = None) -> Dict[str, Any]:
         """
         Get the arguments for a specific tool call.
-        
+
         Args:
             tool_name: Name of the tool to get arguments for. If None, uses self.tool_name.
-            
+
         Returns:
             Dictionary of tool arguments, empty dict if not found.
         """
         target_tool = tool_name or self.tool_name
-        
-        for tool_call in self.assistant_message.tool_calls:
-            if tool_call.function.name == target_tool:
-                try:
-                    return json.loads(tool_call.function.arguments)
-                except json.JSONDecodeError:
-                    return {}
+
+        if self.assistant_message.tool_calls:
+            for tool_call in self.assistant_message.tool_calls:
+                if tool_call.function.name == target_tool:
+                    try:
+                        return json.loads(tool_call.function.arguments)
+                    except json.JSONDecodeError:
+                        return {}
         return {}
 
 
@@ -160,24 +161,30 @@ class Turn(BaseModel):
 
     Example turn flow:
     1. LLM thinks → analyze_response (internal)
-    2. LLM thinks → extract_information (internal) 
+    2. LLM thinks → extract_information (internal)
     3. LLM thinks → send_message_to_target (target interaction) → Target responds
-    
+
     All of the above is ONE turn, regardless of how many tools Penelope used.
     The turn is complete when a target interaction occurs and the target responds.
     """
 
     turn_number: int = Field(description="The turn number (1-indexed)")
     timestamp: datetime = Field(default_factory=datetime.now)
-    
+
     # All tool executions within this turn (internal + target interaction)
-    executions: List[ToolExecution] = Field(default_factory=list, description="All tool executions in this turn")
-    
+    executions: List[ToolExecution] = Field(
+        default_factory=list, description="All tool executions in this turn"
+    )
+
     # The target interaction that completed this turn
-    target_interaction: ToolExecution = Field(description="The target interaction that completed this turn")
-    
+    target_interaction: ToolExecution = Field(
+        description="The target interaction that completed this turn"
+    )
+
     # Turn-level metadata
-    evaluation: Optional[str] = Field(default=None, description="Evaluation of progress after this turn")
+    evaluation: Optional[str] = Field(
+        default=None, description="Evaluation of progress after this turn"
+    )
 
     @field_serializer("timestamp")
     def serialize_timestamp(self, timestamp: datetime, _info):
@@ -356,14 +363,16 @@ class TestState:
     )
 
     current_turn: int = 0  # Number of completed turns
-    current_turn_executions: List[ToolExecution] = field(default_factory=list)  # Executions in current turn
+    current_turn_executions: List[ToolExecution] = field(
+        default_factory=list
+    )  # Executions in current turn
     session_id: Optional[str] = None
     findings: List[str] = field(default_factory=list)
     start_time: datetime = field(default_factory=datetime.now)
 
     # Store SDK metric evaluation results (supports multiple metrics)
     metric_results: List[Any] = field(default_factory=list)  # List of SDK MetricResults
-    
+
     @property
     def all_executions(self) -> List[ToolExecution]:
         """Get all tool executions across all turns and current turn."""
@@ -381,7 +390,7 @@ class TestState:
     ) -> Optional[Turn]:
         """
         Add a tool execution to the current turn.
-        
+
         If this is a target interaction, it completes the turn and returns the Turn object.
         If this is an internal tool, it adds to current_turn_executions and returns None.
 
@@ -413,7 +422,7 @@ class TestState:
         if self._is_target_interaction_tool(tool_name):
             # This completes the turn
             self.current_turn += 1
-            
+
             turn = Turn(
                 turn_number=self.current_turn,
                 executions=self.current_turn_executions.copy(),  # All executions in this turn
@@ -422,45 +431,17 @@ class TestState:
 
             # Add completed turn to turns list
             self.turns.append(turn)
-            
+
             # Update SDK conversation
             self._update_conversation_from_turn(turn)
-            
+
             # Clear current turn executions for next turn
             self.current_turn_executions.clear()
-            
+
             return turn
         else:
             # Internal tool execution - turn not complete yet
             return None
-    
-    def add_turn(self, reasoning: str, assistant_message: AssistantMessage, tool_message: ToolMessage) -> None:
-        """
-        Backward compatibility method for tests.
-        
-        This method is deprecated. Use add_execution() instead.
-        """
-        # For backward compatibility, assume this is a target interaction
-        # Create a simple execution and complete the turn
-        execution = ToolExecution(
-            tool_name="send_message_to_target",  # Assume target interaction for tests
-            reasoning=reasoning,
-            assistant_message=assistant_message,
-            tool_message=tool_message,
-        )
-        
-        self.current_turn_executions.append(execution)
-        self.current_turn += 1
-        
-        turn = Turn(
-            turn_number=self.current_turn,
-            executions=self.current_turn_executions.copy(),
-            target_interaction=execution,
-        )
-        
-        self.turns.append(turn)
-        self._update_conversation_from_turn(turn)
-        self.current_turn_executions.clear()
 
     def _is_target_interaction_tool(self, tool_name: str) -> bool:
         """
@@ -481,7 +462,7 @@ class TestState:
         """
         Update the conversation history from a completed turn.
 
-        Creates a single conversation entry that represents the complete 
+        Creates a single conversation entry that represents the complete
         Penelope-target interaction as one turn.
 
         This ensures that SDK metrics see 1 conversation entry per Penelope turn,
@@ -530,8 +511,9 @@ class TestState:
         """
         messages = []
         for turn in self.turns:
-            messages.append(turn.assistant_message)
-            messages.append(turn.tool_message)
+            for execution in turn.executions:
+                messages.append(execution.assistant_message)
+                messages.append(execution.tool_message)
         return messages
 
     def to_result(
@@ -603,9 +585,10 @@ class TestState:
         if self.metric_results:
             # Find the last goal achievement metric result (should be the final evaluation)
             goal_results = [
-                result for result in self.metric_results 
-                if result.details.get("is_goal_achievement_metric", False) or
-                   result.details.get("name") == "penelope_goal_evaluation"
+                result
+                for result in self.metric_results
+                if result.details.get("is_goal_achievement_metric", False)
+                or result.details.get("name") == "penelope_goal_evaluation"
             ]
             if goal_results:
                 # Use the last (most recent) goal evaluation result
