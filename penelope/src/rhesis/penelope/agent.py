@@ -534,7 +534,8 @@ class PenelopeAgent:
             # Evaluate all SDK metrics
             for metric in self.metrics:
                 if metric == self.goal_metric:
-                    # Use evaluator for goal metric (includes stopping condition logic)
+                    # Goal metric was already evaluated during test execution for stopping conditions
+                    # Use the final evaluation result from the evaluator
                     result = self.evaluator.evaluate(state, goal)
 
                     # Update goal-achieved stopping condition

@@ -330,7 +330,7 @@ class TestState:
         # Only increment turn counter for target interaction tools
         is_target_interaction = self._is_target_interaction_tool(tool_name)
         if is_target_interaction:
-            self.current_turn += 1
+        self.current_turn += 1
 
         turn = Turn(
             turn_number=self.execution_count,  # Sequential execution number for display
@@ -345,7 +345,7 @@ class TestState:
 
         # Only update conversation for target interactions (SDK metrics)
         if is_target_interaction:
-            self._update_conversation_from_turn(turn)
+        self._update_conversation_from_turn(turn)
 
         return turn
 
@@ -493,9 +493,21 @@ class TestState:
 
         # Flatten goal_evaluation for frontend compatibility
         # Frontend expects flat structure with all fields at top level, not nested {score, details}
+        # Use the LAST goal evaluation result (final evaluation with complete conversation)
         goal_evaluation_flat = None
         if self.metric_results:
-            goal_evaluation_flat = self._flatten_metric_result(self.metric_results[0])
+            # Find the last goal achievement metric result (should be the final evaluation)
+            goal_results = [
+                result for result in self.metric_results 
+                if result.details.get("is_goal_achievement_metric", False) or
+                   result.details.get("name") == "penelope_goal_evaluation"
+            ]
+            if goal_results:
+                # Use the last (most recent) goal evaluation result
+                goal_evaluation_flat = self._flatten_metric_result(goal_results[-1])
+            else:
+                # Fallback to first result for backward compatibility
+                goal_evaluation_flat = self._flatten_metric_result(self.metric_results[0])
 
             # Add metric reference for traceability (already in flattened result)
             # The metric name is already included in the flattened result
@@ -647,7 +659,7 @@ class TestState:
                 metrics[display_name] = self._create_goal_metric_summary(metric_dict)
             else:
                 # Other metrics get full data
-                metrics[display_name] = metric_dict
+            metrics[display_name] = metric_dict
 
         return metrics
 
