@@ -37,6 +37,7 @@ show_help() {
     echo -e "  ${GREEN}./rh frontend test${NC}   - Run frontend tests"
     echo -e "  ${GREEN}./rh docs start${NC}      - Start the documentation server (local)"
     echo -e "  ${GREEN}./rh worker start${NC}    - Start the Celery worker (local)"
+    echo -e "  ${GREEN}./rh polyphemus start${NC} - Start the Polyphemus service (local)"
     echo -e "  ${GREEN}./rh help${NC}            - Show this help message"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
@@ -47,6 +48,7 @@ show_help() {
     echo -e "  ${BLUE}./rh backend start${NC}       # Start backend locally (without Docker)"
     echo -e "  ${BLUE}./rh frontend start${NC}      # Start frontend locally (without Docker)"
     echo -e "  ${BLUE}./rh frontend test${NC}       # Run frontend tests"
+    echo -e "  ${BLUE}./rh polyphemus start${NC}    # Start Polyphemus locally (without Docker)"
     echo ""
 }
 
@@ -296,6 +298,57 @@ start_docs() {
     fi
 }
 
+# Function to start polyphemus
+start_polyphemus() {
+    echo -e "${GREEN}🔮 Starting Rhesis Polyphemus...${NC}"
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+
+    # Check if virtual environment exists
+    if [ ! -d ".venv" ]; then
+        echo -e "${YELLOW}📦 Creating virtual environment...${NC}"
+        uv venv || {
+            echo -e "${RED}❌ Error: Failed to create virtual environment${NC}"
+            exit 1
+        }
+    fi
+
+    # Activate virtual environment
+    source .venv/bin/activate || {
+        echo -e "${RED}❌ Error: Failed to activate virtual environment${NC}"
+        exit 1
+    }
+
+    # Install dependencies if needed
+    if ! python -c "import rhesis.polyphemus" 2>/dev/null; then
+        echo -e "${YELLOW}📦 Installing Polyphemus dependencies...${NC}"
+        uv pip install -e apps/polyphemus || {
+            echo -e "${RED}❌ Error: Failed to install Polyphemus${NC}"
+            exit 1
+        }
+    fi
+
+    # Check if SDK is installed
+    if ! python -c "import rhesis.sdk" 2>/dev/null; then
+        echo -e "${YELLOW}📦 Installing SDK...${NC}"
+        uv pip install -e sdk || {
+            echo -e "${RED}❌ Error: Failed to install SDK${NC}"
+            exit 1
+        }
+    fi
+
+    echo -e "${GREEN}🚀 Starting Polyphemus service...${NC}"
+    echo -e "${BLUE}🌐 Service will be available at: http://localhost:8080${NC}"
+    echo -e "${BLUE}📚 API docs will be available at: http://localhost:8080/docs${NC}"
+    echo -e "${YELLOW}💡 Press Ctrl+C to stop the service${NC}"
+    echo ""
+
+    # Run uvicorn
+    exec uvicorn rhesis.polyphemus.main:app --host 0.0.0.0 --port 8080 --reload
+}
+
 # Function to start worker
 start_worker() {
     echo -e "${GREEN}⚙️  Starting Rhesis Worker...${NC}"
@@ -432,6 +485,18 @@ case "$1" in
             *)
                 echo -e "${RED}❌ Unknown worker command: $2${NC}"
                 echo -e "${YELLOW}Use: ./rh worker start${NC}"
+                exit 1
+                ;;
+        esac
+        ;;
+    "polyphemus")
+        case "$2" in
+            "start")
+                start_polyphemus
+                ;;
+            *)
+                echo -e "${RED}❌ Unknown polyphemus command: $2${NC}"
+                echo -e "${YELLOW}Use: ./rh polyphemus start${NC}"
                 exit 1
                 ;;
         esac

@@ -1,118 +1,147 @@
-import torch
+"""
+Inference module using HuggingFaceLLM from the SDK.
+This replaces the previous InferenceEngine with SDK-based implementation.
+"""
+
 import logging
-from transformers import TextIteratorStreamer
-from typing import Dict, Optional, AsyncGenerator
+from typing import AsyncGenerator, Dict, Optional
+
+from rhesis.sdk.models import HuggingFaceLLM
 
 logger = logging.getLogger("rhesis-polyphemus")
 
+# Model name - can be overridden via environment variable
+modelname = "distilgpt2"
+
+
 def format_prompt(prompt: str, system_prompt: Optional[str] = None) -> str:
-    """Format the prompt for Dolphin/Llama models"""
-    # Dolphin 3.0 expects a specific prompt format for best results
+    """
+    Format the prompt for models.
+    Note: HuggingFaceLLM handles prompt formatting internally,
+    but this function is kept for compatibility.
+    """
     if system_prompt:
-        formatted_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
-    else:
-        formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
-    
-    return formatted_prompt
+        return f"{system_prompt}\n\n{prompt}"
+    return prompt
+
 
 class InferenceEngine:
-    def __init__(self, model, tokenizer):
-        self.model = model
-        self.tokenizer = tokenizer
-    
-    async def generate_text(self, 
-                          prompt: str, 
-                          max_tokens: int = 512,
-                          temperature: float = 0.7,
-                          top_p: float = 0.9,
-                          top_k: int = 50,
-                          repetition_penalty: float = 1.1,
-                          system_prompt: Optional[str] = None) -> Dict:
-        """Generate text (non-streaming)"""
-        start_time = torch.cuda.Event(enable_timing=True) if torch.cuda.is_available() else None
-        end_time = torch.cuda.Event(enable_timing=True) if torch.cuda.is_available() else None
-        
-        if start_time:
-            start_time.record()
+    """
+    Inference engine using HuggingFaceLLM from the SDK.
+    Uses a singleton pattern to avoid reloading the model on every request.
+    """
+
+    _llm_instance = None
+    _model_name = None
+
+    def __init__(self, model=None, tokenizer=None):
+        """
+        Initialize the inference engine.
+        For compatibility, model and tokenizer parameters are accepted but ignored.
+        The actual model is loaded via HuggingFaceLLM (singleton pattern).
+        """
+        # Get model name from environment or use default
+        import os
+
+        self.model_name = os.environ.get("HF_MODEL", modelname)
+
+        # Use singleton pattern - only load model once
+        if InferenceEngine._llm_instance is None or InferenceEngine._model_name != self.model_name:
+            logger.info(f"Loading HuggingFaceLLM model: {self.model_name}")
+            InferenceEngine._llm_instance = HuggingFaceLLM(self.model_name)
+
+            # Fix pad_token for GPT-2 models if needed
+            if InferenceEngine._llm_instance.tokenizer.pad_token is None:
+                InferenceEngine._llm_instance.tokenizer.pad_token = (
+                    InferenceEngine._llm_instance.tokenizer.eos_token
+                )
+
+            InferenceEngine._model_name = self.model_name
+            logger.info(f"Model loaded successfully: {self.model_name}")
         else:
-            start_time_cpu = torch.tensor(0.).cpu()
-            
-        # Format prompt
-        formatted_prompt = format_prompt(prompt, system_prompt)
-        logger.info(f"Generating with formatted prompt: {formatted_prompt[:100]}...")
-        
-        # Prepare inputs
-        inputs = self.tokenizer(formatted_prompt, return_tensors="pt").to(self.model.device)
-        
-        # Generate
-        generation_config = {
-            "max_new_tokens": max_tokens,
-            "temperature": temperature,
-            "top_p": top_p,
-            "top_k": top_k,
-            "repetition_penalty": repetition_penalty,
-            "do_sample": temperature > 0,
-            "pad_token_id": self.tokenizer.eos_token_id
-        }
-        
-        with torch.no_grad():
-            output = self.model.generate(**inputs, **generation_config)
-        
-        # Decode output
-        full_output = self.tokenizer.decode(output[0], skip_special_tokens=True)
-        
-        # Extract just the assistant's response
-        assistant_output = full_output[len(self.tokenizer.decode(inputs["input_ids"][0], skip_special_tokens=True)):]
-        
-        # Clean up any memory not needed
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            end_time.record()
-            torch.cuda.synchronize()
-            generation_time = start_time.elapsed_time(end_time) / 1000.0  # Convert from ms to seconds
-        else:
-            end_time_cpu = torch.tensor(0.).cpu()
-            generation_time = end_time_cpu - start_time_cpu
-            
-        logger.info(f"Generation completed in {generation_time:.2f} seconds")
-        
-        return {
-            "generated_text": assistant_output.strip(),
-            "tokens_generated": len(output[0]) - len(inputs["input_ids"][0]),
-            "generation_time_seconds": generation_time
-        }
-    
-    async def generate_stream(self, 
-                            prompt: str,
-                            max_tokens: int = 512,
-                            temperature: float = 0.7,
-                            top_p: float = 0.9,
-                            top_k: int = 50,
-                            repetition_penalty: float = 1.1,
-                            system_prompt: Optional[str] = None) -> AsyncGenerator[str, None]:
-        """Generate streaming response"""
-        formatted_prompt = format_prompt(prompt, system_prompt)
-        inputs = self.tokenizer(formatted_prompt, return_tensors="pt").to(self.model.device)
-        
-        streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
-        
-        generation_config = {
-            "max_new_tokens": max_tokens,
-            "temperature": temperature,
-            "top_p": top_p,
-            "top_k": top_k,
-            "repetition_penalty": repetition_penalty,
-            "do_sample": temperature > 0,
-            "streamer": streamer,
-        }
-        
-        # Start generation in a separate thread
-        from threading import Thread
-        thread = Thread(target=self.model.generate, kwargs={**inputs, **generation_config})
-        thread.start()
-        
-        # Stream the output
-        for text in streamer:
-            yield f"data: {text}\n\n"
-        
-        yield "data: [DONE]\n\n" 
+            logger.debug(f"Reusing existing model instance: {self.model_name}")
+
+        # Use the singleton instance
+        self.llm = InferenceEngine._llm_instance
+
+    async def generate_text(
+        self,
+        prompt: str,
+        max_tokens: int = 512,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        top_k: int = 50,
+        repetition_penalty: float = 1.1,
+        system_prompt: Optional[str] = None,
+    ) -> Dict:
+        """Generate text (non-streaming) using HuggingFaceLLM"""
+        try:
+            # Use the SDK's generate method
+            # Map parameters to SDK format
+            kwargs = {
+                "max_new_tokens": max_tokens,
+                "temperature": temperature,
+                "top_p": top_p,
+                "top_k": top_k,
+                "repetition_penalty": repetition_penalty,
+            }
+
+            # Generate response
+            response = self.llm.generate(prompt=prompt, system_prompt=system_prompt, **kwargs)
+
+            # Get metadata if available
+            metadata = getattr(self.llm, "last_generation_metadata", {})
+            generation_time = metadata.get("generation_time_seconds", 0.0)
+            output_tokens = metadata.get("output_tokens", len(response.split()))
+
+            logger.info(f"Generation completed in {generation_time:.2f} seconds")
+
+            return {
+                "generated_text": response.strip(),
+                "tokens_generated": output_tokens,
+                "generation_time_seconds": generation_time,
+            }
+        except Exception as e:
+            logger.error(f"Error during generation: {str(e)}")
+            raise
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        max_tokens: int = 512,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        top_k: int = 50,
+        repetition_penalty: float = 1.1,
+        system_prompt: Optional[str] = None,
+    ) -> AsyncGenerator[str, None]:
+        """
+        Generate streaming response.
+        Note: HuggingFaceLLM doesn't natively support streaming, so we simulate it
+        by generating and yielding chunks.
+        """
+        try:
+            # Generate the full response
+            kwargs = {
+                "max_new_tokens": max_tokens,
+                "temperature": temperature,
+                "top_p": top_p,
+                "top_k": top_k,
+                "repetition_penalty": repetition_penalty,
+            }
+
+            response = self.llm.generate(prompt=prompt, system_prompt=system_prompt, **kwargs)
+
+            # Simulate streaming by yielding words
+            words = response.split()
+            for i, word in enumerate(words):
+                if i == 0:
+                    yield f"data: {word}"
+                else:
+                    yield f"data: {word}"
+                yield "\n\n"
+
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            logger.error(f"Error during streaming generation: {str(e)}")
+            yield f"data: Error: {str(e)}\n\n"

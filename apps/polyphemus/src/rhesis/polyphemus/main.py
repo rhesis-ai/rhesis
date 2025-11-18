@@ -1,35 +1,46 @@
-import logging
 import gc
-from fastapi import FastAPI, Request
+import logging
 from contextlib import asynccontextmanager
-from rhesis.polyphemus.models import ModelLoader
+
+from fastapi import FastAPI
 from rhesis.polyphemus.api import router
+from rhesis.polyphemus.models import ModelLoader
 from rhesis.polyphemus.utils import ProcessTimeMiddleware
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("rhesis-polyphemus")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Load model
+    # Startup: ModelLoader is kept for health endpoint compatibility
+    # Actual model loading happens in InferenceEngine when first used
     model_loader = ModelLoader()
     app.state.model_loader = model_loader
-    await model_loader.load_model()
-    
+    # Note: Model loading is now handled by InferenceEngine (HuggingFaceLLM)
+    # We keep ModelLoader for health endpoint compatibility
+    logger.info("Polyphemus service starting - models will load on first request")
+
     yield
-    
+
     # Shutdown: Clean up resources
-    app.state.model_loader.model = None
-    app.state.model_loader.tokenizer = None
+    if hasattr(app.state.model_loader, "model") and app.state.model_loader.model is not None:
+        app.state.model_loader.model = None
+    if (
+        hasattr(app.state.model_loader, "tokenizer")
+        and app.state.model_loader.tokenizer is not None
+    ):
+        app.state.model_loader.tokenizer = None
     gc.collect()
     logger.info("Resources cleaned up")
 
+
 # Initialize FastAPI app
 app = FastAPI(
-    title="Rhesis Polyphemus", 
+    title="Rhesis Polyphemus",
     description="Dolphin 3.0 Llama 3.1 8B Inference API",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Add middleware
@@ -40,4 +51,5 @@ app.include_router(router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080) 
+
+    uvicorn.run(app, host="0.0.0.0", port=8080)
