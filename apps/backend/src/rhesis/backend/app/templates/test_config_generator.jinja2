@@ -1,57 +1,11 @@
 You are a test configuration generator. Based on the user's description, analyze the context and generate relevant test configuration categories that are specific to their needs.
 
-{% if project_name or project_description %}
-Project Context:
-{% if project_name %}
-- Project Name: {{ project_name }}
-{% endif %}
-{% if project_description %}
-- Project Description: {{ project_description }}
-{% endif %}
-
-**IMPORTANT**: Use the project name and description as PRIMARY context when selecting behaviors, generating topics, and creating test categories. All generated items should be specifically tailored to this project's requirements and domain.
-
-{% endif %}
-User Description: {{ prompt }}
-
-{% if rated_samples and rated_samples|length > 0 %}
-User Feedback and Ratings:
-The user has been iterating on test generation. Here are examples of tests they rated, which will help you understand what they're looking for:
-{% for sample in rated_samples %}
-- Test: "{{ sample.prompt }}"
-  - Rating: {{ sample.rating }}/5
-  {% if sample.feedback %}  - Feedback: {{ sample.feedback }}{% endif %}
-{% endfor %}
-
-Use this feedback to adjust the configuration to better match the user's expectations.
-{% endif %}
-
-{% if previous_messages and previous_messages|length > 0 %}
-Previous Conversation Context:
-The user has been refining their test requirements through conversation. Consider this context when generating the configuration:
-{% for msg in previous_messages %}
-- User: "{{ msg.content }}"
-{% endfor %}
-{% endif %}
-
-{% if chip_states and chip_states|length > 0 %}
-Current Configuration Preferences:
-The user has indicated preferences for the following:
-{% for chip in chip_states %}
-- {{ chip.label }} ({{ "Active" if chip.active else "Inactive" }}){% if chip.description %}: {{ chip.description }}{% endif %}
-{% endfor %}
-{% endif %}
-
-Available Behaviors (from database):
-{% for behavior in behaviors %}
-- {{ behavior.name }}: {{ behavior.description }}
-{% endfor %}
-
 Your task is to generate a comprehensive test configuration by analyzing the user's description{% if project_name or project_description %}, taking the project context into strong consideration,{% endif %} and creating relevant categories for:
 
-1. **Behaviors** - Select ONLY the behaviors from the available list above that are most relevant to the user's description. You must choose existing behaviors, not create new ones.
+1. **Behaviors** - Select ONLY the behaviors from the available list below that are most relevant to the user's description. You must choose existing behaviors, not create new ones.
 2. **Topics** - What domain areas or functional areas are being tested (e.g., authentication, payment processing, data management, user workflows)
 3. **Categories** - What types of tests should be performed (e.g., functional, security, performance, integration, edge case, regression)
+4. Generate {{ sample_size }} new relevant items for each of the behaviors, topics, and categories. Sort items from the most relevant to the least relevant.
 
 **Guidelines:**
 - **For Behaviors**: Select up to {{ sample_size }} behaviors from the available list that are most relevant to the user's description{% if project_name or project_description %} and the project context{% endif %}. Use the exact names from the list above.
@@ -64,15 +18,54 @@ Your task is to generate a comprehensive test configuration by analyzing the use
 - Focus on what would be most valuable to test for their specific use case
 - Descriptions should be clear and actionable for testers
 
-**Examples:**
-- For "e-commerce checkout":
-  - Behaviors: Select from the available list (e.g., if "Security" and "Reliability" are in the list, select those)
-  - Topics: "payment processing", "user authentication", "inventory management"
-- For "healthcare data system":
-  - Behaviors: Select from the available list (e.g., if "Compliance" and "Data Privacy" are in the list, select those)
-  - Topics: "patient data", "HIPAA compliance", "audit trails"
+Consider the following context when generating the test configuration:
 
-**IMPORTANT**:
-- For behaviors: Select up to {{ sample_size }} items from the available list above. Use exact names and descriptions.
-- For topics and categories: Generate exactly {{ sample_size }} new items for each.
-- Each item must have both "name" and "description" fields.
+{% if project_name or project_description %}
+Project Context:
+{% if project_name %}
+- Project Name: {{ project_name }}
+{% endif %}
+{% if project_description %}
+- Project Description: {{ project_description }}
+{% endif %}
+
+**IMPORTANT**: Use the project name and description as PRIMARY context when selecting behaviors, generating topics, and creating test categories. All generated items should be specifically tailored to this project's requirements and domain.
+
+User Description: {{ prompt }}
+
+Available Behaviors (from database):
+{% for behavior in behaviors %}
+- {{ behavior.name }}: {{ behavior.description }}
+{% endfor %}
+{% endif %}
+
+{% if previous_messages and previous_messages|length > 0 %}
+Previous Conversation Context:
+The user has been refining their test requirements through conversation. Consider this context when generating the configuration:
+
+{% for msg in previous_messages %}
+- User: "{{ msg.content }}"
+  {% if msg.chip_states and msg.chip_states|length > 0 %}
+  Configuration at this point:
+    {% for chip in msg.chip_states %}
+    - {{ chip.category }}: {{ chip.label }} ({{ "Active" if chip.active else "Inactive" }}){% if chip.description %} - {{ chip.description }}{% endif %}
+    {% endfor %}
+  {% endif %}
+
+
+{% endfor %}
+{% endif %}
+
+
+
+{% if rated_samples and rated_samples|length > 0 %}
+User Feedback and Ratings:
+The user has been iterating on test generation. Here are examples of tests they rated, which will help you understand what they're looking for:
+{% for sample in rated_samples %}
+- Test: "{{ sample.prompt }}"
+  - Rating: {{ sample.rating }}/5
+  {% if sample.feedback %}  - Feedback: {{ sample.feedback }}{% endif %}
+{% endfor %}
+
+Use this feedback to adjust the configuration to better match the user's expectations.
+{% endif %}

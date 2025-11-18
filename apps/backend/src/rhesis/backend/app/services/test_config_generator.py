@@ -124,9 +124,7 @@ class TestConfigGeneratorService:
                 "behaviors": behavior_list,
                 "project_name": project_name,
                 "project_description": project_description,
-                "rated_samples": rated_samples or [],
                 "previous_messages": previous_messages or [],
-                "chip_states": chip_states or [],
             }
         )
 
