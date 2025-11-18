@@ -31,7 +31,7 @@ def test_chunking_service(document_source):
         description="test",
         metadata={"content": "This is a very long text that should be chunked into smaller parts"},
     )
-    extracted_sources = ExtractionService()([document_source, text_source])
+    extracted_sources = ExtractionService.extract([document_source, text_source])
     chunker = ChunkingService(
         sources=extracted_sources, strategy=SemanticChunker(max_tokens_per_chunk=5)
     )

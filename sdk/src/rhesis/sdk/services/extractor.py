@@ -39,7 +39,8 @@ class Extractor(ABC):
 class ExtractionService:
     """Service for extracting text from sources."""
 
-    def __call__(self, sources: list[SourceSpecification]) -> list[ExtractedSource]:
+    @staticmethod
+    def extract(sources: list[SourceSpecification]) -> list[ExtractedSource]:
         extracted_sources = []
         for source in sources:
             if source.type == SourceType.TEXT:

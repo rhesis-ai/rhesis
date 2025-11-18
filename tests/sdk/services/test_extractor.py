@@ -34,7 +34,6 @@ def test_website_extractor(website_source):
 
 
 def test_extraction_service(text_source, document_source):
-    extractor = ExtractionService()
-    extracted_source = extractor([text_source, document_source])
+    extracted_source = ExtractionService.extract([text_source, document_source])
     assert extracted_source[0].content == "test"
     assert extracted_source[1].content == "Test Rhesis"

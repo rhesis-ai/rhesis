@@ -133,7 +133,7 @@ class TestSetSynthesizer(ABC):
         if self.chunker is None or not isinstance(self.chunker, ChunkingStrategy):
             raise ValueError("chunker must be a ChunkingStrategy object")
 
-        processed_sources = ExtractionService()(self.sources)
+        processed_sources = ExtractionService.extract(self.sources)
 
         chunks = ChunkingService(processed_sources, strategy=self.chunker).chunk()
 
