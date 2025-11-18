@@ -84,6 +84,7 @@ interface GenerateTestConfigRequest {
 interface TestConfigItem {
   name: string;
   description: string;
+  active: boolean;
 }
 
 interface GenerateTestConfigResponse {

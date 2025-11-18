@@ -3,7 +3,7 @@ You are a test (LLM evaluation) configuration generator. Based on the project de
 
 # Instructions
 
-1. Generate a list of behaviors, topics and categories. Each item should have a name, description (max 2 sentences) and a boolean flag indicating if it should be active or inactive.
+1. Select a list of behaviors and generate topics and categories. Each item should have a name, description (max 2 sentences) and a boolean flag indicating if it should be active or inactive.
 
 2. **Behaviors** - Select ONLY the behaviors from the available list below that are most relevant to the user's description. You must choose existing behaviors, not create new ones.
 
@@ -12,11 +12,18 @@ Behaviors to choose from:
 - {{ behavior.name }}: {{ behavior.description }}
 {% endfor %}
 
-2. **Topics** - What domain areas or functional areas are being tested (e.g., authentication, payment processing, data management, user workflows)
+3. **Topics** - What domain areas or functional areas are being tested (e.g., authentication, payment processing, data management, user workflows)
 
-3. **Categories** - What types of tests should be performed (e.g., functional, security, performance, integration, edge case, regression)
+4. **Categories** - What types of tests should be performed (e.g., functional, security, performance, integration, edge case, regression)
 
-4. {% if previous_messages and previous_messages|length > 0 %}Generate between 1 and 10 new relevant items for each of the behaviors, topics, and categories (you decide the exact number based on what's most relevant).{% else %}Generate {{ sample_size }} new relevant items for each of the behaviors, topics, and categories.{% endif %} Sort items from the most relevant to the least relevant.
+5. {% if previous_messages and previous_messages|length > 0 %}
+Select maximum {{sample_size}} behaviors, generate maximum {{sample_size}} topics and {{sample_size}} categories (you decide the exact number based on what's most relevant)
+{% else %}
+Select maximum {{ sample_size }} behaviors, generate {{sample_size}} topics and {{sample_size}} categories. Keep all the behaviors active. Keep {{ (sample_size / 2)|int }} of the topics active. Keep {{ (sample_size / 2)|int }} of the categories active.
+{% endif %}
+Sort items from the most relevant to the least relevant.
+6. Listen to the user's feedback and adjust the configuration accordingly.
+Do not generate new items unless a user explicitly asks for it.
 
 **Guidelines:**
 - Consider both positive and negative testing scenarios
