@@ -15,6 +15,86 @@ from pydantic import BaseModel, Field, field_serializer
 from rhesis.penelope.schemas import AssistantMessage, ConversationHistory, ToolMessage
 
 
+class ToolType(str, Enum):
+    """
+    Enumeration of tool types for reliable tool classification.
+    
+    This provides type safety and prevents hard-coded string comparisons.
+    """
+    
+    # Target interaction tools (complete turns)
+    SEND_MESSAGE_TO_TARGET = "send_message_to_target"
+    INVOKE_API_ENDPOINT = "invoke_api_endpoint"
+    SEND_WEBHOOK = "send_webhook"
+    
+    # Internal analysis tools (within turns)
+    ANALYZE_RESPONSE = "analyze_response"
+    EXTRACT_INFORMATION = "extract_information"
+    EVALUATE_OUTPUT = "evaluate_output"
+    CHECK_API_RESULT = "check_api_result"
+    VALIDATE_RESPONSE = "validate_response"
+    
+    @classmethod
+    def get_target_interaction_tools(cls) -> set[str]:
+        """Get all tools that represent target interactions (complete turns)."""
+        return {
+            cls.SEND_MESSAGE_TO_TARGET,
+            cls.INVOKE_API_ENDPOINT,
+            cls.SEND_WEBHOOK,
+        }
+    
+    @classmethod
+    def get_internal_tools(cls) -> set[str]:
+        """Get all tools that are internal processing (within turns)."""
+        return {
+            cls.ANALYZE_RESPONSE,
+            cls.EXTRACT_INFORMATION,
+            cls.EVALUATE_OUTPUT,
+            cls.CHECK_API_RESULT,
+            cls.VALIDATE_RESPONSE,
+        }
+    
+    @classmethod
+    def is_target_interaction(cls, tool_name: str) -> bool:
+        """Check if a tool name represents a target interaction."""
+        return tool_name in cls.get_target_interaction_tools()
+    
+    @classmethod
+    def is_internal_tool(cls, tool_name: str) -> bool:
+        """Check if a tool name represents internal processing."""
+        return tool_name in cls.get_internal_tools()
+    
+    @classmethod
+    def generate_tool_description(cls) -> str:
+        """Generate dynamic tool description for schema."""
+        target_tools = cls.get_target_interaction_tools()
+        internal_tools = cls.get_internal_tools()
+        
+        desc = "The exact name of the tool to use. Must match one of the available tools:\n"
+        desc += "TARGET INTERACTION TOOLS (complete turns):\n"
+        for tool in target_tools:
+            desc += f"- {tool}: {cls._get_tool_description(tool)}\n"
+        desc += "INTERNAL TOOLS (within turns):\n"
+        for tool in internal_tools:
+            desc += f"- {tool}: {cls._get_tool_description(tool)}\n"
+        return desc.rstrip()  # Remove trailing newline
+    
+    @classmethod
+    def _get_tool_description(cls, tool_name: str) -> str:
+        """Get human-readable description for a tool."""
+        descriptions = {
+            cls.SEND_MESSAGE_TO_TARGET: "Send a message to the target system",
+            cls.INVOKE_API_ENDPOINT: "Call an API endpoint directly",
+            cls.SEND_WEBHOOK: "Send a webhook request",
+            cls.ANALYZE_RESPONSE: "Analyze a response from the target",
+            cls.EXTRACT_INFORMATION: "Extract specific information",
+            cls.EVALUATE_OUTPUT: "Evaluate the quality of output",
+            cls.CHECK_API_RESULT: "Check the result of an API call",
+            cls.VALIDATE_RESPONSE: "Validate a response format",
+        }
+        return descriptions.get(tool_name, "Unknown tool")
+
+
 class ExecutionStatus(str, Enum):
     """Status of a test execution."""
 
@@ -26,70 +106,83 @@ class ExecutionStatus(str, Enum):
     MAX_ITERATIONS = "max_iterations"
 
 
+class ToolExecution(BaseModel):
+    """
+    Represents a single tool execution within a turn.
+    
+    A tool execution is one LLM decision → tool call → tool result cycle.
+    Multiple tool executions can happen within a single turn.
+    """
+    
+    tool_name: str = Field(description="Name of the tool that was executed")
+    reasoning: str = Field(description="Penelope's reasoning for this tool execution")
+    assistant_message: AssistantMessage = Field(description="Assistant message with tool_calls")
+    tool_message: ToolMessage = Field(description="Tool response message")
+    timestamp: datetime = Field(default_factory=datetime.now)
+    
+    @field_serializer("timestamp")
+    def serialize_timestamp(self, timestamp: datetime, _info):
+        """Serialize datetime to ISO format string."""
+        return timestamp.isoformat()
+    
+    def get_tool_call_arguments(self, tool_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get the arguments for a specific tool call.
+        
+        Args:
+            tool_name: Name of the tool to get arguments for. If None, uses self.tool_name.
+            
+        Returns:
+            Dictionary of tool arguments, empty dict if not found.
+        """
+        target_tool = tool_name or self.tool_name
+        
+        for tool_call in self.assistant_message.tool_calls:
+            if tool_call.function.name == target_tool:
+                try:
+                    return json.loads(tool_call.function.arguments)
+                except json.JSONDecodeError:
+                    return {}
+        return {}
+
+
 class Turn(BaseModel):
     """
-    Represents a single turn in the test conversation.
+    Represents a complete turn in the test conversation.
 
-    A turn is defined as one Penelope-target interaction using target interaction tools:
-    - Penelope sends a message to the target (via send_message_to_target or similar tools)
-    - Target responds with a message
+    CORRECT TURN DEFINITION:
+    A turn = One complete Penelope request → Target response cycle, which may include:
+    - Multiple internal tool executions (analyze_response, extract_information, etc.)
+    - One target interaction (send_message_to_target, invoke_api_endpoint, etc.)
+    - Target's response
 
     This creates one user-assistant message pair in the conversation history.
 
-    IMPORTANT: Only target interaction tools count as turns. Internal tools
-    (analyze_response, extract_information, etc.) are tracked but do not increment
-    the turn counter as they don't represent interactions with the system under test.
-
-    Uses standard message format (OpenAI-compatible) for maximum LLM provider support.
-    Each turn contains:
-    - Assistant message with tool_calls (Penelope's action)
-    - Tool message with results
-    - Optional retrieval context
-    - Penelope-specific metadata (reasoning, evaluation)
+    Example turn flow:
+    1. LLM thinks → analyze_response (internal)
+    2. LLM thinks → extract_information (internal) 
+    3. LLM thinks → send_message_to_target (target interaction) → Target responds
+    
+    All of the above is ONE turn, regardless of how many tools Penelope used.
+    The turn is complete when a target interaction occurs and the target responds.
     """
 
     turn_number: int = Field(description="The turn number (1-indexed)")
     timestamp: datetime = Field(default_factory=datetime.now)
-
-    # Standard message format (OpenAI-compatible)
-    assistant_message: AssistantMessage = Field(description="Assistant message with tool_calls")
-
-    tool_message: ToolMessage = Field(description="Tool response message")
-
-    # Optional retrieval context (for RAG systems)
-    retrieval_context: Optional[List[Dict[str, Any]]] = Field(
-        default=None,
-        description="Retrieved context used in this turn (e.g., from RAG systems)",
-    )
-
-    # Penelope-specific metadata (not sent to LLM)
-    reasoning: str = Field(description="Penelope's internal reasoning for this turn")
-    evaluation: Optional[str] = Field(
-        default=None, description="Evaluation of progress after this turn"
-    )
+    
+    # All tool executions within this turn (internal + target interaction)
+    executions: List[ToolExecution] = Field(default_factory=list, description="All tool executions in this turn")
+    
+    # The target interaction that completed this turn
+    target_interaction: ToolExecution = Field(description="The target interaction that completed this turn")
+    
+    # Turn-level metadata
+    evaluation: Optional[str] = Field(default=None, description="Evaluation of progress after this turn")
 
     @field_serializer("timestamp")
     def serialize_timestamp(self, timestamp: datetime, _info):
         """Serialize datetime to ISO format string."""
         return timestamp.isoformat()
-
-    @property
-    def tool_name(self) -> str:
-        """Extract tool name from the assistant's tool_calls."""
-        if self.assistant_message.tool_calls and len(self.assistant_message.tool_calls) > 0:
-            return self.assistant_message.tool_calls[0].function.name
-        return "unknown"
-
-    @property
-    def tool_arguments(self) -> Dict[str, Any]:
-        """Extract tool arguments from the assistant's tool_calls."""
-        if self.assistant_message.tool_calls and len(self.assistant_message.tool_calls) > 0:
-            args_str = self.assistant_message.tool_calls[0].function.arguments
-            try:
-                return json.loads(args_str) if isinstance(args_str, str) else args_str
-            except json.JSONDecodeError:
-                return {}
-        return {}
 
     @property
     def tool_result(self) -> Any:
@@ -244,24 +337,26 @@ class TestState:
     Tracks conversation history, turn count, and session information.
     Uses SDK's ConversationHistory for zero-conversion metric evaluation.
 
-    Turn counting:
-    - current_turn: Number of Penelope-target interactions (target interaction tools only)
-    - len(turns): Total tool executions (includes internal tools for display/debugging)
-    - len(conversation): Number of messages in SDK conversation (1 per target interaction)
-    - Each turn = 1 target interaction tool call = 1 conversation message
-    - Internal tools are tracked but don't increment current_turn or add to conversation
+    CORRECT TURN DEFINITION:
+    - A turn = One complete Penelope request → Target response cycle
+    - A turn can contain multiple tool executions (internal + one target interaction)
+    - A turn is complete when a target interaction occurs and target responds
+    - current_turn: Number of completed turns (complete request-response cycles)
+    - len(turns): Number of completed turns (same as current_turn)
+    - len(conversation): Number of SDK conversation messages (same as current_turn)
+    - current_turn_executions: Tool executions in the current (incomplete) turn
     """
 
     context: TestContext
-    turns: List[Turn] = field(default_factory=list)
+    turns: List[Turn] = field(default_factory=list)  # Completed turns only
 
-    # Native SDK conversation tracking - built incrementally as tools execute
+    # Native SDK conversation tracking - built incrementally as turns complete
     conversation: ConversationHistory = field(
         default_factory=lambda: ConversationHistory.from_messages([])
     )
 
-    current_turn: int = 0  # Target interaction turns only
-    execution_count: int = 0  # Total tool executions (for display/debugging)
+    current_turn: int = 0  # Number of completed turns
+    current_turn_executions: List[ToolExecution] = field(default_factory=list)  # Executions in current turn
     session_id: Optional[str] = None
     findings: List[str] = field(default_factory=list)
     start_time: datetime = field(default_factory=datetime.now)
@@ -269,85 +364,66 @@ class TestState:
     # Store SDK metric evaluation results (supports multiple metrics)
     metric_results: List[Any] = field(default_factory=list)  # List of SDK MetricResults
 
-    def add_turn(
+    def add_execution(
         self,
         reasoning: str,
         assistant_message: AssistantMessage,
         tool_message: ToolMessage,
-        evaluation: Optional[str] = None,
-        retrieval_context: Optional[List[Dict[str, Any]]] = None,
-    ) -> Turn:
+    ) -> Optional[Turn]:
         """
-        Add a turn to the conversation history.
-
-        Only target interaction tools (those that communicate with the system under test)
-        increment the turn counter. Internal tools (analysis, extraction, etc.) are tracked
-        but don't count as turns.
+        Add a tool execution to the current turn.
+        
+        If this is a target interaction, it completes the turn and returns the Turn object.
+        If this is an internal tool, it adds to current_turn_executions and returns None.
 
         Args:
-            reasoning: Penelope's internal reasoning for this turn
-            assistant_message: Assistant message with tool_calls (Pydantic model)
-            tool_message: Tool response message (Pydantic model)
-            evaluation: Optional evaluation of progress
-            retrieval_context: Retrieved context used in this turn (e.g., from RAG)
+            reasoning: Penelope's reasoning for this tool execution
+            assistant_message: Assistant message with tool_calls
+            tool_message: Tool response message
 
         Returns:
-            The created Turn object
-
-        Example:
-            from rhesis.penelope.schemas import (
-                AssistantMessage, MessageToolCall, FunctionCall, ToolMessage
-            )
-
-            assistant_message = AssistantMessage(
-                content="I will send a test message",
-                tool_calls=[
-                    MessageToolCall(
-                        id="call_123",
-                        type="function",
-                        function=FunctionCall(
-                            name="send_message_to_target",
-                            arguments='{"message": "Hello"}'
-                        )
-                    )
-                ]
-            )
-
-            tool_message = ToolMessage(
-                tool_call_id="call_123",
-                name="send_message_to_target",
-                content='{"success": true, "output": "Hi there!"}'
-            )
+            Turn object if this execution completed a turn, None if it's an internal execution
         """
-        # Increment execution counter for all tool executions (for display/debugging)
-        self.execution_count += 1
-
-        # Determine if this is a target interaction tool (counts as a turn)
+        # Extract tool name
         tool_name = ""
         if assistant_message.tool_calls and len(assistant_message.tool_calls) > 0:
             tool_name = assistant_message.tool_calls[0].function.name
 
-        # Only increment turn counter for target interaction tools
-        is_target_interaction = self._is_target_interaction_tool(tool_name)
-        if is_target_interaction:
-            self.current_turn += 1
-
-        turn = Turn(
-            turn_number=self.execution_count,  # Sequential execution number for display
+        # Create tool execution
+        execution = ToolExecution(
+            tool_name=tool_name,
             reasoning=reasoning,
             assistant_message=assistant_message,
             tool_message=tool_message,
-            evaluation=evaluation,
-            retrieval_context=retrieval_context,
         )
 
-        self.turns.append(turn)
+        # Add to current turn executions
+        self.current_turn_executions.append(execution)
 
-        # Only update conversation for target interactions (SDK metrics)
-        if is_target_interaction:
-        self._update_conversation_from_turn(turn)
+        # Check if this completes a turn (target interaction)
+        if self._is_target_interaction_tool(tool_name):
+            # This completes the turn
+            self.current_turn += 1
+            
+            turn = Turn(
+                turn_number=self.current_turn,
+                executions=self.current_turn_executions.copy(),  # All executions in this turn
+                target_interaction=execution,  # The target interaction that completed the turn
+            )
 
-        return turn
+            # Add completed turn to turns list
+            self.turns.append(turn)
+            
+            # Update SDK conversation
+            self._update_conversation_from_turn(turn)
+            
+            # Clear current turn executions for next turn
+            self.current_turn_executions.clear()
+            
+            return turn
+        else:
+            # Internal tool execution - turn not complete yet
+            return None
 
     def _is_target_interaction_tool(self, tool_name: str) -> bool:
         """
@@ -362,39 +438,31 @@ class TestState:
         Returns:
             True if this tool interacts with the target, False for internal tools
         """
-        # List of known target interaction tool names
-        # Future target interaction tools should be added here
-        target_interaction_tools = {
-            "send_message_to_target",
-            # Add future target interaction tools here
-            # "invoke_api_endpoint",
-            # "send_webhook",
-            # etc.
-        }
-
-        return tool_name in target_interaction_tools
+        return ToolType.is_target_interaction(tool_name)
 
     def _update_conversation_from_turn(self, turn: Turn) -> None:
         """
-        Update the conversation history from a turn's tool interaction.
+        Update the conversation history from a completed turn.
 
-        For send_message_to_target turns, creates a single conversation entry
-        that represents the complete Penelope-target interaction as one turn.
+        Creates a single conversation entry that represents the complete 
+        Penelope-target interaction as one turn.
 
         This ensures that SDK metrics see 1 conversation entry per Penelope turn,
         making turn counting consistent between Penelope and SDK evaluations.
 
         Args:
-            turn: The turn to extract conversation from
+            turn: The completed turn to extract conversation from
         """
         from rhesis.penelope.schemas import UserMessage
 
-        # Only process send_message_to_target turns
-        if turn.tool_name == "send_message_to_target":
-            # Extract user message and assistant response
-            user_msg = turn.tool_arguments.get("message", "")
+        # Only process turns with target interactions
+        if turn.target_interaction.tool_name == ToolType.SEND_MESSAGE_TO_TARGET:
+            # Extract user message from target interaction
+            target_args = turn.target_interaction.get_tool_call_arguments()
+            user_msg = target_args.get("message", "")
 
-            result = turn.tool_result
+            # Extract assistant response from target interaction result
+            result = json.loads(turn.target_interaction.tool_message.content)
             assistant_resp = ""
             if isinstance(result, dict) and result.get("success"):
                 resp = result.get("output", {})
@@ -659,7 +727,7 @@ class TestState:
                 metrics[display_name] = self._create_goal_metric_summary(metric_dict)
             else:
                 # Other metrics get full data
-            metrics[display_name] = metric_dict
+                metrics[display_name] = metric_dict
 
         return metrics
 
@@ -744,10 +812,10 @@ class TestState:
 
         stats["turn_timings"] = turn_timings
 
-        # Tool usage statistics
+        # Tool usage statistics (includes all executions: turns + internal tools)
         tool_calls = {}
-        for turn in self.turns:
-            tool_name = turn.tool_name
+        for execution in self.all_executions:
+            tool_name = execution.tool_name
             if tool_name:
                 if tool_name not in tool_calls:
                     tool_calls[tool_name] = {
@@ -759,8 +827,8 @@ class TestState:
                 tool_calls[tool_name]["total_calls"] += 1
 
                 # Check if tool call was successful
-                if isinstance(turn.tool_result, dict):
-                    if turn.tool_result.get("success", False):
+                if isinstance(execution.tool_result, dict):
+                    if execution.tool_result.get("success", False):
                         tool_calls[tool_name]["successful_calls"] += 1
                     else:
                         tool_calls[tool_name]["failed_calls"] += 1
@@ -845,9 +913,9 @@ class TestState:
             except (json.JSONDecodeError, KeyError, AttributeError):
                 target_response = "Unable to parse response"
 
-            # Create conversation turn (use execution number for display consistency)
+            # Create conversation turn (use turn number for display consistency)
             conversation_turn = ConversationTurn(
-                turn=turn.turn_number,  # This is now execution_count
+                turn=turn.turn_number,  # Actual turn number (target interactions only)
                 timestamp=turn.timestamp.isoformat(),
                 penelope_reasoning=turn.reasoning,
                 penelope_message=penelope_message,

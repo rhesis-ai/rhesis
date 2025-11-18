@@ -13,6 +13,7 @@ from typing import List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
 # Import base conversation types from SDK
 from rhesis.sdk.metrics.conversational import (
     ConversationHistory,
@@ -116,25 +117,13 @@ class ExtractInformationParams(BaseModel):
     extraction_target: str = Field(description="What specific information to extract")
 
 
-class ToolCall(BaseModel):
-    """
-    Structured output schema for agent tool calls.
-
-    This schema ensures the LLM returns properly formatted tool calls
-    that can be directly executed without parsing.
-    """
-
-    reasoning: str = Field(
-        description=(
-            "Explain your thinking for this turn. What are you trying to accomplish? "
-            "Why is this action appropriate given the test goal and previous results?"
-        )
-    )
-
+class ToolCallItem(BaseModel):
+    """A single tool call within a response."""
+    
     tool_name: str = Field(
         description=(
-            "The exact name of the tool to use. Must match one of the available tools: "
-            "send_message_to_target, analyze_response, extract_information"
+            "The exact name of the tool to use. Must match one of the available tools. "
+            "See ToolType enum in context.py for complete list of available tools and their descriptions."
         )
     )
 
@@ -145,6 +134,31 @@ class ToolCall(BaseModel):
             "- analyze_response: {response_text: str, analysis_focus: str, "
             "context: Optional[str]}\n"
             "- extract_information: {response_text: str, extraction_target: str}"
+        )
+    )
+
+
+class ToolCall(BaseModel):
+    """
+    Structured output schema for agent tool calls.
+
+    Supports one or more tool calls in a single response. Each tool is executed
+    in sequence. The turn completes when a target interaction tool is executed.
+    """
+
+    reasoning: str = Field(
+        description=(
+            "Explain your thinking for this turn. What are you trying to accomplish? "
+            "Why is this action appropriate given the test goal and previous results? "
+            "If using multiple tools, explain the sequence and why each is needed."
+        )
+    )
+
+    tool_calls: List[ToolCallItem] = Field(
+        min_length=1,
+        description=(
+            "One or more tool calls to execute in sequence. Each tool will be executed "
+            "in order. The turn completes when a target interaction tool is executed."
         )
     )
 

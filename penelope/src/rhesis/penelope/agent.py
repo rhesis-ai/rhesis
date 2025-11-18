@@ -40,6 +40,39 @@ from rhesis.sdk.models.base import BaseLLM
 logger = logging.getLogger(__name__)
 
 
+class DefaultToolRegistry:
+    """Registry for default tools that can be configured."""
+    
+    _default_tool_classes = [
+        TargetInteractionTool,
+        AnalyzeTool, 
+        ExtractTool,
+    ]
+    
+    @classmethod
+    def get_default_tools(cls, target: Target) -> List[Tool]:
+        """Get default tools, instantiating them with the target if needed."""
+        tools = []
+        for tool_class in cls._default_tool_classes:
+            if tool_class == TargetInteractionTool:
+                tools.append(tool_class(target))
+            else:
+                tools.append(tool_class())
+        return tools
+    
+    @classmethod
+    def register_default_tool(cls, tool_class: type[Tool]) -> None:
+        """Register a new default tool class."""
+        if tool_class not in cls._default_tool_classes:
+            cls._default_tool_classes.append(tool_class)
+    
+    @classmethod
+    def remove_default_tool(cls, tool_class: type[Tool]) -> None:
+        """Remove a default tool class."""
+        if tool_class in cls._default_tool_classes:
+            cls._default_tool_classes.remove(tool_class)
+
+
 def _create_default_model() -> BaseLLM:
     """
     Create a default model instance based on configuration.
@@ -291,11 +324,8 @@ class PenelopeAgent:
         Returns:
             List of Tool instances
         """
-        tools = [
-            TargetInteractionTool(target),
-            AnalyzeTool(),
-            ExtractTool(),
-        ]
+        # Get default tools from registry
+        tools = DefaultToolRegistry.get_default_tools(target)
 
         # Add any custom tools
         tools.extend(self.custom_tools)

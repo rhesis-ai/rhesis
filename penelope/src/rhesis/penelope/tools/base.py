@@ -49,9 +49,9 @@ class Tool(ABC):
         Returns:
             True if this tool interacts with the target, False for internal tools
         """
-        # Default implementation: only TargetInteractionTool counts as target interaction
-        # Subclasses can override this for custom target interaction tools
-        return self.name == "send_message_to_target"
+        # Use the ToolType enum for reliable classification
+        from rhesis.penelope.context import ToolType
+        return ToolType.is_target_interaction(self.name)
 
     @property
     @abstractmethod

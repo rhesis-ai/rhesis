@@ -44,6 +44,12 @@ class PenelopeConfig:
         PenelopeConfig.set_default_max_iterations(30)
     """
 
+    # Configuration constants
+    DEFAULT_MAX_ITERATIONS = 10
+    DEFAULT_CONTEXT_WINDOW_MESSAGES = 10  # Last N messages for context
+    DEFAULT_MODEL_PROVIDER = "vertex_ai"
+    DEFAULT_MODEL_NAME = "gemini-2.0-flash"
+
     # Default values
     _log_level: Optional[str] = None
     _default_model: Optional[str] = None
@@ -85,7 +91,7 @@ class PenelopeConfig:
         if cls._default_model is not None:
             return cls._default_model
 
-        return os.getenv("PENELOPE_DEFAULT_MODEL", "vertex_ai")
+        return os.getenv("PENELOPE_DEFAULT_MODEL", cls.DEFAULT_MODEL_PROVIDER)
 
     @classmethod
     def get_default_model_name(cls) -> str:
@@ -103,7 +109,7 @@ class PenelopeConfig:
         if cls._default_model_name is not None:
             return cls._default_model_name
 
-        return os.getenv("PENELOPE_DEFAULT_MODEL_NAME", "gemini-2.0-flash")
+        return os.getenv("PENELOPE_DEFAULT_MODEL_NAME", cls.DEFAULT_MODEL_NAME)
 
     @classmethod
     def get_default_max_iterations(cls) -> int:
@@ -127,9 +133,9 @@ class PenelopeConfig:
                 return int(env_value)
             except ValueError:
                 # Invalid value in env var, use default
-                return 10
+                return cls.DEFAULT_MAX_ITERATIONS
 
-        return 10
+        return cls.DEFAULT_MAX_ITERATIONS
 
     @classmethod
     def set_log_level(cls, level: str):
