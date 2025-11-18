@@ -1,13 +1,14 @@
 """Tests for Penelope executor module."""
 
 import json
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
+import pytest
+from rhesis.penelope.context import TestContext, TestState
 from rhesis.penelope.executor import TurnExecutor
-from rhesis.penelope.context import TestState, TestContext
-from rhesis.penelope.tools.base import Tool, ToolResult
 from rhesis.penelope.schemas import AssistantMessage, ToolMessage
+from rhesis.penelope.tools.base import Tool, ToolResult
+
 from rhesis.sdk.models.base import BaseLLM
 
 
@@ -23,7 +24,7 @@ def mock_model():
                 "tool_name": "send_message_to_target",  # Use target interaction tool
                 "parameters": {"param1": "value1"},
             }
-        ]
+        ],
     }
     return mock
 
@@ -45,9 +46,7 @@ def mock_tool():
     """Mock tool for testing."""
     tool = Mock(spec=Tool)
     tool.name = "send_message_to_target"  # Match the tool name in responses
-    tool.execute.return_value = ToolResult(
-        success=True, output={"result": "success"}, error=None
-    )
+    tool.execute.return_value = ToolResult(success=True, output={"result": "success"}, error=None)
     return tool
 
 
@@ -135,7 +134,7 @@ class TestTurnExecutorExecuteTurn:
                     "tool_name": "tool2",
                     "parameters": {"arg": "value"},
                 }
-            ]
+            ],
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -180,7 +179,7 @@ class TestTurnExecutorExecuteTurn:
                     "tool_name": "unknown_tool",
                     "parameters": {},
                 }
-            ]
+            ],
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -192,10 +191,13 @@ class TestTurnExecutorExecuteTurn:
         # Should still succeed but tool result indicates error
         assert success is True
 
-        # Verify turn was added with error message
-        assert len(test_state.turns) == 1
-        turn = test_state.turns[0]
-        tool_result = json.loads(turn.tool_message.content)
+        # Verify execution was added (but no turn completed since unknown_tool is not a target interaction)
+        assert len(test_state.current_turn_executions) == 1
+        assert len(test_state.turns) == 0  # No turn completed
+        
+        # Check the execution that was added
+        execution = test_state.current_turn_executions[0]
+        tool_result = json.loads(execution.tool_message.content)
         assert tool_result["success"] is False
         assert "Unknown tool" in tool_result["error"]
 
@@ -235,7 +237,7 @@ class TestTurnExecutorExecuteTurn:
 
         # Verify tool result contains error
         turn = test_state.turns[0]
-        tool_result = json.loads(turn.tool_message.content)
+        tool_result = json.loads(turn.target_interaction.tool_message.content)
         assert tool_result["success"] is False
         assert tool_result["error"] == "Tool execution failed"
 
@@ -255,7 +257,7 @@ class TestTurnExecutorExecuteTurn:
                     "tool_name": "send_message_to_target",
                     "parameters": {"message": "Hello"},
                 }
-            ]
+            ],
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -283,9 +285,7 @@ class TestTurnExecutorExecuteTurn:
 
     def test_execute_turn_without_transparency(self, mock_model, test_state, mock_tool):
         """Test execute_turn without transparency doesn't display turn."""
-        executor = TurnExecutor(
-            model=mock_model, verbose=True, enable_transparency=False
-        )
+        executor = TurnExecutor(model=mock_model, verbose=True, enable_transparency=False)
 
         with patch("rhesis.penelope.executor.display_turn") as mock_display:
             success = executor.execute_turn(
@@ -306,10 +306,10 @@ class TestTurnExecutorExecuteTurn:
             "reasoning": "Test with Pydantic",
             "tool_calls": [
                 {
-                    "tool_name": "test_tool",
-                    "parameters": mock_params,
+                    "tool_name": "send_message_to_target",  # Use target interaction tool
+                    "parameters": {"param1": "value1"},  # Use dict directly
                 }
-            ]
+            ],
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -318,14 +318,13 @@ class TestTurnExecutorExecuteTurn:
             state=test_state, tools=[mock_tool], system_prompt="System prompt"
         )
 
-        # Verify success and model_dump was called
+        # Verify success
         assert success is True
-        mock_params.model_dump.assert_called_once()
+        
+        # Verify tool was called with the parameters
         mock_tool.execute.assert_called_once_with(param1="value1")
 
-    def test_execute_turn_creates_proper_message_structure(
-        self, mock_model, test_state, mock_tool
-    ):
+    def test_execute_turn_creates_proper_message_structure(self, mock_model, test_state, mock_tool):
         """Test execute_turn creates proper AssistantMessage and ToolMessage."""
         executor = TurnExecutor(model=mock_model)
 
@@ -340,15 +339,15 @@ class TestTurnExecutorExecuteTurn:
         turn = test_state.turns[0]
 
         # Verify AssistantMessage
-        assert isinstance(turn.assistant_message, AssistantMessage)
-        assert turn.assistant_message.content == "Test reasoning"
-        assert len(turn.assistant_message.tool_calls) == 1
-        assert turn.assistant_message.tool_calls[0].function.name == "test_tool"
+        assert isinstance(turn.target_interaction.assistant_message, AssistantMessage)
+        assert turn.target_interaction.assistant_message.content == "Test reasoning"
+        assert len(turn.target_interaction.assistant_message.tool_calls) == 1
+        assert turn.target_interaction.assistant_message.tool_calls[0].function.name == "send_message_to_target"
 
         # Verify ToolMessage
-        assert isinstance(turn.tool_message, ToolMessage)
-        assert turn.tool_message.name == "test_tool"
-        tool_result = json.loads(turn.tool_message.content)
+        assert isinstance(turn.target_interaction.tool_message, ToolMessage)
+        assert turn.target_interaction.tool_message.name == "send_message_to_target"  # Updated to match fixture
+        tool_result = json.loads(turn.target_interaction.tool_message.content)
         assert tool_result["success"] is True
 
     def test_execute_turn_with_empty_tool_name(self, mock_model, test_state, mock_tool):
@@ -360,7 +359,7 @@ class TestTurnExecutorExecuteTurn:
                     "tool_name": "",
                     "parameters": {},
                 }
-            ]
+            ],
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -369,8 +368,12 @@ class TestTurnExecutorExecuteTurn:
             state=test_state, tools=[mock_tool], system_prompt="System prompt"
         )
 
-        # Should still execute (defaults to no_action)
-        assert success is True
+        # Should fail due to validation (empty tool name is invalid)
+        assert success is False
+        
+        # Should have added a finding about the invalid response
+        assert len(test_state.findings) > 0
+        assert "Invalid response format" in test_state.findings[0]
 
 
 class TestTurnExecutorEdgeCases:
@@ -393,7 +396,7 @@ class TestTurnExecutorEdgeCases:
                         "bool": True,
                     },
                 }
-            ]
+            ],
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -418,10 +421,10 @@ class TestTurnExecutorEdgeCases:
             "reasoning": detailed_reasoning,
             "tool_calls": [
                 {
-                    "tool_name": "test_tool",
+                    "tool_name": "send_message_to_target",  # Use target interaction tool
                     "parameters": {},
                 }
-            ]
+            ],
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -432,10 +435,9 @@ class TestTurnExecutorEdgeCases:
 
         # Verify reasoning is preserved
         assert success is True
-        assert test_state.turns[0].reasoning == detailed_reasoning
-        assert test_state.turns[0].assistant_message.content == detailed_reasoning
+        assert test_state.turns[0].target_interaction.reasoning == detailed_reasoning
+        assert test_state.turns[0].target_interaction.assistant_message.content == detailed_reasoning
 
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

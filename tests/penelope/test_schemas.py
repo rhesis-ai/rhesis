@@ -148,7 +148,7 @@ def test_tool_call_with_send_message():
                 tool_name="send_message_to_target",
                 parameters=SendMessageParams(message="Hello", session_id="session-123"),
             )
-        ]
+        ],
     )
 
     assert tool_call.reasoning == "Testing send message"
@@ -167,7 +167,7 @@ def test_tool_call_with_analyze_response():
                 tool_name="analyze_response",
                 parameters=AnalyzeResponseParams(response_text="Response", analysis_focus="tone"),
             )
-        ]
+        ],
     )
 
     assert len(tool_call.tool_calls) == 1
@@ -183,9 +183,11 @@ def test_tool_call_with_extract_information():
         tool_calls=[
             ToolCallItem(
                 tool_name="extract_information",
-                parameters=ExtractInformationParams(response_text="Response", extraction_target="email"),
+                parameters=ExtractInformationParams(
+                    response_text="Response", extraction_target="email"
+                ),
             )
-        ]
+        ],
     )
 
     assert len(tool_call.tool_calls) == 1
