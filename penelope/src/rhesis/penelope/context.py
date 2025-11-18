@@ -330,7 +330,7 @@ class TestState:
         # Only increment turn counter for target interaction tools
         is_target_interaction = self._is_target_interaction_tool(tool_name)
         if is_target_interaction:
-        self.current_turn += 1
+            self.current_turn += 1
 
         turn = Turn(
             turn_number=self.execution_count,  # Sequential execution number for display
