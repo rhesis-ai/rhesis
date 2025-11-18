@@ -18,8 +18,12 @@ def mock_model():
     mock.get_model_name.return_value = "mock-model"
     mock.generate.return_value = {
         "reasoning": "Test reasoning",
-        "tool_name": "test_tool",
-        "parameters": {"param1": "value1"},
+        "tool_calls": [
+            {
+                "tool_name": "send_message_to_target",  # Use target interaction tool
+                "parameters": {"param1": "value1"},
+            }
+        ]
     }
     return mock
 
@@ -40,7 +44,7 @@ def test_state():
 def mock_tool():
     """Mock tool for testing."""
     tool = Mock(spec=Tool)
-    tool.name = "test_tool"
+    tool.name = "send_message_to_target"  # Match the tool name in responses
     tool.execute.return_value = ToolResult(
         success=True, output={"result": "success"}, error=None
     )
@@ -126,8 +130,12 @@ class TestTurnExecutorExecuteTurn:
         # Model selects tool2
         mock_model.generate.return_value = {
             "reasoning": "Use tool2",
-            "tool_name": "tool2",
-            "parameters": {"arg": "value"},
+            "tool_calls": [
+                {
+                    "tool_name": "tool2",
+                    "parameters": {"arg": "value"},
+                }
+            ]
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -167,8 +175,12 @@ class TestTurnExecutorExecuteTurn:
         # Model requests unknown tool
         mock_model.generate.return_value = {
             "reasoning": "Use unknown tool",
-            "tool_name": "unknown_tool",
-            "parameters": {},
+            "tool_calls": [
+                {
+                    "tool_name": "unknown_tool",
+                    "parameters": {},
+                }
+            ]
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -238,8 +250,12 @@ class TestTurnExecutorExecuteTurn:
 
         mock_model.generate.return_value = {
             "reasoning": "Send greeting",
-            "tool_name": "send_message_to_target",
-            "parameters": {"message": "Hello"},
+            "tool_calls": [
+                {
+                    "tool_name": "send_message_to_target",
+                    "parameters": {"message": "Hello"},
+                }
+            ]
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -288,8 +304,12 @@ class TestTurnExecutorExecuteTurn:
 
         mock_model.generate.return_value = {
             "reasoning": "Test with Pydantic",
-            "tool_name": "test_tool",
-            "parameters": mock_params,
+            "tool_calls": [
+                {
+                    "tool_name": "test_tool",
+                    "parameters": mock_params,
+                }
+            ]
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -335,8 +355,12 @@ class TestTurnExecutorExecuteTurn:
         """Test execute_turn handles empty tool_name."""
         mock_model.generate.return_value = {
             "reasoning": "No tool",
-            "tool_name": "",
-            "parameters": {},
+            "tool_calls": [
+                {
+                    "tool_name": "",
+                    "parameters": {},
+                }
+            ]
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -360,12 +384,16 @@ class TestTurnExecutorEdgeCases:
 
         mock_model.generate.return_value = {
             "reasoning": "Complex params",
-            "tool_name": "complex_tool",
-            "parameters": {
-                "nested": {"key": "value"},
-                "list": [1, 2, 3],
-                "bool": True,
-            },
+            "tool_calls": [
+                {
+                    "tool_name": "complex_tool",
+                    "parameters": {
+                        "nested": {"key": "value"},
+                        "list": [1, 2, 3],
+                        "bool": True,
+                    },
+                }
+            ]
         }
 
         executor = TurnExecutor(model=mock_model)
@@ -388,8 +416,12 @@ class TestTurnExecutorEdgeCases:
 
         mock_model.generate.return_value = {
             "reasoning": detailed_reasoning,
-            "tool_name": "test_tool",
-            "parameters": {},
+            "tool_calls": [
+                {
+                    "tool_name": "test_tool",
+                    "parameters": {},
+                }
+            ]
         }
 
         executor = TurnExecutor(model=mock_model)

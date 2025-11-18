@@ -10,6 +10,7 @@ from rhesis.penelope.schemas import (
     MessageToolCall,
     SendMessageParams,
     ToolCall,
+    ToolCallItem,
     ToolMessage,
 )
 
@@ -142,40 +143,55 @@ def test_tool_call_with_send_message():
     """Test ToolCall with SendMessageParams."""
     tool_call = ToolCall(
         reasoning="Testing send message",
-        tool_name="send_message_to_target",
-        parameters=SendMessageParams(message="Hello", session_id="session-123"),
+        tool_calls=[
+            ToolCallItem(
+                tool_name="send_message_to_target",
+                parameters=SendMessageParams(message="Hello", session_id="session-123"),
+            )
+        ]
     )
 
     assert tool_call.reasoning == "Testing send message"
-    assert tool_call.tool_name == "send_message_to_target"
-    assert isinstance(tool_call.parameters, SendMessageParams)
-    assert tool_call.parameters.message == "Hello"
+    assert len(tool_call.tool_calls) == 1
+    assert tool_call.tool_calls[0].tool_name == "send_message_to_target"
+    assert isinstance(tool_call.tool_calls[0].parameters, SendMessageParams)
+    assert tool_call.tool_calls[0].parameters.message == "Hello"
 
 
 def test_tool_call_with_analyze_response():
     """Test ToolCall with AnalyzeResponseParams."""
     tool_call = ToolCall(
         reasoning="Analyzing response",
-        tool_name="analyze_response",
-        parameters=AnalyzeResponseParams(response_text="Response", analysis_focus="tone"),
+        tool_calls=[
+            ToolCallItem(
+                tool_name="analyze_response",
+                parameters=AnalyzeResponseParams(response_text="Response", analysis_focus="tone"),
+            )
+        ]
     )
 
-    assert tool_call.tool_name == "analyze_response"
-    assert isinstance(tool_call.parameters, AnalyzeResponseParams)
-    assert tool_call.parameters.response_text == "Response"
+    assert len(tool_call.tool_calls) == 1
+    assert tool_call.tool_calls[0].tool_name == "analyze_response"
+    assert isinstance(tool_call.tool_calls[0].parameters, AnalyzeResponseParams)
+    assert tool_call.tool_calls[0].parameters.response_text == "Response"
 
 
 def test_tool_call_with_extract_information():
     """Test ToolCall with ExtractInformationParams."""
     tool_call = ToolCall(
         reasoning="Extracting info",
-        tool_name="extract_information",
-        parameters=ExtractInformationParams(response_text="Response", extraction_target="email"),
+        tool_calls=[
+            ToolCallItem(
+                tool_name="extract_information",
+                parameters=ExtractInformationParams(response_text="Response", extraction_target="email"),
+            )
+        ]
     )
 
-    assert tool_call.tool_name == "extract_information"
-    assert isinstance(tool_call.parameters, ExtractInformationParams)
-    assert tool_call.parameters.extraction_target == "email"
+    assert len(tool_call.tool_calls) == 1
+    assert tool_call.tool_calls[0].tool_name == "extract_information"
+    assert isinstance(tool_call.tool_calls[0].parameters, ExtractInformationParams)
+    assert tool_call.tool_calls[0].parameters.extraction_target == "email"
 
 
 def test_tool_call_validation():
