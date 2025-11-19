@@ -15,9 +15,9 @@ def factory():
 
 
 @pytest.fixture
-def setup_env(monkeypatch):
+def setup_env():
     """Set up test environment."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test_key")
+    pass
 
 
 class TestFactoryListMetrics:
@@ -374,4 +374,3 @@ class TestFactoryIntegration:
         assert metric1.evaluation_prompt != metric2.evaluation_prompt
         # Different instances
         assert metric1 is not metric2
-
