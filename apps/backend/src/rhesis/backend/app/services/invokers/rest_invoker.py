@@ -38,7 +38,9 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         """Invoke the REST endpoint with proper authentication."""
         try:
             # Prepare request components
-            method, headers, request_body, url = self._prepare_request(db, endpoint, input_data)
+            method, headers, request_body, url, conversation_id = self._prepare_request(
+                db, endpoint, input_data
+            )
 
             # Make request and handle response
             response = self._make_request_without_raise(
@@ -53,7 +55,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 return self._handle_http_error(response, method, url, headers, request_body)
 
             return self._handle_successful_response(
-                response, endpoint, method, url, headers, request_body
+                response, endpoint, method, url, headers, request_body, conversation_id
             )
 
         except requests.exceptions.RequestException as e:
@@ -61,6 +63,15 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 error_type="network_error",
                 output_message=f"Network/connection error: {str(e)}",
                 message=f"Network/connection error: {str(e)}",
+                request_details=self._safe_request_details(locals(), "REST"),
+            )
+        except (ValueError, json.JSONDecodeError) as e:
+            # Handle JSON parsing errors specifically
+            logger.error(f"JSON parsing error: {str(e)}")
+            return self._create_error_response(
+                error_type="json_parsing_error",
+                output_message=f"Failed to parse JSON response: {str(e)}",
+                message=f"Failed to parse JSON response: {str(e)}",
                 request_details=self._safe_request_details(locals(), "REST"),
             )
         except HTTPException:
@@ -86,17 +97,29 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         if method not in self.request_handlers:
             raise HTTPException(status_code=400, detail=f"Unsupported HTTP method: {method}")
 
+        # Prepare template context with conversation tracking
+        template_context, conversation_field = self._prepare_conversation_context(
+            endpoint, input_data
+        )
+
         # Prepare headers and body
         headers = self._prepare_headers(db, endpoint, input_data)
         request_body = self.template_renderer.render(
-            endpoint.request_body_template or {}, input_data
+            endpoint.request_body_template or {}, template_context
         )
+
+        # Extract conversation ID from rendered body
+        conversation_id = None
+        if isinstance(request_body, dict):
+            conversation_id = self._extract_conversation_id(
+                request_body, input_data, conversation_field
+            )
 
         # Build URL
         url = endpoint.url + (endpoint.endpoint_path or "")
         logger.debug(f"Making {method} request to: {url}")
 
-        return method, headers, request_body, url
+        return method, headers, request_body, url, conversation_id
 
     def _create_request_details(self, method: str, url: str, headers: Dict, body: Any) -> Dict:
         """Create request details dictionary with sanitized headers."""
@@ -147,6 +170,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         url: str,
         headers: Dict,
         request_body: Any,
+        conversation_id: str = None,
     ) -> Dict:
         """Handle successful response with JSON parsing."""
         try:
@@ -155,6 +179,25 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             mapped_response = self.response_mapper.map_response(
                 response_data, endpoint.response_mappings or {}
             )
+
+            # Add conversation tracking field to response if configured and available
+            conversation_field = self._detect_conversation_field(endpoint)
+            if conversation_field:
+                # Use extracted value from mapped response, or fall back to input value
+                if conversation_field in mapped_response:
+                    logger.debug(
+                        f"Conversation field {conversation_field} already in mapped response"
+                    )
+                elif conversation_id:
+                    mapped_response[conversation_field] = conversation_id
+                    logger.debug(f"Added {conversation_field} to response: {conversation_id}")
+
+            # Preserve important unmapped fields from original response (error info, message, etc.)
+            important_fields = ["error", "status", "message"]
+            for field in important_fields:
+                if field in response_data and field not in mapped_response:
+                    mapped_response[field] = response_data[field]
+                    logger.debug(f"Preserved unmapped field '{field}': {response_data[field]}")
 
             return mapped_response
         except (json.JSONDecodeError, requests.exceptions.JSONDecodeError) as json_error:

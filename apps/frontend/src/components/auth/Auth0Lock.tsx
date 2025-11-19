@@ -12,6 +12,7 @@ import {
 // Brand icons - keeping filled versions as outlined variants may not exist for all brands
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
+import DeveloperModeIcon from '@mui/icons-material/DeveloperMode';
 import { useState, useEffect } from 'react';
 import { getClientApiBaseUrl } from '../../utils/url-resolver';
 

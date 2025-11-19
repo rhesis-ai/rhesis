@@ -11,6 +11,7 @@ import { Typography, Box, Alert, Button, Chip } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
+import { Tag } from '@/utils/api-client/interfaces/tag';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -168,6 +169,44 @@ export default function TestSetTestsGrid({
           if (!testType) return null;
 
           return <Chip label={testType} size="small" variant="outlined" />;
+        },
+      },
+      {
+        field: 'tags',
+        headerName: 'Tags',
+        flex: 1.5,
+        minWidth: 140,
+        sortable: false,
+        renderCell: params => {
+          const test = params.row;
+          if (!test.tags || test.tags.length === 0) {
+            return null;
+          }
+
+          return (
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+              {test.tags
+                .filter((tag: Tag) => tag && tag.id && tag.name)
+                .slice(0, 2)
+                .map((tag: Tag) => (
+                  <Chip
+                    key={tag.id}
+                    label={tag.name}
+                    size="small"
+                    variant="filled"
+                    color="primary"
+                  />
+                ))}
+              {test.tags.filter((tag: Tag) => tag && tag.id && tag.name)
+                .length > 2 && (
+                <Chip
+                  label={`+${test.tags.filter((tag: Tag) => tag && tag.id && tag.name).length - 2}`}
+                  size="small"
+                  variant="outlined"
+                />
+              )}
+            </Box>
+          );
         },
       },
     ],

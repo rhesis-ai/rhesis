@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2025-11-17
+
+### Fixed
+
+- Fixed a bug that caused the frontend Docker image to fail during local deployment.
+- Fixed a file ownership issue (chown bug) that could prevent the application from running correctly.
+
+## [0.4.2] - 2025-11-13
+
+### Added
+
+- Added single-step MCP import workflow.
+- Added MCP integration for Notion import in the knowledge page.
+- Added tags and comments columns to sources grid and source detail page.
+- Added Test Set Type field to test sets, displayed in frontend views.
+- Added metric scope functionality for single-turn and multi-turn metrics.
+- Added local development setup with Docker Compose and auto-login feature.
+- Added RocketLaunchIcon to LandingPage for Local Mode display.
+- Added test type column and multi-turn goal display in test set detail grid.
+- Added multi-turn test configuration UI, integrated into the test detail page.
+
+### Changed
+
+- Simplified MCP import workflow to a single-step process.
+- Improved MCP import UX and fixed theme violations.
+- Improved multi-turn test UI components and metrics display.
+- Enhanced metrics tab with visual indicators and collapsible sections.
+- Replaced metric scope multi-select with intuitive selectable chips.
+- Updated tests grid to show test type and multi-turn goal.
+- Improved test type visual distinction in tests grid.
+- Replaced slider with number input for max turns in multi-turn test configuration.
+- Updated test title to show goal for multi-turn tests.
+- Improved grid layout in knowledge page with flexible columns.
+
+### Fixed
+
+- Improved multi-turn test metrics serialization and frontend display.
+- Corrected multi-turn test review display and conflict detection.
+- Resolved TypeScript errors in TestsTableView and other frontend components.
+- Fixed various PR checker issues and added comprehensive tests.
+- Fixed display of metrics for multi-turn tests in test run detail view.
+- Resolved ESLint warnings in metrics frontend components.
+- Prevented button overlap on single-line fields (Max. Turns).
+- Fixed TypeScript linting errors in TestDetailData.
+- Fixed theme styles and spacing consistency.
+- Allowed detail page access for both rhesis and custom metrics.
+
+### Removed
+
+- Removed Microsoft and Apple login options.
+- Removed redundant Score Type label in metric detail view and new metric creation page.
+- Removed local development configuration files.
+- Removed placeholder goal banner.
+
 ## [0.4.1] - 2025-10-30
 
 ### Added

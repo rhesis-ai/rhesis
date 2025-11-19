@@ -1,4 +1,5 @@
 import hashlib
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -141,6 +142,12 @@ def setup_test_data() -> None:
 
 @pytest.fixture(scope="session")
 def docker_compose_test_env() -> Generator[dict, None, None]:
+    """
+    Set up isolated docker-compose environment for integration tests.
+
+    This fixture ensures tests run in a clean, reproducible environment.
+    """
+    print(f"{BLUE}🐳 Starting isolated docker-compose environment{NC}")
     compose_file = Path(__file__).parent / "docker-compose.yml"
     # Test if backend is running
     max_attempts = 3
@@ -196,18 +203,26 @@ def docker_compose_test_env() -> Generator[dict, None, None]:
     # Setup test data (organization, user, and token)
     setup_test_data()
 
-    # Yield test environment info
-    yield {
+    # Set environment variables for docker-compose mode
+    # These will be used by the SDK client in tests
+    test_config = {
         "base_url": "http://localhost:8080",
         "api_key": "rh-test-token",
     }
+    os.environ["RHESIS_BASE_URL"] = test_config["base_url"]
+    os.environ["RHESIS_API_KEY"] = test_config["api_key"]
+
+    print(f"{GREEN}✅ Environment variables set for docker-compose mode{NC}")
+
+    # Yield test environment info
+    yield test_config
 
 
 @pytest.fixture(scope="function")
 def db_cleanup(docker_compose_test_env):
     """
     Automatic database cleanup for integration tests.
-    Runs automatically before and after EACH test in tests/sdk/.
+    Runs automatically before and after EACH test.
     """
     # 🧼 Cleanup at START (before test runs)
     conn = None

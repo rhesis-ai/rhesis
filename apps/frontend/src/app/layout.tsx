@@ -163,12 +163,6 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'endpoints',
-      title: 'Endpoints',
-      icon: <ApiIcon />,
-    },
-    {
-      kind: 'page',
       segment: 'integrations',
       title: 'Integrations',
       icon: <IntegrationInstructionsIcon />,

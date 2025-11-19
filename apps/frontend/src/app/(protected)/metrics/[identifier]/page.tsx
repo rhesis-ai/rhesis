@@ -758,10 +758,10 @@ export default function MetricDetailPage() {
                     <Typography>
                       {models.length > 0
                         ? models.find(model => model.id === metric.model_id)
-                            ?.name || '-'
+                            ?.name || 'Using default model'
                         : metric.model_id
                           ? 'Loading model...'
-                          : '-'}
+                          : 'Using default model'}
                     </Typography>
                     {models.length > 0 && metric.model_id && (
                       <Typography variant="body2" color="text.secondary">
@@ -956,7 +956,8 @@ export default function MetricDetailPage() {
                         px: 1.5,
                         py: 0.5,
                         borderRadius: theme => theme.shape.borderRadius * 0.25,
-                        fontSize: theme.typography.caption.fontSize,
+                        fontSize:
+                          theme?.typography?.caption?.fontSize || '0.75rem',
                         fontWeight: 'medium',
                       }}
                     >
@@ -1029,8 +1030,7 @@ export default function MetricDetailPage() {
                             borderRadius: theme =>
                               theme.shape.borderRadius * 0.25,
                             fontSize:
-                              theme?.typography?.helperText?.fontSize ||
-                              '0.75rem',
+                              theme?.typography?.caption?.fontSize || '0.75rem',
                             fontWeight: 'medium',
                           }}
                         >
@@ -1038,7 +1038,7 @@ export default function MetricDetailPage() {
                         </Typography>
                       ))
                     ) : (
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body1" color="text.secondary">
                         No scope defined
                       </Typography>
                     )}
@@ -1066,7 +1066,7 @@ export default function MetricDetailPage() {
                           placeholder="Enter minimum score"
                         />
                       ) : (
-                        <Typography variant="h6" color="text.secondary">
+                        <Typography variant="body1" color="text.primary">
                           {metric.min_score}
                         </Typography>
                       )}
@@ -1088,7 +1088,7 @@ export default function MetricDetailPage() {
                           placeholder="Enter maximum score"
                         />
                       ) : (
-                        <Typography variant="h6" color="text.secondary">
+                        <Typography variant="body1" color="text.primary">
                           {metric.max_score}
                         </Typography>
                       )}
@@ -1119,13 +1119,12 @@ export default function MetricDetailPage() {
                           sx={{
                             bgcolor: 'success.main',
                             color: 'success.contrastText',
-                            px: 2,
+                            px: 1.5,
                             py: 0.5,
                             borderRadius: theme =>
                               theme.shape.borderRadius * 0.25,
                             fontSize:
-                              theme?.typography?.helperText?.fontSize ||
-                              '0.75rem',
+                              theme?.typography?.caption?.fontSize || '0.75rem',
                             fontWeight: 'medium',
                           }}
                         >

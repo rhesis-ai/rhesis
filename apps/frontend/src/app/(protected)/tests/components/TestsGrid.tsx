@@ -13,6 +13,7 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
+import { Tag } from '@/utils/api-client/interfaces/tag';
 import { Typography, Box, Alert, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
@@ -251,6 +252,44 @@ export default function TestsTable({
               <InsertDriveFileOutlined
                 sx={{ fontSize: 'small', color: 'text.secondary' }}
               />
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'tags',
+        headerName: 'Tags',
+        flex: 1.5,
+        minWidth: 140,
+        sortable: false,
+        renderCell: params => {
+          const test = params.row;
+          if (!test.tags || test.tags.length === 0) {
+            return null;
+          }
+
+          return (
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+              {test.tags
+                .filter((tag: Tag) => tag && tag.id && tag.name)
+                .slice(0, 2)
+                .map((tag: Tag) => (
+                  <Chip
+                    key={tag.id}
+                    label={tag.name}
+                    size="small"
+                    variant="filled"
+                    color="primary"
+                  />
+                ))}
+              {test.tags.filter((tag: Tag) => tag && tag.id && tag.name)
+                .length > 2 && (
+                <Chip
+                  label={`+${test.tags.filter((tag: Tag) => tag && tag.id && tag.name).length - 2}`}
+                  size="small"
+                  variant="outlined"
+                />
+              )}
             </Box>
           );
         },

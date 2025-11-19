@@ -6,6 +6,7 @@ using LLM and Jinja2 templates.
 """
 
 from pathlib import Path
+from typing import Optional
 
 import jinja2
 
@@ -14,11 +15,13 @@ from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.sdk.models.factory import get_model
 
+MAX_SAMPLE_SIZE = 10
+
 
 class TestConfigGeneratorService:
     """Service for generating test configurations from user prompts."""
 
-    def __init__(self, db, user, max_sample_size: int = 20):
+    def __init__(self, db, user):
         """Initialize the service with template environment.
 
         Args:
@@ -42,14 +45,13 @@ class TestConfigGeneratorService:
             self.llm = get_model(provider=model)
         else:
             self.llm = model
-        self.max_sample_size = max_sample_size
 
     def generate_config(
         self,
         prompt: str,
-        sample_size: int = 5,
-        organization_id: str = None,
-        project_id: str = None,
+        organization_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        previous_messages: Optional[list] = None,
     ) -> TestConfigResponse:
         """
         Generate test configuration based on user prompt.
@@ -60,7 +62,6 @@ class TestConfigGeneratorService:
 
         Args:
             prompt: User description of what they want to test
-            sample_size: Number of items to generate/select for each category (default: 5, max: 20)
             db: Database session for fetching behaviors and project
             organization_id: Organization ID for filtering behaviors and project
             project_id: Optional project ID to include project context
@@ -76,11 +77,6 @@ class TestConfigGeneratorService:
         """
         if not prompt or not prompt.strip():
             raise ValueError("Prompt cannot be empty")
-
-        if sample_size < 1:
-            raise ValueError("Sample size must be at least 1")
-        if sample_size > self.max_sample_size:
-            raise ValueError(f"Sample size must be less than {self.max_sample_size}")
 
         if self.db is None or organization_id is None:
             raise ValueError("Database session and organization_id are required")
@@ -113,13 +109,17 @@ class TestConfigGeneratorService:
 
         # Render template with user prompt, sample size, behaviors, and project context
         template = self.jinja_env.get_template("test_config_generator.jinja2")
+
+        # If there are previous messages, use the maximum sample size, otherwise let LLM decide.
+
         rendered_prompt = template.render(
             {
                 "prompt": prompt,
-                "sample_size": sample_size,
+                "sample_size": MAX_SAMPLE_SIZE,
                 "behaviors": behavior_list,
                 "project_name": project_name,
                 "project_description": project_description,
+                "previous_messages": previous_messages or [],
             }
         )
 

@@ -1,5 +1,7 @@
 """Tests for DeepEval conversational metrics."""
 
+from unittest.mock import patch
+
 import pytest
 
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
@@ -33,35 +35,56 @@ class TestDeepEvalTurnRelevancy:
         """Test evaluation of a relevant conversation."""
         metric = DeepEvalTurnRelevancy(threshold=0.5)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "What insurance do you offer?"},
-            {"role": "assistant", "content": "We offer auto, home, and life insurance."},
-            {"role": "user", "content": "Tell me about auto coverage."},
-            {"role": "assistant", "content": "Auto insurance includes liability and collision coverage."},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "What insurance do you offer?"},
+                {"role": "assistant", "content": "We offer auto, home, and life insurance."},
+                {"role": "user", "content": "Tell me about auto coverage."},
+                {
+                    "role": "assistant",
+                    "content": "Auto insurance includes liability and collision coverage.",
+                },
+            ]
+        )
 
-        result = metric.evaluate(conversation_history=conversation)
+        # Mock the DeepEval metric's measure method
+        with patch.object(metric._metric, "measure") as mock_measure:
+            # Set up the mock to simulate a successful evaluation
+            metric._metric.score = 0.8
+            metric._metric.reason = "Conversation is relevant"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
-        assert "is_successful" in result.details
-        assert "reason" in result.details
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
+            assert "is_successful" in result.details
+            assert "reason" in result.details
 
     def test_evaluate_irrelevant_conversation(self):
         """Test evaluation of an irrelevant conversation."""
         metric = DeepEvalTurnRelevancy(threshold=0.7)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "What's the weather like?"},
-            {"role": "assistant", "content": "I like pizza."},
-            {"role": "user", "content": "Will it rain today?"},
-            {"role": "assistant", "content": "The sky is blue."},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "What's the weather like?"},
+                {"role": "assistant", "content": "I like pizza."},
+                {"role": "user", "content": "Will it rain today?"},
+                {"role": "assistant", "content": "The sky is blue."},
+            ]
+        )
 
-        result = metric.evaluate(conversation_history=conversation)
+        # Mock the DeepEval metric's measure method
+        with patch.object(metric._metric, "measure") as mock_measure:
+            # Set up the mock to simulate a low score
+            metric._metric.score = 0.3
+            metric._metric.reason = "Conversation is not relevant"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
 
 
 class TestDeepEvalRoleAdherence:
@@ -82,60 +105,79 @@ class TestDeepEvalRoleAdherence:
         """Test evaluation of a conversation where assistant adheres to role."""
         metric = DeepEvalRoleAdherence(threshold=0.5)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "I need help with my order."},
-            {"role": "assistant", "content": "I'll help you with that right away."},
-            {"role": "user", "content": "Can you check the status?"},
-            {"role": "assistant", "content": "Let me check your order status for you."},
-        ])
-
-        result = metric.evaluate(
-            conversation_history=conversation,
-            chatbot_role="customer support agent"
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "I need help with my order."},
+                {"role": "assistant", "content": "I'll help you with that right away."},
+                {"role": "user", "content": "Can you check the status?"},
+                {"role": "assistant", "content": "Let me check your order status for you."},
+            ]
         )
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
-        assert "is_successful" in result.details
-        assert "reason" in result.details
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.9
+            metric._metric.reason = "Assistant adheres to customer support role"
+            mock_measure.return_value = None
+
+            result = metric.evaluate(
+                conversation_history=conversation, chatbot_role="customer support agent"
+            )
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
+            assert "is_successful" in result.details
+            assert "reason" in result.details
 
     def test_evaluate_role_violation_conversation(self):
         """Test evaluation of a conversation with role violations."""
         metric = DeepEvalRoleAdherence(threshold=0.7)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "I need help with my order."},
-            {"role": "assistant", "content": "I'll help you with that."},
-            {"role": "user", "content": "Can you give me stock tips?"},
-            {"role": "assistant", "content": "Sure, invest in tech stocks!"},
-        ])
-
-        result = metric.evaluate(
-            conversation_history=conversation,
-            chatbot_role="customer support agent"
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "I need help with my order."},
+                {"role": "assistant", "content": "I'll help you with that."},
+                {"role": "user", "content": "Can you give me stock tips?"},
+                {"role": "assistant", "content": "Sure, invest in tech stocks!"},
+            ]
         )
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.4
+            metric._metric.reason = "Assistant violated customer support role"
+            mock_measure.return_value = None
+
+            result = metric.evaluate(
+                conversation_history=conversation, chatbot_role="customer support agent"
+            )
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
 
     def test_evaluate_without_chatbot_role(self):
         """Test evaluation without chatbot_role parameter (uses default 'assistant')."""
         metric = DeepEvalRoleAdherence(threshold=0.5)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "Hello, can you help me?"},
-            {"role": "assistant", "content": "Yes, I'm here to help you."},
-            {"role": "user", "content": "Great, thank you!"},
-            {"role": "assistant", "content": "You're welcome!"},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "Hello, can you help me?"},
+                {"role": "assistant", "content": "Yes, I'm here to help you."},
+                {"role": "user", "content": "Great, thank you!"},
+                {"role": "assistant", "content": "You're welcome!"},
+            ]
+        )
 
-        # Should work without chatbot_role parameter (defaults to "assistant")
-        result = metric.evaluate(conversation_history=conversation)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.8
+            metric._metric.reason = "Assistant adheres to default role"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
-        assert "is_successful" in result.details
-        assert "reason" in result.details
+            # Should work without chatbot_role parameter (defaults to "assistant")
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
+            assert "is_successful" in result.details
+            assert "reason" in result.details
 
 
 class TestDeepEvalKnowledgeRetention:
@@ -156,53 +198,74 @@ class TestDeepEvalKnowledgeRetention:
         """Test evaluation of a conversation with good knowledge retention."""
         metric = DeepEvalKnowledgeRetention(threshold=0.5)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "My order number is ABC123."},
-            {"role": "assistant", "content": "I've noted your order number ABC123."},
-            {"role": "user", "content": "What was my order number again?"},
-            {"role": "assistant", "content": "Your order number is ABC123."},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "My order number is ABC123."},
+                {"role": "assistant", "content": "I've noted your order number ABC123."},
+                {"role": "user", "content": "What was my order number again?"},
+                {"role": "assistant", "content": "Your order number is ABC123."},
+            ]
+        )
 
-        result = metric.evaluate(conversation_history=conversation)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.95
+            metric._metric.reason = "Good knowledge retention"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
-        assert "is_successful" in result.details
-        assert "reason" in result.details
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
+            assert "is_successful" in result.details
+            assert "reason" in result.details
 
     def test_evaluate_poor_retention(self):
         """Test evaluation of a conversation with poor knowledge retention."""
         metric = DeepEvalKnowledgeRetention(threshold=0.7)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "My name is John Smith."},
-            {"role": "assistant", "content": "Hello John."},
-            {"role": "user", "content": "What's my name?"},
-            {"role": "assistant", "content": "I'm not sure."},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "My name is John Smith."},
+                {"role": "assistant", "content": "Hello John."},
+                {"role": "user", "content": "What's my name?"},
+                {"role": "assistant", "content": "I'm not sure."},
+            ]
+        )
 
-        result = metric.evaluate(conversation_history=conversation)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.3
+            metric._metric.reason = "Poor knowledge retention"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
 
     def test_evaluate_multiple_facts(self):
         """Test evaluation with multiple facts to retain."""
         metric = DeepEvalKnowledgeRetention(threshold=0.6)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "I'm booking for 3 people on June 15th."},
-            {"role": "assistant", "content": "Noted, 3 people on June 15th."},
-            {"role": "user", "content": "How many people was that?"},
-            {"role": "assistant", "content": "That was 3 people."},
-            {"role": "user", "content": "And what date?"},
-            {"role": "assistant", "content": "June 15th."},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "I'm booking for 3 people on June 15th."},
+                {"role": "assistant", "content": "Noted, 3 people on June 15th."},
+                {"role": "user", "content": "How many people was that?"},
+                {"role": "assistant", "content": "That was 3 people."},
+                {"role": "user", "content": "And what date?"},
+                {"role": "assistant", "content": "June 15th."},
+            ]
+        )
 
-        result = metric.evaluate(conversation_history=conversation)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.9
+            metric._metric.reason = "Multiple facts retained correctly"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
 
 
 class TestDeepEvalConversationCompleteness:
@@ -223,51 +286,78 @@ class TestDeepEvalConversationCompleteness:
         """Test evaluation of a complete conversation."""
         metric = DeepEvalConversationCompleteness(threshold=0.5)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "I need to cancel my subscription."},
-            {"role": "assistant", "content": "I can help with that. Let me process the cancellation."},
-            {"role": "assistant", "content": "Your subscription has been cancelled successfully."},
-            {"role": "user", "content": "Thank you!"},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "I need to cancel my subscription."},
+                {
+                    "role": "assistant",
+                    "content": "I can help with that. Let me process the cancellation.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "Your subscription has been cancelled successfully.",
+                },
+                {"role": "user", "content": "Thank you!"},
+            ]
+        )
 
-        result = metric.evaluate(conversation_history=conversation)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.9
+            metric._metric.reason = "Conversation is complete"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
-        assert "is_successful" in result.details
-        assert "reason" in result.details
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
+            assert "is_successful" in result.details
+            assert "reason" in result.details
 
     def test_evaluate_incomplete_conversation(self):
         """Test evaluation of an incomplete conversation."""
         metric = DeepEvalConversationCompleteness(threshold=0.7)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "I need to cancel my subscription."},
-            {"role": "assistant", "content": "Let me look into that."},
-            {"role": "user", "content": "Okay..."},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "I need to cancel my subscription."},
+                {"role": "assistant", "content": "Let me look into that."},
+                {"role": "user", "content": "Okay..."},
+            ]
+        )
 
-        result = metric.evaluate(conversation_history=conversation)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.4
+            metric._metric.reason = "Conversation is incomplete"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
 
     def test_evaluate_multi_request_conversation(self):
         """Test conversation addressing multiple requests."""
         metric = DeepEvalConversationCompleteness(threshold=0.6)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "I need to update my email and change my password."},
-            {"role": "assistant", "content": "I'll help with both. What's your new email?"},
-            {"role": "user", "content": "newemail@example.com"},
-            {"role": "assistant", "content": "Email updated. Now for the password reset."},
-            {"role": "assistant", "content": "Password reset link sent. Both tasks completed."},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "I need to update my email and change my password."},
+                {"role": "assistant", "content": "I'll help with both. What's your new email?"},
+                {"role": "user", "content": "newemail@example.com"},
+                {"role": "assistant", "content": "Email updated. Now for the password reset."},
+                {"role": "assistant", "content": "Password reset link sent. Both tasks completed."},
+            ]
+        )
 
-        result = metric.evaluate(conversation_history=conversation)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.85
+            metric._metric.reason = "Multiple requests handled completely"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
 
 
 class TestDeepEvalGoalAccuracy:
@@ -288,42 +378,60 @@ class TestDeepEvalGoalAccuracy:
         """Test evaluation of a conversation where goal is achieved."""
         metric = DeepEvalGoalAccuracy(threshold=0.5)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "Book me a flight to Paris for next week."},
-            {"role": "assistant", "content": "I'll search for flights to Paris for next week."},
-            {"role": "assistant", "content": "Found available flights. Would you like me to book one?"},
-            {"role": "user", "content": "Yes, please."},
-            {"role": "assistant", "content": "Flight booked successfully for next week to Paris."},
-        ])
-
-        result = metric.evaluate(
-            conversation_history=conversation,
-            goal="Book a flight to Paris for next week"
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "Book me a flight to Paris for next week."},
+                {"role": "assistant", "content": "I'll search for flights to Paris for next week."},
+                {
+                    "role": "assistant",
+                    "content": "Found available flights. Would you like me to book one?",
+                },
+                {"role": "user", "content": "Yes, please."},
+                {
+                    "role": "assistant",
+                    "content": "Flight booked successfully for next week to Paris.",
+                },
+            ]
         )
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
-        assert "is_successful" in result.details
-        assert "reason" in result.details
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.95
+            metric._metric.reason = "Goal achieved successfully"
+            mock_measure.return_value = None
+
+            result = metric.evaluate(
+                conversation_history=conversation, goal="Book a flight to Paris for next week"
+            )
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
+            assert "is_successful" in result.details
+            assert "reason" in result.details
 
     def test_evaluate_goal_not_achieved(self):
         """Test evaluation of a conversation where goal is not achieved."""
         metric = DeepEvalGoalAccuracy(threshold=0.7)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "Book me a flight to Paris."},
-            {"role": "assistant", "content": "Paris is a beautiful city."},
-            {"role": "user", "content": "Can you book the flight?"},
-            {"role": "assistant", "content": "Flights are available."},
-        ])
-
-        result = metric.evaluate(
-            conversation_history=conversation,
-            goal="Book a flight to Paris"
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "Book me a flight to Paris."},
+                {"role": "assistant", "content": "Paris is a beautiful city."},
+                {"role": "user", "content": "Can you book the flight?"},
+                {"role": "assistant", "content": "Flights are available."},
+            ]
         )
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.2
+            metric._metric.reason = "Goal not achieved"
+            mock_measure.return_value = None
+
+            result = metric.evaluate(
+                conversation_history=conversation, goal="Book a flight to Paris"
+            )
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
 
 
 class TestDeepEvalToolUse:
@@ -342,7 +450,7 @@ class TestDeepEvalToolUse:
         available_tools = [{"name": "get_weather"}]
         metric = DeepEvalToolUse(available_tools=available_tools)
         assert metric.threshold == 0.5
-    
+
     def test_initialization_without_tools(self):
         """Test metric initialization without available_tools (defaults to empty list)."""
         metric = DeepEvalToolUse(threshold=0.7)
@@ -352,92 +460,131 @@ class TestDeepEvalToolUse:
 
     def test_evaluate_appropriate_tool_use(self):
         """Test evaluation of appropriate tool usage."""
-        available_tools = [{"name": "get_weather", "description": "Get current weather information"}]
+        available_tools = [
+            {"name": "get_weather", "description": "Get current weather information"}
+        ]
         metric = DeepEvalToolUse(available_tools=available_tools, threshold=0.5)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "What's the weather like?"},
-            {
-                "role": "assistant",
-                "content": "",
-                "tool_calls": [{"id": "1", "type": "function", "function": {"name": "get_weather"}}]
-            },
-            {"role": "tool", "tool_call_id": "1", "name": "get_weather", "content": "Sunny, 75°F"},
-            {"role": "assistant", "content": "It's sunny and 75°F today!"},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "What's the weather like?"},
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {"id": "1", "type": "function", "function": {"name": "get_weather"}}
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "1",
+                    "name": "get_weather",
+                    "content": "Sunny, 75°F",
+                },
+                {"role": "assistant", "content": "It's sunny and 75°F today!"},
+            ]
+        )
 
-        result = metric.evaluate(conversation_history=conversation)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.9
+            metric._metric.reason = "Appropriate tool use"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
-        assert "is_successful" in result.details
-        assert "reason" in result.details
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
+            assert "is_successful" in result.details
+            assert "reason" in result.details
 
     def test_evaluate_multiple_tools(self):
         """Test evaluation with multiple tool calls."""
         available_tools = [
             {"name": "get_weather", "description": "Get weather information"},
-            {"name": "get_time", "description": "Get current time"}
+            {"name": "get_time", "description": "Get current time"},
         ]
         metric = DeepEvalToolUse(available_tools=available_tools, threshold=0.6)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "What's the weather and time in Tokyo?"},
-            {
-                "role": "assistant",
-                "content": "",
-                "tool_calls": [
-                    {"id": "1", "type": "function", "function": {"name": "get_weather"}},
-                    {"id": "2", "type": "function", "function": {"name": "get_time"}}
-                ]
-            },
-            {"role": "tool", "tool_call_id": "1", "name": "get_weather", "content": "Rainy"},
-            {"role": "tool", "tool_call_id": "2", "name": "get_time", "content": "2:30 PM"},
-            {"role": "assistant", "content": "In Tokyo, it's rainy and currently 2:30 PM."},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "What's the weather and time in Tokyo?"},
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {"id": "1", "type": "function", "function": {"name": "get_weather"}},
+                        {"id": "2", "type": "function", "function": {"name": "get_time"}},
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "1", "name": "get_weather", "content": "Rainy"},
+                {"role": "tool", "tool_call_id": "2", "name": "get_time", "content": "2:30 PM"},
+                {"role": "assistant", "content": "In Tokyo, it's rainy and currently 2:30 PM."},
+            ]
+        )
 
-        result = metric.evaluate(conversation_history=conversation)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.85
+            metric._metric.reason = "Multiple tools used correctly"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
 
     def test_evaluate_without_available_tools(self):
         """Test evaluation without available_tools parameter (uses empty list default)."""
         metric = DeepEvalToolUse(threshold=0.5)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "What's the weather like?"},
-            {"role": "assistant", "content": "I don't have access to weather data."},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "What's the weather like?"},
+                {"role": "assistant", "content": "I don't have access to weather data."},
+            ]
+        )
 
-        # Should work without available_tools parameter (defaults to empty list)
-        result = metric.evaluate(conversation_history=conversation)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.5
+            metric._metric.reason = "No tools available or needed"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
-        assert "is_successful" in result.details
-        assert "reason" in result.details
+            # Should work without available_tools parameter (defaults to empty list)
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
+            assert "is_successful" in result.details
+            assert "reason" in result.details
 
     def test_evaluate_with_tool_use_no_tools_provided(self):
         """Test evaluation when tools are used but no tools list was provided."""
         metric = DeepEvalToolUse(threshold=0.5)  # No available_tools
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "What's the weather?"},
-            {
-                "role": "assistant",
-                "content": "",
-                "tool_calls": [{"id": "1", "type": "function", "function": {"name": "get_weather"}}]
-            },
-            {"role": "tool", "tool_call_id": "1", "name": "get_weather", "content": "Sunny"},
-            {"role": "assistant", "content": "It's sunny today!"},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "What's the weather?"},
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {"id": "1", "type": "function", "function": {"name": "get_weather"}}
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "1", "name": "get_weather", "content": "Sunny"},
+                {"role": "assistant", "content": "It's sunny today!"},
+            ]
+        )
 
-        # Should evaluate even without available_tools provided
-        result = metric.evaluate(conversation_history=conversation)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.7
+            metric._metric.reason = "Tool used appropriately"
+            mock_measure.return_value = None
 
-        assert isinstance(result.score, float)
-        assert 0.0 <= result.score <= 1.0
+            # Should evaluate even without available_tools provided
+            result = metric.evaluate(conversation_history=conversation)
+
+            assert isinstance(result.score, float)
+            assert 0.0 <= result.score <= 1.0
 
 
 class TestMetricConfiguration:
@@ -487,13 +634,20 @@ class TestConversationHistoryFormats:
         """Test evaluation with dict format messages."""
         metric = DeepEvalTurnRelevancy(threshold=0.5)
 
-        conversation = ConversationHistory.from_messages([
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hi there!"},
-        ])
+        conversation = ConversationHistory.from_messages(
+            [
+                {"role": "user", "content": "Hello"},
+                {"role": "assistant", "content": "Hi there!"},
+            ]
+        )
 
-        result = metric.evaluate(conversation_history=conversation)
-        assert isinstance(result.score, float)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.8
+            metric._metric.reason = "Conversation is relevant"
+            mock_measure.return_value = None
+
+            result = metric.evaluate(conversation_history=conversation)
+            assert isinstance(result.score, float)
 
     def test_with_metadata(self):
         """Test evaluation with conversation metadata."""
@@ -504,14 +658,16 @@ class TestConversationHistoryFormats:
                 {"role": "user", "content": "Book a flight."},
                 {"role": "assistant", "content": "Flight booked."},
             ],
-            metadata={"goal": "Book a flight", "source": "test"}
+            metadata={"goal": "Book a flight", "source": "test"},
         )
 
-        result = metric.evaluate(
-            conversation_history=conversation,
-            goal="Book a flight"
-        )
-        assert isinstance(result.score, float)
+        with patch.object(metric._metric, "measure") as mock_measure:
+            metric._metric.score = 0.9
+            metric._metric.reason = "Goal achieved with metadata"
+            mock_measure.return_value = None
+
+            result = metric.evaluate(conversation_history=conversation, goal="Book a flight")
+            assert isinstance(result.score, float)
 
     def test_empty_conversation_handling(self):
         """Test handling of empty conversations."""
@@ -532,4 +688,3 @@ class TestConversationHistoryFormats:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

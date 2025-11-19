@@ -10,29 +10,31 @@ using the `Base` object from the `database` module.
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
+
+# Initialize OpenTelemetry FIRST, before any OpenTelemetry imports
+from rhesis.backend.telemetry import initialize_telemetry
+
+initialize_telemetry()
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from rhesis.backend import __version__
 from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
-from rhesis.backend.app.database import Base, engine
+from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
+from rhesis.backend.local_init import initialize_local_environment
 from rhesis.backend.logging import logger
-from rhesis.backend.telemetry import initialize_telemetry
 from rhesis.backend.telemetry.middleware import TelemetryMiddleware
 
 Base.metadata.create_all(bind=engine)
-
-# Initialize OpenTelemetry
-initialize_telemetry()
 
 # Public routes don't need any authentication
 public_routes = [
@@ -112,15 +114,31 @@ Web browsers handle this automatically.
     return description
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for FastAPI application.
+
+    Handles startup and shutdown events using the modern lifespan approach.
+    Replaces the deprecated @app.on_event("startup") and @app.on_event("shutdown").
+    """
+    # Startup: Initialize local environment if enabled
+    with get_db() as db:
+        initialize_local_environment(db)
+
+    yield  # Application is running
+
+    # Shutdown: Add any cleanup code here if needed in the future
+    pass
+
+
 app = FastAPI(
     title="Rhesis Backend",
     description=get_api_description(),
     version=__version__,
     route_class=AuthenticatedAPIRoute,
+    lifespan=lifespan,
 )
-
-# Instrument FastAPI with OpenTelemetry
-FastAPIInstrumentor.instrument_app(app)
 
 
 # Global exception handler for soft-deleted items
@@ -142,7 +160,9 @@ async def deleted_item_exception_handler(request: Request, exc: ItemDeletedExcep
         "table_name": exc.table_name,
         "restore_url": f"/recycle/{exc.table_name}/{exc.item_id}/restore",
         "can_restore": True,
-        "message": f"This {model_name_lower} has been deleted. You can restore it from the recycle bin.",
+        "message": (
+            f"This {model_name_lower} has been deleted. You can restore it from the recycle bin."
+        ),
     }
 
     # Include item name if available
@@ -173,7 +193,10 @@ async def not_found_item_exception_handler(request: Request, exc: ItemNotFoundEx
         "item_id": exc.item_id,
         "table_name": exc.table_name,
         "list_url": list_url,
-        "message": f"The {model_name_lower} you're looking for doesn't exist or you don't have permission to access it.",
+        "message": (
+            f"The {model_name_lower} you're looking for doesn't exist "
+            "or you don't have permission to access it."
+        ),
     }
 
     return JSONResponse(status_code=404, content=response_content)
@@ -251,6 +274,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
 # Add the middleware to the app
 # app.add_middleware(LoggingMiddleware)
+
 
 # Include routers with custom route class
 for router in routers:

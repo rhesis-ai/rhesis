@@ -1,35 +1,44 @@
-# First stage: Build the application
-FROM node:22-alpine AS builder
+FROM node:22-alpine AS base
 
-# Define ARG for this stage. Default to production if not set.
-ARG FRONTEND_ENV=production
+########################################################
+# First stage: Install dependencies
+########################################################
 
-# Add build dependencies
+# Install dependencies only when needed
+FROM base AS deps
 RUN apk add --no-cache libc6-compat
-
 WORKDIR /app
 
-# Define build arguments only for NEXT_PUBLIC_ variables
-ARG NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai
-ARG NEXT_PUBLIC_APP_URL=https://app.rhesis.ai
-ARG NEXT_PUBLIC_AUTH0_DOMAIN=auth.rhesis.ai
-ARG NEXT_PUBLIC_AUTH0_CLIENT_ID=placeholder-auth0-client-id
-
-# Copy package.json and package-lock.json first to leverage Docker cache
 COPY package.json package-lock.json ./
 
-# Install dependencies with cache mounting for faster builds
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
+
+########################################################
+# Second stage: Build the application
+########################################################
+
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 
 # Copy only necessary files for the build
-COPY tsconfig.json next.config.mjs .eslintrc.json ./
+COPY tsconfig.json next.config.mjs .eslintrc.json package.json package-lock.json ./
 COPY public ./public
 COPY src ./src
 COPY scripts ./scripts
 
 # Remove ALL .env files to ensure they don't override container env vars
 RUN find . -name ".env*" -type f -delete
+
+# Define ARG for this stage. Default to production if not set.
+ARG FRONTEND_ENV=production
+
+# Define build arguments only for NEXT_PUBLIC_ variables
+ARG NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai
+ARG NEXT_PUBLIC_APP_URL=https://app.rhesis.ai
+ARG NEXT_PUBLIC_AUTH0_DOMAIN=auth.rhesis.ai
+ARG NEXT_PUBLIC_AUTH0_CLIENT_ID=placeholder-auth0-client-id
+ARG NEXT_PUBLIC_LOCAL_AUTH_ENABLED=false
 
 # Create a temporary .env file using build arguments for NEXT_PUBLIC_ and direct placeholders for the rest
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
@@ -38,6 +47,7 @@ RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
     echo "NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}" >> .env && \
     echo "NEXT_PUBLIC_AUTH0_DOMAIN=${NEXT_PUBLIC_AUTH0_DOMAIN}" >> .env && \
     echo "NEXT_PUBLIC_AUTH0_CLIENT_ID=${NEXT_PUBLIC_AUTH0_CLIENT_ID}" >> .env && \
+    echo "NEXT_PUBLIC_LOCAL_AUTH_ENABLED=${NEXT_PUBLIC_LOCAL_AUTH_ENABLED}" >> .env && \
     echo "GOOGLE_CLIENT_ID=placeholder-client-id" >> .env && \
     echo "GOOGLE_CLIENT_SECRET=placeholder-client-secret" >> .env && \
     echo "AUTH_SECRET=placeholder-auth-secret" >> .env
@@ -51,7 +61,7 @@ RUN echo "🔍 FRONTEND_ENV value is: '${FRONTEND_ENV}'"
 
 # Build the Next.js application
 #RUN npm run build
-RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ]; then \
+RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ] || [ "$FRONTEND_ENV" = "local" ]; then \
         npm run build; \
     else \
         echo "Skipping build for non-production environment"; \
@@ -61,8 +71,10 @@ RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || 
 # Remove the temporary .env file
 RUN rm -f .env
 
-# Second stage: Run the application
-FROM node:22-alpine AS runner
+########################################################
+# Third stage: Run the application
+########################################################
+FROM base AS runner
 
 # Redefine ARG for this stage
 ARG FRONTEND_ENV=production
@@ -76,33 +88,25 @@ WORKDIR /app
 ENV FRONTEND_ENV=${FRONTEND_ENV}
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy all necessary files from the builder stage
-COPY --from=builder /app/package.json /app/package-lock.json ./
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.mjs ./
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/tsconfig.json ./
-COPY --from=builder /app/.eslintrc.json ./
-# Copy .next directory (will be created during build for production/staging/development or as empty dir for other envs)
-COPY --from=builder /app/.next ./.next
+# Create a non-root user and switch to it
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs && \
+    chown -R nextjs:nodejs /app
+
+COPY --from=builder  /app/public ./public
+COPY --from=builder  /app/.next/standalone ./
+COPY --from=builder  /app/.next/static ./.next/static
+
 # Do NOT copy src, tsconfig.json, .eslintrc.json or any .env files to production image
 # Install dependencies and handle environment-specific setup
-RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ]; then \
+RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ] || [ "$FRONTEND_ENV" = "local" ]; then \
         echo "Production mode detected"; \
-        rm -rf ./src ./tsconfig.json ./.eslintrc.json && \
-        echo "Source files removed for production mode"; \
-        npm ci --only=production --legacy-peer-deps && \
-        npm cache clean --force; \
     else \
         echo "Development mode detected"; \
         echo "Source files kept for development mode"; \
         npm ci --legacy-peer-deps && npm cache clean --force; \
     fi
 
-# Create a non-root user and switch to it
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs && \
-    chown -R nextjs:nodejs /app
 USER nextjs
 
 # EXPOSE uses the default port, but runtime PORT env var will override this
@@ -113,4 +117,4 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
 
 # Start the appropriate server based on FRONTEND_ENV
-CMD ["sh", "-c", "export PORT=${PORT:-3000} && if [ \"$FRONTEND_ENV\" = \"production\" ] || [ \"$FRONTEND_ENV\" = \"staging\" ] || [ \"$FRONTEND_ENV\" = \"development\" ]; then npm start; else npm run dev; fi"]
+CMD ["sh", "-c", "export PORT=${PORT:-3000} && if [ \"$FRONTEND_ENV\" = \"production\" ] || [ \"$FRONTEND_ENV\" = \"staging\" ] || [ \"$FRONTEND_ENV\" = \"development\" ] || [ \"$FRONTEND_ENV\" = \"local\" ]; then node server.js; else npm run dev; fi"]

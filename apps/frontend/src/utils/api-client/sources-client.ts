@@ -48,6 +48,30 @@ export class SourcesClient extends BaseApiClient {
     });
   }
 
+  /**
+   * Create a source from text content (not file upload)
+   * @param title - Title of the source
+   * @param content - Text content of the source
+   * @param description - Optional description
+   * @param metadata - Optional metadata (e.g., MCP server info, URL)
+   * @returns Created source
+   */
+  async createSourceFromContent(
+    title: string,
+    content: string,
+    description?: string,
+    metadata?: Record<string, any>
+  ): Promise<Source> {
+    const sourceData: SourceCreate = {
+      title,
+      content,
+      description,
+      source_metadata: metadata,
+    };
+
+    return this.createSource(sourceData);
+  }
+
   async updateSource(id: UUID, source: SourceUpdate): Promise<Source> {
     return this.fetch<Source>(`${API_ENDPOINTS.sources}/${id}`, {
       method: 'PUT',

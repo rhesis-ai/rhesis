@@ -171,6 +171,7 @@ class TurnExecutor:
                 "success": tool_result.success,
                 "output": tool_result.output,
                 "error": tool_result.error,
+                "metadata": tool_result.metadata,
             }
 
         # Create tool response message (Pydantic)
