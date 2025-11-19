@@ -84,7 +84,7 @@ describe('quick_start', () => {
         'subdomain.rhesis.ai',
         'any.rhesis.ai',
         'test-app.rhesis.ai',
-      ])('should return false for rhesis.ai domain: %s', (hostname) => {
+      ])('should return false for rhesis.ai domain: %s', hostname => {
         const result = isQuickStartEnabled(hostname);
 
         expect(result).toBe(false);
@@ -98,7 +98,7 @@ describe('quick_start', () => {
         'test.local',
         'example.com',
         'myapp.com',
-      ])('should return true for local/non-cloud domain: %s', (hostname) => {
+      ])('should return true for local/non-cloud domain: %s', hostname => {
         const result = isQuickStartEnabled(hostname);
 
         expect(result).toBe(true);
@@ -109,7 +109,7 @@ describe('quick_start', () => {
         'app.cloudrun.dev',
         'service.appspot.com',
         'subdomain.run.app',
-      ])('should return false for Cloud Run domain: %s', (hostname) => {
+      ])('should return false for Cloud Run domain: %s', hostname => {
         const result = isQuickStartEnabled(hostname);
 
         expect(result).toBe(false);
@@ -232,4 +232,3 @@ describe('quick_start', () => {
     });
   });
 });
-
