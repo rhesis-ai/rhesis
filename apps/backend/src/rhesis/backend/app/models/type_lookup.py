@@ -38,6 +38,6 @@ class TypeLookup(Base, OrganizationAndUserMixin):
     tool_types = relationship(
         "Tool", foreign_keys="[Tool.tool_type_id]", back_populates="tool_type"
     )
-    tool_providers = relationship(
-        "Tool", foreign_keys="[Tool.tool_provider_id]", back_populates="tool_provider"
+    tool_provider_types = relationship(
+        "Tool", foreign_keys="[Tool.tool_provider_type_id]", back_populates="tool_provider_type"
     )

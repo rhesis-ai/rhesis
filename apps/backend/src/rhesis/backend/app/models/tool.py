@@ -18,7 +18,7 @@ class Tool(Base, OrganizationAndUserMixin):
 
     # Tool configuration
     tool_type_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=False)
-    tool_provider_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=False)
+    tool_provider_type_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=False)
     status_id = Column(GUID(), ForeignKey("status.id"), nullable=True)
 
     # Authentication (encrypted)
@@ -29,7 +29,7 @@ class Tool(Base, OrganizationAndUserMixin):
 
     # Relationships
     tool_type = relationship("TypeLookup", foreign_keys=[tool_type_id], back_populates="tool_types")
-    tool_provider = relationship(
-        "TypeLookup", foreign_keys=[tool_provider_id], back_populates="tool_providers"
+    tool_provider_type = relationship(
+        "TypeLookup", foreign_keys=[tool_provider_type_id], back_populates="tool_provider_types"
     )
     status = relationship("Status", foreign_keys=[status_id], back_populates="tools")

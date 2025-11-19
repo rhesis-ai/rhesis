@@ -2626,7 +2626,7 @@ def get_tool_by_provider(
     """Get organization's tool by provider type_value (e.g., 'notion', 'github')."""
     return (
         db.query(models.Tool)
-        .join(models.TypeLookup, models.Tool.tool_provider_id == models.TypeLookup.id)
+        .join(models.TypeLookup, models.Tool.tool_provider_type_id == models.TypeLookup.id)
         .filter(
             models.Tool.organization_id == uuid.UUID(organization_id),
             models.TypeLookup.type_value == provider_value,

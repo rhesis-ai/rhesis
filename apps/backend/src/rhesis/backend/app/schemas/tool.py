@@ -15,7 +15,7 @@ class ToolBase(Base):
     name: str
     description: Optional[str] = None
     tool_type_id: UUID4
-    tool_provider_id: UUID4
+    tool_provider_type_id: UUID4
     status_id: Optional[UUID4] = None
     tool_metadata: Optional[Dict[str, Any]] = None
     organization_id: Optional[UUID4] = None
@@ -34,7 +34,7 @@ class ToolUpdate(ToolBase):
 
     name: Optional[str] = None
     tool_type_id: Optional[UUID4] = None
-    tool_provider_id: Optional[UUID4] = None
+    tool_provider_type_id: Optional[UUID4] = None
     auth_token: Optional[str] = None  # Optional - only update if provided, will be re-encrypted
     user_id: Optional[UUID4] = None
 
@@ -55,7 +55,7 @@ class Tool(Base):
     name: str
     description: Optional[str] = None
     tool_type_id: UUID4
-    tool_provider_id: UUID4
+    tool_provider_type_id: UUID4
     status_id: Optional[UUID4] = None
     tool_metadata: Dict[str, Any]
     organization_id: Optional[UUID4] = None
@@ -66,7 +66,7 @@ class Tool(Base):
 
     # Relationships
     tool_type: Optional[TypeLookup] = None
-    tool_provider: Optional[TypeLookup] = None
+    tool_provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
     user: Optional[User] = None
 

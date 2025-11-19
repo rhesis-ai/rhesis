@@ -51,7 +51,7 @@ def _get_mcp_client_by_tool_id(
         raise ValueError(f"Tool '{tool.name}' is not an MCP integration")
 
     # Get provider name for the client naming
-    provider = tool.tool_provider.type_value
+    provider = tool.tool_provider_type.type_value
 
     # Create MCPClientManager with token substitution and get client
     manager = MCPClientManager.from_tool_config(
