@@ -7,6 +7,15 @@ Please make sure you read and understand these instructions carefully.
 CONVERSATION GOAL (what should be achieved):
 {{ goal if goal|trim else "Infer from conversation" }}
 
+{% if instructions %}
+TEST INSTRUCTIONS (how the test should be conducted):
+{{ instructions }}
+
+CRITICAL: The test instructions above specify mandatory requirements (e.g., number of turns, specific messages to send, stopping criteria).
+These instructions are PART OF THE GOAL. If the instructions require N turns, then achieving the goal means completing ALL N turns.
+Stopping early when instructions specify a minimum number of turns is a FAILURE, even if some progress was made.
+{% endif %}
+
 FULL CONVERSATION ({{ turn_count }} turns):
 {{ conversation_text }}
 
