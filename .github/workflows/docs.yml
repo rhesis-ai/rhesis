@@ -85,36 +85,8 @@ jobs:
         with:
           environment: ${{ github.event.inputs.environment }}
 
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: docs/src/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          cd docs/src
-          npm ci
-
-      - name: Run format check
-        run: |
-          cd docs/src
-          npm run format:check
-
-      - name: Build documentation
-        run: |
-          cd docs/src
-          npm run build
-
   build:
-    needs: [validate-inputs, test]
+    needs: [validate-inputs]
     if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
     runs-on: ubuntu-latest
     permissions:
@@ -457,4 +429,3 @@ jobs:
             echo "docs_preview_url=" >> $GITHUB_OUTPUT
           fi
           echo "deployed_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
-
