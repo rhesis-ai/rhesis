@@ -43,8 +43,9 @@ class HuggingFaceLLM(BaseLLM):
         self,
         model_name: str,
         auto_loading: bool = True,
-        default_kwargs: Optional[dict] = None,
+        generate_kwargs: Optional[dict] = None,
         gpu_only: bool = False,
+        load_kwargs: Optional[dict] = None,
     ):
         """
         Initialize the model with the given name and location.
@@ -52,16 +53,18 @@ class HuggingFaceLLM(BaseLLM):
             model_name: The location to pull the model from
             auto_loading: Whether to automatically load the model on initialization.
              If turned off, manual loading is needed. Allows lazy loading.
-            default_kwargs: Default kwargs to pass to generate()
+            generate_kwargs: Default kwargs to pass to generate()
             gpu_only: If True, restrict model to GPU only (no CPU/disk offloading).
              Will raise an error if model doesn't fit in available GPU memory.
+            load_kwargs: Additional kwargs to pass to AutoModelForCausalLM.from_pretrained()
         """
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
 
         self.model_name = model_name
-        self.default_kwargs = default_kwargs
+        self.generate_kwargs = generate_kwargs
         self.gpu_only = gpu_only
+        self.load_kwargs = load_kwargs or {}
 
         self.model = None
         self.tokenizer = None
@@ -115,6 +118,7 @@ class HuggingFaceLLM(BaseLLM):
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
             device_map=device_map,
+            **self.load_kwargs,
         )
 
         self.tokenizer = AutoTokenizer.from_pretrained(
@@ -231,8 +235,8 @@ class HuggingFaceLLM(BaseLLM):
             raise RuntimeError(HUGGINGFACE_MODEL_NOT_LOADED)
 
         # format arguments
-        if self.default_kwargs:
-            kwargs = {**self.default_kwargs, **kwargs}
+        if self.generate_kwargs:
+            kwargs = {**self.generate_kwargs, **kwargs}
 
         # If schema is provided, augment the prompt to request JSON output
         if schema:

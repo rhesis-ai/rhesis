@@ -14,11 +14,12 @@ class Hermes3(HuggingFaceLLM):
         self,
         model_name: str = "NousResearch/Hermes-3-Llama-3.2-3B",
         auto_loading: bool = False,
-        default_kwargs: Optional[dict] = None,
+        generate_kwargs: Optional[dict] = None,
         gpu_only: bool = False,
+        load_kwargs: Optional[dict] = None,
     ):
-        if default_kwargs is None:
-            default_kwargs = {
+        if generate_kwargs is None:
+            generate_kwargs = {
                 "repetition_penalty": 1.1,
                 "temperature": 0.8,
                 "do_sample": True,
@@ -26,6 +27,7 @@ class Hermes3(HuggingFaceLLM):
         super().__init__(
             model_name=model_name,
             auto_loading=auto_loading,
-            default_kwargs=default_kwargs,
+            generate_kwargs=generate_kwargs,
             gpu_only=gpu_only,
+            load_kwargs=load_kwargs,
         )

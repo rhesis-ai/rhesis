@@ -14,12 +14,14 @@ class Dolphin3(HuggingFaceLLM):
         self,
         model_name: str = "dphn/Dolphin3.0-Llama3.2-3B",
         auto_loading: bool = False,
-        default_kwargs: Optional[dict] = None,
+        generate_kwargs: Optional[dict] = None,
         gpu_only: bool = False,
+        load_kwargs: Optional[dict] = None,
     ):
         super().__init__(
             model_name=model_name,
             auto_loading=auto_loading,
-            default_kwargs=default_kwargs,
+            generate_kwargs=generate_kwargs,
             gpu_only=gpu_only,
+            load_kwargs=load_kwargs,
         )

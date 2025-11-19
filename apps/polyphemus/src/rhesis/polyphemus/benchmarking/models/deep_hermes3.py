@@ -14,11 +14,12 @@ class DeepHermes3(HuggingFaceLLM):
         self,
         model_name: str = "NousResearch/DeepHermes-3-Llama-3-3B-Preview",
         auto_loading: bool = False,
-        default_kwargs: Optional[dict] = None,
+        generate_kwargs: Optional[dict] = None,
         gpu_only: bool = False,
+        load_kwargs: Optional[dict] = None,
     ):
-        if default_kwargs is None:
-            default_kwargs = {
+        if generate_kwargs is None:
+            generate_kwargs = {
                 "max_new_tokens": 4096,
                 "repetition_penalty": 1.1,
                 "temperature": 0.8,
@@ -27,6 +28,7 @@ class DeepHermes3(HuggingFaceLLM):
         super().__init__(
             model_name=model_name,
             auto_loading=auto_loading,
-            default_kwargs=default_kwargs,
+            generate_kwargs=generate_kwargs,
             gpu_only=gpu_only,
+            load_kwargs=load_kwargs,
         )
