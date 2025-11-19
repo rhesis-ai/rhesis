@@ -366,10 +366,9 @@ def display_custom_tools_results(result, test_name: str):
     print(f"Turns Used: {result.turns_used}")
 
     # Count custom tool usage
+    custom_tool_names = ["verify_database_state", "check_api_metrics", "scan_for_security_issues"]
     custom_tool_calls = [
-        turn
-        for turn in result.history
-        if turn.action in ["verify_database_state", "check_api_metrics", "scan_for_security_issues"]
+        turn for turn in result.history if turn.target_interaction.tool_name in custom_tool_names
     ]
 
     print("\nCustom Tool Usage:")
@@ -379,12 +378,14 @@ def display_custom_tools_results(result, test_name: str):
     if custom_tool_calls:
         print("\n  Tool Calls:")
         for turn in custom_tool_calls[:5]:  # Show first 5
-            output = turn.action_output.get("output", {})
-            print(f"    - Turn {turn.turn_number}: {turn.action}")
-            if isinstance(output, dict):
-                # Show key results
-                for key, value in list(output.items())[:3]:
-                    print(f"        {key}: {value}")
+            tool_result = turn.target_interaction.tool_result
+            if isinstance(tool_result, dict):
+                output = tool_result.get("output", {})
+                print(f"    - Turn {turn.turn_number}: {turn.target_interaction.tool_name}")
+                if isinstance(output, dict):
+                    # Show key results
+                    for key, value in list(output.items())[:3]:
+                        print(f"        {key}: {value}")
 
 
 def main():
