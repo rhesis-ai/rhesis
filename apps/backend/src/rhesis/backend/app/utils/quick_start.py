@@ -53,17 +53,10 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
     if hostname:
         hostname_lower = hostname.lower()
 
-        # Specific Rhesis cloud domains
-        rhesis_cloud_domains = [
-            "app.rhesis.ai",
-            "dev-app.rhesis.ai",
-            "stg-app.rhesis.ai",
-            "api.rhesis.ai",
-            "dev-api.rhesis.ai",
-            "stg-api.rhesis.ai",
-            "rhesis.ai",
-            "rhesis.app",
-        ]
+        # Check for Rhesis cloud domains (any domain containing rhesis.ai)
+        if "rhesis.ai" in hostname_lower:
+            logger.warning(f" Quick Start disabled: Cloud hostname detected ({hostname})")
+            return False
 
         # Google Cloud Run domains
         cloud_run_domains = [
@@ -71,12 +64,6 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
             ".cloudrun.dev",
             ".appspot.com",
         ]
-
-        # Check for Rhesis cloud domains
-        for cloud_domain in rhesis_cloud_domains:
-            if cloud_domain in hostname_lower:
-                logger.warning(f" Quick Start disabled: Cloud hostname detected ({hostname})")
-                return False
 
         # Check for Cloud Run domains
         for cloud_domain in cloud_run_domains:
@@ -87,21 +74,12 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
     # 3. HTTP HEADERS CHECKS - Fail if cloud headers detected
     if headers:
         # Check for Rhesis cloud domains in Host header
+        # (any domain containing rhesis.ai)
         host = headers.get("host", headers.get("Host", "")).lower()
         if host:
-            rhesis_cloud_domains = [
-                "app.rhesis.ai",
-                "dev-app.rhesis.ai",
-                "stg-app.rhesis.ai",
-                "api.rhesis.ai",
-                "dev-api.rhesis.ai",
-                "stg-api.rhesis.ai",
-            ]
-
-            for cloud_domain in rhesis_cloud_domains:
-                if cloud_domain in host:
-                    logger.warning(f" Quick Start disabled: Cloud Host header detected ({host})")
-                    return False
+            if "rhesis.ai" in host:
+                logger.warning(f" Quick Start disabled: Cloud Host header detected ({host})")
+                return False
 
         # Check for X-Forwarded-Host (proxy/load balancer indicator)
         forwarded_host = headers.get("x-forwarded-host", headers.get("X-Forwarded-Host", ""))

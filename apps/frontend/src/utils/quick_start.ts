@@ -47,30 +47,16 @@ export function isQuickStartEnabled(hostname?: string): boolean {
   if (checkHostname) {
     const hostnameLower = checkHostname.toLowerCase();
 
-    // Specific Rhesis cloud domains
-    const rhesisCloudDomains = [
-      'app.rhesis.ai',
-      'dev-app.rhesis.ai',
-      'stg-app.rhesis.ai',
-      'api.rhesis.ai',
-      'dev-api.rhesis.ai',
-      'stg-api.rhesis.ai',
-      'rhesis.ai',
-      'rhesis.app',
-    ];
+    // Check for Rhesis cloud domains (any domain containing rhesis.ai)
+    if (hostnameLower.includes('rhesis.ai')) {
+      console.warn(
+        ` Quick Start disabled: Cloud hostname detected (${checkHostname})`
+      );
+      return false;
+    }
 
     // Google Cloud Run domains
     const cloudRunDomains = ['.run.app', '.cloudrun.dev', '.appspot.com'];
-
-    // Check for Rhesis cloud domains
-    for (const cloudDomain of rhesisCloudDomains) {
-      if (hostnameLower.includes(cloudDomain)) {
-        console.warn(
-          ` Quick Start disabled: Cloud hostname detected (${checkHostname})`
-        );
-        return false;
-      }
-    }
 
     // Check for Cloud Run domains
     for (const cloudDomain of cloudRunDomains) {

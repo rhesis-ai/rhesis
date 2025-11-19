@@ -318,11 +318,11 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
     """
     Quick Start mode authentication endpoint.
 
-    ⚠️ WARNING: This endpoint is for QUICK START / LOCAL DEVELOPMENT ONLY!
+    ⚠️ WARNING: This endpoint is for QUICK START ONLY!
     It bypasses Auth0 and logs in as the default admin@local.dev user.
 
     This endpoint uses multi-factor detection to ensure it only works when
-    QUICK_START=true AND all deployment signals confirm local development.
+    QUICK_START=true AND all deployment signals confirm local deployment.
     """
     from rhesis.backend.app import crud
     from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
@@ -337,7 +337,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
                 "Quick Start mode is not enabled. "
-                "This endpoint is only available in Quick Start / local development mode."
+                "This endpoint is only available in Quick Start / local deployment."
             ),
         )
 
@@ -345,15 +345,15 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
     logger.warning("⚠️  This should NEVER be used in production!")
 
     try:
-        # Find the local development user
+        # Find the QUICK START MODE  user
         user = crud.get_user_by_email(db, "admin@local.dev")
 
         if not user:
-            logger.error("Local development user (admin@local.dev) not found in database")
+            logger.error("QUICK START MODE user (admin@local.dev) not found in database")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=(
-                    "Local development user not found. "
+                    "QUICK START MODE user not found. "
                     "Please ensure the database was initialized with init_local_user.sql"
                 ),
             )
@@ -362,7 +362,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
         request.session["user_id"] = str(user.id)
         session_token = create_session_token(user)
 
-        logger.info(f"Local development login successful for user: {user.email}")
+        logger.info(f"QUICK START MODE login successful for user: {user.email}")
 
         # Track login activity if telemetry is enabled
         if is_telemetry_enabled():
@@ -388,14 +388,14 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
                 "name": user.name,
                 "organization_id": str(user.organization_id) if user.organization_id else None,
             },
-            "message": "⚠️  Local development login - Not for production use!",
+            "message": "⚠️  QUICK START MODE login - Not for production use!",
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Local login error: {str(e)}", exc_info=True)
+        logger.error(f"QUICK START MODE login error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Local login failed: {str(e)}",
+            detail=f"QUICK START MODE login failed: {str(e)}",
         )
