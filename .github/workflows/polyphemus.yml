@@ -174,18 +174,23 @@ jobs:
           fi
 
   deploy:
+    # Note: When deploy_only is true, build job is skipped, but GitHub Actions treats skipped jobs
+    # as successful for dependency purposes, so deploy can still run. However, we must handle
+    # missing build outputs gracefully with fallbacks.
     needs: [validate-inputs, build]
     if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+    # Use fallback when build is skipped (deploy_only=true)
+    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment || 'dev' }}
 
     env:
-      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+      # Use fallback when build is skipped (deploy_only=true)
+      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment || 'dev' }}
       # When deploy_only is true, build is skipped, so we need fallbacks
-      IS_PREVIEW: ${{ needs.build.outputs.is_preview || (inputs.preview == 'true' || github.event.inputs.preview == 'true') }}
+      IS_PREVIEW: ${{ needs.build.outputs.is_preview || (inputs.preview == 'true' || github.event.inputs.preview == 'true') || false }}
 
     outputs:
       deployed_url_encoded: ${{ steps.output_url.outputs.deployed_url_encoded }}

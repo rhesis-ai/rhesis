@@ -76,4 +76,5 @@ EXPOSE 8080
 USER appuser
 
 # Start the FastAPI app using Gunicorn with optimized settings
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--timeout", "3600", "--worker-class", "uvicorn.workers.UvicornWorker", "polyphemus.main:app", "--preload"]
+# Module path is rhesis.polyphemus.main:app (package structure is rhesis.polyphemus)
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--timeout", "3600", "--worker-class", "uvicorn.workers.UvicornWorker", "rhesis.polyphemus.main:app", "--preload"]
