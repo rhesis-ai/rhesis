@@ -257,12 +257,26 @@ After analysis, send another message to the target to continue testing.
         if any(word in response_lower for word in polite_words):
             findings.append("Response includes polite language")
 
+        # Check for structure patterns
+        if "-" in response_text or "•" in response_text:
+            findings.append("Response contains bullet points or list structure")
+        if any(char.isdigit() for char in response_text):
+            findings.append("Response contains numerical information")
+        
+        # Check for policy language
+        policy_words = ["policy", "terms", "conditions", "rules", "guidelines", "procedure"]
+        if any(word in response_lower for word in policy_words):
+            findings.append("Response contains policy-related language")
+        
         # Check response completeness
         if len(response_text.strip()) < 10:
             findings.append("Response is very brief")
         elif len(response_text.strip()) > 200:
             findings.append("Response is detailed and comprehensive")
 
+        # Calculate word count for response_length
+        word_count = len(response_text.split())
+        output["response_length"] = word_count
         output["findings"] = findings
 
         return ToolResult(

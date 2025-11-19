@@ -273,9 +273,13 @@ class TurnExecutor:
             action_name = tool_call_data.get("tool_name", "")
             params_obj = tool_call_data.get("parameters", {})
 
-            # Fix common tool name mistakes
+            # Fix common tool name mistakes and document them
             if action_name == "send_message":
                 logger.warning("Correcting 'send_message' to 'send_message_to_target'")
+                state.add_finding(
+                    f"LLM used invalid tool name 'send_message' - corrected to 'send_message_to_target'. "
+                    f"This indicates the LLM may not be following tool documentation properly."
+                )
                 action_name = "send_message_to_target"
                 tool_call_data["tool_name"] = "send_message_to_target"
 
