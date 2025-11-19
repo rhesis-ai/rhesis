@@ -96,14 +96,22 @@ class InferenceEngine:
             }
 
             # Run the blocking generate call in a thread pool to avoid blocking the event loop
+            # Capture both response and metadata atomically to avoid race conditions
+            # with concurrent requests sharing the same singleton LLM instance
+            def generate_with_metadata():
+                response = self.llm.generate(prompt=prompt, system_prompt=system_prompt, **kwargs)
+                # Capture metadata immediately after generation, before any other
+                # concurrent request can overwrite it
+                metadata = getattr(self.llm, "last_generation_metadata", {})
+                return response, metadata
+
             loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
+            response, metadata = await loop.run_in_executor(
                 InferenceEngine._executor,
-                lambda: self.llm.generate(prompt=prompt, system_prompt=system_prompt, **kwargs),
+                generate_with_metadata,
             )
 
-            # Get metadata if available
-            metadata = getattr(self.llm, "last_generation_metadata", {})
+            # Extract metadata values (already captured, safe from race conditions)
             generation_time = metadata.get("generation_time_seconds", 0.0)
             output_tokens = metadata.get("output_tokens", len(response.split()))
 

@@ -84,8 +84,8 @@ jobs:
       SERVICE: polyphemus
 
     outputs:
-      image_name: ${{ steps.set_env.outputs.image_name }}
-      service_name: ${{ steps.set_env.outputs.service_name }}
+      image_name: ${{ steps.setup_service_env.outputs.image-name }}
+      service_name: ${{ steps.setup_service_env.outputs.service-name }}
       environment: ${{ env.ENVIRONMENT }}
       commit_sha: ${{ steps.set_env.outputs.commit_sha }}
       is_preview: ${{ steps.set_env.outputs.is_preview }}
@@ -137,6 +137,7 @@ jobs:
           echo "🔍 Preview deployment mode: $IS_PREVIEW"
 
       - name: Setup service environment
+        id: setup_service_env
         uses: ./.github/actions/setup-service-env
         with:
           environment: ${{ env.ENVIRONMENT }}
@@ -241,6 +242,63 @@ jobs:
           environment: ${{ env.ENVIRONMENT }}
           service-type: polyphemus
           project-id: ${{ secrets.PROJECT_ID }}
+
+      - name: Set service name and image name
+        run: |
+          # The setup-service-env action should have set SERVICE_NAME, IMAGE_NAME, and ENV_DISPLAY via GITHUB_ENV
+          # If not set, try to get from build job outputs (when build ran) or compute directly
+          if [ -z "$SERVICE_NAME" ]; then
+            if [ -n "${{ needs.build.outputs.service_name }}" ]; then
+              SERVICE_NAME="${{ needs.build.outputs.service_name }}"
+            else
+              # Compute service name directly (fallback when deploy_only=true and build is skipped)
+              if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+                SERVICE_NAME="rhesis-polyphemus"
+              else
+                SERVICE_NAME="rhesis-polyphemus-${{ env.ENVIRONMENT }}"
+              fi
+            fi
+            echo "SERVICE_NAME=$SERVICE_NAME" >> $GITHUB_ENV
+          fi
+          
+          if [ -z "$IMAGE_NAME" ]; then
+            if [ -n "${{ needs.build.outputs.image_name }}" ]; then
+              IMAGE_NAME="${{ needs.build.outputs.image_name }}"
+            else
+              # Compute image name directly (fallback when deploy_only=true and build is skipped)
+              if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+                IMAGE_NAME="gcr.io/${{ secrets.PROJECT_ID }}/rhesis-polyphemus"
+              else
+                IMAGE_NAME="gcr.io/${{ secrets.PROJECT_ID }}/rhesis-polyphemus-${{ env.ENVIRONMENT }}"
+              fi
+            fi
+            echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          fi
+          
+          # Set ENV_DISPLAY if not already set by setup-service-env action
+          if [ -z "$ENV_DISPLAY" ]; then
+            if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+              ENV_DISPLAY="PRODUCTION"
+            elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
+              ENV_DISPLAY="STAGING"
+            else
+              ENV_DISPLAY="DEVELOPMENT"
+            fi
+            echo "ENV_DISPLAY=$ENV_DISPLAY" >> $GITHUB_ENV
+          fi
+          
+          # Verify they are set (fail fast if not)
+          if [ -z "$SERVICE_NAME" ] || [ -z "$IMAGE_NAME" ] || [ -z "$ENV_DISPLAY" ]; then
+            echo "❌ Error: SERVICE_NAME, IMAGE_NAME, or ENV_DISPLAY is not set"
+            echo "SERVICE_NAME: $SERVICE_NAME"
+            echo "IMAGE_NAME: $IMAGE_NAME"
+            echo "ENV_DISPLAY: $ENV_DISPLAY"
+            exit 1
+          fi
+          
+          echo "✅ Service name: $SERVICE_NAME"
+          echo "✅ Image name: $IMAGE_NAME"
+          echo "✅ Environment display: $ENV_DISPLAY"
 
       - name: Deploy to Cloud Run with GPU
         id: deploy
