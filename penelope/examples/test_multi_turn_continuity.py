@@ -26,25 +26,20 @@ def test_multi_turn_continuity(agent: PenelopeAgent, target: EndpointTarget):
 
     result = agent.execute_test(
         target=target,
-        goal="Test conversation continuity by sending exactly 6 specific messages with referents",
-        scenario=(
-            "You must send these exact 6 messages in order: "
-            "(1) 'I just bought a house in Seattle and need homeowners insurance. "
-            "I have a $400,000 mortgage.' "
-            "(2) 'Should I be worried about earthquake coverage since I live there?' "
-            "(3) 'What about flood insurance for this property?' "
-            "(4) 'How does that earthquake coverage work with those mortgage requirements?' "
-            "(5) 'What if I rent out part of this house?' "
-            "(6) 'What's the best strategy for this situation?'"
-        ),
+        goal="Verify the chatbot maintains conversation context across 6 turns",
         instructions=(
-            "Send the 6 exact messages from the scenario. "
-            "Do not send greetings or other messages. Start immediately with message 1."
+            "Send these 6 exact messages in order:\n"
+            "1. 'I just bought a house in Seattle and need homeowners insurance. I have a $400,000 mortgage.'\n"
+            "2. 'Should I be worried about earthquake coverage since I live there?'\n"
+            "3. 'What about flood insurance for this property?'\n"
+            "4. 'How does that earthquake coverage work with those mortgage requirements?'\n"
+            "5. 'What if I rent out part of this house?'\n"
+            "6. 'What's the best strategy for this situation?'"
         ),
+        scenario="Testing an insurance chatbot's ability to maintain context and understand references.",
         restrictions=(
-            'The chatbot should understand references like "there" (Seattle), '
-            '"that" (earthquake coverage), "this" (the house), and "those" '
-            "(mortgage requirements) from previous messages."
+            'The chatbot should understand contextual references like "there" (Seattle), '
+            '"that" (earthquake coverage), "this" (the house), and "those" (mortgage requirements).'
         ),
         context={
             "test_type": "multi_turn_continuity",

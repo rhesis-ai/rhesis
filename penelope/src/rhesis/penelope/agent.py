@@ -347,16 +347,21 @@ class PenelopeAgent:
         """
         return DEFAULT_INSTRUCTIONS_TEMPLATE.render(goal=goal)
 
-    def _create_stopping_conditions(self) -> List[StoppingCondition]:
+    def _create_stopping_conditions(
+        self, instructions: Optional[str] = None
+    ) -> List[StoppingCondition]:
         """
         Create stopping conditions for the test.
+
+        Args:
+            instructions: Optional test instructions to check for minimum turn requirements
 
         Returns:
             List of StoppingCondition instances
         """
         conditions = [
             MaxIterationsCondition(self.max_iterations),
-            GoalAchievedCondition(),  # Will be updated with progress
+            GoalAchievedCondition(instructions=instructions),  # Will be updated with progress
         ]
 
         if self.timeout_seconds:
@@ -531,8 +536,8 @@ class PenelopeAgent:
 
         logger.info(f"=== AGENT: System prompt created, length: {len(system_prompt)} chars ===")
 
-        # Create stopping conditions
-        conditions = self._create_stopping_conditions()
+        # Create stopping conditions (pass instructions for turn count validation)
+        conditions = self._create_stopping_conditions(instructions=instructions)
 
         # Main agent loop
         logger.info(f"Starting test execution: {instructions[:100]}...")
