@@ -132,7 +132,7 @@ class HuggingFaceLLM(BaseLLM):
             # If gpu_only, verify no layers were offloaded to CPU/disk
             if self.gpu_only:
                 offloaded_devices = set(self.model.hf_device_map.values())
-                non_gpu_devices = [d for d in offloaded_devices if not str(d).startswith("cuda")]
+                non_gpu_devices = [d for d in offloaded_devices if str(d) == "cpu"]
                 if non_gpu_devices:
                     raise RuntimeError(
                         f"gpu_only=True but model has layers offloaded to: {non_gpu_devices}. "
