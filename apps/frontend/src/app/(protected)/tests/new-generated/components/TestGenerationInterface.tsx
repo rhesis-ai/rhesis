@@ -330,7 +330,7 @@ export default function TestGenerationInterface({
 
     fetchResponses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEndpointId, session?.session_token, localTestSamples.length]);
+  }, [selectedEndpointId, session?.session_token, localTestSamples.length, processedSampleIds.size]);
 
   const handleSendMessage = useCallback(() => {
     if (inputMessage.trim()) {
