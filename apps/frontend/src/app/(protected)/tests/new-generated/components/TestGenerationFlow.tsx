@@ -257,20 +257,22 @@ export default function TestGenerationFlow({
           project_id: projectId || undefined,
         });
 
-        // Step 2: Create chips from config response (5 active, 5 inactive)
+        // Step 2: Create chips from config response
         const createChipsFromArray = (
-          items: Array<{ name: string; description: string }> | undefined,
+          items:
+            | Array<{ name: string; description: string; active: boolean }>
+            | undefined,
           colorVariant: 'blue' | 'purple' | 'orange' | 'green'
         ): ChipConfig[] => {
           if (!items || !Array.isArray(items)) {
             return [];
           }
-          return items.map((item, index) => {
+          return items.map(item => {
             return {
               id: item.name.toLowerCase().replace(/\s+/g, '-'),
               label: item.name,
               description: item.description,
-              active: index < 5, // First 5 are active
+              active: item.active,
               colorVariant,
             };
           });
@@ -596,20 +598,22 @@ export default function TestGenerationFlow({
           ],
         });
 
-        // Step 2: Create chips from config response (5 active, 5 inactive)
+        // Step 2: Create chips from config response
         const createChipsFromArray = (
-          items: Array<{ name: string; description: string }> | undefined,
+          items:
+            | Array<{ name: string; description: string; active: boolean }>
+            | undefined,
           colorVariant: 'blue' | 'purple' | 'orange' | 'green'
         ): ChipConfig[] => {
           if (!items || !Array.isArray(items)) {
             return [];
           }
-          return items.map((item, index) => {
+          return items.map(item => {
             return {
               id: item.name.toLowerCase().replace(/\s+/g, '-'),
               label: item.name,
               description: item.description,
-              active: index < 5, // First 5 are active
+              active: item.active,
               colorVariant,
             };
           });
