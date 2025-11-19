@@ -52,7 +52,7 @@ class TestToolAvailability:
 
     def test_system_prompt_includes_tool_names(self, mock_model, mock_target):
         """Test that system prompt includes all available tool names."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=1)
+        agent = PenelopeAgent(model=mock_model, max_iterations=2)  # Allow at least one turn
 
         # Execute a test
         agent.execute_test(
@@ -62,10 +62,16 @@ class TestToolAvailability:
         )
 
         # Verify model.generate was called
-        assert mock_model.generate.called
-
-        # Get the system prompt from the call (use kwargs)
-        call_kwargs = mock_model.generate.call_args.kwargs
+        assert mock_model.generate.called, "model.generate was not called"
+        
+        # Get the FIRST call (from executor, not from metric evaluation)
+        # call_args_list[0] is the first call, call_args is the last call
+        first_call = mock_model.generate.call_args_list[0]
+        call_kwargs = first_call.kwargs
+        
+        assert "system_prompt" in call_kwargs, (
+            f"system_prompt not in first call kwargs. Available keys: {list(call_kwargs.keys())}"
+        )
         system_prompt = call_kwargs["system_prompt"]
 
         # Verify all default tool names are in the system prompt
@@ -81,7 +87,7 @@ class TestToolAvailability:
 
     def test_system_prompt_includes_tool_descriptions(self, mock_model, mock_target):
         """Test that system prompt includes tool descriptions."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=1)
+        agent = PenelopeAgent(model=mock_model, max_iterations=2)
 
         agent.execute_test(
             target=mock_target,
@@ -89,8 +95,9 @@ class TestToolAvailability:
             instructions="Test instructions",
         )
 
-        call_kwargs = mock_model.generate.call_args.kwargs
-        system_prompt = call_kwargs["system_prompt"]
+        # Get the FIRST call (from executor)
+        first_call = mock_model.generate.call_args_list[0]
+        system_prompt = first_call.kwargs["system_prompt"]
 
         # Verify tool descriptions are included (check for key phrases from tool descriptions)
         assert "Send a message to the test target" in system_prompt, (
@@ -102,7 +109,7 @@ class TestToolAvailability:
 
     def test_system_prompt_not_empty_for_tools(self, mock_model, mock_target):
         """Test that available_tools parameter is not empty."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=1)
+        agent = PenelopeAgent(model=mock_model, max_iterations=2)
 
         with patch("rhesis.penelope.agent.get_system_prompt") as mock_get_prompt:
             mock_get_prompt.return_value = "Test prompt"
@@ -130,7 +137,7 @@ class TestToolAvailability:
 
     def test_tool_documentation_format(self, mock_model, mock_target):
         """Test that tool documentation is properly formatted."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=1)
+        agent = PenelopeAgent(model=mock_model, max_iterations=2)
 
         agent.execute_test(
             target=mock_target,
@@ -138,8 +145,9 @@ class TestToolAvailability:
             instructions="Test instructions",
         )
 
-        call_kwargs = mock_model.generate.call_args.kwargs
-        system_prompt = call_kwargs["system_prompt"]
+        # Get the FIRST call (from executor)
+        first_call = mock_model.generate.call_args_list[0]
+        system_prompt = first_call.kwargs["system_prompt"]
 
         # Verify markdown formatting for tools
         assert "### send_message_to_target" in system_prompt, (
@@ -163,7 +171,7 @@ class TestToolAvailability:
                 return ToolResult(success=True, output={}, error=None)
 
         custom_tool = CustomTool()
-        agent = PenelopeAgent(model=mock_model, tools=[custom_tool], max_iterations=1)
+        agent = PenelopeAgent(model=mock_model, tools=[custom_tool], max_iterations=2)
 
         agent.execute_test(
             target=mock_target,
@@ -171,8 +179,9 @@ class TestToolAvailability:
             instructions="Test instructions",
         )
 
-        call_kwargs = mock_model.generate.call_args.kwargs
-        system_prompt = call_kwargs["system_prompt"]
+        # Get the FIRST call (from executor)
+        first_call = mock_model.generate.call_args_list[0]
+        system_prompt = first_call.kwargs["system_prompt"]
 
         # Verify custom tool is included
         assert "custom_test_tool" in system_prompt, (
