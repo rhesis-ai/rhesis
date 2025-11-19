@@ -94,12 +94,7 @@ class TestMetricScopeUtils:
 class TestMetricWithScope:
     """Tests for metrics with scope functionality."""
 
-    @pytest.fixture
-    def setup_env(self):
-        """Set up test environment."""
-        pass
-
-    def test_numeric_judge_with_metric_scope(self, setup_env):
+    def test_numeric_judge_with_metric_scope(self):
         """Test NumericJudge with metric_scope."""
         with patch("rhesis.sdk.models.factory.get_model") as mock_get_model:
             mock_model = Mock()
@@ -115,7 +110,7 @@ class TestMetricWithScope:
 
             assert metric.metric_scope == [MetricScope.SINGLE_TURN]
 
-    def test_numeric_judge_to_config_includes_metric_scope(self, setup_env):
+    def test_numeric_judge_to_config_includes_metric_scope(self):
         """Test that NumericJudge.to_config() includes metric_scope."""
         with patch("rhesis.sdk.models.factory.get_model") as mock_get_model:
             mock_model = Mock()
@@ -137,13 +132,8 @@ class TestMetricWithScope:
 class TestMetricScopePushPull:
     """Tests for push/pull operations with metric scope."""
 
-    @pytest.fixture
-    def setup_env(self):
-        """Set up test environment."""
-        pass
-
     @patch("rhesis.sdk.metrics.providers.native.serialization.Client")
-    def test_push_metric_with_scope(self, mock_client_class, setup_env):
+    def test_push_metric_with_scope(self, mock_client_class):
         """Test pushing a metric with metric_scope."""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
@@ -173,7 +163,7 @@ class TestMetricScopePushPull:
             assert sent_config["metric_scope"] == ["Single-Turn", "Multi-Turn"]
 
     @patch("rhesis.sdk.metrics.providers.native.serialization.Client")
-    def test_pull_metric_with_scope(self, mock_client_class, setup_env):
+    def test_pull_metric_with_scope(self, mock_client_class):
         """Test pulling a metric with metric_scope."""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
