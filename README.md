@@ -217,22 +217,22 @@ We review PRs regularly and maintain a welcoming environment through our code of
 
 ## 🔒 Security & Privacy
 
-We take data security and privacy seriously. Please refer to our [Privacy Policy](https://rhesis.ai/privacy-policy) for more information.
+We take data security and privacy seriously. For further details, please refer to our [Privacy Policy](https://rhesis.ai/privacy-policy).
 
 ### Telemetry
 
-Rhesis automatically reports basic usage statistics from both cloud platform users and self-hosted instances.
+Rhesis automatically collects basic usage statistics from both cloud platform users and self-hosted instances.
 
-This helps us to:
+This information enables us to:
 
-1. Understand how Rhesis is used and improve the most relevant features.
-2. Track overall usage for internal and external (e.g. fundraising) reporting.
+1. Understand how Rhesis is used and enhance the most relevant features.
+2. Monitor overall usage for internal purposes and external reporting.
 
-None of the data is shared with third parties and does not include any sensitive information. For detailed information about what data is collected and privacy protections, see the [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
+No collected data is shared with third parties, nor does it include any sensitive information. For a detailed description of the data collected and the associated privacy safeguards, please see the [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
 
 **Opt-out:**
 
-For self-hosted deployments, you can opt-out by setting `OTEL_RHESIS_TELEMETRY_ENABLED=false` in your environment variables.
+For self-hosted deployments, telemetry can be disabled by setting the environment variable `OTEL_RHESIS_TELEMETRY_ENABLED=false`.
 
 For cloud deployments, telemetry is always enabled as part of the Terms & Conditions agreement.
 
