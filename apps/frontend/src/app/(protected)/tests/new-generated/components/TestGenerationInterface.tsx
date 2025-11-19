@@ -115,7 +115,20 @@ export default function TestGenerationInterface({
   useEffect(() => {
     if (testSamples.length === 0) {
       setLocalTestSamples([]);
+      setProcessedSampleIds(new Set());
       return;
+    }
+
+    // Check if sample IDs have changed (samples were regenerated)
+    const newSampleIds = new Set(testSamples.map(s => s.id));
+    const existingSampleIds = new Set(localTestSamples.map(s => s.id));
+    const sampleIdsChanged = 
+      testSamples.length !== localTestSamples.length ||
+      testSamples.some(s => !existingSampleIds.has(s.id));
+
+    // If sample IDs changed, reset processed IDs to trigger endpoint fetch
+    if (sampleIdsChanged && selectedEndpointId) {
+      setProcessedSampleIds(new Set());
     }
 
     // Create a map of existing samples with responses
@@ -142,7 +155,7 @@ export default function TestGenerationInterface({
     });
 
     setLocalTestSamples(mergedSamples);
-  }, [testSamples]);
+  }, [testSamples, selectedEndpointId]);
 
   // Load endpoint information when selectedEndpointId changes
   useEffect(() => {
