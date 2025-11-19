@@ -74,12 +74,12 @@ describe('quick_start', () => {
       });
 
       it.each([
-        'app.rhesis.ai',
-        'dev-app.rhesis.ai',
-        'stg-app.rhesis.ai',
-        'api.rhesis.ai',
-        'dev-api.rhesis.ai',
-        'stg-api.rhesis.ai',
+        'example-app.rhesis.ai',
+        'test-dev.rhesis.ai',
+        'sample-stg.rhesis.ai',
+        'demo-api.rhesis.ai',
+        'test-dev-api.rhesis.ai',
+        'sample-stg-api.rhesis.ai',
         'rhesis.ai',
         'subdomain.rhesis.ai',
         'any.rhesis.ai',
@@ -134,7 +134,7 @@ describe('quick_start', () => {
 
       it('should detect rhesis.ai from window.location.hostname', () => {
         Object.defineProperty(window, 'location', {
-          value: { hostname: 'app.rhesis.ai' },
+          value: { hostname: 'example-app.rhesis.ai' },
           writable: true,
         });
 
@@ -180,7 +180,7 @@ describe('quick_start', () => {
       });
 
       it('should detect rhesis.ai even with port', () => {
-        const result = isQuickStartEnabled('app.rhesis.ai:443');
+        const result = isQuickStartEnabled('example-app.rhesis.ai:443');
 
         expect(result).toBe(false);
       });
@@ -193,7 +193,7 @@ describe('quick_start', () => {
       });
 
       it('should detect rhesis.ai as part of larger domain', () => {
-        const result = isQuickStartEnabled('subdomain.app.rhesis.ai');
+        const result = isQuickStartEnabled('subdomain.example-app.rhesis.ai');
 
         expect(result).toBe(false);
       });
@@ -209,7 +209,7 @@ describe('quick_start', () => {
       it('should return false if environment is true but hostname is cloud', () => {
         process.env.NEXT_PUBLIC_QUICK_START = 'true';
 
-        const result = isQuickStartEnabled('app.rhesis.ai');
+        const result = isQuickStartEnabled('example-app.rhesis.ai');
 
         expect(result).toBe(false);
       });
