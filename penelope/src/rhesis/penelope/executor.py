@@ -315,6 +315,7 @@ class TurnExecutor:
                     if not is_valid:
                         logger.warning(f"Tool usage validation failed: {validation_reason}")
                         from rhesis.penelope.tools.base import ToolResult
+
                         tool_result = ToolResult(
                             success=False,
                             output={},
@@ -323,7 +324,7 @@ class TurnExecutor:
                                 "validation_failed": True,
                                 "validation_reason": validation_reason,
                                 "tool_category": getattr(tool, "tool_category", "unknown"),
-                            }
+                            },
                         )
                         break
 
@@ -333,7 +334,9 @@ class TurnExecutor:
                     # Execute with enhanced validation for analysis tools
                     if isinstance(tool, AnalysisTool):
                         context = self.workflow_manager.state.get_analysis_context()
-                        tool_result = tool.execute_with_validation(context, **action_params)
+                        # Remove context from action_params to avoid duplicate argument
+                        filtered_params = {k: v for k, v in action_params.items() if k != 'context'}
+                        tool_result = tool.execute_with_validation(context, **filtered_params)
                     else:
                         tool_result = tool.execute(**action_params)
                     break
