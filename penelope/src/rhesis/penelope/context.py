@@ -675,7 +675,7 @@ class TestState:
 
         # Always include any findings that were added during execution
         # (e.g., tool name corrections, errors, warnings)
-        findings.extend(self.findings)
+            findings.extend(self.findings)
 
         return findings
 
