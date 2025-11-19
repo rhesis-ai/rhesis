@@ -1,7 +1,5 @@
 """Tests for template rendering functionality."""
 
-import uuid
-
 from rhesis.backend.app.services.invokers.templating.renderer import TemplateRenderer
 
 

@@ -75,11 +75,15 @@ class ConversationTracker:
         if conversation_field:
             if conversation_field in input_data and input_data[conversation_field] is not None:
                 # Use the provided non-None value
-                logger.debug(f"Using {conversation_field}={input_data[conversation_field]} from input")
+                logger.debug(
+                    f"Using {conversation_field}={input_data[conversation_field]} from input"
+                )
             else:
                 # Don't add None values - let the template handle missing fields gracefully
                 # The conversation ID will be extracted from the endpoint response
-                logger.debug(f"No {conversation_field} provided - will be extracted from endpoint response")
+                logger.debug(
+                    f"No {conversation_field} provided - will be extracted from endpoint response"
+                )
 
         return template_context, conversation_field
 
