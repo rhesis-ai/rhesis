@@ -139,12 +139,22 @@ def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):
             content.append(f'"{display_message}"\n\n', style="cyan")
 
         # Show conversation ID if present
-        conversation_field = metadata.get("conversation_field_name")
-        conversation_id = metadata.get("conversation_id_used")
-        if conversation_id and conversation_field:
+        from rhesis.penelope.conversation import extract_conversation_id
+
+        # Try to extract conversation ID from multiple sources
+        conversation_id = (
+            metadata.get("conversation_id_used")  # What was sent to target
+            or extract_conversation_id(output)  # What came back from target
+            or extract_conversation_id(metadata)  # Fallback to metadata
+        )
+
+        if conversation_id:
             content.append("Conversation ID: ", style="bold blue")
-            content.append(f"{conversation_id} ", style="white")
-            content.append(f"({conversation_field})\n\n", style="dim white")
+            content.append(f"{conversation_id}\n\n", style="white")
+        elif metadata.get("conversation_field_name"):
+            # Show that conversation tracking was attempted but no ID found
+            content.append("Conversation ID: ", style="bold blue")
+            content.append("None\n\n", style="dim white")
 
         # Extract response received
         response = output.get("response", "")

@@ -99,7 +99,7 @@ class LangGraphTarget(Target):
     def send_message(
         self,
         message: str,
-        session_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
         **kwargs: Any,
     ) -> TargetResponse:
         """Send a message to the LangGraph agent."""
@@ -108,7 +108,7 @@ class LangGraphTarget(Target):
 
         try:
             # Get or create session state
-            session_key = session_id or "default"
+            session_key = conversation_id or "default"
             if session_key not in self._session_states:
                 self._session_states[session_key] = []
 
@@ -149,7 +149,7 @@ class LangGraphTarget(Target):
             return TargetResponse(
                 success=True,
                 content=content,
-                session_id=session_id,
+                conversation_id=session_key,
                 metadata={
                     "input_sent": message,
                     "raw_response": raw_response,
@@ -172,8 +172,8 @@ Target: {self._description}
 Type: LangGraph {type(self.graph).__name__}
 Memory: Yes (stateful agent with conversation history)
 
-Send messages using send_message_to_target(message, session_id).
-Maintain session_id for conversation continuity across multiple turns.
+Send messages using send_message_to_target(message, conversation_id).
+Maintain conversation_id for conversation continuity across multiple turns.
 The agent maintains full conversation context automatically.
 """
 

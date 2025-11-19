@@ -96,9 +96,6 @@ class SendMessageParams(BaseModel):
     """Parameters for send_message_to_target tool."""
 
     message: str = Field(description="The message to send to the target")
-    session_id: Optional[str] = Field(
-        default=None, description="Optional session ID for multi-turn conversations"
-    )
     conversation_id: Optional[str] = Field(
         default=None, description="Optional conversation ID for multi-turn conversations"
     )
@@ -130,7 +127,6 @@ class SendMessageParams(BaseModel):
         """
         conversation_fields = [
             ("conversation_id", self.conversation_id),
-            ("session_id", self.session_id),
             ("thread_id", self.thread_id),
             ("chat_id", self.chat_id),
             ("dialog_id", self.dialog_id),
@@ -164,11 +160,11 @@ class ExtractInformationParams(BaseModel):
 class ToolCallItem(BaseModel):
     """A single tool call within a response."""
 
-    tool_name: str = Field(
+    tool_name: Literal["send_message_to_target", "analyze_response", "extract_information"] = Field(
         description=(
-            "The exact name of the tool to use. Must match one of the available tools. "
-            "See ToolType enum in context.py for complete list of available tools "
-            "and their descriptions."
+            "The exact name of the tool to use. MUST be one of: "
+            "send_message_to_target, analyze_response, extract_information. "
+            "Never use abbreviated names like 'send_message'."
         )
     )
 
@@ -176,7 +172,7 @@ class ToolCallItem(BaseModel):
         description=(
             "Tool-specific parameters. Structure depends on tool_name:\n"
             "- send_message_to_target: {message: str, conversation_field: Optional[str]} "
-            "(conversation_field can be session_id, conversation_id, thread_id, chat_id, etc.)\n"
+            "(conversation_field can be conversation_id, thread_id, chat_id, session_id, etc.)\n"
             "- analyze_response: {response_text: str, analysis_focus: str, "
             "context: Optional[str]}\n"
             "- extract_information: {response_text: str, extraction_target: str}"
@@ -212,7 +208,8 @@ class ToolCall(BaseModel):
         json_schema_extra={
             "description": (
                 "Every tool call MUST include properly structured parameters "
-                "matching the tool type."
+                "matching the tool type. CRITICAL: Use exact tool names only - "
+                "send_message_to_target (NOT send_message), analyze_response, extract_information."
             ),
             "examples": [
                 {
@@ -224,7 +221,7 @@ class ToolCall(BaseModel):
                     "tool_name": "send_message_to_target",
                     "parameters": {
                         "message": "What types of insurance do you offer?",
-                        "session_id": None,
+                        "conversation_id": None,
                     },
                 },
                 {
@@ -235,7 +232,7 @@ class ToolCall(BaseModel):
                     "tool_name": "send_message_to_target",
                     "parameters": {
                         "message": "Tell me more about auto insurance",
-                        "session_id": "abc-123",
+                        "conversation_id": "abc-123",
                     },
                 },
                 {
