@@ -72,6 +72,7 @@ jobs:
 
   build:
     needs: validate-inputs
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -174,6 +175,7 @@ jobs:
 
   deploy:
     needs: [validate-inputs, build]
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -182,8 +184,8 @@ jobs:
 
     env:
       ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
-      COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
-      IS_PREVIEW: ${{ needs.build.outputs.is_preview }}
+      # When deploy_only is true, build is skipped, so we need fallbacks
+      IS_PREVIEW: ${{ needs.build.outputs.is_preview || (inputs.preview == 'true' || github.event.inputs.preview == 'true') }}
 
     outputs:
       deployed_url_encoded: ${{ steps.output_url.outputs.deployed_url_encoded }}
@@ -219,6 +221,14 @@ jobs:
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
           REGION="${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}"
           echo "REGION=$REGION" >> $GITHUB_ENV
+          
+          # Get commit SHA (short version) - use build output if available, otherwise compute from github.sha
+          if [ -n "${{ needs.build.outputs.commit_sha }}" ]; then
+            echo "COMMIT_SHA=${{ needs.build.outputs.commit_sha }}" >> $GITHUB_ENV
+          else
+            COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+            echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+          fi
 
       - name: Setup service environment
         uses: ./.github/actions/setup-service-env
