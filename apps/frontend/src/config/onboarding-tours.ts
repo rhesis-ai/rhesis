@@ -1,9 +1,59 @@
 import { DriveStep } from 'driver.js';
+import { OnboardingStep, OnboardingStepId } from '@/types/onboarding';
+
+/**
+ * Centralized onboarding steps configuration
+ * Single source of truth for all onboarding checklist items
+ */
+export const ONBOARDING_STEPS: OnboardingStep[] = [
+  {
+    id: 'projectCreated',
+    title: 'Create your first project',
+    description: 'Organize your work by creating a project',
+    targetPath: '/projects?tour=project',
+    tourId: 'project',
+  },
+  {
+    id: 'endpointSetup',
+    title: 'Set up an endpoint',
+    description: 'Connect to your AI service endpoint',
+    targetPath: '/endpoints?tour=endpoint',
+    tourId: 'endpoint',
+    requiresProjects: true,
+  },
+  {
+    id: 'usersInvited',
+    title: 'Invite team members',
+    description: 'Collaborate with your team',
+    optional: true,
+    targetPath: '/organizations/team?tour=invite',
+    tourId: 'invite',
+  },
+  {
+    id: 'testCasesCreated',
+    title: 'Create your first test cases',
+    description: 'Define what to test in your endpoints',
+    targetPath: '/tests?tour=testCases',
+    tourId: 'testCases',
+  },
+];
+
+/**
+ * Path that triggers collapsed state for onboarding checklist
+ */
+export const ONBOARDING_COLLAPSE_PATH = '/dashboard';
+
+/**
+ * Extended DriveStep with completion tracking
+ */
+interface DriveStepWithCompletion extends DriveStep {
+  __markComplete?: OnboardingStepId;
+}
 
 /**
  * Tour for creating a project
  */
-export const projectTourSteps: DriveStep[] = [
+export const projectTourSteps: DriveStepWithCompletion[] = [
   {
     element: '[data-tour="create-project-button"]',
     popover: {
@@ -20,7 +70,7 @@ export const projectTourSteps: DriveStep[] = [
 /**
  * Tour for setting up an endpoint
  */
-export const endpointTourSteps: DriveStep[] = [
+export const endpointTourSteps: DriveStepWithCompletion[] = [
   {
     element: '[data-tour="create-endpoint-button"]',
     popover: {
@@ -50,7 +100,7 @@ export const endpointTourSteps: DriveStep[] = [
 /**
  * Tour for inviting users
  */
-export const inviteUsersTourSteps: DriveStep[] = [
+export const inviteUsersTourSteps: DriveStepWithCompletion[] = [
   {
     element: '[data-tour="invite-email-input"]',
     popover: {
@@ -78,7 +128,7 @@ export const inviteUsersTourSteps: DriveStep[] = [
 /**
  * Tour for creating test cases
  */
-export const testCasesTourSteps: DriveStep[] = [
+export const testCasesTourSteps: DriveStepWithCompletion[] = [
   {
     element: '[data-tour="create-test-button"]',
     popover: {
@@ -135,7 +185,7 @@ export const driverConfig = {
 /**
  * Get tour steps by tour ID
  */
-export function getTourSteps(tourId: string): DriveStep[] {
+export function getTourSteps(tourId: string): DriveStepWithCompletion[] {
   switch (tourId) {
     case 'project':
       return projectTourSteps;

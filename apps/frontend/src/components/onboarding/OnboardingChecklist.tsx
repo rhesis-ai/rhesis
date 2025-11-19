@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -30,105 +30,97 @@ import {
   Close as CloseIcon,
   Lightbulb as LightbulbIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { OnboardingStep } from '@/types/onboarding';
-import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-
-const ONBOARDING_STEPS: OnboardingStep[] = [
-  {
-    id: 'projectCreated',
-    title: 'Create your first project',
-    description: 'Organize your work by creating a project',
-    targetPath: '/projects?tour=project',
-    tourId: 'project',
-  },
-  {
-    id: 'endpointSetup',
-    title: 'Set up an endpoint',
-    description: 'Connect to your AI service endpoint',
-    targetPath: '/projects/endpoints?tour=endpoint',
-    tourId: 'endpoint',
-    requiresProjects: true,
-  },
-  {
-    id: 'usersInvited',
-    title: 'Invite team members',
-    description: 'Collaborate with your team',
-    optional: true,
-    targetPath: '/organizations/team?tour=invite',
-    tourId: 'invite',
-  },
-  {
-    id: 'testCasesCreated',
-    title: 'Create your first test cases',
-    description: 'Define what to test in your endpoints',
-    targetPath: '/tests?tour=testCases',
-    tourId: 'testCases',
-  },
-];
+import {
+  ONBOARDING_STEPS,
+  ONBOARDING_COLLAPSE_PATH,
+} from '@/config/onboarding-tours';
 
 export default function OnboardingChecklist() {
   const router = useRouter();
+  const pathname = usePathname();
   const { data: session } = useSession();
   const { progress, isComplete, completionPercentage, dismissOnboarding } =
     useOnboarding();
 
-  // Start expanded by default (uncollapsed)
   const [expanded, setExpanded] = useState(true);
   const [visible, setVisible] = useState(true);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+
+  // Auto-collapse on dashboard page (avoid hydration issues)
+  useEffect(() => {
+    setExpanded(pathname !== ONBOARDING_COLLAPSE_PATH);
+  }, [pathname]);
+
+  // Memoize computed values for performance
+  const incompletedSteps = useMemo(
+    () => ONBOARDING_STEPS.filter(step => !progress[step.id]).length,
+    [progress]
+  );
+
+  // Define all callbacks before any early returns (Rules of Hooks)
+  const handleStepClick = useCallback(
+    async (step: OnboardingStep) => {
+      try {
+        // Minimize the box when starting a task
+        setExpanded(false);
+
+        // For steps that require projects (like endpoint setup),
+        // fetch the first project and navigate to its detail page
+        if (step.requiresProjects && session?.session_token) {
+          try {
+            const apiFactory = new ApiClientFactory(session.session_token);
+            const projectsClient = apiFactory.getProjectsClient();
+            const response = await projectsClient.getProjects();
+            const projects = Array.isArray(response)
+              ? response
+              : response?.data || [];
+
+            if (projects.length > 0) {
+              // Navigate to the first project's detail page
+              router.push(`/projects/${projects[0].id}?tour=${step.tourId}`);
+              return;
+            }
+          } catch (error) {
+            console.error('Error fetching projects for onboarding:', error);
+            // Fall through to default navigation
+          }
+        }
+
+        router.push(step.targetPath);
+      } catch (error) {
+        console.error('Failed to navigate to onboarding step:', error);
+      }
+    },
+    [router, session]
+  );
+
+  const handleToggleExpanded = useCallback(() => {
+    setExpanded(prev => !prev);
+  }, []);
+
+  const handleDismissClick = useCallback(() => {
+    setConfirmDialogOpen(true);
+  }, []);
+
+  const handleConfirmDismiss = useCallback(() => {
+    dismissOnboarding();
+    setVisible(false);
+    setConfirmDialogOpen(false);
+  }, [dismissOnboarding]);
+
+  const handleCancelDismiss = useCallback(() => {
+    setConfirmDialogOpen(false);
+  }, []);
 
   // Don't show if dismissed or completed
   if (progress.dismissed || isComplete || !visible) {
     return null;
   }
-
-  const handleStepClick = async (step: OnboardingStep) => {
-    setExpanded(false);
-
-    // For steps that require projects (like endpoint setup),
-    // fetch the first project and navigate to its detail page
-    if (step.requiresProjects && session?.session_token) {
-      try {
-        const apiFactory = new ApiClientFactory(session.session_token);
-        const projectsClient = apiFactory.getProjectsClient();
-        const response = await projectsClient.getProjects();
-        const projects = Array.isArray(response)
-          ? response
-          : response?.data || [];
-
-        if (projects.length > 0) {
-          // Navigate to the first project's detail page where they can see endpoints
-          router.push(`/projects/${projects[0].id}?tour=${step.tourId}`);
-          return;
-        }
-      } catch (error) {
-        console.error('Error fetching projects:', error);
-      }
-    }
-
-    router.push(step.targetPath);
-  };
-
-  const handleDismissClick = () => {
-    setConfirmDialogOpen(true);
-  };
-
-  const handleConfirmDismiss = () => {
-    dismissOnboarding();
-    setVisible(false);
-    setConfirmDialogOpen(false);
-  };
-
-  const handleCancelDismiss = () => {
-    setConfirmDialogOpen(false);
-  };
-
-  const incompletedSteps = ONBOARDING_STEPS.filter(
-    step => !progress[step.id]
-  ).length;
 
   return (
     <>
@@ -141,6 +133,8 @@ export default function OnboardingChecklist() {
           maxWidth: 380,
           width: '100%',
         }}
+        role="complementary"
+        aria-label="Onboarding checklist"
       >
         <Card
           elevation={8}
@@ -165,7 +159,7 @@ export default function OnboardingChecklist() {
           >
             {/* Clickable header area */}
             <Box
-              onClick={() => setExpanded(!expanded)}
+              onClick={handleToggleExpanded}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -176,8 +170,21 @@ export default function OnboardingChecklist() {
                   opacity: 0.9,
                 },
               }}
+              role="button"
+              aria-label={expanded ? 'Collapse checklist' : 'Expand checklist'}
+              aria-expanded={expanded}
+              tabIndex={0}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleToggleExpanded();
+                }
+              }}
             >
-              <LightbulbIcon sx={{ fontSize: 24, color: '#fff' }} />
+              <LightbulbIcon
+                sx={{ fontSize: 24, color: '#fff' }}
+                aria-hidden="true"
+              />
               <Typography
                 variant="subtitle1"
                 sx={{ fontWeight: 600, color: '#fff' }}
@@ -195,6 +202,7 @@ export default function OnboardingChecklist() {
                       color: 'warning.contrastText',
                     },
                   }}
+                  aria-label={`${incompletedSteps} incomplete ${incompletedSteps === 1 ? 'step' : 'steps'}`}
                 />
               )}
             </Box>
@@ -202,12 +210,13 @@ export default function OnboardingChecklist() {
               <Tooltip title={expanded ? 'Collapse' : 'Expand'}>
                 <IconButton
                   size="small"
-                  onClick={() => setExpanded(!expanded)}
+                  onClick={handleToggleExpanded}
                   sx={{
                     color: '#fff',
                     transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
                     transition: 'transform 0.3s',
                   }}
+                  aria-label={expanded ? 'Collapse' : 'Expand'}
                 >
                   <ExpandMoreIcon />
                 </IconButton>
@@ -217,6 +226,7 @@ export default function OnboardingChecklist() {
                   size="small"
                   onClick={handleDismissClick}
                   sx={{ color: '#fff' }}
+                  aria-label="Dismiss onboarding"
                 >
                   <CloseIcon />
                 </IconButton>
@@ -238,7 +248,12 @@ export default function OnboardingChecklist() {
                   <Typography variant="body2" color="text.secondary">
                     Progress
                   </Typography>
-                  <Typography variant="body2" fontWeight={600}>
+                  <Typography
+                    variant="body2"
+                    fontWeight={600}
+                    aria-live="polite"
+                    aria-atomic="true"
+                  >
                     {completionPercentage}%
                   </Typography>
                 </Box>
@@ -250,11 +265,12 @@ export default function OnboardingChecklist() {
                     borderRadius: theme => theme.shape.borderRadius,
                     bgcolor: 'action.hover',
                   }}
+                  aria-label={`Onboarding progress: ${completionPercentage}% complete`}
                 />
               </Box>
 
               {/* Checklist */}
-              <List sx={{ py: 0 }}>
+              <List sx={{ py: 0 }} aria-label="Onboarding steps">
                 {ONBOARDING_STEPS.map((step, index) => {
                   const isCompleted = progress[step.id];
                   return (
@@ -277,12 +293,19 @@ export default function OnboardingChecklist() {
                               : 'action.hover',
                           },
                         }}
+                        aria-label={`${step.title}${step.optional ? ' (optional)' : ''}${isCompleted ? ' - completed' : ''}`}
                       >
                         <ListItemIcon sx={{ minWidth: 40 }}>
                           {isCompleted ? (
-                            <CheckCircleIcon color="success" />
+                            <CheckCircleIcon
+                              color="success"
+                              aria-label="Completed"
+                            />
                           ) : (
-                            <RadioButtonUncheckedIcon color="action" />
+                            <RadioButtonUncheckedIcon
+                              color="action"
+                              aria-label="Not completed"
+                            />
                           )}
                         </ListItemIcon>
                         <ListItemText
@@ -339,11 +362,10 @@ export default function OnboardingChecklist() {
         aria-labelledby="dismiss-dialog-title"
         aria-describedby="dismiss-dialog-description"
       >
-        <DialogTitle id="dismiss-dialog-title">Stop Onboarding?</DialogTitle>
+        <DialogTitle id="dismiss-dialog-title">Dismiss Onboarding?</DialogTitle>
         <DialogContent>
           <DialogContentText id="dismiss-dialog-description">
-            Are you sure you want to dismiss the onboarding flow? This will
-            permanently hide the getting started guide.
+            This will permanently hide the getting started guide.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -352,8 +374,9 @@ export default function OnboardingChecklist() {
           </Button>
           <Button
             onClick={handleConfirmDismiss}
-            color="error"
+            color="primary"
             variant="contained"
+            autoFocus
           >
             Dismiss
           </Button>

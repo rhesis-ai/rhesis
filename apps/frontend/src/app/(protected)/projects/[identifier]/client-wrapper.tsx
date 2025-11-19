@@ -46,7 +46,7 @@ export default function ClientWrapper({
 
   // Enable onboarding tour if tour parameter is present
   const tourId = searchParams.get('tour');
-  useOnboardingTour(tourId === 'endpoint' ? 'endpoint' : null);
+  useOnboardingTour(tourId === 'endpoint' ? 'endpoint' : undefined);
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project>(project);

@@ -98,95 +98,81 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   const startTour = useCallback(
     (tourId: string) => {
-      if (!driverInstance) return;
+      try {
+        if (!driverInstance) {
+          console.error('Driver instance not initialized');
+          return;
+        }
 
-      const state = driverInstance.getState();
-      if (state.isInitialized) return;
+        const state = driverInstance.getState();
+        if (state.isInitialized) return;
 
-      const steps = getTourSteps(tourId);
-      if (steps.length === 0) return;
+        const steps = getTourSteps(tourId);
+        if (steps.length === 0) {
+          console.error(`No tour steps found for tourId: ${tourId}`);
+          return;
+        }
 
-      setActiveTour(tourId);
-      activeTourRef.current = tourId;
+        setActiveTour(tourId);
+        activeTourRef.current = tourId;
 
-      // Enhance steps with tour-specific behavior
-      const enhancedSteps = steps.map((step, index) => {
-        // Add completion tracking to steps marked with __markComplete
-        const stepWithCompletion = {
-          ...step,
-          onHighlighted: (element: Element | undefined, stepObj: any) => {
-            // Mark step complete if it has __markComplete property
-            if ((stepObj as any).__markComplete) {
-              const stepId = (stepObj as any).__markComplete;
-              setProgress(prev => {
-                const updated = {
-                  ...prev,
-                  [stepId]: true,
-                  lastUpdated: Date.now(),
-                };
-                saveProgress(updated);
-                return updated;
-              });
-            }
-            // Call original onHighlighted if it exists
-            if (step.onHighlighted) {
-              step.onHighlighted(element, stepObj, {
-                config: driverInstance.getConfig(),
-                state: driverInstance.getState(),
-                driver: driverInstance,
-              });
-            }
-          },
-        };
+        // Enhance steps with tour-specific behavior
+        const enhancedSteps = steps.map((step, index) => {
+          // Add completion tracking to steps marked with __markComplete
+          const stepWithCompletion = {
+            ...step,
+            onHighlighted: (element: Element | undefined, stepObj: any) => {
+              // Mark step complete if it has __markComplete property
+              if ((stepObj as any).__markComplete) {
+                const stepId = (stepObj as any).__markComplete;
+                setProgress(prev => {
+                  const updated = {
+                    ...prev,
+                    [stepId]: true,
+                    lastUpdated: Date.now(),
+                  };
+                  saveProgress(updated);
+                  return updated;
+                });
+              }
+              // Call original onHighlighted if it exists
+              if (step.onHighlighted) {
+                step.onHighlighted(element, stepObj, {
+                  config: driverInstance.getConfig(),
+                  state: driverInstance.getState(),
+                  driver: driverInstance,
+                });
+              }
+            },
+          };
 
-        // For testCases tour
-        if (tourId === 'testCases') {
-          if (index === 0) {
-            // Step 0: When "Next" is clicked, click the button AND advance to next step
-            return {
-              ...stepWithCompletion,
-              popover: {
-                ...stepWithCompletion.popover,
-                onNextClick: (element: Element | undefined) => {
-                  if (element) {
-                    (element as HTMLElement).click();
-                  }
-                  setTimeout(() => {
-                    driverInstance.moveNext();
-                  }, 400);
-                },
-              },
-            };
-          }
-
-          if (index === 1) {
-            // Step 1: Handle back button to close modal
-            return {
-              ...stepWithCompletion,
-              popover: {
-                ...stepWithCompletion.popover,
-                onPrevClick: () => {
-                  const dialog = document.querySelector(
-                    '[data-tour="test-generation-modal"]'
-                  )?.parentElement?.parentElement as HTMLElement;
-                  if (dialog) {
-                    const closeButton = dialog.querySelector(
-                      '.MuiDialogTitle-root .MuiIconButton-root'
-                    ) as HTMLButtonElement;
-                    if (closeButton) {
-                      closeButton.click();
+          // For testCases tour
+          if (tourId === 'testCases') {
+            if (index === 0) {
+              // Step 0: When "Next" is clicked, click the button AND advance to next step
+              return {
+                ...stepWithCompletion,
+                popover: {
+                  ...stepWithCompletion.popover,
+                  onNextClick: (element: Element | undefined) => {
+                    if (element) {
+                      (element as HTMLElement).click();
                     }
-                  }
-                  setTimeout(() => {
-                    driverInstance.movePrevious();
-                  }, 400);
+                    setTimeout(() => {
+                      driverInstance.moveNext();
+                    }, 400);
+                  },
                 },
-              },
-              // Close modal when tour ends
-              onDeselected: () => {
-                const state = driverInstance.getState();
-                if (!state.isInitialized) {
-                  setTimeout(() => {
+              };
+            }
+
+            if (index === 1) {
+              // Step 1: Handle back button to close modal
+              return {
+                ...stepWithCompletion,
+                popover: {
+                  ...stepWithCompletion.popover,
+                  onPrevClick: () => {
                     const dialog = document.querySelector(
                       '[data-tour="test-generation-modal"]'
                     )?.parentElement?.parentElement as HTMLElement;
@@ -198,18 +184,45 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
                         closeButton.click();
                       }
                     }
-                  }, 100);
-                }
-              },
-            };
+                    setTimeout(() => {
+                      driverInstance.movePrevious();
+                    }, 400);
+                  },
+                },
+                // Close modal when tour ends
+                onDeselected: () => {
+                  const state = driverInstance.getState();
+                  if (!state.isInitialized) {
+                    setTimeout(() => {
+                      const dialog = document.querySelector(
+                        '[data-tour="test-generation-modal"]'
+                      )?.parentElement?.parentElement as HTMLElement;
+                      if (dialog) {
+                        const closeButton = dialog.querySelector(
+                          '.MuiDialogTitle-root .MuiIconButton-root'
+                        ) as HTMLButtonElement;
+                        if (closeButton) {
+                          closeButton.click();
+                        }
+                      }
+                    }, 100);
+                  }
+                },
+              };
+            }
           }
-        }
 
-        return stepWithCompletion;
-      });
+          return stepWithCompletion;
+        });
 
-      driverInstance.setSteps(enhancedSteps);
-      driverInstance.drive();
+        driverInstance.setSteps(enhancedSteps);
+        driverInstance.drive();
+      } catch (error) {
+        console.error('Error starting onboarding tour:', error);
+        // Clean up state on error
+        setActiveTour(null);
+        activeTourRef.current = null;
+      }
     },
     [driverInstance]
   );
