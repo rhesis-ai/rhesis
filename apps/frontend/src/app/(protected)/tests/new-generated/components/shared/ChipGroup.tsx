@@ -79,6 +79,12 @@ export default function ChipGroup({
     return baseSx;
   };
 
+  // Sort chips so active ones appear first
+  const sortedChips = [...chips].sort((a, b) => {
+    if (a.active === b.active) return 0;
+    return a.active ? -1 : 1;
+  });
+
   return (
     <Box
       sx={{
@@ -88,7 +94,7 @@ export default function ChipGroup({
         alignItems: 'center',
       }}
     >
-      {chips.map(chip => {
+      {sortedChips.map(chip => {
         const chipLabel = chip.description ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <span>{chip.label}</span>
