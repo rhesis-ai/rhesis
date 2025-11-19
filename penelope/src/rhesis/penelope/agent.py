@@ -504,16 +504,20 @@ class PenelopeAgent:
         # Get tools for this test
         tools = self._get_tools_for_test(target)
 
+        # Generate tool documentation for system prompt
+        tool_docs = []
+        for tool in tools:
+            tool_docs.append(f"### {tool.name}\n{tool.description}")
+        available_tools_text = "\n\n".join(tool_docs)
+
         # Create system prompt
-        # Note: Tool schemas are defined in the ToolCall Pydantic schema,
-        # so we don't need to duplicate them in the system prompt
         system_prompt = get_system_prompt(
             instructions=instructions,
             goal=goal,
             scenario=scenario or "",
             restrictions=restrictions or "",
             context=str(context) if context else "",
-            available_tools="",  # Schema is self-documenting via ToolCall
+            available_tools=available_tools_text,
         )
 
         # Create stopping conditions
