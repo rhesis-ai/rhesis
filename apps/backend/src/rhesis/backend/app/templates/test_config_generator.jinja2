@@ -65,17 +65,3 @@ The user has been refining their test requirements through conversation. Conside
   {% endif %}
 {% endfor %}
 {% endif %}
-
-
-
-{% if rated_samples and rated_samples|length > 0 %}
-User Feedback and Ratings:
-The user has been iterating on test generation. Here are examples of tests they rated, which will help you understand what they're looking for:
-{% for sample in rated_samples %}
-- Test: "{{ sample.prompt }}"
-  - Rating: {{ sample.rating }}/5
-  {% if sample.feedback %}  - Feedback: {{ sample.feedback }}{% endif %}
-{% endfor %}
-
-Use this feedback to adjust the configuration to better match the user's expectations.
-{% endif %}
