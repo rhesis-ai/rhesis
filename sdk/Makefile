@@ -35,3 +35,6 @@ format_diff:
 
 test:
 	uv run pytest -s
+
+test-coverage:
+	uv run pytest --cov=src/rhesis --cov-report=term-missing --cov-report=html
