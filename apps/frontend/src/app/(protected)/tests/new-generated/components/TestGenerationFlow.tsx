@@ -1018,6 +1018,7 @@ export default function TestGenerationFlow({
             onRateSample={handleRateSample}
             onSampleFeedbackChange={handleSampleFeedbackChange}
             onLoadMoreSamples={handleLoadMoreSamples}
+            onRegenerateSamples={generateSamples}
             onRegenerate={handleRegenerateSample}
             onBack={handleBackToInput}
             onNext={handleNextToConfirmation}

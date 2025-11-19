@@ -29,6 +29,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ApiIcon from '@mui/icons-material/Api';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { ConfigChips, TestSample, ChatMessage } from './shared/types';
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
 import ChipGroup from './shared/ChipGroup';
@@ -51,6 +52,7 @@ interface TestGenerationInterfaceProps {
   onRateSample: (sampleId: string, rating: number) => void;
   onSampleFeedbackChange: (sampleId: string, feedback: string) => void;
   onLoadMoreSamples: () => void;
+  onRegenerateSamples: () => void;
   onRegenerate: (sampleId: string, feedback: string) => void;
   onBack: () => void;
   onNext: () => void;
@@ -80,6 +82,7 @@ export default function TestGenerationInterface({
   onRateSample,
   onSampleFeedbackChange,
   onLoadMoreSamples,
+  onRegenerateSamples,
   onRegenerate,
   onBack,
   onNext,
@@ -667,17 +670,29 @@ export default function TestGenerationInterface({
                   </Box>
                 }
                 action={
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
-                    onClick={() => setShowEndpointModal(true)}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    {endpointInfo
-                      ? `${endpointInfo.projectName} › ${endpointInfo.name}`
-                      : 'Show Live Responses'}
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<RefreshIcon />}
+                      onClick={onRegenerateSamples}
+                      disabled={isLoadingSamples}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Regenerate Samples
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
+                      onClick={() => setShowEndpointModal(true)}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      {endpointInfo
+                        ? `${endpointInfo.projectName} › ${endpointInfo.name}`
+                        : 'Show Live Responses'}
+                    </Button>
+                  </Box>
                 }
               />
 
