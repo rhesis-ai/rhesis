@@ -667,15 +667,16 @@ class TestState:
                     findings.append(f"Failed criteria: {len(failed)}")
                     for criterion in failed:
                         findings.append(f"  • {criterion.get('criterion', 'Unknown')}")
-        else:
+
+        # Always include any findings that were added during execution
+        # (e.g., tool name corrections, errors, warnings)
+        findings.extend(self.findings)
+
+        if not self.metric_results:
             # Fallback for tests without structured evaluation
             status_icon = "✓" if goal_achieved else "✗"
             findings.append(f"{status_icon} Test {status.value}")
             findings.append(f"Completed in {self.current_turn} turn(s)")
-
-        # Always include any findings that were added during execution
-        # (e.g., tool name corrections, errors, warnings)
-            findings.extend(self.findings)
 
         return findings
 
