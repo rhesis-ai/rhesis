@@ -362,7 +362,7 @@ export default function TestGenerationFlow({
 
   // Generate test samples
   const generateSamples = useCallback(async () => {
-    setIsGenerating(true);
+    setIsLoadingSamples(true);
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const servicesClient = apiFactory.getServicesClient();
@@ -411,12 +411,12 @@ export default function TestGenerationFlow({
         }));
 
         setTestSamples(newSamples);
-        show('Samples generated successfully', { severity: 'success' });
+        show('Samples regenerated successfully', { severity: 'success' });
       }
     } catch (error) {
-      show('Failed to generate samples', { severity: 'error' });
+      show('Failed to regenerate samples', { severity: 'error' });
     } finally {
-      setIsGenerating(false);
+      setIsLoadingSamples(false);
     }
   }, [
     sessionToken,
