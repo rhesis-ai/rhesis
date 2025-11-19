@@ -18,8 +18,8 @@ from rhesis.penelope.schemas import (
     ToolCall,
     ToolMessage,
 )
-from rhesis.penelope.tools.base import Tool
 from rhesis.penelope.tools.analysis import AnalysisTool
+from rhesis.penelope.tools.base import Tool
 from rhesis.penelope.utils import display_turn
 from rhesis.penelope.workflow import WorkflowManager
 from rhesis.sdk.models.base import BaseLLM
@@ -314,16 +314,17 @@ class TurnExecutor:
                     )
                     if not is_valid:
                         logger.warning(f"Tool usage validation failed: {validation_reason}")
-                        tool_result = {
-                            "success": False,
-                            "output": {},
-                            "error": f"Workflow validation failed: {validation_reason}",
-                            "metadata": {
+                        from rhesis.penelope.tools.base import ToolResult
+                        tool_result = ToolResult(
+                            success=False,
+                            output={},
+                            error=f"Workflow validation failed: {validation_reason}",
+                            metadata={
                                 "validation_failed": True,
                                 "validation_reason": validation_reason,
                                 "tool_category": getattr(tool, "tool_category", "unknown"),
-                            },
-                        }
+                            }
+                        )
                         break
 
                     if self.verbose:
@@ -366,10 +367,13 @@ class TurnExecutor:
                 tool_message=tool_message,
             )
 
-            # Record tool execution in workflow manager
+            # Record tool execution in workflow manager immediately after adding to state
             if state.current_turn_executions:
                 latest_execution = state.current_turn_executions[-1]
                 self.workflow_manager.record_tool_execution(latest_execution)
+            elif turn_result is not None:
+                # If a turn was completed, record the target interaction
+                self.workflow_manager.record_tool_execution(turn_result.target_interaction)
 
             # Track if any execution completed a turn
             if turn_result is not None:

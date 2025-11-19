@@ -47,8 +47,9 @@ class WorkflowState:
             self.turns_since_target_interaction = 0
 
             # Store target response for analysis context
-            if execution.tool_result and isinstance(execution.tool_result, dict):
-                output = execution.tool_result.get("output", {})
+            tool_result = execution.tool_result
+            if tool_result and isinstance(tool_result, dict):
+                output = tool_result.get("output", {})
                 response_data = {
                     "id": f"response_{len(self.recent_target_responses)}",
                     "content": output.get("response", ""),
