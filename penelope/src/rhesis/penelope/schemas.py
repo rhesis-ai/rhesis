@@ -99,6 +99,51 @@ class SendMessageParams(BaseModel):
     session_id: Optional[str] = Field(
         default=None, description="Optional session ID for multi-turn conversations"
     )
+    conversation_id: Optional[str] = Field(
+        default=None, description="Optional conversation ID for multi-turn conversations"
+    )
+    thread_id: Optional[str] = Field(
+        default=None, description="Optional thread ID for multi-turn conversations"
+    )
+    chat_id: Optional[str] = Field(
+        default=None, description="Optional chat ID for multi-turn conversations"
+    )
+    dialog_id: Optional[str] = Field(
+        default=None, description="Optional dialog ID for multi-turn conversations"
+    )
+    dialogue_id: Optional[str] = Field(
+        default=None, description="Optional dialogue ID for multi-turn conversations"
+    )
+    context_id: Optional[str] = Field(
+        default=None, description="Optional context ID for multi-turn conversations"
+    )
+    interaction_id: Optional[str] = Field(
+        default=None, description="Optional interaction ID for multi-turn conversations"
+    )
+
+    def get_conversation_field_value(self) -> tuple[Optional[str], Optional[str]]:
+        """
+        Get the first non-None, non-empty conversation field and its value.
+
+        Returns:
+            Tuple of (field_name, field_value) or (None, None) if no conversation field is set
+        """
+        conversation_fields = [
+            ("conversation_id", self.conversation_id),
+            ("session_id", self.session_id),
+            ("thread_id", self.thread_id),
+            ("chat_id", self.chat_id),
+            ("dialog_id", self.dialog_id),
+            ("dialogue_id", self.dialogue_id),
+            ("context_id", self.context_id),
+            ("interaction_id", self.interaction_id),
+        ]
+
+        for field_name, field_value in conversation_fields:
+            if field_value is not None and field_value != "":
+                return field_name, field_value
+
+        return None, None
 
 
 class AnalyzeResponseParams(BaseModel):
@@ -122,14 +167,16 @@ class ToolCallItem(BaseModel):
     tool_name: str = Field(
         description=(
             "The exact name of the tool to use. Must match one of the available tools. "
-            "See ToolType enum in context.py for complete list of available tools and their descriptions."
+            "See ToolType enum in context.py for complete list of available tools "
+            "and their descriptions."
         )
     )
 
     parameters: Union[SendMessageParams, AnalyzeResponseParams, ExtractInformationParams] = Field(
         description=(
             "Tool-specific parameters. Structure depends on tool_name:\n"
-            "- send_message_to_target: {message: str, session_id: Optional[str]}\n"
+            "- send_message_to_target: {message: str, conversation_field: Optional[str]} "
+            "(conversation_field can be session_id, conversation_id, thread_id, chat_id, etc.)\n"
             "- analyze_response: {response_text: str, analysis_focus: str, "
             "context: Optional[str]}\n"
             "- extract_information: {response_text: str, extraction_target: str}"

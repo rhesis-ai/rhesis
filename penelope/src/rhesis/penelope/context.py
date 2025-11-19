@@ -214,8 +214,9 @@ class ConversationTurn(BaseModel):
     penelope_reasoning: str = Field(description="Penelope's reasoning for this turn")
     penelope_message: str = Field(description="Message sent by Penelope to the target")
     target_response: str = Field(description="Response received from the target endpoint")
-    session_id: Optional[str] = Field(
-        default=None, description="Session ID for multi-turn conversations"
+    conversation_id: Optional[str] = Field(
+        default=None,
+        description=("Conversation tracking ID (session_id, conversation_id, thread_id, etc.)"),
     )
     success: bool = Field(description="Whether the tool call was successful")
 
@@ -366,7 +367,7 @@ class TestState:
     current_turn_executions: List[ToolExecution] = field(
         default_factory=list
     )  # Executions in current turn
-    session_id: Optional[str] = None
+    conversation_id: Optional[str] = None  # Flexible conversation tracking ID
     findings: List[str] = field(default_factory=list)
     start_time: datetime = field(default_factory=datetime.now)
 
@@ -889,23 +890,29 @@ class TestState:
         self, target_interaction: ToolExecution
     ) -> tuple[str, Optional[str]]:
         """
-        Extract Penelope's message and session ID from a target interaction.
+        Extract Penelope's message and conversation ID from a target interaction.
 
         Handles different target interaction tool types and provides appropriate
-        message extraction for conversation summaries.
+        message extraction for conversation summaries. Supports flexible conversation
+        field names (session_id, conversation_id, thread_id, chat_id, etc.).
 
         Args:
             target_interaction: The ToolExecution representing the target interaction
 
         Returns:
-            Tuple of (penelope_message, session_id)
+            Tuple of (penelope_message, conversation_id)
         """
         tool_args = target_interaction.get_tool_call_arguments()
 
         if target_interaction.tool_name == ToolType.SEND_MESSAGE_TO_TARGET:
+            from rhesis.penelope.conversation import extract_conversation_id
+
             penelope_message = tool_args.get("message", "")
-            session_id = tool_args.get("session_id")
-            return penelope_message, session_id
+
+            # Use centralized conversation ID extraction
+            conversation_id = extract_conversation_id(tool_args)
+
+            return penelope_message, conversation_id
 
         elif target_interaction.tool_name == ToolType.INVOKE_API_ENDPOINT:
             # For API endpoints, use the request data or a summary
@@ -952,7 +959,7 @@ class TestState:
                 continue
 
             # Extract Penelope's message from the target interaction
-            penelope_message, session_id = self._extract_penelope_message_from_interaction(
+            penelope_message, conversation_id = self._extract_penelope_message_from_interaction(
                 target_interaction
             )
 
@@ -984,7 +991,7 @@ class TestState:
                 penelope_reasoning=target_interaction.reasoning,  # Use target interaction reasoning
                 penelope_message=penelope_message,
                 target_response=target_response,
-                session_id=session_id,
+                conversation_id=conversation_id,  # Flexible conversation ID (any supported field)
                 success=success,
             )
 

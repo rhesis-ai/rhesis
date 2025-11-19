@@ -264,7 +264,8 @@ class TurnExecutor:
             # Debug: Log structured response
             if self.verbose:
                 logger.debug(
-                    f"Tool call {i + 1}/{len(tool_calls_data)} - Tool: {action_name}, Params: {action_params}"
+                    f"Tool call {i + 1}/{len(tool_calls_data)} - "
+                    f"Tool: {action_name}, Params: {action_params}"
                 )
 
             # With structured output, we should always have an action

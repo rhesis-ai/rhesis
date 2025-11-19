@@ -230,14 +230,14 @@ def test_turn_properties_with_no_tool_calls():
 def test_test_result_creation():
     """Test TestResult initialization."""
     assistant_msg = AssistantMessage(
-        content="Test",
-        tool_calls=[
-            MessageToolCall(
-                id="call_1",
-                type="function",
+            content="Test",
+            tool_calls=[
+                MessageToolCall(
+                    id="call_1",
+                    type="function",
                 function=FunctionCall(name="send_message_to_target", arguments="{}"),
-            )
-        ],
+                )
+            ],
     )
     
     tool_msg = ToolMessage(

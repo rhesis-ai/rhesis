@@ -158,14 +158,14 @@ def test_goal_achieved_condition_should_stop_goal_impossible(sample_test_state):
     # Simulate 5+ turns by adding turns to state
     for i in range(5):
         assistant_msg = AssistantMessage(
-            content=f"Turn {i + 1}",
-            tool_calls=[
-                MessageToolCall(
-                    id=f"call_{i}",
-                    type="function",
+                content=f"Turn {i + 1}",
+                tool_calls=[
+                    MessageToolCall(
+                        id=f"call_{i}",
+                        type="function",
                     function=FunctionCall(name="send_message_to_target", arguments="{}"),
-                )
-            ],
+                    )
+                ],
         )
         
         tool_msg = ToolMessage(tool_call_id=f"call_{i}", name="send_message_to_target", content="result")

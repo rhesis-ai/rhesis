@@ -65,7 +65,8 @@ def test_target_interaction_tool_includes_metadata(mock_target):
     assert result.success is True
     assert "message_sent" in result.metadata
     assert result.metadata["message_sent"] == "Test message"
-    assert result.metadata["session_id_used"] == "session-456"
+    assert result.metadata["conversation_id_used"] == "session-456"
+    assert result.metadata["conversation_field_name"] == "session_id"
     assert result.metadata["target_type"] == "mock"
     assert result.metadata["target_id"] == "mock-target-123"
 
