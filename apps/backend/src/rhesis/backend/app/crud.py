@@ -2592,8 +2592,8 @@ def test_model_connection(db: Session, model_id: uuid.UUID) -> bool:
 def get_tool(
     db: Session, tool_id: uuid.UUID, organization_id: str, user_id: str = None
 ) -> Optional[models.Tool]:
-    """Get a specific tool by ID"""
-    return get_item(db, models.Tool, tool_id, organization_id, user_id)
+    """Get a specific tool by ID with relationships loaded"""
+    return get_item_detail(db, models.Tool, tool_id, organization_id, user_id)
 
 
 def get_tools(
