@@ -329,9 +329,9 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
 
     # Check if Quick Start mode is enabled
     # Pass hostname and headers for security validation
-    if not is_quick_start_enabled(
-        hostname=str(request.url.hostname), headers=dict(request.headers)
-    ):
+    # Handle None hostname properly (don't convert None to string "None")
+    hostname = request.url.hostname if request.url.hostname is not None else None
+    if not is_quick_start_enabled(hostname=hostname, headers=dict(request.headers)):
         logger.warning("Attempted to use /auth/local-login but Quick Start mode is not enabled")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
