@@ -80,7 +80,7 @@ FROM base AS runner
 ARG FRONTEND_ENV=production
 
 # Add runtime dependencies
-RUN apk add --no-cache curl ncdu
+RUN apk add --no-cache curl
 
 WORKDIR /app
 
