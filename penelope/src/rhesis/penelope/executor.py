@@ -19,7 +19,9 @@ from rhesis.penelope.schemas import (
     ToolMessage,
 )
 from rhesis.penelope.tools.base import Tool
+from rhesis.penelope.tools.analysis import AnalysisTool
 from rhesis.penelope.utils import display_turn
+from rhesis.penelope.workflow import WorkflowManager
 from rhesis.sdk.models.base import BaseLLM
 
 logger = logging.getLogger(__name__)
@@ -307,7 +309,9 @@ class TurnExecutor:
             for tool in tools:
                 if tool.name == action_name:
                     # Validate tool usage with workflow manager
-                    is_valid, validation_reason = self.workflow_manager.validate_tool_usage(tool, **action_params)
+                    is_valid, validation_reason = self.workflow_manager.validate_tool_usage(
+                        tool, **action_params
+                    )
                     if not is_valid:
                         logger.warning(f"Tool usage validation failed: {validation_reason}")
                         tool_result = {
@@ -318,10 +322,10 @@ class TurnExecutor:
                                 "validation_failed": True,
                                 "validation_reason": validation_reason,
                                 "tool_category": getattr(tool, "tool_category", "unknown"),
-                            }
+                            },
                         }
                         break
-                    
+
                     if self.verbose:
                         logger.info(f"Executing tool: {action_name} with params: {action_params}")
 

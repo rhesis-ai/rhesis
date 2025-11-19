@@ -43,12 +43,11 @@ class AnalysisTool(Tool, ABC):
         """
         Return the type of analysis this tool performs.
 
-        Common types:
-        - "security": Security vulnerability scanning
-        - "verification": Data/state verification
-        - "monitoring": Performance/metrics monitoring
-        - "extraction": Information extraction from responses
-        - "validation": Input/output validation
+        This is a user-defined string that describes what kind of analysis
+        the tool does. Examples: "security", "verification", "monitoring",
+        "extraction", "validation", "performance", etc.
+
+        Users can define any analysis type that makes sense for their tool.
 
         Returns:
             String describing the analysis type

@@ -16,46 +16,12 @@ from rhesis.penelope import EndpointTarget, PenelopeAgent
 from rhesis.penelope.tools.analysis import AnalysisTool
 from rhesis.penelope.tools.base import ToolResult
 
-
-# Define specific analysis tool types for this example
-# (These are not part of Penelope core - users define their own)
-
-class SecurityAnalysisTool(AnalysisTool):
-    """Base class for security analysis tools."""
-
-    @property
-    def analysis_type(self) -> str:
-        return "security"
+# Users can define any analysis types they want by inheriting from AnalysisTool
+# and implementing the analysis_type property with their own custom string
 
 
-class VerificationTool(AnalysisTool):
-    """Base class for verification tools (database, state, etc.)."""
-
-    @property
-    def analysis_type(self) -> str:
-        return "verification"
-
-    @property
-    def requires_target_response(self) -> bool:
-        # Verification tools often check external state, not just responses
-        return False
-
-
-class MonitoringTool(AnalysisTool):
-    """Base class for monitoring tools (performance, metrics, etc.)."""
-
-    @property
-    def analysis_type(self) -> str:
-        return "monitoring"
-
-    @property
-    def requires_target_response(self) -> bool:
-        # Monitoring tools track ongoing metrics, not specific responses
-        return False
-
-
-# Example 1: Database Verification Tool (inherits from custom VerificationTool)
-class DatabaseVerificationTool(VerificationTool):
+# Example 1: Database Verification Tool (inherits directly from AnalysisTool)
+class DatabaseVerificationTool(AnalysisTool):
     """
     Tool for verifying database state during testing.
 
@@ -69,6 +35,15 @@ class DatabaseVerificationTool(VerificationTool):
     @property
     def name(self) -> str:
         return "verify_database_state"
+
+    @property
+    def analysis_type(self) -> str:
+        return "verification"  # User-defined analysis type
+
+    @property
+    def requires_target_response(self) -> bool:
+        # Verification tools often check external state, not just responses
+        return False
 
     @property
     def description(self) -> str:
@@ -157,8 +132,8 @@ Returns verification result with actual vs expected values. After verification, 
         )
 
 
-# Example 2: API Monitoring Tool (inherits from custom MonitoringTool)
-class APIMonitoringTool(MonitoringTool):
+# Example 2: API Monitoring Tool (inherits directly from AnalysisTool)
+class APIMonitoringTool(AnalysisTool):
     """
     Tool for monitoring API metrics during testing.
 
@@ -175,6 +150,15 @@ class APIMonitoringTool(MonitoringTool):
     @property
     def name(self) -> str:
         return "check_api_metrics"
+
+    @property
+    def analysis_type(self) -> str:
+        return "monitoring"  # User-defined analysis type
+
+    @property
+    def requires_target_response(self) -> bool:
+        # Monitoring tools track ongoing metrics, not specific responses
+        return False
 
     @property
     def description(self) -> str:
@@ -228,8 +212,8 @@ Returns current performance metrics. After checking, send another message to the
         )
 
 
-# Example 3: Security Scanner Tool (inherits from custom SecurityAnalysisTool)
-class SecurityScannerTool(SecurityAnalysisTool):
+# Example 3: Security Scanner Tool (inherits directly from AnalysisTool)
+class SecurityScannerTool(AnalysisTool):
     """
     Tool for scanning responses for security issues.
 
@@ -239,6 +223,10 @@ class SecurityScannerTool(SecurityAnalysisTool):
     @property
     def name(self) -> str:
         return "scan_for_security_issues"
+
+    @property
+    def analysis_type(self) -> str:
+        return "security"  # User-defined analysis type
 
     @property
     def description(self) -> str:
@@ -506,13 +494,13 @@ def main():
     print("  1. Choose the right base class:")
     print("     • Tool: For general tools")
     print("     • AnalysisTool: For tools that analyze data (prevents infinite loops)")
-    print("       - Create your own analysis tool types by inheriting from AnalysisTool")
-    print("       - Examples: SecurityAnalysisTool, VerificationTool, MonitoringTool")
-    print("       - Define analysis_type property (e.g., 'security', 'verification')")
-    print("  2. Implement name, description, and execute methods")
-    print("  3. Provide extensive documentation in description")
-    print("  4. Return ToolResult with structured output")
-    print("  5. Register tool when creating PenelopeAgent")
+    print("  2. For AnalysisTool, implement analysis_type property:")
+    print("     • Define any analysis type: 'security', 'verification', 'monitoring', etc.")
+    print("     • Set requires_target_response: True/False")
+    print("  3. Implement name, description, and execute methods")
+    print("  4. Provide extensive documentation in description")
+    print("  5. Return ToolResult with structured output")
+    print("  6. Register tool when creating PenelopeAgent")
     print("\n🛡️  ANALYSIS TOOL BENEFITS:")
     print("  • Automatic workflow validation prevents infinite loops")
     print("  • Built-in guidance helps LLM use tools correctly")

@@ -24,7 +24,6 @@ from rhesis.penelope.prompts import (
     get_system_prompt,
 )
 from rhesis.penelope.targets.base import Target
-from rhesis.penelope.tools.analysis import AnalyzeTool, ExtractTool
 from rhesis.penelope.tools.base import Tool
 from rhesis.penelope.tools.target_interaction import TargetInteractionTool
 from rhesis.penelope.utils import (
@@ -45,8 +44,7 @@ class DefaultToolRegistry:
 
     _default_tool_classes = [
         TargetInteractionTool,
-        AnalyzeTool,
-        ExtractTool,
+        # Note: Analysis tools are user-defined, not part of default tools
     ]
 
     @classmethod
