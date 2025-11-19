@@ -25,16 +25,16 @@ CONVERSATION_FIELD_NAMES = [
 def extract_conversation_id(data: Dict[str, Any]) -> Optional[str]:
     """
     Extract conversation ID from data using flexible field detection.
-    
+
     Checks common conversation tracking field names in priority order
     and returns the first non-None, non-empty value found.
-    
+
     Args:
         data: Dictionary that may contain conversation tracking fields
-        
+
     Returns:
         The conversation ID if found, None otherwise
-        
+
     Examples:
         >>> extract_conversation_id({"session_id": "abc123"})
         'abc123'
@@ -47,24 +47,24 @@ def extract_conversation_id(data: Dict[str, Any]) -> Optional[str]:
     """
     if not data:
         return None
-        
+
     for field_name in CONVERSATION_FIELD_NAMES:
         if field_name in data and data[field_name] is not None and data[field_name] != "":
             return data[field_name]
-    
+
     return None
 
 
 def get_conversation_field_name(data: Dict[str, Any]) -> Optional[str]:
     """
     Get the name of the conversation tracking field present in the data.
-    
+
     Args:
         data: Dictionary that may contain conversation tracking fields
-        
+
     Returns:
         The field name if found, None otherwise
-        
+
     Examples:
         >>> get_conversation_field_name({"session_id": "abc123"})
         'session_id'
@@ -75,11 +75,11 @@ def get_conversation_field_name(data: Dict[str, Any]) -> Optional[str]:
     """
     if not data:
         return None
-        
+
     for field_name in CONVERSATION_FIELD_NAMES:
         if field_name in data and data[field_name] is not None and data[field_name] != "":
             return field_name
-    
+
     return None
 
 

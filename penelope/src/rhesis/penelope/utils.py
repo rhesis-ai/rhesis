@@ -113,6 +113,8 @@ def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):
         action: The action taken
         result: The result from the tool
     """
+    from rhesis.penelope.context import ToolType
+
     # Create panel content
     content = Text()
     content.append(f"Turn {turn_number}\n\n", style="bold cyan")
@@ -121,15 +123,13 @@ def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):
     content.append("Action: ", style="bold green")
     content.append(f"{action}\n\n", style="white")
 
-    # Show message sent and response received for target interaction
-    if action == "send_message_to_target" and result.get("success", False):
+    # Show message sent and response received for target interaction tools
+    if ToolType.is_target_interaction(action) and result.get("success", False):
         output = result.get("output", {})
+        metadata = result.get("metadata", {})
 
-        # Extract message sent (from metadata or try to get from tool args)
-        message_sent = None
-        if "metadata" in result:
-            message_sent = result["metadata"].get("message_sent")
-
+        # Extract message sent (from metadata)
+        message_sent = metadata.get("message_sent")
         if message_sent:
             content.append("Message Sent: ", style="bold blue")
             # Truncate long messages for display
@@ -137,6 +137,14 @@ def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):
                 message_sent[:200] + "..." if len(message_sent) > 200 else message_sent
             )
             content.append(f'"{display_message}"\n\n', style="cyan")
+
+        # Show conversation ID if present
+        conversation_field = metadata.get("conversation_field_name")
+        conversation_id = metadata.get("conversation_id_used")
+        if conversation_id and conversation_field:
+            content.append("Conversation ID: ", style="bold blue")
+            content.append(f"{conversation_id} ", style="white")
+            content.append(f"({conversation_field})\n\n", style="dim white")
 
         # Extract response received
         response = output.get("response", "")
