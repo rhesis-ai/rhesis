@@ -38,12 +38,7 @@ export default function ChipGroup({
 
   const getChipSx = (chip: ChipConfig) => {
     const baseSx: any = {
-      transition: 'all 0.2s ease-in-out',
       cursor: 'pointer',
-      '&:hover': {
-        transform: 'translateY(-2px)',
-        boxShadow: 1,
-      },
     };
 
     // Add explicit background colors for filled warning and success chips in dark mode
