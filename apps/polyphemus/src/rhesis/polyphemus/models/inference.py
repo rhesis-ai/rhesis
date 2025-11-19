@@ -3,7 +3,9 @@ Inference module using HuggingFaceLLM from the SDK.
 This replaces the previous InferenceEngine with SDK-based implementation.
 """
 
+import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import AsyncGenerator, Dict, Optional
 
 from rhesis.sdk.models import HuggingFaceLLM
@@ -33,6 +35,7 @@ class InferenceEngine:
 
     _llm_instance = None
     _model_name = None
+    _executor = None  # Thread pool executor for running blocking operations
 
     def __init__(self, model=None, tokenizer=None):
         """
@@ -64,6 +67,12 @@ class InferenceEngine:
         # Use the singleton instance
         self.llm = InferenceEngine._llm_instance
 
+        # Initialize thread pool executor for running blocking operations
+        if InferenceEngine._executor is None:
+            InferenceEngine._executor = ThreadPoolExecutor(
+                max_workers=2, thread_name_prefix="inference"
+            )
+
     async def generate_text(
         self,
         prompt: str,
@@ -86,8 +95,12 @@ class InferenceEngine:
                 "repetition_penalty": repetition_penalty,
             }
 
-            # Generate response
-            response = self.llm.generate(prompt=prompt, system_prompt=system_prompt, **kwargs)
+            # Run the blocking generate call in a thread pool to avoid blocking the event loop
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                InferenceEngine._executor,
+                lambda: self.llm.generate(prompt=prompt, system_prompt=system_prompt, **kwargs),
+            )
 
             # Get metadata if available
             metadata = getattr(self.llm, "last_generation_metadata", {})
@@ -117,11 +130,12 @@ class InferenceEngine:
     ) -> AsyncGenerator[str, None]:
         """
         Generate streaming response.
-        Note: HuggingFaceLLM doesn't natively support streaming, so we simulate it
-        by generating and yielding chunks.
+        Note: HuggingFaceLLM doesn't natively support token-by-token streaming, so we
+        run the blocking generation in a thread pool executor and then simulate streaming
+        by yielding word chunks to avoid blocking the event loop.
         """
         try:
-            # Generate the full response
+            # Prepare generation parameters
             kwargs = {
                 "max_new_tokens": max_tokens,
                 "temperature": temperature,
@@ -130,16 +144,21 @@ class InferenceEngine:
                 "repetition_penalty": repetition_penalty,
             }
 
-            response = self.llm.generate(prompt=prompt, system_prompt=system_prompt, **kwargs)
+            # Run the blocking generate call in a thread pool to avoid blocking the event loop
+            # This allows the async event loop to handle other requests concurrently
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                InferenceEngine._executor,
+                lambda: self.llm.generate(prompt=prompt, system_prompt=system_prompt, **kwargs),
+            )
 
-            # Simulate streaming by yielding words
+            # Simulate streaming by yielding words as chunks
+            # This provides a better user experience than waiting for the full response
             words = response.split()
-            for i, word in enumerate(words):
-                if i == 0:
-                    yield f"data: {word}"
-                else:
-                    yield f"data: {word}"
-                yield "\n\n"
+            for word in words:
+                yield f"data: {word}\n\n"
+                # Small yield to allow other coroutines to run
+                await asyncio.sleep(0)
 
             yield "data: [DONE]\n\n"
         except Exception as e:
