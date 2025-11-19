@@ -59,7 +59,11 @@ class RhesisLLM(BaseLLM):
         return self
 
     def generate(
-        self, prompt: str, system_prompt: Optional[str] = None, schema: Optional[Union[Type[BaseModel], dict]] = None, **kwargs: Any
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
+        **kwargs: Any,
     ) -> Any:
         """Run a chat completion using the API, and return the response."""
         try:

@@ -237,7 +237,7 @@ class TurnExecutor:
             logger.info("User prompt:")
             logger.info(prompt)
             logger.info("=== END EXECUTOR DEBUG ===")
-            
+
             response = self.model.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,

@@ -517,7 +517,7 @@ class PenelopeAgent:
         logger.info(f"Agent received - goal: {goal}")
         logger.info(f"Agent received - scenario: {scenario}")
         logger.info(f"Agent received - restrictions: {restrictions}")
-        
+
         system_prompt = get_system_prompt(
             instructions=instructions,
             goal=goal,
@@ -526,7 +526,7 @@ class PenelopeAgent:
             context=str(context) if context else "",
             available_tools=available_tools_text,
         )
-        
+
         logger.info(f"=== AGENT: System prompt created, length: {len(system_prompt)} chars ===")
 
         # Create stopping conditions
