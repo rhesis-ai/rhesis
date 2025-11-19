@@ -57,6 +57,8 @@ interface TestGenerationInterfaceProps {
   onEndpointChange: (endpointId: string | null) => void;
   onSourceRemove: (sourceId: string) => void;
   isGenerating: boolean;
+  isLoadingConfig: boolean;
+  isLoadingSamples: boolean;
   isLoadingMore: boolean;
   regeneratingSampleId: string | null;
   onSamplesUpdate?: (samples: TestSample[]) => void;
@@ -84,6 +86,8 @@ export default function TestGenerationInterface({
   onEndpointChange,
   onSourceRemove,
   isGenerating,
+  isLoadingConfig,
+  isLoadingSamples,
   isLoadingMore,
   regeneratingSampleId,
   onSamplesUpdate,
@@ -408,7 +412,7 @@ export default function TestGenerationInterface({
                 }}
               >
                 {/* Loading Overlay */}
-                {isGenerating && (
+                {(isLoadingConfig || isGenerating) && (
                   <Box
                     sx={{
                       position: 'absolute',
@@ -427,7 +431,7 @@ export default function TestGenerationInterface({
                   >
                     <CircularProgress sx={{ mb: 2 }} />
                     <Typography variant="body1">
-                      Updating configuration...
+                      {isLoadingConfig ? 'Loading configuration...' : 'Updating configuration...'}
                     </Typography>
                   </Box>
                 )}
@@ -688,7 +692,7 @@ export default function TestGenerationInterface({
                   flexDirection: 'column',
                 }}
               >
-                {isGenerating ? (
+                {(isLoadingSamples || isGenerating) ? (
                   <Box
                     sx={{
                       display: 'flex',
@@ -700,7 +704,7 @@ export default function TestGenerationInterface({
                   >
                     <CircularProgress sx={{ mb: 2 }} />
                     <Typography variant="body1">
-                      Generating test samples...
+                      {isLoadingSamples ? 'Loading test samples...' : 'Generating test samples...'}
                     </Typography>
                   </Box>
                 ) : localTestSamples.length === 0 ? (

@@ -83,6 +83,8 @@ export default function TestGenerationFlow({
 
   // UI State
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(false);
+  const [isLoadingSamples, setIsLoadingSamples] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const [regeneratingSampleId, setRegeneratingSampleId] = useState<
@@ -230,51 +232,54 @@ export default function TestGenerationFlow({
       setSelectedSourceIds(sources.map(s => s.id));
       setSelectedProjectId(projectId);
 
-      // Generate test configuration and samples before navigating
-      setIsGenerating(true);
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const servicesClient = apiFactory.getServicesClient();
+      // Navigate immediately to interface screen
+      setCurrentScreen('interface');
+      setIsLoadingConfig(true);
+      setIsLoadingSamples(true);
 
-        // Fetch project if selected
-        if (projectId) {
-          try {
-            const projectsClient = apiFactory.getProjectsClient();
-            const fetchedProject = await projectsClient.getProject(projectId);
-            setProject(fetchedProject);
-          } catch (error) {
-            show(`Failed to load project`, { severity: 'warning' });
-          }
-        } else {
-          setProject(null);
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const servicesClient = apiFactory.getServicesClient();
+
+      // Fetch project if selected
+      if (projectId) {
+        try {
+          const projectsClient = apiFactory.getProjectsClient();
+          const fetchedProject = await projectsClient.getProject(projectId);
+          setProject(fetchedProject);
+        } catch (error) {
+          show(`Failed to load project`, { severity: 'warning' });
         }
+      } else {
+        setProject(null);
+      }
 
-        // Step 1: Generate test configuration based on description
+      // Helper function to create chips from config response
+      const createChipsFromArray = (
+        items:
+          | Array<{ name: string; description: string; active: boolean }>
+          | undefined,
+        colorVariant: 'blue' | 'purple' | 'orange' | 'green'
+      ): ChipConfig[] => {
+        if (!items || !Array.isArray(items)) {
+          return [];
+        }
+        return items.map(item => {
+          return {
+            id: item.name.toLowerCase().replace(/\s+/g, '-'),
+            label: item.name,
+            description: item.description,
+            active: item.active,
+            colorVariant,
+          };
+        });
+      };
+
+      // Step 1: Generate test configuration
+      try {
         const configResponse = await servicesClient.generateTestConfig({
           prompt: desc,
           project_id: projectId || undefined,
         });
-
-        // Step 2: Create chips from config response
-        const createChipsFromArray = (
-          items:
-            | Array<{ name: string; description: string; active: boolean }>
-            | undefined,
-          colorVariant: 'blue' | 'purple' | 'orange' | 'green'
-        ): ChipConfig[] => {
-          if (!items || !Array.isArray(items)) {
-            return [];
-          }
-          return items.map(item => {
-            return {
-              id: item.name.toLowerCase().replace(/\s+/g, '-'),
-              label: item.name,
-              description: item.description,
-              active: item.active,
-              colorVariant,
-            };
-          });
-        };
 
         const newConfigChips: ConfigChips = {
           behavior: createChipsFromArray(
@@ -289,63 +294,67 @@ export default function TestGenerationFlow({
         };
 
         setConfigChips(newConfigChips);
+        setIsLoadingConfig(false);
 
-        // Step 3: Generate initial test samples
-        const activeBehaviors = newConfigChips.behavior
-          .filter(c => c.active)
-          .map(c => c.label);
-        const activeTopics = newConfigChips.topics
-          .filter(c => c.active)
-          .map(c => c.label);
-        const activeCategories = newConfigChips.category
-          .filter(c => c.active)
-          .map(c => c.label);
+        // Step 2: Generate initial test samples (after config is ready)
+        try {
+          const activeBehaviors = newConfigChips.behavior
+            .filter(c => c.active)
+            .map(c => c.label);
+          const activeTopics = newConfigChips.topics
+            .filter(c => c.active)
+            .map(c => c.label);
+          const activeCategories = newConfigChips.category
+            .filter(c => c.active)
+            .map(c => c.label);
 
-        const prompt = {
-          project_context: project?.name || 'General',
-          behaviors: activeBehaviors,
-          topics: activeTopics,
-          categories: activeCategories,
-          specific_requirements: desc,
-          test_type: 'Single interaction tests',
-          output_format: 'Generate only user inputs',
-        };
+          const prompt = {
+            project_context: project?.name || 'General',
+            behaviors: activeBehaviors,
+            topics: activeTopics,
+            categories: activeCategories,
+            specific_requirements: desc,
+            test_type: 'Single interaction tests',
+            output_format: 'Generate only user inputs',
+          };
 
-        const response = await servicesClient.generateTests({
-          prompt,
-          num_tests: 5,
-          sources: sources, // Use the parameter directly, not the state
-        });
+          const response = await servicesClient.generateTests({
+            prompt,
+            num_tests: 5,
+            sources: sources,
+          });
 
-        if (response.tests?.length) {
-          const newSamples: TestSample[] = response.tests.map(
-            (test, index) => ({
-              id: `sample-${Date.now()}-${index}`,
-              prompt: test.prompt.content,
-              response: test.prompt.expected_response,
-              behavior: test.behavior,
-              topic: test.topic,
-              rating: null,
-              feedback: '',
-              context: test.metadata?.sources
-                ?.map((source: any) => ({
-                  name: source.name || source.source || source.title || '',
-                  description: source.description || '',
-                  content: source.content || '',
-                }))
-                .filter((src: any) => src.name && src.name.trim().length > 0),
-            })
-          );
+          if (response.tests?.length) {
+            const newSamples: TestSample[] = response.tests.map(
+              (test, index) => ({
+                id: `sample-${Date.now()}-${index}`,
+                prompt: test.prompt.content,
+                response: test.prompt.expected_response,
+                behavior: test.behavior,
+                topic: test.topic,
+                rating: null,
+                feedback: '',
+                context: test.metadata?.sources
+                  ?.map((source: any) => ({
+                    name: source.name || source.source || source.title || '',
+                    description: source.description || '',
+                    content: source.content || '',
+                  }))
+                  .filter((src: any) => src.name && src.name.trim().length > 0),
+              })
+            );
 
-          setTestSamples(newSamples);
-
-          // Only navigate after both API calls complete successfully
-          setCurrentScreen('interface');
+            setTestSamples(newSamples);
+          }
+        } catch (error) {
+          show('Failed to generate test samples', { severity: 'error' });
+        } finally {
+          setIsLoadingSamples(false);
         }
       } catch (error) {
         show('Failed to generate configuration', { severity: 'error' });
-      } finally {
-        setIsGenerating(false);
+        setIsLoadingConfig(false);
+        setIsLoadingSamples(false);
       }
     },
     [sessionToken, project, show]
@@ -1015,6 +1024,8 @@ export default function TestGenerationFlow({
             onEndpointChange={setSelectedEndpointId}
             onSourceRemove={handleSourceRemove}
             isGenerating={isGenerating}
+            isLoadingConfig={isLoadingConfig}
+            isLoadingSamples={isLoadingSamples}
             isLoadingMore={isLoadingMore}
             regeneratingSampleId={regeneratingSampleId}
           />
