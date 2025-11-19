@@ -43,16 +43,16 @@ class AnalysisTool(Tool, ABC):
         """
         Return the type of analysis this tool performs.
 
-        This is a user-defined string that describes what kind of analysis
-        the tool does. Examples: "security", "verification", "monitoring",
-        "extraction", "validation", "performance", etc.
+        This is completely optional - users can define any string they want
+        or return a generic type. Examples: "security", "verification",
+        "monitoring", "custom", or even just "analysis".
 
-        Users can define any analysis type that makes sense for their tool.
+        This is mainly used for workflow tracking and debugging.
 
         Returns:
-            String describing the analysis type
+            String describing the analysis type (defaults to "analysis")
         """
-        raise NotImplementedError("Analysis tools must specify their analysis type")
+        return "analysis"  # Default implementation - users can override if they want
 
     @property
     def requires_target_response(self) -> bool:

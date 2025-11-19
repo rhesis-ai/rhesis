@@ -16,8 +16,8 @@ from rhesis.penelope import EndpointTarget, PenelopeAgent
 from rhesis.penelope.tools.analysis import AnalysisTool
 from rhesis.penelope.tools.base import ToolResult
 
-# Users can define any analysis types they want by inheriting from AnalysisTool
-# and implementing the analysis_type property with their own custom string
+# Users can inherit from AnalysisTool to get automatic workflow management
+# The analysis_type property is optional - users can override it or use the default
 
 
 # Example 1: Database Verification Tool (inherits directly from AnalysisTool)
@@ -38,7 +38,7 @@ class DatabaseVerificationTool(AnalysisTool):
 
     @property
     def analysis_type(self) -> str:
-        return "verification"  # User-defined analysis type
+        return "verification"  # Optional: user-defined analysis type
 
     @property
     def requires_target_response(self) -> bool:
@@ -153,7 +153,7 @@ class APIMonitoringTool(AnalysisTool):
 
     @property
     def analysis_type(self) -> str:
-        return "monitoring"  # User-defined analysis type
+        return "monitoring"  # Optional: user-defined analysis type
 
     @property
     def requires_target_response(self) -> bool:
@@ -226,7 +226,7 @@ class SecurityScannerTool(AnalysisTool):
 
     @property
     def analysis_type(self) -> str:
-        return "security"  # User-defined analysis type
+        return "security"  # Optional: user-defined analysis type
 
     @property
     def description(self) -> str:
@@ -323,6 +323,40 @@ Returns list of any security issues found. After scanning, send another message 
             metadata={
                 "scanned_length": len(response_text),
                 "scanner_version": "1.0",
+            },
+        )
+
+
+# Example 4: Simple Analysis Tool (shows analysis_type is optional)
+class SimpleAnalysisTool(AnalysisTool):
+    """
+    Simple analysis tool that uses default analysis_type.
+
+    This shows that users don't need to define analysis_type - it defaults to "analysis".
+    """
+
+    @property
+    def name(self) -> str:
+        return "simple_analysis"
+
+    # Note: No analysis_type property defined - uses default "analysis"
+    # Note: No requires_target_response property defined - uses default True
+
+    @property
+    def description(self) -> str:
+        return """Simple analysis tool that demonstrates minimal implementation.
+        
+This tool shows that analysis_type and requires_target_response are optional.
+Users get automatic workflow management without any extra configuration.
+"""
+
+    def execute(self, data: str = "", **kwargs: Any) -> ToolResult:
+        """Simple analysis that just counts characters."""
+        return ToolResult(
+            success=True,
+            output={
+                "analysis": f"Data contains {len(data)} characters",
+                "analysis_type": self.analysis_type,  # Will be "analysis"
             },
         )
 
@@ -494,9 +528,11 @@ def main():
     print("  1. Choose the right base class:")
     print("     • Tool: For general tools")
     print("     • AnalysisTool: For tools that analyze data (prevents infinite loops)")
-    print("  2. For AnalysisTool, implement analysis_type property:")
-    print("     • Define any analysis type: 'security', 'verification', 'monitoring', etc.")
-    print("     • Set requires_target_response: True/False")
+    print("  2. For AnalysisTool, optionally customize:")
+    print(
+        "     • analysis_type: 'security', 'verification', etc. (optional, defaults to 'analysis')"
+    )
+    print("     • requires_target_response: True/False (optional, defaults to True)")
     print("  3. Implement name, description, and execute methods")
     print("  4. Provide extensive documentation in description")
     print("  5. Return ToolResult with structured output")
