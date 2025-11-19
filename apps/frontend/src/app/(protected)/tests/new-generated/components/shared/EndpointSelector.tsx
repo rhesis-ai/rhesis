@@ -171,7 +171,9 @@ export default function EndpointSelector({
         onChange={handleChange}
       >
         <MenuItem value="">
-          <em>None (Skip preview)</em>
+          <Typography variant="body2" color="text.secondary">
+            None (Skip preview)
+          </Typography>
         </MenuItem>
         {endpointOptions.map(option => (
           <MenuItem key={option.endpointId} value={option.endpointId}>

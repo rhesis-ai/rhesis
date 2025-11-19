@@ -30,6 +30,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ApiIcon from '@mui/icons-material/Api';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import CloseIcon from '@mui/icons-material/Close';
 import { ConfigChips, TestSample, ChatMessage } from './shared/types';
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
 import ChipGroup from './shared/ChipGroup';
@@ -693,17 +694,34 @@ export default function TestGenerationInterface({
                     >
                       Regenerate Samples
                     </Button>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
-                      onClick={() => setShowEndpointModal(true)}
-                      sx={{ textTransform: 'none' }}
-                    >
-                      {endpointInfo
-                        ? `${endpointInfo.projectName} › ${endpointInfo.name}`
-                        : 'Show Live Responses'}
-                    </Button>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
+                        onClick={() => setShowEndpointModal(true)}
+                        sx={{ textTransform: 'none' }}
+                      >
+                        {endpointInfo
+                          ? `${endpointInfo.projectName} › ${endpointInfo.name}`
+                          : 'Show Live Responses'}
+                      </Button>
+                      {endpointInfo && (
+                        <IconButton
+                          size="small"
+                          onClick={() => onEndpointChange(null)}
+                          sx={{
+                            ml: -0.5,
+                            '&:hover': {
+                              bgcolor: 'error.lighter',
+                              color: 'error.main',
+                            },
+                          }}
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Box>
                   </Box>
                 }
               />
