@@ -60,7 +60,8 @@ WHEN TO USE:
 WHEN NOT TO USE:
 ✗ Before the action occurs
 ✗ For non-database systems
-✗ This is a VERIFICATION tool - after checking, continue the conversation with send_message_to_target
+✗ This is a VERIFICATION tool - after checking, continue the conversation with
+  send_message_to_target
 
 PARAMETERS:
 - table_name: Name of the database table to check
@@ -74,7 +75,8 @@ EXAMPLE:
 ...     expected_status="confirmed"
 ... )
 
-Returns verification result with actual vs expected values. After verification, send another message to the target to continue testing.
+Returns verification result with actual vs expected values. After verification,
+send another message to the target to continue testing.
 """
 
     def execute(
@@ -173,12 +175,14 @@ WHEN TO USE:
 ✓ To identify performance degradation
 
 WHEN NOT TO USE:
-✗ This is a MONITORING tool - after checking metrics, continue the conversation with send_message_to_target
+✗ This is a MONITORING tool - after checking metrics, continue the conversation
+  with send_message_to_target
 
 EXAMPLE:
 >>> check_api_metrics()
 
-Returns current performance metrics. After checking, send another message to the target to continue testing.
+Returns current performance metrics. After checking, send another message to the
+target to continue testing.
 """
 
     def execute(self, **kwargs: Any) -> ToolResult:
@@ -253,7 +257,8 @@ EXAMPLE:
 ...     response_text="The server response here..."
 ... )
 
-Returns list of any security issues found. After scanning, send another message to the target to continue testing.
+Returns list of any security issues found. After scanning, send another message
+to the target to continue testing.
 """
 
     def execute(self, response_text: str = "", **kwargs: Any) -> ToolResult:

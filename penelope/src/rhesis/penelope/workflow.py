@@ -103,7 +103,8 @@ class WorkflowManager:
         if isinstance(tool, AnalysisTool):
             if self.state.consecutive_analysis_tools >= self.state.max_consecutive_analysis:
                 return False, (
-                    f"Too many consecutive analysis tools ({self.state.consecutive_analysis_tools}). "
+                    f"Too many consecutive analysis tools "
+                    f"({self.state.consecutive_analysis_tools}). "
                     f"Use send_message_to_target to continue the conversation."
                 )
 
@@ -117,7 +118,8 @@ class WorkflowManager:
         if not ToolType.is_target_interaction(tool_name):
             if self.state.turns_since_target_interaction >= self.state.max_turns_without_target:
                 return False, (
-                    f"Too many turns without target interaction ({self.state.turns_since_target_interaction}). "
+                    f"Too many turns without target interaction "
+                    f"({self.state.turns_since_target_interaction}). "
                     f"Use send_message_to_target to continue the conversation."
                 )
 
@@ -159,7 +161,8 @@ class WorkflowManager:
             guidance.append("✓ Good: Recent target interaction completed")
         elif self.state.turns_since_target_interaction >= 3:
             guidance.append(
-                "⚠ Warning: No target interaction for several turns - consider using send_message_to_target"
+                "⚠ Warning: No target interaction for several turns - "
+                "consider using send_message_to_target"
             )
 
         if self.state.consecutive_analysis_tools >= 2:
