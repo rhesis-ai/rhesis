@@ -22,6 +22,7 @@ export interface OnboardingStep {
   optional?: boolean;
   targetPath: string;
   tourId: string;
+  requiresProjects?: boolean;
 }
 
 /**

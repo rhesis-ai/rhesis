@@ -9,10 +9,11 @@ export const projectTourSteps: DriveStep[] = [
     popover: {
       title: 'Create Your First Project',
       description:
-        'Projects help you organize your AI testing work. Click here to create your first project.',
+        'Projects help you organize your AI testing work. Use the tour controls below to continue.',
       side: 'left',
       align: 'start',
     },
+    disableActiveInteraction: true,
   },
 ];
 
@@ -25,20 +26,24 @@ export const endpointTourSteps: DriveStep[] = [
     popover: {
       title: 'Set Up an Endpoint',
       description:
-        "Endpoints are the AI services you want to test. Let's create your first endpoint to get started.",
+        "Endpoints are the AI services you want to test. Use the 'Next' button below to continue the tour.",
       side: 'left',
       align: 'start',
     },
+    disableActiveInteraction: true,
   },
   {
     element: '[data-tour="import-swagger-button"]',
     popover: {
       title: 'Import from Swagger',
       description:
-        "You can quickly import endpoints from a Swagger/OpenAPI spec, or create them manually using the 'New Endpoint' button.",
+        "You can quickly import endpoints from a Swagger/OpenAPI spec, or create them manually. Click 'Got it!' below to finish and start creating endpoints.",
       side: 'left',
       align: 'start',
     },
+    disableActiveInteraction: true,
+    // Mark complete when this step is highlighted (last step)
+    __markComplete: 'endpointSetup',
   },
 ];
 
@@ -51,19 +56,22 @@ export const inviteUsersTourSteps: DriveStep[] = [
     popover: {
       title: 'Invite Your Team',
       description:
-        "Enter your team members' email addresses here. You can invite multiple people at once.",
+        "Enter your team members' email addresses here. You can invite multiple people at once. Use the 'Next' button below to continue.",
       side: 'bottom',
       align: 'start',
     },
+    disableActiveInteraction: true,
   },
   {
     element: '[data-tour="send-invites-button"]',
     popover: {
       title: 'Send Invitations',
-      description: 'Click here to send invitation emails to your team members.',
+      description:
+        "This button sends invitation emails to your team members. Click 'Got it!' below to finish the tour.",
       side: 'left',
       align: 'start',
     },
+    disableActiveInteraction: true,
   },
 ];
 
@@ -76,22 +84,27 @@ export const testCasesTourSteps: DriveStep[] = [
     popover: {
       title: 'Create Your First Test Cases',
       description:
-        'Test cases define what to test in your AI endpoints. Click this button to see your options.',
+        "Test cases define what to test in your AI endpoints. Click 'Next' below to continue - we'll open the creation dialog for you.",
       side: 'left',
       align: 'start',
       // onNextClick handler is added dynamically in OnboardingContext
     },
+    // Don't disable interaction - we need to programmatically click this button
+    disableActiveInteraction: false,
   },
   {
     element: '[data-tour="test-generation-modal"]',
     popover: {
       title: 'Choose Your Method',
       description:
-        'You can create tests manually, generate them with AI, or import them. Pick the method that works best for you!',
+        "You can create tests manually, generate them with AI, or import them. Click 'Got it!' below to finish the tour and start creating tests.",
       side: 'top',
       align: 'center',
       // Don't specify showButtons - let driver.js automatically show correct buttons for last step
     },
+    disableActiveInteraction: true,
+    // Mark complete when this step is highlighted (last step)
+    __markComplete: 'testCasesCreated',
   },
 ];
 

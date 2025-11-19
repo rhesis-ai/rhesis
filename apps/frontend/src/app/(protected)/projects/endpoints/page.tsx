@@ -10,8 +10,6 @@ import { useSession } from 'next-auth/react';
 import { useState, useCallback, useEffect } from 'react';
 import { GridPaginationModel } from '@mui/x-data-grid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
-import { useOnboardingTour } from '@/hooks/useOnboardingTour';
-import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function EndpointsPage() {
   const { data: session } = useSession();
@@ -23,39 +21,6 @@ export default function EndpointsPage() {
     page: 0,
     pageSize: 10,
   });
-  const { markStepComplete, progress } = useOnboarding();
-
-  // Enable tour for this page
-  useOnboardingTour('endpoint');
-
-  // Mark step as complete when user clicks the new endpoint button
-  // (checked when they navigate to the create page)
-  useEffect(() => {
-    const checkNavigation = () => {
-      // If user navigates away or clicks the button, mark as complete
-      if (!progress.endpointSetup) {
-        markStepComplete('endpointSetup');
-      }
-    };
-
-    // Listen for when the "New Endpoint" button is clicked
-    const button = document.querySelector(
-      '[data-tour="create-endpoint-button"]'
-    );
-    if (button) {
-      button.addEventListener('click', checkNavigation);
-      return () => {
-        button.removeEventListener('click', checkNavigation);
-      };
-    }
-  }, [progress.endpointSetup, markStepComplete]);
-
-  // Also mark complete when user has endpoints (fallback)
-  useEffect(() => {
-    if (endpoints.length > 0 && !progress.endpointSetup) {
-      markStepComplete('endpointSetup');
-    }
-  }, [endpoints.length, progress.endpointSetup, markStepComplete]);
 
   const fetchEndpoints = useCallback(async () => {
     if (!session?.session_token) {

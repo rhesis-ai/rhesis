@@ -24,6 +24,8 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useSearchParams } from 'next/navigation';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import CloudIcon from '@mui/icons-material/Cloud';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -103,12 +105,21 @@ export default function EndpointGrid({
   projectId,
 }: EndpointGridProps) {
   const theme = useTheme();
+  const searchParams = useSearchParams();
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const { data: session } = useSession();
+  const { progress, isComplete } = useOnboarding();
+
+  // Check if user is currently on the endpoint tour
+  const isOnEndpointTour = searchParams.get('tour') === 'endpoint';
+
+  // Disable buttons when onboarding is active, UNLESS user is on the endpoint tour
+  const shouldDisableButtons =
+    !progress.dismissed && !isComplete && !isOnEndpointTour;
 
   // Fetch projects when component mounts
   useEffect(() => {
@@ -216,28 +227,34 @@ export default function EndpointGrid({
 
       <Box sx={{ display: 'flex', gap: 2 }}>
         <Button
-          component={Link}
+          component={shouldDisableButtons ? 'button' : Link}
           href={
-            projectId
-              ? `/projects/${projectId}/endpoints/new`
-              : '/projects/endpoints/new'
+            shouldDisableButtons
+              ? undefined
+              : projectId
+                ? `/projects/${projectId}/endpoints/new`
+                : '/projects/endpoints/new'
           }
           variant="outlined"
           startIcon={<AddIcon />}
           data-tour="create-endpoint-button"
+          disabled={shouldDisableButtons}
         >
           New Endpoint
         </Button>
         <Button
-          component={Link}
+          component={shouldDisableButtons ? 'button' : Link}
           href={
-            projectId
-              ? `/projects/${projectId}/endpoints/swagger`
-              : '/projects/endpoints/swagger'
+            shouldDisableButtons
+              ? undefined
+              : projectId
+                ? `/projects/${projectId}/endpoints/swagger`
+                : '/projects/endpoints/swagger'
           }
           variant="contained"
           startIcon={<UploadIcon />}
           data-tour="import-swagger-button"
+          disabled={shouldDisableButtons}
         >
           Import Swagger
         </Button>

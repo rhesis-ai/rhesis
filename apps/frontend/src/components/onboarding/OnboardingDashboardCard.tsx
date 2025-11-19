@@ -23,6 +23,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { OnboardingStep } from '@/types/onboarding';
+import { useSession } from 'next-auth/react';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 const ONBOARDING_STEPS: OnboardingStep[] = [
   {
@@ -36,8 +38,9 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     id: 'endpointSetup',
     title: 'Set up an endpoint',
     description: 'Connect to your AI service endpoint',
-    targetPath: '/endpoints?tour=endpoint',
+    targetPath: '/projects/endpoints?tour=endpoint',
     tourId: 'endpoint',
+    requiresProjects: true,
   },
   {
     id: 'usersInvited',
@@ -58,6 +61,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
 
 export default function OnboardingDashboardCard() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { progress, isComplete, completionPercentage, dismissOnboarding } =
     useOnboarding();
 
@@ -66,7 +70,28 @@ export default function OnboardingDashboardCard() {
     return null;
   }
 
-  const handleStepClick = (step: OnboardingStep) => {
+  const handleStepClick = async (step: OnboardingStep) => {
+    // For steps that require projects (like endpoint setup),
+    // fetch the first project and navigate to its detail page
+    if (step.requiresProjects && session?.session_token) {
+      try {
+        const apiFactory = new ApiClientFactory(session.session_token);
+        const projectsClient = apiFactory.getProjectsClient();
+        const response = await projectsClient.getProjects();
+        const projects = Array.isArray(response)
+          ? response
+          : response?.data || [];
+
+        if (projects.length > 0) {
+          // Navigate to the first project's detail page where they can see endpoints
+          router.push(`/projects/${projects[0].id}?tour=${step.tourId}`);
+          return;
+        }
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      }
+    }
+
     router.push(step.targetPath);
   };
 

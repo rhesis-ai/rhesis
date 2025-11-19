@@ -68,7 +68,11 @@ export default function ProjectsClientWrapper({
 }: ProjectsClientWrapperProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects || []);
   const notifications = useNotifications();
-  const { markStepComplete, progress } = useOnboarding();
+  const { markStepComplete, progress, isComplete } = useOnboarding();
+
+  // Check if create project button should be disabled
+  const isProjectButtonDisabled =
+    !progress.projectCreated && !progress.dismissed && !isComplete;
 
   // Enable tour for this page
   useOnboardingTour('project');
@@ -113,12 +117,13 @@ export default function ProjectsClientWrapper({
         }}
       >
         <Button
-          component={Link}
-          href="/projects/create-new"
+          component={isProjectButtonDisabled ? 'button' : Link}
+          href={isProjectButtonDisabled ? undefined : '/projects/create-new'}
           variant="contained"
           color="primary"
           startIcon={<AddIcon />}
           data-tour="create-project-button"
+          disabled={isProjectButtonDisabled}
         >
           Create Project
         </Button>

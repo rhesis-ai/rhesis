@@ -6,6 +6,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from 'react';
 import { driver, Driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
@@ -32,6 +33,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     useState<OnboardingProgress>(getDefaultProgress());
   const [activeTour, setActiveTour] = useState<string | null>(null);
   const [driverInstance, setDriverInstance] = useState<Driver | null>(null);
+  const activeTourRef = useRef<string | null>(null);
 
   // Load progress from localStorage on mount
   useEffect(() => {
@@ -52,13 +54,16 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
       const instance = driver({
         ...driverConfig,
         onDestroyed: () => {
+          // Clean up tour state
           setActiveTour(null);
+          activeTourRef.current = null;
         },
       });
       setDriverInstance(instance);
 
       // Clear activeTour on mount in case it's stuck from a previous session
       setActiveTour(null);
+      activeTourRef.current = null;
 
       return () => {
         instance.destroy();
@@ -95,7 +100,6 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     (tourId: string) => {
       if (!driverInstance) return;
 
-      // Check if driver is already active
       const state = driverInstance.getState();
       if (state.isInitialized) return;
 
@@ -103,37 +107,50 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
       if (steps.length === 0) return;
 
       setActiveTour(tourId);
+      activeTourRef.current = tourId;
 
       // Enhance steps with tour-specific behavior
       const enhancedSteps = steps.map((step, index) => {
-        // For project/endpoint tours: auto-close when button is clicked
-        if ((tourId === 'project' || tourId === 'endpoint') && index === 0) {
-          return {
-            ...step,
-            onHighlightStarted: (element: Element | undefined) => {
-              if (element) {
-                element.addEventListener('click', () => {
-                  setTimeout(() => driverInstance.destroy(), 100);
-                });
-              }
-            },
-          };
-        }
+        // Add completion tracking to steps marked with __markComplete
+        const stepWithCompletion = {
+          ...step,
+          onHighlighted: (element: Element | undefined, stepObj: any) => {
+            // Mark step complete if it has __markComplete property
+            if ((stepObj as any).__markComplete) {
+              const stepId = (stepObj as any).__markComplete;
+              setProgress(prev => {
+                const updated = {
+                  ...prev,
+                  [stepId]: true,
+                  lastUpdated: Date.now(),
+                };
+                saveProgress(updated);
+                return updated;
+              });
+            }
+            // Call original onHighlighted if it exists
+            if (step.onHighlighted) {
+              step.onHighlighted(element, stepObj, {
+                config: driverInstance.getConfig(),
+                state: driverInstance.getState(),
+                driver: driverInstance,
+              });
+            }
+          },
+        };
 
         // For testCases tour
         if (tourId === 'testCases') {
           if (index === 0) {
             // Step 0: When "Next" is clicked, click the button AND advance to next step
-            // Per driver.js docs: when overriding onNextClick, you MUST call a driver method
             return {
-              ...step,
+              ...stepWithCompletion,
               popover: {
-                ...step.popover,
+                ...stepWithCompletion.popover,
                 onNextClick: (element: Element | undefined) => {
                   if (element) {
                     (element as HTMLElement).click();
                   }
-                  // Wait for modal to open, then advance
                   setTimeout(() => {
                     driverInstance.moveNext();
                   }, 400);
@@ -143,12 +160,11 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
           }
 
           if (index === 1) {
-            // Step 1: Override only onPrevClick to handle modal closing
-            // For onNextClick (last step), let driver.js use default behavior (destroy)
+            // Step 1: Handle back button to close modal
             return {
-              ...step,
+              ...stepWithCompletion,
               popover: {
-                ...step.popover,
+                ...stepWithCompletion.popover,
                 onPrevClick: () => {
                   const dialog = document.querySelector(
                     '[data-tour="test-generation-modal"]'
@@ -166,18 +182,10 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
                   }, 400);
                 },
               },
-              // Add onDeselected to mark completion and close modal when tour ends
+              // Close modal when tour ends
               onDeselected: () => {
-                // Only run this when tour is being destroyed (not when going back)
                 const state = driverInstance.getState();
                 if (!state.isInitialized) {
-                  // Tour is ending - mark complete and close modal
-                  setProgress(prev => ({
-                    ...prev,
-                    testCasesCreated: true,
-                    lastUpdated: Date.now(),
-                  }));
-
                   setTimeout(() => {
                     const dialog = document.querySelector(
                       '[data-tour="test-generation-modal"]'
@@ -197,7 +205,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
           }
         }
 
-        return step;
+        return stepWithCompletion;
       });
 
       driverInstance.setSteps(enhancedSteps);
