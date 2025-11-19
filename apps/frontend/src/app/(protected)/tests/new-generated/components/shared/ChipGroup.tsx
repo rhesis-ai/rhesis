@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box, Chip, Tooltip } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { ChipConfig } from './types';
@@ -79,15 +79,14 @@ export default function ChipGroup({
     return baseSx;
   };
 
-  // Sort chips: active first, then alphabetically within each group
-  const sortedChips = [...chips].sort((a, b) => {
-    // First sort by active status (active first)
-    if (a.active !== b.active) {
-      return a.active ? -1 : 1;
-    }
-    // Then sort alphabetically by label within each group
-    return a.label.localeCompare(b.label);
-  });
+  // Sort chips only based on their structure (id + label), not active state
+  // This creates a stable order that doesn't change when toggling chips
+  const sortedChips = useMemo(() => {
+    return [...chips].sort((a, b) => {
+      // Sort alphabetically by label only
+      return a.label.localeCompare(b.label);
+    });
+  }, [chips.map(c => c.id + c.label).join(',')]);
 
   return (
     <Box
