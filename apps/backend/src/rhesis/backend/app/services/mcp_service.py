@@ -23,7 +23,9 @@ jinja_env = jinja2.Environment(
 )
 
 
-def _get_mcp_client_by_tool_id(db: Session, tool_id: str, organization_id: str):
+def _get_mcp_client_by_tool_id(
+    db: Session, tool_id: str, organization_id: str, user_id: str = None
+):
     """
     Get MCP client from database configuration by tool ID.
 
@@ -31,6 +33,7 @@ def _get_mcp_client_by_tool_id(db: Session, tool_id: str, organization_id: str):
         db: Database session
         tool_id: Tool instance ID
         organization_id: Organization ID (for authorization check)
+        user_id: User ID (for authorization check)
 
     Returns:
         Tuple of (MCPClient, provider_name) ready to use
@@ -38,7 +41,7 @@ def _get_mcp_client_by_tool_id(db: Session, tool_id: str, organization_id: str):
     Raises:
         ValueError: If tool not found or not an MCP integration
     """
-    tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id)
+    tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
 
     if not tool:
         raise ValueError(f"Tool '{tool_id}' not found. Please add it in /integrations/tools")
@@ -62,7 +65,7 @@ def _get_mcp_client_by_tool_id(db: Session, tool_id: str, organization_id: str):
 
 
 async def search_mcp(
-    query: str, tool_id: str, db: Session, user: User, organization_id: str
+    query: str, tool_id: str, db: Session, user: User, organization_id: str, user_id: str = None
 ) -> List[Dict[str, str]]:
     """
     Search MCP server for items matching query.
@@ -100,7 +103,7 @@ async def search_mcp(
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
-    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id)
+    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
 
     search_prompt = jinja_env.get_template("mcp_search_prompt.jinja2").render()
     agent = MCPAgent(
@@ -119,7 +122,9 @@ async def search_mcp(
     return json.loads(result.final_answer)
 
 
-async def extract_mcp(id: str, tool_id: str, db: Session, user: User, organization_id: str) -> str:
+async def extract_mcp(
+    id: str, tool_id: str, db: Session, user: User, organization_id: str, user_id: str = None
+) -> str:
     """
     Extract full content from an MCP item as markdown.
 
@@ -153,7 +158,7 @@ async def extract_mcp(id: str, tool_id: str, db: Session, user: User, organizati
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
-    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id)
+    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
 
     extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render()
     agent = MCPAgent(
@@ -178,6 +183,7 @@ async def query_mcp(
     db: Session,
     user: User,
     organization_id: str,
+    user_id: str = None,
     system_prompt: Optional[str] = None,
     max_iterations: int = 10,
 ) -> Dict[str, Any]:
@@ -212,7 +218,7 @@ async def query_mcp(
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
-    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id)
+    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
 
     if not system_prompt:
         system_prompt = jinja_env.get_template("mcp_default_query_prompt.jinja2").render()

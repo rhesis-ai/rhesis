@@ -6,6 +6,7 @@ from pydantic import UUID4, ConfigDict
 from .base import Base
 from .status import Status
 from .type_lookup import TypeLookup
+from .user import User
 
 
 class ToolBase(Base):
@@ -18,6 +19,7 @@ class ToolBase(Base):
     status_id: Optional[UUID4] = None
     tool_metadata: Optional[Dict[str, Any]] = None
     organization_id: Optional[UUID4] = None
+    user_id: Optional[UUID4] = None
 
 
 class ToolCreate(ToolBase):
@@ -34,6 +36,7 @@ class ToolUpdate(ToolBase):
     tool_type_id: Optional[UUID4] = None
     tool_provider_id: Optional[UUID4] = None
     auth_token: Optional[str] = None  # Optional - only update if provided, will be re-encrypted
+    user_id: Optional[UUID4] = None
 
 
 class Tool(Base):
@@ -43,7 +46,7 @@ class Tool(Base):
     Note: auth_token is excluded from response for security.
     It can be set via Create/Update but is never returned.
 
-    Tools are organization-level resources (not user-owned).
+    Tools can be owned by both organizations and users.
     """
 
     id: UUID4
@@ -56,6 +59,7 @@ class Tool(Base):
     status_id: Optional[UUID4] = None
     tool_metadata: Dict[str, Any]
     organization_id: Optional[UUID4] = None
+    user_id: Optional[UUID4] = None
 
     # Sensitive field excluded from response:
     # auth_token - can be set via Create/Update but is never returned
@@ -64,5 +68,6 @@ class Tool(Base):
     tool_type: Optional[TypeLookup] = None
     tool_provider: Optional[TypeLookup] = None
     status: Optional[Status] = None
+    user: Optional[User] = None
 
     model_config = ConfigDict(from_attributes=True)
