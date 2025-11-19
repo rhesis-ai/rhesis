@@ -380,7 +380,7 @@ export default function LandingPage() {
                     <RocketLaunchIcon
                       sx={{ fontSize: 28, color: 'primary.main' }}
                     />
-                    <Typography variant="h5">Local Mode</Typography>
+                    <Typography variant="h5">QUICK START MODE</Typography>
                   </Box>
                   <Typography variant="body1" gutterBottom>
                     Starting with zero configuration. Redirecting to

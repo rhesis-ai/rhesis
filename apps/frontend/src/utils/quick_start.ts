@@ -1,11 +1,11 @@
 /**
  * Quick Start mode detection utility for frontend.
  *
- * Quick Start is ONLY enabled when QUICK_START=true AND all signals confirm local development.
+ * Quick Start is ONLY enabled when QUICK_START=true AND all signals confirm QUICK START MODE.
  */
 
 /**
- * Determine if Quick Start mode should be enabled.
+ * Determine if QUICK START MODE should be enabled.
  *
  * Quick Start is ONLY enabled when ALL of the following conditions are met:
  * 1. QUICK_START environment variable is explicitly set to 'true'
@@ -16,7 +16,7 @@
  * it returns false. Default is false for safety.
  *
  * @param hostname - Optional hostname to check (defaults to window.location.hostname)
- * @returns True ONLY if all signals confirm quick start mode, False otherwise
+ * @returns True ONLY if all signals confirm QUICK START MODE, False otherwise
  *
  * @example
  * ```typescript
@@ -33,12 +33,12 @@ export function isQuickStartEnabled(hostname?: string): boolean {
     process.env.QUICK_START === 'true';
 
   if (!quickStartEnv) {
-    console.debug("Quick Start disabled: QUICK_START not set to 'true'");
+    console.debug("QUICK START MODE disabled: QUICK_START not set to 'true'");
     return false;
   }
 
   console.debug(
-    "Quick Start environment variable set to 'true', validating deployment signals..."
+    "QUICK START MODE environment variable set to 'true', validating deployment signals..."
   );
 
   // 2. HOSTNAME/DOMAIN CHECKS - Fail if cloud domain detected
@@ -50,7 +50,7 @@ export function isQuickStartEnabled(hostname?: string): boolean {
     // Check for Rhesis cloud domains (any domain containing rhesis.ai)
     if (hostnameLower.includes('rhesis.ai')) {
       console.warn(
-        ` Quick Start disabled: Cloud hostname detected (${checkHostname})`
+        ` QUICK START MODE disabled: Cloud hostname detected (${checkHostname})`
       );
       return false;
     }
@@ -62,16 +62,16 @@ export function isQuickStartEnabled(hostname?: string): boolean {
     for (const cloudDomain of cloudRunDomains) {
       if (hostnameLower.includes(cloudDomain)) {
         console.warn(
-          ` Quick Start disabled: Cloud Run domain detected (${checkHostname})`
+          ` QUICK START MODE disabled: Cloud Run domain detected (${checkHostname})`
         );
         return false;
       }
     }
   }
 
-  // All checks passed - Quick Start is enabled
+  // All checks passed - QUICK START MODE is enabled
   console.info(
-    ' Quick Start mode enabled - all signals confirm local development'
+    ' QUICK START MODE enabled - all signals confirm QUICK START MODE'
   );
   return true;
 }
