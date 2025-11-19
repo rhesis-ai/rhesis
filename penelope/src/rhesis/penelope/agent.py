@@ -581,7 +581,7 @@ class PenelopeAgent:
                 if metric == self.goal_metric:
                     # Goal metric was already evaluated during test execution
                     # for stopping conditions. Use the final evaluation result.
-                    result = self.evaluator.evaluate(state, goal)
+                    result = self.evaluator.evaluate(state, goal, instructions=instructions or "")
 
                     # Update goal-achieved stopping condition
                     for condition in conditions:
