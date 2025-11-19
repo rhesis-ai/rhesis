@@ -335,7 +335,7 @@ class TurnExecutor:
                     if isinstance(tool, AnalysisTool):
                         context = self.workflow_manager.state.get_analysis_context()
                         # Remove context from action_params to avoid duplicate argument
-                        filtered_params = {k: v for k, v in action_params.items() if k != 'context'}
+                        filtered_params = {k: v for k, v in action_params.items() if k != "context"}
                         tool_result = tool.execute_with_validation(context, **filtered_params)
                     else:
                         tool_result = tool.execute(**action_params)
