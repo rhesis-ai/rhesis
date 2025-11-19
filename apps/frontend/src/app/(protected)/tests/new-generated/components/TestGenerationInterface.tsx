@@ -694,34 +694,32 @@ export default function TestGenerationInterface({
                     >
                       Regenerate Samples
                     </Button>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
-                        onClick={() => setShowEndpointModal(true)}
-                        sx={{ textTransform: 'none' }}
-                      >
-                        {endpointInfo
-                          ? `${endpointInfo.projectName} › ${endpointInfo.name}`
-                          : 'Show Live Responses'}
-                      </Button>
-                      {endpointInfo && (
-                        <IconButton
-                          size="small"
-                          onClick={() => onEndpointChange(null)}
-                          sx={{
-                            ml: -0.5,
-                            '&:hover': {
-                              bgcolor: 'error.lighter',
-                              color: 'error.main',
-                            },
-                          }}
-                        >
-                          <CloseIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                    </Box>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
+                      endIcon={
+                        endpointInfo ? (
+                          <CloseIcon
+                            fontSize="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEndpointChange(null);
+                            }}
+                            sx={{
+                              ml: 0.5,
+                              '&:hover': {
+                                color: 'error.main',
+                              },
+                            }}
+                          />
+                        ) : undefined
+                      }
+                      onClick={() => setShowEndpointModal(true)}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      {endpointInfo ? endpointInfo.name : 'Show Live Responses'}
+                    </Button>
                   </Box>
                 }
               />
