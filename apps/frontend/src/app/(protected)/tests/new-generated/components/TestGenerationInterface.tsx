@@ -108,6 +108,7 @@ export default function TestGenerationInterface({
   const [processedSampleIds, setProcessedSampleIds] = useState<Set<string>>(
     new Set()
   );
+  const [fetchTrigger, setFetchTrigger] = useState(0);
   const [showEndpointModal, setShowEndpointModal] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const { data: session } = useSession();
@@ -126,9 +127,10 @@ export default function TestGenerationInterface({
       testSamples.length !== localTestSamples.length ||
       testSamples.some(s => !existingSampleIds.has(s.id));
 
-    // If sample IDs changed, reset processed IDs to trigger endpoint fetch
+    // If sample IDs changed, reset processed IDs and trigger endpoint fetch
     if (sampleIdsChanged) {
       setProcessedSampleIds(new Set());
+      setFetchTrigger(prev => prev + 1);
     }
 
     // Create a map of existing samples with responses
@@ -330,7 +332,7 @@ export default function TestGenerationInterface({
 
     fetchResponses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEndpointId, session?.session_token, localTestSamples.length, processedSampleIds.size]);
+  }, [selectedEndpointId, session?.session_token, localTestSamples.length, fetchTrigger]);
 
   const handleSendMessage = useCallback(() => {
     if (inputMessage.trim()) {
