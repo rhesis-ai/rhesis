@@ -168,12 +168,216 @@ WHEN NOT TO USE:
         return result
 
 
-# Note: Specific analysis tool types (SecurityAnalysisTool, VerificationTool, etc.)
-# are not part of Penelope core. Users should create their own by inheriting from
-# AnalysisTool and implementing the analysis_type property.
-#
-# Example:
-# class SecurityAnalysisTool(AnalysisTool):
-#     @property
-#     def analysis_type(self) -> str:
-#         return "security"
+# Concrete analysis tool implementations
+
+
+class AnalyzeTextTool(AnalysisTool):
+    """
+    Tool for analyzing response content, tone, and characteristics.
+
+    This tool examines text responses to identify patterns, sentiment,
+    helpfulness, and other qualitative aspects.
+    """
+
+    @property
+    def name(self) -> str:
+        return "analyze_response"
+
+    @property
+    def description(self) -> str:
+        return """
+Analyze response text for tone, sentiment, helpfulness, and other characteristics.
+
+WHEN TO USE:
+✓ To evaluate response quality and tone
+✓ To identify sentiment patterns
+✓ To assess helpfulness and clarity
+
+WHEN NOT TO USE:
+✗ This is an ANALYSIS tool - after analyzing, continue the conversation with
+  send_message_to_target
+
+PARAMETERS:
+- response_text: The text response to analyze
+- analysis_focus: What aspect to focus on (e.g., "tone", "helpfulness")
+- context: Optional context about the conversation
+
+Returns analysis findings including tone assessment and response characteristics.
+After analysis, send another message to the target to continue testing.
+"""
+
+    @property
+    def analysis_type(self) -> str:
+        return "response_analysis"
+
+    def execute(
+        self,
+        response_text: str,
+        analysis_focus: str = "general analysis",
+        context: Optional[str] = None,
+        **kwargs: Any,
+    ) -> ToolResult:
+        """Execute response analysis."""
+        if not response_text.strip():
+            return ToolResult(
+                success=False,
+                output={"error": "No response text provided for analysis"},
+                metadata={"analysis_focus": analysis_focus},
+            )
+
+        findings = []
+        output = {
+            "analysis_focus": analysis_focus,
+            "response_length": len(response_text),
+            "context_provided": context is not None,
+        }
+
+        # Analyze tone
+        response_lower = response_text.lower()
+        positive_words = ["yes", "happy", "help", "certainly", "glad", "pleased", "welcome"]
+        negative_words = ["no", "sorry", "cannot", "unable", "unfortunately", "problem"]
+
+        positive_count = sum(1 for word in positive_words if word in response_lower)
+        negative_count = sum(1 for word in negative_words if word in response_lower)
+
+        if positive_count > negative_count:
+            findings.append("Response has a positive and helpful tone")
+        elif negative_count > positive_count:
+            findings.append("Response has a more negative or limiting tone")
+        else:
+            findings.append("Response has a neutral tone")
+
+        # Check for helpfulness indicators
+        helpful_phrases = ["i can help", "let me", "i'll", "we can", "certainly", "of course"]
+        if any(phrase in response_lower for phrase in helpful_phrases):
+            findings.append("Response shows willingness to help")
+
+        # Check for politeness
+        polite_words = ["please", "thank", "sorry", "excuse", "pardon"]
+        if any(word in response_lower for word in polite_words):
+            findings.append("Response includes polite language")
+
+        # Check response completeness
+        if len(response_text.strip()) < 10:
+            findings.append("Response is very brief")
+        elif len(response_text.strip()) > 200:
+            findings.append("Response is detailed and comprehensive")
+
+        output["findings"] = findings
+
+        return ToolResult(
+            success=True,
+            output=output,
+            metadata={"analysis_focus": analysis_focus, "tool_type": "analysis"},
+        )
+
+
+class ExtractTool(AnalysisTool):
+    """
+    Tool for extracting specific information from response text.
+
+    This tool identifies and extracts structured data like dates, emails,
+    phone numbers, and other patterns from text responses.
+    """
+
+    @property
+    def name(self) -> str:
+        return "extract_information"
+
+    @property
+    def description(self) -> str:
+        return """
+Extract specific information patterns from response text.
+
+WHEN TO USE:
+✓ To extract dates, numbers, contact information
+✓ To identify specific data patterns
+✓ To pull out structured information from responses
+
+WHEN NOT TO USE:
+✗ This is an EXTRACTION tool - after extracting, continue the conversation with
+  send_message_to_target
+
+PARAMETERS:
+- response_text: The text response to extract information from
+- extraction_target: What to extract (e.g., "dates", "contact info", "numbers")
+
+Returns extracted information organized by type. After extraction, send another
+message to the target to continue testing.
+"""
+
+    @property
+    def analysis_type(self) -> str:
+        return "information_extraction"
+
+    def execute(
+        self, response_text: str, extraction_target: str = "general extraction", **kwargs: Any
+    ) -> ToolResult:
+        """Execute information extraction."""
+        import re
+
+        if not response_text.strip():
+            return ToolResult(
+                success=False,
+                output={"error": "No response text provided for extraction"},
+                metadata={"extraction_target": extraction_target},
+            )
+
+        output = {}
+
+        # Extract dates
+        date_patterns = [
+            r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",  # MM/DD/YYYY or MM-DD-YYYY
+            r"\b\d{2,4}[/-]\d{1,2}[/-]\d{1,2}\b",  # YYYY/MM/DD or YYYY-MM-DD
+        ]
+        dates = []
+        for pattern in date_patterns:
+            dates.extend(re.findall(pattern, response_text))
+        if dates:
+            output["dates"] = list(set(dates))
+
+        # Extract numbers
+        numbers = re.findall(r"\b\d+\b", response_text)
+        if numbers:
+            output["numbers"] = [int(n) for n in numbers]
+
+        # Extract email addresses
+        email_pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+        emails = re.findall(email_pattern, response_text)
+        if emails:
+            output["emails"] = emails
+
+        # Extract phone numbers
+        phone_patterns = [
+            r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b",  # XXX-XXX-XXXX or XXX.XXX.XXXX
+            r"\(\d{3}\)\s*\d{3}[-.]?\d{4}\b",  # (XXX) XXX-XXXX
+        ]
+        phones = []
+        for pattern in phone_patterns:
+            phones.extend(re.findall(pattern, response_text))
+        if phones:
+            output["phones"] = phones
+
+        # Extract relevant sentences based on extraction target
+        if extraction_target and extraction_target != "general extraction":
+            target_words = extraction_target.lower().split()
+            sentences = re.split(r"[.!?]+", response_text)
+            relevant_sentences = []
+
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if sentence and any(word in sentence.lower() for word in target_words):
+                    relevant_sentences.append(sentence)
+
+            if relevant_sentences:
+                output["relevant_content"] = relevant_sentences
+
+        # If no extractions found, add a note
+        if not output:
+            output["note"] = "No specific patterns found. Manual review may be needed."
+
+        return ToolResult(
+            success=True,
+            output=output,
+            metadata={"extraction_target": extraction_target, "tool_type": "extraction"},
+        )
