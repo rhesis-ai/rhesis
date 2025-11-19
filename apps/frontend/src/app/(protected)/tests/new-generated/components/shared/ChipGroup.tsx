@@ -79,14 +79,19 @@ export default function ChipGroup({
     return baseSx;
   };
 
-  // Sort chips only based on their structure (id + label), not active state
-  // This creates a stable order that doesn't change when toggling chips
+  // Sort chips: active first, then alphabetically within each group
+  // Uses useMemo with stable dependency to prevent re-sorting on every toggle
+  // Only re-sorts when the chip structure (IDs) changes (i.e., on regeneration)
   const sortedChips = useMemo(() => {
     return [...chips].sort((a, b) => {
-      // Sort alphabetically by label only
+      // First sort by active status (active first)
+      if (a.active !== b.active) {
+        return a.active ? -1 : 1;
+      }
+      // Then sort alphabetically by label within each group
       return a.label.localeCompare(b.label);
     });
-  }, [chips.map(c => c.id + c.label).join(',')]);
+  }, [chips.map(c => c.id).join(',')]);
 
   return (
     <Box
