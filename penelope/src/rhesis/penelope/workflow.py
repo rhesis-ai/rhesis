@@ -121,23 +121,24 @@ class WorkflowManager:
                     f"Use send_message_to_target to continue the conversation."
                 )
 
-        # Check for repetitive tool usage patterns
-        recent_tools = list(self.state.recent_tool_usage)
-        if len(recent_tools) >= 3:
-            # Check for immediate repetition (same tool used consecutively)
-            if recent_tools[-1] == recent_tools[-2] == tool_name:
-                return False, f"Tool {tool_name} used repeatedly. Try a different approach."
+        # Check for repetitive tool usage patterns (only for non-target interaction tools)
+        if not ToolType.is_target_interaction(tool_name):
+            recent_tools = list(self.state.recent_tool_usage)
+            if len(recent_tools) >= 3:
+                # Check for immediate repetition (same analysis tool used consecutively)
+                if recent_tools[-1] == recent_tools[-2] == tool_name:
+                    return False, f"Tool {tool_name} used repeatedly. Try a different approach."
 
-            # Check for oscillation pattern (A -> B -> A -> B)
-            if (
-                len(recent_tools) >= 4
-                and recent_tools[-1] == recent_tools[-3] == tool_name
-                and recent_tools[-2] == recent_tools[-4]
-            ):
-                return (
-                    False,
-                    f"Detected oscillation pattern with {tool_name}. Try a different approach.",
-                )
+                # Check for oscillation pattern (A -> B -> A -> B)
+                if (
+                    len(recent_tools) >= 4
+                    and recent_tools[-1] == recent_tools[-3] == tool_name
+                    and recent_tools[-2] == recent_tools[-4]
+                ):
+                    return (
+                        False,
+                        f"Detected oscillation pattern with {tool_name}. Try a different approach.",
+                    )
 
         return True, "Tool usage is valid"
 
