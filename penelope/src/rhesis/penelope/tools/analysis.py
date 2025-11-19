@@ -262,12 +262,12 @@ After analysis, send another message to the target to continue testing.
             findings.append("Response contains bullet points or list structure")
         if any(char.isdigit() for char in response_text):
             findings.append("Response contains numerical information")
-        
+
         # Check for policy language
         policy_words = ["policy", "terms", "conditions", "rules", "guidelines", "procedure"]
         if any(word in response_lower for word in policy_words):
             findings.append("Response contains policy-related language")
-        
+
         # Check response completeness
         if len(response_text.strip()) < 10:
             findings.append("Response is very brief")

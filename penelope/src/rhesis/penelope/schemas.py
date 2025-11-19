@@ -99,6 +99,9 @@ class SendMessageParams(BaseModel):
     conversation_id: Optional[str] = Field(
         default=None, description="Optional conversation ID for multi-turn conversations"
     )
+    session_id: Optional[str] = Field(
+        default=None, description="Optional session ID for multi-turn conversations"
+    )
     thread_id: Optional[str] = Field(
         default=None, description="Optional thread ID for multi-turn conversations"
     )
@@ -127,6 +130,7 @@ class SendMessageParams(BaseModel):
         """
         conversation_fields = [
             ("conversation_id", self.conversation_id),
+            ("session_id", self.session_id),
             ("thread_id", self.thread_id),
             ("chat_id", self.chat_id),
             ("dialog_id", self.dialog_id),

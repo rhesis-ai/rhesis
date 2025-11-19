@@ -1,10 +1,10 @@
 """Tests for TargetInteractionTool."""
 
-import pytest
 from unittest.mock import Mock
-from rhesis.penelope.tools.target_interaction import TargetInteractionTool
-from rhesis.penelope.tools.base import ToolResult
+
 from rhesis.penelope.targets.base import TargetResponse
+from rhesis.penelope.tools.base import ToolResult
+from rhesis.penelope.tools.target_interaction import TargetInteractionTool
 
 
 def test_target_interaction_tool_initialization(mock_target):
@@ -42,7 +42,7 @@ def test_target_interaction_tool_execute_basic(mock_target):
     assert isinstance(result, ToolResult)
     assert result.success is True
     assert "response" in result.output
-    assert "session_id" in result.output
+    assert "conversation_id" in result.output  # Default field when none provided
     assert result.output["response"] == "Mock response"
 
 
@@ -154,7 +154,7 @@ def test_target_interaction_tool_handles_none_session():
     result = tool.execute(message="Hello")
 
     assert result.success is True
-    assert result.output["session_id"] is None
+    assert result.output["conversation_id"] is None  # Default field when none provided
 
 
 def test_target_interaction_tool_passes_kwargs(mock_target):
@@ -176,4 +176,3 @@ def test_target_interaction_tool_passes_kwargs(mock_target):
     call_kwargs = mock_target.send_message.call_args.kwargs
     assert "extra_param" in call_kwargs
     assert call_kwargs["extra_param"] == "extra_value"
-

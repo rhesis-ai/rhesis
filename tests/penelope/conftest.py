@@ -45,11 +45,11 @@ def mock_target():
         def description(self) -> str:
             return "Mock target for testing"
 
-        def send_message(self, message: str, session_id=None, **kwargs):
+        def send_message(self, message: str, conversation_id=None, **kwargs):
             return TargetResponse(
                 success=True,
                 content="Mock response",
-                session_id=session_id or "session-123",
+                conversation_id=conversation_id,
             )
 
         def validate_configuration(self):

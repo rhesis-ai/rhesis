@@ -24,8 +24,8 @@ from rhesis.penelope.prompts import (
     get_system_prompt,
 )
 from rhesis.penelope.targets.base import Target
-from rhesis.penelope.tools.base import Tool
 from rhesis.penelope.tools.analysis import AnalyzeTextTool, ExtractTool
+from rhesis.penelope.tools.base import Tool
 from rhesis.penelope.tools.target_interaction import TargetInteractionTool
 from rhesis.penelope.utils import (
     GoalAchievedCondition,

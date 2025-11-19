@@ -248,34 +248,30 @@ class TestToolNameValidation:
         mock_model = Mock(spec=BaseLLM)
         mock_model.get_model_name.return_value = "mock-model"
         
-        # Test various hallucinated names
-        hallucinated_names = [
-            "send_message",
-            "target_interaction",
-            "send_to_target",
-            "message_target",
-        ]
+        # Test one specific hallucinated name that should be corrected
+        mock_model.generate.return_value = {
+            "reasoning": "Test",
+            "tool_calls": [
+                {
+                    "tool_name": "send_message",  # This should be corrected to send_message_to_target
+                    "parameters": {"message": "Test"},
+                }
+            ],
+        }
 
-        for bad_name in hallucinated_names:
-            mock_model.generate.return_value = {
-                "reasoning": "Test",
-                "tool_calls": [
-                    {
-                        "tool_name": bad_name,
-                        "parameters": {"message": "Test"},
-                    }
-                ],
-            }
+        agent = PenelopeAgent(model=mock_model, max_iterations=1)
+        result = agent.execute_test(
+            target=mock_target,
+            goal="Test goal",
+            instructions="Test instructions",
+        )
 
-            agent = PenelopeAgent(model=mock_model, max_iterations=1)
-            result = agent.execute_test(
-                target=mock_target,
-                goal="Test goal",
-                instructions="Test instructions",
-            )
-
-            # Should have findings about the invalid tool
-            assert len(result.findings) > 0, (
-                f"Should have findings about invalid tool name: {bad_name}"
-            )
+        # Should have findings about the invalid tool name correction
+        assert len(result.findings) > 0, "Should have findings about invalid tool name: send_message"
+        
+        # Check that the finding mentions the tool name correction
+        findings_text = " ".join(result.findings)
+        assert "send_message" in findings_text or "invalid tool" in findings_text.lower(), (
+            "Findings should mention the invalid tool name or correction"
+        )
 

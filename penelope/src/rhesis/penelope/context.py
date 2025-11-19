@@ -673,8 +673,9 @@ class TestState:
             findings.append(f"{status_icon} Test {status.value}")
             findings.append(f"Completed in {self.current_turn} turn(s)")
 
-            # Include any findings that were added during execution
-            findings.extend(self.findings)
+        # Always include any findings that were added during execution
+        # (e.g., tool name corrections, errors, warnings)
+        findings.extend(self.findings)
 
         return findings
 

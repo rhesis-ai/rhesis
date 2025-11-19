@@ -387,6 +387,12 @@ class TurnExecutor:
                 elif action_name == "analyze_response":
                     error_msg += ". Analysis tools must be explicitly registered."
 
+                # Add finding for unknown tool usage
+                state.add_finding(
+                    f"LLM used unknown tool '{action_name}'. This indicates the LLM is not following "
+                    f"tool documentation properly. Available tools: {', '.join(available_tools)}"
+                )
+
                 tool_result_dict = {
                     "success": False,
                     "output": {},
