@@ -61,7 +61,7 @@ class TestRestEndpointInvoker:
 
         assert result["output"] == "Hello!"
         assert result["conversation_id"] == "conv-123"
-        assert result["context"] == "greeting"
+        assert result["context"] == ["greeting"]  # Context is normalized to a list
 
     def test_invoke_forwards_conversation_id(self, mock_db, sample_endpoint_conversation):
         """Test that conversation_id is forwarded in subsequent requests."""

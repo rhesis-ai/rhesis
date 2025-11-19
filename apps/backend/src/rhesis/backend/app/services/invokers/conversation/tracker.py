@@ -57,8 +57,9 @@ class ConversationTracker:
         """
         Prepare template context with conversation tracking field.
 
-        Ensures the conversation field is present in the template context (even if None)
-        to avoid Jinja2 Undefined errors when rendering templates.
+        Only includes conversation fields that have actual values to prevent
+        None -> "None" conversion in templates. Missing conversation fields
+        should be omitted from the first request and extracted from the response.
 
         Args:
             endpoint: The endpoint configuration
@@ -71,9 +72,14 @@ class ConversationTracker:
         conversation_field = ConversationTracker.detect_conversation_field(endpoint)
         template_context = {**input_data, **extra_context}
 
-        if conversation_field and conversation_field not in template_context:
-            template_context[conversation_field] = None
-            logger.debug(f"Added {conversation_field}=None to template context for first turn")
+        if conversation_field:
+            if conversation_field in input_data and input_data[conversation_field] is not None:
+                # Use the provided non-None value
+                logger.debug(f"Using {conversation_field}={input_data[conversation_field]} from input")
+            else:
+                # Don't add None values - let the template handle missing fields gracefully
+                # The conversation ID will be extracted from the endpoint response
+                logger.debug(f"No {conversation_field} provided - will be extracted from endpoint response")
 
         return template_context, conversation_field
 
