@@ -498,22 +498,22 @@
             "description": "REST API tool"
         },
         {
-            "type_name": "ToolProvider",
+            "type_name": "ToolProviderType",
             "type_value": "notion",
             "description": "Notion workspace integration"
         },
         {
-            "type_name": "ToolProvider",
+            "type_name": "ToolProviderType",
             "type_value": "github",
             "description": "GitHub repository integration"
         },
         {
-            "type_name": "ToolProvider",
+            "type_name": "ToolProviderType",
             "type_value": "google",
             "description": "Google services integration"
         },
         {
-            "type_name": "ToolProvider",
+            "type_name": "ToolProviderType",
             "type_value": "gdrive",
             "description": "Google Drive integration"
         }
