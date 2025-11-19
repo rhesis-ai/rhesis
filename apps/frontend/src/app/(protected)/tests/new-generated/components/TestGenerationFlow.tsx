@@ -115,7 +115,6 @@ export default function TestGenerationFlow({
             // Call generate/test_config with template prompt to get behaviors
             const configResponse = await servicesClient.generateTestConfig({
               prompt: template.prompt,
-              sample_size: 5,
               project_id: selectedProjectId || undefined,
             });
 
@@ -253,7 +252,6 @@ export default function TestGenerationFlow({
         // Step 1: Generate test configuration based on description
         const configResponse = await servicesClient.generateTestConfig({
           prompt: desc,
-          sample_size: 10,
           project_id: projectId || undefined,
         });
 
@@ -449,15 +447,24 @@ export default function TestGenerationFlow({
           behaviors: activeBehaviors,
           topics: activeTopics,
           categories: activeCategories,
-          specific_requirements: `${description}\n\nPrevious test: "${sample.prompt}"\n\nUser feedback: ${feedback}\n\nPlease generate a new test that addresses this feedback.`,
+          specific_requirements: description,
           test_type: 'Single interaction tests',
           output_format: 'Generate only user inputs',
+        };
+
+        // Create rated sample with the feedback
+        const ratedSample = {
+          prompt: sample.prompt,
+          response: sample.response || '',
+          rating: sample.rating || 1, // Low rating since user is providing critical feedback
+          feedback: feedback,
         };
 
         const response = await servicesClient.generateTests({
           prompt,
           num_tests: 1,
           sources: selectedSources,
+          rated_samples: [ratedSample],
         });
 
         if (response.tests?.length) {
@@ -585,9 +592,7 @@ export default function TestGenerationFlow({
         // Step 1: Regenerate test configuration with full iteration context
         const configResponse = await servicesClient.generateTestConfig({
           prompt: description, // Keep original prompt separate
-          sample_size: 10,
           project_id: selectedProjectId || undefined,
-          rated_samples: ratedSamples,
           previous_messages: [
             ...previousMessages,
             {
