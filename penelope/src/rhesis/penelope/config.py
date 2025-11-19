@@ -47,8 +47,8 @@ class PenelopeConfig:
     # Configuration constants
     DEFAULT_MAX_ITERATIONS = 10
     DEFAULT_CONTEXT_WINDOW_MESSAGES = 10  # Last N messages for context
-    DEFAULT_MODEL_PROVIDER = "vertex_ai"
-    DEFAULT_MODEL_NAME = "gemini-2.0-flash"
+    DEFAULT_MODEL_PROVIDER = "rhesis"
+    DEFAULT_MODEL_NAME = "default"
 
     # Default values
     _log_level: Optional[str] = None
@@ -84,9 +84,9 @@ class PenelopeConfig:
         1. Programmatically set value
         2. PENELOPE_DEFAULT_MODEL env var
         3. Default: "vertex_ai"
-
+.
         Returns:
-            Model provider string (e.g., "vertex_ai", "anthropic", "openai")
+            Model provider string (e.g., "rhesis", "vertex_ai", "anthropic", "openai")
         """
         if cls._default_model is not None:
             return cls._default_model

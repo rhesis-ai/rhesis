@@ -144,13 +144,14 @@ class GenerateContentRequest(BaseModel):
 
 class TestConfigRequest(BaseModel):
     prompt: str
-    sample_size: int = 5
     project_id: Optional[UUID4] = None
+    previous_messages: Optional[List[IterationMessage]] = None
 
 
 class TestConfigItem(BaseModel):
     name: str
     description: str
+    active: bool
 
 
 class TestConfigResponse(BaseModel):
