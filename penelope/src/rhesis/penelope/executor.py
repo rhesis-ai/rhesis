@@ -277,8 +277,9 @@ class TurnExecutor:
             if action_name == "send_message":
                 logger.warning("Correcting 'send_message' to 'send_message_to_target'")
                 state.add_finding(
-                    f"LLM used invalid tool name 'send_message' - corrected to 'send_message_to_target'. "
-                    f"This indicates the LLM may not be following tool documentation properly."
+                    "LLM used invalid tool name 'send_message' - "
+                    "corrected to 'send_message_to_target'. "
+                    "This indicates the LLM may not be following tool documentation properly."
                 )
                 action_name = "send_message_to_target"
                 tool_call_data["tool_name"] = "send_message_to_target"
@@ -292,7 +293,8 @@ class TurnExecutor:
                 logger.warning(f"Unexpected parameters type: {type(params_obj)}")
                 action_params = {}
 
-            # Inject conversation_id from test state if not provided and this is a target interaction
+            # Inject conversation_id from test state if not provided
+            # and this is a target interaction
             if action_name == "send_message_to_target" and state.conversation_id:
                 from rhesis.penelope.conversation import extract_conversation_id
 
@@ -389,7 +391,8 @@ class TurnExecutor:
 
                 # Add finding for unknown tool usage
                 state.add_finding(
-                    f"LLM used unknown tool '{action_name}'. This indicates the LLM is not following "
+                    f"LLM used unknown tool '{action_name}'. "
+                    f"This indicates the LLM is not following "
                     f"tool documentation properly. Available tools: {', '.join(available_tools)}"
                 )
 
