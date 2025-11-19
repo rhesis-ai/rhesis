@@ -20,14 +20,11 @@ def config():
 
 
 @pytest.fixture
-def metric(monkeypatch, config):
-    monkeypatch.setenv("GEMINI_API_KEY", "test")
+def metric(config):
     return JudgeBase(config, model="gemini")
 
 
-def test_prompt_metric_base__init__(monkeypatch, metric):
-    monkeypatch.setenv("GEMINI_API_KEY", "test")
-
+def test_prompt_metric_base__init__(metric):
     assert metric.name == "test_metric"
     assert metric.description == "test_description"
     assert metric.score_type == ScoreType.NUMERIC

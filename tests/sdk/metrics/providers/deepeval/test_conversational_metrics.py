@@ -54,21 +54,6 @@ def test_turn_relevancy_default_initialization(mock_model):
     assert metric.window_size == 10
 
 
-@pytest.mark.skip(reason="Requires actual LLM interaction with DeepEval")
-def test_turn_relevancy_evaluate(sample_conversation):
-    """Test Turn Relevancy evaluation."""
-    metric = DeepEvalTurnRelevancy(threshold=0.5)
-
-    result = metric.evaluate(conversation_history=sample_conversation)
-
-    assert result.score is not None
-    assert isinstance(result.score, (int, float))
-    assert "is_successful" in result.details
-    assert "reason" in result.details
-    assert "threshold" in result.details
-    assert result.details["threshold"] == 0.5
-
-
 def test_turn_relevancy_model_update(mock_model):
     """Test updating model after initialization."""
     metric = DeepEvalTurnRelevancy(threshold=0.5, model=mock_model)

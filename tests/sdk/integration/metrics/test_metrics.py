@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from rhesis.sdk.metrics import GoalAchievementJudge, NumericJudge
+from rhesis.sdk.metrics import DeepEvalTurnRelevancy, GoalAchievementJudge, NumericJudge
 
 
 def test_push_numeric_judge(docker_compose_test_env, db_cleanup):
@@ -71,3 +71,39 @@ def test_push_pull_conversational_judge(docker_compose_test_env, db_cleanup):
     # Test that pulling non-existent judge raises error
     with pytest.raises(ValueError):
         GoalAchievementJudge.pull(name="non-existent-conversational-judge")
+
+
+@pytest.mark.skip(reason="Requires actual LLM interaction with DeepEval")
+def test_turn_relevancy_evaluate(sample_conversation):
+    """Test Turn Relevancy evaluation."""
+    metric = DeepEvalTurnRelevancy(threshold=0.5)
+
+    result = metric.evaluate(conversation_history=sample_conversation)
+
+    assert result.score is not None
+    assert isinstance(result.score, (int, float))
+    assert "is_successful" in result.details
+    assert "reason" in result.details
+    assert "threshold" in result.details
+    assert result.details["threshold"] == 0.5
+
+
+@pytest.mark.skip(reason="Requires actual LLM interaction")
+def test_goal_achievement_judge_evaluate_real(sample_conversation):
+    """Test evaluation with a real LLM (skipped in normal test runs)."""
+    from rhesis.sdk.models import VertexAILLM
+
+    judge = GoalAchievementJudge(
+        model=VertexAILLM(model_name="gemini-2.0-flash"),
+        threshold=0.7,
+    )
+
+    result = judge.evaluate(
+        conversation_history=sample_conversation,
+        goal="Customer learns about auto insurance options",
+    )
+
+    assert result.score is not None
+    assert 0.0 <= result.score <= 1.0
+    assert "reason" in result.details
+    assert "is_successful" in result.details
