@@ -175,6 +175,7 @@ class TurnExecutor:
         self.model = model
         self.verbose = verbose
         self.enable_transparency = enable_transparency
+        self.workflow_manager = WorkflowManager()
 
     def execute_turn(
         self,
@@ -201,6 +202,11 @@ class TurnExecutor:
             user_prompt = FIRST_TURN_PROMPT.render()
         else:
             user_prompt = SUBSEQUENT_TURN_PROMPT.render()
+
+        # Add workflow guidance to the prompt
+        workflow_guidance = self.workflow_manager.get_tool_guidance(tools)
+        if workflow_guidance:
+            user_prompt += f"\n\nWORKFLOW GUIDANCE:\n{workflow_guidance}"
 
         # Get model response
         try:
@@ -300,10 +306,31 @@ class TurnExecutor:
             tool_result = None
             for tool in tools:
                 if tool.name == action_name:
+                    # Validate tool usage with workflow manager
+                    is_valid, validation_reason = self.workflow_manager.validate_tool_usage(tool, **action_params)
+                    if not is_valid:
+                        logger.warning(f"Tool usage validation failed: {validation_reason}")
+                        tool_result = {
+                            "success": False,
+                            "output": {},
+                            "error": f"Workflow validation failed: {validation_reason}",
+                            "metadata": {
+                                "validation_failed": True,
+                                "validation_reason": validation_reason,
+                                "tool_category": getattr(tool, "tool_category", "unknown"),
+                            }
+                        }
+                        break
+                    
                     if self.verbose:
                         logger.info(f"Executing tool: {action_name} with params: {action_params}")
 
-                    tool_result = tool.execute(**action_params)
+                    # Execute with enhanced validation for analysis tools
+                    if isinstance(tool, AnalysisTool):
+                        context = self.workflow_manager.state.get_analysis_context()
+                        tool_result = tool.execute_with_validation(context, **action_params)
+                    else:
+                        tool_result = tool.execute(**action_params)
                     break
 
             if tool_result is None:
@@ -334,6 +361,11 @@ class TurnExecutor:
                 assistant_message=assistant_message,
                 tool_message=tool_message,
             )
+
+            # Record tool execution in workflow manager
+            if state.current_turn_executions:
+                latest_execution = state.current_turn_executions[-1]
+                self.workflow_manager.record_tool_execution(latest_execution)
 
             # Track if any execution completed a turn
             if turn_result is not None:

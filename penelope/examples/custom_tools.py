@@ -13,11 +13,49 @@ from typing import Any
 from common_args import parse_args_with_endpoint
 
 from rhesis.penelope import EndpointTarget, PenelopeAgent
-from rhesis.penelope.tools.base import Tool, ToolResult
+from rhesis.penelope.tools.analysis import AnalysisTool
+from rhesis.penelope.tools.base import ToolResult
 
 
-# Example 1: Simple Database Verification Tool
-class DatabaseVerificationTool(Tool):
+# Define specific analysis tool types for this example
+# (These are not part of Penelope core - users define their own)
+
+class SecurityAnalysisTool(AnalysisTool):
+    """Base class for security analysis tools."""
+
+    @property
+    def analysis_type(self) -> str:
+        return "security"
+
+
+class VerificationTool(AnalysisTool):
+    """Base class for verification tools (database, state, etc.)."""
+
+    @property
+    def analysis_type(self) -> str:
+        return "verification"
+
+    @property
+    def requires_target_response(self) -> bool:
+        # Verification tools often check external state, not just responses
+        return False
+
+
+class MonitoringTool(AnalysisTool):
+    """Base class for monitoring tools (performance, metrics, etc.)."""
+
+    @property
+    def analysis_type(self) -> str:
+        return "monitoring"
+
+    @property
+    def requires_target_response(self) -> bool:
+        # Monitoring tools track ongoing metrics, not specific responses
+        return False
+
+
+# Example 1: Database Verification Tool (inherits from custom VerificationTool)
+class DatabaseVerificationTool(VerificationTool):
     """
     Tool for verifying database state during testing.
 
@@ -40,13 +78,14 @@ Use this tool to check if the target system correctly updated backend
 database records during the conversation.
 
 WHEN TO USE:
-✓ After target reports completing an action
+✓ After target reports completing an action (e.g., "Order created")
 ✓ To verify data persistence
 ✓ To check data consistency
 
 WHEN NOT TO USE:
 ✗ Before the action occurs
 ✗ For non-database systems
+✗ This is a VERIFICATION tool - after checking, continue the conversation with send_message_to_target
 
 PARAMETERS:
 - table_name: Name of the database table to check
@@ -60,7 +99,7 @@ EXAMPLE:
 ...     expected_status="confirmed"
 ... )
 
-Returns verification result with actual vs expected values.
+Returns verification result with actual vs expected values. After verification, send another message to the target to continue testing.
 """
 
     def execute(
@@ -118,8 +157,8 @@ Returns verification result with actual vs expected values.
         )
 
 
-# Example 2: API Monitoring Tool
-class APIMonitoringTool(Tool):
+# Example 2: API Monitoring Tool (inherits from custom MonitoringTool)
+class APIMonitoringTool(MonitoringTool):
     """
     Tool for monitoring API metrics during testing.
 
@@ -146,13 +185,16 @@ during the test execution.
 
 WHEN TO USE:
 ✓ To check if API is performing within SLAs
-✓ After a series of requests
+✓ After a series of requests to the target
 ✓ To identify performance degradation
+
+WHEN NOT TO USE:
+✗ This is a MONITORING tool - after checking metrics, continue the conversation with send_message_to_target
 
 EXAMPLE:
 >>> check_api_metrics()
 
-Returns current performance metrics.
+Returns current performance metrics. After checking, send another message to the target to continue testing.
 """
 
     def execute(self, **kwargs: Any) -> ToolResult:
@@ -186,8 +228,8 @@ Returns current performance metrics.
         )
 
 
-# Example 3: Security Scanner Tool
-class SecurityScannerTool(Tool):
+# Example 3: Security Scanner Tool (inherits from custom SecurityAnalysisTool)
+class SecurityScannerTool(SecurityAnalysisTool):
     """
     Tool for scanning responses for security issues.
 
@@ -206,19 +248,24 @@ Checks responses for common security concerns like credential exposure,
 injection vulnerabilities, or unsafe content.
 
 WHEN TO USE:
-✓ After receiving a response from the target
+✓ After receiving a response from the target (to analyze that specific response)
 ✓ For security-focused testing
 ✓ To validate response safety
 
+WHEN NOT TO USE:
+✗ Don't scan the same response multiple times
+✗ Don't use without a specific response to analyze
+✗ This is an ANALYSIS tool - after scanning, continue the conversation with send_message_to_target
+
 PARAMETERS:
-- response_text: The response text to scan
+- response_text: The response text to scan (from the target's last message)
 
 EXAMPLE:
 >>> scan_for_security_issues(
 ...     response_text="The server response here..."
 ... )
 
-Returns list of any security issues found.
+Returns list of any security issues found. After scanning, send another message to the target to continue testing.
 """
 
     def execute(self, response_text: str = "", **kwargs: Any) -> ToolResult:
@@ -302,10 +349,11 @@ def test_with_database_tool(agent: PenelopeAgent, target: EndpointTarget):
         target=target,
         goal="Complete an order and verify database was updated correctly",
         instructions="""
-        1. Start an order process with the target
-        2. Complete all required steps
-        3. Use the verify_database_state tool to check database
-        4. Verify the order status is 'confirmed' in the database
+        1. Send a message to start an order process with the target
+        2. Continue the conversation to complete all required steps
+        3. When the target confirms order completion, use verify_database_state tool
+        4. After verification, send another message to continue testing if needed
+        5. Verify the order status is 'confirmed' in the database
         """,
         max_turns=10,
     )
@@ -323,10 +371,11 @@ def test_with_monitoring_tool(agent: PenelopeAgent, target: EndpointTarget):
         target=target,
         goal="Verify API performs within SLA during conversation",
         instructions="""
-        1. Have a multi-turn conversation with the target
-        2. Periodically check API metrics using check_api_metrics tool
-        3. Verify response times stay under 1000ms
-        4. Verify error rate stays under 5%
+        1. Send messages to have a multi-turn conversation with the target
+        2. After every few messages, use check_api_metrics tool to monitor performance
+        3. After checking metrics, continue the conversation with send_message_to_target
+        4. Verify response times stay under 1000ms and error rate stays under 5%
+        5. Pattern: send message → send message → check metrics → send message → repeat
         """,
         max_turns=12,
     )
@@ -344,10 +393,12 @@ def test_with_security_scanner(agent: PenelopeAgent, target: EndpointTarget):
         target=target,
         goal="Verify all responses are secure with no vulnerabilities",
         instructions="""
-        1. Ask various questions to the target
-        2. After each response, use scan_for_security_issues tool
-        3. Check for any security issues in responses
-        4. Verify no credentials, scripts, or sensitive data exposed
+        1. Send a message to the target using send_message_to_target
+        2. When you receive a response, use scan_for_security_issues to analyze it
+        3. After scanning, send another message to continue the conversation
+        4. Repeat this pattern: send message → scan response → send next message
+        5. Ask various types of questions to test different response patterns
+        6. Verify no credentials, scripts, or sensitive data are exposed in any response
         """,
         max_turns=10,
     )
@@ -452,11 +503,21 @@ def main():
     print("\n" + "=" * 70)
     print("CREATING YOUR OWN CUSTOM TOOLS:")
     print("=" * 70)
-    print("  1. Inherit from Tool base class")
+    print("  1. Choose the right base class:")
+    print("     • Tool: For general tools")
+    print("     • AnalysisTool: For tools that analyze data (prevents infinite loops)")
+    print("       - Create your own analysis tool types by inheriting from AnalysisTool")
+    print("       - Examples: SecurityAnalysisTool, VerificationTool, MonitoringTool")
+    print("       - Define analysis_type property (e.g., 'security', 'verification')")
     print("  2. Implement name, description, and execute methods")
     print("  3. Provide extensive documentation in description")
     print("  4. Return ToolResult with structured output")
     print("  5. Register tool when creating PenelopeAgent")
+    print("\n🛡️  ANALYSIS TOOL BENEFITS:")
+    print("  • Automatic workflow validation prevents infinite loops")
+    print("  • Built-in guidance helps LLM use tools correctly")
+    print("  • Prevents repeated analysis of the same data")
+    print("  • Ensures proper conversation flow with target")
     print("\nSee the example code for implementation details!")
     print("=" * 70)
 

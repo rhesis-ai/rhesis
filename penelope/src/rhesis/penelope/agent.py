@@ -501,6 +501,9 @@ class PenelopeAgent:
         # Initialize state
         state = TestState(context=test_context)
 
+        # Reset workflow manager for new test
+        self.executor.workflow_manager.reset_state()
+
         # Get tools for this test
         tools = self._get_tools_for_test(target)
 

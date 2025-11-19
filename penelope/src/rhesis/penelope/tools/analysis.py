@@ -1,184 +1,180 @@
 """
 Analysis tools for Penelope.
 
-These tools help Penelope analyze responses and extract information,
-following Anthropic's ACI principles with extensive documentation.
+Analysis tools are used to examine, verify, or monitor data during testing,
+but do not directly interact with the target. They should be used in conjunction
+with target interaction tools, not as replacements for them.
 """
 
-import re
-from typing import Any
+from abc import ABC
+from typing import Any, Optional
 
-from rhesis.penelope.prompts import ANALYZE_TOOL_DESCRIPTION, EXTRACT_TOOL_DESCRIPTION
 from rhesis.penelope.tools.base import Tool, ToolResult
 
 
-class AnalyzeTool(Tool):
+class AnalysisTool(Tool, ABC):
     """
-    Tool for analyzing endpoint responses.
+    Base class for analysis tools.
 
-    Use this to systematically evaluate responses for patterns, issues,
-    or specific characteristics relevant to your test goals.
+    Analysis tools are used to examine responses, verify state, or monitor
+    performance during testing. They complement target interaction tools
+    but should not replace the conversation flow.
+
+    Key characteristics:
+    - They analyze data that already exists (responses, database state, metrics)
+    - They do not directly communicate with the target
+    - They should be used strategically, not repeatedly on the same data
+    - After analysis, the conversation should continue with target interaction
+
+    Examples:
+    - Security scanners that analyze responses for vulnerabilities
+    - Database verification tools that check data consistency
+    - Performance monitors that track API metrics
+    - Response analyzers that extract specific information
     """
 
     @property
-    def name(self) -> str:
-        return "analyze_response"
+    def tool_category(self) -> str:
+        """Return the tool category for workflow management."""
+        return "analysis"
 
     @property
-    def description(self) -> str:
-        return ANALYZE_TOOL_DESCRIPTION
-
-    def execute(
-        self, response_text: str = "", analysis_focus: str = "", context: str = "", **kwargs: Any
-    ) -> ToolResult:
+    def analysis_type(self) -> str:
         """
-        Execute analysis on the response.
+        Return the type of analysis this tool performs.
 
-        This is a simple implementation. In production, this could:
-        - Use an LLM for deep analysis
-        - Apply regex patterns
-        - Check against known criteria
-        - Score responses
-
-        Args:
-            response_text: The text to analyze (validated via Pydantic)
-            analysis_focus: What to focus on (validated via Pydantic)
-            context: Optional context
-            **kwargs: Additional parameters
+        Common types:
+        - "security": Security vulnerability scanning
+        - "verification": Data/state verification
+        - "monitoring": Performance/metrics monitoring
+        - "extraction": Information extraction from responses
+        - "validation": Input/output validation
 
         Returns:
-            ToolResult with analysis findings
+            String describing the analysis type
         """
-        # Perform basic analysis
-        findings = []
-
-        # Length analysis
-        word_count = len(response_text.split())
-        findings.append(f"Response length: {word_count} words")
-
-        # Sentiment indicators (very basic)
-        positive_words = ["yes", "can", "will", "happy", "help", "certainly", "glad"]
-        negative_words = ["no", "cannot", "won't", "unable", "unfortunately", "sorry"]
-
-        pos_count = sum(1 for word in positive_words if word in response_text.lower())
-        neg_count = sum(1 for word in negative_words if word in response_text.lower())
-
-        if pos_count > neg_count:
-            findings.append("Tone: Generally positive/helpful")
-        elif neg_count > pos_count:
-            findings.append("Tone: Contains negative/limiting language")
-        else:
-            findings.append("Tone: Neutral")
-
-        # Structure analysis
-        has_bullets = "•" in response_text or "-" in response_text
-        has_numbers = any(c.isdigit() for c in response_text)
-
-        if has_bullets:
-            findings.append("Structure: Contains bullet points or lists")
-        if has_numbers:
-            findings.append("Structure: Contains numerical information")
-
-        # Focus-specific checks
-        focus_lower = analysis_focus.lower()
-        if "policy" in focus_lower or "rule" in focus_lower:
-            policy_check = (
-                "Contains policy language"
-                if "policy" in response_text.lower()
-                else "No explicit policy language"
-            )
-            findings.append(f"Policy check: {policy_check}")
-
-        if "context" in focus_lower or "maintain" in focus_lower:
-            findings.append("Context note: Manual review needed to verify context maintenance")
-
-        # Build analysis summary
-        analysis_summary = {
-            "findings": findings,
-            "analysis_focus": analysis_focus,
-            "response_length": word_count,
-            "context_provided": bool(context),
-        }
-
-        return ToolResult(
-            success=True,
-            output=analysis_summary,
-            metadata={"response_analyzed": response_text[:100] + "..."},
-        )
-
-
-class ExtractTool(Tool):
-    """
-    Tool for extracting specific information from responses.
-
-    Use this when you need to pull out specific data points, entities,
-    or structured information from unstructured responses.
-    """
+        raise NotImplementedError("Analysis tools must specify their analysis type")
 
     @property
-    def name(self) -> str:
-        return "extract_information"
-
-    @property
-    def description(self) -> str:
-        return EXTRACT_TOOL_DESCRIPTION
-
-    def execute(
-        self, response_text: str = "", extraction_target: str = "", **kwargs: Any
-    ) -> ToolResult:
+    def requires_target_response(self) -> bool:
         """
-        Execute information extraction.
-
-        Args:
-            response_text: The text to extract from (validated via Pydantic)
-            extraction_target: What to extract (validated via Pydantic)
-            **kwargs: Additional parameters
+        Whether this tool requires a recent target response to function properly.
 
         Returns:
-            ToolResult with extracted information
+            True if the tool needs a target response, False if it can work independently
         """
-        extracted = {}
+        return True
 
-        # Extract dates (simple pattern)
-        dates = re.findall(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b", response_text)
-        if dates:
-            extracted["dates"] = dates
+    def get_usage_guidance(self) -> str:
+        """
+        Get guidance on when and how to use this analysis tool.
 
-        # Extract numbers
-        numbers = re.findall(r"\b\d+\b", response_text)
-        target_lower = extraction_target.lower()
-        if numbers and ("number" in target_lower or "count" in target_lower):
-            extracted["numbers"] = numbers
+        Returns:
+            String with usage guidance for the LLM
+        """
+        guidance = f"""
+ANALYSIS TOOL: {self.name}
+Type: {self.analysis_type}
 
-        # Extract email addresses
-        emails = re.findall(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", response_text)
-        if emails:
-            extracted["emails"] = emails
+WORKFLOW GUIDANCE:
+1. Use this tool to analyze data after target interactions
+2. Do not use repeatedly on the same data
+3. After analysis, continue the conversation with send_message_to_target
+4. This tool complements but does not replace target interaction
 
-        # Extract phone numbers (simple pattern)
-        phones = re.findall(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b", response_text)
-        if phones:
-            extracted["phones"] = phones
+WHEN TO USE:
+✓ After receiving a response from the target
+✓ To verify or analyze specific data
+✓ As part of a broader testing strategy
 
-        # Extract sentences containing target keywords
-        target_lower = extraction_target.lower()
-        keywords = target_lower.split()
-        relevant_sentences = []
+WHEN NOT TO USE:
+✗ Without relevant data to analyze
+✗ Repeatedly on the same response/data
+✗ As a substitute for target interaction
+✗ When no target interaction has occurred yet
+"""
 
-        for sentence in response_text.split("."):
-            if any(keyword in sentence.lower() for keyword in keywords):
-                relevant_sentences.append(sentence.strip())
+        if self.requires_target_response:
+            guidance += "\n✗ Without a recent target response to analyze"
 
-        if relevant_sentences:
-            extracted["relevant_content"] = relevant_sentences
+        return guidance
 
-        if not extracted:
-            extracted["note"] = (
-                f"No specific {extraction_target} patterns found. Manual review may be needed."
+    def validate_usage_context(self, context: Optional[dict] = None) -> tuple[bool, str]:
+        """
+        Validate whether this tool should be used in the current context.
+
+        Args:
+            context: Optional context information (e.g., recent responses, turn history)
+
+        Returns:
+            Tuple of (is_valid, reason)
+        """
+        if self.requires_target_response and context:
+            # Check if there's a recent target response
+            recent_responses = context.get("recent_target_responses", [])
+            if not recent_responses:
+                return False, f"Tool {self.name} requires a target response but none found"
+
+            # Check if this response was already analyzed by this tool
+            analyzed_responses = context.get("analyzed_responses", {})
+            tool_analyses = analyzed_responses.get(self.name, set())
+
+            latest_response_id = recent_responses[0].get("id") if recent_responses else None
+            if latest_response_id and latest_response_id in tool_analyses:
+                return False, f"Response already analyzed by {self.name}"
+
+        return True, "Usage context is valid"
+
+    def execute_with_validation(self, context: Optional[dict] = None, **kwargs: Any) -> ToolResult:
+        """
+        Execute the tool with built-in validation.
+
+        Args:
+            context: Context information for validation
+            **kwargs: Tool-specific parameters
+
+        Returns:
+            ToolResult with validation information
+        """
+        # Validate usage context
+        is_valid, reason = self.validate_usage_context(context)
+        if not is_valid:
+            return ToolResult(
+                success=False,
+                output={},
+                error=f"Invalid usage: {reason}",
+                metadata={
+                    "tool_category": self.tool_category,
+                    "analysis_type": self.analysis_type,
+                    "validation_failed": True,
+                    "validation_reason": reason,
+                },
             )
 
-        return ToolResult(
-            success=True,
-            output=extracted,
-            metadata={"extraction_target": extraction_target},
+        # Execute the actual analysis
+        result = self.execute(**kwargs)
+
+        # Enhance metadata with analysis tool information
+        if result.metadata is None:
+            result.metadata = {}
+
+        result.metadata.update(
+            {
+                "tool_category": self.tool_category,
+                "analysis_type": self.analysis_type,
+                "requires_target_response": self.requires_target_response,
+            }
         )
+
+        return result
+
+
+# Note: Specific analysis tool types (SecurityAnalysisTool, VerificationTool, etc.)
+# are not part of Penelope core. Users should create their own by inheriting from
+# AnalysisTool and implementing the analysis_type property.
+#
+# Example:
+# class SecurityAnalysisTool(AnalysisTool):
+#     @property
+#     def analysis_type(self) -> str:
+#         return "security"
