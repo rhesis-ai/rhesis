@@ -524,17 +524,24 @@ export default function TestGenerationFlow({
       setConfigChips(prev => {
         const categoryChips = prev[category];
         const chipToToggle = categoryChips.find(c => c.id === chipId);
-        
+
         // Prevent deselecting if this is the last active chip in the category
         if (chipToToggle?.active) {
           const activeCount = categoryChips.filter(c => c.active).length;
           if (activeCount === 1) {
             // Don't allow deselecting the last active chip
-            const categoryName = category === 'behavior' ? 'Behaviors' : 
-                                 category === 'topics' ? 'Topics' : 'Categories';
-            show(`At least one ${categoryName.toLowerCase().slice(0, -1)} must be selected`, { 
-              severity: 'warning' 
-            });
+            const categoryName =
+              category === 'behavior'
+                ? 'Behaviors'
+                : category === 'topics'
+                  ? 'Topics'
+                  : 'Categories';
+            show(
+              `At least one ${categoryName.toLowerCase().slice(0, -1)} must be selected`,
+              {
+                severity: 'warning',
+              }
+            );
             return prev;
           }
         }

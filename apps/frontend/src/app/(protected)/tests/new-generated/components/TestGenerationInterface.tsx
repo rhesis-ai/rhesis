@@ -123,7 +123,7 @@ export default function TestGenerationInterface({
 
     // Check if sample IDs have changed (samples were regenerated)
     const existingSampleIds = new Set(localTestSamples.map(s => s.id));
-    const sampleIdsChanged = 
+    const sampleIdsChanged =
       testSamples.length !== localTestSamples.length ||
       testSamples.some(s => !existingSampleIds.has(s.id));
 
@@ -332,7 +332,12 @@ export default function TestGenerationInterface({
 
     fetchResponses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEndpointId, session?.session_token, localTestSamples.length, fetchTrigger]);
+  }, [
+    selectedEndpointId,
+    session?.session_token,
+    localTestSamples.length,
+    fetchTrigger,
+  ]);
 
   const handleSendMessage = useCallback(() => {
     if (inputMessage.trim()) {
@@ -449,7 +454,9 @@ export default function TestGenerationInterface({
                   >
                     <CircularProgress sx={{ mb: 2 }} />
                     <Typography variant="body1">
-                      {isLoadingConfig ? 'Loading configuration...' : 'Updating configuration...'}
+                      {isLoadingConfig
+                        ? 'Loading configuration...'
+                        : 'Updating configuration...'}
                     </Typography>
                   </Box>
                 )}
@@ -704,7 +711,7 @@ export default function TestGenerationInterface({
                         endpointInfo ? (
                           <CloseIcon
                             fontSize="small"
-                            onClick={(e) => {
+                            onClick={e => {
                               e.stopPropagation();
                               onEndpointChange(null);
                             }}
@@ -737,7 +744,7 @@ export default function TestGenerationInterface({
                   flexDirection: 'column',
                 }}
               >
-                {(isLoadingSamples || isGenerating) ? (
+                {isLoadingSamples || isGenerating ? (
                   <Box
                     sx={{
                       display: 'flex',
@@ -749,7 +756,9 @@ export default function TestGenerationInterface({
                   >
                     <CircularProgress sx={{ mb: 2 }} />
                     <Typography variant="body1">
-                      {isLoadingSamples ? 'Loading test samples...' : 'Generating test samples...'}
+                      {isLoadingSamples
+                        ? 'Loading test samples...'
+                        : 'Generating test samples...'}
                     </Typography>
                   </Box>
                 ) : localTestSamples.length === 0 ? (

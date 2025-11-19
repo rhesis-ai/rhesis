@@ -62,7 +62,7 @@ export default function TestSetSizeSelector({
 
       <RadioGroup
         value={selectedSize}
-        onChange={(e) => onSizeChange(e.target.value as TestSetSize)}
+        onChange={e => onSizeChange(e.target.value as TestSetSize)}
       >
         <Stack spacing={1.5}>
           {SIZE_CONFIGS.map(config => {
