@@ -120,14 +120,13 @@ export default function TestGenerationInterface({
     }
 
     // Check if sample IDs have changed (samples were regenerated)
-    const newSampleIds = new Set(testSamples.map(s => s.id));
     const existingSampleIds = new Set(localTestSamples.map(s => s.id));
     const sampleIdsChanged = 
       testSamples.length !== localTestSamples.length ||
       testSamples.some(s => !existingSampleIds.has(s.id));
 
     // If sample IDs changed, reset processed IDs to trigger endpoint fetch
-    if (sampleIdsChanged && selectedEndpointId) {
+    if (sampleIdsChanged) {
       setProcessedSampleIds(new Set());
     }
 
@@ -155,7 +154,7 @@ export default function TestGenerationInterface({
     });
 
     setLocalTestSamples(mergedSamples);
-  }, [testSamples, selectedEndpointId]);
+  }, [testSamples]);
 
   // Load endpoint information when selectedEndpointId changes
   useEffect(() => {
