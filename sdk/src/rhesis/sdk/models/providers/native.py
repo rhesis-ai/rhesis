@@ -59,7 +59,7 @@ class RhesisLLM(BaseLLM):
         return self
 
     def generate(
-        self, prompt: str, schema: Optional[Union[Type[BaseModel], dict]] = None, **kwargs: Any
+        self, prompt: str, system_prompt: Optional[str] = None, schema: Optional[Union[Type[BaseModel], dict]] = None, **kwargs: Any
     ) -> Any:
         """Run a chat completion using the API, and return the response."""
         try:
@@ -75,8 +75,13 @@ class RhesisLLM(BaseLLM):
                     },
                 }
 
+            # Combine system_prompt and prompt into a single prompt (like other providers)
+            combined_prompt = prompt
+            if system_prompt:
+                combined_prompt = f"{system_prompt}\n\n{prompt}"
+
             response = self.create_completion(
-                prompt=prompt,
+                prompt=combined_prompt,
                 schema=schema,
                 **kwargs,
             )
@@ -103,9 +108,10 @@ class RhesisLLM(BaseLLM):
         Create a chat completion using the API.
 
         Args:
-            messages: List of message dictionaries with 'role' and 'content'
+            prompt: Combined prompt text (system + user prompt)
             temperature: Sampling temperature (0-1)
             max_tokens: Maximum tokens to generate (increased default for larger responses)
+            schema: Optional schema for structured output
             **kwargs: Additional parameters to pass to the API
 
         Returns:

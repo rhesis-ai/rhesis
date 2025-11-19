@@ -225,6 +225,19 @@ class TurnExecutor:
             else:
                 prompt = user_prompt
 
+            # Debug logging for LLM input
+            logger.info("=== EXECUTOR: Sending to LLM ===")
+            logger.info(f"Model: {self.model.get_model_name()}")
+            logger.info(f"User prompt length: {len(prompt)} chars")
+            logger.info(f"System prompt length: {len(system_prompt)} chars")
+            logger.info("System prompt preview (first 300 chars):")
+            logger.info(system_prompt[:300])
+            logger.info("System prompt preview (last 300 chars):")
+            logger.info(system_prompt[-300:])
+            logger.info("User prompt:")
+            logger.info(prompt)
+            logger.info("=== END EXECUTOR DEBUG ===")
+            
             response = self.model.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
@@ -260,6 +273,12 @@ class TurnExecutor:
             action_name = tool_call_data.get("tool_name", "")
             params_obj = tool_call_data.get("parameters", {})
 
+            # Fix common tool name mistakes
+            if action_name == "send_message":
+                logger.warning("Correcting 'send_message' to 'send_message_to_target'")
+                action_name = "send_message_to_target"
+                tool_call_data["tool_name"] = "send_message_to_target"
+
             # Convert Pydantic model to dict if needed
             if hasattr(params_obj, "model_dump"):
                 action_params = params_obj.model_dump(exclude_none=True)
@@ -268,6 +287,16 @@ class TurnExecutor:
             else:
                 logger.warning(f"Unexpected parameters type: {type(params_obj)}")
                 action_params = {}
+
+            # Inject conversation_id from test state if not provided and this is a target interaction
+            if action_name == "send_message_to_target" and state.conversation_id:
+                from rhesis.penelope.conversation import extract_conversation_id
+
+                # Only inject if no conversation ID is already present
+                if not extract_conversation_id(action_params):
+                    action_params["conversation_id"] = state.conversation_id
+                    if self.verbose:
+                        logger.debug(f"Injected conversation_id: {state.conversation_id}")
 
             # Debug: Log structured response
             if self.verbose:
@@ -342,11 +371,22 @@ class TurnExecutor:
                     break
 
             if tool_result is None:
-                # Tool not found
+                # Tool not found - provide helpful suggestions
+                available_tools = [tool.name for tool in tools]
+                error_msg = (
+                    f"Unknown tool: {action_name}. Available tools: {', '.join(available_tools)}"
+                )
+
+                # Special case for common mistakes
+                if action_name == "send_message":
+                    error_msg += ". Did you mean 'send_message_to_target'?"
+                elif action_name == "analyze_response":
+                    error_msg += ". Analysis tools must be explicitly registered."
+
                 tool_result_dict = {
                     "success": False,
                     "output": {},
-                    "error": f"Unknown tool: {action_name}",
+                    "error": error_msg,
                 }
             else:
                 tool_result_dict = {
@@ -381,6 +421,17 @@ class TurnExecutor:
             # Track if any execution completed a turn
             if turn_result is not None:
                 completed_turn = turn_result
+
+                # Extract and update conversation ID from target interaction
+                if tool_result and tool_result.success and hasattr(tool_result, "output"):
+                    from rhesis.penelope.conversation import extract_conversation_id
+
+                    # Try to extract conversation ID from tool output
+                    conversation_id = extract_conversation_id(tool_result.output)
+                    if conversation_id:
+                        state.conversation_id = conversation_id
+                        if self.verbose:
+                            logger.debug(f"Updated conversation_id to: {conversation_id}")
 
             # Display execution if verbose
             if self.verbose and self.enable_transparency:
