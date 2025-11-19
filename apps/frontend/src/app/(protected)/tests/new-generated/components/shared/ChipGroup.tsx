@@ -79,10 +79,14 @@ export default function ChipGroup({
     return baseSx;
   };
 
-  // Sort chips so active ones appear first
+  // Sort chips: active first, then alphabetically within each group
   const sortedChips = [...chips].sort((a, b) => {
-    if (a.active === b.active) return 0;
-    return a.active ? -1 : 1;
+    // First sort by active status (active first)
+    if (a.active !== b.active) {
+      return a.active ? -1 : 1;
+    }
+    // Then sort alphabetically by label within each group
+    return a.label.localeCompare(b.label);
   });
 
   return (
