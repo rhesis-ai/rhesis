@@ -79,11 +79,10 @@ export default function ChipGroup({
     return baseSx;
   };
 
-  // Sort chips: active first, then alphabetically within each group
-  // Uses useMemo with stable dependency to prevent re-sorting on every toggle
-  // Only re-sorts when the chip structure (IDs) changes (i.e., on regeneration)
-  const sortedChips = useMemo(() => {
-    return [...chips].sort((a, b) => {
+  // Cache the sort order (IDs only) based on initial chip structure
+  // This prevents re-sorting when toggling but uses current chip data
+  const sortedOrder = useMemo(() => {
+    const sorted = [...chips].sort((a, b) => {
       // First sort by active status (active first)
       if (a.active !== b.active) {
         return a.active ? -1 : 1;
@@ -91,7 +90,12 @@ export default function ChipGroup({
       // Then sort alphabetically by label within each group
       return a.label.localeCompare(b.label);
     });
+    return sorted.map(c => c.id);
   }, [chips.map(c => c.id).join(',')]);
+
+  // Map the current chips according to the cached order
+  const chipsMap = new Map(chips.map(c => [c.id, c]));
+  const sortedChips = sortedOrder.map(id => chipsMap.get(id)!).filter(Boolean);
 
   return (
     <Box
