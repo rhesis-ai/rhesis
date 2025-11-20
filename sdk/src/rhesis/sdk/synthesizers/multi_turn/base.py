@@ -11,16 +11,16 @@ from rhesis.sdk.models.base import BaseLLM
 
 class GenerationConfig(BaseModel):
     generation_prompt: str
-    behavior: Optional[list[str]] = None
-    category: Optional[list[str]] = None
-    topic: Optional[list[str]] = None
+    behaviors: Optional[list[str]] = None
+    categories: Optional[list[str]] = None
+    topics: Optional[list[str]] = None
 
 
 class Prompt(BaseModel):
     goal: str
-    instructions: list[str]
-    restrictions: list[str]
-    scenarios: list[str]
+    instructions: str = ""  # Optional - how Penelope should conduct the test
+    restrictions: str = ""  # Optional - forbidden behaviors for the target
+    scenario: str = ""  # Optional - contextual framing for the test
 
 
 class Test(BaseModel):
@@ -37,7 +37,7 @@ class Tests(BaseModel):
 class MultiTurnSynthesizer:
     prompt_template_file: str = "base.jinja"
 
-    def __init__(self, config: GenerationConfig, model: Optional[Union[str, BaseLLM]]):
+    def __init__(self, config: GenerationConfig, model: Optional[Union[str, BaseLLM]] = None):
         self.config = config
 
         if isinstance(model, str) or model is None:

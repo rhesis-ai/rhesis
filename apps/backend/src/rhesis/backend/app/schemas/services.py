@@ -196,12 +196,12 @@ class GenerateMultiTurnTestsRequest(BaseModel):
 
 
 class MultiTurnPrompt(BaseModel):
-    """Multi-turn prompt with goal, instructions, and restrictions."""
+    """Multi-turn prompt with goal, instructions, restrictions, and scenario."""
 
     goal: str
-    instructions: List[str]
-    restrictions: List[str]
-    scenarios: List[str]
+    instructions: str = ""  # Optional - how Penelope should conduct the test
+    restrictions: str = ""  # Optional - forbidden behaviors for the target
+    scenario: str = ""  # Optional - contextual framing for the test
 
 
 class MultiTurnTest(BaseModel):
