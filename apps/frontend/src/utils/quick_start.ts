@@ -33,7 +33,6 @@ export function isQuickStartEnabled(hostname?: string): boolean {
     process.env.QUICK_START === 'true';
 
   if (!quickStartEnv) {
-    console.debug("QUICK START MODE disabled: QUICK_START not set to 'true'");
     return false;
   }
 
