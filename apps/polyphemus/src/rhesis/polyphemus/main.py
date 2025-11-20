@@ -3,8 +3,8 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from rhesis.polyphemus.api import router
 from rhesis.polyphemus.models import ModelLoader
+from rhesis.polyphemus.routers.services import router as services_router
 from rhesis.polyphemus.utils import ProcessTimeMiddleware
 
 # Set up logging
@@ -46,8 +46,8 @@ app = FastAPI(
 # Add middleware
 app.add_middleware(ProcessTimeMiddleware)
 
-# Register router
-app.include_router(router)
+# Register routers
+app.include_router(services_router)
 
 if __name__ == "__main__":
     import uvicorn
