@@ -22,6 +22,7 @@ import { CommentsClient } from './comments-client';
 import { TasksClient } from './tasks-client';
 import { SourcesClient } from './sources-client';
 import { RecycleClient } from './recycle-client';
+import { ToolsClient } from './tools-client';
 
 export class ApiClientFactory {
   private sessionToken: string;
@@ -32,6 +33,7 @@ export class ApiClientFactory {
   private tasksClient: TasksClient | null = null;
   private sourcesClient: SourcesClient | null = null;
   private recycleClient: RecycleClient | null = null;
+  private toolsClient: ToolsClient | null = null;
 
   constructor(sessionToken: string) {
     this.sessionToken = sessionToken;
@@ -152,5 +154,12 @@ export class ApiClientFactory {
       this.recycleClient = new RecycleClient(this.sessionToken);
     }
     return this.recycleClient;
+  }
+
+  getToolsClient(): ToolsClient {
+    if (!this.toolsClient) {
+      this.toolsClient = new ToolsClient(this.sessionToken);
+    }
+    return this.toolsClient;
   }
 }
