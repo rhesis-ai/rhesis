@@ -90,7 +90,7 @@ export default function TestGenerationFlow({
   const [testSamples, setTestSamples] = useState<TestSample[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [project, setProject] = useState<Project | null>(null);
-  const [testSetSize, setTestSetSize] = useState<TestSetSize>('medium');
+  const [testSetSize, setTestSetSize] = useState<TestSetSize>('small');
   const [testSetName, setTestSetName] = useState('');
 
   // UI State
