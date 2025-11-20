@@ -43,8 +43,6 @@ def get_prompts_for_test_set(
     results = (
         results_query.options(
             # Load Prompt relationships
-            joinedload(Prompt.demographic),
-            joinedload(Prompt.attack_category),
             # joinedload(Prompt.source),  # Temporarily disabled due to entity_type column issue
             joinedload(Prompt.status),
             # Load Test relationships for category, topic, behavior
@@ -66,11 +64,7 @@ def get_prompts_for_test_set(
             prompts_data.append(
                 {
                     "content": prompt.content,
-                    "demographic": prompt.demographic.name if prompt.demographic else None,
                     "category": test.category.name if test.category else None,  # From Test
-                    "attack_category": prompt.attack_category.name
-                    if prompt.attack_category
-                    else None,
                     "topic": test.topic.name if test.topic else None,  # From Test
                     "language_code": prompt.language_code,
                     "behavior": test.behavior.name if test.behavior else None,  # From Test
