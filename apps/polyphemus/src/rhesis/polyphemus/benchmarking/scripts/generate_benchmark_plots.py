@@ -5,6 +5,7 @@ Focus: Model comparison and selection based on benchmark results.
 """
 
 import json
+import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -29,49 +30,38 @@ def load_report(report_path):
 
 
 def clean_model_name(full_name):
-    """Extract clean model name from full model ID."""
+    """Extract clean model name from full model ID, including model size."""
     if "model name: " in full_name:
         name = full_name.split("model name: ")[1]
 
+        # Extract model size using regex (supports 3B, 8B, 24B, 70B, etc.)
+        size_match = re.search(r'(\d+\.?\d*[BMK])', name, re.IGNORECASE)
+        size_str = f" {size_match.group(1).upper()}" if size_match else ""
+
         # Handle specific model naming conventions
         if "Josiefied-Qwen3" in name or "Josified-Qwen3" in name:
-            # Extract parameter size
-            if "8B" in name:
-                return "Josiefied-Qwen3 8B"
-            elif "3B" in name:
-                return "Josiefied-Qwen3 3B"
-            return "Josiefied-Qwen3"
+            return f"Josiefied-Qwen3{size_str}".strip()
         elif "DeepHermes-3" in name or "DeepHermes3" in name:
-            if "24B" in name or "Mistral-24B" in name:
-                return "DeepHermes 3 24B"
-            elif "8B" in name:
-                return "DeepHermes 3 8B"
-            elif "3B" in name:
-                return "DeepHermes 3 3B"
-            return "DeepHermes 3"
+            return f"DeepHermes 3{size_str}".strip()
         elif "Hermes-3" in name or "Hermes3" in name:
-            if "8B" in name:
-                return "Hermes 3 8B"
-            elif "3B" in name:
-                return "Hermes 3 3B"
-            return "Hermes 3"
+            return f"Hermes 3{size_str}".strip()
         elif "Dolphin" in name or "dphn" in name:
-            if "24B" in name or "Mistral-24B" in name:
-                return "Dolphin 3.0 24B"
-            elif "8B" in name:
-                return "Dolphin 3.0 8B"
-            elif "3B" in name:
-                return "Dolphin 3.0 3B"
-            return "Dolphin 3.0"
+            return f"Dolphin 3.0{size_str}".strip()
         elif "Huihui" in name:
-            if "8B" in name:
-                return "Huihui-Qwen3-VL 8B"
-            return "Huihui-Qwen3-VL"
+            return f"Huihui-Qwen3-VL{size_str}".strip()
+        elif "gemini" in name.lower():
+            # Extract version for Gemini models
+            if "2.0" in name:
+                return "Gemini 2.0 Flash"
+            elif "1.5" in name:
+                return "Gemini 1.5 Pro" if "pro" in name.lower() else "Gemini 1.5 Flash"
+            return "Gemini"
 
         # Fallback: try to extract a clean name
         if "/" in name:
             parts = name.split("/")
-            return parts[1][:30]
+            base_name = parts[1][:30]
+            return f"{base_name}{size_str}".strip()
         return name
     return full_name
 
@@ -679,14 +669,21 @@ def plot_input_length_vs_generation_time(data, output_dir):
         print("⚠️  No models have input length analysis data. Skipping plot 9.")
         return
 
-    # Create subplots - one for each model (or up to 4)
-    num_models = min(len(models_with_data), 4)
-    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-    axes = axes.flatten()
+    # Create subplots - dynamically size based on number of models
+    num_models = len(models_with_data)
+    # Calculate optimal grid size
+    ncols = min(3, num_models)  # Max 3 columns
+    nrows = (num_models + ncols - 1) // ncols  # Ceiling division
 
-    colors = ["#3498db", "#e74c3c", "#2ecc71", "#f39c12"]
+    fig, axes = plt.subplots(nrows, ncols, figsize=(6 * ncols, 5 * nrows))
+    # Handle case where there's only one subplot
+    if num_models == 1:
+        axes = np.array([axes])
+    axes = axes.flatten() if num_models > 1 else axes
 
-    for idx, model_info in enumerate(models_with_data[:num_models]):
+    colors = ["#3498db", "#e74c3c", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c"]
+
+    for idx, model_info in enumerate(models_with_data):
         ax = axes[idx]
         analysis = model_info["analysis"]
         model_name = model_info["name"]
@@ -697,7 +694,14 @@ def plot_input_length_vs_generation_time(data, output_dir):
         gen_times = [p["generation_time_seconds"] for p in points]
 
         # Scatter plot
-        ax.scatter(input_tokens, gen_times, alpha=0.6, s=50, color=colors[idx], label="Actual data")
+        ax.scatter(
+            input_tokens,
+            gen_times,
+            alpha=0.6,
+            s=50,
+            color=colors[idx % len(colors)],
+            label="Actual data",
+        )
 
         # Add regression line if available
         if "linear_regression" in analysis:
@@ -755,8 +759,9 @@ def plot_input_length_vs_generation_time(data, output_dir):
         ax.legend(loc="upper left", fontsize=9)
         ax.grid(True, alpha=0.3)
 
-    # Hide unused subplots
-    for idx in range(num_models, 4):
+    # Hide unused subplots if any
+    total_subplots = nrows * ncols
+    for idx in range(num_models, total_subplots):
         axes[idx].axis("off")
 
     fig.suptitle(
@@ -775,7 +780,7 @@ def plot_input_length_vs_generation_time(data, output_dir):
     if len(models_with_data) > 1:
         fig, ax = plt.subplots(figsize=(14, 8))
 
-        for idx, model_info in enumerate(models_with_data[:4]):
+        for idx, model_info in enumerate(models_with_data):
             analysis = model_info["analysis"]
             model_name = model_info["name"]
 
@@ -785,34 +790,44 @@ def plot_input_length_vs_generation_time(data, output_dir):
                 bucket_names = []
                 avg_times = []
 
-                for bucket_name in ["0-100", "100-500", "500-1000", "1000-2000", "2000+"]:
+                # Dynamically get all bucket names from the data
+                all_bucket_names = sorted(buckets.keys(), key=lambda x: (
+                    int(x.split('-')[0]) if '-' in x and x.split('-')[0].isdigit()
+                    else int(x.rstrip('+')) if x.endswith('+') else 0
+                ))
+
+                for bucket_name in all_bucket_names:
                     if bucket_name in buckets:
                         bucket_names.append(bucket_name)
                         avg_times.append(buckets[bucket_name]["avg_time_seconds"])
 
                 if bucket_names:
-                    x_positions = np.arange(len(bucket_names)) + idx * 0.2
+                    bar_width = 0.8 / len(models_with_data)
+                    x_positions = np.arange(len(bucket_names)) + idx * bar_width
                     ax.bar(
                         x_positions,
                         avg_times,
-                        width=0.18,
+                        width=bar_width,
                         label=model_name,
-                        color=colors[idx],
+                        color=colors[idx % len(colors)],
                         alpha=0.8,
                     )
 
-        ax.set_xlabel("Input Token Range", fontsize=12, fontweight="bold")
-        ax.set_ylabel("Average Generation Time (seconds)", fontsize=12, fontweight="bold")
-        ax.set_title(
-            "Generation Time by Input Length Range - Model Comparison",
-            fontsize=14,
-            fontweight="bold",
-            pad=20,
-        )
-        ax.set_xticks(np.arange(len(bucket_names)) + 0.3)
-        ax.set_xticklabels(bucket_names)
-        ax.legend(loc="upper left", fontsize=10)
-        ax.grid(True, alpha=0.3, axis="y")
+        # Only set these if we actually plotted data
+        if bucket_names:
+            ax.set_xlabel("Input Token Range", fontsize=12, fontweight="bold")
+            ax.set_ylabel("Average Generation Time (seconds)", fontsize=12, fontweight="bold")
+            ax.set_title(
+                "Generation Time by Input Length Range - Model Comparison",
+                fontsize=14,
+                fontweight="bold",
+                pad=20,
+            )
+            center_offset = (len(models_with_data) - 1) * bar_width / 2
+            ax.set_xticks(np.arange(len(bucket_names)) + center_offset)
+            ax.set_xticklabels(bucket_names)
+            ax.legend(loc="upper left", fontsize=10)
+            ax.grid(True, alpha=0.3, axis="y")
 
         plt.tight_layout()
         plt.savefig(output_dir / "9b_input_length_comparison.png", dpi=DPI, bbox_inches="tight")
