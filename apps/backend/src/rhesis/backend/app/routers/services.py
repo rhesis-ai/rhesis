@@ -248,8 +248,8 @@ async def generate_tests_endpoint(
             sources=request.sources,
         )
 
-        # Wrap in response structure
-        return {"tests": tests}
+        # Return Pydantic model - FastAPI handles serialization
+        return GenerateTestsResponse(tests=tests)
     except HTTPException:
         raise
     except Exception as e:
