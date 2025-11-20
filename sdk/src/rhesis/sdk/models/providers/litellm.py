@@ -101,4 +101,17 @@ class LiteLLM(BaseLLM):
             custom_llm_provider=cls.PROVIDER,
             check_provider_endpoint=False,
         )
+        # Remove provider prefix from model names
+        models_list = [model.replace(cls.PROVIDER + "/", "") for model in models_list]
+        # Remove vision models from the list
+        models_list = [model for model in models_list if "vision" not in model]
+        # Remove embedding models from the list
+        models_list = [model for model in models_list if "embedding" not in model]
+        # Remove audio models from the list
+        models_list = [model for model in models_list if "audio" not in model]
+        # Remove image models from the list
+        models_list = [model for model in models_list if "image" not in model]
+        # Remove video models from the list
+        models_list = [model for model in models_list if "video" not in model]
+
         return models_list
