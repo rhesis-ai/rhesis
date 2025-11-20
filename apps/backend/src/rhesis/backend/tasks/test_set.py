@@ -1,13 +1,12 @@
 import logging
-from typing import Union
+from typing import List, Optional, Union
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
-from rhesis.backend.app.services.generation import (
-    process_sources_to_documents,
-)
+from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
+from rhesis.backend.app.services.generation import get_source_specifications
 from rhesis.backend.app.services.test_set import bulk_create_test_set
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.notifications.email.template_service import EmailTemplate
@@ -17,7 +16,6 @@ from rhesis.backend.worker import app
 # Import SDK components for test generation
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers import ConfigSynthesizer
-from rhesis.sdk.synthesizers.config_synthesizer import GenerationConfig
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -106,8 +104,6 @@ def _save_test_set_to_database(
     org_id: str,
     user_id: str,
     custom_name: str = None,
-    source_ids: list = None,
-    source_ids_to_documents: dict = None,
 ):
     """Save the generated test set directly to the database.
 
@@ -116,39 +112,14 @@ def _save_test_set_to_database(
         org_id: Organization ID
         user_id: User ID
         custom_name: Optional custom name to use instead of auto-generated name
-        source_ids: List of source_ids in order corresponding to documents
-        source_ids_to_documents: Optional mapping of document names to source_ids
+
+    Note:
+        Source IDs are automatically embedded in test metadata via SourceSpecification.
+        The SDK propagates metadata from SourceSpecification to each generated test,
+        so no manual mapping is needed.
     """
     if not test_set.tests:
         raise ValueError("No tests to save. Please add tests to the test set first.")
-
-    # If we have source_ids, add them to each test based on document name in metadata
-    if source_ids and source_ids_to_documents:
-        for i, test in enumerate(test_set.tests):
-            # Try to access metadata - tests can be dict or object
-            test_metadata = (
-                test.get("metadata", {})
-                if isinstance(test, dict)
-                else getattr(test, "metadata", {})
-            )
-
-            if test_metadata and "sources" in test_metadata:
-                sources = test_metadata.get("sources", [])
-                if sources and "name" in sources[0]:
-                    doc_name = sources[0]["name"]
-                    if doc_name in source_ids_to_documents:
-                        # Add source_id to the test metadata for later extraction
-                        source_id = source_ids_to_documents[doc_name]
-                        if isinstance(test, dict):
-                            if "metadata" not in test:
-                                test["metadata"] = {}
-                            test["metadata"]["_source_id"] = source_id
-                        else:
-                            if not hasattr(test, "metadata") or not test.metadata:
-                                test.metadata = {}
-                            elif not isinstance(test.metadata, dict):
-                                test.metadata = dict(test.metadata)
-                            test.metadata["_source_id"] = source_id
 
     test_set_data = {
         "name": custom_name if custom_name else test_set.name,
@@ -252,66 +223,48 @@ def _build_task_result(
 )
 def generate_and_save_test_set(
     self,
-    request: dict = None,
+    config: dict,
+    num_tests: int,
+    batch_size: int = 20,
+    sources: Optional[List[dict]] = None,
+    name: Optional[str] = None,
 ):
     """
-    Task that generates test cases using SDK synthesizers and saves them directly to the database.
+    Generate and save test set using ConfigSynthesizer.
 
-    This task is flexible and can work with any synthesizer type by accepting arbitrary
-    parameters through **synthesizer_kwargs.
+    This task uses the SAME logic as the services endpoint for consistency.
 
     Args:
-        synthesizer_type: Type of synthesizer to use (e.g., "prompt", "paraphrasing")
-        num_tests: Number of test cases to generate (default: 5)
-        batch_size: Batch size for the synthesizer (default: 20)
-        model: Optional model to use for generation. If None (default), the task will
-               fetch the user's configured default model from their settings.
-               Can be either:
-               - None: Fetch user's configured model or use DEFAULT_GENERATION_MODEL
-               - A string provider name (e.g., "gemini", "openai")
-               - A configured BaseLLM instance with API key and settings
-        name: Optional custom name for the test set. If not provided, a name will be
-              auto-generated based on the test set content.
-        **synthesizer_kwargs: Additional parameters specific to the synthesizer type
-            For PromptSynthesizer:
-                - prompt (str, required): The generation prompt
-            For DocumentSynthesizer:
-                - prompt (str, required): The generation prompt
-                - documents (List[Document], optional): List of documents with:
-                    - name (str): Document identifier
-                    - description (str): Document description
-                    - path (str): Local file path from upload endpoint
-                    - content (str, optional): Pre-provided content
-            For ParaphrasingSynthesizer: source_test_set_id (str, required)
-            Any future synthesizers can define their own required parameters
+        config: GenerationConfig as dict (will be converted to GenerationConfig)
+        num_tests: Number of tests to generate
+        batch_size: Batch size for generation (default: 20)
+        sources: Optional list of SourceData dicts with IDs
+        name: Optional custom name for test set
 
     Returns:
         dict: Information about the generated and saved test set including ID and metadata
-
     """
-
-    # Access context using the new utility method
     org_id, user_id = self.get_tenant_context()
 
-    with self.get_db_session() as db:
-        documents_to_use, source_ids_list, source_ids_to_documents = process_sources_to_documents(
-            sources=request["sources"],
-            db=db,
-            organization_id=org_id,
-            user_id=user_id,
-        )
-
-    if request is None:
-        raise ValueError("request parameter is required")
-
-    num_tests = request["num_tests"]
-    batch_size = request["batch_size"]
-    test_set_name = request["name"]
+    # Parse config
+    generation_config = GenerationConfig(**config)
 
     # Log the parameters (safely, without exposing sensitive data)
-    log_kwargs = {k: v for k, v in request["config"].items() if not k.lower().endswith("_key")}
+    log_kwargs = {k: v for k, v in config.items() if not k.lower().endswith("_key")}
 
-    # If no model specified, fetch user's configured model
+    # Get SDK source specifications (with embedded source IDs)
+    source_specifications = []
+
+    if sources:
+        with self.get_db_session() as db:
+            source_specifications = get_source_specifications(
+                sources=[SourceData(**s) for s in sources],
+                db=db,
+                organization_id=org_id,
+                user_id=user_id,
+            )
+
+    # Get user's model
     model = _get_model_for_user(self, org_id, user_id)
 
     # Determine model info for logging
@@ -326,11 +279,17 @@ def generate_and_save_test_set(
     )
 
     try:
-        # Step 4: Generate test set
-        self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} test cases"})
+        # Generate test set
+        self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
 
-        config = GenerationConfig(behaviors=request["config"]["behaviors"])
-        synthesizer = ConfigSynthesizer(config=config, model=model, sources=documents_to_use)
+        # Create synthesizer with full config
+        synthesizer = ConfigSynthesizer(
+            config=generation_config,  # ✅ Full config including all fields
+            batch_size=batch_size,
+            model=model,
+            sources=source_specifications if source_specifications else None,
+        )
+
         test_set = synthesizer.generate(num_tests=num_tests)
 
         self.log_with_context(
@@ -340,19 +299,20 @@ def generate_and_save_test_set(
             requested_tests=num_tests,
         )
 
-        # Step 5: Save to database
-        self.update_state(state="PROGRESS", meta={"status": "Saving test set to database"})
+        # Note: Source IDs are already embedded in test metadata via SourceSpecification
+        # The SDK automatically propagates metadata from SourceSpecification to generated tests
+
+        # Save to database
+        self.update_state(state="PROGRESS", meta={"status": "Saving to database"})
         db_test_set = _save_test_set_to_database(
             self,
             test_set,
             org_id,
             user_id,
-            custom_name=test_set_name,
-            source_ids=source_ids,
-            source_ids_to_documents=source_ids_to_documents,
+            custom_name=name,
         )
 
-        # Step 6: Build and return result
+        # Build and return result
         result = _build_task_result(
             self,
             db_test_set,

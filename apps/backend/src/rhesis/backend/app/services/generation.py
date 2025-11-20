@@ -1,152 +1,128 @@
 import asyncio
 from functools import partial
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.services import SourceData
+from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.sdk.services.extractor import SourceSpecification, SourceType
-from rhesis.sdk.synthesizers import (
-    ConfigSynthesizer,
-    GenerationConfig,
-)
-from rhesis.sdk.types import Document
+from rhesis.sdk.synthesizers import ConfigSynthesizer
 
 
-def process_sources_to_documents(
+def get_source_specifications(
     sources: List[SourceData],
     db: Session,
     organization_id: str,
     user_id: str,
-) -> Tuple[List[SourceSpecification], List[str], Dict[str, str]]:
+) -> List[SourceSpecification]:
     """
-    Process SourceData list into SDK Document objects with source tracking.
+    Get SDK SourceSpecification objects from backend SourceData.
 
-    Fetches full source data from database if source_data.id is provided.
-    Uses database values as defaults, but allows provided values to override.
-    Returns SDK documents along with source ID tracking information.
+    Fetches source content from database and creates SDK-compatible objects.
+    The source database ID is embedded in the metadata as '_source_id' for
+    later tracking when tests are generated.
 
     Args:
-        sources: List of SourceData objects (only id is required)
+        sources: List of SourceData with database IDs
         db: Database session
-        organization_id: Organization ID for filtering sources
-        user_id: User ID for filtering sources
+        organization_id: Organization ID for filtering
+        user_id: User ID for filtering
 
     Returns:
-        Tuple containing:
-            - List of SDK Document objects
-            - List of source IDs in the same order as documents
-            - Mapping of document names to source IDs
+        List of SDK SourceSpecification objects with embedded source IDs
 
     Raises:
-        HTTPException: If a source is not found in the database
+        HTTPException: If source not found
     """
-    if isinstance(sources[0], dict):
-        sources = [SourceData(**source) for source in sources]
-    else:
-        sources = sources
-    documents_sdk = []
-    source_ids_list = []
-    source_ids_to_documents = {}
-
     if not sources:
-        return documents_sdk, source_ids_list, source_ids_to_documents
+        return []
 
-    sources_sdk: List[SourceSpecification] = []
+    # Normalize to SourceData objects if needed
+    if sources and isinstance(sources[0], dict):
+        sources = [SourceData(**source) for source in sources]
+
+    source_specifications = []
+
     for source_data in sources:
-        # Fetch source from database if id is provided
-        if source_data.id:
-            db_source = crud.get_source_with_content(
-                db=db,
-                source_id=source_data.id,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
-            if db_source is None:
-                raise HTTPException(
-                    status_code=404, detail=f"Source with id {source_data.id} not found"
-                )
-            # Use database values as defaults, allow provided values to override
-            source_name = source_data.name or db_source.title
-            source_description = source_data.description or db_source.description
-            source_content = source_data.content or db_source.content or ""
-        else:
-            # No ID provided, use provided values as-is
-            source_name = source_data.name
-            source_description = source_data.description
-            source_content = source_data.content or ""
+        # Fetch full source from database
+        db_source = crud.get_source_with_content(
+            db=db,
+            source_id=source_data.id,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
 
-        # Create Document object from SourceData
-        source_sdk = SourceSpecification(
-            name=source_name,
-            description=source_description or (f"Source document: {source_name}"),
+        if not db_source:
+            raise HTTPException(status_code=404, detail=f"Source {source_data.id} not found")
+
+        # Convert to SDK SourceSpecification with embedded source ID
+        source_spec = SourceSpecification(
+            name=db_source.title,
+            description=db_source.description or f"Source: {db_source.title}",
             type=SourceType.TEXT,
             metadata={
-                "content": source_content or (f"No content available for source: {source_name}")
+                "content": db_source.content or "",
+                "_source_id": str(source_data.id),  # Embed DB ID for tracking
             },
         )
-        sources_sdk.append(source_sdk)
 
-        # Track source IDs only if an ID was provided
-        if source_data.id:
-            source_ids_list.append(str(source_data.id))
-            # Store mapping: document name -> source_id for later lookup
-            source_ids_to_documents[source_name] = str(source_data.id)
+        source_specifications.append(source_spec)
 
-    return sources_sdk, source_ids_list, source_ids_to_documents
+    return source_specifications
 
 
 async def generate_tests(
     db: Session,
     user: User,
-    config: Dict,
+    config: GenerationConfig,
     num_tests: int = 5,
-    documents: Optional[List[Document]] = None,
-) -> List[Dict]:
+    sources: Optional[List[SourceData]] = None,
+) -> Dict:
     """
-    Generate tests using the appropriate synthesizer based on input.
-    Uses user's configured default model if available,
-    otherwise falls back to DEFAULT_GENERATION_MODEL.
+    Generate tests using ConfigSynthesizer.
+
+    This function is used for both sampling and bulk generation.
 
     Args:
         db: Database session
-        user: Current user (organization_id extracted from user for security)
-        prompt: The generation prompt configuration as a dictionary
-        num_tests: Number of test cases to generate (default: 5)
-        documents: Optional list of document objects. When provided, uses DocumentSynthesizer.
-            Each document should contain:
-            - name (str): Unique identifier or label for the document
-            - description (str): Short description of the document's purpose or content
-            - content (str): The document content
-        chip_states: Optional list of chip states for iteration context
-        rated_samples: Optional list of rated samples for iteration context
-        previous_messages: Optional list of previous messages for iteration context
+        user: Current user
+        config: SDK GenerationConfig object
+        num_tests: Number of tests to generate
+        sources: Optional list of sources with database IDs
 
     Returns:
-        Dict: The generated test set as a dictionary
+        Dict containing TestSet data (source IDs are embedded in test metadata)
 
     Raises:
         HTTPException: If no valid tokens are found for the user
     """
+    # Get SDK source specifications (with embedded source IDs)
+    source_specifications = []
 
-    # Get user's configured model or fallback to default
+    if sources:
+        source_specifications = get_source_specifications(
+            sources=sources,
+            db=db,
+            organization_id=str(user.organization_id),
+            user_id=str(user.id),
+        )
+
+    # Get user's configured model
     model = get_user_generation_model(db, user)
 
-    # Choose synthesizer based on whether documents are provided
-    generation_config = GenerationConfig(**config)
+    # Create synthesizer
     synthesizer = ConfigSynthesizer(
-        config=generation_config,
+        config=config,
         model=model,
-        sources=documents,
+        sources=source_specifications if source_specifications else None,
     )
-    generate_func = partial(synthesizer.generate, num_tests=num_tests)
 
-    # Run the potentially blocking operation in a separate thread
-    # to avoid blocking the event loop
+    # Generate tests
+    generate_func = partial(synthesizer.generate, num_tests=num_tests)
     loop = asyncio.get_event_loop()
     test_set = await loop.run_in_executor(None, generate_func)
 
