@@ -3,22 +3,22 @@
 import { Box, Paper, Typography, Button, Stack, Chip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 
-export default function ToolsPage() {
+export default function APIsPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
         <Box sx={{ mb: 3 }}>
           <Typography variant="h4" sx={{ mb: 1 }}>
-            Development Tools
+            APIs
           </Typography>
           <Typography color="text.secondary">
-            Connect your monitoring, logging, and analytics tools to enhance
-            your development workflow.
+            Connect to REST API endpoints to enhance your evaluation and testing
+            workflows.
           </Typography>
         </Box>
 
         <Stack spacing={3}>
-          {/* Add Tool Card */}
+          {/* Add API Card */}
           <Paper
             sx={{
               p: 3,
@@ -41,10 +41,10 @@ export default function ToolsPage() {
               />
               <Box sx={{ flex: 1 }}>
                 <Typography variant="h6" color="text.secondary">
-                  Add Tool
+                  Add API
                 </Typography>
                 <Typography color="text.secondary" variant="body2">
-                  Connect to monitoring, logging, and analytics tools
+                  Connect to your REST API endpoints
                 </Typography>
               </Box>
             </Box>
@@ -57,10 +57,10 @@ export default function ToolsPage() {
                 disabled
                 sx={{
                   textTransform: 'none',
-                  borderRadius: theme => theme.shape.borderRadius * 0.375,
+                  borderRadius: theme => theme.shape.borderRadius * 1.5,
                 }}
               >
-                Add Tool
+                Add API
               </Button>
             </Box>
           </Paper>
