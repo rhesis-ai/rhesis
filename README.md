@@ -49,7 +49,7 @@ Traditional unit tests don't work when the same input produces different outputs
 
 1. **Define requirements**: Write what your LLM or agentic app should and shouldn't do in plain English (e.g., "never provide medical diagnoses", "always cite sources"). Non-technical team members can do this through the UI.
 2. **Generate test scenarios**: Rhesis uses AI to create hundreds of test inputs designed to break your rules - adversarial prompts, edge cases, jailbreak attempts. Supports both single-turn questions and multi-turn conversations.
-3. **Run tests**: Execute tests against your application via SDK (from your IDE) or API. Engineers can integrate into CI/CD pipelines.
+3. **Run tests**: Execute tests against your application through the UI, or programmatically via SDK (from your IDE) or API.
 4. **Evaluate results**: LLM-based evaluation scores whether outputs violate your requirements. Review results in the UI with your team, add comments, assign tasks to fix issues.
 
 You get a test suite that covers edge cases you wouldn't have thought of, runs automatically, and shows exactly where your LLM fails.
@@ -60,13 +60,15 @@ You get a test suite that covers edge cases you wouldn't have thought of, runs a
 
 **Built for teams, not just engineers**: UI for non-technical stakeholders to define requirements and review results. SDK for engineers to work from their IDE and integrate into CI/CD. Comments, tasks, and review workflows so legal, compliance, and domain experts can collaborate without writing code.
 
-**vs. manual testing**: Generates hundreds of test cases automatically instead of writing them by hand
+**Rhesis vs:**
 
-**vs. traditional test frameworks**: Designed for non-deterministic LLM outputs, not just deterministic code
+**Manual testing**: Generates hundreds of test cases automatically instead of writing them by hand
 
-**vs. LLM observability tools**: Focuses on pre-production testing, not just monitoring production issues
+**Traditional test frameworks**: Designed for non-deterministic LLM outputs, not just deterministic code
 
-**vs. red-teaming services**: Self-service and continuous, not one-time security audits
+**LLM observability tools**: Focuses on pre-production testing, not just monitoring production issues
+
+**Red-teaming services**: Self-service and continuous, not one-time security audits
 
 ## Features
 
@@ -79,7 +81,6 @@ You get a test suite that covers edge cases you wouldn't have thought of, runs a
   - UI for non-technical users (legal, compliance, marketing) to define requirements and review results
   - SDK/API for engineers to work from their IDE and integrate into CI/CD pipelines
   - Collaborative features: comments, tasks, review workflows
-- **Version tracking**: Compare LLM behavior across model versions, prompt iterations, or code changes
 - **Pre-built test sets**: Common scenarios for chatbots, RAG systems, agentic applications, content generation, etc.
 
 ## Open Source
@@ -87,27 +88,6 @@ You get a test suite that covers edge cases you wouldn't have thought of, runs a
 MIT licensed with no plans to relicense core features. Commercial features (if we build them) will live in `ee/` folders.
 
 We built this because existing LLM testing tools didn't meet our needs. If you have the same problem, contributions are welcome.
-
-## Repository Structure
-
-This monorepo contains the complete Rhesis ecosystem:
-
-```
-rhesis/
-├── apps/
-│   ├── backend/           # FastAPI backend service
-│   ├── frontend/          # React frontend application
-│   ├── worker/            # Celery worker for background tasks
-│   ├── chatbot/           # Conversational testing interface
-│   ├── polyphemus/        # Uncensored LLM for comprehensive test generation
-│   ├── documentation/     # Documentation service
-│   ├── otel-collector/     # OpenTelemetry collector for telemetry
-│   └── telemetry-processor/# Telemetry processing service
-├── sdk/                   # Python SDK for Rhesis
-├── infrastructure/        # Infrastructure as code
-├── scripts/               # Utility scripts
-└── docs/                  # Documentation source files
-```
 
 ## Quick Start
 
@@ -206,9 +186,9 @@ Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📝 License
 
-**Community Edition**: MIT License - see [LICENSE](LICENSE) file for details. Free forever.
+Community Edition: MIT License - see LICENSE file for details. Free forever.
 
-**Enterprise Edition**: Enterprise features in `ee/` folders are planned for 2026 and not yet available. Contact hello@rhesis.ai for early access information.
+Enterprise Edition: Enterprise features in ee/ folders are planned for 2026 and not yet available. Contact hello@rhesis.ai for early access information.
 
 ## Support
 
