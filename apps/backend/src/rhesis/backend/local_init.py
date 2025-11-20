@@ -6,7 +6,6 @@ It creates a default organization and admin user with known credentials.
 DO NOT use this in production environments.
 """
 
-import os
 import uuid
 from datetime import datetime, timezone
 
@@ -15,6 +14,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.services.organization import load_initial_data
 from rhesis.backend.app.utils.encryption import hash_token
+from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 from rhesis.backend.logging import logger
 
 
@@ -22,7 +22,7 @@ def initialize_local_environment(db: Session) -> None:
     """
     Initialize local environment with default organization and user.
 
-    Only runs when LOCAL_AUTH_ENABLED=true environment variable is set.
+    Only runs when Quick Start mode is enabled (QUICK_START=true with validation).
     Creates:
     - Default organization "Local Org"
     - Default admin user admin@local.dev
@@ -30,14 +30,12 @@ def initialize_local_environment(db: Session) -> None:
 
     This function is idempotent - it will not recreate resources if they already exist.
     """
-    # Check if local auth is enabled
-    local_auth_enabled = os.getenv("LOCAL_AUTH_ENABLED", "false").lower() == "true"
-
-    if not local_auth_enabled:
+    # Check if Quick Start mode is enabled
+    if not is_quick_start_enabled():
         return
 
     logger.warning("=" * 80)
-    logger.warning("⚠️  LOCAL MODE ENABLED")
+    logger.warning("⚠️  QUICK START MODE ENABLED")
     logger.warning("⚠️  Initializing default organization and user...")
     logger.warning("=" * 80)
 
@@ -53,7 +51,8 @@ def initialize_local_environment(db: Session) -> None:
             if user:
                 logger.info("ℹ️  Local user already exists.")
 
-                # Check if token exists (check by user_id since we can't filter encrypted fields directly)
+                # Check if token exists
+                # (check by user_id since we can't filter encrypted fields directly)
                 token = (
                     db.query(models.Token)
                     .filter(models.Token.user_id == user.id)
@@ -118,7 +117,10 @@ def initialize_local_environment(db: Session) -> None:
             id=org_id,
             name="Local Org",
             display_name="Local Organization",
-            description="Default organization for local deployment and testing. Created automatically for simplified local setup.",
+            description=(
+                "Default organization for local deployment and testing. "
+                "Created automatically for simplified local setup."
+            ),
             is_active=True,
             is_onboarding_complete=True,
             owner_id=user_id,

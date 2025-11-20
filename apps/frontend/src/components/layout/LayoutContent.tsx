@@ -45,17 +45,56 @@ export function LayoutContent({
     );
   }, [pathname, protectedSegments]);
 
+  // Use state to avoid hydration mismatch - start with false (matches server)
+  const [isQuickStartMode, setIsQuickStartMode] = React.useState(false);
+
+  // Check Quick Start mode after mount (client-side only)
+  React.useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { isQuickStartEnabled } = require('@/utils/quick_start');
+    setIsQuickStartMode(isQuickStartEnabled());
+  }, []);
+
+  // Build sx prop conditionally
+  const boxSx = React.useMemo(() => {
+    const baseStyles = {
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: '100vh',
+    };
+
+    if (isQuickStartMode) {
+      return {
+        ...baseStyles,
+        // Hide the account menu button when Quick Start mode is enabled
+        '& [aria-label="Account"]': {
+          display: 'none !important',
+        },
+        '& button[aria-label*="account" i]': {
+          display: 'none !important',
+        },
+        // Target the account preview/popover button
+        '& .ToolpadAccountButton, & [class*="AccountButton"]': {
+          display: 'none !important',
+        },
+        // Target any button in the toolbar that has an avatar (account button)
+        '& header button:has(.MuiAvatar-root)': {
+          display: 'none !important',
+        },
+        '& .MuiToolbar-root button:has(.MuiAvatar-root)': {
+          display: 'none !important',
+        },
+      };
+    }
+
+    return baseStyles;
+  }, [isQuickStartMode]);
+
   return (
     <SessionProvider session={session} refetchOnWindowFocus={false}>
       <AppRouterCacheProvider options={{ enableCssLayer: true }}>
         <NotificationProvider>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: '100vh',
-            }}
-          >
+          <Box sx={boxSx}>
             <Box sx={{ flex: 1 }}>
               <NavigationProvider
                 navigation={navigation}
