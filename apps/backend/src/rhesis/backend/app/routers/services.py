@@ -240,7 +240,7 @@ async def generate_tests_endpoint(
             raise HTTPException(status_code=400, detail="At least one behavior must be specified")
 
         # Generate tests synchronously
-        result = await generate_tests(
+        tests = await generate_tests(
             db=db,
             user=current_user,
             config=request.config,
@@ -248,7 +248,8 @@ async def generate_tests_endpoint(
             sources=request.sources,
         )
 
-        return result
+        # Wrap in response structure
+        return {"tests": tests}
     except HTTPException:
         raise
     except Exception as e:

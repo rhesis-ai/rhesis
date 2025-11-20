@@ -89,7 +89,7 @@ async def generate_tests(
     config: GenerationConfig,
     num_tests: int = 5,
     sources: Optional[List[SourceData]] = None,
-) -> Dict:
+) -> List[Dict]:
     """
     Generate tests using ConfigSynthesizer.
 
@@ -103,7 +103,7 @@ async def generate_tests(
         sources: Optional list of sources with database IDs
 
     Returns:
-        Dict containing TestSet data (source IDs are embedded in test metadata)
+        List of test dictionaries (source IDs are embedded in test metadata)
 
     Raises:
         HTTPException: If no valid tokens are found for the user
@@ -134,9 +134,8 @@ async def generate_tests(
     loop = asyncio.get_event_loop()
     test_set = await loop.run_in_executor(None, generate_func)
 
-    # SDK's to_dict() returns List[Dict], not Dict with "tests" key
-    # Wrap it in proper structure for the endpoint
-    return {"tests": test_set.to_dict()}
+    # Return raw list of tests - router will wrap in response structure
+    return test_set.to_dict()
 
 
 async def generate_multiturn_tests(
