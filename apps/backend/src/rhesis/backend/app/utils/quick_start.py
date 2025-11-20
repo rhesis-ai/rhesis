@@ -44,7 +44,6 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
     quick_start_env = os.getenv("QUICK_START", "false").lower() == "true"
 
     if not quick_start_env:
-        logger.debug("Quick Start disabled: QUICK_START not set to 'true'")
         return False
 
     logger.debug("Quick Start environment variable set to 'true', validating deployment signals...")

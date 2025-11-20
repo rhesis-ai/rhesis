@@ -13,8 +13,9 @@ import {
   TestSetBulkAssociateResponse,
   TestSetBulkDisassociateRequest,
   TestSetBulkDisassociateResponse,
-  GenerationSample,
-  TestSetGenerationConfig,
+  GenerateTestsRequest,
+  GenerateTestSetResponse,
+  // Legacy imports for backwards compatibility
   TestSetGenerationRequest,
   TestSetGenerationResponse,
 } from './interfaces/test-set';
@@ -101,10 +102,15 @@ export class TestSetsClient extends BaseApiClient {
     return result;
   }
 
+  /**
+   * Generate a test set using the unified generation API
+   * @param request - Generation request with config, num_tests, sources, etc.
+   * @returns Response with task_id for tracking async generation
+   */
   async generateTestSet(
-    request: TestSetGenerationRequest
-  ): Promise<TestSetGenerationResponse> {
-    return this.fetch<TestSetGenerationResponse>(
+    request: GenerateTestsRequest
+  ): Promise<GenerateTestSetResponse> {
+    return this.fetch<GenerateTestSetResponse>(
       `${API_ENDPOINTS.testSets}/generate`,
       {
         method: 'POST',

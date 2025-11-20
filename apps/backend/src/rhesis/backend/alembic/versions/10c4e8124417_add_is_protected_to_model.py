@@ -9,10 +9,10 @@ Create Date: 2025-10-26 18:30:34.419651
 
 """
 
-from alembic import op
-import sqlalchemy as sa
-from typing import Union, Sequence
+from typing import Sequence, Union
 
+import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "10c4e8124417"

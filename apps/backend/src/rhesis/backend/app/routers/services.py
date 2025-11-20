@@ -37,7 +37,6 @@ from rhesis.backend.app.services.gemini_client import (
 from rhesis.backend.app.services.generation import (
     generate_multiturn_tests,
     generate_tests,
-    process_sources_to_documents,
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.handlers import DocumentHandler
@@ -236,41 +235,26 @@ async def generate_tests_endpoint(
         GenerateTestsResponse: The generated test cases
     """
     try:
-        prompt = request.prompt
-        num_tests = request.num_tests
-        sources = request.sources
-        chip_states = request.chip_states
-        rated_samples = request.rated_samples
-        previous_messages = request.previous_messages
+        # Validate config
+        if not request.config.behaviors:
+            raise HTTPException(status_code=400, detail="At least one behavior must be specified")
 
-        if not prompt:
-            raise HTTPException(status_code=400, detail="prompt is required")
-
-        # Prepare sources from sources if provided
-        # Fetch full source data from database if only IDs are provided
-        sources_sdk = []
-        if sources:
-            organization_id, user_id = tenant_context
-            sources_sdk, _, _ = process_sources_to_documents(
-                sources=sources,
-                db=db,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
-
-        test_cases = await generate_tests(
-            db,
-            current_user,
-            prompt,
-            num_tests,
-            sources_sdk,
-            chip_states=chip_states,
-            rated_samples=rated_samples,
-            previous_messages=previous_messages,
+        # Generate tests synchronously
+        tests = await generate_tests(
+            db=db,
+            user=current_user,
+            config=request.config,
+            num_tests=request.num_tests,
+            sources=request.sources,
         )
-        return {"tests": test_cases}
+
+        # Return Pydantic model - FastAPI handles serialization
+        return GenerateTestsResponse(tests=tests)
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Failed to generate tests: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to generate tests: {str(e)}")
 
 
 @router.post("/generate/multiturn-tests", response_model=GenerateMultiTurnTestsResponse)

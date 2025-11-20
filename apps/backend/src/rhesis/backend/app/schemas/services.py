@@ -3,6 +3,21 @@ from typing import Any, Dict, List, Optional
 from pydantic import UUID4, BaseModel, Field
 
 
+class GenerationConfig(BaseModel):
+    """
+    Configuration for test generation using ConfigSynthesizer.
+
+    This schema mirrors the SDK's GenerationConfig to maintain consistency
+    between frontend requests and SDK expectations.
+    """
+
+    generation_prompt: Optional[str] = None  # Describe what you want to test
+    behaviors: Optional[List[str]] = None  # Behaviors to test
+    categories: Optional[List[str]] = None  # Test categories
+    topics: Optional[List[str]] = None  # Topics to cover
+    additional_context: Optional[str] = None  # Additional context (JSON string)
+
+
 class PromptRequest(BaseModel):
     prompt: str
     stream: bool = False
@@ -62,12 +77,22 @@ class IterationMessage(BaseModel):
 
 
 class GenerateTestsRequest(BaseModel):
-    prompt: dict
+    """
+    Unified request for test generation (both sampling and bulk).
+
+    - For sampling: num_tests=5, run synchronously via /services/generate/tests
+    - For bulk: num_tests=1000, run as background task via /test_sets/generate
+
+    The config field contains the core generation parameters. Context information
+    like chip_states, rated_samples, and previous_messages should be serialized
+    into config.additional_context as a JSON string.
+    """
+
+    config: GenerationConfig
     num_tests: int = 5
+    batch_size: int = 20
     sources: Optional[List[SourceData]] = None
-    chip_states: Optional[List[ChipState]] = None
-    rated_samples: Optional[List[RatedSample]] = None
-    previous_messages: Optional[List[IterationMessage]] = None
+    name: Optional[str] = None  # Used only for bulk generation to name the test set
 
 
 class TestPrompt(BaseModel):
