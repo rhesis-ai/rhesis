@@ -106,7 +106,7 @@ class EndpointTarget(Target):
     def send_message(
         self,
         message: str,
-        session_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
         **kwargs: Any,
     ) -> TargetResponse:
         """
@@ -114,7 +114,7 @@ class EndpointTarget(Target):
 
         Args:
             message: The message to send
-            session_id: Optional session ID for multi-turn conversations
+            conversation_id: Optional conversation ID for multi-turn conversations
             **kwargs: Additional parameters (ignored for endpoints)
 
         Returns:
@@ -138,7 +138,7 @@ class EndpointTarget(Target):
             # Use SDK to invoke the endpoint
             response_data = self.endpoint.invoke(
                 input=message,
-                session_id=session_id,
+                session_id=conversation_id,
             )
 
             if response_data is None:
@@ -152,13 +152,41 @@ class EndpointTarget(Target):
             # Standard fields: output, session_id, metadata, context
             response_text = response_data.get("output", "")
 
-            # Extract session_id
-            response_session_id = response_data.get("session_id", session_id)
+            # Log the raw response structure for debugging
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Raw endpoint response: {response_data}")
+            logger.debug(
+                f"Response keys: "
+                f"{list(response_data.keys()) if isinstance(response_data, dict) else 'Not a dict'}"
+            )
+
+            # Extract conversation_id using smart field detection
+            from rhesis.penelope.conversation import extract_conversation_id
+
+            # Extract session_id from endpoint response (endpoint manages session lifecycle)
+            response_conversation_id = extract_conversation_id(response_data)
+            if not response_conversation_id:
+                # Fallback to input conversation_id for subsequent turns
+                response_conversation_id = conversation_id
+
+            # Debug logging for conversation ID tracking
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.debug(
+                f"Endpoint conversation tracking - Input: {conversation_id}, "
+                f"Response extracted: {extract_conversation_id(response_data)}, "
+                f"Final: {response_conversation_id}"
+            )
 
             # Build metadata including context if available
             response_metadata = {
                 "raw_response": response_data,
                 "message_sent": message,
+                "input_conversation_id": conversation_id,
+                "extracted_conversation_id": response_conversation_id,
             }
 
             # Include Rhesis metadata fields if present
@@ -171,7 +199,7 @@ class EndpointTarget(Target):
             return TargetResponse(
                 success=True,
                 content=str(response_text),
-                session_id=response_session_id,
+                conversation_id=response_conversation_id,
                 metadata=response_metadata,
             )
 
@@ -223,14 +251,14 @@ The Rhesis backend handles all authentication, request mapping, and
 response parsing according to the endpoint's configuration.
 
 How to interact:
-- Use send_message_to_target(message, session_id) to send messages
+- Use send_message_to_target(message, conversation_id) to send messages
 - Messages should be natural, conversational text
-- Maintain session_id across turns for conversation continuity
+- Maintain conversation_id across turns for conversation continuity
 - Session typically expires after 1 hour of inactivity
 
 Best practices:
 - Write messages as a real user would
 - Check responses before deciding next actions
-- Use consistent session_id for related questions
+- Use consistent conversation_id for related questions
 """
         return doc

@@ -655,7 +655,7 @@ export default function TestsTableView({
 
                 // Get response/evaluation content based on test type
                 const responseContent = isMultiTurn
-                  ? test.test_output?.goal_evaluation?.reasoning || 'N/A'
+                  ? test.test_output?.goal_evaluation?.reason || 'N/A'
                   : test.test_output?.output || 'N/A';
 
                 const isRowSelected = selectedRowIndex === index;

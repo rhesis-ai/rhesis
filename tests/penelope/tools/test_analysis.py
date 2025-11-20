@@ -1,21 +1,20 @@
-"""Tests for analysis tools (AnalyzeTool and ExtractTool)."""
+"""Tests for analysis tools (AnalyzeTextTool and ExtractTool)."""
 
-import pytest
-from rhesis.penelope.tools.analysis import AnalyzeTool, ExtractTool
+from rhesis.penelope.tools.analysis import AnalyzeTextTool, ExtractTool
 from rhesis.penelope.tools.base import ToolResult
 
 
 def test_analyze_tool_properties():
-    """Test AnalyzeTool properties."""
-    tool = AnalyzeTool()
+    """Test AnalyzeTextTool properties."""
+    tool = AnalyzeTextTool()
 
     assert tool.name == "analyze_response"
     assert "analyze" in tool.description.lower()
 
 
 def test_analyze_tool_execute_basic():
-    """Test AnalyzeTool basic execution."""
-    tool = AnalyzeTool()
+    """Test AnalyzeTextTool basic execution."""
+    tool = AnalyzeTextTool()
 
     result = tool.execute(
         response_text="Yes, we can help with your refund request.",
@@ -30,8 +29,8 @@ def test_analyze_tool_execute_basic():
 
 
 def test_analyze_tool_execute_with_context():
-    """Test AnalyzeTool execution with context."""
-    tool = AnalyzeTool()
+    """Test AnalyzeTextTool execution with context."""
+    tool = AnalyzeTextTool()
 
     result = tool.execute(
         response_text="Yes, we can help with your refund request.",
@@ -44,8 +43,8 @@ def test_analyze_tool_execute_with_context():
 
 
 def test_analyze_tool_detects_positive_tone():
-    """Test AnalyzeTool detects positive tone."""
-    tool = AnalyzeTool()
+    """Test AnalyzeTextTool detects positive tone."""
+    tool = AnalyzeTextTool()
 
     result = tool.execute(
         response_text="Yes, I'm happy to help! Certainly we can assist you.",
@@ -58,8 +57,8 @@ def test_analyze_tool_detects_positive_tone():
 
 
 def test_analyze_tool_detects_negative_tone():
-    """Test AnalyzeTool detects negative tone."""
-    tool = AnalyzeTool()
+    """Test AnalyzeTextTool detects negative tone."""
+    tool = AnalyzeTextTool()
 
     result = tool.execute(
         response_text="No, unfortunately we cannot help. Sorry, we are unable to assist.",
@@ -72,8 +71,8 @@ def test_analyze_tool_detects_negative_tone():
 
 
 def test_analyze_tool_detects_structure():
-    """Test AnalyzeTool detects response structure."""
-    tool = AnalyzeTool()
+    """Test AnalyzeTextTool detects response structure."""
+    tool = AnalyzeTextTool()
 
     result = tool.execute(
         response_text="Here are the options:\n- Option 1\n- Option 2\nCall us at 123-456-7890",
@@ -87,8 +86,8 @@ def test_analyze_tool_detects_structure():
 
 
 def test_analyze_tool_detects_policy_language():
-    """Test AnalyzeTool detects policy-related content."""
-    tool = AnalyzeTool()
+    """Test AnalyzeTextTool detects policy-related content."""
+    tool = AnalyzeTextTool()
 
     result = tool.execute(
         response_text="Our policy states that refunds are processed within 30 days.",
@@ -101,8 +100,8 @@ def test_analyze_tool_detects_policy_language():
 
 
 def test_analyze_tool_word_count():
-    """Test AnalyzeTool calculates word count."""
-    tool = AnalyzeTool()
+    """Test AnalyzeTextTool calculates word count."""
+    tool = AnalyzeTextTool()
 
     result = tool.execute(
         response_text="One two three four five",
@@ -233,4 +232,3 @@ def test_extract_tool_metadata():
 
     assert result.success is True
     assert result.metadata["extraction_target"] == "test target"
-

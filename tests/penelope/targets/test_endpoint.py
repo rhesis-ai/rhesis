@@ -1,9 +1,10 @@
 """Tests for EndpointTarget."""
 
-import pytest
 from unittest.mock import Mock, patch
-from rhesis.penelope.targets.endpoint import EndpointTarget
+
+import pytest
 from rhesis.penelope.targets.base import TargetResponse
+from rhesis.penelope.targets.endpoint import EndpointTarget
 
 
 @pytest.fixture
@@ -19,7 +20,7 @@ def mock_endpoint():
     }
     endpoint.invoke.return_value = {
         "output": "Test response",
-        "session_id": "session-123",
+        "conversation_id": "conv-123",
         "metadata": {"test": "metadata"},
     }
     return endpoint
@@ -43,9 +44,7 @@ def test_endpoint_target_initialization_requires_parameter():
 
 def test_endpoint_target_initialization_rejects_both_parameters(mock_endpoint):
     """Test EndpointTarget rejects both endpoint_id and endpoint."""
-    with pytest.raises(
-        ValueError, match="Provide only endpoint_id OR endpoint, not both"
-    ):
+    with pytest.raises(ValueError, match="Provide only endpoint_id OR endpoint, not both"):
         EndpointTarget(endpoint_id="endpoint-123", endpoint=mock_endpoint)
 
 
@@ -111,18 +110,16 @@ def test_endpoint_target_send_message(mock_endpoint):
     assert isinstance(response, TargetResponse)
     assert response.success is True
     assert response.content == "Test response"
-    assert response.session_id == "session-123"
+    assert response.conversation_id == "conv-123"
 
 
 def test_endpoint_target_send_message_with_session(mock_endpoint):
-    """Test EndpointTarget send_message with session_id."""
+    """Test EndpointTarget send_message with conversation_id."""
     target = EndpointTarget(endpoint=mock_endpoint)
 
-    response = target.send_message("Hello", session_id="my-session")
+    response = target.send_message("Hello", conversation_id="my-conv")
 
-    mock_endpoint.invoke.assert_called_once_with(
-        input="Hello", session_id="my-session"
-    )
+    mock_endpoint.invoke.assert_called_once_with(input="Hello", session_id="my-conv")
     assert response.success is True
 
 
@@ -174,7 +171,7 @@ def test_endpoint_target_send_message_with_metadata(mock_endpoint):
     target = EndpointTarget(endpoint=mock_endpoint)
     mock_endpoint.invoke.return_value = {
         "output": "Response",
-        "session_id": "session-123",
+        "conversation_id": "conv-123",
         "metadata": {"key": "value"},
         "context": ["context1", "context2"],
     }
@@ -223,4 +220,3 @@ def test_endpoint_target_get_tool_documentation(mock_endpoint):
     assert "https://test.example.com/chat" in doc
     assert "Test endpoint description" in doc
     assert "send_message_to_target" in doc
-

@@ -329,62 +329,63 @@ export default function TestRunMainView({
     }
   }, [testRun.test_configuration_id, sessionToken, notifications, router]);
 
-  // Fetch available test runs for comparison
-  React.useEffect(() => {
-    const fetchTestRuns = async () => {
-      try {
-        // Get test_set_id from the nested test_set object
-        const testSetId = testRun.test_configuration?.test_set?.id;
+  // Fetch available test runs for comparison (lazy-loaded when compare is clicked)
+  const fetchTestRuns = useCallback(async () => {
+    try {
+      // Get test_set_id from the nested test_set object
+      const testSetId = testRun.test_configuration?.test_set?.id;
 
-        if (!testSetId) {
-          setAvailableTestRuns([]);
-          return;
-        }
-
-        const testRunsClient = new ApiClientFactory(
-          sessionToken
-        ).getTestRunsClient();
-
-        // Use OData filter to get all test runs for the same test set
-        const params: any = {
-          limit: 50,
-          skip: 0,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-          filter: `test_configuration/test_set/id eq '${testSetId}'`,
-        };
-
-        const response = await testRunsClient.getTestRuns(params);
-
-        // Filter out current test run
-        const runs = response.data
-          .filter(run => run.id !== testRunId)
-          .map(run => ({
-            id: run.id,
-            name: run.name,
-            created_at: run.attributes?.started_at || run.created_at || '',
-            pass_rate: undefined, // Will be calculated from test results if needed
-          }));
-
-        setAvailableTestRuns(runs);
-      } catch (error) {
+      if (!testSetId) {
         setAvailableTestRuns([]);
+        return [];
       }
-    };
 
-    fetchTestRuns();
+      const testRunsClient = new ApiClientFactory(
+        sessionToken
+      ).getTestRunsClient();
+
+      // Use OData filter to get all test runs for the same test set
+      const params: any = {
+        limit: 50,
+        skip: 0,
+        sort_by: 'created_at',
+        sort_order: 'desc',
+        filter: `test_configuration/test_set/id eq '${testSetId}'`,
+      };
+
+      const response = await testRunsClient.getTestRuns(params);
+
+      // Filter out current test run
+      const runs = response.data
+        .filter(run => run.id !== testRunId)
+        .map(run => ({
+          id: run.id,
+          name: run.name,
+          created_at: run.attributes?.started_at || run.created_at || '',
+          pass_rate: undefined, // Will be calculated from test results if needed
+        }));
+
+      setAvailableTestRuns(runs);
+      return runs;
+    } catch (error) {
+      setAvailableTestRuns([]);
+      return [];
+    }
   }, [testRunId, sessionToken, testRun.test_configuration?.test_set?.id]);
 
   // Handle compare
-  const handleCompare = useCallback(() => {
-    if (availableTestRuns.length === 0) {
+  const handleCompare = useCallback(async () => {
+    // Fetch test runs only when compare is clicked
+    const runs = await fetchTestRuns();
+
+    if (runs.length === 0) {
       notifications.show('No other test runs available for comparison', {
         severity: 'info',
       });
       return;
     }
     setIsComparisonMode(true);
-  }, [availableTestRuns, notifications]);
+  }, [fetchTestRuns, notifications]);
 
   // Handle load baseline test results
   const handleLoadBaseline = useCallback(

@@ -197,7 +197,7 @@ export default function ComparisonView({
             test.current.test_output?.test_configuration?.goal?.toLowerCase() ||
             '';
           const evaluationContent =
-            test.current.test_output?.goal_evaluation?.reasoning?.toLowerCase() ||
+            test.current.test_output?.goal_evaluation?.reason?.toLowerCase() ||
             '';
           return (
             goalContent.includes(query) || evaluationContent.includes(query)
@@ -710,12 +710,12 @@ export default function ComparisonView({
                   ? 'Overall Evaluation'
                   : 'Response';
                 const baselineResponse = isMultiTurn
-                  ? test.baseline?.test_output?.goal_evaluation?.reasoning ||
+                  ? test.baseline?.test_output?.goal_evaluation?.reason ||
                     'No evaluation available'
                   : test.baseline?.test_output?.output ||
                     'No response available';
                 const currentResponse = isMultiTurn
-                  ? test.current.test_output?.goal_evaluation?.reasoning ||
+                  ? test.current.test_output?.goal_evaluation?.reason ||
                     'No evaluation available'
                   : test.current.test_output?.output || 'No response available';
 
