@@ -94,8 +94,9 @@ RUN addgroup --system --gid 1001 nodejs && \
     chown -R nextjs:nodejs /app
 
 COPY --from=builder  /app/public ./public
-COPY --from=builder  /app/.next/standalone ./
-COPY --from=builder  /app/.next/static ./.next/static
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Do NOT copy src, tsconfig.json, .eslintrc.json or any .env files to production image
 # Install dependencies and handle environment-specific setup
@@ -106,6 +107,9 @@ RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || 
         echo "Source files kept for development mode"; \
         npm ci --legacy-peer-deps && npm cache clean --force; \
     fi
+
+# Ensure .next/cache directory exists and is writable
+RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next
 
 USER nextjs
 
