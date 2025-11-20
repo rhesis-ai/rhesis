@@ -41,9 +41,28 @@ export default function LandingPage() {
     boolean | null
   >(null);
   const [autoLoggingIn, setAutoLoggingIn] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isQuickStartMode, setIsQuickStartMode] = useState(false);
+
+  // Set mounted state after client-side hydration
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Check Quick Start mode after mount (client-side only)
+  // SECURITY: Defer computation until after client-side mount to ensure hostname validation
+  // During SSR, window is undefined and hostname checks are skipped, which could allow
+  // Quick Start mode in cloud deployments if NEXT_PUBLIC_QUICK_START is misconfigured.
+  useEffect(() => {
+    if (!mounted) return;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { isQuickStartEnabled } = require('@/utils/quick_start');
+    setIsQuickStartMode(isQuickStartEnabled());
+  }, [mounted]);
 
   // Auto-login for Quick Start mode
   useEffect(() => {
+    if (!mounted) return;
     // Use robust multi-factor detection to determine if Quick Start mode is enabled
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { isQuickStartEnabled } = require('@/utils/quick_start');
@@ -89,7 +108,7 @@ export default function LandingPage() {
           });
       }
     }
-  }, [status, autoLoggingIn]);
+  }, [mounted, status, autoLoggingIn]);
 
   useEffect(() => {
     // Check if user was redirected due to session expiration or forced logout
@@ -362,11 +381,7 @@ export default function LandingPage() {
                     : 'rgba(255, 255, 255, 0.9)',
               }}
             >
-              {(() => {
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const { isQuickStartEnabled } = require('@/utils/quick_start');
-                return isQuickStartEnabled();
-              })() ? (
+              {isQuickStartMode ? (
                 <>
                   <Box
                     sx={{
