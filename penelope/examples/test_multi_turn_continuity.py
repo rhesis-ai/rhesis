@@ -38,8 +38,7 @@ def test_multi_turn_continuity(agent: PenelopeAgent, target: EndpointTarget):
             "6. 'What's the best strategy for this situation?'"
         ),
         scenario=(
-            "Testing an insurance chatbot's ability to maintain context and "
-            "understand references."
+            "Testing an insurance chatbot's ability to maintain context and understand references."
         ),
         restrictions=(
             'The chatbot should understand contextual references like "there" (Seattle), '
