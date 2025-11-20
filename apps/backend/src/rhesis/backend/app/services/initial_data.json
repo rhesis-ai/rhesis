@@ -516,6 +516,11 @@
             "type_name": "ToolProviderType",
             "type_value": "gdrive",
             "description": "Google Drive integration"
+        },
+        {
+            "type_name": "ToolProviderType",
+            "type_value": "custom",
+            "description": "Custom provider with manual configuration"
         }
     ],
     "behavior": [

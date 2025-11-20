@@ -53,18 +53,21 @@ def _get_mcp_client_by_tool_id(
     # Get provider name for the client
     provider = tool.tool_provider_type.type_value
 
-    # Check if tool uses new provider-based approach (empty tool_metadata)
-    if not tool.tool_metadata or tool.tool_metadata == {}:
-        # New provider-based approach: SDK constructs config from YAML templates
-        manager = MCPClientManager.from_provider(
-            provider=provider,
-            auth_token=tool.auth_token,
-        )
-    else:
-        # Legacy approach: tool_metadata contains full JSON config
+    # Check if tool uses custom provider (requires manual JSON config) or standard provider
+    if provider == "custom":
+        # Custom provider: requires tool_metadata with full JSON config
+        if not tool.tool_metadata:
+            raise ValueError("Custom provider tools require tool_metadata configuration")
+
         manager = MCPClientManager.from_tool_config(
             tool_name=f"{provider}Api",
             tool_config=tool.tool_metadata,
+            auth_token=tool.auth_token,
+        )
+    else:
+        # Standard provider: SDK constructs config from YAML templates
+        manager = MCPClientManager.from_provider(
+            provider=provider,
             auth_token=tool.auth_token,
         )
 

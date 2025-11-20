@@ -31,7 +31,7 @@ def upgrade() -> None:
         sa.Column(
             "auth_token", rhesis.backend.app.utils.encryption.EncryptedString(), nullable=False
         ),
-        sa.Column("tool_metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("tool_metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column(
             "id",
             rhesis.backend.app.models.guid.GUID(),
@@ -91,7 +91,8 @@ def upgrade() -> None:
         ('ToolProviderType', 'notion', 'Notion workspace integration'),
         ('ToolProviderType', 'github', 'GitHub repository integration'),
         ('ToolProviderType', 'google', 'Google services integration'),
-        ('ToolProviderType', 'gdrive', 'Google Drive integration')
+        ('ToolProviderType', 'gdrive', 'Google Drive integration'),
+        ('ToolProviderType', 'custom', 'Custom provider with manual configuration')
     """
 
     tool_status_values = """
@@ -131,7 +132,8 @@ def downgrade() -> None:
         ('notion'),
         ('github'),
         ('google'),
-        ('gdrive')
+        ('gdrive'),
+        ('custom')
     """
 
     tool_status_cleanup_values = """

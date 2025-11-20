@@ -25,7 +25,8 @@ class Tool(Base, OrganizationAndUserMixin):
     auth_token = Column(EncryptedString(), nullable=False)
 
     # Provider-specific configuration (JSON with {{auth_token}} placeholders)
-    tool_metadata = Column(JSONB, nullable=False, default=dict)
+    # Optional - can be empty for provider-based MCP tools where SDK handles config
+    tool_metadata = Column(JSONB, nullable=True, default=None)
 
     # Relationships
     tool_type = relationship("TypeLookup", foreign_keys=[tool_type_id], back_populates="tool_types")

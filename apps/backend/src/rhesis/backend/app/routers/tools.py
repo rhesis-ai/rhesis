@@ -36,7 +36,8 @@ def create_tool(
     Create a new tool integration.
 
     The auth_token will be encrypted in the database.
-    Use {{auth_token}} placeholder in tool_metadata for token substitution.
+    If you want to use a custom provider, you need to provide the JSON config in tool_metadata.
+    In that case, you need to use the {{auth_token}} placeholder in the JSON config.
     """
     organization_id, user_id = tenant_context
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)

@@ -26,7 +26,9 @@ class ToolCreate(ToolBase):
     """Schema for creating a new Tool"""
 
     auth_token: str  # Required - will be encrypted in DB
-    tool_metadata: Dict[str, Any]  # Required - JSON with {{auth_token}} placeholder for MCP config
+    tool_metadata: Optional[Dict[str, Any]] = (
+        None  # Optional - can be empty for provider-based MCP tools
+    )
 
 
 class ToolUpdate(ToolBase):
@@ -57,7 +59,7 @@ class Tool(Base):
     tool_type_id: UUID4
     tool_provider_type_id: UUID4
     status_id: Optional[UUID4] = None
-    tool_metadata: Dict[str, Any]
+    tool_metadata: Optional[Dict[str, Any]] = None
     organization_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
 
