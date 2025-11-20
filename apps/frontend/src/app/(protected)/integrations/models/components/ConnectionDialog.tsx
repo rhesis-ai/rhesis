@@ -194,14 +194,17 @@ export function ConnectionDialog({
   // Fetch available models when provider is selected
   useEffect(() => {
     const fetchModels = async () => {
-      const currentProvider = isEditMode && model?.provider_type ? model.provider_type : provider;
+      const currentProvider =
+        isEditMode && model?.provider_type ? model.provider_type : provider;
       if (!currentProvider || !session?.session_token) return;
 
       setLoadingModels(true);
       try {
         const apiFactory = new ApiClientFactory(session.session_token);
         const modelsClient = apiFactory.getModelsClient();
-        const models = await modelsClient.getProviderModels(currentProvider.type_value);
+        const models = await modelsClient.getProviderModels(
+          currentProvider.type_value
+        );
         setAvailableModels(models);
       } catch (err) {
         // Silently fail - user can still manually enter model name
@@ -547,12 +550,14 @@ export function ConnectionDialog({
                     options={availableModels}
                     value={modelName}
                     onChange={(event, newValue) => setModelName(newValue || '')}
-                    onInputChange={(event, newInputValue) => setModelName(newInputValue)}
+                    onInputChange={(event, newInputValue) =>
+                      setModelName(newInputValue)
+                    }
                     loading={loadingModels}
                     filterOptions={(options, { inputValue }) => {
                       if (!inputValue) return options;
                       const input = inputValue.toLowerCase();
-                      return options.filter(option => 
+                      return options.filter(option =>
                         option.toLowerCase().includes(input)
                       );
                     }}
@@ -570,7 +575,9 @@ export function ConnectionDialog({
                           ...params.InputProps,
                           endAdornment: (
                             <>
-                              {loadingModels ? <CircularProgress size={20} /> : null}
+                              {loadingModels ? (
+                                <CircularProgress size={20} />
+                              ) : null}
                               {params.InputProps.endAdornment}
                             </>
                           ),
