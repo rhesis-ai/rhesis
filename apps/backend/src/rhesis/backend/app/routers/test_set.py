@@ -1,6 +1,6 @@
 import uuid
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
@@ -17,7 +17,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.services import SourceData
+from rhesis.backend.app.schemas import services as services_schemas
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
     create_test_set_associations,
@@ -51,37 +51,9 @@ class StatsMode(str, Enum):
     RELATED_ENTITY = "related_entity"
 
 
-# TODO: Remove these schemas in Phase 3 - kept temporarily for backward compatibility
-class GenerationSample(BaseModel):
-    text: str
-    behavior: str
-    topic: str
-    rating: Optional[int] = None
-    feedback: Optional[str] = ""
-
-
-class TestSetGenerationConfig(BaseModel):
-    project_name: Optional[str] = None
-    behaviors: List[str] = []
-    purposes: List[str] = []
-    test_type: str = "single_turn"
-    response_generation: str = "prompt_only"
-    test_coverage: str = "standard"
-    tags: List[str] = []
-    description: str = ""
-
-
-class TestSetGenerationRequest(BaseModel):
-    config: TestSetGenerationConfig
-    samples: List[GenerationSample] = []
-    synthesizer_type: str = "prompt"
-    num_tests: Optional[int] = None
-    batch_size: int = 20
-    sources: Optional[List[SourceData]] = None
-    name: Optional[str] = None
-
-
 class TestSetGenerationResponse(BaseModel):
+    """Response for test set generation task."""
+
     task_id: str
     message: str
     estimated_tests: int
@@ -110,21 +82,19 @@ def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str
 
 @router.post("/generate", response_model=TestSetGenerationResponse)
 async def generate_test_set(
-    request: TestSetGenerationRequest,
+    request: services_schemas.GenerateTestsRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Generate a test set using AI synthesizers with user configuration and sample feedback.
+    Generate test set using ConfigSynthesizer.
 
-    This endpoint creates a comprehensive prompt from the user's configuration and sample
-    ratings, then launches a Celery task to generate the full test set.
+    - Small requests (num_tests ≤ 10): Could run synchronously (currently all async)
+    - Large requests (num_tests > 10): Run as background task
 
     Args:
-        request: The generation request containing config, samples, and parameters
-            - sources contains SourceData with id
-            (name, description, content will be fetched from DB)
+        request: Unified generation request with config, num_tests, sources
         db: Database session
         current_user: Current authenticated user
 
@@ -132,22 +102,19 @@ async def generate_test_set(
         Task information including task ID and estimated test count
     """
     try:
-        # Validate request
+        # Validate config
         if not request.config.behaviors:
             raise HTTPException(status_code=400, detail="At least one behavior must be specified")
 
-        if not request.config.description.strip():
-            raise HTTPException(status_code=400, detail="Description is required")
-
-        test_count = request.num_tests
-        # Launch the generation task
-        # Note: The task will fetch the user's configured model itself
-        # using get_user_generation_model. This avoids trying to serialize
-        # BaseLLM objects which are not JSON serializable
+        # Launch background task with explicit parameters
         task_result = task_launcher(
             generate_and_save_test_set,
             current_user=current_user,
-            request=request.model_dump(mode="json"),
+            config=request.config.model_dump(),
+            num_tests=request.num_tests,
+            batch_size=request.batch_size,
+            sources=[s.model_dump() for s in request.sources] if request.sources else None,
+            name=request.name,
         )
 
         logger.info(
@@ -156,16 +123,15 @@ async def generate_test_set(
                 "task_id": task_result.id,
                 "user_id": current_user.id,
                 "organization_id": current_user.organization_id,
-                "test_count": test_count,
-                "sample_count": len(request.samples),
+                "num_tests": request.num_tests,
             },
         )
 
         return TestSetGenerationResponse(
             task_id=task_result.id,
-            message="Test set generation started. "
-            f"You will be notified when {test_count} tests are ready.",
-            estimated_tests=test_count,
+            message=f"Test set generation started. "
+            f"You will be notified when {request.num_tests} tests are ready.",
+            estimated_tests=request.num_tests,
         )
 
     except HTTPException:
