@@ -21,8 +21,8 @@ export default function IntegrationsLayout({
 
   const tabValue = React.useMemo(() => {
     if (pathname.includes('/models')) return 0;
-    if (pathname.includes('/applications')) return 1;
-    if (pathname.includes('/tools')) return 2;
+    if (pathname.includes('/apis')) return 1;
+    if (pathname.includes('/mcps')) return 2;
     return 0;
   }, [pathname]);
 
@@ -32,10 +32,10 @@ export default function IntegrationsLayout({
         router.push('models');
         break;
       case 1:
-        router.push('applications');
+        router.push('apis');
         break;
       case 2:
-        router.push('tools');
+        router.push('mcps');
         break;
     }
   };
@@ -50,8 +50,8 @@ export default function IntegrationsLayout({
           sx={{ px: 3 }}
         >
           <Tab label="Models" />
-          <Tab label="Applications" />
-          <Tab label="Tools" />
+          <Tab label="APIs" />
+          <Tab label="MCPs" />
         </Tabs>
       </Box>
       {children}
