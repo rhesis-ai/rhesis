@@ -96,8 +96,10 @@ async def generate(request: GenerateRequest):
         top_p = request.top_p if request.top_p is not None else 0.9
         top_k = request.top_k
 
-        # Get the singleton instance (lazy initialization on first access)
-        llm = await get_polyphemus_instance()
+        # Get model instance based on request (lazy initialization on first access)
+        # Use model from request if provided, otherwise use default (TinyLLM)
+        model_name = request.model
+        llm = await get_polyphemus_instance(model_name=model_name)
 
         # Run the blocking generate call in a thread pool to avoid blocking the event loop
         loop = asyncio.get_event_loop()

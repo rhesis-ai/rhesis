@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from rhesis.polyphemus.models import ModelLoader
+from rhesis.polyphemus.routers.health import router as health_router
 from rhesis.polyphemus.routers.services import router as services_router
 from rhesis.polyphemus.utils import ProcessTimeMiddleware
 
@@ -47,6 +48,7 @@ app = FastAPI(
 app.add_middleware(ProcessTimeMiddleware)
 
 # Register routers
+app.include_router(health_router)
 app.include_router(services_router)
 
 if __name__ == "__main__":

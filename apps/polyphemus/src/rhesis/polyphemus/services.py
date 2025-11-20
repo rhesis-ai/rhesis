@@ -22,7 +22,20 @@ _polyphemus_instance = None
 _polyphemus_lock = asyncio.Lock()
 
 
-async def get_polyphemus_instance() -> HuggingFaceLLM:
+def is_model_loaded() -> bool:
+    """
+    Check if the model instance is initialized and loaded.
+    Non-blocking check that doesn't trigger model loading.
+
+    Returns:
+        bool: True if model is loaded, False otherwise
+    """
+    return _polyphemus_instance is not None and (
+        _polyphemus_instance.model is not None and _polyphemus_instance.tokenizer is not None
+    )
+
+
+async def get_polyphemus_instance() -> HuggingFaceLLM:  # should base llm instead
     """
     Get or create the singleton HuggingFaceLLM instance with lazy async initialization.
 
@@ -48,11 +61,11 @@ async def get_polyphemus_instance() -> HuggingFaceLLM:
                 loop = asyncio.get_event_loop()
                 await loop.run_in_executor(None, _polyphemus_instance.load_model)
 
-                # Fix pad_token for GPT-2 models if needed
-                if _polyphemus_instance.tokenizer.pad_token is None:
-                    _polyphemus_instance.tokenizer.pad_token = (
-                        _polyphemus_instance.tokenizer.eos_token
-                    )
+                # # Fix pad_token for GPT-2 models if needed
+                # if _polyphemus_instance.tokenizer.pad_token is None:
+                #     _polyphemus_instance.tokenizer.pad_token = (
+                #         _polyphemus_instance.tokenizer.eos_token
+                #     )
 
                 logger.info(
                     f"Polyphemus instance initialized with model: {modelname}, "
