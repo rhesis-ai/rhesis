@@ -15,9 +15,7 @@ from rhesis.sdk.metrics.providers.native.numeric_judge import (
 
 
 @pytest.fixture
-def metric(monkeypatch):
-    monkeypatch.setenv("RHESIS_API_KEY", "test_api_key")
-    monkeypatch.setenv("GEMINI_API_KEY", "test_api_key")
+def metric():
     return NumericJudge(
         name="test_metric",
         description="test_description",

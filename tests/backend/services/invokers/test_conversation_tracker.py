@@ -77,10 +77,10 @@ class TestConversationTracker:
 
         assert field is None
 
-    def test_prepare_conversation_context_adds_field_when_missing(
+    def test_prepare_conversation_context_omits_field_when_missing(
         self, sample_endpoint_conversation
     ):
-        """Test that conversation field is added to context when missing."""
+        """Test that conversation field is omitted from context when missing."""
         tracker = ConversationTracker()
         input_data = {"input": "Hello"}
 
@@ -89,8 +89,7 @@ class TestConversationTracker:
         )
 
         assert field == "conversation_id"
-        assert "conversation_id" in context
-        assert context["conversation_id"] is None
+        assert "conversation_id" not in context  # Should be omitted, not None
         assert context["input"] == "Hello"
 
     def test_prepare_conversation_context_preserves_existing_value(
@@ -119,7 +118,7 @@ class TestConversationTracker:
         assert context["input"] == "Hello"
         assert context["auth_token"] == "token-123"
         assert context["user_id"] == "user-456"
-        assert context["conversation_id"] is None
+        assert "conversation_id" not in context  # Should be omitted when not provided
 
     def test_prepare_conversation_context_no_tracking(self, sample_endpoint_rest):
         """Test context preparation when no conversation tracking configured."""

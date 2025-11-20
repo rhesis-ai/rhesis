@@ -5,7 +5,11 @@ Alternative implementation using Jinja2 templates for more powerful
 composition and conditionals.
 """
 
+import logging
+
 from rhesis.penelope.prompts.base import PromptTemplate, TemplateFormat
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_TEMPLATE = PromptTemplate(
     version="2.0.0",
@@ -58,7 +62,16 @@ def get_system_prompt_jinja(
         ...     available_tools="send_message_to_target, analyze, extract"
         ... )
     """
-    return SYSTEM_PROMPT_TEMPLATE.render(
+    logger.info("=== SYSTEM PROMPT ASSEMBLY DEBUG ===")
+    logger.info(f"Instructions: {instructions[:200]}...")
+    logger.info(f"Goal: {goal}")
+    logger.info(f"Scenario: {scenario[:200] if scenario else 'None'}...")
+    logger.info(f"Restrictions: {restrictions[:100] if restrictions else 'None'}...")
+    logger.info(f"Context: {context}")
+    logger.info(f"Available tools: {available_tools[:100] if available_tools else 'None'}...")
+
+    # Render the template
+    rendered_prompt = SYSTEM_PROMPT_TEMPLATE.render(
         instructions=instructions,
         goal=goal,
         # Convert empty string to None for conditionals
@@ -67,3 +80,13 @@ def get_system_prompt_jinja(
         context=context if context else None,
         available_tools=available_tools if available_tools else None,
     )
+
+    logger.info("=== RENDERED PROMPT PREVIEW ===")
+    logger.info(f"Rendered prompt length: {len(rendered_prompt)} characters")
+    logger.info("First 500 chars of rendered prompt:")
+    logger.info(rendered_prompt[:500])
+    logger.info("Last 500 chars of rendered prompt:")
+    logger.info(rendered_prompt[-500:])
+    logger.info("=== END SYSTEM PROMPT DEBUG ===")
+
+    return rendered_prompt

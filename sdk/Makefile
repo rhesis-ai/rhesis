@@ -33,12 +33,8 @@ format_diff:
 		echo "No Python file changes detected in git diff with the main branch."; \
 	fi
 
-type-check:
-	PYTHONPATH=src mypy --install-types --non-interactive
-	PYTHONPATH=src mypy --package rhesis.sdk
-
 test:
-	pytest
+	uv run pytest -s
 
-docs:
-	cd ../docs/sphinx && make clean && make html
+test-coverage:
+	uv run pytest --cov=src/rhesis --cov-report=term-missing --cov-report=html

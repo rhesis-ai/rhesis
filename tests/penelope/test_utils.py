@@ -146,7 +146,7 @@ def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
 
 def test_goal_achieved_condition_should_stop_goal_impossible(sample_test_state):
     """Test GoalAchievedCondition stops when goal is impossible (low score after 5+ turns)."""
-    from rhesis.penelope.context import Turn
+    from rhesis.penelope.context import Turn, ToolExecution
     from rhesis.penelope.schemas import AssistantMessage, FunctionCall, MessageToolCall, ToolMessage
 
     mock_result = Mock()
@@ -157,20 +157,31 @@ def test_goal_achieved_condition_should_stop_goal_impossible(sample_test_state):
 
     # Simulate 5+ turns by adding turns to state
     for i in range(5):
-        turn = Turn(
-            turn_number=i + 1,
-            assistant_message=AssistantMessage(
+        assistant_msg = AssistantMessage(
                 content=f"Turn {i + 1}",
                 tool_calls=[
                     MessageToolCall(
                         id=f"call_{i}",
                         type="function",
-                        function=FunctionCall(name="test", arguments="{}"),
+                    function=FunctionCall(name="send_message_to_target", arguments="{}"),
                     )
                 ],
-            ),
-            tool_message=ToolMessage(tool_call_id=f"call_{i}", name="test", content="result"),
+        )
+        
+        tool_msg = ToolMessage(tool_call_id=f"call_{i}", name="send_message_to_target", content="result")
+        
+        # Create a ToolExecution for the target interaction
+        target_execution = ToolExecution(
+            tool_name="send_message_to_target",
             reasoning="test",
+            assistant_message=assistant_msg,
+            tool_message=tool_msg,
+        )
+        
+        turn = Turn(
+            turn_number=i + 1,
+            executions=[target_execution],
+            target_interaction=target_execution,
         )
         sample_test_state.turns.append(turn)
 

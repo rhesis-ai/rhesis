@@ -119,7 +119,7 @@ export default function TestDetailOverviewTab({
   const responseContent = useMemo(() => {
     if (isMultiTurn) {
       return (
-        test.test_output?.goal_evaluation?.reasoning ||
+        test.test_output?.goal_evaluation?.reason ||
         'No evaluation reasoning available'
       );
     }
@@ -259,7 +259,7 @@ export default function TestDetailOverviewTab({
         </Box>
 
         {/* Reasoning and Evidence */}
-        {test.test_output?.goal_evaluation?.reasoning && (
+        {test.test_output?.goal_evaluation?.reason && (
           <Paper
             variant="outlined"
             sx={{
@@ -276,7 +276,7 @@ export default function TestDetailOverviewTab({
                 mb: test.test_output?.goal_evaluation?.evidence ? 1.5 : 0,
               }}
             >
-              {test.test_output.goal_evaluation.reasoning}
+              {test.test_output.goal_evaluation.reason}
             </Typography>
 
             {/* Evidence - Collapsible */}

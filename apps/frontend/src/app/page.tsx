@@ -41,18 +41,39 @@ export default function LandingPage() {
     boolean | null
   >(null);
   const [autoLoggingIn, setAutoLoggingIn] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isQuickStartMode, setIsQuickStartMode] = useState(false);
 
-  // Auto-login for local development
+  // Set mounted state after client-side hydration
   useEffect(() => {
-    const isLocalAuthEnabled =
-      process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true';
+    setMounted(true);
+  }, []);
+
+  // Check Quick Start mode after mount (client-side only)
+  // SECURITY: Defer computation until after client-side mount to ensure hostname validation
+  // During SSR, window is undefined and hostname checks are skipped, which could allow
+  // Quick Start mode in cloud deployments if NEXT_PUBLIC_QUICK_START is misconfigured.
+  useEffect(() => {
+    if (!mounted) return;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { isQuickStartEnabled } = require('@/utils/quick_start');
+    setIsQuickStartMode(isQuickStartEnabled());
+  }, [mounted]);
+
+  // Auto-login for Quick Start mode
+  useEffect(() => {
+    if (!mounted) return;
+    // Use robust multi-factor detection to determine if Quick Start mode is enabled
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { isQuickStartEnabled } = require('@/utils/quick_start');
+    const quickStartEnabled = isQuickStartEnabled();
 
     // Only auto-login if:
-    // 1. Local auth is enabled
+    // 1. Quick Start mode is enabled
     // 2. User is not authenticated
     // 3. Not already in the process of logging in
     // 4. No session expiration flag
-    if (isLocalAuthEnabled && status === 'unauthenticated' && !autoLoggingIn) {
+    if (quickStartEnabled && status === 'unauthenticated' && !autoLoggingIn) {
       const urlParams = new URLSearchParams(window.location.search);
       const isSessionExpired = urlParams.get('session_expired') === 'true';
       const isForcedLogout = urlParams.get('force_logout') === 'true';
@@ -87,7 +108,7 @@ export default function LandingPage() {
           });
       }
     }
-  }, [status, autoLoggingIn]);
+  }, [mounted, status, autoLoggingIn]);
 
   useEffect(() => {
     // Check if user was redirected due to session expiration or forced logout
@@ -360,7 +381,7 @@ export default function LandingPage() {
                     : 'rgba(255, 255, 255, 0.9)',
               }}
             >
-              {process.env.NEXT_PUBLIC_LOCAL_AUTH_ENABLED === 'true' ? (
+              {isQuickStartMode ? (
                 <>
                   <Box
                     sx={{
@@ -374,7 +395,7 @@ export default function LandingPage() {
                     <RocketLaunchIcon
                       sx={{ fontSize: 28, color: 'primary.main' }}
                     />
-                    <Typography variant="h5">Local Mode</Typography>
+                    <Typography variant="h5">QUICK START MODE</Typography>
                   </Box>
                   <Typography variant="body1" gutterBottom>
                     Starting with zero configuration. Redirecting to

@@ -14,12 +14,6 @@ def factory():
     return RhesisMetricFactory()
 
 
-@pytest.fixture
-def setup_env(monkeypatch):
-    """Set up test environment."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test_key")
-
-
 class TestFactoryListMetrics:
     """Tests for listing available metrics."""
 
@@ -36,7 +30,7 @@ class TestFactoryListMetrics:
 class TestFactoryCreateNumericJudge:
     """Tests for creating NumericJudge instances."""
 
-    def test_create_numeric_judge_with_required_params(self, factory, setup_env):
+    def test_create_numeric_judge_with_required_params(self, factory):
         """Test creating NumericJudge with only required parameters."""
         metric = factory.create(
             "NumericJudge",
@@ -47,7 +41,7 @@ class TestFactoryCreateNumericJudge:
         assert metric.name == "numericjudge"
         assert metric.evaluation_prompt == "Test prompt"
 
-    def test_create_numeric_judge_with_all_params(self, factory, setup_env):
+    def test_create_numeric_judge_with_all_params(self, factory):
         """Test creating NumericJudge with all parameters."""
         metric = factory.create(
             "NumericJudge",
@@ -73,7 +67,7 @@ class TestFactoryCreateNumericJudge:
         assert metric.threshold == 5.0
         assert metric.metric_scope == ["Single-Turn"]
 
-    def test_create_numeric_judge_with_multi_turn_scope(self, factory, setup_env):
+    def test_create_numeric_judge_with_multi_turn_scope(self, factory):
         """Test creating NumericJudge with Multi-Turn scope."""
         metric = factory.create(
             "NumericJudge",
@@ -86,7 +80,7 @@ class TestFactoryCreateNumericJudge:
         assert metric.name == "multi_turn_numeric"
         assert metric.metric_scope == ["Multi-Turn"]
 
-    def test_create_numeric_judge_with_both_scopes(self, factory, setup_env):
+    def test_create_numeric_judge_with_both_scopes(self, factory):
         """Test creating NumericJudge with both Single-Turn and Multi-Turn scopes."""
         metric = factory.create(
             "NumericJudge",
@@ -101,12 +95,12 @@ class TestFactoryCreateNumericJudge:
         assert "Single-Turn" in metric.metric_scope
         assert "Multi-Turn" in metric.metric_scope
 
-    def test_create_numeric_judge_missing_required_param(self, factory, setup_env):
+    def test_create_numeric_judge_missing_required_param(self, factory):
         """Test that creating NumericJudge without required params raises error."""
         with pytest.raises(ValueError, match="Missing required parameters"):
             factory.create("NumericJudge", model="gemini")
 
-    def test_create_numeric_judge_with_parameters_dict(self, factory, setup_env):
+    def test_create_numeric_judge_with_parameters_dict(self, factory):
         """Test creating NumericJudge with parameters in a dict."""
         metric = factory.create(
             "NumericJudge",
@@ -120,7 +114,7 @@ class TestFactoryCreateNumericJudge:
         assert metric.name == "dict_numeric"
         assert metric.evaluation_prompt == "Test prompt"
 
-    def test_create_numeric_judge_kwargs_override_parameters(self, factory, setup_env):
+    def test_create_numeric_judge_kwargs_override_parameters(self, factory):
         """Test that kwargs override parameters dict."""
         metric = factory.create(
             "NumericJudge",
@@ -138,7 +132,7 @@ class TestFactoryCreateNumericJudge:
 class TestFactoryCreateCategoricalJudge:
     """Tests for creating CategoricalJudge instances."""
 
-    def test_create_categorical_judge_with_required_params(self, factory, setup_env):
+    def test_create_categorical_judge_with_required_params(self, factory):
         """Test creating CategoricalJudge with required parameters."""
         metric = factory.create(
             "CategoricalJudge",
@@ -151,7 +145,7 @@ class TestFactoryCreateCategoricalJudge:
         assert metric.categories == ["good", "bad", "neutral"]
         assert metric.passing_categories == ["good"]
 
-    def test_create_categorical_judge_with_all_params(self, factory, setup_env):
+    def test_create_categorical_judge_with_all_params(self, factory):
         """Test creating CategoricalJudge with all parameters."""
         metric = factory.create(
             "CategoricalJudge",
@@ -173,7 +167,7 @@ class TestFactoryCreateCategoricalJudge:
         assert metric.requires_ground_truth is True
         assert metric.requires_context is False
 
-    def test_create_categorical_judge_missing_categories(self, factory, setup_env):
+    def test_create_categorical_judge_missing_categories(self, factory):
         """Test that missing categories raises error."""
         with pytest.raises(ValueError, match="Missing required parameters"):
             factory.create(
@@ -182,7 +176,7 @@ class TestFactoryCreateCategoricalJudge:
                 model="gemini",
             )
 
-    def test_create_categorical_judge_missing_passing_categories(self, factory, setup_env):
+    def test_create_categorical_judge_missing_passing_categories(self, factory):
         """Test that missing passing_categories raises error."""
         with pytest.raises(ValueError, match="Missing required parameters"):
             factory.create(
@@ -195,7 +189,7 @@ class TestFactoryCreateCategoricalJudge:
 class TestFactoryCreateGoalAchievementJudge:
     """Tests for creating GoalAchievementJudge instances."""
 
-    def test_create_goal_achievement_judge_minimal(self, factory, setup_env):
+    def test_create_goal_achievement_judge_minimal(self, factory):
         """Test creating GoalAchievementJudge with minimal parameters."""
         metric = factory.create(
             "GoalAchievementJudge",
@@ -208,7 +202,7 @@ class TestFactoryCreateGoalAchievementJudge:
         assert metric.max_score == 1.0
         assert metric.threshold == 0.5
 
-    def test_create_goal_achievement_judge_with_custom_params(self, factory, setup_env):
+    def test_create_goal_achievement_judge_with_custom_params(self, factory):
         """Test creating GoalAchievementJudge with custom parameters."""
         metric = factory.create(
             "GoalAchievementJudge",
@@ -226,7 +220,7 @@ class TestFactoryCreateGoalAchievementJudge:
         assert metric.max_score == 5.0
         assert metric.threshold == 3.0
 
-    def test_create_goal_achievement_judge_no_required_params(self, factory, setup_env):
+    def test_create_goal_achievement_judge_no_required_params(self, factory):
         """Test that GoalAchievementJudge has no required params besides model."""
         # Should not raise any errors
         metric = factory.create("GoalAchievementJudge", model="gemini")
@@ -236,12 +230,12 @@ class TestFactoryCreateGoalAchievementJudge:
 class TestFactoryErrorHandling:
     """Tests for factory error handling."""
 
-    def test_create_unknown_metric_class(self, factory, setup_env):
+    def test_create_unknown_metric_class(self, factory):
         """Test that creating unknown metric class raises error."""
         with pytest.raises(ValueError, match="Unknown metric class: UnknownMetric"):
             factory.create("UnknownMetric", model="gemini")
 
-    def test_error_message_includes_available_classes(self, factory, setup_env):
+    def test_error_message_includes_available_classes(self, factory):
         """Test that error message lists available classes."""
         try:
             factory.create("UnknownMetric", model="gemini")
@@ -255,7 +249,7 @@ class TestFactoryErrorHandling:
 class TestFactoryParameterFiltering:
     """Tests for parameter filtering behavior."""
 
-    def test_unsupported_params_are_filtered(self, factory, setup_env):
+    def test_unsupported_params_are_filtered(self, factory):
         """Test that unsupported parameters are filtered out."""
         # Should not raise error even with unsupported param
         metric = factory.create(
@@ -269,7 +263,7 @@ class TestFactoryParameterFiltering:
         assert not hasattr(metric, "unsupported_param")
         assert not hasattr(metric, "another_bad_param")
 
-    def test_common_params_work_for_all_metrics(self, factory, setup_env):
+    def test_common_params_work_for_all_metrics(self, factory):
         """Test that common parameters (model) work for all metrics."""
         # NumericJudge
         metric1 = factory.create(
@@ -299,7 +293,7 @@ class TestFactoryParameterFiltering:
 class TestFactoryDefaultNaming:
     """Tests for default naming behavior."""
 
-    def test_default_name_from_class_name(self, factory, setup_env):
+    def test_default_name_from_class_name(self, factory):
         """Test that name defaults to lowercase class name."""
         metric = factory.create(
             "NumericJudge",
@@ -308,7 +302,7 @@ class TestFactoryDefaultNaming:
         )
         assert metric.name == "numericjudge"
 
-    def test_explicit_name_overrides_default(self, factory, setup_env):
+    def test_explicit_name_overrides_default(self, factory):
         """Test that explicit name overrides default."""
         metric = factory.create(
             "NumericJudge",
@@ -322,7 +316,7 @@ class TestFactoryDefaultNaming:
 class TestFactoryIntegration:
     """Integration tests for factory."""
 
-    def test_create_all_metric_types_sequentially(self, factory, setup_env):
+    def test_create_all_metric_types_sequentially(self, factory):
         """Test creating all metric types in sequence."""
         # Create NumericJudge
         numeric = factory.create(
@@ -353,7 +347,7 @@ class TestFactoryIntegration:
         assert categorical != goal
         assert numeric != goal
 
-    def test_factory_instances_are_independent(self, factory, setup_env):
+    def test_factory_instances_are_independent(self, factory):
         """Test that created instances are independent."""
         metric1 = factory.create(
             "NumericJudge",
@@ -374,4 +368,3 @@ class TestFactoryIntegration:
         assert metric1.evaluation_prompt != metric2.evaluation_prompt
         # Different instances
         assert metric1 is not metric2
-

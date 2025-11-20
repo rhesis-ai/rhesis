@@ -67,9 +67,61 @@ class TimeoutCondition(StoppingCondition):
 class GoalAchievedCondition(StoppingCondition):
     """Stop when goal is achieved or determined impossible."""
 
-    def __init__(self, result: Optional["MetricResult"] = None):
-        """Initialize with SDK MetricResult."""
+    def __init__(self, result: Optional["MetricResult"] = None, instructions: Optional[str] = None):
+        """
+        Initialize with SDK MetricResult.
+
+        Args:
+            result: Optional initial MetricResult
+            instructions: Optional test instructions to check for minimum turn requirements
+        """
         self.result = result
+        self.instructions = instructions
+        self._min_turns_required = self._extract_min_turns(instructions) if instructions else None
+
+    def _extract_min_turns(self, instructions: str) -> Optional[int]:
+        """
+        Extract minimum turn requirement from instructions.
+
+        Looks for patterns like:
+        - "execute 5 turns"
+        - "at least 5 turns"
+        - "MUST execute at least 5 turns"
+        - "minimum 5 turns"
+
+        Returns:
+            Minimum number of turns required, or None if not specified
+        """
+        import re
+
+        if not instructions:
+            return None
+
+        instructions_lower = instructions.lower()
+
+        # Pattern 1: "at least N turns"
+        match = re.search(r"at least (\d+) turns?", instructions_lower)
+        if match:
+            return int(match.group(1))
+
+        # Pattern 2: "execute N turns" or "complete N turns"
+        match = re.search(
+            r"(?:execute|complete|run|perform) (?:at least )?(\d+) turns?", instructions_lower
+        )
+        if match:
+            return int(match.group(1))
+
+        # Pattern 3: "minimum N turns" or "min N turns"
+        match = re.search(r"(?:minimum|min) (?:of )?(\d+) turns?", instructions_lower)
+        if match:
+            return int(match.group(1))
+
+        # Pattern 4: "N turns" with "must" nearby
+        match = re.search(r"must.*?(\d+) turns?", instructions_lower)
+        if match:
+            return int(match.group(1))
+
+        return None
 
     def update_result(self, result: "MetricResult"):
         """Update with new SDK evaluation result."""
@@ -85,13 +137,25 @@ class GoalAchievedCondition(StoppingCondition):
         if not self.result:
             return False, ""
 
+        # CRITICAL: Check minimum turn requirement FIRST
+        # Even if the goal metric says "is_successful", we must enforce turn requirements
+        if self._min_turns_required is not None:
+            current_turns = len(state.turns)
+            if current_turns < self._min_turns_required:
+                # Not enough turns yet - cannot stop even if goal appears achieved
+                logger.debug(
+                    f"Turn requirement not met: {current_turns}/{self._min_turns_required} turns. "
+                    "Continuing test execution."
+                )
+                return False, ""
+
         # Check if goal achieved (from SDK MetricResult.details)
         if self.result.details.get("is_successful", False):
             reason = self.result.details.get("reason", "Goal achieved")
             return True, f"Goal achieved: {reason}"
 
         # Check if goal is impossible (Penelope's stopping logic)
-        # Give up after 5+ turns with very low score
+        # Give up after 5+ tool executions with very low score
         if (
             len(state.turns) >= 5
             and isinstance(self.result.score, (int, float))
@@ -113,6 +177,8 @@ def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):
         action: The action taken
         result: The result from the tool
     """
+    from rhesis.penelope.context import ToolType
+
     # Create panel content
     content = Text()
     content.append(f"Turn {turn_number}\n\n", style="bold cyan")
@@ -121,15 +187,13 @@ def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):
     content.append("Action: ", style="bold green")
     content.append(f"{action}\n\n", style="white")
 
-    # Show message sent and response received for target interaction
-    if action == "send_message_to_target" and result.get("success", False):
+    # Show message sent and response received for target interaction tools
+    if ToolType.is_target_interaction(action) and result.get("success", False):
         output = result.get("output", {})
+        metadata = result.get("metadata", {})
 
-        # Extract message sent (from metadata or try to get from tool args)
-        message_sent = None
-        if "metadata" in result:
-            message_sent = result["metadata"].get("message_sent")
-
+        # Extract message sent (from metadata)
+        message_sent = metadata.get("message_sent")
         if message_sent:
             content.append("Message Sent: ", style="bold blue")
             # Truncate long messages for display
@@ -137,6 +201,24 @@ def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):
                 message_sent[:200] + "..." if len(message_sent) > 200 else message_sent
             )
             content.append(f'"{display_message}"\n\n', style="cyan")
+
+        # Show conversation ID if present
+        from rhesis.penelope.conversation import extract_conversation_id
+
+        # Try to extract conversation ID from multiple sources
+        conversation_id = (
+            metadata.get("conversation_id_used")  # What was sent to target
+            or extract_conversation_id(output)  # What came back from target
+            or extract_conversation_id(metadata)  # Fallback to metadata
+        )
+
+        if conversation_id:
+            content.append("Conversation ID: ", style="bold blue")
+            content.append(f"{conversation_id}\n\n", style="white")
+        elif metadata.get("conversation_field_name"):
+            # Show that conversation tracking was attempted but no ID found
+            content.append("Conversation ID: ", style="bold blue")
+            content.append("None\n\n", style="dim white")
 
         # Extract response received
         response = output.get("response", "")

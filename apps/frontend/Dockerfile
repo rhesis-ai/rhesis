@@ -38,7 +38,7 @@ ARG NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai
 ARG NEXT_PUBLIC_APP_URL=https://app.rhesis.ai
 ARG NEXT_PUBLIC_AUTH0_DOMAIN=auth.rhesis.ai
 ARG NEXT_PUBLIC_AUTH0_CLIENT_ID=placeholder-auth0-client-id
-ARG NEXT_PUBLIC_LOCAL_AUTH_ENABLED=false
+ARG NEXT_PUBLIC_QUICK_START=false
 
 # Create a temporary .env file using build arguments for NEXT_PUBLIC_ and direct placeholders for the rest
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
@@ -47,7 +47,7 @@ RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
     echo "NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}" >> .env && \
     echo "NEXT_PUBLIC_AUTH0_DOMAIN=${NEXT_PUBLIC_AUTH0_DOMAIN}" >> .env && \
     echo "NEXT_PUBLIC_AUTH0_CLIENT_ID=${NEXT_PUBLIC_AUTH0_CLIENT_ID}" >> .env && \
-    echo "NEXT_PUBLIC_LOCAL_AUTH_ENABLED=${NEXT_PUBLIC_LOCAL_AUTH_ENABLED}" >> .env && \
+    echo "NEXT_PUBLIC_QUICK_START=${NEXT_PUBLIC_QUICK_START}" >> .env && \
     echo "GOOGLE_CLIENT_ID=placeholder-client-id" >> .env && \
     echo "GOOGLE_CLIENT_SECRET=placeholder-client-secret" >> .env && \
     echo "AUTH_SECRET=placeholder-auth-secret" >> .env

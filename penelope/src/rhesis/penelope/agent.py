@@ -24,7 +24,7 @@ from rhesis.penelope.prompts import (
     get_system_prompt,
 )
 from rhesis.penelope.targets.base import Target
-from rhesis.penelope.tools.analysis import AnalyzeTool, ExtractTool
+from rhesis.penelope.tools.analysis import AnalyzeTextTool, ExtractTool
 from rhesis.penelope.tools.base import Tool
 from rhesis.penelope.tools.target_interaction import TargetInteractionTool
 from rhesis.penelope.utils import (
@@ -38,6 +38,39 @@ from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
 
 logger = logging.getLogger(__name__)
+
+
+class DefaultToolRegistry:
+    """Registry for default tools that can be configured."""
+
+    _default_tool_classes = [
+        TargetInteractionTool,
+        AnalyzeTextTool,
+        ExtractTool,
+    ]
+
+    @classmethod
+    def get_default_tools(cls, target: Target) -> List[Tool]:
+        """Get default tools, instantiating them with the target if needed."""
+        tools = []
+        for tool_class in cls._default_tool_classes:
+            if tool_class == TargetInteractionTool:
+                tools.append(tool_class(target))
+            else:
+                tools.append(tool_class())
+        return tools
+
+    @classmethod
+    def register_default_tool(cls, tool_class: type[Tool]) -> None:
+        """Register a new default tool class."""
+        if tool_class not in cls._default_tool_classes:
+            cls._default_tool_classes.append(tool_class)
+
+    @classmethod
+    def remove_default_tool(cls, tool_class: type[Tool]) -> None:
+        """Remove a default tool class."""
+        if tool_class in cls._default_tool_classes:
+            cls._default_tool_classes.remove(tool_class)
 
 
 def _create_default_model() -> BaseLLM:
@@ -94,8 +127,9 @@ class PenelopeAgent:
 
         Strategy:
         1. If explicit goal_metric provided: validate and use it
-        2. Else search metrics for GoalAchievementJudge
-        3. Else create default GoalAchievementJudge
+        2. Else search metrics for GoalAchievementJudge instances
+        3. Else search metrics with is_goal_achievement_metric property
+        4. Else create default GoalAchievementJudge
 
         Args:
             goal_metric: Optional explicit goal metric
@@ -117,6 +151,30 @@ class PenelopeAgent:
                     f"goal_metric must have an 'evaluate' method. Got: {type(goal_metric).__name__}"
                 )
 
+            # Validate that it's suitable for goal achievement evaluation
+            is_goal_achievement_metric = isinstance(goal_metric, GoalAchievementJudge) or getattr(
+                goal_metric, "is_goal_achievement_metric", False
+            )
+
+            if not is_goal_achievement_metric:
+                # Option 1: Strict validation (uncomment to enable)
+                # raise ValueError(
+                #     f"Explicit goal_metric '{goal_metric.name}' is not a goal achievement "
+                #     f"metric. It must be a GoalAchievementJudge or have "
+                #     f"'is_goal_achievement_metric=True' property. Goal metrics must provide "
+                #     f"'is_successful' in result details."
+                # )
+
+                # Option 2: Warning with graceful handling (current approach)
+                logger.warning(
+                    f"Explicit goal_metric '{goal_metric.name}' is not a goal achievement metric. "
+                    f"It lacks 'is_goal_achievement_metric=True' property and is not a "
+                    f"GoalAchievementJudge. This may cause issues with stopping conditions that "
+                    f"expect 'is_successful' in result details. Consider using a "
+                    f"GoalAchievementJudge "
+                    f"or adding 'is_goal_achievement_metric=True' to your metric."
+                )
+
             logger.info(f"Using explicit goal metric: {goal_metric.name}")
 
             # Ensure it's in metrics list
@@ -126,12 +184,17 @@ class PenelopeAgent:
 
             return goal_metric, metrics
 
-        # Case 2: Search for existing GoalAchievementJudge
+        # Case 2: Search for existing goal achievement metrics
+        # Priority: GoalAchievementJudge instances, then metrics with is_goal_achievement_metric
         goal_judges = [m for m in metrics if isinstance(m, GoalAchievementJudge)]
+
+        if not goal_judges:
+            # Fallback: check for metrics with goal achievement property
+            goal_judges = [m for m in metrics if getattr(m, "is_goal_achievement_metric", False)]
 
         if goal_judges:
             selected = goal_judges[0]
-            logger.info(f"Auto-selected GoalAchievementJudge for stopping: {selected.name}")
+            logger.info(f"Auto-selected goal achievement metric for stopping: {selected.name}")
             return selected, metrics
 
         # Case 3: Create default GoalAchievementJudge
@@ -184,9 +247,11 @@ class PenelopeAgent:
                         # Add more metrics as needed
                     ]
             goal_metric: Metric to use for stopping condition.
-                Must be (or behave like) a GoalAchievementJudge with 'is_successful' in details.
+                Should be a GoalAchievementJudge or have 'is_goal_achievement_metric=True' property.
+                Must have 'is_successful' in result details for stopping conditions to work.
                 If None:
-                - Searches metrics for a GoalAchievementJudge
+                - Searches metrics for GoalAchievementJudge instances
+                - Falls back to metrics with 'is_goal_achievement_metric=True' property
                 - If not found, creates and adds default GoalAchievementJudge to metrics
 
         Raises:
@@ -259,11 +324,8 @@ class PenelopeAgent:
         Returns:
             List of Tool instances
         """
-        tools = [
-            TargetInteractionTool(target),
-            AnalyzeTool(),
-            ExtractTool(),
-        ]
+        # Get default tools from registry
+        tools = DefaultToolRegistry.get_default_tools(target)
 
         # Add any custom tools
         tools.extend(self.custom_tools)
@@ -285,16 +347,21 @@ class PenelopeAgent:
         """
         return DEFAULT_INSTRUCTIONS_TEMPLATE.render(goal=goal)
 
-    def _create_stopping_conditions(self) -> List[StoppingCondition]:
+    def _create_stopping_conditions(
+        self, instructions: Optional[str] = None
+    ) -> List[StoppingCondition]:
         """
         Create stopping conditions for the test.
+
+        Args:
+            instructions: Optional test instructions to check for minimum turn requirements
 
         Returns:
             List of StoppingCondition instances
         """
         conditions = [
             MaxIterationsCondition(self.max_iterations),
-            GoalAchievedCondition(),  # Will be updated with progress
+            GoalAchievedCondition(instructions=instructions),  # Will be updated with progress
         ]
 
         if self.timeout_seconds:
@@ -439,23 +506,38 @@ class PenelopeAgent:
         # Initialize state
         state = TestState(context=test_context)
 
+        # Reset workflow manager for new test
+        self.executor.workflow_manager.reset_state()
+
         # Get tools for this test
         tools = self._get_tools_for_test(target)
 
+        # Generate tool documentation for system prompt
+        tool_docs = []
+        for tool in tools:
+            tool_docs.append(f"### {tool.name}\n{tool.description}")
+        available_tools_text = "\n\n".join(tool_docs)
+
         # Create system prompt
-        # Note: Tool schemas are defined in the ToolCall Pydantic schema,
-        # so we don't need to duplicate them in the system prompt
+        logger.info("=== AGENT: Creating system prompt ===")
+        logger.info(f"Agent received - instructions: {instructions}")
+        logger.info(f"Agent received - goal: {goal}")
+        logger.info(f"Agent received - scenario: {scenario}")
+        logger.info(f"Agent received - restrictions: {restrictions}")
+
         system_prompt = get_system_prompt(
             instructions=instructions,
             goal=goal,
             scenario=scenario or "",
             restrictions=restrictions or "",
             context=str(context) if context else "",
-            available_tools="",  # Schema is self-documenting via ToolCall
+            available_tools=available_tools_text,
         )
 
-        # Create stopping conditions
-        conditions = self._create_stopping_conditions()
+        logger.info(f"=== AGENT: System prompt created, length: {len(system_prompt)} chars ===")
+
+        # Create stopping conditions (pass instructions for turn count validation)
+        conditions = self._create_stopping_conditions(instructions=instructions)
 
         # Main agent loop
         logger.info(f"Starting test execution: {instructions[:100]}...")
@@ -502,8 +584,9 @@ class PenelopeAgent:
             # Evaluate all SDK metrics
             for metric in self.metrics:
                 if metric == self.goal_metric:
-                    # Use evaluator for goal metric (includes stopping condition logic)
-                    result = self.evaluator.evaluate(state, goal)
+                    # Goal metric was already evaluated during test execution
+                    # for stopping conditions. Use the final evaluation result.
+                    result = self.evaluator.evaluate(state, goal, instructions=instructions or "")
 
                     # Update goal-achieved stopping condition
                     for condition in conditions:
@@ -512,6 +595,10 @@ class PenelopeAgent:
                 else:
                     # Directly evaluate other metrics
                     result = metric.evaluate(state.conversation, goal=goal)
+
+                # Store metric property in result details for robust detection
+                if hasattr(metric, "is_goal_achievement_metric"):
+                    result.details["is_goal_achievement_metric"] = metric.is_goal_achievement_metric
 
                 # Store all metric results for reporting
                 state.metric_results.append(result)

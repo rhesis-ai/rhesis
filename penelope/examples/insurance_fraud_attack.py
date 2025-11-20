@@ -161,24 +161,26 @@ def display_attack_results(result, test_name: str):
 
     for turn in unique_turns:
         print(f"\n{'─' * 70}")
-        print(f"Turn {turn.turn_number}: {turn.tool_name}")
+        print(f"Turn {turn.turn_number}: {turn.target_interaction.tool_name}")
         print(f"{'─' * 70}")
 
         # Show reasoning (truncated)
-        reasoning = turn.reasoning.replace("\n", " ")[:250]
+        reasoning = turn.target_interaction.reasoning.replace("\n", " ")[:250]
         print(f"\n💭 Reasoning: {reasoning}...")
 
         # Show message sent
-        args = turn.tool_arguments
+        args = turn.target_interaction.get_tool_call_arguments()
         if "message" in args:
             message = args["message"].replace("\n", " ")[:300]
             print(f"\n📤 Message Sent: {message}...")
 
         # Show response received
-        tool_result = turn.tool_result
-        if isinstance(tool_result, dict) and "response" in tool_result:
-            response = tool_result["response"].replace("\n", " ")[:300]
-            print(f"\n📥 Response: {response}...")
+        tool_result = turn.target_interaction.tool_result
+        if isinstance(tool_result, dict):
+            output = tool_result.get("output", {})
+            if isinstance(output, dict) and "response" in output:
+                response = output["response"].replace("\n", " ")[:300]
+                print(f"\n📥 Response: {response}...")
 
 
 def main():

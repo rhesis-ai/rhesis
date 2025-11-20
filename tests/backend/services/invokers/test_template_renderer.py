@@ -1,7 +1,5 @@
 """Tests for template rendering functionality."""
 
-import uuid
-
 from rhesis.backend.app.services.invokers.templating.renderer import TemplateRenderer
 
 
@@ -50,8 +48,8 @@ class TestTemplateRenderer:
 
         assert result["value"] is None
 
-    def test_auto_generate_session_id_when_missing(self):
-        """Test automatic session_id generation when referenced but not provided."""
+    def test_omit_session_id_when_missing(self):
+        """Test that session_id is omitted from template when not provided."""
         renderer = TemplateRenderer()
         template = '{"session_id": "{{ session_id }}", "query": "{{ input }}"}'
         input_data = {"input": "test"}
@@ -59,9 +57,7 @@ class TestTemplateRenderer:
         result = renderer.render(template, input_data)
 
         assert isinstance(result, dict)
-        assert "session_id" in result
-        # Verify it's a valid UUID
-        uuid.UUID(result["session_id"])
+        assert "session_id" not in result  # Should be omitted, not auto-generated
         assert result["query"] == "test"
 
     def test_no_auto_generate_session_id_when_provided(self):

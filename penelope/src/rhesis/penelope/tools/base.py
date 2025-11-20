@@ -39,6 +39,21 @@ class Tool(ABC):
     5. Parameters that make sense to the model
     """
 
+    def is_target_interaction_tool(self) -> bool:
+        """
+        Determine if this tool represents a target interaction (counts as a turn).
+
+        Target interaction tools are those that communicate with the system under test.
+        Internal tools (analysis, extraction, etc.) do not count as turns.
+
+        Returns:
+            True if this tool interacts with the target, False for internal tools
+        """
+        # Use the ToolType enum for reliable classification
+        from rhesis.penelope.context import ToolType
+
+        return ToolType.is_target_interaction(self.name)
+
     @property
     @abstractmethod
     def name(self) -> str:

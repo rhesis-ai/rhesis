@@ -51,9 +51,7 @@ def test_metric_config_with_invalid_metric_type():
         MetricConfig(metric_type="invalid")
 
 
-def test_base_metric_init(monkeypatch):
-    monkeypatch.setenv("RHESIS_API_KEY", "test")
-
+def test_base_metric_init():
     class TestMetric(BaseMetric):
         def evaluate(self):
             pass
@@ -71,10 +69,7 @@ def test_base_metric_init(monkeypatch):
     assert metric.metric_type == MetricType.GENERATION
 
 
-def test_base_set_model(monkeypatch):
-    monkeypatch.setenv("RHESIS_API_KEY", "test")
-    monkeypatch.setenv("GEMINI_API_KEY", "test")
-
+def test_base_set_model():
     class TestMetric(BaseMetric):
         def evaluate(self):
             pass
@@ -97,10 +92,7 @@ def test_base_set_model(monkeypatch):
     assert isinstance(model, GeminiLLM)
 
 
-def test_base_metric_model_in_init(monkeypatch):
-    monkeypatch.setenv("RHESIS_API_KEY", "test")
-    monkeypatch.setenv("GEMINI_API_KEY", "test")
-
+def test_base_metric_model_in_init():
     class TestMetric(BaseMetric):
         def evaluate(self):
             pass

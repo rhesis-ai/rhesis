@@ -29,6 +29,8 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ApiIcon from '@mui/icons-material/Api';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import CloseIcon from '@mui/icons-material/Close';
 import { ConfigChips, TestSample, ChatMessage } from './shared/types';
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
 import ChipGroup from './shared/ChipGroup';
@@ -51,12 +53,15 @@ interface TestGenerationInterfaceProps {
   onRateSample: (sampleId: string, rating: number) => void;
   onSampleFeedbackChange: (sampleId: string, feedback: string) => void;
   onLoadMoreSamples: () => void;
+  onRegenerateSamples: () => void;
   onRegenerate: (sampleId: string, feedback: string) => void;
   onBack: () => void;
   onNext: () => void;
   onEndpointChange: (endpointId: string | null) => void;
   onSourceRemove: (sourceId: string) => void;
   isGenerating: boolean;
+  isLoadingConfig: boolean;
+  isLoadingSamples: boolean;
   isLoadingMore: boolean;
   regeneratingSampleId: string | null;
   onSamplesUpdate?: (samples: TestSample[]) => void;
@@ -78,12 +83,15 @@ export default function TestGenerationInterface({
   onRateSample,
   onSampleFeedbackChange,
   onLoadMoreSamples,
+  onRegenerateSamples,
   onRegenerate,
   onBack,
   onNext,
   onEndpointChange,
   onSourceRemove,
   isGenerating,
+  isLoadingConfig,
+  isLoadingSamples,
   isLoadingMore,
   regeneratingSampleId,
   onSamplesUpdate,
@@ -100,6 +108,7 @@ export default function TestGenerationInterface({
   const [processedSampleIds, setProcessedSampleIds] = useState<Set<string>>(
     new Set()
   );
+  const [fetchTrigger, setFetchTrigger] = useState(0);
   const [showEndpointModal, setShowEndpointModal] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const { data: session } = useSession();
@@ -108,7 +117,20 @@ export default function TestGenerationInterface({
   useEffect(() => {
     if (testSamples.length === 0) {
       setLocalTestSamples([]);
+      setProcessedSampleIds(new Set());
       return;
+    }
+
+    // Check if sample IDs have changed (samples were regenerated)
+    const existingSampleIds = new Set(localTestSamples.map(s => s.id));
+    const sampleIdsChanged =
+      testSamples.length !== localTestSamples.length ||
+      testSamples.some(s => !existingSampleIds.has(s.id));
+
+    // If sample IDs changed, reset processed IDs and trigger endpoint fetch
+    if (sampleIdsChanged) {
+      setProcessedSampleIds(new Set());
+      setFetchTrigger(prev => prev + 1);
     }
 
     // Create a map of existing samples with responses
@@ -310,7 +332,12 @@ export default function TestGenerationInterface({
 
     fetchResponses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEndpointId, session?.session_token, localTestSamples.length]);
+  }, [
+    selectedEndpointId,
+    session?.session_token,
+    localTestSamples.length,
+    fetchTrigger,
+  ]);
 
   const handleSendMessage = useCallback(() => {
     if (inputMessage.trim()) {
@@ -402,13 +429,13 @@ export default function TestGenerationInterface({
               <Box
                 sx={{
                   flex: 1,
-                  overflow: 'auto',
+                  overflow: isLoadingConfig || isGenerating ? 'hidden' : 'auto',
                   p: 3,
                   position: 'relative',
                 }}
               >
                 {/* Loading Overlay */}
-                {isGenerating && (
+                {(isLoadingConfig || isGenerating) && (
                   <Box
                     sx={{
                       position: 'absolute',
@@ -427,7 +454,9 @@ export default function TestGenerationInterface({
                   >
                     <CircularProgress sx={{ mb: 2 }} />
                     <Typography variant="body1">
-                      Updating configuration...
+                      {isLoadingConfig
+                        ? 'Loading configuration...'
+                        : 'Updating configuration...'}
                     </Typography>
                   </Box>
                 )}
@@ -663,17 +692,44 @@ export default function TestGenerationInterface({
                   </Box>
                 }
                 action={
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
-                    onClick={() => setShowEndpointModal(true)}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    {endpointInfo
-                      ? `${endpointInfo.projectName} › ${endpointInfo.name}`
-                      : 'Show Live Responses'}
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<RefreshIcon />}
+                      onClick={onRegenerateSamples}
+                      disabled={isLoadingSamples}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Regenerate Samples
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
+                      endIcon={
+                        endpointInfo ? (
+                          <CloseIcon
+                            fontSize="small"
+                            onClick={e => {
+                              e.stopPropagation();
+                              onEndpointChange(null);
+                            }}
+                            sx={{
+                              ml: 0.5,
+                              '&:hover': {
+                                color: 'error.main',
+                              },
+                            }}
+                          />
+                        ) : undefined
+                      }
+                      onClick={() => setShowEndpointModal(true)}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      {endpointInfo ? endpointInfo.name : 'Show Live Responses'}
+                    </Button>
+                  </Box>
                 }
               />
 
@@ -688,7 +744,7 @@ export default function TestGenerationInterface({
                   flexDirection: 'column',
                 }}
               >
-                {isGenerating ? (
+                {isLoadingSamples || isGenerating ? (
                   <Box
                     sx={{
                       display: 'flex',
@@ -700,7 +756,9 @@ export default function TestGenerationInterface({
                   >
                     <CircularProgress sx={{ mb: 2 }} />
                     <Typography variant="body1">
-                      Generating test samples...
+                      {isLoadingSamples
+                        ? 'Loading test samples...'
+                        : 'Generating test samples...'}
                     </Typography>
                   </Box>
                 ) : localTestSamples.length === 0 ? (

@@ -9,14 +9,14 @@ def test_target_response_creation():
     response = TargetResponse(
         success=True,
         content="Test response",
-        session_id="session-123",
+        conversation_id="conv-123",
         metadata={"key": "value"},
         error=None,
     )
 
     assert response.success is True
     assert response.content == "Test response"
-    assert response.session_id == "session-123"
+    assert response.conversation_id == "conv-123"
     assert response.metadata == {"key": "value"}
     assert response.error is None
 
@@ -25,7 +25,7 @@ def test_target_response_defaults():
     """Test TargetResponse default values."""
     response = TargetResponse(success=True, content="Test")
 
-    assert response.session_id is None
+    assert response.conversation_id is None
     assert response.metadata == {}
     assert response.error is None
 
@@ -86,8 +86,10 @@ def test_target_concrete_methods():
         def description(self) -> str:
             return "Test target"
 
-        def send_message(self, message: str, session_id=None, **kwargs):
-            return TargetResponse(success=True, content="Test response")
+        def send_message(self, message: str, conversation_id=None, **kwargs):
+            return TargetResponse(
+                success=True, content="Test response", conversation_id=conversation_id
+            )
 
         def validate_configuration(self):
             return True, None
@@ -117,19 +119,16 @@ def test_target_implementation(mock_target):
 
 
 def test_target_send_message_with_session(mock_target):
-    """Test send_message with session_id."""
-    response = mock_target.send_message("Hello", session_id="session-456")
+    """Test send_message with conversation_id."""
+    response = mock_target.send_message("Hello", conversation_id="conv-456")
 
     assert response.success is True
-    assert response.session_id == "session-456"
+    assert response.conversation_id == "conv-456"
 
 
 def test_target_send_message_with_kwargs(mock_target):
     """Test send_message accepts additional kwargs."""
     # Should not raise an error
-    response = mock_target.send_message(
-        "Hello", session_id="session-123", extra_param="value"
-    )
+    response = mock_target.send_message("Hello", conversation_id="conv-123", extra_param="value")
 
     assert response.success is True
-
