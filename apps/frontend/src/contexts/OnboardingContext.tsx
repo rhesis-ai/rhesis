@@ -149,19 +149,34 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
           // For testCases tour
           if (tourId === 'testCases') {
             if (index === 0) {
-              // Step 0: When "Next" is clicked, click the button AND advance to next step
+              // Step 0: When "Next" is clicked, open the modal via custom event AND advance to next step
               return {
                 ...stepWithCompletion,
                 popover: {
                   ...stepWithCompletion.popover,
                   onNextClick: (element: Element | undefined) => {
-                    if (element) {
-                      (element as HTMLElement).click();
-                    }
+                    // Dispatch custom event to open modal (more reliable than clicking disabled button)
+                    window.dispatchEvent(new Event('tour-open-test-modal'));
                     setTimeout(() => {
                       driverInstance.moveNext();
                     }, 400);
                   },
+                },
+                onHighlighted: (element: Element | undefined, stepObj: any) => {
+                  // Disable scrolling during first step
+                  document.body.style.overflow = 'hidden';
+                  // Call original onHighlighted if it exists
+                  if (stepWithCompletion.onHighlighted) {
+                    stepWithCompletion.onHighlighted(element, stepObj, {
+                      config: driverInstance.getConfig(),
+                      state: driverInstance.getState(),
+                      driver: driverInstance,
+                    });
+                  }
+                },
+                onDeselected: () => {
+                  // Re-enable scrolling when leaving first step
+                  document.body.style.overflow = '';
                 },
               };
             }

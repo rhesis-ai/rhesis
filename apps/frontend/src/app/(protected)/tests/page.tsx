@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -19,20 +19,27 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 export default function TestsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [showModal, setShowModal] = React.useState(false);
   const [testCount, setTestCount] = React.useState(0);
   const [chartsLoaded, setChartsLoaded] = React.useState(false);
-  const { markStepComplete, progress, activeTour, startTour } = useOnboarding();
+  const { markStepComplete, progress, activeTour, startTour, isComplete } =
+    useOnboarding();
 
   // Set document title
   useDocumentTitle('Tests');
 
   // Don't use the auto-tour hook, we'll manually control it after charts load
-  const searchParams = new URLSearchParams(
-    typeof window !== 'undefined' ? window.location.search : ''
-  );
-  const tourParam = searchParams.get('tour');
+  const tourParam = searchParams?.get('tour');
+
+  // Check if user is currently on the testCases tour
+  const isOnTestCasesTour =
+    tourParam === 'testCases' || activeTour === 'testCases';
+
+  // Disable "Add Tests" button when onboarding is active, UNLESS user is on the testCases tour
+  const shouldDisableAddButton =
+    !progress.dismissed && !isComplete && !isOnTestCasesTour;
 
   // Start tour only after charts are loaded
   React.useEffect(() => {
@@ -77,7 +84,22 @@ export default function TestsPage() {
   }, []);
 
   const handleOpenModal = React.useCallback(() => {
+    // Prevent manual clicks when tour is active - tour handles modal opening
+    if (activeTour === 'testCases') {
+      return;
+    }
     setShowModal(true);
+  }, [activeTour]);
+
+  // Listen for tour event to open modal (needed because programmatic clicks on disabled buttons don't work)
+  React.useEffect(() => {
+    const handleTourOpenModal = () => {
+      setShowModal(true);
+    };
+    window.addEventListener('tour-open-test-modal', handleTourOpenModal);
+    return () => {
+      window.removeEventListener('tour-open-test-modal', handleTourOpenModal);
+    };
   }, []);
 
   const handleCloseModal = React.useCallback(() => {
@@ -152,6 +174,7 @@ export default function TestsPage() {
               sessionToken={session.session_token}
               onRefresh={handleRefresh}
               onNewTest={handleOpenModal}
+              disableAddButton={shouldDisableAddButton}
             />
           </Box>
         </Paper>

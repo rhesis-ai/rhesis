@@ -86,6 +86,7 @@ interface BaseDataGridProps {
       | 'error'
       | 'info'
       | 'warning';
+    disabled?: boolean;
     splitButton?: {
       options: {
         label: string;
@@ -561,8 +562,13 @@ export default function BaseDataGrid({
                       color={button.color || 'primary'}
                       ref={buttonRefs.current[index]}
                       aria-label="split button"
+                      disabled={button.disabled}
                     >
-                      <Button onClick={button.onClick} startIcon={button.icon}>
+                      <Button
+                        onClick={button.onClick}
+                        startIcon={button.icon}
+                        disabled={button.disabled}
+                      >
                         {button.label}
                       </Button>
                       <Button
@@ -574,6 +580,7 @@ export default function BaseDataGrid({
                         aria-label="select option"
                         aria-haspopup="menu"
                         onClick={() => handleToggle(index)}
+                        disabled={button.disabled}
                       >
                         <ArrowDropDownIcon />
                       </Button>
@@ -635,6 +642,7 @@ export default function BaseDataGrid({
                     color={button.color || 'primary'}
                     startIcon={button.icon}
                     data-tour={button.dataTour}
+                    disabled={button.disabled}
                   >
                     {button.label}
                   </Button>
@@ -647,6 +655,7 @@ export default function BaseDataGrid({
                   onClick={button.onClick}
                   startIcon={button.icon}
                   data-tour={button.dataTour}
+                  disabled={button.disabled}
                 >
                   {button.label}
                 </Button>

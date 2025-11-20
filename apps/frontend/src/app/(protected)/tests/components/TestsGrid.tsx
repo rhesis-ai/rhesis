@@ -35,12 +35,14 @@ interface TestsTableProps {
   sessionToken: string;
   onRefresh?: () => void;
   onNewTest?: () => void;
+  disableAddButton?: boolean;
 }
 
 export default function TestsTable({
   sessionToken,
   onRefresh,
   onNewTest,
+  disableAddButton = false,
 }: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -480,6 +482,7 @@ export default function TestsTable({
       variant: 'contained' as const,
       onClick: handleGenerateTests,
       dataTour: 'create-test-button',
+      disabled: disableAddButton,
     });
 
     if (selectedRows.length > 0) {
@@ -505,6 +508,7 @@ export default function TestsTable({
     handleCreateTestSet,
     handleDeleteTests,
     handleGenerateTests,
+    disableAddButton,
   ]);
 
   return (
