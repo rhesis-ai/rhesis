@@ -53,7 +53,7 @@ x-telemetry-config: &telemetry-config
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318/}
   OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-rhesis}
   OTEL_DEPLOYMENT_TYPE: ${OTEL_DEPLOYMENT_TYPE:-self-hosted}
-  OTEL_RHESIS_TELEMETRY_ENABLED: ${OTEL_RHESIS_TELEMETRY_ENABLED:-true}  # Self-hosted: opt-out via env var
+  OTEL_RHESIS_TELEMETRY_ENABLED: ${OTEL_RHESIS_TELEMETRY_ENABLED:-false}  # Self-hosted: opt-out via env var
 
 x-gemini-google: &gemini-google
   GEMINI_API_KEY: ${GEMINI_API_KEY:-}
