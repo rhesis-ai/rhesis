@@ -134,7 +134,9 @@ async def generate_tests(
     loop = asyncio.get_event_loop()
     test_set = await loop.run_in_executor(None, generate_func)
 
-    return test_set.to_dict()
+    # SDK's to_dict() returns List[Dict], not Dict with "tests" key
+    # Wrap it in proper structure for the endpoint
+    return {"tests": test_set.to_dict()}
 
 
 async def generate_multiturn_tests(

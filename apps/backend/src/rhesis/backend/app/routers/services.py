@@ -248,7 +248,7 @@ async def generate_tests_endpoint(
             sources=request.sources,
         )
 
-        return {"tests": result["tests"]}
+        return result
     except HTTPException:
         raise
     except Exception as e:
