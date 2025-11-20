@@ -319,7 +319,8 @@ def get_available_models(provider: str) -> list[str]:
     if provider not in litellm_providers:
         raise ValueError(
             f"Provider '{provider}' does not support listing available models. "
-            f"Only the following providers support this feature: {', '.join(sorted(litellm_providers.keys()))}"
+            f"Only the following providers support this feature: "
+            f"{', '.join(sorted(litellm_providers.keys()))}"
         )
 
     # Call the provider-specific function to get models
