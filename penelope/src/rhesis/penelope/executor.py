@@ -304,11 +304,13 @@ class TurnExecutor:
                     logger.info(f"TurnExecutor injected conversation_id: {state.conversation_id}")
                 else:
                     logger.info(
-                        f"TurnExecutor found existing conversation_id in params: {extract_conversation_id(action_params)}"
+                        f"TurnExecutor found existing conversation_id in params: "
+                        f"{extract_conversation_id(action_params)}"
                     )
             elif action_name == "send_message_to_target":
                 logger.info(
-                    f"TurnExecutor: No conversation_id to inject (state.conversation_id: {state.conversation_id})"
+                    f"TurnExecutor: No conversation_id to inject "
+                    f"(state.conversation_id: {state.conversation_id})"
                 )
 
             # Debug: Log structured response
@@ -452,11 +454,13 @@ class TurnExecutor:
                         old_conversation_id = state.conversation_id
                         state.conversation_id = conversation_id
                         logger.info(
-                            f"TurnExecutor updated conversation_id: {old_conversation_id} -> {conversation_id}"
+                            f"TurnExecutor updated conversation_id: "
+                            f"{old_conversation_id} -> {conversation_id}"
                         )
                     else:
                         logger.info(
-                            f"TurnExecutor: No conversation_id found in tool output: {tool_result.output}"
+                            f"TurnExecutor: No conversation_id found in tool output: "
+                            f"{tool_result.output}"
                         )
 
             # Display execution if verbose

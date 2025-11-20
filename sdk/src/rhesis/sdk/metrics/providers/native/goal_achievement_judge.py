@@ -229,7 +229,8 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
                   should be inferred from the conversation context.
             instructions: Optional test instructions that specify HOW the test
                   should be conducted (e.g., "send 6 exact messages", "do not stop early").
-                  These provide critical context for evaluating whether the goal was properly achieved.
+                  These provide critical context for evaluating whether the goal was
+                  properly achieved.
 
         Returns:
             MetricResult with:

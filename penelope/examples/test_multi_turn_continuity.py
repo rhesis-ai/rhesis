@@ -29,14 +29,18 @@ def test_multi_turn_continuity(agent: PenelopeAgent, target: EndpointTarget):
         goal="Verify the chatbot maintains conversation context across 6 turns",
         instructions=(
             "Send these 6 exact messages in order:\n"
-            "1. 'I just bought a house in Seattle and need homeowners insurance. I have a $400,000 mortgage.'\n"
+            "1. 'I just bought a house in Seattle and need homeowners insurance. "
+            "I have a $400,000 mortgage.'\n"
             "2. 'Should I be worried about earthquake coverage since I live there?'\n"
             "3. 'What about flood insurance for this property?'\n"
             "4. 'How does that earthquake coverage work with those mortgage requirements?'\n"
             "5. 'What if I rent out part of this house?'\n"
             "6. 'What's the best strategy for this situation?'"
         ),
-        scenario="Testing an insurance chatbot's ability to maintain context and understand references.",
+        scenario=(
+            "Testing an insurance chatbot's ability to maintain context and "
+            "understand references."
+        ),
         restrictions=(
             'The chatbot should understand contextual references like "there" (Seattle), '
             '"that" (earthquake coverage), "this" (the house), and "those" (mortgage requirements).'

@@ -40,7 +40,8 @@ class GoalEvaluator:
             state: Current test state with conversation
             goal: The test goal
             instructions: Optional test instructions that specify HOW the test should be conducted.
-                         These provide critical context for evaluating whether the goal was properly achieved.
+                         These provide critical context for evaluating whether the goal was
+                         properly achieved.
 
         Returns:
             SDK MetricResult (no conversion!)
