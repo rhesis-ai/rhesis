@@ -240,12 +240,13 @@ export default function TestGenerationFlow({
       const apiFactory = new ApiClientFactory(sessionToken);
       const servicesClient = apiFactory.getServicesClient();
 
-      // Fetch project if selected
+      // Fetch project if selected (store in local variable to avoid stale closure)
+      let currentProject = null;
       if (projectId) {
         try {
           const projectsClient = apiFactory.getProjectsClient();
-          const fetchedProject = await projectsClient.getProject(projectId);
-          setProject(fetchedProject);
+          currentProject = await projectsClient.getProject(projectId);
+          setProject(currentProject);
         } catch (error) {
           show(`Failed to load project`, { severity: 'warning' });
         }
@@ -309,7 +310,7 @@ export default function TestGenerationFlow({
             .map(c => c.label);
 
           const prompt = {
-            project_context: project?.name || 'General',
+            project_context: currentProject?.name || 'General',
             behaviors: activeBehaviors,
             topics: activeTopics,
             categories: activeCategories,
@@ -357,7 +358,7 @@ export default function TestGenerationFlow({
         setIsLoadingSamples(false);
       }
     },
-    [sessionToken, project, show]
+    [sessionToken, show]
   );
 
   // Generate test samples

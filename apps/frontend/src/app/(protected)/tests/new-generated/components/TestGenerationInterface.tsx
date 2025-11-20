@@ -429,7 +429,7 @@ export default function TestGenerationInterface({
               <Box
                 sx={{
                   flex: 1,
-                  overflow: 'auto',
+                  overflow: isLoadingConfig || isGenerating ? 'hidden' : 'auto',
                   p: 3,
                   position: 'relative',
                 }}
