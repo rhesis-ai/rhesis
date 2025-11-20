@@ -23,6 +23,8 @@ from rhesis.backend.tasks.execution.executors import create_executor
 # here for any code that imports them from test_execution
 from rhesis.backend.tasks.execution.executors.shared import (
     get_test_and_prompt,
+    get_test_metrics,
+    prepare_metric_configs,
 )
 
 # ============================================================================
