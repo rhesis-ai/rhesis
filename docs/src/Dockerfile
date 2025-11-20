@@ -62,8 +62,9 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY src/package.json src/package-lock.json src/next.config.mjs src/mdx-components.js src/theme.config.jsx ./
 
 COPY --from=builder  /app/public ./public
-COPY --from=builder  /app/.next/standalone/app ./
-COPY --from=builder  /app/.next/static ./.next/static
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone/app ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Copy built application from builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/content ./content

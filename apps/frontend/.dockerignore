@@ -12,3 +12,5 @@ coverage
 .idea
 .eslintcache
 *.tsbuildinfo
+.dockerignore
+Dockerfile
