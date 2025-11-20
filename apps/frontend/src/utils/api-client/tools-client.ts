@@ -14,18 +14,13 @@ export class ToolsClient extends BaseApiClient {
   ): Promise<PaginatedResponse<Tool>> {
     const { skip = 0, limit = 10, sort_by, sort_order, $filter } = params;
 
-    // Build query string
-    const queryParams = new URLSearchParams();
-    queryParams.append('skip', skip.toString());
-    queryParams.append('limit', limit.toString());
-    if (sort_by) queryParams.append('sort_by', sort_by);
-    if (sort_order) queryParams.append('sort_order', sort_order);
-    if ($filter) queryParams.append('$filter', $filter);
-
-    const url = `${API_ENDPOINTS.tools}?${queryParams.toString()}`;
-
-    return this.fetch<PaginatedResponse<Tool>>(url, {
-      cache: 'no-store',
+    // Use fetchPaginated which handles the count header correctly
+    return this.fetchPaginated<Tool>(API_ENDPOINTS.tools, {
+      skip,
+      limit,
+      sort_by,
+      sort_order,
+      $filter,
     });
   }
 
