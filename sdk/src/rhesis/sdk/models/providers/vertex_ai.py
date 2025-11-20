@@ -35,7 +35,6 @@ from rhesis.sdk.models.providers.litellm import LiteLLM
 # Track temp files created by this process for cleanup
 _temp_credential_files: Set[str] = set()
 
-PROVIDER = "vertex_ai"
 DEFAULT_MODEL_NAME = "gemini-2.0-flash"
 
 
@@ -57,6 +56,8 @@ atexit.register(_cleanup_temp_credentials)
 
 
 class VertexAILLM(LiteLLM):
+    PROVIDER = "vertex_ai"
+
     def __init__(
         self,
         model_name: str = DEFAULT_MODEL_NAME,
@@ -115,7 +116,7 @@ class VertexAILLM(LiteLLM):
 
         # Initialize parent LiteLLM with vertex_ai prefix
         # Don't pass api_key as Vertex AI uses credentials
-        super().__init__(f"{PROVIDER}/{model_name}", api_key=None)
+        super().__init__(f"{self.PROVIDER}/{model_name}", api_key=None)
 
     def _load_credentials_from_base64(self, credentials: str) -> dict:
         """
@@ -377,7 +378,7 @@ class VertexAILLM(LiteLLM):
             dict: Configuration details including project, location, and credentials source
         """
         return {
-            "provider": PROVIDER,
+            "provider": self.PROVIDER,
             "model": self.model_name,
             "project": self.model["project"],
             "location": self.model["location"],

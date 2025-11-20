@@ -13,11 +13,12 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-PROVIDER = "gemini"
 DEFAULT_MODEL_NAME = "gemini-2.0-flash"
 
 
 class GeminiLLM(LiteLLM):
+    PROVIDER = "gemini"
+
     def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         GeminiLLM: Google Gemini LLM Provider
@@ -44,4 +45,4 @@ class GeminiLLM(LiteLLM):
         api_key = api_key or os.getenv("GEMINI_API_KEY")
         if api_key is None:
             raise ValueError("GEMINI_API_KEY is not set")
-        super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
+        super().__init__(self.PROVIDER + "/" + model_name, api_key=api_key)

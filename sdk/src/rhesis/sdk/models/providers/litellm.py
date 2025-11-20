@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Type, Union
+from typing import List, Optional, Type, Union
 
 import litellm
 from litellm import completion
@@ -13,6 +13,8 @@ litellm.suppress_debug_info = True
 
 
 class LiteLLM(BaseLLM):
+    PROVIDER: str
+
     def __init__(self, model_name: str, api_key: Optional[str] = None):
         """
         LiteLLM: LiteLLM Provider for Model inference
@@ -92,3 +94,10 @@ class LiteLLM(BaseLLM):
             return response_content
         else:
             return response_content
+
+    def get_available_models(self) -> List[str]:
+        models_list = litellm.get_valid_models(
+            custom_llm_provider=self.PROVIDER,
+            check_provider_endpoint=False,
+        )
+        return models_list
