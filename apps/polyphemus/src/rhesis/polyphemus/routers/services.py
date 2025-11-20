@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ..schemas import GenerateRequest, Message
-from ..services import polyphemus_instance
+from ..services import get_polyphemus_instance
 
 # Thread pool executor for running blocking operations
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="polyphemus-generate")
@@ -96,8 +96,8 @@ async def generate(request: GenerateRequest):
         top_p = request.top_p if request.top_p is not None else 0.9
         top_k = request.top_k
 
-        # Use the singleton instance
-        llm = polyphemus_instance
+        # Get the singleton instance (lazy initialization on first access)
+        llm = await get_polyphemus_instance()
 
         # Run the blocking generate call in a thread pool to avoid blocking the event loop
         loop = asyncio.get_event_loop()

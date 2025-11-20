@@ -1,8 +1,10 @@
 """
 Polyphemus service - Singleton instance of HuggingFaceLLM for inference.
 This module provides a shared instance that can be used across the application.
+Models are loaded lazily on first request to avoid blocking application startup.
 """
 
+import asyncio
 import logging
 import os
 
@@ -16,15 +18,17 @@ modelname = os.environ.get("HF_MODEL", "distilgpt2")
 # Singleton instance
 _polyphemus_instance = None
 
+# Async lock for thread-safe initialization
+_polyphemus_lock = asyncio.Lock()
 
-def get_polyphemus_instance() -> HuggingFaceLLM:
+
+async def get_polyphemus_instance() -> HuggingFaceLLM:
     """
-    Get or create the singleton HuggingFaceLLM instance.
+    Get or create the singleton HuggingFaceLLM instance with lazy async initialization.
 
-    This follows the pattern from the example code:
-    - Normal usage: Creates HuggingFaceLLM instance
-    - Child classes: Can extend HuggingFaceLLM for specific models
-    - Manual loading: Supports auto_loading=False for manual control
+    The model is only loaded on first access, not at module import time.
+    This prevents blocking application startup and aligns with the design intent
+    that models should load on first request.
 
     Returns:
         HuggingFaceLLM: The singleton instance
@@ -32,30 +36,31 @@ def get_polyphemus_instance() -> HuggingFaceLLM:
     global _polyphemus_instance
 
     if _polyphemus_instance is None:
-        logger.info(f"Initializing HuggingFaceLLM with model: {modelname}")
-        _polyphemus_instance = HuggingFaceLLM(modelname)
+        async with _polyphemus_lock:
+            # Double-check pattern: another coroutine might have initialized it
+            if _polyphemus_instance is None:
+                logger.info(f"Initializing HuggingFaceLLM with model: {modelname}")
 
-        # Ensure model is loaded
-        if _polyphemus_instance.model is None or _polyphemus_instance.tokenizer is None:
-            logger.info("Model not auto-loaded, loading explicitly...")
-            _polyphemus_instance.load_model()
+                # Create instance with auto_loading=False to defer model loading
+                _polyphemus_instance = HuggingFaceLLM(modelname, auto_loading=False)
 
-        # Fix pad_token for GPT-2 models if needed
-        if _polyphemus_instance.tokenizer.pad_token is None:
-            _polyphemus_instance.tokenizer.pad_token = _polyphemus_instance.tokenizer.eos_token
+                # Load model asynchronously in executor to avoid blocking event loop
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, _polyphemus_instance.load_model)
 
-        logger.info(
-            f"Polyphemus instance initialized with model: {modelname}, "
-            f"model loaded: {_polyphemus_instance.model is not None}, "
-            f"tokenizer loaded: {_polyphemus_instance.tokenizer is not None}"
-        )
+                # Fix pad_token for GPT-2 models if needed
+                if _polyphemus_instance.tokenizer.pad_token is None:
+                    _polyphemus_instance.tokenizer.pad_token = (
+                        _polyphemus_instance.tokenizer.eos_token
+                    )
+
+                logger.info(
+                    f"Polyphemus instance initialized with model: {modelname}, "
+                    f"model loaded: {_polyphemus_instance.model is not None}, "
+                    f"tokenizer loaded: {_polyphemus_instance.tokenizer is not None}"
+                )
 
     return _polyphemus_instance
-
-
-# Export the singleton instance (lazy initialization on first access)
-# This matches the pattern: from rhesis.polyphemus.services import polyphemus_instance
-polyphemus_instance = get_polyphemus_instance()
 
 
 # Example child class for specific models (following the pattern from example)
