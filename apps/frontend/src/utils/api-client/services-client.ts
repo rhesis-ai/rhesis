@@ -36,6 +36,19 @@ import {
   GenerateTestsResponse,
 } from './interfaces/test-set';
 
+interface ChipState {
+  label: string;
+  description: string;
+  active: boolean;
+  category: 'behavior' | 'topic' | 'category' | 'scenario';
+}
+
+interface IterationMessage {
+  content: string;
+  timestamp: string;
+  chip_states?: ChipState[];
+}
+
 interface GenerateTestConfigRequest {
   prompt: string;
   project_id?: string;
