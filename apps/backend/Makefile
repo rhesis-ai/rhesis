@@ -28,7 +28,6 @@ lint_diff:
 format_diff:
 	@if [ -n "$(DIFF_FILES)" ]; then \
 		uvx ruff format $(DIFF_FILES); \
-		uvx ruff check --fix $(DIFF_FILES); \
 	else \
 		echo "No Python file changes detected in git diff with the main branch."; \
 	fi

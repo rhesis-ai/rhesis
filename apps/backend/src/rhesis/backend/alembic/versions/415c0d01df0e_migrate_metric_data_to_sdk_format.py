@@ -6,11 +6,10 @@ This migration performs data transformations to align the database with SDK expe
 3. Update class_name from 'RhesisPromptMetric' to 'NumericJudge' or 'CategoricalJudge'
 """
 
-from alembic import op
-import sqlalchemy as sa
-from typing import Union, Sequence
-import rhesis
+from typing import Sequence, Union
 
+import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "415c0d01df0e"

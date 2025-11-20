@@ -17,9 +17,8 @@ import {
 } from './shared/types';
 import { Project } from '@/utils/api-client/interfaces/project';
 import {
-  TestSetGenerationRequest,
-  TestSetGenerationConfig,
-  GenerationSample,
+  GenerateTestsRequest,
+  GenerationConfig,
   SourceData,
 } from '@/utils/api-client/interfaces/test-set';
 import TestInputScreen from './TestInputScreen';
@@ -91,7 +90,7 @@ export default function TestGenerationFlow({
   const [testSamples, setTestSamples] = useState<TestSample[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [project, setProject] = useState<Project | null>(null);
-  const [testSetSize, setTestSetSize] = useState<TestSetSize>('medium');
+  const [testSetSize, setTestSetSize] = useState<TestSetSize>('small');
   const [testSetName, setTestSetName] = useState('');
 
   // UI State
@@ -178,19 +177,24 @@ export default function TestGenerationFlow({
               chip => chip.label
             );
 
-            const prompt = {
+            const additionalContext = {
               project_context: project?.name || 'General',
-              behaviors: behaviorLabels,
-              topics: template.topics,
-              categories: template.category,
-              specific_requirements: template.description,
               test_type: 'Single interaction tests',
               output_format: 'Generate only user inputs',
             };
 
+            const config = {
+              generation_prompt: template.description,
+              behaviors: behaviorLabels,
+              topics: template.topics,
+              categories: template.category,
+              additional_context: JSON.stringify(additionalContext),
+            };
+
             const response = await servicesClient.generateTests({
-              prompt,
+              config,
               num_tests: 5,
+              batch_size: 20,
               sources: selectedSources,
             });
 
@@ -346,19 +350,24 @@ export default function TestGenerationFlow({
 
           const projectContext = latestProject?.name || 'General';
 
-          const prompt = {
+          const additionalContext = {
             project_context: projectContext,
-            behaviors: activeBehaviors,
-            topics: activeTopics,
-            categories: activeCategories,
-            specific_requirements: desc,
             test_type: 'Single interaction tests',
             output_format: 'Generate only user inputs',
           };
 
+          const config = {
+            generation_prompt: desc,
+            behaviors: activeBehaviors,
+            topics: activeTopics,
+            categories: activeCategories,
+            additional_context: JSON.stringify(additionalContext),
+          };
+
           const response = await servicesClient.generateTests({
-            prompt,
+            config,
             num_tests: 5,
+            batch_size: 20,
             sources: sources,
           });
 
@@ -405,7 +414,7 @@ export default function TestGenerationFlow({
       const apiFactory = new ApiClientFactory(sessionToken);
       const servicesClient = apiFactory.getServicesClient();
 
-      // Build prompt from configuration
+      // Build config from configuration
       const activeBehaviors = configChips.behavior
         .filter(c => c.active)
         .map(c => c.label);
@@ -416,19 +425,26 @@ export default function TestGenerationFlow({
         .filter(c => c.active)
         .map(c => c.label);
 
-      const prompt = {
+      // Build additional context for extra info
+      const additionalContext = {
         project_context: project?.name || 'General',
-        behaviors: activeBehaviors,
-        topics: activeTopics,
-        categories: activeCategories,
-        specific_requirements: description,
         test_type: 'Single interaction tests',
         output_format: 'Generate only user inputs',
       };
 
+      // Build unified config matching SDK GenerationConfig
+      const config = {
+        generation_prompt: description,
+        behaviors: activeBehaviors,
+        topics: activeTopics,
+        categories: activeCategories,
+        additional_context: JSON.stringify(additionalContext),
+      };
+
       const response = await servicesClient.generateTests({
-        prompt,
+        config,
         num_tests: 5,
+        batch_size: 20,
         sources: selectedSources,
       });
 
@@ -478,7 +494,7 @@ export default function TestGenerationFlow({
         const apiFactory = new ApiClientFactory(sessionToken);
         const servicesClient = apiFactory.getServicesClient();
 
-        // Build prompt from configuration with feedback
+        // Build config from configuration with feedback
         const activeBehaviors = configChips.behavior
           .filter(c => c.active)
           .map(c => c.label);
@@ -489,16 +505,6 @@ export default function TestGenerationFlow({
           .filter(c => c.active)
           .map(c => c.label);
 
-        const prompt = {
-          project_context: project?.name || 'General',
-          behaviors: activeBehaviors,
-          topics: activeTopics,
-          categories: activeCategories,
-          specific_requirements: description,
-          test_type: 'Single interaction tests',
-          output_format: 'Generate only user inputs',
-        };
-
         // Create rated sample with the feedback
         const ratedSample = {
           prompt: sample.prompt,
@@ -507,11 +513,27 @@ export default function TestGenerationFlow({
           feedback: feedback,
         };
 
+        // Build additional context with feedback
+        const additionalContext = {
+          project_context: project?.name || 'General',
+          test_type: 'Single interaction tests',
+          output_format: 'Generate only user inputs',
+          rated_samples: [ratedSample], // Include feedback in context
+        };
+
+        const config = {
+          generation_prompt: description,
+          behaviors: activeBehaviors,
+          topics: activeTopics,
+          categories: activeCategories,
+          additional_context: JSON.stringify(additionalContext),
+        };
+
         const response = await servicesClient.generateTests({
-          prompt,
+          config,
           num_tests: 1,
+          batch_size: 20,
           sources: selectedSources,
-          rated_samples: [ratedSample],
         });
 
         if (response.tests?.length) {
@@ -714,21 +736,11 @@ export default function TestGenerationFlow({
           .filter(c => c.active)
           .map(c => c.label);
 
-        // Build prompt with basic context (detailed context sent separately)
-        const prompt = {
+        // Build additional context with iteration data
+        const additionalContext = {
           project_context: project?.name || 'General',
-          behaviors: activeBehaviors,
-          topics: activeTopics,
-          categories: activeCategories,
-          specific_requirements: description,
           test_type: 'Single interaction tests',
           output_format: 'Generate only user inputs',
-        };
-
-        const response = await servicesClient.generateTests({
-          prompt,
-          num_tests: 5,
-          sources: selectedSources,
           chip_states: chipStates,
           rated_samples: ratedSamples,
           previous_messages: [
@@ -738,6 +750,21 @@ export default function TestGenerationFlow({
               timestamp: newMessage.timestamp.toISOString(),
             },
           ],
+        };
+
+        const config = {
+          generation_prompt: description,
+          behaviors: activeBehaviors,
+          topics: activeTopics,
+          categories: activeCategories,
+          additional_context: JSON.stringify(additionalContext),
+        };
+
+        const response = await servicesClient.generateTests({
+          config,
+          num_tests: 5,
+          batch_size: 20,
+          sources: selectedSources,
         });
 
         if (response.tests?.length) {
@@ -827,16 +854,6 @@ export default function TestGenerationFlow({
         .filter(c => c.active)
         .map(c => c.label);
 
-      const prompt = {
-        project_context: project?.name || 'General',
-        behaviors: activeBehaviors,
-        topics: activeTopics,
-        categories: activeCategories,
-        specific_requirements: description,
-        test_type: 'Single interaction tests',
-        output_format: 'Generate only user inputs',
-      };
-
       // Collect iteration context for "Load More"
       const chipStates = [
         ...configChips.behavior.map(chip => ({
@@ -875,13 +892,29 @@ export default function TestGenerationFlow({
           timestamp: msg.timestamp.toISOString(),
         }));
 
-      const response = await servicesClient.generateTests({
-        prompt,
-        num_tests: 5,
-        sources: selectedSources,
+      // Build additional context with iteration data
+      const additionalContext = {
+        project_context: project?.name || 'General',
+        test_type: 'Single interaction tests',
+        output_format: 'Generate only user inputs',
         chip_states: chipStates,
         rated_samples: ratedSamples,
         previous_messages: previousMessages,
+      };
+
+      const config = {
+        generation_prompt: description,
+        behaviors: activeBehaviors,
+        topics: activeTopics,
+        categories: activeCategories,
+        additional_context: JSON.stringify(additionalContext),
+      };
+
+      const response = await servicesClient.generateTests({
+        config,
+        num_tests: 5,
+        batch_size: 20,
+        sources: selectedSources,
       });
 
       if (response.tests?.length) {
@@ -929,16 +962,18 @@ export default function TestGenerationFlow({
       const activeTopics = configChips.topics
         .filter(c => c.active)
         .map(c => c.label);
+      const activeCategories = configChips.category
+        .filter(c => c.active)
+        .map(c => c.label);
 
       // Map test set size to actual number of tests
       // Small: 25-50 tests, Medium: 75-150 tests, Large: 200+ tests
       const numTests =
         testSetSize === 'small' ? 50 : testSetSize === 'large' ? 200 : 100;
 
-      const generationConfig: TestSetGenerationConfig = {
+      // Build additional context with samples and metadata
+      const additionalContext = {
         project_name: project?.name,
-        behaviors: activeBehaviors,
-        purposes: activeTopics,
         test_type: 'single_turn',
         response_generation: 'prompt_only',
         test_coverage:
@@ -947,24 +982,29 @@ export default function TestGenerationFlow({
             : testSetSize === 'large'
               ? 'comprehensive'
               : 'standard',
-        tags: activeTopics,
-        description,
+        samples: testSamples.map(sample => ({
+          text: sample.prompt,
+          behavior: sample.behavior,
+          topic: sample.topic,
+          rating: sample.rating,
+          feedback: sample.feedback,
+        })),
       };
 
-      const generationSamples: GenerationSample[] = testSamples.map(sample => ({
-        text: sample.prompt,
-        behavior: sample.behavior,
-        topic: sample.topic,
-        rating: sample.rating,
-        feedback: sample.feedback,
-      }));
+      // Build new unified GenerationConfig
+      const config: GenerationConfig = {
+        generation_prompt: description,
+        behaviors: activeBehaviors,
+        categories: activeCategories,
+        topics: activeTopics,
+        additional_context: JSON.stringify(additionalContext),
+      };
 
-      const request: TestSetGenerationRequest = {
-        config: generationConfig,
-        samples: generationSamples,
-        synthesizer_type: 'prompt',
-        batch_size: 20,
+      // Build unified request (no synthesizer_type, no separate samples)
+      const request: GenerateTestsRequest = {
+        config,
         num_tests: numTests,
+        batch_size: 20,
         sources: selectedSources,
         name: testSetName.trim() || undefined,
       };
@@ -983,12 +1023,14 @@ export default function TestGenerationFlow({
     }
   }, [
     sessionToken,
-    configChips,
+    configChips.behavior,
+    configChips.topics,
+    configChips.category,
     description,
     testSamples,
     testSetSize,
     testSetName,
-    selectedSourceIds,
+    selectedSources,
     project,
     router,
     show,

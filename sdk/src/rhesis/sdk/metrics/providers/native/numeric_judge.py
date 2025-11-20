@@ -216,16 +216,3 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
         filtered_config = {k: v for k, v in config.items() if k in valid_fields}
 
         return cls.from_config(NumericJudgeConfig(**filtered_config))
-
-
-if __name__ == "__main__":
-
-    class TestSchema(BaseModel):
-        score: float
-        reason: str
-
-    output = {
-        "score": 0.5,
-        "reason": "This is a test reason",
-    }
-    response = TestSchema(**output)
