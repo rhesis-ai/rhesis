@@ -108,12 +108,12 @@ start_all() {
                 echo "" >> .env.docker.local
                 echo "DB_ENCRYPTION_KEY=$ENCRYPTION_KEY" >> .env.docker.local
             fi
-            
+
             # Add QUICK_START if missing
             if ! grep -q "^QUICK_START=" .env.docker.local 2>/dev/null; then
                 echo "QUICK_START=true" >> .env.docker.local
             fi
-            
+
             # Add NEXT_PUBLIC_QUICK_START if missing
             if ! grep -q "^NEXT_PUBLIC_QUICK_START=" .env.docker.local 2>/dev/null; then
                 echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
@@ -211,6 +211,7 @@ delete_all() {
     echo -e "  - All Docker images"
     echo -e "  - All volumes (DATABASE DATA WILL BE LOST!)"
     echo -e "  - All networks"
+    echo -e "  - .env.docker.local"
     echo ""
     echo -e "${RED}This action CANNOT be undone!${NC}"
     echo ""
@@ -231,6 +232,8 @@ delete_all() {
 
     # Stop and remove all services, volumes, and images
     docker compose down -v --rmi all
+
+    rm -f .env.docker.local
 
     if [ $? -eq 0 ]; then
         echo ""
