@@ -241,6 +241,7 @@ class TestBackendEndpointTargetConversationContext:
     def test_conversation_id_extraction_from_response(self):
         """Test that BackendEndpointTarget correctly extracts conversation_id from endpoint responses"""
         from unittest.mock import Mock, patch
+        from uuid import uuid4
 
         from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
 
@@ -254,6 +255,10 @@ class TestBackendEndpointTargetConversationContext:
             "session_id": "test-session-123",
             "metadata": {"test": "data"},
         }
+
+        # Create valid UUIDs for testing
+        endpoint_id = str(uuid4())
+        organization_id = str(uuid4())
 
         # Create BackendEndpointTarget instance
         with (
@@ -274,7 +279,7 @@ class TestBackendEndpointTargetConversationContext:
             mock_get_endpoint.return_value = mock_endpoint
 
             target = BackendEndpointTarget(
-                db=mock_db, endpoint_id="test-endpoint-id", organization_id="test-org-id"
+                db=mock_db, endpoint_id=endpoint_id, organization_id=organization_id
             )
 
             # Send message without conversation_id
@@ -288,6 +293,7 @@ class TestBackendEndpointTargetConversationContext:
     def test_conversation_id_passthrough_to_endpoint(self):
         """Test that BackendEndpointTarget passes conversation_id to endpoint service"""
         from unittest.mock import Mock, patch
+        from uuid import uuid4
 
         from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
 
@@ -300,6 +306,10 @@ class TestBackendEndpointTargetConversationContext:
             "output": "Follow-up response",
             "session_id": "test-session-123",
         }
+
+        # Create valid UUIDs for testing
+        endpoint_id = str(uuid4())
+        organization_id = str(uuid4())
 
         # Create BackendEndpointTarget instance
         with (
@@ -317,7 +327,7 @@ class TestBackendEndpointTargetConversationContext:
             mock_get_endpoint.return_value = mock_endpoint
 
             target = BackendEndpointTarget(
-                db=mock_db, endpoint_id="test-endpoint-id", organization_id="test-org-id"
+                db=mock_db, endpoint_id=endpoint_id, organization_id=organization_id
             )
 
             # Send message with conversation_id
@@ -335,6 +345,7 @@ class TestBackendEndpointTargetConversationContext:
     def test_flexible_conversation_field_extraction(self):
         """Test that BackendEndpointTarget handles multiple conversation field names"""
         from unittest.mock import Mock, patch
+        from uuid import uuid4
 
         from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
 
@@ -348,6 +359,9 @@ class TestBackendEndpointTargetConversationContext:
             "thread_id": "thread-456",
             "metadata": {},
         }
+
+        # Create valid UUID for testing
+        endpoint_id = str(uuid4())
 
         # Create BackendEndpointTarget instance
         with (
@@ -363,7 +377,7 @@ class TestBackendEndpointTargetConversationContext:
             mock_endpoint = Mock()
             mock_get_endpoint.return_value = mock_endpoint
 
-            target = BackendEndpointTarget(db=mock_db, endpoint_id="test-endpoint-id")
+            target = BackendEndpointTarget(db=mock_db, endpoint_id=endpoint_id)
 
             # Send message with thread_id in kwargs
             response = target.send_message("Hello", thread_id="thread-456")

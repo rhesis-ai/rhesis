@@ -249,22 +249,22 @@ class TestToolNameValidation:
         mock_model.get_model_name.return_value = "mock-model"
         
         # Test one specific hallucinated name that should be corrected
-            mock_model.generate.return_value = {
-                "reasoning": "Test",
-                "tool_calls": [
-                    {
+        mock_model.generate.return_value = {
+            "reasoning": "Test",
+            "tool_calls": [
+                {
                     "tool_name": "send_message",  # This should be corrected to send_message_to_target
-                        "parameters": {"message": "Test"},
-                    }
-                ],
-            }
+                    "parameters": {"message": "Test"},
+                }
+            ],
+        }
 
-            agent = PenelopeAgent(model=mock_model, max_iterations=1)
-            result = agent.execute_test(
-                target=mock_target,
-                goal="Test goal",
-                instructions="Test instructions",
-            )
+        agent = PenelopeAgent(model=mock_model, max_iterations=1)
+        result = agent.execute_test(
+            target=mock_target,
+            goal="Test goal",
+            instructions="Test instructions",
+        )
 
         # Should have findings about the invalid tool name correction
         assert len(result.findings) > 0, "Should have findings about invalid tool name: send_message"
