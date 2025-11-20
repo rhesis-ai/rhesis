@@ -77,7 +77,7 @@ You get a test suite that covers edge cases you wouldn't have thought of, runs a
 - **AI test generation**: Describe requirements in plain language, get hundreds of test scenarios including adversarial cases
 - **LLM-based evaluation**: Automated scoring of whether outputs meet your requirements
 - **Comprehensive metrics library**: Pre-built evaluation metrics including implementations from popular frameworks (RAGAS, DeepEval, etc.) so you don't have to implement them yourself
-- **Built for cross-functional teams**: 
+- **Built for cross-functional teams**:
   - UI for non-technical users (legal, compliance, marketing) to define requirements and review results
   - SDK/API for engineers to work from their IDE and integrate into CI/CD pipelines
   - Collaborative features: comments, tasks, review workflows
