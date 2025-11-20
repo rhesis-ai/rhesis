@@ -40,6 +40,19 @@ const createEmptyChips = (): ConfigChips => {
   };
 };
 
+const singularizeCategoryName = (category: keyof ConfigChips): string => {
+  switch (category) {
+    case 'behavior':
+      return 'behavior';
+    case 'topics':
+      return 'topic';
+    case 'category':
+      return 'category';
+    default:
+      return category;
+  }
+};
+
 /**
  * TestGenerationFlow Component
  * Main orchestrator for the test generation flow
@@ -555,12 +568,7 @@ export default function TestGenerationFlow({
           const activeCount = categoryChips.filter(c => c.active).length;
           if (activeCount === 1) {
             // Don't allow deselecting the last active chip
-            const categoryNameSingular =
-              category === 'behavior'
-                ? 'behavior'
-                : category === 'topics'
-                  ? 'topic'
-                  : 'category';
+            const categoryNameSingular = singularizeCategoryName(category);
             show(`At least one ${categoryNameSingular} must be selected`, {
               severity: 'warning',
             });
