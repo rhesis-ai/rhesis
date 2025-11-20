@@ -95,9 +95,10 @@ class LiteLLM(BaseLLM):
         else:
             return response_content
 
-    def get_available_models(self) -> List[str]:
+    @classmethod
+    def get_available_models(cls) -> List[str]:
         models_list = litellm.get_valid_models(
-            custom_llm_provider=self.PROVIDER,
+            custom_llm_provider=cls.PROVIDER,
             check_provider_endpoint=False,
         )
         return models_list
