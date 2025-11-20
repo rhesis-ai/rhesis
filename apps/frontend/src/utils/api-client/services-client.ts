@@ -29,47 +29,12 @@ interface Test {
 }
 
 import { DocumentMetadata } from './interfaces/documents';
-
-interface SourceData {
-  id: string;
-  name?: string;
-  description?: string;
-  content?: string;
-}
-
-interface GenerateTestsRequest {
-  prompt: object;
-  num_tests?: number;
-  sources?: SourceData[];
-  // Iteration context - same as test config
-  chip_states?: ChipState[];
-  rated_samples?: RatedSample[];
-  previous_messages?: IterationMessage[];
-}
-
-interface GenerateTestsResponse {
-  tests: Test[];
-}
-
-interface ChipState {
-  label: string;
-  description: string;
-  active: boolean;
-  category: 'behavior' | 'topic' | 'category' | 'scenario';
-}
-
-interface RatedSample {
-  prompt: string;
-  response: string;
-  rating: number;
-  feedback?: string;
-}
-
-interface IterationMessage {
-  content: string;
-  timestamp: string;
-  chip_states?: ChipState[];
-}
+import {
+  GenerationConfig,
+  SourceData,
+  GenerateTestsRequest,
+  GenerateTestsResponse,
+} from './interfaces/test-set';
 
 interface GenerateTestConfigRequest {
   prompt: string;

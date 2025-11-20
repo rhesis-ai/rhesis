@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional, Union
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, TestType
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
@@ -135,6 +135,7 @@ def _save_test_set_to_database(
             test_set_data=test_set_data,
             organization_id=org_id,
             user_id=user_id,
+            test_set_type=TestType.SINGLE_TURN,  # ConfigSynthesizer generates single-turn tests
         )
 
         # Note: We don't set the SDK test_set.id because:

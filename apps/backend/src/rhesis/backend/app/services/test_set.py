@@ -13,6 +13,7 @@ from rhesis.backend.app.constants import (
     ERROR_INVALID_UUID,
     ERROR_TEST_SET_NOT_FOUND,
     EntityType,
+    TestType,
 )
 from rhesis.backend.app.models import Prompt, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
@@ -141,8 +142,21 @@ def bulk_create_test_set(
     test_set_data: Dict[str, Any] | schemas.TestSetBulkCreate,
     organization_id: str,
     user_id: str,
+    test_set_type: TestType = None,
 ) -> models.TestSet:
-    """Create a test set with its associated tests in a single operation."""
+    """Create a test set with its associated tests in a single operation.
+
+    Args:
+        db: Database session
+        test_set_data: Test set data (dict or schema)
+        organization_id: Organization ID
+        user_id: User ID
+        test_set_type: Test set type (TestType.SINGLE_TURN or TestType.MULTI_TURN).
+                      If not provided, defaults to TestType.SINGLE_TURN.
+
+    Returns:
+        Created TestSet model instance
+    """
     defaults = load_defaults()
 
     # Validate input UUIDs
@@ -173,6 +187,20 @@ def bulk_create_test_set(
             user_id=user_id,
         )
 
+        # Use provided test_set_type or fall back to default
+        if test_set_type:
+            test_set_type_value = TestType.get_value(test_set_type)
+        else:
+            test_set_type_value = defaults["test_set"]["test_set_type"]
+
+        test_set_type_lookup = get_or_create_type_lookup(
+            db=db,
+            type_name="TestSetType",
+            type_value=test_set_type_value,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
         # Sanitize UUID fields for test set
         raw_owner_id = getattr(test_set_data, "owner_id", None)
         raw_assignee_id = getattr(test_set_data, "assignee_id", None)
@@ -184,6 +212,7 @@ def bulk_create_test_set(
             short_description=test_set_data.short_description,
             status_id=test_set_status.id,
             license_type_id=license_type.id,
+            test_set_type_id=test_set_type_lookup.id,
             user_id=user_id,
             organization_id=organization_id,
             owner_id=ensure_owner_id(raw_owner_id, user_id),

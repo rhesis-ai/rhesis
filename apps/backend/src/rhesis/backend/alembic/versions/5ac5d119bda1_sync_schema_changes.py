@@ -1,9 +1,8 @@
 from typing import Sequence, Union
 
+import rhesis
 import sqlalchemy as sa
 from alembic import op
-
-import rhesis
 
 # revision identifiers, used by Alembic.
 revision: str = "5ac5d119bda1"
