@@ -52,6 +52,7 @@ class TestData(BaseModel):
     behavior: str
     category: str
     topic: str
+    test_type: Optional[str] = None
     test_configuration: Optional[Dict[str, Any]] = None
     assignee_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
@@ -80,6 +81,7 @@ class TestSetBulkCreate(BaseModel):
     name: str
     description: Optional[str] = None
     short_description: Optional[str] = None
+    test_set_type: Optional[str] = None
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     priority: Optional[int] = None

@@ -5,6 +5,7 @@ from jinja2 import Environment, FileSystemLoader, Template
 from pydantic import BaseModel
 
 from rhesis.sdk.entities.test_set import TestSet
+from rhesis.sdk.enums import TestType
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
 
@@ -28,6 +29,7 @@ class Test(BaseModel):
     behavior: str
     category: str
     topic: str
+    test_type: str = TestType.MULTI_TURN.value
 
 
 class Tests(BaseModel):
@@ -65,6 +67,8 @@ class MultiTurnSynthesizer:
             "batch_size": 1,
             "generation_prompt": self.config.generation_prompt,
         }
-        test_set = TestSet(tests=response["tests"], metadata=metadata)
+        test_set = TestSet(
+            tests=response["tests"], metadata=metadata, test_set_type=TestType.MULTI_TURN.value
+        )
 
         return test_set
