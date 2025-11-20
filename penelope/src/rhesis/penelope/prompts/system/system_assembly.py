@@ -2,10 +2,10 @@
 System prompt assembly.
 
 Combines base instructions with test-specific context to create the complete
-system prompt for a test execution.
+system prompt for a test execution using Jinja2 templates for maintainability.
 """
 
-from rhesis.penelope.prompts.system.core_instructions import BASE_INSTRUCTIONS_PROMPT
+from rhesis.penelope.prompts.system.system_assembly_jinja import get_system_prompt_jinja
 
 
 def get_system_prompt(
@@ -17,10 +17,10 @@ def get_system_prompt(
     available_tools: str = "",
 ) -> str:
     """
-    Construct the complete system prompt for Penelope.
+    Construct the complete system prompt for Penelope using Jinja2 templates.
 
-    Combines the base instructions with test-specific information to create
-    a comprehensive system prompt that guides Penelope's behavior.
+    This function now delegates to the Jinja2-based implementation for better
+    maintainability and readability of the prompt templates.
 
     Args:
         instructions: HOW to conduct the test - testing methodology and approach
@@ -31,7 +31,7 @@ def get_system_prompt(
         available_tools: Description of available tools
 
     Returns:
-        Complete system prompt combining base instructions with test specifics
+        Complete system prompt rendered from Jinja2 template
 
     Example:
         >>> prompt = get_system_prompt(
@@ -43,30 +43,11 @@ def get_system_prompt(
         ...     available_tools="send_message_to_target, analyze, extract"
         ... )
     """
-    # Start with base instructions
-    prompt = BASE_INSTRUCTIONS_PROMPT.template
-
-    # Add test-specific assignment
-    prompt += "\n\n## Your Current Test Assignment\n\n"
-
-    if scenario:
-        prompt += f"**Test Scenario:**\n{scenario}\n\n"
-
-    prompt += f"**Test Instructions:**\n{instructions}\n\n"
-
-    prompt += f"**Test Goal:**\n{goal}\n\n"
-
-    if restrictions:
-        prompt += f"**Test Restrictions:**\n{restrictions}\n\n"
-
-    if context:
-        prompt += f"**Context & Resources:**\n{context}\n\n"
-
-    if available_tools:
-        prompt += f"**Available Tools:**\n{available_tools}\n\n"
-
-    prompt += (
-        "Begin your test now. Think through your approach, then use your tools to execute the test."
+    return get_system_prompt_jinja(
+        instructions=instructions,
+        goal=goal,
+        scenario=scenario,
+        restrictions=restrictions,
+        context=context,
+        available_tools=available_tools,
     )
-
-    return prompt

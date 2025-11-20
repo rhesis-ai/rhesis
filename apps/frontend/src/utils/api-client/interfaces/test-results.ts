@@ -42,7 +42,7 @@ export interface CriterionEvaluation {
 export interface GoalEvaluation {
   all_criteria_met: boolean;
   confidence: number;
-  reasoning: string;
+  reason: string;
   evidence: string[];
   criteria_evaluations: CriterionEvaluation[];
   turn_count?: number;

@@ -13,6 +13,7 @@ const withNextra = nextra({
 })
 
 export default withNextra({
+  output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../..'),
   webpack: config => {
     config.resolve.alias['@'] = path.resolve(__dirname)

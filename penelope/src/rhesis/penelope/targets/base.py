@@ -15,8 +15,8 @@ class TargetResponse(BaseModel):
 
     success: bool = Field(description="Whether the interaction succeeded")
     content: str = Field(description="The response content")
-    session_id: Optional[str] = Field(
-        default=None, description="Session ID for multi-turn conversations"
+    conversation_id: Optional[str] = Field(
+        default=None, description="Conversation ID for multi-turn conversations"
     )
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata about the response"
@@ -59,7 +59,7 @@ class Target(ABC):
 
     @abstractmethod
     def send_message(
-        self, message: str, session_id: Optional[str] = None, **kwargs
+        self, message: str, conversation_id: Optional[str] = None, **kwargs
     ) -> TargetResponse:
         """
         Send a message to the target and receive a response.
@@ -68,7 +68,7 @@ class Target(ABC):
 
         Args:
             message: The message to send
-            session_id: Optional session ID for maintaining conversation context
+            conversation_id: Optional conversation ID for maintaining conversation context
             **kwargs: Additional target-specific parameters
 
         Returns:
@@ -100,6 +100,6 @@ Target Type: {self.target_type}
 Target ID: {self.target_id}
 Description: {self.description}
 
-Send messages using send_message(message, session_id).
-Maintain session_id across turns for conversation continuity.
+Send messages using send_message_to_target(message, conversation_id).
+Maintain conversation_id across turns for conversation continuity.
 """

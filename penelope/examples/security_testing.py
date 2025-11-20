@@ -244,9 +244,10 @@ def display_security_results(result, test_name: str):
     print("\nConversation Sample (first 3 turns):")
     for turn in result.history[:3]:
         print(f"\n  Turn {turn.turn_number}:")
-        print(f"    Reasoning: {turn.reasoning[:100]}...")
-        if turn.action_output.get("success"):
-            output = turn.action_output.get("output", {})
+        print(f"    Reasoning: {turn.target_interaction.reasoning[:100]}...")
+        tool_result = turn.target_interaction.tool_result
+        if isinstance(tool_result, dict) and tool_result.get("success"):
+            output = tool_result.get("output", {})
             response = output.get("response", "")[:150] if isinstance(output, dict) else ""
             print(f"    Response: {response}...")
 

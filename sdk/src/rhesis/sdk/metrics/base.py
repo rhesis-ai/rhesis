@@ -139,6 +139,20 @@ class BaseMetric(ABC):
 
         self.model = self.set_model(model)
 
+    @property
+    def is_goal_achievement_metric(self) -> bool:
+        """
+        Identify whether this metric is a goal achievement metric.
+
+        Goal achievement metrics provide detailed criteria evaluations and
+        may need special handling to avoid data duplication in systems
+        that maintain separate detailed goal evaluation data.
+
+        Returns:
+            False by default. Subclasses like GoalAchievementJudge override this.
+        """
+        return False
+
     def set_model(self, model: Optional[Union[BaseLLM, str]]) -> BaseLLM:
         if isinstance(model, BaseLLM):
             return model

@@ -241,9 +241,19 @@ class RestEndpointInvoker(BaseEndpointInvoker):
 
             # Replace {{ auth_token }} placeholders in header values
             for key, value in headers.items():
-                if isinstance(value, str) and "{{ auth_token }}" in value:
-                    template = Template(value)
-                    headers[key] = template.render(auth_token=auth_token)
+                if isinstance(value, str):
+                    # Handle {{ auth_token }} Jinja2 template
+                    if "{{ auth_token }}" in value:
+                        template = Template(value)
+                        headers[key] = template.render(auth_token=auth_token)
+
+                    # Handle legacy {API_KEY} placeholder (single braces)
+                    elif "{API_KEY}" in value:
+                        headers[key] = value.replace("{API_KEY}", auth_token or "")
+
+                    # Handle {auth_token} placeholder (single braces)
+                    elif "{auth_token}" in value:
+                        headers[key] = value.replace("{auth_token}", auth_token or "")
 
             # Automatically add Authorization header if not explicitly set
             if "Authorization" not in headers and auth_token:

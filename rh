@@ -55,33 +55,33 @@ start_all() {
     echo -e "${GREEN}🚀 Starting all Rhesis services with Docker...${NC}"
     echo -e "${BLUE}ℹ️  Using zero-configuration local setup${NC}"
     echo ""
-    
+
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
         exit 1
     }
-    
+
     # Check if Docker is running
     if ! docker info > /dev/null 2>&1; then
         echo -e "${RED}❌ Error: Docker is not running${NC}"
         echo -e "${YELLOW}💡 Please start Docker Desktop and try again${NC}"
         exit 1
     fi
-    
+
     # Check if .env.docker.local exists and has DB_ENCRYPTION_KEY
     if [ ! -f ".env.docker.local" ] || ! grep -q "^DB_ENCRYPTION_KEY=.\+" .env.docker.local 2>/dev/null; then
         echo -e "${YELLOW}🔑 Generating DB_ENCRYPTION_KEY...${NC}"
-        
+
         # Generate encryption key using Docker to avoid installing cryptography globally
         # Use Python 3.10-slim image (same as backend) with cryptography pre-installed
         ENCRYPTION_KEY=$(docker run --rm python:3.10.17-slim sh -c "pip install --quiet --no-cache-dir cryptography > /dev/null 2>&1 && python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'" 2>/dev/null)
-        
+
         if [ $? -ne 0 ] || [ -z "$ENCRYPTION_KEY" ]; then
             echo -e "${RED}❌ Error: Failed to generate encryption key using Docker${NC}"
             echo -e "${YELLOW}💡 Make sure Docker is running and can pull images${NC}"
             exit 1
         fi
-        
+
         # Create or update .env.docker.local
         if [ ! -f ".env.docker.local" ]; then
             # Create new file
@@ -108,25 +108,25 @@ start_all() {
                 echo "" >> .env.docker.local
                 echo "DB_ENCRYPTION_KEY=$ENCRYPTION_KEY" >> .env.docker.local
             fi
-            
+
             # Add LOCAL_AUTH_ENABLED if missing
             if ! grep -q "^LOCAL_AUTH_ENABLED=" .env.docker.local 2>/dev/null; then
                 echo "LOCAL_AUTH_ENABLED=true" >> .env.docker.local
             fi
-            
+
             # Add NEXT_PUBLIC_LOCAL_AUTH_ENABLED if missing
             if ! grep -q "^NEXT_PUBLIC_LOCAL_AUTH_ENABLED=" .env.docker.local 2>/dev/null; then
                 echo "NEXT_PUBLIC_LOCAL_AUTH_ENABLED=true" >> .env.docker.local
             fi
-            
+
             echo -e "${GREEN}✅ Local configuration updated in .env.docker.local${NC}"
         fi
     fi
-    
+
     echo ""
-    echo -e "${YELLOW}📦 Starting services...${NC}"
-    docker compose --env-file .env.docker.local up -d
-    
+    echo -e "${YELLOW}📦 Starting services ...${NC}"
+    docker compose --env-file .env.docker.local up -d postgres redis backend worker frontend
+
     if [ $? -eq 0 ]; then
         echo ""
         echo -e "${GREEN}✅ All services started successfully!${NC}"
@@ -150,14 +150,14 @@ start_all() {
 # Function to stop all services
 stop_all() {
     echo -e "${YELLOW}🛑 Stopping all Rhesis services...${NC}"
-    
+
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
         exit 1
     }
-    
+
     docker compose down
-    
+
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ All services stopped${NC}"
     else
@@ -169,14 +169,14 @@ stop_all() {
 # Function to restart all services
 restart_all() {
     echo -e "${YELLOW}🔄 Restarting all Rhesis services...${NC}"
-    
+
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
         exit 1
     }
-    
+
     docker compose --env-file .env.docker.local restart
-    
+
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ All services restarted${NC}"
     else
@@ -188,12 +188,12 @@ restart_all() {
 # Function to view logs
 view_logs() {
     echo -e "${BLUE}📋 Viewing logs...${NC}"
-    
+
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
         exit 1
     }
-    
+
     if [ -z "$1" ]; then
         # No service specified, show all logs
         docker compose logs -f
@@ -216,22 +216,22 @@ delete_all() {
     echo ""
     read -p "$(echo -e ${YELLOW}Are you sure you want to continue? Type \'yes\' to confirm: ${NC})" -r
     echo ""
-    
+
     if [[ ! $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
         echo -e "${GREEN}✅ Deletion cancelled${NC}"
         exit 0
     fi
-    
+
     echo -e "${YELLOW}🗑️  Deleting all Rhesis Docker resources...${NC}"
-    
+
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
         exit 1
     }
-    
+
     # Stop and remove all services, volumes, and images
     docker compose down -v --rmi all
-    
+
     if [ $? -eq 0 ]; then
         echo ""
         echo -e "${GREEN}✅ All Rhesis Docker resources deleted successfully!${NC}"
@@ -296,7 +296,7 @@ start_docs() {
 # Function to start worker
 start_worker() {
     echo -e "${GREEN}⚙️  Starting Rhesis Worker...${NC}"
-    
+
     # Kill any existing celery workers first
     echo -e "${YELLOW}🔍 Checking for existing Celery workers...${NC}"
     if pgrep -f celery > /dev/null; then
@@ -307,7 +307,7 @@ start_worker() {
     else
         echo -e "${BLUE}ℹ️  No existing workers found${NC}"
     fi
-    
+
     # Clear Python cache
     echo -e "${YELLOW}🧹 Clearing Python cache...${NC}"
     cd "$SCRIPT_DIR" || {
@@ -317,7 +317,7 @@ start_worker() {
     find apps/backend -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null
     find apps/backend -type f -name "*.pyc" -delete 2>/dev/null
     echo -e "${GREEN}✅ Cache cleared${NC}"
-    
+
     cd "$SCRIPT_DIR/apps/backend" || {
         echo -e "${RED}❌ Error: Backend directory not found${NC}"
         exit 1
@@ -328,10 +328,10 @@ start_worker() {
     echo -e "${BLUE}📝 Logs will be written to: ${LOG_FILE}${NC}"
     echo -e "${YELLOW}💡 Press Ctrl+C to stop the worker${NC}"
     echo ""
-    
+
     # Set up trap to handle Ctrl+C gracefully
     trap "echo -e '\n${YELLOW}🛑 Shutting down worker...${NC}'; exit" INT TERM
-    
+
     # Run in foreground - using uv run handles the virtual environment automatically
     # Using --logfile parameter to write logs directly
     # Using --pool=solo to avoid forking issues on macOS with ML libraries (DeepEval/PyTorch)

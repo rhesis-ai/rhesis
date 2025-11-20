@@ -296,10 +296,11 @@ def display_results(result, example_name: str):
     print("\nConversation Summary:")
     for turn in result.history[:3]:
         print(f"\nTurn {turn.turn_number}:")
-        print(f"  Tool: {turn.tool_name}")
-        if hasattr(turn, "tool_result") and isinstance(turn.tool_result, dict):
-            print(f"  Success: {turn.tool_result.get('success', 'N/A')}")
-            content = turn.tool_result.get("content", "")
+        print(f"  Tool: {turn.target_interaction.tool_name}")
+        tool_result = turn.target_interaction.tool_result
+        if isinstance(tool_result, dict):
+            print(f"  Success: {tool_result.get('success', 'N/A')}")
+            content = tool_result.get("content", "")
             if content:
                 preview = content[:100] + "..." if len(content) > 100 else content
                 print(f"  Response: {preview}")

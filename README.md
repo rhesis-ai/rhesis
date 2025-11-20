@@ -85,15 +85,18 @@ This monorepo contains the complete Rhesis ecosystem:
 ```
 rhesis/
 ├── apps/
-│   ├── backend/       # FastAPI backend service
-│   ├── frontend/      # React frontend application
-│   ├── worker/        # Celery worker for background tasks
-│   ├── chatbot/       # Conversational testing interface
-│   └── polyphemus/    # Uncensored LLM for comprehensive test generation
-├── sdk/               # Python SDK for Rhesis
-├── infrastructure/    # Infrastructure as code
-├── scripts/           # Utility scripts
-└── docs/              # Documentation
+│   ├── backend/           # FastAPI backend service
+│   ├── frontend/          # React frontend application
+│   ├── worker/            # Celery worker for background tasks
+│   ├── chatbot/           # Conversational testing interface
+│   ├── polyphemus/        # Uncensored LLM for comprehensive test generation
+│   ├── documentation/     # Documentation service
+│   ├── otel-collector/     # OpenTelemetry collector for telemetry
+│   └── telemetry-processor/# Telemetry processing service
+├── sdk/                   # Python SDK for Rhesis
+├── infrastructure/        # Infrastructure as code
+├── scripts/               # Utility scripts
+└── docs/                  # Documentation source files
 ```
 
 ## 🚀 Quick Start
@@ -211,6 +214,27 @@ We review PRs regularly and maintain a welcoming environment through our code of
 - **GitHub Discussions**: [Community discussions](https://github.com/rhesis-ai/rhesis/discussions)
 - **Email**: hello@rhesis.ai
 - **Issues**: [Report bugs or request features](https://github.com/rhesis-ai/rhesis/issues)
+
+## 🔒 Security & Privacy
+
+We take data security and privacy seriously. For further details, please refer to our [Privacy Policy](https://rhesis.ai/privacy-policy).
+
+### Telemetry
+
+Rhesis automatically collects basic usage statistics from both cloud platform users and self-hosted instances.
+
+This information enables us to:
+
+1. Understand how Rhesis is used and enhance the most relevant features.
+2. Monitor overall usage for internal purposes and external reporting.
+
+No collected data is shared with third parties, nor does it include any sensitive information. For a detailed description of the data collected and the associated privacy safeguards, please see the [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
+
+**Opt-out:**
+
+For self-hosted deployments, telemetry can be disabled by setting the environment variable `OTEL_RHESIS_TELEMETRY_ENABLED=false`.
+
+For cloud deployments, telemetry is always enabled as part of the Terms & Conditions agreement.
 
 ---
 

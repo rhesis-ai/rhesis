@@ -83,7 +83,7 @@ class LangChainTarget(Target):
     def send_message(
         self,
         message: str,
-        session_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
         **kwargs: Any,
     ) -> TargetResponse:
         """Send a message to the LangChain runnable."""
@@ -96,7 +96,7 @@ class LangChainTarget(Target):
 
             # Handle conversational chains (RunnableWithMessageHistory)
             if hasattr(self.runnable, "get_session_history"):
-                config = {"configurable": {"session_id": session_id or "default"}}
+                config = {"configurable": {"session_id": conversation_id or "default"}}
                 response = self.runnable.invoke(input_data, config=config)
             else:
                 response = self.runnable.invoke(input_data)
@@ -116,7 +116,7 @@ class LangChainTarget(Target):
             return TargetResponse(
                 success=True,
                 content=content,
-                session_id=session_id,
+                conversation_id=conversation_id or "default",
                 metadata={
                     "input_sent": message,
                     "raw_response": raw_response,
@@ -140,6 +140,6 @@ Target: {self._description}
 Type: LangChain {type(self.runnable).__name__}
 Memory: {"Yes (conversational)" if has_memory else "No (stateless)"}
 
-Send messages using send_message_to_target(message, session_id).
-{"Maintain session_id for continuity." if has_memory else "Each message is independent."}
+Send messages using send_message_to_target(message, conversation_id).
+{"Maintain conversation_id for continuity." if has_memory else "Each message is independent."}
 """
