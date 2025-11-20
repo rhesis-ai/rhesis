@@ -167,11 +167,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
                   document.body.style.overflow = 'hidden';
                   // Call original onHighlighted if it exists
                   if (stepWithCompletion.onHighlighted) {
-                    stepWithCompletion.onHighlighted(element, stepObj, {
-                      config: driverInstance.getConfig(),
-                      state: driverInstance.getState(),
-                      driver: driverInstance,
-                    });
+                    stepWithCompletion.onHighlighted(element, stepObj);
                   }
                 },
                 onDeselected: () => {

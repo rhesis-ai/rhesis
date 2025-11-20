@@ -22,19 +22,19 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     requiresProjects: true,
   },
   {
+    id: 'testCasesCreated',
+    title: 'Create your first test cases',
+    description: 'Define what to test in your endpoints',
+    targetPath: '/tests?tour=testCases',
+    tourId: 'testCases',
+  },
+  {
     id: 'usersInvited',
     title: 'Invite team members',
     description: 'Collaborate with your team',
     optional: true,
     targetPath: '/organizations/team?tour=invite',
     tourId: 'invite',
-  },
-  {
-    id: 'testCasesCreated',
-    title: 'Create your first test cases',
-    description: 'Define what to test in your endpoints',
-    targetPath: '/tests?tour=testCases',
-    tourId: 'testCases',
   },
 ];
 
