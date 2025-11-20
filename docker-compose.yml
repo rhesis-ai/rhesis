@@ -169,8 +169,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./sdk:/app/sdk
     networks:
       - rhesis-network
     restart: unless-stopped
