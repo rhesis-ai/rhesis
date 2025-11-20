@@ -30,21 +30,22 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { MCPItem } from '@/utils/api-client/services-client';
+import { Tool } from '@/utils/api-client/interfaces/tool';
 
 interface MCPImportDialogProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
   sessionToken: string;
+  tool?: Tool | null;
 }
-
-const MCP_SERVER_NAME = 'notionApi';
 
 export default function MCPImportDialog({
   open,
   onClose,
   onSuccess,
   sessionToken,
+  tool,
 }: MCPImportDialogProps) {
   const theme = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +62,11 @@ export default function MCPImportDialog({
       return;
     }
 
+    if (!tool) {
+      setError('No MCP tool selected');
+      return;
+    }
+
     try {
       setSearching(true);
       setError(null);
@@ -72,7 +78,7 @@ export default function MCPImportDialog({
 
       const results = await servicesClient.searchMCP(
         searchQuery.trim(),
-        MCP_SERVER_NAME
+        tool.id
       );
 
       setSearchResults(results);
@@ -132,12 +138,14 @@ export default function MCPImportDialog({
         selectedIds.has(item.id)
       );
 
+      if (!tool) {
+        setError('No MCP tool selected');
+        return;
+      }
+
       const importPromises = selectedItems.map(async item => {
         // Extract content
-        const result = await servicesClient.extractMCP(
-          item.id,
-          MCP_SERVER_NAME
-        );
+        const result = await servicesClient.extractMCP(item.id, tool.id);
 
         // Save as source
         await sourcesClient.createSourceFromContent(
@@ -145,8 +153,8 @@ export default function MCPImportDialog({
           result.content,
           undefined, // No description
           {
-            source_type: 'Notion',
-            mcp_server: MCP_SERVER_NAME,
+            source_type: tool.tool_provider_type?.type_value || 'MCP',
+            mcp_tool_id: tool.id,
             mcp_id: item.id,
             url: item.url,
             imported_at: new Date().toISOString(),
@@ -156,8 +164,9 @@ export default function MCPImportDialog({
 
       await Promise.all(importPromises);
 
+      const providerName = tool.tool_provider_type?.type_value || 'MCP';
       notifications.show(
-        `Successfully imported ${selectedItems.length} source${selectedItems.length > 1 ? 's' : ''} from Notion`,
+        `Successfully imported ${selectedItems.length} source${selectedItems.length > 1 ? 's' : ''} from ${providerName}`,
         {
           severity: 'success',
           autoHideDuration: 4000,
@@ -214,7 +223,13 @@ export default function MCPImportDialog({
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box display="flex" alignItems="center" gap={1}>
             <SearchIcon />
-            <Typography variant="h6">Import from Notion</Typography>
+            <Typography variant="h6">
+              Import from{' '}
+              {tool?.tool_provider_type?.type_value
+                ? tool.tool_provider_type.type_value.charAt(0).toUpperCase() +
+                  tool.tool_provider_type.type_value.slice(1)
+                : 'MCP'}
+            </Typography>
           </Box>
           <IconButton onClick={handleClose} disabled={isProcessing}>
             <CloseIcon />
@@ -224,10 +239,20 @@ export default function MCPImportDialog({
 
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+          {!tool && (
+            <Alert severity="error">
+              No MCP tool selected. Please select a tool first.
+            </Alert>
+          )}
           {/* Search Section */}
           <Box>
             <Typography variant="subtitle2" gutterBottom>
-              Search Notion Pages
+              Search{' '}
+              {tool?.tool_provider_type?.type_value
+                ? tool.tool_provider_type.type_value.charAt(0).toUpperCase() +
+                  tool.tool_provider_type.type_value.slice(1)
+                : 'MCP'}{' '}
+              Pages
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
@@ -242,7 +267,7 @@ export default function MCPImportDialog({
               <Button
                 variant="contained"
                 onClick={handleSearch}
-                disabled={isProcessing}
+                disabled={isProcessing || !tool}
                 startIcon={
                   searching ? <CircularProgress size={20} /> : <SearchIcon />
                 }
@@ -322,7 +347,13 @@ export default function MCPImportDialog({
                                   },
                                 }}
                               >
-                                Open in Notion
+                                Open in{' '}
+                                {tool?.tool_provider_type?.type_value
+                                  ? tool.tool_provider_type.type_value
+                                      .charAt(0)
+                                      .toUpperCase() +
+                                    tool.tool_provider_type.type_value.slice(1)
+                                  : 'MCP'}
                                 <OpenInNewIcon
                                   sx={{ fontSize: theme.iconSizes.small }}
                                 />

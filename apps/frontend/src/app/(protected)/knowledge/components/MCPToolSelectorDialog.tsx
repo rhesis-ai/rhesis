@@ -21,7 +21,6 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import TerminalIcon from '@mui/icons-material/Terminal';
-import CheckIcon from '@mui/icons-material/Check';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 
@@ -41,7 +40,7 @@ export default function MCPToolSelectorDialog({
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+  // No need to keep selection state – click selects and proceeds immediately
 
   useEffect(() => {
     if (open) {
@@ -100,19 +99,13 @@ export default function MCPToolSelectorDialog({
   };
 
   const handleSelectTool = (tool: Tool) => {
-    setSelectedTool(tool);
-  };
-
-  const handleConfirm = () => {
-    if (selectedTool) {
-      onSelectTool(selectedTool);
-      handleClose();
-    }
+    onSelectTool(tool);
+    handleClose();
   };
 
   const handleClose = () => {
     if (!loading) {
-      setSelectedTool(null);
+      // setSelectedTool(null); // No longer needed
       setError(null);
       onClose();
     }
@@ -152,7 +145,7 @@ export default function MCPToolSelectorDialog({
           ) : tools.length === 0 ? (
             <Alert severity="info">
               No MCP tools available. Please configure MCP tools in Settings
-              &gt; Integrations &gt; Tools.
+              &gt; Integrations &gt; MCPs.
             </Alert>
           ) : (
             <List>
@@ -160,16 +153,9 @@ export default function MCPToolSelectorDialog({
                 <React.Fragment key={tool.id}>
                   {index > 0 && <Divider />}
                   <ListItem disablePadding>
-                    <ListItemButton
-                      onClick={() => handleSelectTool(tool)}
-                      selected={selectedTool?.id === tool.id}
-                    >
+                    <ListItemButton onClick={() => handleSelectTool(tool)}>
                       <ListItemIcon>
-                        {selectedTool?.id === tool.id ? (
-                          <CheckIcon color="primary" />
-                        ) : (
-                          <TerminalIcon />
-                        )}
+                        <TerminalIcon />
                       </ListItemIcon>
                       <ListItemText
                         primary={tool.name}
@@ -188,18 +174,7 @@ export default function MCPToolSelectorDialog({
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={handleClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleConfirm}
-          disabled={!selectedTool || loading}
-        >
-          Continue
-        </Button>
-      </DialogActions>
+      {/* No footer actions – selection happens on click */}
     </Dialog>
   );
 }
