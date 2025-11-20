@@ -108,9 +108,6 @@ RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || 
         npm ci --legacy-peer-deps && npm cache clean --force; \
     fi
 
-# Ensure .next/cache directory exists and is writable
-RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next
-
 USER nextjs
 
 # EXPOSE uses the default port, but runtime PORT env var will override this

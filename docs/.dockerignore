@@ -34,3 +34,7 @@ coverage
 **/.cache
 **/.temp
 **/.tmp
+
+# Docker
+**/*Dockerfile
+**/*.dockerignore
