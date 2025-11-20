@@ -94,4 +94,8 @@ class MultiTurnSynthesizer:
         # Set test_set_type for multi-turn tests
         test_set.test_set_type = TestType.MULTI_TURN.value
 
+        # Add "(Multi-Turn)" suffix to the name
+        if test_set.name:
+            test_set.name = f"{test_set.name} (Multi-Turn)"
+
         return test_set
