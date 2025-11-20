@@ -64,13 +64,29 @@ class MultiTurnSynthesizer:
         prompt = prompt_template.render(template_context)
         response = self.model.generate(prompt, schema=Tests)
 
+        # Transform tests: move prompt data to test_configuration
+        # Multi-turn tests don't use the prompt field - they use test_configuration
+        multi_turn_tests = []
+        for test in response["tests"]:
+            test_dict = test if isinstance(test, dict) else test.model_dump()
+
+            # Extract prompt data (goal, instructions, restrictions, scenario)
+            prompt_data = test_dict.pop("prompt", {})
+            if isinstance(prompt_data, BaseModel):
+                prompt_data = prompt_data.model_dump()
+
+            # Move prompt data to test_configuration
+            test_dict["test_configuration"] = prompt_data
+
+            multi_turn_tests.append(test_dict)
+
         # Use utility function to create TestSet with proper name/description
         test_set = create_test_set(
-            tests=response["tests"],
+            tests=multi_turn_tests,
             model=self.model,
             synthesizer_name="MultiTurnSynthesizer",
             batch_size=1,
-            num_tests=len(response["tests"]),
+            num_tests=len(multi_turn_tests),
             requested_tests=num_tests,
             generation_prompt=self.config.generation_prompt,
         )
