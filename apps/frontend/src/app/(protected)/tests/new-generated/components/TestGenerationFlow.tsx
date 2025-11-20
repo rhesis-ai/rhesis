@@ -983,11 +983,11 @@ export default function TestGenerationFlow({
               ? 'comprehensive'
               : 'standard',
         samples: testSamples.map(sample => ({
-        text: sample.prompt,
-        behavior: sample.behavior,
-        topic: sample.topic,
-        rating: sample.rating,
-        feedback: sample.feedback,
+          text: sample.prompt,
+          behavior: sample.behavior,
+          topic: sample.topic,
+          rating: sample.rating,
+          feedback: sample.feedback,
         })),
       };
 
