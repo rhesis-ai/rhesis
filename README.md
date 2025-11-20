@@ -60,15 +60,19 @@ You get a test suite that covers edge cases you wouldn't have thought of, runs a
 
 **Built for teams, not just engineers**: UI for non-technical stakeholders to define requirements and review results. SDK for engineers to work from their IDE and integrate into CI/CD. Comments, tasks, and review workflows so legal, compliance, and domain experts can collaborate without writing code.
 
-**Rhesis vs:**
+### **Rhesis vs…**
 
-**Manual testing**: Generates hundreds of test cases automatically instead of writing them by hand
+- **Manual testing**  
+  Generates hundreds of test cases automatically instead of writing them by hand.
 
-**Traditional test frameworks**: Designed for non-deterministic LLM outputs, not just deterministic code
+- **Traditional test frameworks**  
+  Built for non-deterministic LLM behavior, not deterministic code.
 
-**LLM observability tools**: Focuses on pre-production testing, not just monitoring production issues
+- **LLM observability tools**  
+  Focuses on **pre-production** validation, not just production monitoring.
 
-**Red-teaming services**: Self-service and continuous, not one-time security audits
+- **Red-teaming services**  
+  Continuous and self-service, not a one-time audit.
 
 ## Features
 
@@ -184,9 +188,9 @@ Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - Improve documentation
 - Help others in Discord or GitHub discussions
 
-## 📝 License
+## License
 
-Community Edition: MIT License - see LICENSE file for details. Free forever.
+Community Edition: MIT License - see [LICENSE](LICENSE) file for details. Free forever.
 
 Enterprise Edition: Enterprise features in ee/ folders are planned for 2026 and not yet available. Contact hello@rhesis.ai for early access information.
 
