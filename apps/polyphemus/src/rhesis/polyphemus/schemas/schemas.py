@@ -21,14 +21,14 @@ class GenerationResponse(BaseModel):
 
 
 class Message(BaseModel):
-    """Message in OpenAI-compatible format"""
+    """Message format"""
 
     role: Optional[str] = None
     content: str
 
 
 class GenerateRequest(BaseModel):
-    """Request format matching OpenAI chat completion"""
+    """Request format"""
 
     messages: List[Message]
     model: Optional[str] = None
