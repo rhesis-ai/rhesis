@@ -8,6 +8,7 @@ from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.synthesizers.utils import create_test_set
 
 
 class GenerationConfig(BaseModel):
@@ -62,13 +63,19 @@ class MultiTurnSynthesizer:
         }
         prompt = prompt_template.render(template_context)
         response = self.model.generate(prompt, schema=Tests)
-        metadata = {
-            "synthesizer": "MultiTurnSynthesizer",
-            "batch_size": 1,
-            "generation_prompt": self.config.generation_prompt,
-        }
-        test_set = TestSet(
-            tests=response["tests"], metadata=metadata, test_set_type=TestType.MULTI_TURN.value
+
+        # Use utility function to create TestSet with proper name/description
+        test_set = create_test_set(
+            tests=response["tests"],
+            model=self.model,
+            synthesizer_name="MultiTurnSynthesizer",
+            batch_size=1,
+            num_tests=len(response["tests"]),
+            requested_tests=num_tests,
+            generation_prompt=self.config.generation_prompt,
         )
+
+        # Set test_set_type for multi-turn tests
+        test_set.test_set_type = TestType.MULTI_TURN.value
 
         return test_set
