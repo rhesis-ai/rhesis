@@ -9,6 +9,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
+from rhesis.backend.logging import logger
 from rhesis.sdk.services.extractor import SourceSpecification, SourceType
 from rhesis.sdk.synthesizers import ConfigSynthesizer
 
@@ -59,13 +60,20 @@ def get_source_specifications(
         if not db_source:
             raise HTTPException(status_code=404, detail=f"Source {source_data.id} not found")
 
+        # Skip sources with no content (would cause chunker to fail)
+        if not db_source.content or not db_source.content.strip():
+            logger.warning(
+                f"Skipping source {source_data.id} ({db_source.title}) - no content available"
+            )
+            continue
+
         # Convert to SDK SourceSpecification with embedded source ID
         source_spec = SourceSpecification(
             name=db_source.title,
             description=db_source.description or f"Source: {db_source.title}",
             type=SourceType.TEXT,
             metadata={
-                "content": db_source.content or "",
+                "content": db_source.content,
                 "_source_id": str(source_data.id),  # Embed DB ID for tracking
             },
         )
