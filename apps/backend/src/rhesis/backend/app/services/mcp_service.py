@@ -50,15 +50,23 @@ def _get_mcp_client_by_tool_id(
     if tool.tool_type.type_value != "mcp":
         raise ValueError(f"Tool '{tool.name}' is not an MCP integration")
 
-    # Get provider name for the client naming
+    # Get provider name for the client
     provider = tool.tool_provider_type.type_value
 
-    # Create MCPClientManager with token substitution and get client
-    manager = MCPClientManager.from_tool_config(
-        tool_name=f"{provider}Api",
-        tool_config=tool.tool_metadata,
-        auth_token=tool.auth_token,
-    )
+    # Check if tool uses new provider-based approach (empty tool_metadata)
+    if not tool.tool_metadata or tool.tool_metadata == {}:
+        # New provider-based approach: SDK constructs config from YAML templates
+        manager = MCPClientManager.from_provider(
+            provider=provider,
+            auth_token=tool.auth_token,
+        )
+    else:
+        # Legacy approach: tool_metadata contains full JSON config
+        manager = MCPClientManager.from_tool_config(
+            tool_name=f"{provider}Api",
+            tool_config=tool.tool_metadata,
+            auth_token=tool.auth_token,
+        )
 
     client = manager.create_client(f"{provider}Api")
     return client

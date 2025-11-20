@@ -1,8 +1,10 @@
 """MCP (Model Context Protocol) client for connecting to external data sources."""
 
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import yaml
 from mcp import ClientSession, StdioServerParameters  # type: ignore[import-untyped]
 from mcp.client.stdio import stdio_client  # type: ignore[import-untyped]
 
@@ -282,5 +284,48 @@ class MCPClientManager:
 
         # Wrap in mcpServers format expected by create_client
         config_dict = {"mcpServers": {tool_name: processed_config}}
+
+        return cls(config_dict=config_dict)
+
+    @classmethod
+    def from_provider(cls, provider: str, auth_token: str):
+        """
+        Create MCPClientManager from a provider name.
+
+        Automatically loads the right MCP config for that provider,
+        renders it with the auth token, and creates a manager.
+
+        Args:
+            provider: Provider name (e.g., "notion", "github", "gdrive")
+            auth_token: Authentication token/credential
+
+        Returns:
+            MCPClientManager instance ready to use
+
+        Example:
+            manager = MCPClientManager.from_provider("notion", "ntn_abc123...")
+        """
+        # Load MCP templates YAML
+        template_path = Path(__file__).parent / "mcp-templates.yaml"
+        with open(template_path) as f:
+            templates = yaml.safe_load(f)
+
+        # Get the template for this provider
+        if provider not in templates:
+            available_providers = list(templates.keys())
+            raise ValueError(
+                f"MCP provider '{provider}' not supported. Available: {available_providers}"
+            )
+
+        template = templates[provider]
+
+        # Render template: replace {{auth_token}} with actual token
+        config_str = json.dumps(template["config"])
+        config_str = config_str.replace("{{auth_token}}", auth_token)
+        config = json.loads(config_str)
+
+        # Use existing method to create the manager
+        tool_name = f"{provider}Api"
+        config_dict = {"mcpServers": {tool_name: config}}
 
         return cls(config_dict=config_dict)
