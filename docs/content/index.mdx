@@ -88,18 +88,26 @@ print(f"Topic: {test['topic']}")
 
 </details>
 
-### Option 3: Run locally with Docker
+### Option 3: Run locally with Docker (zero configuration)
 
-Clone and run the full platform locally:
+Get the full platform running locally with a single command - no configuration needed:
 
 <CodeBlock filename="terminal" language="bash">
   {`git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
-cp .env.example .env.docker
-docker compose --env-file .env.docker up -d`}
+./rh start`}
 </CodeBlock>
 
-Visit [http://localhost:3000](http://localhost:3000) to access your local instance.
+That's it! Visit [http://localhost:3000](http://localhost:3000) - you'll be automatically logged in to the dashboard!
+
+**What happens automatically:**
+- ✅ Generates database encryption key
+- ✅ Creates `.env.docker.local` with local configuration
+- ✅ Enables auto-login (no Auth0 setup needed)
+- ✅ Starts all services (backend, frontend, database, worker)
+- ✅ Creates default admin user and example data
+
+> **Note:** This is a simplified setup for local testing only. For production deployments, see the [Self-hosting Documentation](/getting-started/self-hosting).
 
 ## Community & Support
 
