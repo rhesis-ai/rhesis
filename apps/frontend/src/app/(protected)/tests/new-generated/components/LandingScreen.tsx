@@ -18,7 +18,7 @@ import {
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import CloseIcon from '@mui/icons-material/Close';
-import { TestTemplate } from './shared/types';
+import { TestTemplate, TestType } from './shared/types';
 import { TEMPLATES } from '@/config/test-templates';
 
 interface LandingScreenProps {
@@ -27,6 +27,7 @@ interface LandingScreenProps {
   onSelectAI: () => void;
   onSelectManual: () => void;
   onSelectTemplate: (template: TestTemplate) => void;
+  testType?: TestType;
 }
 
 /**
@@ -39,9 +40,13 @@ export default function LandingScreen({
   onSelectAI,
   onSelectManual,
   onSelectTemplate,
+  testType = 'single_turn',
 }: LandingScreenProps) {
   const [showAllTemplates, setShowAllTemplates] = useState(false);
   const visibleTemplates = showAllTemplates ? TEMPLATES : TEMPLATES.slice(0, 4);
+
+  const testTypeLabel =
+    testType === 'single_turn' ? 'Single-Turn' : 'Multi-Turn';
 
   const handleSelectAI = () => {
     onSelectAI();
@@ -80,9 +85,12 @@ export default function LandingScreen({
         }}
       >
         <Box>
-          <Typography variant="h6">Create Test Suite</Typography>
+          <Typography variant="h6">
+            Create {testTypeLabel} Test Suite
+          </Typography>
           <Typography variant="body2" color="text.secondary">
-            Choose how you want to create your test suite
+            Choose how you want to create your {testTypeLabel.toLowerCase()}{' '}
+            test suite
           </Typography>
         </Box>
         <IconButton edge="end" onClick={onClose} size="small">
@@ -129,11 +137,11 @@ export default function LandingScreen({
                 </Box>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <Typography variant="h6" component="h3">
-                    Generate Tests with AI
+                    Generate {testTypeLabel} Tests with AI
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Describe your testing needs and let AI create comprehensive
-                    test cases
+                    Describe your testing needs and let AI create comprehensive{' '}
+                    {testTypeLabel.toLowerCase()} test cases
                   </Typography>
                 </Box>
                 <Button variant="contained" size="large" fullWidth>
@@ -179,10 +187,11 @@ export default function LandingScreen({
                 </Box>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <Typography variant="h6" component="h3">
-                    Write Tests Manually
+                    Write {testTypeLabel} Tests Manually
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Create custom test cases with full control over every detail
+                    Create custom {testTypeLabel.toLowerCase()} test cases with
+                    full control over every detail
                   </Typography>
                 </Box>
                 <Button variant="outlined" size="large" fullWidth>

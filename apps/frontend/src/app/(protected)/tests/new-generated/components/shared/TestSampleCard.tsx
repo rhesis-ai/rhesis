@@ -19,11 +19,11 @@ import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
 import SendIcon from '@mui/icons-material/Send';
 import CircularProgress from '@mui/material/CircularProgress';
-import { TestSample } from './types';
+import { AnyTestSample } from './types';
 import ContextPreview from './ContextPreview';
 
 interface TestSampleCardProps {
-  sample: TestSample;
+  sample: AnyTestSample;
   onRate: (sampleId: string, rating: number) => void;
   onFeedbackChange: (sampleId: string, feedback: string) => void;
   onRegenerate?: (sampleId: string, feedback: string) => void;
@@ -74,6 +74,10 @@ export default function TestSampleCard({
   const isPositive = sample.rating === 5;
   const isNegative = sample.rating === 1;
 
+  // Determine what to display based on test type
+  const displayText =
+    sample.testType === 'multi_turn' ? sample.prompt.goal : sample.prompt;
+
   return (
     <Card
       elevation={0}
@@ -120,6 +124,22 @@ export default function TestSampleCard({
               sx={{ display: 'flex', gap: 0.5, mb: 1.5, alignItems: 'center' }}
             >
               <Chip
+                label={
+                  sample.testType === 'single_turn'
+                    ? 'Single-Turn'
+                    : 'Multi-Turn'
+                }
+                size="small"
+                variant="filled"
+                sx={{
+                  bgcolor:
+                    sample.testType === 'single_turn'
+                      ? 'primary.main'
+                      : 'secondary.main',
+                  color: 'white',
+                }}
+              />
+              <Chip
                 label={sample.behavior}
                 size="small"
                 color="primary"
@@ -129,7 +149,7 @@ export default function TestSampleCard({
               <ContextPreview context={sample.context} />
             </Box>
 
-            {/* Prompt (Left-aligned) */}
+            {/* Display Text (Prompt or Goal depending on test type) */}
             <Box
               sx={{
                 display: 'flex',
@@ -152,6 +172,15 @@ export default function TestSampleCard({
                   py: 1,
                 }}
               >
+                {sample.testType === 'multi_turn' && (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}
+                  >
+                    Goal:
+                  </Typography>
+                )}
                 <Typography
                   variant="body2"
                   sx={{
@@ -162,7 +191,7 @@ export default function TestSampleCard({
                         : 'text.primary',
                   }}
                 >
-                  {sample.prompt}
+                  {displayText}
                 </Typography>
               </Paper>
             </Box>

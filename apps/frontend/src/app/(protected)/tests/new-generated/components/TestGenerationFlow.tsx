@@ -10,10 +10,13 @@ import {
   GenerationMode,
   ConfigChips,
   TestSample,
+  MultiTurnTestSample,
+  AnyTestSample,
   ChatMessage,
   TestSetSize,
   TestTemplate,
   ChipConfig,
+  TestType,
 } from './shared/types';
 import { Project } from '@/utils/api-client/interfaces/project';
 import {
@@ -53,6 +56,87 @@ const singularizeCategoryName = (category: keyof ConfigChips): string => {
   }
 };
 
+// Helper function to generate samples based on test type
+const generateSamplesForTestType = async (
+  servicesClient: any,
+  testType: TestType,
+  activeBehaviors: string[],
+  activeTopics: string[],
+  activeCategories: string[],
+  description: string,
+  projectName: string,
+  sources: SourceData[],
+  numTests: number = 5
+): Promise<AnyTestSample[]> => {
+  if (testType === 'multi_turn') {
+    // Generate multi-turn tests
+    const response = await servicesClient.generateMultiTurnTests({
+      generation_prompt: description,
+      behavior: activeBehaviors,
+      category: activeCategories,
+      topic: activeTopics,
+      num_tests: numTests,
+    });
+
+    if (response.tests?.length) {
+      return response.tests.map(
+        (test: any, index: number): MultiTurnTestSample => ({
+          id: `sample-${Date.now()}-${index}`,
+          testType: 'multi_turn',
+          prompt: test.prompt,
+          behavior: test.behavior,
+          topic: test.topic,
+          category: test.category,
+          rating: null,
+          feedback: '',
+          context: [],
+        })
+      );
+    }
+  } else {
+    // Generate single-turn tests
+    const prompt = {
+      project_context: projectName || 'General',
+      behaviors: activeBehaviors,
+      topics: activeTopics,
+      categories: activeCategories,
+      specific_requirements: description,
+      test_type: 'Single interaction tests',
+      output_format: 'Generate only user inputs',
+    };
+
+    const response = await servicesClient.generateTests({
+      prompt,
+      num_tests: numTests,
+      sources: sources,
+    });
+
+    if (response.tests?.length) {
+      return response.tests.map(
+        (test: any, index: number): TestSample => ({
+          id: `sample-${Date.now()}-${index}`,
+          testType: 'single_turn',
+          prompt: test.prompt.content,
+          response: test.prompt.expected_response,
+          behavior: test.behavior,
+          topic: test.topic,
+          rating: null,
+          feedback: '',
+          context: test.metadata?.sources
+            ?.map((source: any) => ({
+              name: source.name || source.source || source.title || '',
+              description: source.description || '',
+              content: source.content || '',
+            }))
+            .filter((src: any) => src.name && src.name.trim().length > 0),
+        })
+      );
+    }
+  }
+
+  return [];
+};
+
 /**
  * TestGenerationFlow Component
  * Main orchestrator for the test generation flow
@@ -68,12 +152,21 @@ export default function TestGenerationFlow({
     typeof window !== 'undefined' &&
     sessionStorage.getItem('selectedTemplateId') !== null;
 
+  // Get test type from sessionStorage
+  const storedTestType =
+    typeof window !== 'undefined'
+      ? (sessionStorage.getItem('testType') as TestType | null)
+      : null;
+
   // Navigation State - start with null to prevent premature rendering
   const [currentScreen, setCurrentScreen] = useState<FlowStep | null>(
     hasTemplate ? null : 'input'
   );
   const [mode, setMode] = useState<GenerationMode | null>(
     hasTemplate ? 'template' : 'ai'
+  );
+  const [testType, setTestType] = useState<TestType>(
+    storedTestType || 'single_turn'
   );
 
   // Data State
@@ -88,7 +181,7 @@ export default function TestGenerationFlow({
   );
   const [configChips, setConfigChips] =
     useState<ConfigChips>(createEmptyChips());
-  const [testSamples, setTestSamples] = useState<TestSample[]>([]);
+  const [testSamples, setTestSamples] = useState<AnyTestSample[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [testSetSize, setTestSetSize] = useState<TestSetSize>('medium');
@@ -172,52 +265,23 @@ export default function TestGenerationFlow({
             setConfigChips(newConfigChips);
 
             // Generate initial test samples directly
-
-            // Extract behavior labels from the generated chips
             const behaviorLabels = newConfigChips.behavior.map(
               chip => chip.label
             );
 
-            const prompt = {
-              project_context: project?.name || 'General',
-              behaviors: behaviorLabels,
-              topics: template.topics,
-              categories: template.category,
-              specific_requirements: template.description,
-              test_type: 'Single interaction tests',
-              output_format: 'Generate only user inputs',
-            };
+            const newSamples = await generateSamplesForTestType(
+              servicesClient,
+              testType,
+              behaviorLabels,
+              template.topics,
+              template.category,
+              template.description,
+              project?.name || 'General',
+              selectedSources,
+              5
+            );
 
-            const response = await servicesClient.generateTests({
-              prompt,
-              num_tests: 5,
-              sources: selectedSources,
-            });
-
-            if (response.tests?.length) {
-              const newSamples: TestSample[] = response.tests.map(
-                (test, index) => ({
-                  id: `sample-${Date.now()}-${index}`,
-                  prompt: test.prompt.content,
-                  response: test.prompt.expected_response,
-                  behavior: test.behavior,
-                  topic: test.topic,
-                  rating: null,
-                  feedback: '',
-                  context: test.metadata?.sources
-                    ?.map((source: any) => ({
-                      name: source.name || source.source || source.title || '',
-                      description: source.description || '',
-                      content: source.content || '',
-                    }))
-                    .filter(
-                      (src: any) => src.name && src.name.trim().length > 0
-                    ),
-                })
-              );
-
-              setTestSamples(newSamples);
-            }
+            setTestSamples(newSamples);
 
             // Navigate to interface screen after samples are generated
             setCurrentScreen('interface');
@@ -346,44 +410,19 @@ export default function TestGenerationFlow({
 
           const projectContext = latestProject?.name || 'General';
 
-          const prompt = {
-            project_context: projectContext,
-            behaviors: activeBehaviors,
-            topics: activeTopics,
-            categories: activeCategories,
-            specific_requirements: desc,
-            test_type: 'Single interaction tests',
-            output_format: 'Generate only user inputs',
-          };
+          const newSamples = await generateSamplesForTestType(
+            servicesClient,
+            testType,
+            activeBehaviors,
+            activeTopics,
+            activeCategories,
+            desc,
+            projectContext,
+            sources,
+            5
+          );
 
-          const response = await servicesClient.generateTests({
-            prompt,
-            num_tests: 5,
-            sources: sources,
-          });
-
-          if (response.tests?.length) {
-            const newSamples: TestSample[] = response.tests.map(
-              (test, index) => ({
-                id: `sample-${Date.now()}-${index}`,
-                prompt: test.prompt.content,
-                response: test.prompt.expected_response,
-                behavior: test.behavior,
-                topic: test.topic,
-                rating: null,
-                feedback: '',
-                context: test.metadata?.sources
-                  ?.map((source: any) => ({
-                    name: source.name || source.source || source.title || '',
-                    description: source.description || '',
-                    content: source.content || '',
-                  }))
-                  .filter((src: any) => src.name && src.name.trim().length > 0),
-              })
-            );
-
-            setTestSamples(newSamples);
-          }
+          setTestSamples(newSamples);
         } catch (error) {
           show('Failed to generate test samples', { severity: 'error' });
         } finally {
@@ -416,41 +455,20 @@ export default function TestGenerationFlow({
         .filter(c => c.active)
         .map(c => c.label);
 
-      const prompt = {
-        project_context: project?.name || 'General',
-        behaviors: activeBehaviors,
-        topics: activeTopics,
-        categories: activeCategories,
-        specific_requirements: description,
-        test_type: 'Single interaction tests',
-        output_format: 'Generate only user inputs',
-      };
+      const newSamples = await generateSamplesForTestType(
+        servicesClient,
+        testType,
+        activeBehaviors,
+        activeTopics,
+        activeCategories,
+        description,
+        project?.name || 'General',
+        selectedSources,
+        5
+      );
 
-      const response = await servicesClient.generateTests({
-        prompt,
-        num_tests: 5,
-        sources: selectedSources,
-      });
-
-      if (response.tests?.length) {
-        const newSamples: TestSample[] = response.tests.map((test, index) => ({
-          id: `sample-${Date.now()}-${index}`,
-          prompt: test.prompt.content,
-          response: test.prompt.expected_response,
-          behavior: test.behavior,
-          topic: test.topic,
-          rating: null,
-          feedback: '',
-          context: test.metadata?.sources?.map((source: any) => ({
-            name: source.name || source.source || '',
-            description: source.description || '',
-            content: source.content || '',
-          })),
-        }));
-
-        setTestSamples(newSamples);
-        show('Samples regenerated successfully', { severity: 'success' });
-      }
+      setTestSamples(newSamples);
+      show('Samples regenerated successfully', { severity: 'success' });
     } catch (error) {
       show('Failed to regenerate samples', { severity: 'error' });
     } finally {
@@ -460,8 +478,9 @@ export default function TestGenerationFlow({
     sessionToken,
     description,
     configChips,
-    selectedSourceIds,
+    selectedSources,
     project,
+    testType,
     show,
   ]);
 
@@ -489,56 +508,77 @@ export default function TestGenerationFlow({
           .filter(c => c.active)
           .map(c => c.label);
 
-        const prompt = {
-          project_context: project?.name || 'General',
-          behaviors: activeBehaviors,
-          topics: activeTopics,
-          categories: activeCategories,
-          specific_requirements: description,
-          test_type: 'Single interaction tests',
-          output_format: 'Generate only user inputs',
-        };
-
-        // Create rated sample with the feedback
-        const ratedSample = {
-          prompt: sample.prompt,
-          response: sample.response || '',
-          rating: sample.rating || 1, // Low rating since user is providing critical feedback
-          feedback: feedback,
-        };
-
-        const response = await servicesClient.generateTests({
-          prompt,
-          num_tests: 1,
-          sources: selectedSources,
-          rated_samples: [ratedSample],
-        });
-
-        if (response.tests?.length) {
-          const newSample: TestSample = {
-            id: `sample-${Date.now()}-regenerated`,
-            prompt: response.tests[0].prompt.content,
-            response: response.tests[0].prompt.expected_response,
-            behavior: response.tests[0].behavior,
-            topic: response.tests[0].topic,
-            rating: null,
-            feedback: '',
-            context: response.tests[0].metadata?.sources
-              ?.map((source: any) => ({
-                name: source.name || source.source || source.title || '',
-                description: source.description || '',
-                content: source.content || '',
-              }))
-              .filter((src: any) => src.name && src.name.trim().length > 0),
+        // For single-turn tests, use rated samples
+        if (testType === 'single_turn' && sample.testType === 'single_turn') {
+          const prompt = {
+            project_context: project?.name || 'General',
+            behaviors: activeBehaviors,
+            topics: activeTopics,
+            categories: activeCategories,
+            specific_requirements: description,
+            test_type: 'Single interaction tests',
+            output_format: 'Generate only user inputs',
           };
 
-          // Replace the old sample with the new one
-          setTestSamples(prev =>
-            prev.map(s => (s.id === sampleId ? newSample : s))
+          const ratedSample = {
+            prompt: sample.prompt,
+            response: sample.response || '',
+            rating: sample.rating || 1,
+            feedback: feedback,
+          };
+
+          const response = await servicesClient.generateTests({
+            prompt,
+            num_tests: 1,
+            sources: selectedSources,
+            rated_samples: [ratedSample],
+          });
+
+          if (response.tests?.length) {
+            const newSample: TestSample = {
+              id: `sample-${Date.now()}-regenerated`,
+              testType: 'single_turn',
+              prompt: response.tests[0].prompt.content,
+              response: response.tests[0].prompt.expected_response,
+              behavior: response.tests[0].behavior,
+              topic: response.tests[0].topic,
+              rating: null,
+              feedback: '',
+              context: response.tests[0].metadata?.sources
+                ?.map((source: any) => ({
+                  name: source.name || source.source || source.title || '',
+                  description: source.description || '',
+                  content: source.content || '',
+                }))
+                .filter((src: any) => src.name && src.name.trim().length > 0),
+            };
+
+            setTestSamples(prev =>
+              prev.map(s => (s.id === sampleId ? newSample : s))
+            );
+          }
+        } else {
+          // For multi-turn, just regenerate a new one
+          const newSamples = await generateSamplesForTestType(
+            servicesClient,
+            testType,
+            activeBehaviors,
+            activeTopics,
+            activeCategories,
+            `${description}\n\nFeedback: ${feedback}`,
+            project?.name || 'General',
+            selectedSources,
+            1
           );
 
-          show('Sample regenerated successfully', { severity: 'success' });
+          if (newSamples.length > 0) {
+            setTestSamples(prev =>
+              prev.map(s => (s.id === sampleId ? newSamples[0] : s))
+            );
+          }
         }
+
+        show('Sample regenerated successfully', { severity: 'success' });
       } catch (error) {
         show('Failed to regenerate sample', { severity: 'error' });
       } finally {
@@ -549,9 +589,10 @@ export default function TestGenerationFlow({
       sessionToken,
       description,
       configChips,
-      selectedSourceIds,
+      selectedSources,
       project,
       testSamples,
+      testType,
       show,
     ]
   );
@@ -714,54 +755,21 @@ export default function TestGenerationFlow({
           .filter(c => c.active)
           .map(c => c.label);
 
-        // Build prompt with basic context (detailed context sent separately)
-        const prompt = {
-          project_context: project?.name || 'General',
-          behaviors: activeBehaviors,
-          topics: activeTopics,
-          categories: activeCategories,
-          specific_requirements: description,
-          test_type: 'Single interaction tests',
-          output_format: 'Generate only user inputs',
-        };
+        const newSamples = await generateSamplesForTestType(
+          servicesClient,
+          testType,
+          activeBehaviors,
+          activeTopics,
+          activeCategories,
+          description,
+          project?.name || 'General',
+          selectedSources,
+          5
+        );
 
-        const response = await servicesClient.generateTests({
-          prompt,
-          num_tests: 5,
-          sources: selectedSources,
-          chip_states: chipStates,
-          rated_samples: ratedSamples,
-          previous_messages: [
-            ...previousMessages,
-            {
-              content: message,
-              timestamp: newMessage.timestamp.toISOString(),
-            },
-          ],
-        });
+        setTestSamples(newSamples);
 
-        if (response.tests?.length) {
-          const newSamples: TestSample[] = response.tests.map(
-            (test, index) => ({
-              id: `sample-${Date.now()}-${index}`,
-              prompt: test.prompt.content,
-              response: test.prompt.expected_response,
-              behavior: test.behavior,
-              topic: test.topic,
-              rating: null,
-              feedback: '',
-              context: test.metadata?.sources
-                ?.map((source: any) => ({
-                  name: source.name || source.source || source.title || '',
-                  description: source.description || '',
-                  content: source.content || '',
-                }))
-                .filter((src: any) => src.name && src.name.trim().length > 0),
-            })
-          );
-
-          setTestSamples(newSamples);
-
+        if (newSamples.length > 0) {
           // Add assistant response to chat
           const assistantMessage: ChatMessage = {
             id: `msg-${Date.now()}-assistant`,
@@ -827,81 +835,19 @@ export default function TestGenerationFlow({
         .filter(c => c.active)
         .map(c => c.label);
 
-      const prompt = {
-        project_context: project?.name || 'General',
-        behaviors: activeBehaviors,
-        topics: activeTopics,
-        categories: activeCategories,
-        specific_requirements: description,
-        test_type: 'Single interaction tests',
-        output_format: 'Generate only user inputs',
-      };
+      const newSamples = await generateSamplesForTestType(
+        servicesClient,
+        testType,
+        activeBehaviors,
+        activeTopics,
+        activeCategories,
+        description,
+        project?.name || 'General',
+        selectedSources,
+        5
+      );
 
-      // Collect iteration context for "Load More"
-      const chipStates = [
-        ...configChips.behavior.map(chip => ({
-          label: chip.label,
-          description: chip.description || '',
-          active: chip.active,
-          category: 'behavior' as const,
-        })),
-        ...configChips.topics.map(chip => ({
-          label: chip.label,
-          description: chip.description || '',
-          active: chip.active,
-          category: 'topic' as const,
-        })),
-        ...configChips.category.map(chip => ({
-          label: chip.label,
-          description: chip.description || '',
-          active: chip.active,
-          category: 'category' as const,
-        })),
-      ];
-
-      const ratedSamples = testSamples
-        .filter(sample => sample.rating !== null)
-        .map(sample => ({
-          prompt: sample.prompt,
-          response: sample.response || '',
-          rating: sample.rating as number,
-          feedback: sample.feedback || undefined,
-        }));
-
-      const previousMessages = chatMessages
-        .filter(msg => msg.type === 'user')
-        .map(msg => ({
-          content: msg.content,
-          timestamp: msg.timestamp.toISOString(),
-        }));
-
-      const response = await servicesClient.generateTests({
-        prompt,
-        num_tests: 5,
-        sources: selectedSources,
-        chip_states: chipStates,
-        rated_samples: ratedSamples,
-        previous_messages: previousMessages,
-      });
-
-      if (response.tests?.length) {
-        const newSamples: TestSample[] = response.tests.map((test, index) => ({
-          id: `sample-${Date.now()}-${index}`,
-          prompt: test.prompt.content,
-          response: test.prompt.expected_response,
-          behavior: test.behavior,
-          topic: test.topic,
-          rating: null,
-          feedback: '',
-          context: test.metadata?.sources?.map((source: any) => ({
-            name: source.name || source.source || '',
-            description: source.description || '',
-            content: source.content || '',
-          })),
-        }));
-
-        setTestSamples(prev => [...prev, ...newSamples]);
-      }
+      setTestSamples(prev => [...prev, ...newSamples]);
     } catch (error) {
       show('Failed to load more samples', { severity: 'error' });
     } finally {
@@ -911,8 +857,9 @@ export default function TestGenerationFlow({
     sessionToken,
     description,
     configChips,
-    selectedSourceIds,
+    selectedSources,
     project,
+    testType,
     show,
   ]);
 
@@ -939,7 +886,7 @@ export default function TestGenerationFlow({
         project_name: project?.name,
         behaviors: activeBehaviors,
         purposes: activeTopics,
-        test_type: 'single_turn',
+        test_type: testType,
         response_generation: 'prompt_only',
         test_coverage:
           testSetSize === 'small'
@@ -952,7 +899,10 @@ export default function TestGenerationFlow({
       };
 
       const generationSamples: GenerationSample[] = testSamples.map(sample => ({
-        text: sample.prompt,
+        text:
+          sample.testType === 'single_turn'
+            ? sample.prompt
+            : sample.prompt.goal,
         behavior: sample.behavior,
         topic: sample.topic,
         rating: sample.rating,
@@ -972,6 +922,12 @@ export default function TestGenerationFlow({
       const response = await testSetsClient.generateTestSet(request);
 
       show(response.message, { severity: 'success' });
+
+      // Clean up sessionStorage
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('testType');
+        sessionStorage.removeItem('selectedTemplateId');
+      }
 
       setTimeout(() => router.push('/tests'), 2000);
     } catch (error) {
@@ -996,6 +952,11 @@ export default function TestGenerationFlow({
 
   // Navigation handlers
   const handleBackToTests = useCallback(() => {
+    // Clean up sessionStorage when navigating away
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('testType');
+      sessionStorage.removeItem('selectedTemplateId');
+    }
     router.push('/tests');
   }, [router]);
 
@@ -1063,6 +1024,7 @@ export default function TestGenerationFlow({
       case 'interface':
         return (
           <TestGenerationInterface
+            testType={testType}
             configChips={configChips}
             testSamples={testSamples}
             chatMessages={chatMessages}
@@ -1091,6 +1053,7 @@ export default function TestGenerationFlow({
       case 'confirmation':
         return (
           <TestConfigurationConfirmation
+            testType={testType}
             configChips={configChips}
             testSetSize={testSetSize}
             testSetName={testSetName}
