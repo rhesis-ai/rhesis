@@ -509,7 +509,10 @@ class TestSetEvaluator:
         for model_index, model in enumerate(self.models):
             if model_index_to_save is not None and model_index != model_index_to_save:
                 continue
-            model_results_dir = self.results_dir.joinpath(model.model_name)
+            if hasattr(model, "custom_results_dir") and model.custom_results_dir is not None:
+                model_results_dir = self.results_dir.joinpath(model.custom_results_dir)
+            else:
+                model_results_dir = self.results_dir.joinpath(model.model_name)
             model_results_dir.mkdir(parents=True, exist_ok=True)
             json_path = model_results_dir.joinpath(f"results_{self.base_file}")
             self._save_results(self.results[model_index], json_path)
