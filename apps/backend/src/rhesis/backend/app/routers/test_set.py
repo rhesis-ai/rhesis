@@ -33,7 +33,6 @@ from rhesis.backend.app.services.test_set import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.backend.core.documents import Document
 from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
@@ -78,7 +77,6 @@ class TestSetGenerationRequest(BaseModel):
     synthesizer_type: str = "prompt"
     num_tests: Optional[int] = None
     batch_size: int = 20
-    documents: Optional[List[Document]] = None
     sources: Optional[List[SourceData]] = None
     name: Optional[str] = None
 
