@@ -92,7 +92,10 @@ class TestSetEvaluator:
         """
         results = []
         for _, model in enumerate(self.models):
-            model_results_dir = self.results_dir.joinpath(model.model_name)
+            if hasattr(model, "custom_results_dir") and model.custom_results_dir is not None:
+                model_results_dir = self.results_dir.joinpath(model.custom_results_dir)
+            else:
+                model_results_dir = self.results_dir.joinpath(model.model_name)
             json_path = model_results_dir.joinpath(f"results_{self.base_file}")
             results.extend(read_results_json(json_path))
         if results is None or len(results) == 0:

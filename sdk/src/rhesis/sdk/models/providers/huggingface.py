@@ -46,6 +46,7 @@ class HuggingFaceLLM(BaseLLM):
         generate_kwargs: Optional[dict] = None,
         gpu_only: bool = False,
         load_kwargs: Optional[dict] = None,
+        custom_results_dir: Optional[str] = None,
     ):
         """
         Initialize the model with the given name and location.
@@ -65,6 +66,7 @@ class HuggingFaceLLM(BaseLLM):
         self.generate_kwargs = generate_kwargs
         self.gpu_only = gpu_only
         self.load_kwargs = load_kwargs or {}
+        self.custom_results_dir = custom_results_dir
 
         self.model = None
         self.tokenizer = None
@@ -105,8 +107,7 @@ class HuggingFaceLLM(BaseLLM):
         if self.gpu_only:
             if not torch.cuda.is_available():
                 raise RuntimeError(
-                    "gpu_only=True but CUDA is not available. "
-                    "Cannot load model without GPU."
+                    "gpu_only=True but CUDA is not available. Cannot load model without GPU."
                 )
             # Use "auto" to support multi-GPU distribution
             # The validation below will ensure no CPU/disk offloading occurs

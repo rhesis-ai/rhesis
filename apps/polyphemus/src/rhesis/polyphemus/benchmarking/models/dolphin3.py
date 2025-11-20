@@ -17,6 +17,7 @@ class Dolphin3(HuggingFaceLLM):
         generate_kwargs: Optional[dict] = None,
         gpu_only: bool = False,
         load_kwargs: Optional[dict] = None,
+        custom_results_dir: Optional[str] = None,
     ):
         super().__init__(
             model_name=model_name,
@@ -24,4 +25,5 @@ class Dolphin3(HuggingFaceLLM):
             generate_kwargs=generate_kwargs,
             gpu_only=gpu_only,
             load_kwargs=load_kwargs,
+            custom_results_dir=custom_results_dir,
         )
