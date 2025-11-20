@@ -541,18 +541,15 @@ export default function TestGenerationFlow({
           const activeCount = categoryChips.filter(c => c.active).length;
           if (activeCount === 1) {
             // Don't allow deselecting the last active chip
-            const categoryName =
+            const categoryNameSingular =
               category === 'behavior'
-                ? 'Behaviors'
+                ? 'behavior'
                 : category === 'topics'
-                  ? 'Topics'
-                  : 'Categories';
-            show(
-              `At least one ${categoryName.toLowerCase().slice(0, -1)} must be selected`,
-              {
-                severity: 'warning',
-              }
-            );
+                  ? 'topic'
+                  : 'category';
+            show(`At least one ${categoryNameSingular} must be selected`, {
+              severity: 'warning',
+            });
             return prev;
           }
         }
