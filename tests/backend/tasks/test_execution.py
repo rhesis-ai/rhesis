@@ -51,26 +51,21 @@ class TestDataRetrievalFunctions:
 class TestEndpointInvocation:
     """Test endpoint invocation functionality"""
 
+    @pytest.mark.skip(reason="Placeholder test - endpoint invocation is now handled by executors")
     def test_invoke_endpoint_with_context(self):
         """Test endpoint invocation with proper tenant context"""
         # This would test the endpoint invocation logic
         # when it's available in the test_execution module
+        # Note: Endpoint invocation is now handled by the executor classes
+        # and tested in those modules instead
 
         mock_db = Mock(spec=Session)
         endpoint_id = "endpoint-123"
         input_data = {"input": "test message"}
 
-        # Mock the endpoint service
-        with patch(
-            "rhesis.backend.tasks.execution.test_execution.get_endpoint_service"
-        ) as mock_get_service:
-            mock_service = Mock()
-            mock_service.invoke_endpoint.return_value = {"response": "test response"}
-            mock_get_service.return_value = mock_service
-
-            # This would test the actual invocation logic
-            # For now, this is a structure for the test
-            pass
+        # This is a placeholder - actual endpoint invocation tests are in
+        # tests/backend/services/test_endpoint_service.py
+        pass
 
 
 class TestResponseEvaluation:
@@ -153,36 +148,32 @@ class TestMetricConfiguration:
 class TestExecutionUtilities:
     """Test execution utility functions"""
 
+    @pytest.mark.skip(reason="Placeholder test - utility functions are now in executors module")
     def test_extract_response_with_fallback(self):
         """Test response extraction with fallback logic"""
         # This would test response extraction utilities
+        # Note: Response extraction is now handled by executor classes
+        # and tested in those modules instead
 
         raw_response = {"data": {"response": "Extracted response"}}
 
-        with patch(
-            "rhesis.backend.tasks.execution.test_execution.extract_response_with_fallback"
-        ) as mock_extract:
-            mock_extract.return_value = "Extracted response"
+        # This is a placeholder - actual utility tests would be in
+        # tests/backend/tasks/test_executors.py or similar
+        pass
 
-            # This would test actual extraction logic
-            pass
-
+    @pytest.mark.skip(reason="Placeholder test - utility functions are now in executors module")
     def test_get_or_create_status(self):
         """Test status creation/retrieval utility"""
         # This would test status management utilities
+        # Note: Status management is now handled elsewhere
+        # and tested in those modules instead
 
         mock_db = Mock(spec=Session)
         status_name = "completed"
 
-        with patch(
-            "rhesis.backend.tasks.execution.test_execution.get_or_create_status"
-        ) as mock_get_status:
-            mock_status = Mock()
-            mock_status.name = status_name
-            mock_get_status.return_value = mock_status
-
-            # This would test actual status handling
-            pass
+        # This is a placeholder - actual status handling tests would be
+        # in the appropriate service/crud test modules
+        pass
 
 
 @pytest.fixture
