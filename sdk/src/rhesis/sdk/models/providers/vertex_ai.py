@@ -4,12 +4,6 @@ Vertex AI Provider for Rhesis SDK
 This provider enables access to Google's Vertex AI models (including Gemini) via LiteLLM.
 It supports regional deployment and automatic credential detection (base64 or file path).
 
-Available models (ordered by performance):
-    • gemini-2.0-flash (RECOMMENDED - fastest, best for production)
-    • gemini-2.0-flash-exp (experimental features)
-    • gemini-2.5-flash (slower than 2.0, not recommended)
-    • gemini-1.5-pro-latest
-    • gemini-pro
 
 Regional availability:
     • gemini-2.0-flash: Available in us-central1, us-east4, us-west1,

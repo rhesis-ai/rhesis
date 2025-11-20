@@ -1,13 +1,3 @@
-"""
-Available models:
-        •	command
-        •	command-light
-        •	command-r
-        •	command-r-plus
-
-
-"""
-
 import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM

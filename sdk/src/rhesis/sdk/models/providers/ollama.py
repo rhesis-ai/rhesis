@@ -1,8 +1,3 @@
-"""
-Available models:
-https://ollama.com/library
-"""
-
 from typing import Optional, Type, Union
 
 from pydantic import BaseModel
