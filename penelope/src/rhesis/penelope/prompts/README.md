@@ -37,7 +37,6 @@ prompts/
 
 ```python
 from rhesis.penelope.prompts import (
-    BASE_INSTRUCTIONS_PROMPT,
     FIRST_TURN_PROMPT,
     SUBSEQUENT_TURN_PROMPT,
     DEFAULT_INSTRUCTIONS_TEMPLATE,
@@ -128,8 +127,7 @@ print(GOAL_EVALUATION_PROMPT.metadata["changelog"])
 
 | Prompt | Version | Format | Purpose |
 |--------|---------|--------|---------|
-| `BASE_INSTRUCTIONS_PROMPT` | 1.0.0 | Python | Defines Penelope's core identity and behavior |
-| `get_system_prompt()` | - | Python | Assembles complete system prompt for test |
+| `get_system_prompt()` | - | Python | Assembles complete system prompt for test (delegates to Jinja2) |
 | `SYSTEM_PROMPT_TEMPLATE` | 2.0.0 | Jinja2 File | Jinja2-based system prompt with conditionals |
 | `get_system_prompt_jinja()` | - | Jinja2 File | Assembles system prompt using Jinja2 |
 
@@ -214,12 +212,12 @@ def test_default_instructions():
 The old `instructions.py` module has been deprecated. It now re-exports from this module for backward compatibility:
 
 ```python
-# Old (deprecated)
-from rhesis.penelope.instructions import BASE_INSTRUCTIONS, get_system_prompt
+# Old (deprecated and removed)
+# from rhesis.penelope.instructions import BASE_INSTRUCTIONS, get_system_prompt
 
-# New (recommended)
-from rhesis.penelope.prompts import BASE_INSTRUCTIONS_PROMPT, get_system_prompt
-system_prompt = BASE_INSTRUCTIONS_PROMPT.template
+# Current (recommended)
+from rhesis.penelope.prompts import get_system_prompt
+# Use Jinja templates in templates/ directory for prompt content
 ```
 
 ## Jinja2 Templating Features

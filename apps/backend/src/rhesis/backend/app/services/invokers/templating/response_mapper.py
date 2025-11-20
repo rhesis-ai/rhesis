@@ -1,5 +1,6 @@
 """Response mapping using Jinja2 templates and JSONPath."""
 
+import json
 from typing import Any, Dict
 
 import jsonpath_ng
@@ -87,4 +88,48 @@ class ResponseMapper:
                 )
                 result[output_key] = None
 
+        # Post-process context field: convert string to list if needed
+        if "context" in result and result["context"] is not None:
+            result["context"] = self._normalize_context_field(result["context"])
+
         return result
+
+    def _normalize_context_field(self, context_value: Any) -> Any:
+        """
+        Normalize context field to ensure it's a list.
+
+        If context is a string:
+        1. Try to parse as JSON (in case it's a JSON array string)
+        2. If that fails, wrap the string in a list as a single element
+
+        Args:
+            context_value: The context value to normalize
+
+        Returns:
+            Normalized context value (preferably a list)
+        """
+        if isinstance(context_value, str):
+            # Try to parse as JSON first
+            try:
+                parsed_context = json.loads(context_value)
+                # If it's a list, return it; otherwise wrap in a list
+                if isinstance(parsed_context, list):
+                    logger.debug(f"Context parsed as JSON list with {len(parsed_context)} items")
+                    return parsed_context
+                else:
+                    logger.debug(
+                        f"Context parsed as JSON {type(parsed_context).__name__}, wrapping in list"
+                    )
+                    return [parsed_context]
+            except (json.JSONDecodeError, TypeError):
+                # JSON parsing failed, wrap string in list
+                logger.debug("Context is string, wrapping in list as single element")
+                return [context_value]
+        elif isinstance(context_value, list):
+            # Already a list, return as-is
+            logger.debug(f"Context is already a list with {len(context_value)} items")
+            return context_value
+        else:
+            # Other types (dict, int, etc.), wrap in list
+            logger.debug(f"Context is {type(context_value).__name__}, wrapping in list")
+            return [context_value]
