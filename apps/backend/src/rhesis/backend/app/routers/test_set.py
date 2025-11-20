@@ -11,14 +11,12 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.decorators import check_resource_permission
 from rhesis.backend.app.auth.permissions import ResourceAction
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.constants import TestType
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.documents import Document
 from rhesis.backend.app.schemas.services import SourceData
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
@@ -35,6 +33,7 @@ from rhesis.backend.app.services.test_set import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+from rhesis.backend.core.documents import Document
 from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
@@ -53,7 +52,7 @@ class StatsMode(str, Enum):
     RELATED_ENTITY = "related_entity"
 
 
-# Schemas for test set generation
+# TODO: Remove these schemas in Phase 3 - kept temporarily for backward compatibility
 class GenerationSample(BaseModel):
     text: str
     behavior: str
@@ -109,142 +108,6 @@ def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str
     if db_test_set is None:
         raise HTTPException(status_code=404, detail="Test Set not found with provided identifier")
     return db_test_set
-
-
-def build_generation_prompt(
-    config: TestSetGenerationConfig, samples: List[GenerationSample]
-) -> str:
-    """
-    Build a comprehensive prompt for test generation including sample ratings and feedback.
-
-    Args:
-        config: The generation configuration
-        samples: List of samples with ratings and feedback
-
-    Returns:
-        A formatted prompt string for the synthesizer
-    """
-    # Case-insensitive comparison using TestType enum
-    test_type_enum = TestType.from_string(config.test_type)
-    if test_type_enum == TestType.SINGLE_TURN:
-        test_type_string = "Single interaction tests"
-    elif test_type_enum == TestType.MULTI_TURN:
-        test_type_string = "Multi-turn conversation tests"
-    else:
-        # Fallback for unknown test types
-        test_type_string = f"{config.test_type} tests"
-
-    if config.response_generation == "prompt_only":
-        output_format_string = "Generate only user inputs"
-    else:
-        output_format_string = "Generate both user inputs and expected responses"
-    prompt_parts = [
-        "Generate comprehensive tests based on the following configuration:",
-        "",
-        "PROJECT CONTEXT:",
-        f"- Project: {config.project_name or 'General'}",
-        f"- Test Behaviors: {', '.join(config.behaviors)}",
-        f"- Test Purposes: {', '.join(config.purposes)}",
-        f"- Key Topics: {', '.join(config.tags)}",
-        f"- Test Type: {test_type_string}",
-        f"- Output Format: {output_format_string}",
-        "",
-        "SPECIFIC REQUIREMENTS:",
-        f"{config.description}",
-        "",
-    ]
-
-    if samples:
-        prompt_parts.extend(
-            [
-                "SAMPLE EVALUATION FEEDBACK:",
-                "The following samples were generated and rated by the user. "
-                "Use this feedback to improve the quality of new tests:",
-                "",
-            ]
-        )
-
-        for i, sample in enumerate(samples, 1):
-            rating_text = f"{sample.rating}/5 stars" if sample.rating is not None else "Not rated"
-            prompt_parts.extend(
-                [
-                    f"Sample {i}:",
-                    f'  Text: "{sample.text}"',
-                    f"  Behavior: {sample.behavior}",
-                    f"  Topic: {sample.topic}",
-                    f"  User Rating: {rating_text}",
-                ]
-            )
-
-            if sample.feedback and sample.feedback.strip():
-                prompt_parts.append(f'  User Feedback: "{sample.feedback}"')
-
-            prompt_parts.append("")
-
-        # Add guidance based on ratings
-        rated_samples = [s for s in samples if s.rating is not None]
-        if rated_samples:
-            avg_rating = sum(s.rating for s in rated_samples) / len(rated_samples)
-            prompt_parts.extend(
-                [
-                    "QUALITY GUIDANCE:",
-                    f"- Average sample rating: {avg_rating:.1f}/5.0",
-                ]
-            )
-
-            if avg_rating < 3.0:
-                prompt_parts.append(
-                    "- Focus on significant improvements based on the feedback provided"
-                )
-            elif avg_rating < 4.0:
-                prompt_parts.append(
-                    "- Make moderate improvements based on the feedback "
-                    "while maintaining good aspects"
-                )
-            else:
-                prompt_parts.append(
-                    "- Maintain the high quality demonstrated in the samples while adding variety"
-                )
-
-            prompt_parts.append("")
-
-    prompt_parts.extend(
-        [
-            "GENERATION INSTRUCTIONS:",
-            "Generate tests that:",
-            "1. Follow the same format and structure as the samples",
-            "2. Address the specific behaviors and purposes listed",
-            "3. Incorporate the feedback provided for similar quality improvements",
-            "4. Cover the key topics mentioned in the configuration",
-            "5. Maintain variety while staying focused on the requirements",
-        ]
-    )
-
-    return "\n".join(prompt_parts)
-
-
-def determine_test_count(config: TestSetGenerationConfig, requested_count: Optional[int]) -> int:
-    """
-    Determine the number of tests to generate based on coverage level and user request.
-
-    Args:
-        config: The generation configuration
-        requested_count: User-requested test count (if any)
-
-    Returns:
-        Number of tests to generate
-    """
-    if requested_count is not None and requested_count > 0:
-        return requested_count
-
-    # Default counts based on coverage level
-    coverage_mapping = {
-        "focused": 100,
-        "standard": 1000,
-        "comprehensive": 5000,
-    }
-
-    return coverage_mapping.get(config.test_coverage, 1000)
 
 
 @router.post("/generate", response_model=TestSetGenerationResponse)
