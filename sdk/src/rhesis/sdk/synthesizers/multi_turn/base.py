@@ -30,7 +30,8 @@ class Test(BaseModel):
     behavior: str
     category: str
     topic: str
-    test_type: str = TestType.MULTI_TURN.value
+    # Note: test_type is NOT included in the schema sent to the LLM
+    # It will be added programmatically after generation
 
 
 class Tests(BaseModel):
@@ -75,6 +76,9 @@ class MultiTurnSynthesizer:
                 test_dict["test_configuration"], BaseModel
             ):
                 test_dict["test_configuration"] = test_dict["test_configuration"].model_dump()
+
+            # Always set test_type to Multi-Turn (don't rely on LLM generation)
+            test_dict["test_type"] = TestType.MULTI_TURN.value
 
             multi_turn_tests.append(test_dict)
 
