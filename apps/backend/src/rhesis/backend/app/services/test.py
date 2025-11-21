@@ -343,8 +343,18 @@ def bulk_create_tests(
     organization_id: str,
     user_id: str,
     test_set_id: str | None = None,
+    test_type_value: str | None = None,
 ) -> List[models.Test]:
-    """Bulk create tests from a list of test data dictionaries or TestData objects."""
+    """Bulk create tests from a list of test data dictionaries or TestData objects.
+
+    Args:
+        db: Database session
+        tests_data: List of test data
+        organization_id: Organization ID
+        user_id: User ID
+        test_set_id: Optional test set ID
+        test_type_value: Optional test type value (e.g., "Single-Turn", "Multi-Turn")
+    """
     # Validate input UUIDs
     validation_error = validate_uuid_parameters(organization_id, user_id, test_set_id)
     if validation_error:
@@ -356,15 +366,6 @@ def bulk_create_tests(
     defaults = load_defaults()
 
     try:
-        # Get or create required relationships
-        test_type = get_or_create_type_lookup(
-            db=db,
-            type_name="TestType",
-            type_value=defaults["test"]["test_type"],
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-
         test_status = get_or_create_status(
             db=db,
             name=defaults["test"]["status"],
@@ -379,6 +380,23 @@ def bulk_create_tests(
             logger.debug(
                 f"bulk_create_tests - test_data_dict after prepare_test_data: {test_data_dict}"
             )
+
+            # Determine test type for this specific test
+            # Priority: 1. Individual test's test_type, 2. test_set's test_type_value, 3. defaults
+            individual_test_type = test_data_dict.pop("test_type", None)
+            type_value_to_use = (
+                individual_test_type or test_type_value or defaults["test"]["test_type"]
+            )
+
+            # Get or create test type for this specific test
+            test_type = get_or_create_type_lookup(
+                db=db,
+                type_name="TestType",
+                type_value=type_value_to_use,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+
             prompt_data = test_data_dict.pop("prompt", {})
 
             # Create prompt and related entities

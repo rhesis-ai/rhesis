@@ -1,5 +1,19 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional
+
+
+class TestType(str, Enum):
+    """
+    Enum for test types.
+
+    These values align with the backend TypeLookup table:
+    - SINGLE_TURN: Traditional single request-response tests
+    - MULTI_TURN: Agentic multi-turn conversation tests using Penelope
+    """
+
+    SINGLE_TURN = "Single-Turn"
+    MULTI_TURN = "Multi-Turn"
 
 
 @dataclass

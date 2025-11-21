@@ -202,7 +202,7 @@ class TestPromptCreate(BaseModel):
 
 
 class TestBulkCreate(BaseModel):
-    prompt: TestPromptCreate
+    prompt: Optional[TestPromptCreate] = None  # Optional for Multi-Turn tests
     behavior: str
     category: str
     topic: str
@@ -227,6 +227,43 @@ class TestBulkCreate(BaseModel):
         except (ValueError, TypeError):
             # If it's not a valid UUID, return None instead of raising an error
             return None
+
+    @field_validator("test_configuration")
+    @classmethod
+    def validate_multi_turn_or_prompt(cls, v, info):
+        """
+        Validate that either:
+        - prompt is provided (single-turn test), OR
+        - test_configuration with goal is provided (multi-turn test)
+        """
+        prompt = info.data.get("prompt")
+
+        # If prompt is provided, it's a single-turn test - OK
+        if prompt:
+            return v
+
+        # If no prompt, must be multi-turn - validate goal exists
+        if not v or not v.get("goal"):
+            raise ValueError(
+                "Either 'prompt' must be provided (for single-turn tests) "
+                "or 'test_configuration' with 'goal' must be provided (for multi-turn tests)"
+            )
+
+        # If 'goal' is present, validate as multi-turn config
+        if "goal" in v:
+            try:
+                validated_config = validate_multi_turn_config(v)
+                return validated_config.model_dump(exclude_none=True)
+            except ValidationError as e:
+                error_messages = []
+                for error in e.errors():
+                    field = " -> ".join(str(loc) for loc in error["loc"])
+                    error_messages.append(f"{field}: {error['msg']}")
+                raise ValueError(
+                    f"Invalid multi-turn test configuration: {'; '.join(error_messages)}"
+                )
+
+        return v
 
 
 class TestBulkCreateRequest(BaseModel):
