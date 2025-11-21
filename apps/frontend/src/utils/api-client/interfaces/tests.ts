@@ -193,3 +193,40 @@ export interface TestBulkResponse {
   test_configuration?: Record<string, any>;
   prompt?: Record<string, any>;
 }
+
+// Test execution interfaces
+export interface TestExecuteRequest {
+  // Option 1: Use existing test
+  test_id?: UUID;
+
+  // Required: Endpoint to execute against
+  endpoint_id: UUID;
+
+  // Optional: Control metric evaluation
+  evaluate_metrics?: boolean;
+
+  // Option 2: Define test inline (required if test_id not provided)
+  // For single-turn tests
+  prompt?: TestPromptCreate;
+
+  // For multi-turn tests
+  test_configuration?: Record<string, any>;
+
+  // Required metadata if test_id not provided
+  behavior?: string;
+  topic?: string;
+  category?: string;
+
+  // Optional: Explicitly specify test type (otherwise auto-detected)
+  test_type?: 'Single-Turn' | 'Multi-Turn';
+}
+
+export interface TestExecuteResponse {
+  test_id: string;
+  prompt_id?: string;
+  execution_time: number; // Milliseconds
+  test_output?: string | Record<string, any>; // Always returned
+  test_metrics?: Record<string, any>; // Only if evaluate_metrics=True
+  status: 'Pass' | 'Fail' | 'Error' | 'Pending'; // Status
+  test_configuration?: Record<string, any>; // For multi-turn tests
+}
