@@ -51,7 +51,9 @@ RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
 
 # Install dependencies
-RUN uv sync
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync
 
 # Now copy ALL source code including migrations - this layer will invalidate when any source changes
 # This ensures migration files are always up-to-date in the final image
@@ -61,7 +63,6 @@ COPY apps/backend/src /app/src
 # STAGE 2: Runtime - Create minimal runtime image
 # ============================================================================
 FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
