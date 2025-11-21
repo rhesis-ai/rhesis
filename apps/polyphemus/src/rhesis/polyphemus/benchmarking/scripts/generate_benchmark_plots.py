@@ -30,25 +30,48 @@ def load_report(report_path):
 
 
 def clean_model_name(full_name):
-    """Extract clean model name from full model ID, including model size."""
+    """Extract clean model name from full model ID, including model size and precision."""
     if "model name: " in full_name:
         name = full_name.split("model name: ")[1]
+
+        # Extract class name for precision detection
+        class_name = ""
+        if "Class name: " in full_name:
+            class_name = full_name.split("Class name: ")[1].split(",")[0]
 
         # Extract model size using regex (supports 3B, 8B, 24B, 70B, etc.)
         size_match = re.search(r'(\d+\.?\d*[BMK])', name, re.IGNORECASE)
         size_str = f" {size_match.group(1).upper()}" if size_match else ""
 
+        # Extract precision from class name (FP16, FP32, INT8, INT4, BF16, etc.)
+        precision_str = ""
+        precision_patterns = [
+            r'(FP16)',
+            r'(FP32)',
+            r'(BF16)',
+            r'(INT8)',
+            r'(INT4)',
+            r'(GPTQ)',
+            r'(AWQ)',
+            r'(GGUF)',
+        ]
+        for pattern in precision_patterns:
+            match = re.search(pattern, class_name, re.IGNORECASE)
+            if match:
+                precision_str = f" {match.group(1).upper()}"
+                break
+
         # Handle specific model naming conventions
         if "Josiefied-Qwen3" in name or "Josified-Qwen3" in name:
-            return f"Josiefied-Qwen3{size_str}".strip()
+            return f"Josiefied-Qwen3{size_str}{precision_str}".strip()
         elif "DeepHermes-3" in name or "DeepHermes3" in name:
-            return f"DeepHermes 3{size_str}".strip()
+            return f"DeepHermes 3{size_str}{precision_str}".strip()
         elif "Hermes-3" in name or "Hermes3" in name:
-            return f"Hermes 3{size_str}".strip()
+            return f"Hermes 3{size_str}{precision_str}".strip()
         elif "Dolphin" in name or "dphn" in name:
-            return f"Dolphin 3.0{size_str}".strip()
+            return f"Dolphin 3.0{size_str}{precision_str}".strip()
         elif "Huihui" in name:
-            return f"Huihui-Qwen3-VL{size_str}".strip()
+            return f"Huihui-Qwen3-VL{size_str}{precision_str}".strip()
         elif "gemini" in name.lower():
             # Extract version for Gemini models
             if "2.0" in name:
@@ -61,9 +84,18 @@ def clean_model_name(full_name):
         if "/" in name:
             parts = name.split("/")
             base_name = parts[1][:30]
-            return f"{base_name}{size_str}".strip()
+            return f"{base_name}{size_str}{precision_str}".strip()
         return name
     return full_name
+
+
+def extract_base_model_name(clean_name):
+    """Extract base model name without size or precision for grouping."""
+    # Remove size patterns (3B, 8B, 24B, 70B, etc.)
+    base = re.sub(r'\s+\d+\.?\d*[BMK]\b', '', clean_name, flags=re.IGNORECASE)
+    # Remove precision patterns (FP16, FP32, INT8, etc.)
+    base = re.sub(r'\s+(FP16|FP32|BF16|INT8|INT4|GPTQ|AWQ|GGUF)\b', '', base, flags=re.IGNORECASE)
+    return base.strip()
 
 
 def plot_overall_ranking(data, output_dir):
@@ -835,6 +867,222 @@ def plot_input_length_vs_generation_time(data, output_dir):
         plt.close()
 
 
+def plot_precision_comparison(data, output_dir):
+    """
+    Plot 10: Precision Comparison for Same Models
+    Compares quality and performance metrics across different precisions
+    """
+    # Group models by base name (without precision/size variants)
+    model_groups = {}
+
+    for model_id, model_data in data["models"].items():
+        if not model_data["quality_metrics"]["overall_score"]:
+            continue
+
+        clean_name = clean_model_name(model_id)
+        base_name = extract_base_model_name(clean_name)
+
+        # Extract size from clean name
+        size_match = re.search(r'(\d+\.?\d*[BMK])\b', clean_name, re.IGNORECASE)
+        size = size_match.group(1).upper() if size_match else ""
+
+        # Create a key with base name and size (but not precision)
+        group_key = f"{base_name} {size}".strip()
+
+        if group_key not in model_groups:
+            model_groups[group_key] = []
+
+        model_groups[group_key].append({
+            "name": clean_name,
+            "model_id": model_id,
+            "data": model_data
+        })
+
+    # Filter to only groups with multiple precision variants
+    multi_precision_groups = {
+        k: v for k, v in model_groups.items()
+        if len(v) > 1
+    }
+
+    if not multi_precision_groups:
+        print("⚠️  No models with multiple precision variants found. Skipping plot 10.")
+        return
+
+    # Create comparison plots for each model group
+    num_groups = len(multi_precision_groups)
+
+    for group_idx, (group_name, models) in enumerate(multi_precision_groups.items()):
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+
+        # Extract data
+        precisions = []
+        overall_scores = []
+        gen_times = []
+        compliance_rates = []
+        colors_list = []
+
+        for model_info in sorted(models, key=lambda x: x["name"]):
+            precisions.append(model_info["name"])
+            qm = model_info["data"]["quality_metrics"]
+            pm = model_info["data"]["performance_metrics"]
+
+            overall_scores.append(qm["overall_score"]["mean"])
+            compliance_rates.append(qm["refusal"]["mean"])
+
+            gen_time = pm.get("generation_time_seconds", {}).get("mean", 0)
+            gen_times.append(gen_time if gen_time else 0)
+
+            # Color by precision type
+            name_lower = model_info["name"].lower()
+            if "fp16" in name_lower:
+                colors_list.append("#e74c3c")  # Red
+            elif "fp32" in name_lower:
+                colors_list.append("#3498db")  # Blue
+            elif "int8" in name_lower:
+                colors_list.append("#2ecc71")  # Green
+            elif "int4" in name_lower:
+                colors_list.append("#f39c12")  # Orange
+            else:
+                colors_list.append("#95a5a6")  # Gray for default/unknown
+
+        # Plot 1: Quality Metrics Comparison
+        x = np.arange(len(precisions))
+        width = 0.35
+
+        bars1 = ax1.bar(x - width/2, overall_scores, width, label='Overall Score',
+                        color=colors_list, alpha=0.8, edgecolor='black')
+        bars2 = ax1.bar(x + width/2, compliance_rates, width, label='Compliance Rate',
+                        color=colors_list, alpha=0.5, edgecolor='black')
+
+        ax1.set_xlabel('Precision', fontsize=12, fontweight='bold')
+        ax1.set_ylabel('Score (0-1)', fontsize=12, fontweight='bold')
+        ax1.set_title(f'{group_name} - Quality Metrics', fontsize=13, fontweight='bold')
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(precisions, rotation=15, ha='right')
+        ax1.legend(fontsize=10)
+        ax1.set_ylim(0, 1.05)
+        ax1.grid(True, alpha=0.3, axis='y')
+
+        # Add value labels on bars
+        for bars in [bars1, bars2]:
+            for bar in bars:
+                height = bar.get_height()
+                ax1.text(bar.get_x() + bar.get_width()/2., height,
+                        f'{height:.3f}',
+                        ha='center', va='bottom', fontsize=8)
+
+        # Plot 2: Performance Comparison
+        if any(gen_times):
+            bars3 = ax2.bar(x, gen_times, color=colors_list, alpha=0.8, edgecolor='black')
+
+            ax2.set_xlabel('Precision', fontsize=12, fontweight='bold')
+            ax2.set_ylabel('Average Generation Time (seconds)', fontsize=12, fontweight='bold')
+            ax2.set_title(f'{group_name} - Performance', fontsize=13, fontweight='bold')
+            ax2.set_xticks(x)
+            ax2.set_xticklabels(precisions, rotation=15, ha='right')
+            ax2.grid(True, alpha=0.3, axis='y')
+
+            # Add value labels
+            for bar in bars3:
+                height = bar.get_height()
+                if height > 0:
+                    ax2.text(bar.get_x() + bar.get_width()/2., height,
+                            f'{height:.1f}s',
+                            ha='center', va='bottom', fontsize=9)
+
+            # Add efficiency annotation (quality/time ratio)
+            if max(gen_times) > 0:
+                ax2_twin = ax2.twinx()
+                efficiency = [score / time if time > 0 else 0
+                             for score, time in zip(overall_scores, gen_times)]
+                ax2_twin.plot(x, efficiency, 'go--', linewidth=2, markersize=8,
+                             label='Efficiency (Score/Time)', alpha=0.7)
+                ax2_twin.set_ylabel('Efficiency (Score/Time)', fontsize=11,
+                                   fontweight='bold', color='green')
+                ax2_twin.tick_params(axis='y', labelcolor='green')
+                ax2_twin.legend(loc='upper right', fontsize=9)
+        else:
+            ax2.text(0.5, 0.5, 'No performance data available',
+                    ha='center', va='center', transform=ax2.transAxes, fontsize=12)
+            ax2.set_xticks(x)
+            ax2.set_xticklabels(precisions, rotation=15, ha='right')
+
+        plt.tight_layout()
+        plot_filename = f"10_precision_comparison_{group_idx+1}_{group_name.replace(' ', '_')}.png"
+        plt.savefig(output_dir / plot_filename, dpi=DPI, bbox_inches='tight')
+        print(f"✅ Saved: {plot_filename}")
+        plt.close()
+
+    # Create summary plot if multiple groups exist
+    if num_groups > 1:
+        fig, ax = plt.subplots(figsize=(14, 8))
+
+        # Create grouped comparison
+        all_data = []
+        for group_name, models in multi_precision_groups.items():
+            for model_info in models:
+                qm = model_info["data"]["quality_metrics"]
+                pm = model_info["data"]["performance_metrics"]
+                gen_time = pm.get("generation_time_seconds", {}).get("mean", 0)
+
+                all_data.append({
+                    "group": group_name,
+                    "model": model_info["name"],
+                    "score": qm["overall_score"]["mean"],
+                    "time": gen_time if gen_time else 0
+                })
+
+        # Plot scatter: quality vs performance colored by precision
+        for item in all_data:
+            name_lower = item["model"].lower()
+            if "fp16" in name_lower:
+                color = "#e74c3c"
+                marker = "o"
+            elif "fp32" in name_lower:
+                color = "#3498db"
+                marker = "s"
+            elif "int8" in name_lower:
+                color = "#2ecc71"
+                marker = "^"
+            elif "int4" in name_lower:
+                color = "#f39c12"
+                marker = "D"
+            else:
+                color = "#95a5a6"
+                marker = "x"
+
+            if item["time"] > 0:
+                ax.scatter(item["time"], item["score"], s=200, alpha=0.6,
+                          color=color, marker=marker, edgecolors='black', linewidths=1.5)
+                ax.annotate(item["model"], (item["time"], item["score"]),
+                           fontsize=8, ha='left', va='bottom', xytext=(5, 5),
+                           textcoords='offset points')
+
+        # Add legend
+        from matplotlib.lines import Line2D
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='#e74c3c',
+                   markersize=10, label='FP16', markeredgecolor='black'),
+            Line2D([0], [0], marker='s', color='w', markerfacecolor='#3498db',
+                   markersize=10, label='FP32', markeredgecolor='black'),
+            Line2D([0], [0], marker='^', color='w', markerfacecolor='#2ecc71',
+                   markersize=10, label='INT8', markeredgecolor='black'),
+            Line2D([0], [0], marker='D', color='w', markerfacecolor='#f39c12',
+                   markersize=10, label='INT4', markeredgecolor='black'),
+        ]
+        ax.legend(handles=legend_elements, loc='lower right', fontsize=11)
+
+        ax.set_xlabel('Generation Time (seconds) - Lower is Better', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Overall Quality Score - Higher is Better', fontsize=12, fontweight='bold')
+        ax.set_title('Precision Trade-offs: Quality vs Performance', fontsize=14, fontweight='bold', pad=20)
+        ax.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig(output_dir / "10_precision_summary.png", dpi=DPI, bbox_inches='tight')
+        print("✅ Saved: 10_precision_summary.png")
+        plt.close()
+
+
 def main():
     """Generate all plots."""
     print("📊 Generating Model Comparison Plots for Sprint Review")
@@ -866,6 +1114,7 @@ def main():
     plot_performance_vs_quality(data, output_dir)
     plot_quality_vs_compliance_scatter(data, output_dir)
     plot_input_length_vs_generation_time(data, output_dir)
+    plot_precision_comparison(data, output_dir)
 
     print("\n" + "=" * 60)
     print("✅ All plots generated successfully!")
@@ -880,6 +1129,7 @@ def main():
     print("  7. Performance vs Quality - Generation time trade-offs")
     print("  8. Quality vs Compliance - Alternative scatter view")
     print("  9. Input Length Analysis - Scaling analysis with regression")
+    print("  10. Precision Comparison - Quality/performance across precisions")
 
     return 0
 
