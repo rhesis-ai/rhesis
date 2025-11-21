@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from rhesis.polyphemus.models import LazyModelLoader
-from rhesis.polyphemus.routers.health import router as health_router
 from rhesis.polyphemus.routers.services import router as services_router
 from rhesis.polyphemus.utils import ProcessTimeMiddleware
 
@@ -48,8 +47,21 @@ app = FastAPI(
 # Add middleware
 app.add_middleware(ProcessTimeMiddleware)
 
+
+# Health check endpoints
+@app.get("/")
+async def root():
+    """Root endpoint - basic service information."""
+    return {"service": "Rhesis Polyphemus", "status": "running"}
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Cloud Run and monitoring."""
+    return {"status": "ok"}
+
+
 # Register routers
-app.include_router(health_router)
 app.include_router(services_router)
 
 if __name__ == "__main__":
