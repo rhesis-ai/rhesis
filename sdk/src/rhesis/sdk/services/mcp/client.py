@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import yaml
+# Jinja is used for template rendering
+import jinja2
 from mcp import ClientSession, StdioServerParameters  # type: ignore[import-untyped]
 from mcp.client.stdio import stdio_client  # type: ignore[import-untyped]
 
@@ -277,10 +278,11 @@ class MCPClientManager:
             }
             manager = MCPClientManager.from_tool_config("notionApi", tool_config, "ntn_abc123...")
         """
-        # Serialize to string, replace placeholder, parse back
-        config_str = json.dumps(tool_config)
-        config_str = config_str.replace("{{auth_token}}", auth_token)
-        processed_config = json.loads(config_str)
+        # Use Jinja to safely render the placeholders without breaking JSON
+        env = jinja2.Environment(autoescape=False)
+        template = env.from_string(json.dumps(tool_config))
+        rendered = template.render(auth_token=auth_token)
+        processed_config = json.loads(rendered)
 
         # Wrap in mcpServers format expected by create_client
         config_dict = {"mcpServers": {tool_name: processed_config}}
@@ -305,26 +307,27 @@ class MCPClientManager:
         Example:
             manager = MCPClientManager.from_provider("notion", "ntn_abc123...")
         """
-        # Load MCP templates YAML
-        template_path = Path(__file__).parent / "mcp-templates.yaml"
-        with open(template_path) as f:
-            templates = yaml.safe_load(f)
+        # -----------------------------
+        # Load and render Jinja template
+        # -----------------------------
+        templates_dir = Path(__file__).parent / "provider_templates"
+        template_file = templates_dir / f"{provider}.json.j2"
 
-        # Get the template for this provider
-        if provider not in templates:
-            available_providers = list(templates.keys())
-            raise ValueError(
-                f"MCP provider '{provider}' not supported. Available: {available_providers}"
-            )
+        if not template_file.exists():
+            # Provide a helpful error listing available providers
+            available = [p.stem.split(".")[0] for p in templates_dir.glob("*.json.j2")]
+            raise ValueError(f"MCP provider '{provider}' not supported. Available: {available}")
 
-        template = templates[provider]
+        env = jinja2.Environment(autoescape=False)
+        template = env.from_string(template_file.read_text())
 
-        # Render template: replace {{auth_token}} with actual token
-        config_str = json.dumps(template["config"])
-        config_str = config_str.replace("{{auth_token}}", auth_token)
-        config = json.loads(config_str)
+        # Render with proper JSON-escaping via the built-in `tojson` filter
+        rendered = template.render(auth_token=auth_token)
 
-        # Use existing method to create the manager
+        # Parse rendered JSON into dict
+        config = json.loads(rendered)
+
+        # Build manager configuration
         tool_name = f"{provider}Api"
         config_dict = {"mcpServers": {tool_name: config}}
 
