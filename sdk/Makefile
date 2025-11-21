@@ -33,10 +33,10 @@ format_diff:
 		echo "No Python file changes detected in git diff with the main branch."; \
 	fi
 
-test-fast:
+test:
 	uv run pytest -s --ignore=../tests/sdk/integration
 
-test:
+test-slow:
 	uv run pytest -s
 
 test-coverage:
