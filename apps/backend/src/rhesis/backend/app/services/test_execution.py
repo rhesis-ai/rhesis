@@ -188,7 +188,7 @@ def _create_inplace_test(
                 # If prompt is provided, it's Single-Turn
                 elif self.prompt:
                     test_type_str = "Single-Turn"
-            
+
             if test_type_str:
 
                 class TestType:
