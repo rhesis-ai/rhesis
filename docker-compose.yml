@@ -53,12 +53,7 @@ x-telemetry-config: &telemetry-config
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318/}
   OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-rhesis}
   OTEL_DEPLOYMENT_TYPE: ${OTEL_DEPLOYMENT_TYPE:-self-hosted}
-  OTEL_RHESIS_TELEMETRY_ENABLED: ${OTEL_RHESIS_TELEMETRY_ENABLED:-true}  # Self-hosted: opt-out via env var
-
-x-gemini-google: &gemini-google
-  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-  GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME:-gemini-2.0-flash-001}
-  GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+  OTEL_RHESIS_TELEMETRY_ENABLED: ${OTEL_RHESIS_TELEMETRY_ENABLED:-false}  # Self-hosted: opt-out via env var
 
 x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
@@ -70,9 +65,6 @@ x-nextjs-frontend: &nextjs-frontend
   NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
   NEXT_TELEMETRY_DISABLED: 1
 
-x-google-client: &google-client
-  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-your-google-client-id}
-  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-your-google-client-secret}
 
 services:
   # PostgreSQL Database
@@ -122,7 +114,7 @@ services:
       dockerfile: apps/backend/Dockerfile
     container_name: rhesis-backend
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *gemini-google, *telemetry-config]
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config]
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
       QUICK_START: ${QUICK_START:-false}
     ports:
@@ -134,9 +126,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./apps/backend/src:/app/src
-      - ./sdk:/app/sdk
     networks:
       - rhesis-network
 
@@ -172,8 +161,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./sdk:/app/sdk
     networks:
       - rhesis-network
     restart: unless-stopped
@@ -198,7 +185,7 @@ services:
         NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
     container_name: rhesis-frontend
     environment:
-      <<: [*common-auth0, *nextjs-frontend, *google-client, *common-environment, *rhesis-config]
+      <<: [*common-auth0, *nextjs-frontend, *common-environment, *rhesis-config]
       PORT: ${FRONTEND_PORT:-3000}
     ports:
       - "3000:3000"
