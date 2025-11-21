@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from tqdm.auto import tqdm
 
 from rhesis.sdk.entities.test_set import TestSet
+from rhesis.sdk.enums import TestType
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.chunker import (
@@ -33,6 +34,8 @@ class Test(BaseModel):
     behavior: str
     category: str
     topic: str
+    # Note: test_type is NOT included in the schema sent to the LLM
+    # It will be added programmatically after generation
 
 
 class Tests(BaseModel):
@@ -175,6 +178,10 @@ class TestSetSynthesizer(ABC):
 
             # Add context and document mapping to each test
             for test in result:
+                # Ensure test_type is set (should already be set by _generate_batch)
+                if "test_type" not in test:
+                    test["test_type"] = TestType.SINGLE_TURN.value
+
                 test["metadata"] = {
                     **(test.get("metadata") or {}),
                     "sources": [
@@ -273,6 +280,7 @@ class TestSetSynthesizer(ABC):
         tests = [
             {
                 **test,
+                "test_type": TestType.SINGLE_TURN.value,  # Set to Single-Turn
                 "metadata": {
                     "generated_by": self._get_synthesizer_name(),
                 },
