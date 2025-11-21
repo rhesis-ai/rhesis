@@ -63,7 +63,6 @@ COPY apps/backend/src /app/src
 # STAGE 2: Runtime - Create minimal runtime image
 # ============================================================================
 FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
