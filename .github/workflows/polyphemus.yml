@@ -71,12 +71,12 @@ jobs:
           environment: ${{ github.event.inputs.environment }}
 
   build:
-  needs: validate-inputs
-  if: >
-    (github.ref == 'refs/heads/main' && github.event_name == 'push')
-    || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
-    || (github.event_name == 'workflow_call' && inputs.deploy_only != 'true')
-  runs-on: ubuntu-latest
+    needs: validate-inputs
+    if: >
+      (github.ref == 'refs/heads/main' && github.event_name == 'push')
+      || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
+      || (github.event_name == 'workflow_call' && inputs.deploy_only != 'true')
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
