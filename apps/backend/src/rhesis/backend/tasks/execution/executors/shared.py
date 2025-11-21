@@ -67,12 +67,20 @@ def get_test_and_prompt(
     """
     Retrieve test and its associated prompt data.
 
+    For single-turn tests, validates that a prompt exists.
+    For multi-turn tests, validates that test_configuration has a goal defined.
+
     Returns:
         Tuple of (test, prompt_content, expected_response)
+        For multi-turn tests, prompt_content is empty string and expected_response is empty
 
     Raises:
-        ValueError: If test or prompt is not found
+        ValueError: If test is not found or validation fails
     """
+    # Import here to avoid circular dependency
+    from rhesis.backend.tasks.enums import TestType
+    from rhesis.backend.tasks.execution.modes import get_test_type
+
     # Get the test
     test = crud.get_test(db, UUID(test_id), organization_id=organization_id)
     if not test:
@@ -85,12 +93,33 @@ def get_test_and_prompt(
         if not test:
             raise ValueError(f"Test with ID {test_id} not found")
 
-    # Get the prompt
-    prompt = test.prompt
-    if not prompt:
-        raise ValueError(f"Test {test_id} has no associated prompt")
+    # Determine test type
+    test_type = get_test_type(test)
 
-    return test, prompt.content, prompt.expected_response or ""
+    # Validate based on test type
+    if test_type == TestType.MULTI_TURN:
+        # Multi-turn tests don't have prompts - they have test_configuration with goal
+        test_config = test.test_configuration or {}
+        goal = test_config.get("goal")
+
+        if not goal:
+            raise ValueError(
+                f"Multi-turn test {test_id} has no goal defined in test_configuration. "
+                "Multi-turn tests require a 'goal' field in test_configuration."
+            )
+
+        # Return empty strings for prompt fields (not used in multi-turn)
+        return test, "", ""
+    else:
+        # Single-turn tests require a prompt
+        prompt = test.prompt
+        if not prompt:
+            raise ValueError(
+                f"Single-turn test {test_id} has no associated prompt. "
+                "Single-turn tests require a prompt."
+            )
+
+        return test, prompt.content, prompt.expected_response or ""
 
 
 def get_test_metrics(

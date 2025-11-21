@@ -225,13 +225,14 @@ def bulk_create_test_set(
         db.add(test_set)
         db.flush()  # Get the test set ID
 
-        # Create tests and associate with test set
+        # Create tests and associate with test set, using the same type as the test set
         bulk_create_tests(
             db=db,
             tests_data=test_set_data.tests,
             organization_id=organization_id,
             user_id=user_id,
             test_set_id=str(test_set.id),
+            test_type_value=test_set_type_value,
         )
 
         # Refresh test set to get all relationships

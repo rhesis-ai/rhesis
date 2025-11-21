@@ -194,11 +194,20 @@ async def create_test_set_bulk(
     - expected_response is an optional field to specify the expected model response
     """
     try:
+        # Extract test_set_type from request if provided
+        test_set_type = None
+        if test_set_data.test_set_type:
+            from rhesis.backend.app.constants import TestType
+
+            # Convert string to TestType enum using from_string helper
+            test_set_type = TestType.from_string(test_set_data.test_set_type)
+
         test_set = bulk_create_test_set(
             db=db,
             test_set_data=test_set_data,
             organization_id=str(current_user.organization_id),
             user_id=str(current_user.id),
+            test_set_type=test_set_type,
         )
         return test_set
     except Exception as e:
