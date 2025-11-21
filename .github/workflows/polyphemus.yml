@@ -194,7 +194,8 @@ jobs:
       # Use fallback when build is skipped (deploy_only=true)
       ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment || 'dev' }}
       # When deploy_only is true, build is skipped, so we need fallbacks
-      IS_PREVIEW: ${{ needs.build.outputs.is_preview || (inputs.preview == 'true' || github.event.inputs.preview == 'true') || false }}
+      # Fix: Ensure IS_PREVIEW is always a string ('true' or 'false'), not a boolean
+      IS_PREVIEW: ${{ (needs.build.outputs.is_preview == 'true' || inputs.preview == 'true' || github.event.inputs.preview == 'true') && 'true' || 'false' }}
 
     outputs:
       deployed_url_encoded: ${{ steps.output_url.outputs.deployed_url_encoded }}

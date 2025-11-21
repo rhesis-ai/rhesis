@@ -1,37 +1,24 @@
-# Start with NVIDIA CUDA base image with more recent CUDA version
-FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+# Use standard Python base image (CUDA runtime provided by Cloud Run GPU environment)
+# The SDK will install torch with appropriate CUDA support
+FROM mirror.gcr.io/library/python:3.10.17-slim
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV DEBIAN_FRONTEND=noninteractive
-ENV VIRTUAL_ENV=/opt/venv
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    PYTHONPATH=/app:/app/src
 
-# Install Python and dependencies
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
+# Install OS-level dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     git \
-    wget \
-    apt-utils \
     && rm -rf /var/lib/apt/lists/*
-
-# Create and use virtual environment
-RUN python3 -m venv $VIRTUAL_ENV
-
-# Create a non-root user to run the app
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
-# Set working directory
-WORKDIR /app
-
-# Install basic build dependencies first (within venv)
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir packaging wheel setuptools
 
 # Install uv for modern dependency management
 RUN pip install --no-cache-dir uv
+
+# Set working directory
+WORKDIR /app
 
 # Copy pyproject.toml first for better caching
 # Build context is repo root, so pyproject.toml is at apps/polyphemus/
@@ -51,23 +38,27 @@ COPY apps/polyphemus/src/rhesis/polyphemus/__init__.py /app/src/rhesis/polyphemu
 # Fix paths in pyproject.toml to point to the correct locations in Docker
 RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml || true
 
-# Install dependencies using uv with PyTorch CUDA index
-# This will install both SDK and Polyphemus dependencies
-RUN uv pip install --system --extra-index-url https://download.pytorch.org/whl/cu121 -e .
+# Compile bytecode to improve performance
+ENV UV_COMPILE_BYTECODE=1
+# Use only system Python provided by the base image
+ENV UV_NO_MANAGED_PYTHON=1
+# Skip the installation of the dev dependencies
+ENV UV_NO_DEV=1
 
-# Install flash-attn separately with a specific pre-built wheel for CUDA 12.1
-# Directly using a compatible wheel URL to avoid compilation
-RUN pip install --no-cache-dir "https://github.com/Dao-AILab/flash-attention/releases/download/v2.3.3/flash_attn-2.3.3+cu122torch2.1cxx11abiFALSE-cp310-cp310-linux_x86_64.whl"
+# Install dependencies using uv
+# The SDK (rhesis-sdk[huggingface]) will install torch with appropriate CUDA support
+RUN uv sync
 
 # Copy the application code (from build context repo root)
 COPY apps/polyphemus/src/rhesis/polyphemus /app/src/rhesis/polyphemus/
 
-# Ensure SDK is in Python path
-ENV PYTHONPATH="/app:/app/src:$PYTHONPATH"
-
 # For caching models (optional - can be overridden at runtime)
 ENV TRANSFORMERS_CACHE="/app/model_cache"
-RUN mkdir -p /app/model_cache && chown -R appuser:appuser /app
+RUN mkdir -p /app/model_cache
+
+# Create non-root user
+RUN adduser --disabled-password --gecos '' appuser && \
+    chown -R appuser:appuser /app
 
 # Expose the port the app will run on
 EXPOSE 8080
