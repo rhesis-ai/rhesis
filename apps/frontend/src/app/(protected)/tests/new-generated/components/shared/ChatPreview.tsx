@@ -25,7 +25,7 @@ export default function ChatPreview({ messages }: ChatPreviewProps) {
         gap: 1.5,
         p: 2,
         bgcolor: 'grey.50',
-        borderRadius: 2,
+        borderRadius: theme => theme.shape.borderRadius,
         minHeight: '400px',
       }}
     >
@@ -51,7 +51,7 @@ export default function ChatPreview({ messages }: ChatPreviewProps) {
                   message.role === 'user'
                     ? 'primary.contrastText'
                     : 'text.primary',
-                borderRadius: 2,
+                borderRadius: theme => theme.shape.borderRadius,
                 ...(isLeft && {
                   borderBottomLeftRadius: 4,
                 }),

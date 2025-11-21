@@ -205,7 +205,7 @@ export default function TestSampleCard({
                       sx={{
                         mt: 1,
                         textTransform: 'none',
-                        fontSize: '0.75rem',
+                        fontSize: theme => theme.typography.caption.fontSize,
                         color: 'text.secondary',
                         p: 0,
                         minWidth: 'auto',
