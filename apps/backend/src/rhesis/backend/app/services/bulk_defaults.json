@@ -7,6 +7,7 @@
     },
     "test_set": {
         "status": "New",
+        "test_set_type": "Single-Turn",
         "license_type": "Copyright",
         "visibility": "organization",
         "priority": 1,

@@ -19,7 +19,6 @@ from rhesis.backend.alembic.utils.template_loader import (
     load_status_template,
 )
 
-
 # revision identifiers, used by Alembic.
 revision: str = "416d3e2c6f1f"
 down_revision: Union[str, None] = "415c0d01df0e"

@@ -256,23 +256,16 @@ export interface TestSetBulkDisassociateResponse {
 }
 
 // Test set generation interfaces
-export interface GenerationSample {
-  text: string;
-  behavior: string;
-  topic: string;
-  rating?: number | null;
-  feedback?: string;
-}
 
-export interface TestSetGenerationConfig {
-  project_name?: string;
-  behaviors: string[];
-  purposes: string[];
-  test_type?: string;
-  response_generation?: string;
-  test_coverage?: string;
-  tags?: string[];
-  description: string;
+/**
+ * GenerationConfig matches the SDK's GenerationConfig structure
+ */
+export interface GenerationConfig {
+  generation_prompt?: string;
+  behaviors?: string[];
+  categories?: string[];
+  topics?: string[];
+  additional_context?: string;
 }
 
 export interface SourceData {
@@ -282,18 +275,59 @@ export interface SourceData {
   content?: string;
 }
 
-export interface TestSetGenerationRequest {
-  config: TestSetGenerationConfig;
-  samples?: GenerationSample[];
-  synthesizer_type?: string;
-  num_tests?: number;
+/**
+ * Unified request for both sampling (services) and bulk generation (test_sets)
+ */
+export interface GenerateTestsRequest {
+  config: GenerationConfig;
+  num_tests: number;
   batch_size?: number;
   sources?: SourceData[];
-  name?: string;
+  name?: string; // Only used for bulk generation
 }
 
-export interface TestSetGenerationResponse {
+/**
+ * Response for sampling (synchronous)
+ */
+export interface GenerateTestsResponse {
+  tests: any[]; // Test objects
+}
+
+/**
+ * Response for bulk generation (async via worker)
+ */
+export interface GenerateTestSetResponse {
   task_id: string;
   message: string;
   estimated_tests: number;
 }
+
+// Legacy interfaces - kept for backwards compatibility during migration
+/** @deprecated Use GenerationConfig instead */
+export interface GenerationSample {
+  text: string;
+  behavior: string;
+  topic: string;
+  rating?: number | null;
+  feedback?: string;
+}
+
+/** @deprecated Use GenerationConfig instead */
+export interface TestSetGenerationConfig extends GenerationConfig {
+  project_name?: string;
+  purposes?: string[];
+  test_type?: string;
+  response_generation?: string;
+  test_coverage?: string;
+  tags?: string[];
+  description?: string;
+}
+
+/** @deprecated Use GenerateTestsRequest instead */
+export interface TestSetGenerationRequest extends GenerateTestsRequest {
+  samples?: GenerationSample[];
+  synthesizer_type?: string;
+}
+
+/** @deprecated Use GenerateTestSetResponse instead */
+export interface TestSetGenerationResponse extends GenerateTestSetResponse {}

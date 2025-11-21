@@ -20,9 +20,8 @@ import {
 } from './shared/types';
 import { Project } from '@/utils/api-client/interfaces/project';
 import {
-  TestSetGenerationRequest,
-  TestSetGenerationConfig,
-  GenerationSample,
+  GenerateTestsRequest,
+  GenerationConfig,
   SourceData,
 } from '@/utils/api-client/interfaces/test-set';
 import TestInputScreen from './TestInputScreen';
@@ -184,7 +183,7 @@ export default function TestGenerationFlow({
   const [testSamples, setTestSamples] = useState<AnyTestSample[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [project, setProject] = useState<Project | null>(null);
-  const [testSetSize, setTestSetSize] = useState<TestSetSize>('medium');
+  const [testSetSize, setTestSetSize] = useState<TestSetSize>('small');
   const [testSetName, setTestSetName] = useState('');
 
   // UI State
@@ -444,7 +443,7 @@ export default function TestGenerationFlow({
       const apiFactory = new ApiClientFactory(sessionToken);
       const servicesClient = apiFactory.getServicesClient();
 
-      // Build prompt from configuration
+      // Build config from configuration
       const activeBehaviors = configChips.behavior
         .filter(c => c.active)
         .map(c => c.label);
@@ -497,7 +496,7 @@ export default function TestGenerationFlow({
         const apiFactory = new ApiClientFactory(sessionToken);
         const servicesClient = apiFactory.getServicesClient();
 
-        // Build prompt from configuration with feedback
+        // Build config from configuration with feedback
         const activeBehaviors = configChips.behavior
           .filter(c => c.active)
           .map(c => c.label);
@@ -505,8 +504,8 @@ export default function TestGenerationFlow({
           .filter(c => c.active)
           .map(c => c.label);
         const activeCategories = configChips.category
-          .filter(c => c.active)
-          .map(c => c.label);
+        .filter(c => c.active)
+        .map(c => c.label);
 
         // For single-turn tests, use rated samples
         if (testType === 'single_turn' && sample.testType === 'single_turn') {
@@ -876,13 +875,17 @@ export default function TestGenerationFlow({
       const activeTopics = configChips.topics
         .filter(c => c.active)
         .map(c => c.label);
+      const activeCategories = configChips.category
+        .filter(c => c.active)
+        .map(c => c.label);
 
       // Map test set size to actual number of tests
       // Small: 25-50 tests, Medium: 75-150 tests, Large: 200+ tests
       const numTests =
         testSetSize === 'small' ? 50 : testSetSize === 'large' ? 200 : 100;
 
-      const generationConfig: TestSetGenerationConfig = {
+      // Build additional context with samples and metadata
+      const additionalContext = {
         project_name: project?.name,
         behaviors: activeBehaviors,
         purposes: activeTopics,
@@ -894,27 +897,29 @@ export default function TestGenerationFlow({
             : testSetSize === 'large'
               ? 'comprehensive'
               : 'standard',
-        tags: activeTopics,
-        description,
+        samples: testSamples.map(sample => ({
+          text: sample.prompt,
+          behavior: sample.behavior,
+          topic: sample.topic,
+          rating: sample.rating,
+          feedback: sample.feedback,
+        })),
       };
 
-      const generationSamples: GenerationSample[] = testSamples.map(sample => ({
-        text:
-          sample.testType === 'single_turn'
-            ? sample.prompt
-            : sample.prompt.goal,
-        behavior: sample.behavior,
-        topic: sample.topic,
-        rating: sample.rating,
-        feedback: sample.feedback,
-      }));
+      // Build new unified GenerationConfig
+      const config: GenerationConfig = {
+        generation_prompt: description,
+        behaviors: activeBehaviors,
+        categories: activeCategories,
+        topics: activeTopics,
+        additional_context: JSON.stringify(additionalContext),
+      };
 
-      const request: TestSetGenerationRequest = {
-        config: generationConfig,
-        samples: generationSamples,
-        synthesizer_type: 'prompt',
-        batch_size: 20,
+      // Build unified request (no synthesizer_type, no separate samples)
+      const request: GenerateTestsRequest = {
+        config,
         num_tests: numTests,
+        batch_size: 20,
         sources: selectedSources,
         name: testSetName.trim() || undefined,
       };
@@ -939,12 +944,14 @@ export default function TestGenerationFlow({
     }
   }, [
     sessionToken,
-    configChips,
+    configChips.behavior,
+    configChips.topics,
+    configChips.category,
     description,
     testSamples,
     testSetSize,
     testSetName,
-    selectedSourceIds,
+    selectedSources,
     project,
     router,
     show,

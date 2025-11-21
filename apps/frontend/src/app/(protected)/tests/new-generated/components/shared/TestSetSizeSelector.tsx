@@ -25,6 +25,7 @@ const SIZE_CONFIGS: TestSetSizeConfig[] = [
     description: 'Quick validation and initial testing',
     testCount: '25-50 tests',
     estimatedCost: '',
+    recommended: true,
   },
   {
     id: 'medium',
@@ -32,7 +33,6 @@ const SIZE_CONFIGS: TestSetSizeConfig[] = [
     description: 'Comprehensive testing for most use cases',
     testCount: '75-150 tests',
     estimatedCost: '',
-    recommended: true,
   },
   {
     id: 'large',

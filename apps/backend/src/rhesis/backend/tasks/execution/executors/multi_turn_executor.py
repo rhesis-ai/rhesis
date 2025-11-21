@@ -91,16 +91,15 @@ class MultiTurnTestExecutor(BaseTestExecutor):
                 logger.info(f"[MultiTurnExecutor] Found existing result for test {test_id}")
                 return existing_result
 
-            # Retrieve test data
-            test, prompt_content, expected_response = get_test_and_prompt(
-                db, test_id, organization_id
-            )
+            # Retrieve test data - validation ensures goal exists in test_configuration
+            test, _, _ = get_test_and_prompt(db, test_id, organization_id)
 
             # Extract multi-turn configuration from test
+            # Validation in get_test_and_prompt ensures goal exists for multi-turn tests
             test_config = test.test_configuration or {}
 
             # Get test parameters from configuration
-            goal = test_config.get("goal", prompt_content)  # Use prompt as fallback goal
+            goal = test_config["goal"]  # Required field, validated in get_test_and_prompt
             instructions = test_config.get("instructions")
             scenario = test_config.get("scenario")
             restrictions = test_config.get("restrictions")
