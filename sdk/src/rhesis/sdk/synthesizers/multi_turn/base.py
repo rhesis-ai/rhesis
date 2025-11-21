@@ -18,7 +18,7 @@ class GenerationConfig(BaseModel):
     topics: Optional[list[str]] = None
 
 
-class Prompt(BaseModel):
+class TestConfiguration(BaseModel):
     goal: str
     instructions: str = ""  # Optional - how Penelope should conduct the test
     restrictions: str = ""  # Optional - forbidden behaviors for the target
@@ -26,7 +26,7 @@ class Prompt(BaseModel):
 
 
 class Test(BaseModel):
-    prompt: Prompt
+    test_configuration: TestConfiguration
     behavior: str
     category: str
     topic: str
@@ -64,19 +64,17 @@ class MultiTurnSynthesizer:
         prompt = prompt_template.render(template_context)
         response = self.model.generate(prompt, schema=Tests)
 
-        # Transform tests: move prompt data to test_configuration
-        # Multi-turn tests don't use the prompt field - they use test_configuration
+        # Convert tests to dict format
+        # Multi-turn tests use test_configuration (not prompt field)
         multi_turn_tests = []
         for test in response["tests"]:
             test_dict = test if isinstance(test, dict) else test.model_dump()
 
-            # Extract prompt data (goal, instructions, restrictions, scenario)
-            prompt_data = test_dict.pop("prompt", {})
-            if isinstance(prompt_data, BaseModel):
-                prompt_data = prompt_data.model_dump()
-
-            # Move prompt data to test_configuration
-            test_dict["test_configuration"] = prompt_data
+            # Ensure test_configuration is a dict (not a Pydantic model)
+            if "test_configuration" in test_dict and isinstance(
+                test_dict["test_configuration"], BaseModel
+            ):
+                test_dict["test_configuration"] = test_dict["test_configuration"].model_dump()
 
             multi_turn_tests.append(test_dict)
 
