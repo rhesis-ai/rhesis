@@ -17,6 +17,7 @@ from rhesis.backend.app.services.test import bulk_create_tests
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+from rhesis.backend.logging.rhesis_logger import logger
 
 # Create the detailed schema for Test
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
@@ -286,3 +287,132 @@ def delete_test(
     return crud.delete_test(
         db=db, test_id=test_id, organization_id=organization_id, user_id=user_id
     )
+
+
+@router.post("/execute", response_model=schemas.TestExecuteResponse)
+def execute_test_endpoint(
+    request: schemas.TestExecuteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Execute a test in-place without worker infrastructure or database persistence.
+
+    This endpoint enables synchronous test execution for development, testing, or
+    lightweight scenarios. Results are returned immediately without creating TestRun
+    or TestResult database records.
+
+    **Two execution modes:**
+
+    1. **Existing test**: Provide `test_id` to execute an existing test
+    2. **Inline test**: Provide complete test definition:
+       - For single-turn: `prompt` + `behavior` + `topic` + `category`
+       - For multi-turn: `test_configuration` (with goal) + `behavior` + `topic` + `category`
+
+    **Parameters:**
+    - `test_id`: Optional UUID of existing test
+    - `endpoint_id`: Required UUID of endpoint to execute against
+    - `evaluate_metrics`: Whether to evaluate and return test_metrics (default: True)
+    - `prompt`: For single-turn tests (if test_id not provided)
+    - `test_configuration`: For multi-turn tests (if test_id not provided)
+    - `behavior`, `topic`, `category`: Required if test_id not provided
+    - `test_type`: Optional, auto-detected if not provided
+
+    **Returns:**
+    - `test_id`: Test identifier
+    - `prompt_id`: Prompt identifier (single-turn only)
+    - `execution_time`: Execution time in milliseconds
+    - `test_output`: Raw endpoint output (always returned)
+    - `test_metrics`: Evaluated metrics (only if evaluate_metrics=True)
+    - `status`: Pass/Fail/Error/Pending status
+    - `test_configuration`: Test configuration (multi-turn only)
+
+    **Example requests:**
+
+    ```json
+    // Execute existing test
+    {
+      "test_id": "uuid-here",
+      "endpoint_id": "uuid-here",
+      "evaluate_metrics": true
+    }
+
+    // Execute inline single-turn test
+    {
+      "endpoint_id": "uuid-here",
+      "evaluate_metrics": true,
+      "prompt": {
+        "content": "What is 2+2?",
+        "language_code": "en",
+        "expected_response": "4"
+      },
+      "behavior": "Mathematical Reasoning",
+      "topic": "Arithmetic",
+      "category": "Math"
+    }
+
+    // Execute inline multi-turn test
+    {
+      "endpoint_id": "uuid-here",
+      "evaluate_metrics": true,
+      "test_configuration": {
+        "goal": "Book a flight to Paris",
+        "max_turns": 10
+      },
+      "behavior": "Task Completion",
+      "topic": "Travel",
+      "category": "Booking"
+    }
+    ```
+
+    **Errors:**
+    - 400: Invalid request (missing required fields, validation errors)
+    - 404: Test or endpoint not found
+    - 500: Execution error
+    """
+    organization_id, user_id = tenant_context
+
+    try:
+        # Validate endpoint exists
+        db_endpoint = crud.get_endpoint(
+            db,
+            endpoint_id=request.endpoint_id,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        if not db_endpoint:
+            raise HTTPException(status_code=404, detail="Endpoint not found")
+
+        # Validate request data based on Pydantic model (already validated)
+        # The schema's model_post_init handles validation of required fields
+
+        # Convert request to dict for service
+        request_data = request.model_dump()
+
+        # Execute test in-place
+        from rhesis.backend.app.services.test_execution import execute_test_in_place
+
+        result = execute_test_in_place(
+            db=db,
+            request_data=request_data,
+            endpoint_id=str(request.endpoint_id),
+            organization_id=organization_id,
+            user_id=user_id,
+            evaluate_metrics=request.evaluate_metrics,
+        )
+
+        return result
+
+    except ValueError as e:
+        # Handle validation and not-found errors
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=404, detail=error_msg)
+        else:
+            raise HTTPException(status_code=400, detail=error_msg)
+
+    except Exception as e:
+        # Handle unexpected errors
+        logger.error(f"Test execution failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Test execution failed: {str(e)}")

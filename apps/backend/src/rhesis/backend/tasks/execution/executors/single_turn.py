@@ -1,28 +1,17 @@
-"""
-Single-turn test executor.
+"""Single-turn test executor."""
 
-Handles traditional request-response test execution with single prompt evaluation.
-"""
-
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.metrics.evaluator import MetricEvaluator
-from rhesis.backend.tasks.execution.constants import MetricScope
-from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
 from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
-from rhesis.backend.tasks.execution.executors.shared import (
+from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
+from rhesis.backend.tasks.execution.executors.results import (
     check_existing_result,
     create_test_result_record,
-    get_test_and_prompt,
-    get_test_metrics,
-    prepare_metric_configs,
-    process_endpoint_result,
 )
+from rhesis.backend.tasks.execution.executors.runners import SingleTurnRunner
 
 
 class SingleTurnTestExecutor(BaseTestExecutor):
@@ -74,8 +63,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
             ValueError: If test or prompt is not found
             Exception: If endpoint invocation or metric evaluation fails
         """
-        logger.info(f"[SingleTurnExecutor] Starting test execution for test {test_id}")
-        start_time = datetime.utcnow()
+        logger.info(f"[SingleTurnExecutor] Starting execution for test {test_id}")
 
         try:
             # Check for existing result to avoid duplicates
@@ -94,65 +82,21 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 f"[SingleTurnExecutor] Retrieved test data - prompt length: {len(prompt_content)}"
             )
 
-            # Prepare metrics - filter to Single-Turn scope only
-            metrics = get_test_metrics(test, db, organization_id, user_id)
-            metric_configs = prepare_metric_configs(metrics, test_id, scope=MetricScope.SINGLE_TURN)
-            logger.debug(
-                f"[SingleTurnExecutor] Prepared {len(metric_configs)} valid Single-Turn metrics"
-            )
-
-            # Execute endpoint
-            endpoint_service = get_endpoint_service()
-            input_data = {"input": prompt_content}
-
-            result = endpoint_service.invoke_endpoint(
+            # Run core execution (shared with in-place service)
+            runner = SingleTurnRunner()
+            execution_time, processed_result, metrics_results = runner.run(
                 db=db,
+                test=test,
                 endpoint_id=endpoint_id,
-                input_data=input_data,
                 organization_id=organization_id,
-            )
-
-            # Calculate execution time
-            execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-            logger.debug(
-                f"[SingleTurnExecutor] Endpoint execution completed in {execution_time:.2f}ms"
-            )
-
-            # Evaluate metrics
-            context = result.get("context", []) if result else []
-
-            # Pass user's configured model, db session, and org ID to evaluator
-            # This allows metrics to use their own configured models if available
-            metrics_evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
-
-            # Log model being used for metrics evaluation
-            if model:
-                model_info = (
-                    model
-                    if isinstance(model, str)
-                    else f"{type(model).__name__}(model_name={model.model_name})"
-                )
-                logger.debug(
-                    f"[METRICS_EVALUATION] Evaluating test {test_id} with "
-                    f"default model: {model_info}"
-                )
-            else:
-                logger.debug(
-                    f"[METRICS_EVALUATION] Evaluating test {test_id} with system default model"
-                )
-
-            metrics_results = evaluate_prompt_response(
-                metrics_evaluator=metrics_evaluator,
+                user_id=user_id,
+                model=model,
                 prompt_content=prompt_content,
                 expected_response=expected_response,
-                context=context,
-                result=result,
-                metrics=metric_configs,
+                evaluate_metrics=True,
             )
 
-            # Process result and store
-            processed_result = process_endpoint_result(result)
-
+            # Persist to database
             create_test_result_record(
                 db=db,
                 test=test,

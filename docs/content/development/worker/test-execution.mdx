@@ -227,9 +227,12 @@ apps/backend/src/rhesis/backend/tasks/execution/
 ├── executors/
 │   ├── __init__.py
 │   ├── base.py                    # BaseTestExecutor ABC
-│   ├── shared.py                  # Shared utilities
-│   ├── single_turn_executor.py    # Single-turn tests
-│   ├── multi_turn_executor.py     # Multi-turn tests (Penelope)
+│   ├── data.py                    # Data retrieval utilities
+│   ├── metrics.py                 # Metrics processing
+│   ├── results.py                 # Result storage
+│   ├── runners.py                 # Core execution logic (shared)
+│   ├── single_turn.py             # Single-turn executor
+│   ├── multi_turn.py              # Multi-turn executor (Penelope)
 │   └── factory.py                 # Routing logic
 ├── test_execution.py              # Main entry point
 ├── modes.py                       # Execution mode utilities
