@@ -12,19 +12,12 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
-from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.enums import ResultStatus
-from rhesis.backend.tasks.execution.constants import MetricScope
-from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
-from rhesis.backend.tasks.execution.executors.shared import (
-    get_test_and_prompt,
-    get_test_metrics,
-    prepare_metric_configs,
-    process_endpoint_result,
-)
-from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
+from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
+from rhesis.backend.tasks.execution.executors.metrics import determine_status_from_metrics
+from rhesis.backend.tasks.execution.executors.runners import MultiTurnRunner, SingleTurnRunner
+from rhesis.backend.tasks.execution.test import get_evaluation_model
 
 
 def execute_test_in_place(
@@ -63,6 +56,13 @@ def execute_test_in_place(
         Exception: If execution fails
     """
     start_time = datetime.utcnow()
+
+    # Get user's default evaluation model
+    user_model = get_evaluation_model(db, user_id)
+    logger.info(
+        f"[InPlaceExecution] Using model for user {user_id}: "
+        f"{type(user_model).__name__ if not isinstance(user_model, str) else user_model}"
+    )
 
     # Determine if using existing test or creating temporary one
     test_id = request_data.get("test_id")
@@ -109,6 +109,7 @@ def execute_test_in_place(
             endpoint_id=endpoint_id,
             organization_id=organization_id,
             user_id=user_id,
+            model=user_model,
             evaluate_metrics=evaluate_metrics,
             start_time=start_time,
         )
@@ -121,6 +122,7 @@ def execute_test_in_place(
             endpoint_id=endpoint_id,
             organization_id=organization_id,
             user_id=user_id,
+            model=user_model,
             evaluate_metrics=evaluate_metrics,
             start_time=start_time,
         )
@@ -211,71 +213,39 @@ def _execute_single_turn_in_place(
     endpoint_id: str,
     organization_id: str,
     user_id: str,
+    model: Any,
     evaluate_metrics: bool,
     start_time: datetime,
 ) -> Dict[str, Any]:
-    """
-    Execute a single-turn test in-place without persistence.
-
-    Adapted from SingleTurnTestExecutor but skips database operations.
-    """
+    """Execute single-turn test in-place without persistence."""
     test_id = str(test.id)
 
-    # Prepare metrics if evaluation is requested
-    metric_configs = []
-    if evaluate_metrics:
-        metrics = get_test_metrics(test, db, organization_id, user_id)
-        metric_configs = prepare_metric_configs(metrics, test_id, scope=MetricScope.SINGLE_TURN)
-        logger.debug(f"[InPlaceExecution] Prepared {len(metric_configs)} valid Single-Turn metrics")
-
-    # Execute endpoint
-    endpoint_service = get_endpoint_service()
-    input_data = {"input": prompt_content}
-
-    logger.debug(f"[InPlaceExecution] Invoking endpoint {endpoint_id}")
-    result = endpoint_service.invoke_endpoint(
+    # Run core execution (shared with executor)
+    runner = SingleTurnRunner()
+    execution_time, processed_result, metrics_results = runner.run(
         db=db,
+        test=test,
         endpoint_id=endpoint_id,
-        input_data=input_data,
         organization_id=organization_id,
+        user_id=user_id,
+        model=model,  # Use user's default evaluation model
+        prompt_content=prompt_content,
+        expected_response=expected_response,
+        evaluate_metrics=evaluate_metrics,
     )
 
-    # Calculate execution time
-    execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-    logger.debug(f"[InPlaceExecution] Endpoint execution completed in {execution_time:.2f}ms")
-
-    # Process result
-    processed_result = process_endpoint_result(result)
-
-    # Evaluate metrics if requested
+    # Build API response (no DB persistence)
     test_metrics = None
-    status = ResultStatus.ERROR.value  # Default when no metrics
+    status = ResultStatus.ERROR.value
 
-    if evaluate_metrics and metric_configs:
-        logger.debug(f"[InPlaceExecution] Evaluating {len(metric_configs)} metrics")
-        context = result.get("context", []) if result else []
-
-        metrics_evaluator = MetricEvaluator(db=db, organization_id=organization_id)
-        metrics_results = evaluate_prompt_response(
-            metrics_evaluator=metrics_evaluator,
-            prompt_content=prompt_content,
-            expected_response=expected_response,
-            context=context,
-            result=result,
-            metrics=metric_configs,
-        )
-
-        # Build test_metrics structure matching TestResult schema
+    if evaluate_metrics and metrics_results:
         test_metrics = {
             "execution_time": execution_time,
             "metrics": metrics_results,
         }
+        status = determine_status_from_metrics(metrics_results)
 
-        # Determine status based on metrics
-        status = _determine_status_from_metrics(metrics_results)
-
-    # Build response matching TestExecuteResponse schema
-    response = {
+    return {
         "test_id": test_id,
         "prompt_id": str(test.prompt_id) if test.prompt_id else None,
         "execution_time": execution_time,
@@ -285,9 +255,6 @@ def _execute_single_turn_in_place(
         "test_configuration": None,
     }
 
-    logger.info(f"[InPlaceExecution] Single-turn test execution completed for test {test_id}")
-    return response
-
 
 def _execute_multi_turn_in_place(
     db: Session,
@@ -295,121 +262,41 @@ def _execute_multi_turn_in_place(
     endpoint_id: str,
     organization_id: str,
     user_id: str,
+    model: Any,
     evaluate_metrics: bool,
     start_time: datetime,
 ) -> Dict[str, Any]:
-    """
-    Execute a multi-turn test in-place without persistence.
-
-    Adapted from MultiTurnTestExecutor but skips database operations.
-    """
+    """Execute multi-turn test in-place without persistence."""
     test_id = str(test.id)
 
-    # Extract multi-turn configuration
-    test_config = test.test_configuration or {}
-    goal = test_config["goal"]  # Required field
-    instructions = test_config.get("instructions")
-    scenario = test_config.get("scenario")
-    restrictions = test_config.get("restrictions")
-    context = test_config.get("context")
-    max_turns = test_config.get("max_turns", 10)
-
-    logger.debug(
-        f"[InPlaceExecution] Multi-turn config - goal: {goal[:50]}..., max_turns: {max_turns}"
-    )
-
-    # Initialize Penelope agent
-    from rhesis.penelope import PenelopeAgent
-
-    agent = PenelopeAgent()
-    logger.debug("[InPlaceExecution] Initialized Penelope agent")
-
-    # Create backend-specific target
-    target = BackendEndpointTarget(
+    # Run core execution (shared with executor)
+    runner = MultiTurnRunner()
+    execution_time, penelope_trace, metrics_results = runner.run(
         db=db,
+        test=test,
         endpoint_id=endpoint_id,
         organization_id=organization_id,
         user_id=user_id,
-    )
-    logger.debug(f"[InPlaceExecution] Created BackendEndpointTarget for endpoint {endpoint_id}")
-
-    # Execute test with Penelope
-    logger.info("[InPlaceExecution] Executing Penelope test...")
-    penelope_result = agent.execute_test(
-        target=target,
-        goal=goal,
-        instructions=instructions,
-        scenario=scenario,
-        restrictions=restrictions,
-        context=context,
-        max_turns=max_turns,
+        model=model,  # Use user's default evaluation model (also for Penelope)
     )
 
-    # Calculate execution time
-    execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-    logger.debug(
-        f"[InPlaceExecution] Penelope execution completed in {execution_time:.2f}ms "
-        f"({penelope_result.turns_used} turns)"
-    )
-
-    # Convert Penelope result to dict
-    penelope_trace = penelope_result.model_dump(mode="json")
-
-    # Extract metrics
-    metrics_results = penelope_trace.get("metrics", {})
-
-    # Build test_metrics structure if evaluation is requested
+    # Build API response (no DB persistence)
     test_metrics = None
-    status = ResultStatus.ERROR.value  # Default when no metrics
+    status = ResultStatus.ERROR.value
 
     if evaluate_metrics:
         test_metrics = {
             "execution_time": execution_time,
             "metrics": metrics_results,
         }
-        status = _determine_status_from_metrics(metrics_results)
+        status = determine_status_from_metrics(metrics_results)
 
-    # Build response matching TestExecuteResponse schema
-    response = {
+    return {
         "test_id": test_id,
-        "prompt_id": None,  # Multi-turn tests don't have prompts
+        "prompt_id": None,
         "execution_time": execution_time,
-        "test_output": penelope_trace,  # Complete Penelope trace
+        "test_output": penelope_trace,
         "test_metrics": test_metrics,
         "status": status,
-        "test_configuration": test_config,
+        "test_configuration": test.test_configuration,
     }
-
-    logger.info(f"[InPlaceExecution] Multi-turn test execution completed for test {test_id}")
-    return response
-
-
-def _determine_status_from_metrics(metrics: Dict[str, Any]) -> str:
-    """
-    Determine test status based on metric results.
-
-    Args:
-        metrics: Dictionary of metric results
-
-    Returns:
-        Status string: "Pass", "Fail", or "Error"
-    """
-    if not metrics or not isinstance(metrics, dict):
-        return ResultStatus.ERROR.value
-
-    # Check if all metrics passed
-    all_passed = True
-    has_metrics = False
-
-    for metric_name, metric_result in metrics.items():
-        if isinstance(metric_result, dict):
-            has_metrics = True
-            is_successful = metric_result.get("is_successful", False)
-            if not is_successful:
-                all_passed = False
-                break
-
-    if not has_metrics:
-        return ResultStatus.ERROR.value
-
-    return ResultStatus.PASS.value if all_passed else ResultStatus.FAIL.value

@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 
 from rhesis.backend.tasks.enums import TestType
-from rhesis.backend.tasks.execution.executors.shared import get_test_and_prompt
+from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
 
 
 def test_single_turn_requires_prompt(mocker):

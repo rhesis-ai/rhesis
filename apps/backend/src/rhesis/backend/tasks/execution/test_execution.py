@@ -18,12 +18,8 @@ from rhesis.backend.logging.rhesis_logger import logger
 # Import factory for executor creation
 from rhesis.backend.tasks.execution.executors import create_executor
 
-# Re-export helper functions for backward compatibility with existing tests
-# These functions are now properly located in executors.shared but are available
-# here for any code that imports them from test_execution
-from rhesis.backend.tasks.execution.executors.shared import (
-    get_test_and_prompt,
-)
+# Import get_test_and_prompt from data module
+from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
 
 # ============================================================================
 # MAIN EXECUTION FUNCTION (Strategy Pattern Entry Point)

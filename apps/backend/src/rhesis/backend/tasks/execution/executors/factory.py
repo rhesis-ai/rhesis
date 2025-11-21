@@ -41,7 +41,7 @@ def create_executor(test: Test) -> BaseTestExecutor:
     logger.debug(f"Creating executor for test {test.id} with type {test_type.value}")
 
     if test_type == TestType.MULTI_TURN:
-        from rhesis.backend.tasks.execution.executors.multi_turn_executor import (
+        from rhesis.backend.tasks.execution.executors.multi_turn import (
             MultiTurnTestExecutor,
         )
 
@@ -49,7 +49,7 @@ def create_executor(test: Test) -> BaseTestExecutor:
         return MultiTurnTestExecutor()
     else:
         # Default to single-turn for backward compatibility
-        from rhesis.backend.tasks.execution.executors.single_turn_executor import (
+        from rhesis.backend.tasks.execution.executors.single_turn import (
             SingleTurnTestExecutor,
         )
 
