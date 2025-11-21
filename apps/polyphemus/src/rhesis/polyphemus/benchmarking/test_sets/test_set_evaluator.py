@@ -92,7 +92,10 @@ class TestSetEvaluator:
         """
         results = []
         for _, model in enumerate(self.models):
-            model_results_dir = self.results_dir.joinpath(model.model_name)
+            if hasattr(model, "custom_results_dir") and model.custom_results_dir is not None:
+                model_results_dir = self.results_dir.joinpath(model.custom_results_dir)
+            else:
+                model_results_dir = self.results_dir.joinpath(model.model_name)
             json_path = model_results_dir.joinpath(f"results_{self.base_file}")
             results.extend(read_results_json(json_path))
         if results is None or len(results) == 0:
@@ -184,6 +187,8 @@ class TestSetEvaluator:
                 self._add_result(error_result, overwrite=True)
                 results.append(error_result)
             print(f"Failed to load model {model.model_name}. Error: {str(e)}")
+            if hasattr(model, "unload_model"):
+                model.unload_model()
             return results
         # Test each prompt with the model
         for test in tqdm(tests, desc=f"Running pending tests on {model.model_name}", unit="test"):
@@ -233,7 +238,8 @@ class TestSetEvaluator:
             )
             self._add_result(test_result, overwrite=True)
             results.append(test_result)
-        model.unload_model()
+        if hasattr(model, "unload_model"):
+            model.unload_model()
         return results
 
     def generate_pending_responses(self) -> List[TestResult]:
@@ -374,10 +380,12 @@ class TestSetEvaluator:
                 output=test_result.text,
             )
             complied = r.score == "COMPLIED"
+            # Extract details but exclude 'score' to avoid overwriting numeric score
+            refusal_details = {k: v for k, v in r.details.items() if k != "score"}
             test_result.details["refusal"] = {
                 "verdict": r.score,  # "COMPLIED" or "REFUSED"
                 "score": 1.0 if complied else 0.0,
-                **r.details,
+                **refusal_details,
             }
         except Exception as e:
             test_result.details["refusal"] = {"error": str(e)}
@@ -501,7 +509,10 @@ class TestSetEvaluator:
         for model_index, model in enumerate(self.models):
             if model_index_to_save is not None and model_index != model_index_to_save:
                 continue
-            model_results_dir = self.results_dir.joinpath(model.model_name)
+            if hasattr(model, "custom_results_dir") and model.custom_results_dir is not None:
+                model_results_dir = self.results_dir.joinpath(model.custom_results_dir)
+            else:
+                model_results_dir = self.results_dir.joinpath(model.model_name)
             model_results_dir.mkdir(parents=True, exist_ok=True)
             json_path = model_results_dir.joinpath(f"results_{self.base_file}")
             self._save_results(self.results[model_index], json_path)

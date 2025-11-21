@@ -21,20 +21,20 @@ class TestHuggingFaceLLM:
         assert llm.model is None
         assert llm.tokenizer is None
         assert llm.device is None
-        assert llm.default_kwargs is None
+        assert llm.generate_kwargs is None
 
     def test_init_without_auto_loading_and_with_defaults(self):
         """Should initialize without auto-loading and with defaults"""
         model_name = "provider/model"
-        default_kwargs = {"temperature": 0.7}
+        generate_kwargs = {"temperature": 0.7}
 
-        llm = HuggingFaceLLM(model_name, auto_loading=False, default_kwargs=default_kwargs)
+        llm = HuggingFaceLLM(model_name, auto_loading=False, generate_kwargs=generate_kwargs)
 
         assert llm.model_name == model_name
         assert llm.model is None
         assert llm.tokenizer is None
         assert llm.device is None
-        assert llm.default_kwargs is default_kwargs
+        assert llm.generate_kwargs is generate_kwargs
 
     @patch("rhesis.sdk.models.providers.huggingface.torch.device")
     @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
@@ -43,7 +43,8 @@ class TestHuggingFaceLLM:
         self, mock_auto_model, mock_auto_tokenizer, mock_torch_device
     ):
         """Should auto-load model when auto_loading=True and no defaults"""
-        mock_model = Mock()
+        mock_model = Mock(spec=['device', 'generate', 'parameters', 'buffers'])  # No hf_device_map
+        mock_model.device = torch.device("cpu")  # Set device attribute for single-device case
         mock_tokenizer = Mock()
         mock_device = Mock()
 
@@ -57,9 +58,9 @@ class TestHuggingFaceLLM:
         assert llm.model_name == model_name
         assert llm.model is mock_model
         assert llm.tokenizer is mock_tokenizer
-        assert llm.device is mock_device
-        assert llm.default_kwargs is None
-        mock_auto_model.from_pretrained.assert_called_once_with(model_name)
+        assert llm.device == mock_model.device
+        assert llm.generate_kwargs is None
+        mock_auto_model.from_pretrained.assert_called_once_with(model_name, device_map="auto")
         mock_auto_tokenizer.from_pretrained.assert_called_once_with(model_name)
 
     @patch("rhesis.sdk.models.providers.huggingface.torch.device")
@@ -69,7 +70,8 @@ class TestHuggingFaceLLM:
         self, mock_auto_model, mock_auto_tokenizer, mock_torch_device
     ):
         """Should auto-load model when auto_loading=True and defaults provided"""
-        mock_model = Mock()
+        mock_model = Mock(spec=['device', 'generate', 'parameters', 'buffers'])  # No hf_device_map
+        mock_model.device = torch.device("cpu")  # Set device attribute for single-device case
         mock_tokenizer = Mock()
         mock_device = Mock()
 
@@ -78,15 +80,15 @@ class TestHuggingFaceLLM:
         mock_torch_device.return_value = mock_device
 
         model_name = "provider/model"
-        default_kwargs = {"temperature": 0.7}
-        llm = HuggingFaceLLM(model_name, auto_loading=True, default_kwargs=default_kwargs)
+        generate_kwargs = {"temperature": 0.7}
+        llm = HuggingFaceLLM(model_name, auto_loading=True, generate_kwargs=generate_kwargs)
 
         assert llm.model_name == model_name
         assert llm.model is mock_model
         assert llm.tokenizer is mock_tokenizer
-        assert llm.device is mock_device
-        assert llm.default_kwargs is default_kwargs
-        mock_auto_model.from_pretrained.assert_called_once_with(model_name)
+        assert llm.device == mock_model.device
+        assert llm.generate_kwargs is generate_kwargs
+        mock_auto_model.from_pretrained.assert_called_once_with(model_name, device_map="auto")
         mock_auto_tokenizer.from_pretrained.assert_called_once_with(model_name)
 
     def test_init_raises_with_no_model_name(self):
@@ -104,7 +106,7 @@ class TestHuggingFaceLLM:
     def setup_model_with_mocks(self, has_chat_template=True):
         """Helper to create a HuggingFaceLLM with mocked model + tokenizer"""
         llm = HuggingFaceLLM("provider/model", auto_loading=False)
-        llm.device = "cpu"
+        llm.device = torch.device("cpu")
 
         # Mock tokenizer
         mock_tokenizer = Mock()
@@ -112,18 +114,17 @@ class TestHuggingFaceLLM:
         mock_tokenizer.eos_token_id = 42
         mock_tokenizer.decode.return_value = "Generated response"
 
+        # Create actual dict with tensors (not a Mock)
+        # This will be returned by tokenizer and support .items()
         inputs = {
             "input_ids": torch.tensor([[1, 995, 460, 10032, 13, 13, 22467, 528, 264, 13015]]),
             "attention_mask": torch.tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]),
         }
 
-        # the object returned when calling tokenizer(...)
-        tokenizer_call_ret = Mock()
-        tokenizer_call_ret.to.return_value = inputs
         if has_chat_template:
-            mock_tokenizer.apply_chat_template.return_value = tokenizer_call_ret
+            mock_tokenizer.apply_chat_template.return_value = inputs
         else:
-            mock_tokenizer.return_value = tokenizer_call_ret
+            mock_tokenizer.return_value = inputs
 
         # Mock model
         mock_model = Mock()
@@ -173,29 +174,29 @@ class TestHuggingFaceLLM:
         expected_input = f"{system_prompt}\n\n{prompt}"
         mock_tokenizer.assert_called_once_with(expected_input, return_tensors="pt")
 
-    def test_generate_merges_default_kwargs(self):
-        """Should merge default_kwargs with passed kwargs, allowing override"""
+    def test_generate_merges_generate_kwargs(self):
+        """Should merge generate_kwargs with passed kwargs, allowing override"""
         llm, mock_model, mock_tokenizer = self.setup_model_with_mocks()
-        llm.default_kwargs = {"temperature": 0.7, "max_new_tokens": 10}
+        llm.generate_kwargs = {"temperature": 0.7, "max_new_tokens": 10}
         result = llm.generate("Test prompt", max_new_tokens=20)
         assert result == "Generated response"
         _, kwargs = mock_model.generate.call_args
         assert kwargs["temperature"] == 0.7
         assert kwargs["max_new_tokens"] == 20
 
-    def test_generate_respects_only_default_kwargs(self):
-        """Should pass only default_kwargs if no kwargs given"""
+    def test_generate_respects_only_generate_kwargs(self):
+        """Should pass only generate_kwargs if no kwargs given"""
         llm, mock_model, mock_tokenizer = self.setup_model_with_mocks()
-        llm.default_kwargs = {"top_p": 0.9}
+        llm.generate_kwargs = {"top_p": 0.9}
         result = llm.generate("Test prompt")
         assert result == "Generated response"
         _, kwargs = mock_model.generate.call_args
         assert kwargs["top_p"] == 0.9
 
-    def test_generate_without_default_kwargs(self):
-        """Should work when default_kwargs is None and no kwargs provided"""
+    def test_generate_without_generate_kwargs(self):
+        """Should work when generate_kwargs is None and no kwargs provided"""
         llm, mock_model, mock_tokenizer = self.setup_model_with_mocks()
-        llm.default_kwargs = None
+        llm.generate_kwargs = None
         result = llm.generate("Just a plain test")
         assert result == "Generated response"
         mock_model.generate.assert_called_once()

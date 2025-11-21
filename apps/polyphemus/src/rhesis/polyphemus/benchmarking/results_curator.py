@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import mean, median, stdev
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -33,6 +33,57 @@ class MetricStatistics:
             "max": round(self.max, 4),
             "count": self.count,
         }
+
+
+@dataclass
+class InputLengthPerformance:
+    """Performance metrics showing relationship between input length and generation time."""
+
+    # Correlation analysis
+    correlation_coefficient: Optional[float] = None
+
+    # Linear regression: gen_time = slope * input_tokens + intercept
+    regression_slope: Optional[float] = None
+    regression_intercept: Optional[float] = None
+
+    # Tokens per second analysis
+    tokens_per_second: Optional[MetricStatistics] = None
+
+    # Bucketed analysis - average generation time for different input length ranges
+    buckets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
+    # Raw data points for visualization (limited to reasonable size)
+    sample_points: List[Tuple[int, float]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        result = {}
+
+        if self.correlation_coefficient is not None:
+            result["correlation_coefficient"] = round(self.correlation_coefficient, 4)
+
+        if self.regression_slope is not None and self.regression_intercept is not None:
+            result["linear_regression"] = {
+                "slope": round(self.regression_slope, 6),
+                "intercept": round(self.regression_intercept, 4),
+                "interpretation": f"~{round(self.regression_slope * 1000, 3)}ms per 1000 tokens"
+            }
+
+        if self.tokens_per_second:
+            result["tokens_per_second"] = self.tokens_per_second.to_dict()
+
+        if self.buckets:
+            result["input_length_buckets"] = self.buckets
+
+        if self.sample_points:
+            result["sample_data_points"] = {
+                "count": len(self.sample_points),
+                "points": [
+                    {"input_tokens": tokens, "generation_time_seconds": round(time, 4)}
+                    for tokens, time in self.sample_points[:100]  # Limit to 100 points
+                ]
+            }
+
+        return result
 
 
 @dataclass
@@ -85,6 +136,7 @@ class ModelPerformance:
     generation_time: MetricStatistics = None
     tokens_in: MetricStatistics = None
     tokens_out: MetricStatistics = None
+    input_length_performance: InputLengthPerformance = None
 
     # Category breakdown
     category_performance: Dict[str, CategoryPerformance] = field(default_factory=dict)
@@ -125,6 +177,10 @@ class ModelPerformance:
             result["performance_metrics"]["input_tokens"] = self.tokens_in.to_dict()
         if self.tokens_out:
             result["performance_metrics"]["output_tokens"] = self.tokens_out.to_dict()
+        if self.input_length_performance:
+            result["performance_metrics"]["input_length_analysis"] = (
+                self.input_length_performance.to_dict()
+            )
 
         # Add category breakdown
         if self.category_performance:
@@ -202,6 +258,146 @@ class ResultsCurator:
             count=len(values),
         )
 
+    def _compute_correlation(self, x: List[float], y: List[float]) -> Optional[float]:
+        """
+        Compute Pearson correlation coefficient between two variables.
+
+        Parameters
+        ----------
+        x : List[float]
+            First variable
+        y : List[float]
+            Second variable
+
+        Returns
+        -------
+        Optional[float]
+            Correlation coefficient, or None if cannot be computed
+        """
+        if not x or not y or len(x) != len(y) or len(x) < 2:
+            return None
+
+        n = len(x)
+        mean_x = mean(x)
+        mean_y = mean(y)
+
+        numerator = sum((x[i] - mean_x) * (y[i] - mean_y) for i in range(n))
+        denominator_x = sum((x[i] - mean_x) ** 2 for i in range(n))
+        denominator_y = sum((y[i] - mean_y) ** 2 for i in range(n))
+
+        if denominator_x == 0 or denominator_y == 0:
+            return None
+
+        return numerator / (denominator_x * denominator_y) ** 0.5
+
+    def _compute_linear_regression(
+        self, x: List[float], y: List[float]
+    ) -> Optional[Tuple[float, float]]:
+        """
+        Compute simple linear regression: y = slope * x + intercept.
+
+        Parameters
+        ----------
+        x : List[float]
+            Independent variable
+        y : List[float]
+            Dependent variable
+
+        Returns
+        -------
+        Optional[Tuple[float, float]]
+            (slope, intercept), or None if cannot be computed
+        """
+        if not x or not y or len(x) != len(y) or len(x) < 2:
+            return None
+
+        n = len(x)
+        mean_x = mean(x)
+        mean_y = mean(y)
+
+        numerator = sum((x[i] - mean_x) * (y[i] - mean_y) for i in range(n))
+        denominator = sum((x[i] - mean_x) ** 2 for i in range(n))
+
+        if denominator == 0:
+            return None
+
+        slope = numerator / denominator
+        intercept = mean_y - slope * mean_x
+
+        return slope, intercept
+
+    def _compute_input_length_performance(
+        self, data_points: List[Tuple[int, float]]
+    ) -> Optional[InputLengthPerformance]:
+        """
+        Compute input length vs generation time performance analysis.
+
+        Parameters
+        ----------
+        data_points : List[Tuple[int, float]]
+            List of (input_tokens, generation_time) pairs
+
+        Returns
+        -------
+        Optional[InputLengthPerformance]
+            Analysis results, or None if insufficient data
+        """
+        if not data_points or len(data_points) < 2:
+            return None
+
+        input_tokens = [p[0] for p in data_points]
+        gen_times = [p[1] for p in data_points]
+
+        perf = InputLengthPerformance()
+
+        # Correlation
+        perf.correlation_coefficient = self._compute_correlation(input_tokens, gen_times)
+
+        # Linear regression
+        regression = self._compute_linear_regression(input_tokens, gen_times)
+        if regression:
+            perf.regression_slope, perf.regression_intercept = regression
+
+        # Tokens per second (output_tokens / generation_time)
+        # Note: This is different from input tokens - we'll compute it if we have output token data
+        # For now, skip this as it requires output tokens
+
+        # Bucketed analysis - group by input token ranges
+        buckets = {
+            "0-100": [],
+            "100-500": [],
+            "500-1000": [],
+            "1000-2000": [],
+            "2000+": [],
+        }
+
+        for input_tok, gen_time in data_points:
+            if input_tok <= 100:
+                buckets["0-100"].append(gen_time)
+            elif input_tok <= 500:
+                buckets["100-500"].append(gen_time)
+            elif input_tok <= 1000:
+                buckets["500-1000"].append(gen_time)
+            elif input_tok <= 2000:
+                buckets["1000-2000"].append(gen_time)
+            else:
+                buckets["2000+"].append(gen_time)
+
+        # Compute statistics for each bucket
+        for bucket_name, times in buckets.items():
+            if times:
+                perf.buckets[bucket_name] = {
+                    "count": len(times),
+                    "avg_time_seconds": round(mean(times), 4),
+                    "min_time_seconds": round(min(times), 4),
+                    "max_time_seconds": round(max(times), 4),
+                }
+
+        # Store sample points for visualization
+        perf.sample_points = data_points
+
+        return perf
+
     def _extract_model_data(self, result_files: List[Path]) -> Dict[str, ModelPerformance]:
         """
         Extract and aggregate data for all models from result files.
@@ -244,6 +440,7 @@ class ResultsCurator:
                     "gen_times": [],
                     "input_tokens": [],
                     "output_tokens": [],
+                    "input_time_pairs": [],  # (input_tokens, generation_time) pairs
                     "metric_values": {},
                     "category_data": {},
                 }
@@ -303,13 +500,21 @@ class ResultsCurator:
                     collections["costs"].append(cost)
 
                 # Metadata
-                metadata = result.get("metadata", {})
-                if "generation_time_seconds" in metadata:
-                    collections["gen_times"].append(metadata["generation_time_seconds"])
-                if "input_tokens" in metadata:
-                    collections["input_tokens"].append(metadata["input_tokens"])
-                if "output_tokens" in metadata:
-                    collections["output_tokens"].append(metadata["output_tokens"])
+                metadata = result.get("metadata") or {}
+                gen_time = metadata.get("generation_time_seconds")
+                input_tok = metadata.get("input_tokens")
+                output_tok = metadata.get("output_tokens")
+
+                if gen_time is not None:
+                    collections["gen_times"].append(gen_time)
+                if input_tok is not None:
+                    collections["input_tokens"].append(input_tok)
+                if output_tok is not None:
+                    collections["output_tokens"].append(output_tok)
+
+                # Collect pairs for correlation analysis
+                if gen_time is not None and input_tok is not None:
+                    collections["input_time_pairs"].append((input_tok, gen_time))
 
                 # Metric details
                 details = result.get("details", {})
@@ -344,6 +549,12 @@ class ResultsCurator:
                 model_perf.tokens_in = self._compute_statistics(collections["input_tokens"])
             if collections["output_tokens"]:
                 model_perf.tokens_out = self._compute_statistics(collections["output_tokens"])
+
+            # Compute input length vs generation time analysis
+            if collections["input_time_pairs"]:
+                model_perf.input_length_performance = self._compute_input_length_performance(
+                    collections["input_time_pairs"]
+                )
 
             for metric_name, values in collections["metric_values"].items():
                 model_perf.metric_scores[metric_name] = self._compute_statistics(values)
