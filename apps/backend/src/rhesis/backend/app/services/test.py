@@ -288,6 +288,10 @@ def create_prompt(
     db: Session, prompt_data: Dict, defaults: Dict, organization_id: str, user_id: str
 ) -> models.Prompt:
     """Create a prompt with its associated entities"""
+    # Multi-turn tests don't have prompts, return None
+    if not prompt_data:
+        return None
+
     if hasattr(prompt_data, "model_dump"):
         prompt_data = prompt_data.model_dump()
 
@@ -399,14 +403,17 @@ def bulk_create_tests(
 
             prompt_data = test_data_dict.pop("prompt", {})
 
-            # Create prompt and related entities
-            prompt = create_prompt(
-                db=db,
-                prompt_data=prompt_data,
-                defaults=defaults,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
+            # Create prompt only for single-turn tests (when prompt_data is provided)
+            # Multi-turn tests don't use prompts - they use test_configuration
+            prompt = None
+            if prompt_data:
+                prompt = create_prompt(
+                    db=db,
+                    prompt_data=prompt_data,
+                    defaults=defaults,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
 
             # Create topic, behavior, and category
             topic = create_entity_with_status(
@@ -482,7 +489,7 @@ def bulk_create_tests(
                         }
 
             test_params = {
-                "prompt_id": prompt.id,
+                "prompt_id": prompt.id if prompt else None,  # None for multi-turn tests
                 "test_type_id": test_type.id,
                 "topic_id": topic.id,
                 "behavior_id": behavior.id,

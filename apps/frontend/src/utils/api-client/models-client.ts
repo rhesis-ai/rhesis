@@ -82,4 +82,8 @@ export class ModelsClient extends BaseApiClient {
       }
     );
   }
+
+  async getProviderModels(provider: string): Promise<string[]> {
+    return this.fetch<string[]>(`${API_ENDPOINTS.models}/provider/${provider}`);
+  }
 }

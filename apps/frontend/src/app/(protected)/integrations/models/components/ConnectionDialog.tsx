@@ -16,6 +16,7 @@ import {
   Switch,
   FormControlLabel,
   Divider,
+  Autocomplete,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -82,6 +83,8 @@ export function ConnectionDialog({
   const [showApiKey, setShowApiKey] = useState(false);
   const [defaultForGeneration, setDefaultForGeneration] = useState(false);
   const [defaultForEvaluation, setDefaultForEvaluation] = useState(false);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
 
   const isEditMode = mode === 'edit';
   const isCustomProvider = provider?.type_value === 'vllm';
@@ -187,6 +190,34 @@ export function ConnectionDialog({
   };
 
   const { data: session } = useSession();
+
+  // Fetch available models when provider is selected
+  useEffect(() => {
+    const fetchModels = async () => {
+      const currentProvider =
+        isEditMode && model?.provider_type ? model.provider_type : provider;
+      if (!currentProvider || !session?.session_token) return;
+
+      setLoadingModels(true);
+      try {
+        const apiFactory = new ApiClientFactory(session.session_token);
+        const modelsClient = apiFactory.getModelsClient();
+        const models = await modelsClient.getProviderModels(
+          currentProvider.type_value
+        );
+        setAvailableModels(models);
+      } catch (err) {
+        // Silently fail - user can still manually enter model name
+        setAvailableModels([]);
+      } finally {
+        setLoadingModels(false);
+      }
+    };
+
+    if (open) {
+      fetchModels();
+    }
+  }, [open, provider, model, isEditMode, session]);
 
   // Helper function to update user settings for default models
   const updateUserSettingsDefaults = async (modelId: UUID) => {
@@ -513,17 +544,46 @@ export function ConnectionDialog({
                     helperText="A unique name to identify this connection"
                   />
 
-                  <TextField
-                    label="Model Name"
+                  <Autocomplete
                     fullWidth
-                    required
+                    freeSolo
+                    options={availableModels}
                     value={modelName}
-                    onChange={e => setModelName(e.target.value)}
-                    helperText={
-                      isCustomProvider
-                        ? 'The model identifier for your deployment'
-                        : 'The specific model to use from this provider'
+                    onChange={(event, newValue) => setModelName(newValue || '')}
+                    onInputChange={(event, newInputValue) =>
+                      setModelName(newInputValue)
                     }
+                    loading={loadingModels}
+                    filterOptions={(options, { inputValue }) => {
+                      if (!inputValue) return options;
+                      const input = inputValue.toLowerCase();
+                      return options.filter(option =>
+                        option.toLowerCase().includes(input)
+                      );
+                    }}
+                    renderInput={params => (
+                      <TextField
+                        {...params}
+                        label="Model Name"
+                        required
+                        helperText={
+                          isCustomProvider
+                            ? 'The model identifier for your deployment'
+                            : 'The specific model to use from this provider'
+                        }
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <>
+                              {loadingModels ? (
+                                <CircularProgress size={20} />
+                              ) : null}
+                              {params.InputProps.endAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
                   />
                 </Stack>
               </>
