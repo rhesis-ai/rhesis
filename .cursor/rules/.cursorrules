@@ -1,6 +1,7 @@
 # General Rules
 - Always use the basedatagrid when using a grid.
 - Do not use the regular grid, use stack instead. Grid is deprecated.
+- DO not use emojis in code documentation.
 
 # Testing Rules
 
