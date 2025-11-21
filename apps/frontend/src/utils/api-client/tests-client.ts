@@ -8,6 +8,8 @@ import {
   TestStats,
   TestBulkCreateRequest,
   TestBulkCreateResponse,
+  TestExecuteRequest,
+  TestExecuteResponse,
   PriorityLevel,
 } from './interfaces/tests';
 import { StatsOptions } from './interfaces/common';
@@ -196,6 +198,13 @@ export class TestsClient extends BaseApiClient {
 
     return this.fetch<IndividualTestStats>(url, {
       cache: 'no-store',
+    });
+  }
+
+  async executeTest(request: TestExecuteRequest): Promise<TestExecuteResponse> {
+    return this.fetch<TestExecuteResponse>(`${API_ENDPOINTS.tests}/execute`, {
+      method: 'POST',
+      body: JSON.stringify(request),
     });
   }
 }
