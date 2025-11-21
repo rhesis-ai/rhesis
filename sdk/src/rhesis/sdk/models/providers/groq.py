@@ -2,11 +2,12 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-PROVIDER = "groq"
 DEFAULT_MODEL_NAME = "llama3-8b-8192"
 
 
 class GroqLLM(LiteLLM):
+    PROVIDER = "groq"
+
     def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         GroqLLM: Groq LLM Provider
@@ -33,4 +34,4 @@ class GroqLLM(LiteLLM):
         api_key = api_key or os.getenv("GROQ_API_KEY")
         if api_key is None:
             raise ValueError("GROQ_API_KEY is not set")
-        super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
+        super().__init__(self.PROVIDER + "/" + model_name, api_key=api_key)

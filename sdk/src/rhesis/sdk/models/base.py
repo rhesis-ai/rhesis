@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
 
 
 class BaseLLM(ABC):
@@ -27,3 +27,6 @@ class BaseLLM(ABC):
 
     def get_model_name(self, *args, **kwargs) -> str:
         return f"Class name: {self.__class__.__name__}, model name: {self.model_name}"
+
+    def get_available_models(self) -> List[str]:
+        raise NotImplementedError("Subclasses must implement this method")
