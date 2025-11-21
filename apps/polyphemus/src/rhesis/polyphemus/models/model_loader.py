@@ -1,80 +1,120 @@
-import os
-import time
-import torch
+"""
+Model implementations for Polyphemus service.
+Contains different model classes that can be used based on configuration.
+"""
+
 import logging
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+import os
+from typing import Any, Dict, Optional, Union
+
+from rhesis.sdk.models import BaseLLM
+from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger("rhesis-polyphemus")
 
-class ModelLoader:
-    def __init__(self):
+# Default model for LazyModelLoader - can be overridden via environment variable
+DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "huggingface/distilgpt2")
+
+
+class LazyModelLoader(BaseLLM):
+    """
+    LazyModelLoader model class that can load any LLM model based on user requirements.
+
+    This is a flexible model wrapper that uses the SDK's get_model factory
+    to load any supported model type (HuggingFace, OpenAI, Anthropic, etc.)
+    based on the model name/type provided.
+
+    The model name can be specified in the format:
+    - "provider/model-name" (e.g., "huggingface/distilgpt2", "openai/gpt-4o")
+    - "model-name" (defaults to huggingface provider)
+    """
+
+    def __init__(self, model_name: Optional[str] = None, auto_loading: bool = True):
+        """
+        Initialize LazyModelLoader model.
+
+        Args:
+            model_name: Model identifier in format "provider/model" or just model name.
+                If None, uses default model (huggingface/distilgpt2).
+            auto_loading: Whether to automatically load the model on initialization.
+                If False, model loading is deferred until load_model() is called.
+        """
+        # Use default model if not provided
+        self._model_name = model_name or DEFAULT_MODEL
+        self._auto_loading = auto_loading
+        self._internal_model: Optional[BaseLLM] = None
+
+        # Set model_name for BaseLLM compatibility (don't call super().__init__
+        # as it would trigger load_model immediately)
+        self.model_name = self._model_name
         self.model = None
         self.tokenizer = None
-        
-    async def load_model(self):
-        """Initialize model and tokenizer"""
-        # Get model name from environment variable
-        model_name = os.environ.get("HF_MODEL", "cognitivecomputations/Dolphin3.0-Llama3.1-8B")
-        hf_token = os.environ.get("HF_TOKEN", None)
-        
-        logger.info(f"Loading model: {model_name}")
-        start_time = time.time()
-        
-        try:
-            # Check if GPU is available
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            logger.info(f"Using device: {device}")
-            
-            # Load tokenizer
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=hf_token)
-            
-            # Quantization config for better memory efficiency
-            quantization_config = None
-            if device == "cuda":
-                quantization_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch.float16,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_use_double_quant=True
-                )
-            
-            # Load model with optimizations
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                quantization_config=quantization_config,
-                device_map="auto",
-                use_auth_token=hf_token,
-                torch_dtype=torch.float16 if device == "cuda" else torch.float32,
-                attn_implementation="flash_attention_2" if device == "cuda" else None,
-            )
-            
-            # Compile model for speedup if using PyTorch 2.0+
-            if hasattr(torch, 'compile') and device == "cuda":
-                try:
-                    logger.info("Compiling model with torch.compile()...")
-                    self.model = torch.compile(self.model)
-                    logger.info("Model compilation successful")
-                except Exception as e:
-                    logger.warning(f"Model compilation failed, continuing without compilation: {e}")
-            
-            logger.info(f"Model loaded successfully in {time.time() - start_time:.2f} seconds")
-            return True
-        except Exception as e:
-            logger.error(f"Error loading model: {str(e)}")
-            return False
-    
-    def get_gpu_info(self):
-        """Get GPU information"""
-        gpu_info = {}
-        if torch.cuda.is_available():
+
+        if auto_loading:
+            self.load_model()
+
+    def load_model(self) -> BaseLLM:
+        """
+        Load the model using the SDK's get_model factory.
+
+        The model can be any supported type (HuggingFace, OpenAI, etc.)
+        based on the model_name format.
+
+        Returns:
+            self: Returns self for method chaining
+        """
+        if self._internal_model is None:
+            logger.info(f"Loading model: {self._model_name}")
+
+            # Use SDK's get_model factory to create the appropriate model
+            # The factory handles provider/model parsing automatically
+            # Pass auto_loading=False via kwargs to defer model loading
             try:
-                gpu_info = {
-                    "device_name": torch.cuda.get_device_name(0),
-                    "device_count": torch.cuda.device_count(),
-                    "memory_allocated_MB": round(torch.cuda.memory_allocated(0) / 1024**2, 2),
-                    "memory_reserved_MB": round(torch.cuda.memory_reserved(0) / 1024**2, 2),
-                    "max_memory_MB": round(torch.cuda.get_device_properties(0).total_memory / 1024**2, 2)
-                }
-            except Exception as e:
-                gpu_info = {"error": str(e)}
-        return gpu_info 
+                self._internal_model = get_model(self._model_name, auto_loading=False)
+            except TypeError:
+                # If auto_loading is not supported, create without it and load manually
+                self._internal_model = get_model(self._model_name)
+
+            # Load the model (for HuggingFace models, this loads model and tokenizer)
+            if hasattr(self._internal_model, "load_model"):
+                self._internal_model.load_model()
+
+            # Set model attribute for compatibility
+            if hasattr(self._internal_model, "model"):
+                self.model = self._internal_model.model
+            if hasattr(self._internal_model, "tokenizer"):
+                self.tokenizer = self._internal_model.tokenizer
+
+            logger.info(f"Model loaded successfully: {self._model_name}")
+
+        return self
+
+    def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        schema: Optional[Any] = None,
+        **kwargs,
+    ) -> Union[str, Dict[str, Any]]:
+        """
+        Generate a response using the loaded model.
+
+        Args:
+            prompt: The user prompt
+            system_prompt: Optional system prompt
+            schema: Optional schema for structured output
+            **kwargs: Additional generation parameters
+
+        Returns:
+            str or dict: Generated response
+        """
+        if self._internal_model is None:
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        # Delegate to the internal model
+        return self._internal_model.generate(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            schema=schema,
+            **kwargs,
+        )
