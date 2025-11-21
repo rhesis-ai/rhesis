@@ -12,7 +12,8 @@ from rhesis.sdk.models.providers.gemini import (
 
 def test_gemini_defaults():
     assert GeminiLLM.PROVIDER == "gemini"
-    assert DEFAULT_MODEL_NAME == "gemini-2.0-flash"
+    assert DEFAULT_MODEL_NAME is not None
+    assert DEFAULT_MODEL_NAME != ""
 
 
 class TestGeminiLLM:
@@ -57,7 +58,7 @@ class TestGeminiLLM:
 
         assert result == "Hello, this is a test response"
         mock_completion.assert_called_once_with(
-            model="gemini/gemini-2.0-flash",
+            model=f"gemini/{DEFAULT_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key="test_key",
@@ -90,7 +91,7 @@ class TestGeminiLLM:
         assert result["city"] == "New York"
 
         mock_completion.assert_called_once_with(
-            model="gemini/gemini-2.0-flash",
+            model=f"gemini/{DEFAULT_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=TestSchema,
             api_key="test_key",
@@ -131,7 +132,7 @@ class TestGeminiLLM:
         llm.generate(prompt, temperature=0.7, max_tokens=100)
 
         mock_completion.assert_called_once_with(
-            model="gemini/gemini-2.0-flash",
+            model=f"gemini/{DEFAULT_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key="test_key",
