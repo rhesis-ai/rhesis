@@ -87,6 +87,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
       // Debounced sync to database (5 seconds after last change)
       if (session?.session_token) {
+        const sessionToken = session.session_token; // Capture value for closure
         // Clear any existing timeout
         if (syncTimeoutRef.current) {
           clearTimeout(syncTimeoutRef.current);
@@ -94,11 +95,9 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
         // Set new timeout for database sync
         syncTimeoutRef.current = setTimeout(() => {
-          syncProgressToDatabase(session.session_token, progress).catch(
-            error => {
-              console.error('Error syncing progress to database:', error);
-            }
-          );
+          syncProgressToDatabase(sessionToken, progress).catch(error => {
+            console.error('Error syncing progress to database:', error);
+          });
         }, 5000); // 5 second debounce
       }
     }
@@ -313,8 +312,9 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   const forceSyncToDatabase = useCallback(async () => {
     if (session?.session_token) {
+      const sessionToken = session.session_token;
       try {
-        await syncProgressToDatabase(session.session_token, progress);
+        await syncProgressToDatabase(sessionToken, progress);
       } catch (error) {
         console.error('Error forcing sync to database:', error);
       }
