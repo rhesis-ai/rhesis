@@ -68,6 +68,33 @@ interface GenerateTestConfigResponse {
   scenarios: TestConfigItem[];
 }
 
+// Multi-turn test types
+interface MultiTurnPrompt {
+  goal: string;
+  instructions: string[];
+  restrictions: string[];
+  scenarios: string[];
+}
+
+interface MultiTurnTest {
+  prompt: MultiTurnPrompt;
+  behavior: string;
+  category: string;
+  topic: string;
+}
+
+interface GenerateMultiTurnTestsRequest {
+  generation_prompt: string;
+  behavior?: string[];
+  category?: string[];
+  topic?: string[];
+  num_tests?: number;
+}
+
+interface GenerateMultiTurnTestsResponse {
+  tests: MultiTurnTest[];
+}
+
 interface TextResponse {
   text: string;
 }
@@ -156,6 +183,21 @@ export class ServicesClient extends BaseApiClient {
   ): Promise<GenerateTestConfigResponse> {
     return this.fetch<GenerateTestConfigResponse>(
       `${API_ENDPOINTS.services}/generate/test_config`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      }
+    );
+  }
+
+  async generateMultiTurnTests(
+    request: GenerateMultiTurnTestsRequest
+  ): Promise<GenerateMultiTurnTestsResponse> {
+    return this.fetch<GenerateMultiTurnTestsResponse>(
+      `${API_ENDPOINTS.services}/generate/multiturn-tests`,
       {
         method: 'POST',
         headers: {
