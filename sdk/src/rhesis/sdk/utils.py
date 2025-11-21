@@ -2,12 +2,12 @@
 
 import json
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import tiktoken
 
 
-def count_tokens(text: str, encoding_name: str = "cl100k_base") -> int:
+def count_tokens(text: str, encoding_name: str = "cl100k_base") -> Optional[int]:
     """Count the number of tokens in a given text string using tiktoken.
 
     Args:

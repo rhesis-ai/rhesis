@@ -1,14 +1,24 @@
-from typing import Any
+from typing import Optional
 
-from rhesis.sdk.entities import BaseEntity
+from rhesis.sdk.client import Endpoints
+from rhesis.sdk.entities.base_collection import BaseCollection
+from rhesis.sdk.entities.base_entity import BaseEntity
+from rhesis.sdk.entities.prompt import Prompt
+
+ENDPOINT = Endpoints.TESTS
 
 
 class Test(BaseEntity):
-    endpoint = "tests"
+    endpoint = ENDPOINT
 
-    def __init__(self, **fields: Any) -> None:
-        super().__init__(**fields)
-        self.category = fields.get("category", None)
-        self.topic = fields.get("topic", None)
-        self.behavior = fields.get("behavior", None)
-        self.prompt = fields.get("prompt", None)
+    category: str
+    topic: str
+    behavior: str
+    prompt: Prompt
+    metadata: dict
+    id: Optional[str] = None
+
+
+class Tests(BaseCollection):
+    endpoint = ENDPOINT
+    entity_class = Test
