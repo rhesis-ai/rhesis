@@ -8,6 +8,7 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
+import { useSession } from 'next-auth/react';
 import { driver, Driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { OnboardingContextValue, OnboardingProgress } from '@/types/onboarding';
@@ -17,6 +18,9 @@ import {
   calculateCompletionPercentage,
   isOnboardingComplete,
   getDefaultProgress,
+  loadProgressFromDatabase,
+  syncProgressToDatabase,
+  mergeProgress,
 } from '@/utils/onboarding-service';
 import { getTourSteps, driverConfig } from '@/config/onboarding-tours';
 
@@ -29,24 +33,83 @@ interface OnboardingProviderProps {
 }
 
 export function OnboardingProvider({ children }: OnboardingProviderProps) {
+  const { data: session } = useSession();
   const [progress, setProgress] =
     useState<OnboardingProgress>(getDefaultProgress());
   const [activeTour, setActiveTour] = useState<string | null>(null);
   const [driverInstance, setDriverInstance] = useState<Driver | null>(null);
   const activeTourRef = useRef<string | null>(null);
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const dbLoadedRef = useRef(false);
 
-  // Load progress from localStorage on mount
+  // Load progress from localStorage first, then sync with database
   useEffect(() => {
-    const loaded = loadProgress();
-    setProgress(loaded);
-  }, []);
+    const loadInitialProgress = async () => {
+      // 1. Load from localStorage immediately for fast UI
+      const localProgress = loadProgress();
+      setProgress(localProgress);
 
-  // Save progress whenever it changes
+      // 2. Load from database if user is authenticated
+      if (session?.sessionToken && !dbLoadedRef.current) {
+        try {
+          const dbProgress = await loadProgressFromDatabase(
+            session.sessionToken
+          );
+
+          // 3. Merge local and remote progress (once complete = always complete)
+          const mergedProgress = mergeProgress(localProgress, dbProgress);
+
+          // 4. Update state and localStorage with merged progress
+          setProgress(mergedProgress);
+          saveProgress(mergedProgress);
+
+          // 5. Sync merged progress back to DB if there were any changes
+          if (JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress)) {
+            await syncProgressToDatabase(session.sessionToken, mergedProgress);
+          }
+
+          dbLoadedRef.current = true;
+        } catch (error) {
+          console.error('Error loading progress from database:', error);
+          // Continue with localStorage data on error
+        }
+      }
+    };
+
+    loadInitialProgress();
+  }, [session?.sessionToken]);
+
+  // Save progress to localStorage and debounced sync to database
   useEffect(() => {
     if (progress.lastUpdated > 0) {
+      // Save to localStorage immediately
       saveProgress(progress);
+
+      // Debounced sync to database (5 seconds after last change)
+      if (session?.sessionToken) {
+        // Clear any existing timeout
+        if (syncTimeoutRef.current) {
+          clearTimeout(syncTimeoutRef.current);
+        }
+
+        // Set new timeout for database sync
+        syncTimeoutRef.current = setTimeout(() => {
+          syncProgressToDatabase(session.sessionToken, progress).catch(
+            error => {
+              console.error('Error syncing progress to database:', error);
+            }
+          );
+        }, 5000); // 5 second debounce
+      }
     }
-  }, [progress]);
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [progress, session?.sessionToken]);
 
   // Initialize driver.js instance
   useEffect(() => {
@@ -248,6 +311,16 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     driverInstance.destroy();
   }, [driverInstance]);
 
+  const forceSyncToDatabase = useCallback(async () => {
+    if (session?.sessionToken) {
+      try {
+        await syncProgressToDatabase(session.sessionToken, progress);
+      } catch (error) {
+        console.error('Error forcing sync to database:', error);
+      }
+    }
+  }, [session?.sessionToken, progress]);
+
   const isComplete = isOnboardingComplete(progress);
   const completionPercentage = calculateCompletionPercentage(progress);
 
@@ -262,6 +335,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     activeTour,
     moveToNextStep,
     closeTour,
+    forceSyncToDatabase,
   };
 
   return (

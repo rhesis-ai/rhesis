@@ -16,9 +16,18 @@ import {
   PlayArrowIcon,
 } from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function DashboardPage() {
   const { data: session } = useSession();
+  const { forceSyncToDatabase } = useOnboarding();
+
+  // Trigger immediate sync to database when dashboard loads
+  React.useEffect(() => {
+    if (session?.sessionToken) {
+      forceSyncToDatabase();
+    }
+  }, [session?.sessionToken, forceSyncToDatabase]);
 
   return (
     <PageContainer>
