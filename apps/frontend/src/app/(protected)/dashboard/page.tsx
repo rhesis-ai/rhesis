@@ -24,10 +24,10 @@ export default function DashboardPage() {
 
   // Trigger immediate sync to database when dashboard loads
   React.useEffect(() => {
-    if (session?.sessionToken) {
+    if (session?.session_token) {
       forceSyncToDatabase();
     }
-  }, [session?.sessionToken, forceSyncToDatabase]);
+  }, [session?.session_token, forceSyncToDatabase]);
 
   return (
     <PageContainer>

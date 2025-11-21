@@ -143,11 +143,11 @@ export async function loadProgressFromDatabase(
   try {
     const usersClient = new ApiClientFactory(sessionToken).getUsersClient();
     const settings = await usersClient.getUserSettings();
-    
+
     if (settings.onboarding) {
       return toFrontendFormat(settings.onboarding);
     }
-    
+
     return getDefaultProgress();
   } catch (error) {
     console.error('Error loading onboarding progress from database:', error);
