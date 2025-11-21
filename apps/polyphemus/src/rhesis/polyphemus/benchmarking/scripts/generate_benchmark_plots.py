@@ -812,6 +812,9 @@ def plot_input_length_vs_generation_time(data, output_dir):
     if len(models_with_data) > 1:
         fig, ax = plt.subplots(figsize=(14, 8))
 
+        # Initialize bucket_names outside the loop to avoid undefined reference
+        bucket_names = []
+
         for idx, model_info in enumerate(models_with_data):
             analysis = model_info["analysis"]
             model_name = model_info["name"]
@@ -819,7 +822,7 @@ def plot_input_length_vs_generation_time(data, output_dir):
             # Extract bucketed data if available
             if "input_length_buckets" in analysis:
                 buckets = analysis["input_length_buckets"]
-                bucket_names = []
+                model_bucket_names = []
                 avg_times = []
 
                 # Dynamically get all bucket names from the data
@@ -830,12 +833,16 @@ def plot_input_length_vs_generation_time(data, output_dir):
 
                 for bucket_name in all_bucket_names:
                     if bucket_name in buckets:
-                        bucket_names.append(bucket_name)
+                        model_bucket_names.append(bucket_name)
                         avg_times.append(buckets[bucket_name]["avg_time_seconds"])
 
-                if bucket_names:
+                if model_bucket_names:
+                    # Use the first model's bucket names for the x-axis labels
+                    if not bucket_names:
+                        bucket_names = model_bucket_names
+
                     bar_width = 0.8 / len(models_with_data)
-                    x_positions = np.arange(len(bucket_names)) + idx * bar_width
+                    x_positions = np.arange(len(model_bucket_names)) + idx * bar_width
                     ax.bar(
                         x_positions,
                         avg_times,
