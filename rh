@@ -331,7 +331,7 @@ start_polyphemus() {
     fi
 
     # Check if SDK is installed
-    if ! python -c "import rhesis.sdk" 2>/dev/null; then
+    if ! python -c "import rhesis-sdk[huggingface]" 2>/dev/null; then
         echo -e "${YELLOW}📦 Installing SDK...${NC}"
         uv pip install -e sdk || {
             echo -e "${RED}❌ Error: Failed to install SDK${NC}"
