@@ -82,7 +82,12 @@ const generateSamplesForTestType = async (
         (test: any, index: number): MultiTurnTestSample => ({
           id: `sample-${Date.now()}-${index}`,
           testType: 'multi_turn',
-          prompt: test.prompt,
+          prompt: {
+            goal: test.test_configuration.goal,
+            instructions: test.test_configuration.instructions,
+            restrictions: test.test_configuration.restrictions,
+            scenario: test.test_configuration.scenario,
+          },
           behavior: test.behavior,
           topic: test.topic,
           category: test.category,
@@ -94,18 +99,23 @@ const generateSamplesForTestType = async (
     }
   } else {
     // Generate single-turn tests
-    const prompt = {
-      project_context: projectName || 'General',
+    const generationPrompt = `Generate ${numTests} single interaction test cases for: ${description || 'general testing'}`;
+
+    const config = {
+      generation_prompt: generationPrompt,
       behaviors: activeBehaviors,
-      topics: activeTopics,
       categories: activeCategories,
-      specific_requirements: description,
-      test_type: 'Single interaction tests',
-      output_format: 'Generate only user inputs',
+      topics: activeTopics,
+      additional_context: JSON.stringify({
+        project_context: projectName || 'General',
+        specific_requirements: description,
+        test_type: 'Single interaction tests',
+        output_format: 'Generate only user inputs',
+      }),
     };
 
     const response = await servicesClient.generateTests({
-      prompt,
+      config,
       num_tests: numTests,
       sources: sources,
     });
@@ -504,20 +514,12 @@ export default function TestGenerationFlow({
           .filter(c => c.active)
           .map(c => c.label);
         const activeCategories = configChips.category
-        .filter(c => c.active)
-        .map(c => c.label);
+          .filter(c => c.active)
+          .map(c => c.label);
 
         // For single-turn tests, use rated samples
         if (testType === 'single_turn' && sample.testType === 'single_turn') {
-          const prompt = {
-            project_context: project?.name || 'General',
-            behaviors: activeBehaviors,
-            topics: activeTopics,
-            categories: activeCategories,
-            specific_requirements: description,
-            test_type: 'Single interaction tests',
-            output_format: 'Generate only user inputs',
-          };
+          const generationPrompt = `Generate an improved test case based on feedback: ${feedback}`;
 
           const ratedSample = {
             prompt: sample.prompt,
@@ -526,11 +528,24 @@ export default function TestGenerationFlow({
             feedback: feedback,
           };
 
+          const config = {
+            generation_prompt: generationPrompt,
+            behaviors: activeBehaviors,
+            categories: activeCategories,
+            topics: activeTopics,
+            additional_context: JSON.stringify({
+              project_context: project?.name || 'General',
+              specific_requirements: description,
+              test_type: 'Single interaction tests',
+              output_format: 'Generate only user inputs',
+              rated_samples: [ratedSample],
+            }),
+          };
+
           const response = await servicesClient.generateTests({
-            prompt,
+            config,
             num_tests: 1,
             sources: selectedSources,
-            rated_samples: [ratedSample],
           });
 
           if (response.tests?.length) {

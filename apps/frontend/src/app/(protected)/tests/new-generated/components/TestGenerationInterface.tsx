@@ -70,7 +70,7 @@ interface TestGenerationInterfaceProps {
   isLoadingSamples: boolean;
   isLoadingMore: boolean;
   regeneratingSampleId: string | null;
-  onSamplesUpdate?: (samples: TestSample[]) => void;
+  onSamplesUpdate?: (samples: AnyTestSample[]) => void;
 }
 
 /**

@@ -25,7 +25,13 @@ export interface SelectionCardConfig {
   iconColor: string;
   buttonLabel: string;
   buttonVariant: 'contained' | 'outlined';
-  buttonColor?: 'primary' | 'secondary' | 'warning' | 'error' | 'info' | 'success';
+  buttonColor?:
+    | 'primary'
+    | 'secondary'
+    | 'warning'
+    | 'error'
+    | 'info'
+    | 'success';
   onClick: () => void;
   preview?: ReactNode;
 }
@@ -101,11 +107,11 @@ export default function SelectionModal({
         </IconButton>
       </DialogTitle>
 
-      <DialogContent 
-        sx={{ 
-          pt: 3, 
-          px: 3, 
-          pb: 3, 
+      <DialogContent
+        sx={{
+          pt: 3,
+          px: 3,
+          pb: 3,
           overflow: fillHeight ? 'hidden' : 'auto',
           ...(fillHeight && {
             display: 'flex',
@@ -114,11 +120,11 @@ export default function SelectionModal({
         }}
       >
         {/* Primary Action Cards */}
-        <Grid 
-          container 
-          spacing={3} 
-          sx={{ 
-            mb: additionalContent ? 6 : 0, 
+        <Grid
+          container
+          spacing={3}
+          sx={{
+            mb: additionalContent ? 6 : 0,
             mt: 0,
             ...(fillHeight && {
               flex: 1,
@@ -166,8 +172,17 @@ export default function SelectionModal({
                       </Box>
                     </Box>
                   )}
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
+                      flex: 1,
+                    }}
+                  >
+                    <Box
+                      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+                    >
                       <Typography variant="h6" component="h3">
                         {card.title}
                       </Typography>
@@ -181,7 +196,12 @@ export default function SelectionModal({
                     variant={card.buttonVariant}
                     size="large"
                     fullWidth
-                    color={card.buttonColor || (card.buttonVariant === 'contained' ? 'warning' : 'secondary')}
+                    color={
+                      card.buttonColor ||
+                      (card.buttonVariant === 'contained'
+                        ? 'warning'
+                        : 'secondary')
+                    }
                   >
                     {card.buttonLabel}
                   </Button>
@@ -197,4 +217,3 @@ export default function SelectionModal({
     </Dialog>
   );
 }
-

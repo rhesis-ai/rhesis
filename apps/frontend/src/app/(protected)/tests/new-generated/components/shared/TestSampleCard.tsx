@@ -12,12 +12,15 @@ import {
   Chip,
   Fade,
   Button,
+  Collapse,
 } from '@mui/material';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
 import SendIcon from '@mui/icons-material/Send';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import CircularProgress from '@mui/material/CircularProgress';
 import { AnyTestSample } from './types';
 import ContextPreview from './ContextPreview';
@@ -45,6 +48,7 @@ export default function TestSampleCard({
     sample.rating === 1 || Boolean(sample.feedback)
   );
   const [localFeedback, setLocalFeedback] = useState(sample.feedback);
+  const [expandedDetails, setExpandedDetails] = useState(false);
 
   const handleThumbsUp = () => {
     // Toggle: if already rated 5, set to 0 (unrated), otherwise set to 5
@@ -124,28 +128,20 @@ export default function TestSampleCard({
               sx={{ display: 'flex', gap: 0.5, mb: 1.5, alignItems: 'center' }}
             >
               <Chip
-                label={
-                  sample.testType === 'single_turn'
-                    ? 'Single-Turn'
-                    : 'Multi-Turn'
-                }
-                size="small"
-                variant="filled"
-                sx={{
-                  bgcolor:
-                    sample.testType === 'single_turn'
-                      ? 'primary.main'
-                      : 'secondary.main',
-                  color: 'white',
-                }}
-              />
-              <Chip
                 label={sample.behavior}
                 size="small"
                 color="primary"
                 variant="outlined"
               />
               <Chip label={sample.topic} size="small" variant="outlined" />
+              {sample.testType === 'multi_turn' && (
+                <Chip
+                  label={sample.category}
+                  size="small"
+                  color="secondary"
+                  variant="outlined"
+                />
+              )}
               <ContextPreview context={sample.context} />
             </Box>
 
@@ -172,27 +168,147 @@ export default function TestSampleCard({
                   py: 1,
                 }}
               >
-                {sample.testType === 'multi_turn' && (
+                {sample.testType === 'multi_turn' ? (
+                  <Box>
+                    {/* Goal - Always Visible */}
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}
+                    >
+                      Goal:
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontStyle: 'italic',
+                        color: theme =>
+                          theme.palette.mode === 'dark'
+                            ? 'primary.contrastText'
+                            : 'text.primary',
+                      }}
+                    >
+                      {sample.prompt.goal}
+                    </Typography>
+
+                    {/* Expand/Collapse Button */}
+                    <Button
+                      size="small"
+                      onClick={() => setExpandedDetails(!expandedDetails)}
+                      endIcon={
+                        expandedDetails ? (
+                          <ExpandLessIcon />
+                        ) : (
+                          <ExpandMoreIcon />
+                        )
+                      }
+                      sx={{
+                        mt: 1,
+                        textTransform: 'none',
+                        fontSize: '0.75rem',
+                        color: 'text.secondary',
+                        p: 0,
+                        minWidth: 'auto',
+                        '&:hover': {
+                          bgcolor: 'transparent',
+                          color: 'primary.main',
+                        },
+                      }}
+                    >
+                      {expandedDetails ? 'Hide details' : 'Show details'}
+                    </Button>
+
+                    {/* Collapsible Details Section */}
+                    <Collapse in={expandedDetails}>
+                      <Box
+                        sx={{
+                          mt: 1.5,
+                          pt: 1.5,
+                          borderTop: 1,
+                          borderColor: 'divider',
+                        }}
+                      >
+                        {/* Instructions */}
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}
+                        >
+                          Instructions:
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            mb: 1.5,
+                            whiteSpace: 'pre-wrap',
+                            color: theme =>
+                              theme.palette.mode === 'dark'
+                                ? 'primary.contrastText'
+                                : 'text.primary',
+                          }}
+                        >
+                          {sample.prompt.instructions}
+                        </Typography>
+
+                        {/* Scenario */}
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}
+                        >
+                          Scenario:
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            mb: 1.5,
+                            fontStyle: 'italic',
+                            color: theme =>
+                              theme.palette.mode === 'dark'
+                                ? 'primary.contrastText'
+                                : 'text.primary',
+                          }}
+                        >
+                          {sample.prompt.scenario}
+                        </Typography>
+
+                        {/* Restrictions */}
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}
+                        >
+                          Restrictions:
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            whiteSpace: 'pre-wrap',
+                            color: theme =>
+                              theme.palette.mode === 'dark'
+                                ? 'primary.contrastText'
+                                : 'text.primary',
+                          }}
+                        >
+                          {sample.prompt.restrictions}
+                        </Typography>
+                      </Box>
+                    </Collapse>
+                  </Box>
+                ) : (
                   <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}
+                    variant="body2"
+                    sx={{
+                      fontStyle: 'italic',
+                      color: theme =>
+                        theme.palette.mode === 'dark'
+                          ? 'primary.contrastText'
+                          : 'text.primary',
+                    }}
                   >
-                    Goal:
+                    {displayText}
                   </Typography>
                 )}
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontStyle: 'italic',
-                    color: theme =>
-                      theme.palette.mode === 'dark'
-                        ? 'primary.contrastText'
-                        : 'text.primary',
-                  }}
-                >
-                  {displayText}
-                </Typography>
               </Paper>
             </Box>
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import TestTypeSelectionScreen from './components/TestTypeSelectionScreen';
 import TestGenerationFlow from './components/TestGenerationFlow';
-import LandingScreen from './components/LandingScreen';
+import SelectTestCreationMethod from './components/SelectTestCreationMethod';
 import { TestType } from './components/shared/types';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useRouter } from 'next/navigation';
@@ -13,7 +13,7 @@ export default function GenerateTestsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [testType, setTestType] = useState<TestType | null>(null);
-  const [showLandingScreen, setShowLandingScreen] = useState(false);
+  const [showModal, setShowModal] = useState(true);
   const [flowStarted, setFlowStarted] = useState(false);
 
   // Check for existing test type or template in sessionStorage on mount
@@ -28,6 +28,7 @@ export default function GenerateTestsPage() {
         setTestType(storedTestType);
         // If there's a template, start the flow immediately
         if (hasTemplate) {
+          setShowModal(false);
           setFlowStarted(true);
         }
       }
@@ -40,13 +41,21 @@ export default function GenerateTestsPage() {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('testType', selectedTestType);
     }
-    // Show landing screen after test type is selected
-    setShowLandingScreen(true);
+    // Keep modal open, just switch to creation method view
   };
 
-  const handleCloseLanding = () => {
-    // User closed the modal, go back to test type selection
-    setShowLandingScreen(false);
+  const handleCloseModal = () => {
+    // User closed the modal completely
+    setShowModal(false);
+    setTestType(null);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('testType');
+    }
+    router.push('/tests');
+  };
+
+  const handleBackToTestType = () => {
+    // Go back to test type selection
     setTestType(null);
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('testType');
@@ -54,8 +63,8 @@ export default function GenerateTestsPage() {
   };
 
   const handleSelectAI = () => {
-    // Close landing screen and start the flow
-    setShowLandingScreen(false);
+    // Close modal and start the flow
+    setShowModal(false);
     setFlowStarted(true);
   };
 
@@ -65,11 +74,11 @@ export default function GenerateTestsPage() {
   };
 
   const handleSelectTemplate = (template: any) => {
-    // Store template ID, close landing screen, and start flow
+    // Store template ID, close modal, and start flow
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('selectedTemplateId', template.id);
     }
-    setShowLandingScreen(false);
+    setShowModal(false);
     setFlowStarted(true);
   };
 
@@ -97,23 +106,27 @@ export default function GenerateTestsPage() {
 
   return (
     <div style={{ padding: 0 }}>
-      {/* Test Type Selection Modal */}
-      <TestTypeSelectionScreen
-        open={!testType}
-        onClose={handleCloseLanding}
-        onSelectTestType={handleTestTypeSelection}
-      />
-
-      {/* Method Selection Modal (AI/Manual/Template) */}
-      {testType && !flowStarted && (
-        <LandingScreen
-          open={true}
-          onClose={handleCloseLanding}
-          onSelectAI={handleSelectAI}
-          onSelectManual={handleSelectManual}
-          onSelectTemplate={handleSelectTemplate}
-          testType={testType}
-        />
+      {/* Single Modal - switches content based on testType */}
+      {!flowStarted && (
+        <>
+          {!testType ? (
+            <TestTypeSelectionScreen
+              open={showModal}
+              onClose={handleCloseModal}
+              onSelectTestType={handleTestTypeSelection}
+            />
+          ) : (
+            <SelectTestCreationMethod
+              open={showModal}
+              onClose={handleCloseModal}
+              onBack={handleBackToTestType}
+              onSelectAI={handleSelectAI}
+              onSelectManual={handleSelectManual}
+              onSelectTemplate={handleSelectTemplate}
+              testType={testType}
+            />
+          )}
+        </>
       )}
 
       {/* Test Generation Flow */}

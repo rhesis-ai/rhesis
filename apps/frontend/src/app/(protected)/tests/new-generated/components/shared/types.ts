@@ -18,9 +18,9 @@ export type TestType = 'single_turn' | 'multi_turn';
  */
 export interface MultiTurnPrompt {
   goal: string;
-  instructions: string[];
-  restrictions: string[];
-  scenarios: string[];
+  instructions: string;
+  restrictions: string;
+  scenario: string;
 }
 
 /**
