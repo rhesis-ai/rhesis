@@ -176,8 +176,19 @@ def _create_inplace_test(
             self.category_id = None
 
             # For get_test_type, we need test_type attribute
-            # Create a simple object with type_value if test_type is specified
+            # Auto-detect test type if not explicitly provided
             test_type_str = request_data.get("test_type")
+            if not test_type_str:
+                # Auto-detect: if test_configuration has a goal, it's Multi-Turn
+                if self.test_configuration and isinstance(self.test_configuration, dict):
+                    if self.test_configuration.get("goal"):
+                        test_type_str = "Multi-Turn"
+                    else:
+                        test_type_str = "Single-Turn"
+                # If prompt is provided, it's Single-Turn
+                elif self.prompt:
+                    test_type_str = "Single-Turn"
+            
             if test_type_str:
 
                 class TestType:
