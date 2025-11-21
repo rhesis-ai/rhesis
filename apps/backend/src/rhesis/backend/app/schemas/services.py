@@ -195,8 +195,8 @@ class GenerateMultiTurnTestsRequest(BaseModel):
     num_tests: int = 5
 
 
-class MultiTurnPrompt(BaseModel):
-    """Multi-turn prompt with goal, instructions, restrictions, and scenario."""
+class MultiTurnTestConfiguration(BaseModel):
+    """Multi-turn test configuration with goal, instructions, restrictions, and scenario."""
 
     goal: str
     instructions: str = ""  # Optional - how Penelope should conduct the test
@@ -205,12 +205,13 @@ class MultiTurnPrompt(BaseModel):
 
 
 class MultiTurnTest(BaseModel):
-    """Multi-turn test case with structured prompt."""
+    """Multi-turn test case with structured configuration."""
 
-    prompt: MultiTurnPrompt
+    test_configuration: MultiTurnTestConfiguration
     behavior: str
     category: str
     topic: str
+    test_type: str
 
 
 class GenerateMultiTurnTestsResponse(BaseModel):
