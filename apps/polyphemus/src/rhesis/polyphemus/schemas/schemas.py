@@ -35,6 +35,6 @@ class GenerateRequest(BaseModel):
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = 512
     stream: bool = False
-    repetition_penalty: Optional[float] = None  # Penalty for repetition (>1.0 = penalty)
+    repetition_penalty: Optional[float] = 1.2  # Penalty for repetition (>1.0 = penalty)
     top_p: Optional[float] = None  # Nucleus sampling parameter
     top_k: Optional[int] = None  # Top-k sampling parameter

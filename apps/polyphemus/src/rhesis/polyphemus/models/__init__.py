@@ -1,6 +1,5 @@
 # InferenceEngine and format_prompt are commented out in inference.py
 # from .inference import InferenceEngine, format_prompt
-from .model_loader import ModelLoader
-from .models import TinyLLM
+from rhesis.polyphemus.models.model_loader import LazyModelLoader
 
-__all__ = ["ModelLoader", "TinyLLM"]
+__all__ = ["LazyModelLoader"]

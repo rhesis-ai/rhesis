@@ -3,7 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from rhesis.polyphemus.models import ModelLoader
+from rhesis.polyphemus.models import LazyModelLoader
 from rhesis.polyphemus.routers.health import router as health_router
 from rhesis.polyphemus.routers.services import router as services_router
 from rhesis.polyphemus.utils import ProcessTimeMiddleware
@@ -15,12 +15,13 @@ logger = logging.getLogger("rhesis-polyphemus")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: ModelLoader is kept for health endpoint compatibility
-    # Actual model loading happens in InferenceEngine when first used
-    model_loader = ModelLoader()
+    # Startup: Don't load model during startup - models load lazily on first request
+    # Creating LazyModelLoader with auto_loading=False to avoid blocking startup
+    # The actual model instances are managed by the service cache
+    model_loader = LazyModelLoader(auto_loading=False)
     app.state.model_loader = model_loader
-    # Note: Model loading is now handled by InferenceEngine (HuggingFaceLLM)
-    # We keep ModelLoader for health endpoint compatibility
+    # Note: Model loading is now handled by LazyModelLoader via service cache
+    # Models are cached and reused across requests
     logger.info("Polyphemus service starting - models will load on first request")
 
     yield
