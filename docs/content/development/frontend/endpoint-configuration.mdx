@@ -1,6 +1,6 @@
 # Endpoint Configuration Guide
 
-This guide explains how to configure endpoints in the system for both REST and WebSocket protocols, including authentication methods.
+This guide explains how to configure endpoints in the system for REST, WebSocket, and SDK connection types, including authentication methods.
 
 ## Reserved Placeholders
 
@@ -25,13 +25,15 @@ The system uses special placeholders that are automatically replaced with actual
 
 - `name`: A descriptive name for the endpoint (e.g., "Scavenger NL-to-SQL")
 - `description`: Detailed description of the endpoint's purpose
-- `url`: Full URL of the endpoint
+- `url`: Full URL of the endpoint (optional for SDK connections)
   - REST: Starts with `https://` or `http://`
   - WebSocket: Starts with `wss://` or `ws://`
-- `protocol`: Either "REST" or "WebSocket"
+  - SDK: Not required (connections are established via SDK)
+- `connection_type`: One of "REST", "WebSocket", "GRPC", or "SDK"
 - `method`:
   - REST: Standard HTTP methods ("GET", "POST", "PUT", "DELETE", etc.)
   - WebSocket: Use "WS"
+  - SDK: Not applicable
 - `endpoint_path`: The specific path portion of the URL (e.g., "/api/v1/query" or "/chat_ws")
 
 ### Request Configuration Fields
@@ -125,7 +127,7 @@ The system uses special placeholders that are automatically replaced with actual
   "name": "Data Query API",
   "description": "Endpoint for querying data using natural language",
   "url": "https://api.example.com/query",
-  "protocol": "REST",
+  "connection_type": "REST",
   "method": "POST",
   "endpoint_path": "/query",
   "request_body_template": "{\"query\": \"{{ input }}\"}",
@@ -143,7 +145,7 @@ The system uses special placeholders that are automatically replaced with actual
   "name": "Real-time Chat API",
   "description": "WebSocket endpoint for real-time chat interactions",
   "url": "wss://api.example.com/chat",
-  "protocol": "WebSocket",
+  "connection_type": "WebSocket",
   "method": "WS",
   "endpoint_path": "/chat",
   "request_body_template": "{\"auth_token\": \"{{ auth_token }}\", \"session_id\": \"{{ session_id }}\", \"query\": \"{{ input }}\"}",
