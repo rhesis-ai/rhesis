@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.invokers import create_invoker
+from rhesis.backend.logging import logger
 
 
 class EndpointService:
@@ -54,7 +55,7 @@ class EndpointService:
         endpoint = self._get_endpoint(db, endpoint_id, organization_id)
 
         try:
-            # Create appropriate invoker based on protocol
+            # Create appropriate invoker based on connection_type
             invoker = create_invoker(endpoint)
 
             # Inject organization_id and user_id into input_data for context
@@ -109,6 +110,177 @@ class EndpointService:
         """
         with open(self.schema_path, "r") as f:
             return json.load(f)
+
+    def sync_sdk_function_endpoints(
+        self,
+        db: Session,
+        project_id: str,
+        environment: str,
+        functions_data: list,
+        organization_id: str,
+        user_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Sync SDK function endpoints - create/update/mark inactive as needed.
+
+        Creates one endpoint per function registered by the SDK.
+
+        Args:
+            db: Database session
+            project_id: Project identifier
+            environment: Environment name
+            functions_data: List of function metadata from SDK
+            organization_id: Organization ID
+            user_id: User ID
+
+        Returns:
+            Dict with sync statistics (created, updated, marked_inactive counts)
+        """
+        from datetime import datetime
+
+        from sqlalchemy.orm.attributes import flag_modified
+
+        from rhesis.backend.app import crud, models, schemas
+        from rhesis.backend.app.models.enums import (
+            EndpointConfigSource,
+            EndpointConnectionType,
+            EndpointEnvironment,
+        )
+        from rhesis.backend.app.utils.status import get_or_create_status
+
+        logger.info("=== SYNC SDK FUNCTION ENDPOINTS ===")
+        logger.info(f"Project ID: {project_id}")
+        logger.info(f"Environment: {environment}")
+        logger.info(f"Functions to sync: {len(functions_data)}")
+
+        # Get project name for endpoint naming
+        project = db.query(models.Project).filter(models.Project.id == project_id).first()
+        project_name = project.name if project else project_id
+
+        # Get all existing SDK endpoints for this project/environment
+        existing_endpoints = (
+            db.query(models.Endpoint)
+            .filter(
+                models.Endpoint.project_id == project_id,
+                models.Endpoint.environment == environment,
+                models.Endpoint.connection_type == EndpointConnectionType.SDK.value,
+                models.Endpoint.organization_id == organization_id,
+            )
+            .all()
+        )
+
+        # Map existing endpoints by function name
+        existing_by_function = {}
+        for ep in existing_endpoints:
+            if ep.endpoint_metadata and ep.endpoint_metadata.get("sdk_connection"):
+                func_name = ep.endpoint_metadata["sdk_connection"].get("function_name")
+                if func_name:
+                    existing_by_function[func_name] = ep
+
+        logger.info(f"Found {len(existing_by_function)} existing SDK function endpoints")
+
+        # Track registered function names
+        registered_functions = set()
+        stats = {"created": 0, "updated": 0, "marked_inactive": 0, "errors": []}
+
+        # Create or update endpoints for each function
+        for func_data in functions_data:
+            function_name = func_data.get("name")
+            if not function_name:
+                logger.warning(f"Skipping function without name: {func_data}")
+                continue
+
+            registered_functions.add(function_name)
+
+            try:
+                if function_name in existing_by_function:
+                    # Update existing endpoint
+                    endpoint = existing_by_function[function_name]
+
+                    # Update metadata
+                    endpoint.endpoint_metadata = {
+                        "sdk_connection": {
+                            "project_id": project_id,
+                            "environment": environment,
+                            "function_name": function_name,
+                        },
+                        "function_schema": {
+                            "parameters": func_data.get("parameters", {}),
+                            "return_type": func_data.get("return_type", "any"),
+                            "description": func_data.get("metadata", {}).get("description", ""),
+                        },
+                        "last_registered": datetime.utcnow().isoformat(),
+                    }
+
+                    # Update description if changed
+                    func_description = func_data.get("metadata", {}).get("description", "")
+                    if func_description:
+                        endpoint.description = func_description
+
+                    flag_modified(endpoint, "endpoint_metadata")
+
+                    stats["updated"] += 1
+                    logger.info(f"Updated endpoint for function: {function_name}")
+
+                else:
+                    # Create new endpoint for this function
+                    endpoint_data = schemas.EndpointCreate(
+                        name=f"{project_name} ({function_name})",
+                        description=func_data.get("metadata", {}).get("description", ""),
+                        connection_type=EndpointConnectionType.SDK,
+                        url="",  # Empty for SDK
+                        environment=EndpointEnvironment(environment),
+                        project_id=project_id,
+                        config_source=EndpointConfigSource.SDK,
+                        endpoint_metadata={
+                            "sdk_connection": {
+                                "project_id": project_id,
+                                "environment": environment,
+                                "function_name": function_name,
+                            },
+                            "function_schema": {
+                                "parameters": func_data.get("parameters", {}),
+                                "return_type": func_data.get("return_type", "any"),
+                                "description": func_data.get("metadata", {}).get("description", ""),
+                            },
+                            "created_at": datetime.utcnow().isoformat(),
+                            "last_registered": datetime.utcnow().isoformat(),
+                        },
+                    )
+
+                    crud.create_endpoint(db, endpoint_data, organization_id, user_id)
+                    stats["created"] += 1
+                    logger.info(f"Created endpoint for function: {function_name}")
+
+            except Exception as e:
+                logger.error(f"Error syncing function {function_name}: {e}", exc_info=True)
+                stats["errors"].append({"function": function_name, "error": str(e)})
+
+        # Mark endpoints as inactive for functions that are no longer registered
+        for function_name, endpoint in existing_by_function.items():
+            if function_name not in registered_functions:
+                try:
+                    inactive_status = get_or_create_status(
+                        db, "Inactive", "General", organization_id
+                    )
+                    if inactive_status:
+                        endpoint.status_id = inactive_status.id
+                        stats["marked_inactive"] += 1
+                        logger.info(
+                            f"Marked endpoint inactive for removed function: {function_name}"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Error marking function {function_name} as inactive: {e}", exc_info=True
+                    )
+                    stats["errors"].append({"function": function_name, "error": str(e)})
+
+        db.commit()
+
+        logger.info(f"Sync complete: {stats}")
+        logger.info("=== END SYNC SDK FUNCTION ENDPOINTS ===")
+
+        return stats
 
 
 # Create a singleton instance of the service
@@ -179,11 +351,14 @@ if __name__ == "__main__":
 Usage examples:
 
 1. Basic usage with required org and user IDs:
-python -m rhesis.backend.app.services.endpoint "your-endpoint-id" --org-id "org-uuid" --user-id "user-uuid"
+python -m rhesis.backend.app.services.endpoint "your-endpoint-id" \\
+    --org-id "org-uuid" --user-id "user-uuid"
 
 2. With custom input:
-python -m rhesis.backend.app.services.endpoint "your-endpoint-id" -i "What's the weather like?" --org-id "org-uuid" --user-id "user-uuid"
+python -m rhesis.backend.app.services.endpoint "your-endpoint-id" \\
+    -i "What's the weather like?" --org-id "org-uuid" --user-id "user-uuid"
 
 3. With all parameters:
-python -m rhesis.backend.app.services.endpoint "your-endpoint-id" -i "Hello" -s "custom-session-123" --org-id "org-uuid" --user-id "user-uuid"
+python -m rhesis.backend.app.services.endpoint "your-endpoint-id" \\
+    -i "Hello" -s "custom-session-123" --org-id "org-uuid" --user-id "user-uuid"
 """

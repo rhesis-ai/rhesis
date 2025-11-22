@@ -6,7 +6,7 @@ import logging
 from typing import Any, Callable, Dict, Optional
 
 import websockets
-from websockets.client import WebSocketClientProtocol
+from websockets.asyncio.client import ClientConnection
 
 from rhesis.sdk.connector.types import ConnectionState
 
@@ -41,7 +41,7 @@ class WebSocketConnection:
         self.ping_timeout = ping_timeout
 
         self.state = ConnectionState.DISCONNECTED
-        self.websocket: Optional[WebSocketClientProtocol] = None
+        self.websocket: Optional[ClientConnection] = None
         self._connection_task: Optional[asyncio.Task] = None
         self._should_reconnect = True
 
@@ -133,7 +133,7 @@ class WebSocketConnection:
         self.state = ConnectionState.DISCONNECTED
         logger.info("WebSocket connection closed")
 
-    async def _listen_for_messages(self, websocket: WebSocketClientProtocol) -> None:
+    async def _listen_for_messages(self, websocket: ClientConnection) -> None:
         """Listen for incoming messages."""
         async for message in websocket:
             try:

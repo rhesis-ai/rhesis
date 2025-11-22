@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.app.models.enums import EndpointAuthType, EndpointProtocol
+from rhesis.backend.app.models.enums import EndpointAuthType, EndpointConnectionType
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def sample_endpoint_rest():
     return Endpoint(
         id="test-rest-endpoint",
         name="Test REST Endpoint",
-        protocol=EndpointProtocol.REST.value,
+        connection_type=EndpointConnectionType.REST.value,
         method="POST",
         url="https://api.example.com/chat",
         auth_type=EndpointAuthType.BEARER_TOKEN.value,
@@ -42,7 +42,7 @@ def sample_endpoint_websocket():
     return Endpoint(
         id="test-ws-endpoint",
         name="Test WebSocket Endpoint",
-        protocol=EndpointProtocol.WEBSOCKET.value,
+        connection_type=EndpointConnectionType.WEBSOCKET.value,
         url="wss://ws.example.com/chat",
         auth_type=EndpointAuthType.BEARER_TOKEN.value,
         auth_token="test-ws-token",
@@ -60,7 +60,7 @@ def sample_endpoint_oauth():
     endpoint = Endpoint(
         id="test-oauth-endpoint",
         name="Test OAuth Endpoint",
-        protocol=EndpointProtocol.REST.value,
+        connection_type=EndpointConnectionType.REST.value,
         method="POST",
         url="https://api.example.com/endpoint",
         auth_type=EndpointAuthType.CLIENT_CREDENTIALS.value,
@@ -83,7 +83,7 @@ def sample_endpoint_conversation():
     return Endpoint(
         id="test-conv-endpoint",
         name="Test Conversation Endpoint",
-        protocol=EndpointProtocol.REST.value,
+        connection_type=EndpointConnectionType.REST.value,
         method="POST",
         url="https://api.example.com/chat",
         auth_type=EndpointAuthType.BEARER_TOKEN.value,

@@ -66,7 +66,7 @@ import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 // Constants for select fields
-const PROTOCOLS = ['REST'];
+const CONNECTION_TYPES = ['REST', 'WEBSOCKET', 'GRPC', 'SDK'];
 const ENVIRONMENTS = ['production', 'staging', 'development'];
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
 
@@ -461,15 +461,15 @@ export default function EndpointDetail({
                 <Grid item xs={12} md={3}>
                   {isEditing ? (
                     <FormControl fullWidth>
-                      <InputLabel>Protocol</InputLabel>
+                      <InputLabel>Connection Type</InputLabel>
                       <Select
-                        value={editedValues.protocol || ''}
-                        label="Protocol"
-                        onChange={e => handleChange('protocol', e.target.value)}
+                        value={editedValues.connection_type || ''}
+                        label="Connection Type"
+                        onChange={e => handleChange('connection_type', e.target.value)}
                       >
-                        {PROTOCOLS.map(protocol => (
-                          <MenuItem key={protocol} value={protocol}>
-                            {protocol}
+                        {CONNECTION_TYPES.map(connectionType => (
+                          <MenuItem key={connectionType} value={connectionType}>
+                            {connectionType}
                           </MenuItem>
                         ))}
                       </Select>
@@ -477,10 +477,10 @@ export default function EndpointDetail({
                   ) : (
                     <>
                       <Typography variant="subtitle2" color="text.secondary">
-                        Protocol
+                        Connection Type
                       </Typography>
                       <Typography variant="body1">
-                        {endpoint.protocol}
+                        {endpoint.connection_type}
                       </Typography>
                     </>
                   )}

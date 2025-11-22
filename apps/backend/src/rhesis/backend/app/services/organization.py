@@ -446,7 +446,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             endpoint_data = {
                 "name": item["name"],
                 "description": item.get("description"),
-                "protocol": item["protocol"],
+                "connection_type": item["connection_type"],
                 "url": url,
                 "method": item.get("method"),
                 "environment": environment,

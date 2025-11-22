@@ -801,7 +801,7 @@
         {
             "name": "Insurance Chatbot",
             "description": "Default chatbot endpoint with user-based rate limiting (1000/day per user when authenticated, 100/day per IP for public access)",
-            "protocol": "REST",
+            "connection_type": "REST",
             "url": "https://${BACKEND_ENV}-chatbot.rhesis.ai/chat",
             "method": "POST",
             "environment": "${BACKEND_ENV}",

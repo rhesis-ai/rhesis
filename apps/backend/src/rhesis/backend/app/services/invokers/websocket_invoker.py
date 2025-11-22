@@ -445,7 +445,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                         f"WebSocket connection rejected: HTTP {status_err.response.status_code}"
                     ),
                     request_details={
-                        "protocol": "WebSocket",
+                        "connection_type": "WebSocket",
                         "uri": uri,
                         "headers": additional_headers,
                         "body": message_data,
@@ -490,7 +490,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     output_message=f"WebSocket communication failed: {str(e)}",
                     message=f"WebSocket communication failed: {str(e)}",
                     request_details={
-                        "protocol": "WebSocket",
+                        "connection_type": "WebSocket",
                         "uri": uri,
                         "headers": additional_headers,
                         "body": message_data,
@@ -509,7 +509,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 output_message=f"WebSocket error: {str(e)}",
                 message=f"WebSocket error: {str(e)}",
                 request_details={
-                    "protocol": "WebSocket",
+                    "connection_type": "WebSocket",
                     "uri": uri or "unknown",
                     "headers": additional_headers or {},
                     "body": message_data,

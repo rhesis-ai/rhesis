@@ -9,15 +9,16 @@ This module tests the EndpointService class including:
 - Error handling and edge cases
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock, mock_open
-from fastapi import HTTPException
-from sqlalchemy.orm import Session
 import json
 import uuid
+from unittest.mock import Mock, mock_open, patch
 
-from rhesis.backend.app.services.endpoint import EndpointService, invoke, get_schema
+import pytest
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.services.endpoint import EndpointService, get_schema, invoke
 
 
 class TestEndpointService:
@@ -50,6 +51,7 @@ class TestEndpointService:
     def test_get_endpoint_not_found(self, test_db: Session):
         """Test endpoint retrieval when endpoint doesn't exist"""
         import uuid
+
         service = EndpointService()
         
         # Use a non-existent UUID
@@ -71,7 +73,9 @@ class TestEndpointService:
         input_data = {"input": "test"}
         
         # Mock only the invoker creation, use real endpoint from fixture
-        with patch('rhesis.backend.app.services.endpoint.create_invoker', return_value=mock_invoker):
+        with patch(
+            "rhesis.backend.app.services.endpoint.create_invoker", return_value=mock_invoker
+        ):
             result = service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), input_data)
             
             assert result == {"response": "success"}
@@ -90,14 +94,18 @@ class TestEndpointService:
         mock_invoker.invoke.side_effect = ValueError("Invalid input")
         
         # Mock only the invoker creation, use real endpoint from fixture
-        with patch('rhesis.backend.app.services.endpoint.create_invoker', return_value=mock_invoker):
+        with patch(
+            "rhesis.backend.app.services.endpoint.create_invoker", return_value=mock_invoker
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), {})
             
             assert exc_info.value.status_code == 400
             assert "Invalid input" in str(exc_info.value.detail)
     
-    def test_invoke_endpoint_general_exception(self, test_db: Session, db_endpoint_minimal: Endpoint):
+    def test_invoke_endpoint_general_exception(
+        self, test_db: Session, db_endpoint_minimal: Endpoint
+    ):
         """Test endpoint invocation with general exception"""
         service = EndpointService()
         
@@ -105,7 +113,9 @@ class TestEndpointService:
         mock_invoker.invoke.side_effect = Exception("Internal error")
         
         # Mock only the invoker creation, use real endpoint from fixture
-        with patch('rhesis.backend.app.services.endpoint.create_invoker', return_value=mock_invoker):
+        with patch(
+            "rhesis.backend.app.services.endpoint.create_invoker", return_value=mock_invoker
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), {})
             
@@ -115,10 +125,7 @@ class TestEndpointService:
     def test_get_schema_success(self):
         """Test successful schema retrieval"""
         service = EndpointService()
-        schema_data = {
-            "input": {"type": "object"},
-            "output": {"type": "object"}
-        }
+        schema_data = {"input": {"type": "object"}, "output": {"type": "object"}}
         
         with patch("builtins.open", mock_open(read_data=json.dumps(schema_data))):
             result = service.get_schema()
@@ -143,19 +150,21 @@ class TestConvenienceFunctions:
         expected_result = {"response": "success"}
         
         # Mock the endpoint service singleton
-        with patch('rhesis.backend.app.services.endpoint.endpoint_service') as mock_service:
+        with patch("rhesis.backend.app.services.endpoint.endpoint_service") as mock_service:
             mock_service.invoke_endpoint.return_value = expected_result
             
             result = invoke(test_db, str(db_endpoint_minimal.id), input_data)
             
             assert result == expected_result
-            mock_service.invoke_endpoint.assert_called_once_with(test_db, str(db_endpoint_minimal.id), input_data)
+            mock_service.invoke_endpoint.assert_called_once_with(
+                test_db, str(db_endpoint_minimal.id), input_data
+            )
     
     def test_get_schema_function(self):
         """Test get_schema convenience function"""
         expected_schema = {"input": {"type": "object"}}
         
-        with patch('rhesis.backend.app.services.endpoint.endpoint_service') as mock_service:
+        with patch("rhesis.backend.app.services.endpoint.endpoint_service") as mock_service:
             mock_service.get_schema.return_value = expected_schema
             
             result = get_schema()
@@ -167,9 +176,9 @@ class TestConvenienceFunctions:
 class TestCommandLineInterface:
     """Test command-line interface functionality"""
     
-    @patch('rhesis.backend.app.database.SessionLocal')
-    @patch('rhesis.backend.app.services.endpoint.invoke')
-    @patch('argparse.ArgumentParser.parse_args')
+    @patch("rhesis.backend.app.database.SessionLocal")
+    @patch("rhesis.backend.app.services.endpoint.invoke")
+    @patch("argparse.ArgumentParser.parse_args")
     def test_command_line_execution(self, mock_parse_args, mock_invoke, mock_session_local):
         """Test command-line execution with tenant context"""
         # Mock command line arguments
@@ -193,7 +202,10 @@ class TestCommandLineInterface:
         # We'll simulate the main execution logic
         
         # Simulate the main block execution
-        input_data = {"input": mock_args.input, "session_id": mock_args.session or str(uuid.uuid4())}
+        input_data = {
+            "input": mock_args.input,
+            "session_id": mock_args.session or str(uuid.uuid4()),
+        }
         
         # Verify tenant context would be set
         expected_org_id = mock_args.org_id
@@ -206,8 +218,8 @@ class TestCommandLineInterface:
         mock_invoke.assert_called_with(mock_db, mock_args.endpoint_id, input_data)
         assert result == {"response": "I can help you with various tasks"}
     
-    @patch('rhesis.backend.app.database.SessionLocal')
-    @patch('argparse.ArgumentParser.parse_args')
+    @patch("rhesis.backend.app.database.SessionLocal")
+    @patch("argparse.ArgumentParser.parse_args")
     def test_command_line_with_default_session(self, mock_parse_args, mock_session_local):
         """Test command-line execution with default session ID generation"""
         # Mock command line arguments without session
@@ -223,10 +235,13 @@ class TestCommandLineInterface:
         mock_session_local.return_value = mock_db
         
         # Simulate input data creation with UUID generation
-        with patch('uuid.uuid4', return_value=Mock(spec=uuid.UUID)) as mock_uuid:
+        with patch("uuid.uuid4", return_value=Mock(spec=uuid.UUID)) as mock_uuid:
             mock_uuid.return_value.__str__ = Mock(return_value="generated-uuid-123")
             
-            input_data = {"input": mock_args.input, "session_id": mock_args.session or str(uuid.uuid4())}
+            input_data = {
+                "input": mock_args.input,
+                "session_id": mock_args.session or str(uuid.uuid4()),
+            }
             
             # Verify UUID was generated for session
             assert input_data["session_id"] == "generated-uuid-123"
@@ -242,7 +257,7 @@ class TestEndpointServiceIntegration:
         # Mock endpoint
         mock_endpoint = Mock(spec=Endpoint)
         mock_endpoint.id = "endpoint123"
-        mock_endpoint.protocol = "http"
+        mock_endpoint.connection_type = "http"
         
         # Mock invoker
         mock_invoker = Mock()
@@ -256,7 +271,9 @@ class TestEndpointServiceIntegration:
         
         input_data = {"message": "test input"}
         
-        with patch('rhesis.backend.app.services.endpoint.create_invoker', return_value=mock_invoker):
+        with patch(
+            "rhesis.backend.app.services.endpoint.create_invoker", return_value=mock_invoker
+        ):
             result = service.invoke_endpoint(mock_db, "endpoint123", input_data)
             
             assert result == {"status": "success", "data": "response"}
@@ -281,7 +298,10 @@ class TestEndpointServiceIntegration:
         mock_endpoint = Mock(spec=Endpoint)
         mock_query.filter.return_value.first.return_value = mock_endpoint
         
-        with patch('rhesis.backend.app.services.endpoint.create_invoker', side_effect=ValueError("Invalid protocol")):
+        with patch(
+            "rhesis.backend.app.services.endpoint.create_invoker",
+            side_effect=ValueError("Invalid connection type"),
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 service.invoke_endpoint(mock_db, "endpoint123", {})
             
@@ -300,7 +320,7 @@ def sample_endpoint():
     endpoint = Mock(spec=Endpoint)
     endpoint.id = "test-endpoint-123"
     endpoint.name = "Test Endpoint"
-    endpoint.protocol = "http"
+    endpoint.connection_type = "http"
     endpoint.url = "https://api.example.com/test"
     return endpoint
 
@@ -311,8 +331,5 @@ def sample_input_data():
     return {
         "input": "Test message",
         "session_id": "session-123",
-        "parameters": {
-            "temperature": 0.7,
-            "max_tokens": 100
-        }
+        "parameters": {"temperature": 0.7, "max_tokens": 100},
     }

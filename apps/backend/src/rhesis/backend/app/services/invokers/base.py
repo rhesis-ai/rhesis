@@ -91,6 +91,6 @@ class BaseEndpointInvoker(ABC):
             error_type, output_message, message, request_details, **kwargs
         )
 
-    def _safe_request_details(self, local_vars: Dict, protocol: str = "unknown"):
+    def _safe_request_details(self, local_vars: Dict, connection_type: str = "unknown"):
         """Safely create request details from local variables."""
-        return self.error_builder.safe_request_details(local_vars, protocol)
+        return self.error_builder.safe_request_details(local_vars, connection_type)

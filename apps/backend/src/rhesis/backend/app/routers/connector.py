@@ -8,6 +8,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
 from rhesis.backend.app.auth.user_utils import authenticate_websocket
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.schemas.connector import (
     ConnectionStatusResponse,
     ExecutionTrace,
@@ -57,10 +58,13 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info(f"WebSocket accepted: {project_id}:{environment}")
 
+    # Get tenant context
+    organization_id = str(user.organization_id)
+    user_id = str(user.id)
+
     try:
         # Register connection
         await connection_manager.connect(project_id, environment, websocket)
-        logger.info(f"WebSocket connected: {project_id}:{environment}")
 
         # Send acknowledgment
         await websocket.send_json({"type": "connected", "status": "success"})
@@ -71,51 +75,20 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             message: Dict[str, Any] = json.loads(data)
 
-            message_type = message.get("type")
-            logger.info(f"Received message type: {message_type} from {project_id}")
+            # Handle message via connection manager
+            with get_db_with_tenant_variables(organization_id, user_id) as db:
+                response = await connection_manager.handle_message(
+                    project_id=project_id,
+                    environment=environment,
+                    message=message,
+                    db=db,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
 
-            if message_type == "register":
-                # Handle registration
-                await connection_manager.handle_registration(project_id, environment, message)
-                await websocket.send_json({"type": "registered", "status": "success"})
-
-            elif message_type == "test_result":
-                # Handle test result
-                test_run_id = message.get("test_run_id")
-                status = message.get("status")
-                output = message.get("output")
-                error = message.get("error")
-                duration_ms = message.get("duration_ms")
-
-                logger.info("=" * 80)
-                logger.info("📥 TEST RESULT RECEIVED")
-                logger.info(f"Project: {project_id}:{environment}")
-                logger.info(f"Test Run ID: {test_run_id}")
-                logger.info(f"Status: {status}")
-                logger.info(f"Duration: {duration_ms}ms")
-
-                if status == "success":
-                    # Log output (truncate if too long)
-                    output_str = str(output)
-                    if len(output_str) > 500:
-                        logger.info(f"Output (first 500 chars): {output_str[:500]}...")
-                        logger.info(f"Output (last 100 chars): ...{output_str[-100:]}")
-                    else:
-                        logger.info(f"Output: {output_str}")
-                else:
-                    logger.error(f"Error: {error}")
-
-                logger.info("=" * 80)
-
-                # TODO: Store test result in database
-                # For now, results are logged
-
-            elif message_type == "pong":
-                # Pong response
-                logger.debug(f"Received pong from {project_id}")
-
-            else:
-                logger.warning(f"Unknown message type: {message_type}")
+            # Send response if provided
+            if response:
+                await websocket.send_json(response)
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected: {project_id}:{environment}")

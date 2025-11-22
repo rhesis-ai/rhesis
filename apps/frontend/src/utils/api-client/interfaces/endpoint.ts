@@ -2,16 +2,17 @@ export interface Endpoint {
   id: string;
   name: string;
   description?: string;
-  protocol: 'REST' | 'WEBSOCKET' | 'GRPC';
-  url: string;
+  connection_type: 'REST' | 'WEBSOCKET' | 'GRPC' | 'SDK';
+  url?: string;
   auth?: Record<string, any>;
   environment: 'development' | 'staging' | 'production';
 
   // Configuration Source
-  config_source: 'manual' | 'openapi' | 'llm_generated';
+  config_source: 'manual' | 'openapi' | 'llm_generated' | 'sdk';
   openapi_spec_url?: string;
   openapi_spec?: Record<string, any>;
   llm_suggestions?: Record<string, any>;
+  endpoint_metadata?: Record<string, any>;
 
   // Request Structure
   method?: string;

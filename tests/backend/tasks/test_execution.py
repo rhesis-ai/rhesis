@@ -231,7 +231,7 @@ class TestBackendEndpointTargetConversationContext:
 
     def test_conversation_id_extraction_from_response(self):
         """Test that BackendEndpointTarget correctly extracts conversation_id from endpoint responses"""
-        from unittest.mock import Mock, patch
+        from unittest.mock import Mock
         from uuid import uuid4
 
         from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
@@ -266,7 +266,7 @@ class TestBackendEndpointTargetConversationContext:
             mock_endpoint.name = "test-endpoint"
             mock_endpoint.url = "https://test.com"
             mock_endpoint.description = "Test endpoint"
-            mock_endpoint.protocol = "REST"
+            mock_endpoint.connection_type = "REST"
             mock_get_endpoint.return_value = mock_endpoint
 
             target = BackendEndpointTarget(
@@ -283,7 +283,7 @@ class TestBackendEndpointTargetConversationContext:
 
     def test_conversation_id_passthrough_to_endpoint(self):
         """Test that BackendEndpointTarget passes conversation_id to endpoint service"""
-        from unittest.mock import Mock, patch
+        from unittest.mock import Mock
         from uuid import uuid4
 
         from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
@@ -335,7 +335,7 @@ class TestBackendEndpointTargetConversationContext:
 
     def test_flexible_conversation_field_extraction(self):
         """Test that BackendEndpointTarget handles multiple conversation field names"""
-        from unittest.mock import Mock, patch
+        from unittest.mock import Mock
         from uuid import uuid4
 
         from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget

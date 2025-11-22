@@ -1,10 +1,12 @@
 """Connection manager for WebSocket connections with SDKs."""
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import WebSocket
+from sqlalchemy.orm import Session
 
+from rhesis.backend.app.services.connector.handler import message_handler
 from rhesis.backend.app.services.connector.schemas import (
     ConnectionStatus,
     ExecuteTestMessage,
@@ -162,7 +164,7 @@ class ConnectionManager:
         self, project_id: str, environment: str, message: Dict[str, Any]
     ) -> None:
         """
-        Handle registration message from SDK.
+        Handle registration message from SDK - update local function registry.
 
         Args:
             project_id: Project identifier
@@ -172,12 +174,61 @@ class ConnectionManager:
         try:
             reg_msg = RegisterMessage(**message)
             self.register_functions(project_id, environment, reg_msg.functions)
-            logger.info(
-                f"Processed registration from {project_id}:{environment} "
-                f"(SDK v{reg_msg.sdk_version})"
-            )
         except Exception as e:
             logger.error(f"Error handling registration: {e}")
+
+    async def handle_message(
+        self,
+        project_id: str,
+        environment: str,
+        message: Dict[str, Any],
+        db: Optional[Session] = None,
+        organization_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Handle incoming WebSocket message from SDK.
+
+        Args:
+            project_id: Project identifier
+            environment: Environment name
+            message: Message data
+            db: Optional database session for registration
+            organization_id: Optional organization ID for metadata updates
+            user_id: Optional user ID for metadata updates
+
+        Returns:
+            Response message to send back, or None if no response needed
+        """
+        message_type = message.get("type")
+        logger.info(f"Processing message type: {message_type} from {project_id}:{environment}")
+
+        if message_type == "register":
+            # Update local function registry
+            await self.handle_registration(project_id, environment, message)
+            # Handle registration via message handler (includes DB updates)
+            return await message_handler.handle_register_message(
+                project_id=project_id,
+                environment=environment,
+                message=message,
+                db=db,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+
+        elif message_type == "test_result":
+            # Handle test result via message handler
+            await message_handler.handle_test_result_message(project_id, environment, message)
+            return None
+
+        elif message_type == "pong":
+            # Handle pong via message handler
+            await message_handler.handle_pong_message(project_id, environment)
+            return None
+
+        else:
+            logger.warning(f"Unknown message type: {message_type}")
+            return None
 
 
 # Global connection manager instance

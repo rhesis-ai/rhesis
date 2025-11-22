@@ -124,17 +124,17 @@ class RestEndpointInvoker(BaseEndpointInvoker):
     def _create_request_details(self, method: str, url: str, headers: Dict, body: Any) -> Dict:
         """Create request details dictionary with sanitized headers."""
         return {
-            "protocol": "REST",
+            "connection_type": "REST",
             "method": method,
             "url": url,
             "headers": self._sanitize_headers(headers),
             "body": body,
         }
 
-    def _safe_request_details(self, local_vars: Dict, protocol: str) -> Dict:
+    def _safe_request_details(self, local_vars: Dict, connection_type: str) -> Dict:
         """Safely create request details from local variables with sanitized headers."""
         return {
-            "protocol": protocol,
+            "connection_type": connection_type,
             "method": local_vars.get("method", "UNKNOWN"),
             "url": local_vars.get("url", "UNKNOWN"),
             "headers": self._sanitize_headers(local_vars.get("headers", {})),

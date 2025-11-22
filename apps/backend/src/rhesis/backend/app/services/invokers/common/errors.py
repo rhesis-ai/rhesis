@@ -39,13 +39,13 @@ class ErrorResponseBuilder:
         return error_response
 
     @staticmethod
-    def safe_request_details(local_vars: Dict, protocol: str = "unknown") -> Dict:
+    def safe_request_details(local_vars: Dict, connection_type: str = "unknown") -> Dict:
         """
         Safely create request details from local variables.
 
         Args:
             local_vars: Local variables dict (typically from locals())
-            protocol: Protocol type (REST, WebSocket, etc.)
+            connection_type: Connection type (REST, WebSocket, SDK, etc.)
 
         Returns:
             Sanitized request details dictionary
@@ -53,7 +53,7 @@ class ErrorResponseBuilder:
         from .headers import HeaderManager
 
         return {
-            "protocol": protocol,
+            "connection_type": connection_type,
             "method": local_vars.get("method", "UNKNOWN"),
             "url": local_vars.get("url", local_vars.get("uri", "UNKNOWN")),
             "headers": HeaderManager.sanitize_headers(local_vars.get("headers", {})),

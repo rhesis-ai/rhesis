@@ -300,8 +300,8 @@ export default function EndpointGrid({
       flex: 1,
     },
     {
-      field: 'protocol',
-      headerName: 'Protocol',
+      field: 'connection_type',
+      headerName: 'Connection Type',
       flex: 0.7,
       renderCell: params => (
         <Chip label={params.value} size="small" variant="outlined" />

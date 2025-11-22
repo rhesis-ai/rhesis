@@ -69,7 +69,7 @@ class BackendEndpointTarget(Target):
         self._endpoint_name = None
         self._endpoint_url = None
         self._endpoint_description = None
-        self._endpoint_protocol = None
+        self._endpoint_connection_type = None
 
         # Validate configuration on initialization
         is_valid, error = self.validate_configuration()
@@ -92,7 +92,7 @@ class BackendEndpointTarget(Target):
                 self._endpoint_name = endpoint.name
                 self._endpoint_url = endpoint.url
                 self._endpoint_description = endpoint.description
-                self._endpoint_protocol = endpoint.protocol
+                self._endpoint_connection_type = endpoint.connection_type
         except Exception as e:
             logger.warning(f"Failed to load endpoint metadata for {self.endpoint_id}: {e}")
 
@@ -291,13 +291,13 @@ class BackendEndpointTarget(Target):
         name = self._endpoint_name or self.endpoint_id
         url = self._endpoint_url or "N/A"
         description = self._endpoint_description or ""
-        protocol = self._endpoint_protocol or "REST"
+        connection_type = self._endpoint_connection_type or "REST"
 
         doc = f"""
 Target Type: Backend Endpoint (Rhesis)
 Name: {name}
 Endpoint ID: {self.endpoint_id}
-Protocol: {protocol}
+Connection Type: {connection_type}
 URL: {url}
 """
 

@@ -113,7 +113,7 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 });
 
 // Enums based on your backend models
-const PROTOCOLS = ['REST'];
+const CONNECTION_TYPES = ['REST', 'WEBSOCKET', 'GRPC', 'SDK'];
 const ENVIRONMENTS = ['production', 'staging', 'development'];
 const METHODS = ['POST'];
 
@@ -199,7 +199,7 @@ export default function EndpointForm() {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
-    protocol: 'REST',
+    connection_type: 'REST',
     url: '',
     environment: 'development',
     config_source: 'manual',
@@ -444,17 +444,17 @@ export default function EndpointForm() {
                 </Grid>
                 <Grid item xs={12} md={3}>
                   <FormControl fullWidth>
-                    <InputLabel>Protocol</InputLabel>
+                    <InputLabel>Connection Type</InputLabel>
                     <Select
-                      name="protocol"
-                      value={formData.protocol}
-                      onChange={e => handleChange('protocol', e.target.value)}
-                      label="Protocol"
+                      name="connectionType"
+                      value={formData.connection_type}
+                      onChange={e => handleChange('connection_type', e.target.value)}
+                      label="Connection Type"
                       required
                     >
-                      {PROTOCOLS.map(protocol => (
-                        <MenuItem key={protocol} value={protocol}>
-                          {protocol}
+                      {CONNECTION_TYPES.map(connectionType => (
+                        <MenuItem key={connectionType} value={connectionType}>
+                          {connectionType}
                         </MenuItem>
                       ))}
                     </Select>

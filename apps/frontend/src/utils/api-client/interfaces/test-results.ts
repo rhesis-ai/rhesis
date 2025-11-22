@@ -152,7 +152,7 @@ export interface Endpoint {
   id: UUID;
   name: string;
   description: string;
-  protocol: string;
+  connection_type: string;
   url: string;
   auth?: any;
   environment: string;
@@ -160,6 +160,7 @@ export interface Endpoint {
   openapi_spec_url?: string;
   openapi_spec?: any;
   llm_suggestions?: any;
+  endpoint_metadata?: Record<string, any>;
   method: string;
   endpoint_path: string;
   request_headers: Record<string, string>;

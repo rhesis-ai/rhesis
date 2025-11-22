@@ -249,6 +249,21 @@ def get_assistant_response(
     return "".join(response_generator.stream_assistant_response(prompt, conversation_history))
 
 
+@collaborate(name="echo", description="Echo the input")
+def echo(input: str) -> str:
+    return input
+
+
+@collaborate(name="multiply_numbers", description="Multiply two numbers")
+def multiply_numbers(a: int, b: int) -> dict:
+    return {
+        "result": a * b,
+        "error": None,
+        "success": True,
+        "message": f"The result of {a} * {b} is {a * b}",
+    }
+
+
 @collaborate(
     name="stream_assistant_response", description="Stream assistant responses for insurance queries"
 )
