@@ -96,6 +96,7 @@ async def get_ai_json_response(prompt_request: PromptRequest):
 
         return get_json_response(prompt_request.prompt)
     except Exception as e:
+        logger.error(f"Failed to get JSON response: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -126,6 +127,7 @@ async def get_ai_chat_response(chat_request: ChatRequest):
             response_format=chat_request.response_format,
         )
     except Exception as e:
+        logger.error(f"Failed to get chat response: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -149,6 +151,7 @@ async def create_chat_completion_endpoint(request: dict):
 
         return response
     except Exception as e:
+        logger.error(f"Failed to create chat completion: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -210,6 +213,7 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 
         return response
     except Exception as e:
+        logger.error(f"Failed to generate content: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -301,6 +305,7 @@ async def generate_multiturn_tests_endpoint(
         )
         return {"tests": test_cases}
     except Exception as e:
+        logger.error(f"Failed to generate multi-turn tests: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -343,6 +348,7 @@ async def generate_text(prompt_request: PromptRequest):
 
         return TextResponse(text=response)
     except Exception as e:
+        logger.error(f"Failed to generate text: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -438,6 +444,7 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
             status_code=404, detail="Document not found. Please check the file path."
         )
     except Exception as e:
+        logger.error(f"Failed to extract document content: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Failed to extract document content: {str(e)}")
 
 
@@ -533,6 +540,7 @@ async def search_mcp_server(
     try:
         return await search_mcp(request.query, request.server_name, db, current_user)
     except Exception as e:
+        logger.error(f"Failed to search MCP server: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -569,6 +577,7 @@ async def extract_mcp_item(
         content = await extract_mcp(request.id, request.server_name, db, current_user)
         return {"content": content}
     except Exception as e:
+        logger.error(f"Failed to extract MCP item: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -617,4 +626,5 @@ async def query_mcp_server(
         )
         return result
     except Exception as e:
+        logger.error(f"Failed to query MCP server: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
