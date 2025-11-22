@@ -206,7 +206,9 @@ class EndpointService:
                     endpoint = existing_by_function[function_name]
 
                     # Set status to Active (in case it was previously Inactive)
-                    active_status = get_or_create_status(db, "Active", "General", organization_id)
+                    active_status = get_or_create_status(
+                        db, "Active", "General", organization_id, user_id
+                    )
                     if active_status:
                         endpoint.status_id = active_status.id
 
@@ -238,7 +240,9 @@ class EndpointService:
                 else:
                     # Create new endpoint for this function
                     # Get or create Active status
-                    active_status = get_or_create_status(db, "Active", "General", organization_id)
+                    active_status = get_or_create_status(
+                        db, "Active", "General", organization_id, user_id
+                    )
 
                     endpoint_data = schemas.EndpointCreate(
                         name=f"{project_name} ({function_name})",
@@ -285,7 +289,7 @@ class EndpointService:
                 )
                 try:
                     inactive_status = get_or_create_status(
-                        db, "Inactive", "General", organization_id
+                        db, "Inactive", "General", organization_id, user_id
                     )
                     if inactive_status:
                         endpoint.status_id = inactive_status.id
