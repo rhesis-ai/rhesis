@@ -75,10 +75,11 @@ class ConnectorManager:
                 "X-Rhesis-Environment": self.environment,
             },
             on_message=self._handle_message,
+            on_connect=self._handle_connect,
         )
 
         # Start connection in background
-        asyncio.create_task(self._initialize_connection())
+        asyncio.create_task(self._connection.connect())
         self._initialized = True
         logger.info(f"Connector initialized for project {self.project_id}")
 
@@ -100,14 +101,13 @@ class ConnectorManager:
         if self._connection and self._connection.websocket:
             asyncio.create_task(self._send_registration())
 
-    async def _initialize_connection(self) -> None:
-        """Initialize connection and send registration."""
+    async def _handle_connect(self) -> None:
+        """Handle successful connection/reconnection - send registration."""
         try:
-            await self._connection.connect()
-            await asyncio.sleep(0.5)  # Wait for connection to establish
+            await asyncio.sleep(0.5)  # Brief delay to ensure connection is stable
             await self._send_registration()
         except Exception as e:
-            logger.error(f"Error initializing connection: {e}")
+            logger.error(f"Error handling connection: {e}")
 
     async def _send_registration(self) -> None:
         """Send function registration to backend."""

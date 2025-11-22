@@ -21,6 +21,7 @@ class WebSocketConnection:
         url: str,
         headers: Dict[str, str],
         on_message: Callable[[Dict[str, Any]], None],
+        on_connect: Optional[Callable[[], None]] = None,
         ping_interval: int = 30,
         ping_timeout: int = 10,
     ):
@@ -31,12 +32,14 @@ class WebSocketConnection:
             url: WebSocket URL to connect to
             headers: Headers to send with connection request
             on_message: Callback for handling incoming messages
+            on_connect: Optional callback called when connection is established (or re-established)
             ping_interval: Interval between ping messages (seconds)
             ping_timeout: Timeout for pong response (seconds)
         """
         self.url = url
         self.headers = headers
         self.on_message = on_message
+        self.on_connect = on_connect
         self.ping_interval = ping_interval
         self.ping_timeout = ping_timeout
 
@@ -110,6 +113,10 @@ class WebSocketConnection:
 
                     # Reset retry delay on successful connection
                     retry_delay = 1
+
+                    # Trigger on_connect callback (for registration)
+                    if self.on_connect:
+                        asyncio.create_task(self.on_connect())
 
                     # Listen for messages
                     await self._listen_for_messages(websocket)
