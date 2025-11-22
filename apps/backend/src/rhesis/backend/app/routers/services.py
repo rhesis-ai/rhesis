@@ -128,7 +128,9 @@ async def get_ai_chat_response(chat_request: ChatRequest):
         )
     except Exception as e:
         logger.error(f"Failed to get chat response: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to get chat response. Please try again.")
+        raise HTTPException(
+            status_code=400, detail="Failed to get chat response. Please try again."
+        )
 
 
 @router.post("/chat/completions")
@@ -152,7 +154,9 @@ async def create_chat_completion_endpoint(request: dict):
         return response
     except Exception as e:
         logger.error(f"Failed to create chat completion: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to create chat completion. Please try again.")
+        raise HTTPException(
+            status_code=400, detail="Failed to create chat completion. Please try again."
+        )
 
 
 @router.post("/generate/content")
@@ -306,7 +310,9 @@ async def generate_multiturn_tests_endpoint(
         return {"tests": test_cases}
     except Exception as e:
         logger.error(f"Failed to generate multi-turn tests: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to generate multi-turn tests. Please try again.")
+        raise HTTPException(
+            status_code=400, detail="Failed to generate multi-turn tests. Please try again."
+        )
 
 
 @router.post("/generate/text", response_model=TextResponse)
@@ -445,7 +451,10 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
         )
     except Exception as e:
         logger.error(f"Failed to extract document content: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to extract document content. Please check the file format and try again.")
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to extract document content. Please check the file format and try again.",
+        )
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)
@@ -541,7 +550,9 @@ async def search_mcp_server(
         return await search_mcp(request.query, request.server_name, db, current_user)
     except Exception as e:
         logger.error(f"Failed to search MCP server: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to search MCP server. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="Failed to search MCP server. Please try again."
+        )
 
 
 @router.post("/mcp/extract", response_model=ExtractMCPResponse)
@@ -578,7 +589,10 @@ async def extract_mcp_item(
         return {"content": content}
     except Exception as e:
         logger.error(f"Failed to extract MCP item: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to extract content. Please verify the item ID and try again.")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to extract content. Please verify the item ID and try again.",
+        )
 
 
 @router.post("/mcp/query", response_model=QueryMCPResponse)
@@ -627,4 +641,6 @@ async def query_mcp_server(
         return result
     except Exception as e:
         logger.error(f"Failed to query MCP server: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to execute query on MCP server. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="Failed to execute query on MCP server. Please try again."
+        )
