@@ -172,12 +172,20 @@ class EndpointService:
         # Map existing endpoints by function name
         existing_by_function = {}
         for ep in existing_endpoints:
+            logger.debug(f"Checking endpoint {ep.id} ({ep.name}), metadata: {ep.endpoint_metadata}")
             if ep.endpoint_metadata and ep.endpoint_metadata.get("sdk_connection"):
                 func_name = ep.endpoint_metadata["sdk_connection"].get("function_name")
                 if func_name:
                     existing_by_function[func_name] = ep
+                    logger.debug(f"Mapped function '{func_name}' to endpoint {ep.id}")
+            else:
+                logger.warning(
+                    f"Endpoint {ep.id} ({ep.name}) has no sdk_connection in metadata: "
+                    f"{ep.endpoint_metadata}"
+                )
 
         logger.info(f"Found {len(existing_by_function)} existing SDK function endpoints")
+        logger.info(f"Existing function names: {list(existing_by_function.keys())}")
 
         # Track registered function names
         registered_functions = set()
@@ -266,8 +274,15 @@ class EndpointService:
                 stats["errors"].append({"function": function_name, "error": str(e)})
 
         # Mark endpoints as inactive for functions that are no longer registered
+        logger.info(f"Registered functions: {registered_functions}")
+        logger.info("Checking for removed functions to mark inactive...")
+
         for function_name, endpoint in existing_by_function.items():
             if function_name not in registered_functions:
+                logger.info(
+                    f"Function '{function_name}' no longer registered, "
+                    f"marking endpoint {endpoint.id} as inactive"
+                )
                 try:
                     inactive_status = get_or_create_status(
                         db, "Inactive", "General", organization_id
@@ -276,8 +291,11 @@ class EndpointService:
                         endpoint.status_id = inactive_status.id
                         stats["marked_inactive"] += 1
                         logger.info(
-                            f"Marked endpoint inactive for removed function: {function_name}"
+                            f"✓ Marked endpoint {endpoint.id} ({endpoint.name}) inactive "
+                            f"for removed function: {function_name}"
                         )
+                    else:
+                        logger.error("Could not find/create Inactive status")
                 except Exception as e:
                     logger.error(
                         f"Error marking function {function_name} as inactive: {e}", exc_info=True
