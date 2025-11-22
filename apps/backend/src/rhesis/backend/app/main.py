@@ -73,11 +73,48 @@ token_enabled_routes = [
     "/comments/",
     "/sources/",
     "/models/",
+    "/connector/",
 ]
+
+
+def is_websocket_route(route: APIRoute) -> bool:
+    """
+    Check if a route is a WebSocket endpoint.
+    
+    WebSocket routes need special handling because they cannot use
+    FastAPI's dependency injection system in the same way as HTTP routes.
+    They must accept the connection first, then handle authentication manually.
+    
+    Args:
+        route: The APIRoute to check
+        
+    Returns:
+        True if this is a WebSocket route, False otherwise
+    """
+    import inspect
+    
+    # Check if the route has a dependant with a callable
+    if not hasattr(route, 'dependant') or not route.dependant:
+        return False
+    
+    if not hasattr(route.dependant, 'call') or not route.dependant.call:
+        return False
+    
+    # Get the function signature
+    try:
+        sig = inspect.signature(route.dependant.call)
+        # WebSocket routes have a 'websocket' parameter of type WebSocket
+        return 'websocket' in sig.parameters
+    except (ValueError, TypeError):
+        return False
 
 
 class AuthenticatedAPIRoute(APIRoute):
     def get_dependencies(self):
+        # WebSocket routes handle authentication manually in the endpoint
+        if is_websocket_route(self):
+            return []
+        
         if self.path in public_routes:
             # No auth required
             return []

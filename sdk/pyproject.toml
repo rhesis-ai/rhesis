@@ -41,6 +41,7 @@ dependencies = [
         "langchain-google-genai>=2.1.12",
     "ragas>=0.3.7",
     "mcp>=1.2.0",
+    "websockets>=12.0",
 ]
 
 [project.license]
