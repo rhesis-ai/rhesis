@@ -2508,7 +2508,8 @@ def update_model(
     # First check if the model is protected
     existing_model = get_model(db, model_id, organization_id)
     if existing_model and getattr(existing_model, "is_protected", False):
-        # For protected models, only allow updating certain fields (tags, comments, status, owner, assignee)
+        # For protected models, only allow updating certain fields
+        # (tags, comments, status, owner, assignee)
         # Block updates to core model configuration properties
         protected_fields = {
             "name",
@@ -2538,8 +2539,9 @@ def update_model(
                     attempted_protected_updates.append(field)
 
         if attempted_protected_updates:
+            fields_str = ", ".join(attempted_protected_updates)
             raise ValueError(
-                f"Cannot update protected fields ({', '.join(attempted_protected_updates)}) on system model. "
+                f"Cannot update protected fields ({fields_str}) on system model. "
                 "Only tags, status, owner, and assignee can be modified."
             )
 
@@ -2586,7 +2588,82 @@ def test_model_connection(db: Session, model_id: uuid.UUID) -> bool:
         raise Exception(f"Failed to test connection: {str(e)}")
 
 
+# Tool CRUD
+def get_tool(
+    db: Session, tool_id: uuid.UUID, organization_id: str, user_id: str = None
+) -> Optional[models.Tool]:
+    """Get a specific tool by ID with relationships loaded"""
+    return get_item_detail(db, models.Tool, tool_id, organization_id, user_id)
+
+
+def get_tools(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[models.Tool]:
+    """Get all tools for an organization with filtering and pagination"""
+    return get_items_detail(
+        db,
+        models.Tool,
+        skip,
+        limit,
+        sort_by,
+        sort_order,
+        filter,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+
+def get_tool_by_provider(
+    db: Session, organization_id: str, provider_value: str
+) -> Optional[models.Tool]:
+    """Get organization's tool by provider type_value (e.g., 'notion', 'github')."""
+    return (
+        db.query(models.Tool)
+        .join(models.TypeLookup, models.Tool.tool_provider_type_id == models.TypeLookup.id)
+        .filter(
+            models.Tool.organization_id == uuid.UUID(organization_id),
+            models.TypeLookup.type_value == provider_value,
+            models.Tool.deleted_at.is_(None),  # Exclude soft-deleted tools
+        )
+        .first()
+    )
+
+
+def create_tool(
+    db: Session, tool: schemas.ToolCreate, organization_id: str, user_id: str = None
+) -> models.Tool:
+    """Create a new tool"""
+    return create_item(db, models.Tool, tool, organization_id, user_id)
+
+
+def update_tool(
+    db: Session,
+    tool_id: uuid.UUID,
+    tool: schemas.ToolUpdate,
+    organization_id: str,
+    user_id: str = None,
+) -> Optional[models.Tool]:
+    """Update a tool"""
+    return update_item(db, models.Tool, tool_id, tool, organization_id, user_id)
+
+
+def delete_tool(
+    db: Session, tool_id: uuid.UUID, organization_id: str, user_id: str = None
+) -> Optional[models.Tool]:
+    """Delete a tool (soft delete)"""
+    return delete_item(db, models.Tool, tool_id, organization_id=organization_id, user_id=user_id)
+
+
 # Comment CRUD
+
+
 def get_comment(
     db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Comment]:
