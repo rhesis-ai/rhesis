@@ -38,6 +38,7 @@ export const API_ENDPOINTS = {
   comments: '/comments',
   tasks: '/tasks',
   sources: '/sources',
+  tools: '/tools',
 } as const;
 
 export const ENTITY_TYPES = {

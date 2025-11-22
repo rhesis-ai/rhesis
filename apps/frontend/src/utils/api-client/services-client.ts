@@ -245,10 +245,10 @@ export class ServicesClient extends BaseApiClient {
   /**
    * Search MCP server for items matching the query
    * @param query - Search query string
-   * @param serverName - MCP server name (e.g., "notionApi")
+   * @param toolId - ID of the configured tool integration
    * @returns Array of MCP items with id, url, and title
    */
-  async searchMCP(query: string, serverName: string): Promise<MCPItem[]> {
+  async searchMCP(query: string, toolId: string): Promise<MCPItem[]> {
     return this.fetch<MCPItem[]>(`${API_ENDPOINTS.services}/mcp/search`, {
       method: 'POST',
       headers: {
@@ -256,7 +256,7 @@ export class ServicesClient extends BaseApiClient {
       },
       body: JSON.stringify({
         query,
-        server_name: serverName,
+        tool_id: toolId,
       }),
     });
   }
@@ -264,13 +264,10 @@ export class ServicesClient extends BaseApiClient {
   /**
    * Extract full content from an MCP item as markdown
    * @param id - MCP item ID
-   * @param serverName - MCP server name (e.g., "notionApi")
+   * @param toolId - ID of the configured tool integration
    * @returns Extracted content as markdown
    */
-  async extractMCP(
-    id: string,
-    serverName: string
-  ): Promise<MCPExtractResponse> {
+  async extractMCP(id: string, toolId: string): Promise<MCPExtractResponse> {
     return this.fetch<MCPExtractResponse>(
       `${API_ENDPOINTS.services}/mcp/extract`,
       {
@@ -280,7 +277,7 @@ export class ServicesClient extends BaseApiClient {
         },
         body: JSON.stringify({
           id,
-          server_name: serverName,
+          tool_id: toolId,
         }),
       }
     );

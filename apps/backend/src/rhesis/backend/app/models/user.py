@@ -95,6 +95,9 @@ class User(Base):
     # Comment relationships
     comments = relationship("Comment", back_populates="user")
 
+    # Tool relationships
+    tools = relationship("Tool", foreign_keys="[Tool.user_id]", back_populates="user")
+
     @classmethod
     def from_auth0(cls, userinfo: dict) -> "User":
         """Create a User instance from Auth0 userinfo"""

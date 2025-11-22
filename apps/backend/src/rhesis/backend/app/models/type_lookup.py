@@ -35,3 +35,9 @@ class TypeLookup(Base, OrganizationAndUserMixin):
     )
     task_priorities = relationship("Task", back_populates="priority")
     sources = relationship("Source", back_populates="source_type")
+    tool_types = relationship(
+        "Tool", foreign_keys="[Tool.tool_type_id]", back_populates="tool_type"
+    )
+    tool_provider_types = relationship(
+        "Tool", foreign_keys="[Tool.tool_provider_type_id]", back_populates="tool_provider_type"
+    )
