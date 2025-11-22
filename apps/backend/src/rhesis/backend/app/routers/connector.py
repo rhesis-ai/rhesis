@@ -6,10 +6,8 @@ import uuid
 from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.security import HTTPAuthorizationCredentials
 
-from rhesis.backend.app.auth.token_utils import get_secret_key
-from rhesis.backend.app.auth.user_utils import get_authenticated_user_with_context
+from rhesis.backend.app.auth.user_utils import authenticate_websocket
 from rhesis.backend.app.schemas.connector import (
     ConnectionStatusResponse,
     ExecutionTrace,
@@ -35,92 +33,31 @@ async def websocket_endpoint(websocket: WebSocket):
     - Test execution requests
     - Bidirectional communication
     """
-    logger.info("=" * 80)
     logger.info("WebSocket connection attempt received")
 
-    # Extract auth header
-    auth_header = websocket.headers.get("authorization", "")
-    logger.info(f"Auth header present: {bool(auth_header)}")
-
-    if auth_header:
-        # Log first 20 chars of header for debugging (don't log full token)
-        logger.info(f"Auth header prefix: {auth_header[:20]}...")
-
-    if not auth_header.startswith("Bearer "):
-        logger.error("Missing or invalid authorization header")
-        await websocket.close(code=1008, reason="Missing authorization")
-        return
-
-    token_value = auth_header.replace("Bearer ", "")
-    logger.info(f"Token extracted, starts with: {token_value[:10]}...")
-    logger.info(f"Token format valid (starts with rh-): {token_value.startswith('rh-')}")
-
-    # Create credentials object and mock request to use existing auth utilities
-    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token_value)
-
-    # Create a mock request object with minimal required attributes
-    class MockRequest:
-        def __init__(self):
-            self.session = {}
-            self.state = type("obj", (object,), {})()
-
-    mock_request = MockRequest()
-    logger.info("Mock request created")
-
-    # Use the existing authentication utility
+    # Authenticate the connection
     try:
-        logger.info("Getting secret key...")
-        secret_key = get_secret_key()
-        logger.info(f"Secret key obtained: {bool(secret_key)}")
-
-        logger.info("Calling get_authenticated_user_with_context...")
-        user = await get_authenticated_user_with_context(
-            request=mock_request,
-            credentials=credentials,
-            secret_key=secret_key,
-            without_context=True,  # Allow users without organization for SDK connections
-        )
-
-        logger.info(f"Authentication result - User found: {user is not None}")
-
-        if not user:
-            logger.error("Authentication failed - no user returned")
-            await websocket.close(code=1008, reason="Invalid token")
-            return
-
-        logger.info(f"Token validated successfully for user: {user.email}")
-        logger.info("=" * 80)
-
+        user = await authenticate_websocket(websocket)
+        logger.info(f"WebSocket authenticated for user: {user.email}")
     except HTTPException as e:
-        logger.error(f"HTTPException during authentication: {e.status_code} - {e.detail}")
+        logger.error(f"Authentication failed: {e.detail}")
         await websocket.close(code=1008, reason=str(e.detail))
         return
-    except Exception as e:
-        logger.error(f"Unexpected exception during authentication: {type(e).__name__} - {str(e)}")
-        import traceback
 
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        await websocket.close(code=1008, reason="Authentication failed")
+    # Validate additional headers
+    project_id = websocket.headers.get("x-rhesis-project", "")
+    environment = websocket.headers.get("x-rhesis-environment", "development")
+
+    if not project_id:
+        logger.error("Missing project_id in WebSocket headers")
+        await websocket.close(code=1008, reason="Missing project_id")
         return
 
-    # Accept connection after successful authentication
-    logger.info("Accepting WebSocket connection...")
+    # Accept connection after all validation passes
     await websocket.accept()
-    logger.info("WebSocket connection accepted successfully")
-
-    project_id: str = ""
-    environment: str = ""
+    logger.info(f"WebSocket accepted: {project_id}:{environment}")
 
     try:
-        # Get connection info from headers
-        project_id = websocket.headers.get("x-rhesis-project", "")
-        environment = websocket.headers.get("x-rhesis-environment", "development")
-
-        if not project_id:
-            logger.error("Missing project_id in WebSocket headers")
-            await websocket.close(code=1008, reason="Missing project_id")
-            return
-
         # Register connection
         await connection_manager.connect(project_id, environment, websocket)
         logger.info(f"WebSocket connected: {project_id}:{environment}")
