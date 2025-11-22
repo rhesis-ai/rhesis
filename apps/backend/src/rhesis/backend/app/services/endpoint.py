@@ -197,6 +197,11 @@ class EndpointService:
                     # Update existing endpoint
                     endpoint = existing_by_function[function_name]
 
+                    # Set status to Active (in case it was previously Inactive)
+                    active_status = get_or_create_status(db, "Active", "General", organization_id)
+                    if active_status:
+                        endpoint.status_id = active_status.id
+
                     # Update metadata
                     endpoint.endpoint_metadata = {
                         "sdk_connection": {
@@ -224,6 +229,9 @@ class EndpointService:
 
                 else:
                     # Create new endpoint for this function
+                    # Get or create Active status
+                    active_status = get_or_create_status(db, "Active", "General", organization_id)
+
                     endpoint_data = schemas.EndpointCreate(
                         name=f"{project_name} ({function_name})",
                         description=func_data.get("metadata", {}).get("description", ""),
@@ -232,6 +240,7 @@ class EndpointService:
                         environment=EndpointEnvironment(environment),
                         project_id=project_id,
                         config_source=EndpointConfigSource.SDK,
+                        status_id=active_status.id if active_status else None,
                         endpoint_metadata={
                             "sdk_connection": {
                                 "project_id": project_id,
