@@ -288,4 +288,3 @@ async def receive_trace(trace: ExecutionTrace):
     # For now, traces are logged
 
     return TraceResponse(status="received")
-
