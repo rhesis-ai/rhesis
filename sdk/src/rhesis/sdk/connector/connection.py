@@ -143,4 +143,3 @@ class WebSocketConnection:
                 logger.error(f"Failed to decode message: {e}")
             except Exception as e:
                 logger.error(f"Error handling message: {e}")
-

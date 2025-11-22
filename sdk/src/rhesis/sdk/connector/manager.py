@@ -1,18 +1,19 @@
 """Connector manager for bidirectional communication."""
 
 import asyncio
-import inspect
 import logging
-import time
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 from rhesis.sdk.connector.connection import WebSocketConnection
+from rhesis.sdk.connector.executor import TestExecutor
+from rhesis.sdk.connector.registry import FunctionRegistry
 from rhesis.sdk.connector.schemas import (
     ExecuteTestMessage,
-    FunctionMetadata,
     RegisterMessage,
     TestResultMessage,
 )
+from rhesis.sdk.connector.tracer import Tracer
 from rhesis.sdk.connector.types import MessageType
 
 logger = logging.getLogger(__name__)
@@ -42,12 +43,18 @@ class ConnectorManager:
         self.environment = environment
         self.base_url = base_url
 
-        # Function registry
-        self._registry: Dict[str, Callable] = {}
-        self._metadata: Dict[str, Dict[str, Any]] = {}
+        # Components
+        self._registry = FunctionRegistry()
+        self._executor = TestExecutor()
+        self._tracer = Tracer(
+            api_key=api_key,
+            project_id=project_id,
+            environment=environment,
+            base_url=base_url,
+        )
 
         # WebSocket connection
-        self._connection: Optional[WebSocketConnection] = None
+        self._connection: WebSocketConnection | None = None
         self._initialized = False
 
     def initialize(self) -> None:
@@ -75,7 +82,7 @@ class ConnectorManager:
         self._initialized = True
         logger.info(f"Connector initialized for project {self.project_id}")
 
-    def register_function(self, name: str, func: Callable, metadata: Dict[str, Any]) -> None:
+    def register_function(self, name: str, func: Callable, metadata: dict[str, Any]) -> None:
         """
         Register a function for remote triggering.
 
@@ -87,9 +94,7 @@ class ConnectorManager:
         if not self._initialized:
             self.initialize()
 
-        self._registry[name] = func
-        self._metadata[name] = metadata
-        logger.info(f"Registered function: {name}")
+        self._registry.register(name, func, metadata)
 
         # If connection is active, send updated registration
         if self._connection and self._connection.websocket:
@@ -109,17 +114,7 @@ class ConnectorManager:
         if not self._connection:
             return
 
-        functions = []
-        for name, func in self._registry.items():
-            signature = self._get_function_signature(func)
-            functions.append(
-                FunctionMetadata(
-                    name=name,
-                    parameters=signature["parameters"],
-                    return_type=signature["return_type"],
-                    metadata=self._metadata.get(name, {}),
-                )
-            )
+        functions = self._registry.get_all_metadata()
 
         message = RegisterMessage(
             project_id=self.project_id,
@@ -133,7 +128,7 @@ class ConnectorManager:
         except Exception as e:
             logger.error(f"Error sending registration: {e}")
 
-    async def _handle_message(self, message: Dict[str, Any]) -> None:
+    async def _handle_message(self, message: dict[str, Any]) -> None:
         """
         Handle incoming messages from backend.
 
@@ -152,7 +147,7 @@ class ConnectorManager:
         else:
             logger.warning(f"Unknown message type: {message_type}")
 
-    async def _handle_test_request(self, message: Dict[str, Any]) -> None:
+    async def _handle_test_request(self, message: dict[str, Any]) -> None:
         """
         Handle test execution request.
 
@@ -168,7 +163,7 @@ class ConnectorManager:
             logger.info(f"Executing test for function: {function_name}")
 
             # Validate function exists
-            if function_name not in self._registry:
+            if not self._registry.has(function_name):
                 await self._send_test_result(
                     test_run_id,
                     status="error",
@@ -177,46 +172,18 @@ class ConnectorManager:
                 )
                 return
 
-            # Execute function
-            func = self._registry[function_name]
-            start_time = time.time()
+            # Execute function via executor
+            func = self._registry.get(function_name)
+            result = await self._executor.execute(func, function_name, inputs)
 
-            try:
-                # Execute function (sync or async)
-                if asyncio.iscoroutinefunction(func):
-                    result = await func(**inputs)
-                else:
-                    result = func(**inputs)
-
-                # Check if result is a generator and consume it
-                import inspect
-
-                if inspect.isgenerator(result) or inspect.isasyncgen(result):
-                    # Consume the generator and collect all chunks
-                    chunks = []
-                    if inspect.isasyncgen(result):
-                        async for chunk in result:
-                            chunks.append(str(chunk))
-                    else:
-                        for chunk in result:
-                            chunks.append(str(chunk))
-                    result = "".join(chunks)
-
-                duration_ms = (time.time() - start_time) * 1000
-
-                # Send success result
-                await self._send_test_result(
-                    test_run_id, status="success", output=result, duration_ms=duration_ms
-                )
-
-            except Exception as e:
-                duration_ms = (time.time() - start_time) * 1000
-                logger.error(f"Error executing function {function_name}: {e}")
-
-                # Send error result
-                await self._send_test_result(
-                    test_run_id, status="error", error=str(e), duration_ms=duration_ms
-                )
+            # Send result
+            await self._send_test_result(
+                test_run_id,
+                status=result["status"],
+                output=result["output"],
+                error=result["error"],
+                duration_ms=result["duration_ms"],
+            )
 
         except Exception as e:
             logger.error(f"Error handling test request: {e}")
@@ -226,7 +193,7 @@ class ConnectorManager:
         test_run_id: str,
         status: str,
         output: Any = None,
-        error: Optional[str] = None,
+        error: str | None = None,
         duration_ms: float = 0,
     ) -> None:
         """
@@ -266,39 +233,6 @@ class ConnectorManager:
         except Exception as e:
             logger.error(f"Error sending pong: {e}")
 
-    def _get_function_signature(self, func: Callable) -> Dict[str, Any]:
-        """
-        Extract function signature for validation.
-
-        Args:
-            func: Function to inspect
-
-        Returns:
-            Dictionary with parameters and return type
-        """
-        sig = inspect.signature(func)
-
-        return {
-            "parameters": {
-                name: {
-                    "type": (
-                        str(param.annotation)
-                        if param.annotation != inspect.Parameter.empty
-                        else "Any"
-                    ),
-                    "default": (
-                        str(param.default) if param.default != inspect.Parameter.empty else None
-                    ),
-                }
-                for name, param in sig.parameters.items()
-            },
-            "return_type": (
-                str(sig.return_annotation)
-                if sig.return_annotation != inspect.Signature.empty
-                else "Any"
-            ),
-        }
-
     def _get_websocket_url(self) -> str:
         """
         Construct WebSocket URL.
@@ -325,3 +259,26 @@ class ConnectorManager:
             await self._connection.disconnect()
         self._initialized = False
         logger.info("Connector shutdown complete")
+
+    def trace_execution(
+        self,
+        function_name: str,
+        func: Callable,
+        args: tuple,
+        kwargs: dict,
+    ) -> Any:
+        """
+        Trace function execution and send telemetry to backend.
+
+        Delegates to the Tracer for actual tracing logic.
+
+        Args:
+            function_name: Name of the function being traced
+            func: The function to execute
+            args: Positional arguments
+            kwargs: Keyword arguments
+
+        Returns:
+            Function result (or wrapped generator)
+        """
+        return self._tracer.trace_execution(function_name, func, args, kwargs)
