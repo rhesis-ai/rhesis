@@ -48,6 +48,15 @@ export interface PrivacySettings {
   show_activity?: boolean;
 }
 
+export interface OnboardingProgress {
+  project_created?: boolean;
+  endpoint_setup?: boolean;
+  users_invited?: boolean;
+  test_cases_created?: boolean;
+  dismissed?: boolean;
+  last_updated?: string;
+}
+
 export interface UserSettings {
   version: number;
   models?: ModelsSettings;
@@ -55,6 +64,7 @@ export interface UserSettings {
   notifications?: NotificationSettings;
   localization?: LocalizationSettings;
   privacy?: PrivacySettings;
+  onboarding?: OnboardingProgress;
 }
 
 export interface UserSettingsUpdate {
@@ -63,6 +73,7 @@ export interface UserSettingsUpdate {
   notifications?: NotificationSettings;
   localization?: LocalizationSettings;
   privacy?: PrivacySettings;
+  onboarding?: OnboardingProgress;
 }
 
 // User Interfaces

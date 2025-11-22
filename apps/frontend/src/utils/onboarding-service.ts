@@ -1,4 +1,6 @@
 import { OnboardingProgress } from '@/types/onboarding';
+import { ApiClientFactory } from './api-client/client-factory';
+import { OnboardingProgress as BackendOnboardingProgress } from './api-client/interfaces/user';
 
 const STORAGE_KEY = 'rhesis_onboarding_progress';
 
@@ -96,4 +98,96 @@ export function clearProgress(): void {
   } catch (error) {
     console.error('Failed to clear onboarding progress:', error);
   }
+}
+
+/**
+ * Convert frontend OnboardingProgress (camelCase) to backend format (snake_case)
+ */
+function toBackendFormat(
+  progress: OnboardingProgress
+): BackendOnboardingProgress {
+  return {
+    project_created: progress.projectCreated,
+    endpoint_setup: progress.endpointSetup,
+    users_invited: progress.usersInvited,
+    test_cases_created: progress.testCasesCreated,
+    dismissed: progress.dismissed,
+    last_updated: new Date(progress.lastUpdated).toISOString(),
+  };
+}
+
+/**
+ * Convert backend OnboardingProgress (snake_case) to frontend format (camelCase)
+ */
+function toFrontendFormat(
+  backendProgress: BackendOnboardingProgress
+): OnboardingProgress {
+  return {
+    projectCreated: backendProgress.project_created || false,
+    endpointSetup: backendProgress.endpoint_setup || false,
+    usersInvited: backendProgress.users_invited || false,
+    testCasesCreated: backendProgress.test_cases_created || false,
+    dismissed: backendProgress.dismissed || false,
+    lastUpdated: backendProgress.last_updated
+      ? new Date(backendProgress.last_updated).getTime()
+      : Date.now(),
+  };
+}
+
+/**
+ * Load onboarding progress from the database
+ */
+export async function loadProgressFromDatabase(
+  sessionToken: string
+): Promise<OnboardingProgress> {
+  try {
+    const usersClient = new ApiClientFactory(sessionToken).getUsersClient();
+    const settings = await usersClient.getUserSettings();
+
+    if (settings.onboarding) {
+      return toFrontendFormat(settings.onboarding);
+    }
+
+    return getDefaultProgress();
+  } catch (error) {
+    console.error('Error loading onboarding progress from database:', error);
+    return getDefaultProgress();
+  }
+}
+
+/**
+ * Save onboarding progress to the database
+ */
+export async function syncProgressToDatabase(
+  sessionToken: string,
+  progress: OnboardingProgress
+): Promise<boolean> {
+  try {
+    const usersClient = new ApiClientFactory(sessionToken).getUsersClient();
+    await usersClient.updateUserSettings({
+      onboarding: toBackendFormat(progress),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error syncing onboarding progress to database:', error);
+    return false;
+  }
+}
+
+/**
+ * Merge local and remote onboarding progress.
+ * Strategy: Once a step is complete, it stays complete (OR operation).
+ */
+export function mergeProgress(
+  local: OnboardingProgress,
+  remote: OnboardingProgress
+): OnboardingProgress {
+  return {
+    projectCreated: local.projectCreated || remote.projectCreated,
+    endpointSetup: local.endpointSetup || remote.endpointSetup,
+    usersInvited: local.usersInvited || remote.usersInvited,
+    testCasesCreated: local.testCasesCreated || remote.testCasesCreated,
+    dismissed: local.dismissed || remote.dismissed,
+    lastUpdated: Math.max(local.lastUpdated, remote.lastUpdated),
+  };
 }

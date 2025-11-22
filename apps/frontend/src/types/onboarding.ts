@@ -58,4 +58,5 @@ export interface OnboardingContextValue {
   activeTour: string | null;
   moveToNextStep: () => void;
   closeTour: () => void;
+  forceSyncToDatabase: () => Promise<void>;
 }

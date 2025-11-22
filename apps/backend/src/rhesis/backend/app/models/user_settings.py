@@ -85,6 +85,11 @@ class UserSettingsManager:
         """Access privacy settings."""
         return PrivacySettingsAccessor(self._data.get("privacy", {}))
 
+    @property
+    def onboarding(self) -> "OnboardingProgressAccessor":
+        """Access onboarding progress."""
+        return OnboardingProgressAccessor(self._data.get("onboarding", {}))
+
     def update(self, updates: dict) -> dict:
         """
         Deep merge updates into settings.
@@ -267,3 +272,45 @@ class PrivacySettingsAccessor:
     def show_activity(self) -> Optional[bool]:
         """Get show activity setting."""
         return self._data.get("show_activity")
+
+
+class OnboardingProgressAccessor:
+    """Accessor for onboarding progress."""
+
+    def __init__(self, onboarding_settings: dict):
+        self._data = onboarding_settings
+
+    @property
+    def project_created(self) -> bool:
+        """Get project created status."""
+        return self._data.get("project_created", False)
+
+    @property
+    def endpoint_setup(self) -> bool:
+        """Get endpoint setup status."""
+        return self._data.get("endpoint_setup", False)
+
+    @property
+    def users_invited(self) -> bool:
+        """Get users invited status."""
+        return self._data.get("users_invited", False)
+
+    @property
+    def test_cases_created(self) -> bool:
+        """Get test cases created status."""
+        return self._data.get("test_cases_created", False)
+
+    @property
+    def dismissed(self) -> bool:
+        """Get dismissed status."""
+        return self._data.get("dismissed", False)
+
+    @property
+    def last_updated(self) -> Optional[str]:
+        """Get last updated timestamp."""
+        return self._data.get("last_updated")
+
+    @property
+    def all(self) -> dict:
+        """Get all onboarding progress as dictionary."""
+        return self._data
