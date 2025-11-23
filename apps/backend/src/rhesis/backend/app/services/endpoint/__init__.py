@@ -35,7 +35,7 @@ endpoint_service = EndpointService()
 # ==================== User-Facing Functions ====================
 
 
-def invoke(
+async def invoke(
     db: Session,
     endpoint_id: str,
     input_data: Dict[str, Any],
@@ -74,7 +74,7 @@ def invoke(
         HTTPException: If endpoint not found or invocation fails
 
     Example:
-        >>> result = invoke(
+        >>> result = await invoke(
         ...     db=db,
         ...     endpoint_id="endpoint-uuid",
         ...     input_data={"input": "Hello", "session_id": "session-123"},
@@ -83,7 +83,7 @@ def invoke(
         ... )
         >>> print(result["output"])
     """
-    return endpoint_service.invoke_endpoint(
+    return await endpoint_service.invoke_endpoint(
         db, endpoint_id, input_data, organization_id=organization_id, user_id=user_id
     )
 

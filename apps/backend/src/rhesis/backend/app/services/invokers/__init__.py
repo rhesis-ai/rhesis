@@ -5,12 +5,14 @@ from rhesis.backend.app.models.enums import EndpointConnectionType
 
 from .base import BaseEndpointInvoker
 from .rest_invoker import RestEndpointInvoker
+from .sdk_invoker import SdkEndpointInvoker
 from .websocket_invoker import WebSocketEndpointInvoker
 
 # Registry of invokers by connection_type
 INVOKERS: Dict[str, Type[BaseEndpointInvoker]] = {
     EndpointConnectionType.REST.value: RestEndpointInvoker,
     EndpointConnectionType.WEBSOCKET.value: WebSocketEndpointInvoker,
+    EndpointConnectionType.SDK.value: SdkEndpointInvoker,
 }
 
 

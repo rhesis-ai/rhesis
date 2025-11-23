@@ -24,7 +24,9 @@ class BaseEndpointInvoker(ABC):
         self.conversation_tracker = ConversationTracker()
 
     @abstractmethod
-    def invoke(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def invoke(
+        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Invoke the endpoint with the given input data.
 

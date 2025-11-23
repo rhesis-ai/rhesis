@@ -86,7 +86,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
         return normalized
 
-    def invoke(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def invoke(
+        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Invoke the WebSocket endpoint with proper authentication."""
         start_time = time.time()
 

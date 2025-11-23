@@ -34,7 +34,9 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         self.template_renderer = TemplateRenderer()
         self.response_mapper = ResponseMapper()
 
-    def invoke(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def invoke(
+        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Invoke the REST endpoint with proper authentication."""
         try:
             # Prepare request components

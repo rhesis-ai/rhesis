@@ -32,7 +32,7 @@ class EndpointService:
             services_dir = os.path.dirname(os.path.dirname(__file__))
             self.schema_path = os.path.join(services_dir, "endpoint_schema.json")
 
-    def invoke_endpoint(
+    async def invoke_endpoint(
         self,
         db: Session,
         endpoint_id: str,
@@ -73,7 +73,7 @@ class EndpointService:
                 enriched_input_data["user_id"] = user_id
 
             # Invoke the endpoint
-            return invoker.invoke(db, endpoint, enriched_input_data)
+            return await invoker.invoke(db, endpoint, enriched_input_data)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:

@@ -1,5 +1,6 @@
 """Connection manager for WebSocket connections with SDKs."""
 
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -27,6 +28,9 @@ class ConnectionManager:
 
         # Store function registries: {project_id:environment: [FunctionMetadata]}
         self._registries: Dict[str, List[FunctionMetadata]] = {}
+
+        # Store pending result futures: {test_run_id: asyncio.Future}
+        self._pending_results: Dict[str, asyncio.Future] = {}
 
     def get_connection_key(self, project_id: str, environment: str) -> str:
         """
@@ -124,6 +128,84 @@ class ConnectionManager:
             logger.error(f"Error sending test request to {key}: {e}")
             return False
 
+    async def send_and_await_result(
+        self,
+        project_id: str,
+        environment: str,
+        test_run_id: str,
+        function_name: str,
+        inputs: Dict[str, Any],
+        timeout: float = 30.0,
+    ) -> Dict[str, Any]:
+        """
+        Send test request and wait for result.
+
+        Args:
+            project_id: Project identifier
+            environment: Environment name
+            test_run_id: Test run identifier
+            function_name: Function to execute
+            inputs: Function inputs
+            timeout: Timeout in seconds
+
+        Returns:
+            Test result dict with status, output, error, and duration_ms
+        """
+        # Create future for this test run
+        future = asyncio.get_event_loop().create_future()
+        self._pending_results[test_run_id] = future
+
+        try:
+            # Send request
+            success = await self.send_test_request(
+                project_id=project_id,
+                environment=environment,
+                test_run_id=test_run_id,
+                function_name=function_name,
+                inputs=inputs,
+            )
+
+            if not success:
+                # Clean up future
+                del self._pending_results[test_run_id]
+                return {
+                    "error": "send_failed",
+                    "details": "Failed to send request to SDK",
+                }
+
+            # Wait for result with timeout
+            try:
+                result = await asyncio.wait_for(future, timeout=timeout)
+                return result
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout waiting for result from {test_run_id}")
+                return {
+                    "error": "timeout",
+                    "details": f"No response received within {timeout} seconds",
+                }
+        finally:
+            # Clean up future
+            if test_run_id in self._pending_results:
+                del self._pending_results[test_run_id]
+
+    def _resolve_test_result(self, test_run_id: str, result: Dict[str, Any]) -> None:
+        """
+        Resolve pending future with test result.
+
+        Args:
+            test_run_id: Test run identifier
+            result: Test result data
+        """
+        if test_run_id in self._pending_results:
+            future = self._pending_results[test_run_id]
+            if not future.done():
+                future.set_result(result)
+                logger.debug(f"Resolved result for test_run_id: {test_run_id}")
+            else:
+                logger.warning(f"Future already done for test_run_id: {test_run_id}")
+        else:
+            logger.debug(f"No pending future for test_run_id: {test_run_id}")
+
     def get_connection_status(self, project_id: str, environment: str) -> ConnectionStatus:
         """
         Get connection status for a project.
@@ -217,7 +299,12 @@ class ConnectionManager:
             )
 
         elif message_type == "test_result":
-            # Handle test result via message handler
+            # Resolve pending future if awaiting result
+            test_run_id = message.get("test_run_id")
+            if test_run_id:
+                self._resolve_test_result(test_run_id, message)
+
+            # Handle test result via message handler (logging, etc.)
             await message_handler.handle_test_result_message(project_id, environment, message)
             return None
 
