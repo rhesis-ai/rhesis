@@ -74,15 +74,45 @@ class MappingService:
         sdk_request = sdk_metadata.get("request_mapping")
         sdk_response = sdk_metadata.get("response_mapping")
 
-        if sdk_request and sdk_response:
-            logger.info(f"[{function_name}] Using SDK manual mappings")
+        # Allow partial manual mappings - use SDK provided ones and auto-generate the rest
+        if sdk_request or sdk_response:
+            logger.info(
+                f"[{function_name}] Using SDK manual mappings "
+                f"(request: {bool(sdk_request)}, response: {bool(sdk_response)})"
+            )
+
+            # If only partial mappings provided, generate the missing ones
+            final_request_mapping = sdk_request
+            final_response_mapping = sdk_response
+            source = "sdk_manual"
+
+            if not final_request_mapping or not final_response_mapping:
+                # Need to auto-generate missing mapping
+                logger.info(f"[{function_name}] Auto-generating missing mapping component")
+                auto_result = self.auto_mapper.generate_mappings(
+                    function_name=function_name,
+                    parameters=function_data.get("parameters", {}),
+                    return_type=function_data.get("return_type", "any"),
+                    description=sdk_metadata.get("description", ""),
+                )
+
+                if not final_request_mapping:
+                    final_request_mapping = auto_result["request_mapping"]
+                    source = "sdk_manual_partial"
+                if not final_response_mapping:
+                    final_response_mapping = auto_result["response_mapping"]
+                    source = "sdk_manual_partial"
+
             return MappingResult(
-                request_mapping=sdk_request,
-                response_mapping=sdk_response,
-                source="sdk_manual",
+                request_mapping=final_request_mapping,
+                response_mapping=final_response_mapping,
+                source=source,
                 confidence=1.0,
                 should_update=True,
-                reasoning="Explicit mappings provided in @collaborate decorator",
+                reasoning=(
+                    "Explicit mappings from @collaborate decorator"
+                    + (" with auto-generated components" if source == "sdk_manual_partial" else "")
+                ),
             )
 
         # Priority 2: Existing DB mappings (preserve manual edits on reconnection)

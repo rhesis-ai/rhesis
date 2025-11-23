@@ -94,11 +94,16 @@ class LLMMapper:
             # Call LLM with Pydantic schema for structured output
             response = model.generate(
                 prompt=prompt,
-                response_format=MappingGenerationOutput,
+                schema=MappingGenerationOutput,  # SDK models use 'schema', not 'response_format'
                 temperature=0.1,  # Low temperature for consistent mappings
             )
 
-            result = response.model_dump()
+            # Handle response - could be dict or Pydantic model
+            if isinstance(response, dict):
+                result = response
+            else:
+                result = response.model_dump() if hasattr(response, "model_dump") else response
+
             logger.info(
                 f"LLM generated mappings for {function_name} "
                 f"with confidence: {result['confidence']:.2f}"
