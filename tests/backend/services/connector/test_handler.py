@@ -35,7 +35,7 @@ class TestSDKMessageHandler:
 
         with patch("rhesis.backend.app.services.endpoint.EndpointService") as mock_service:
             mock_endpoint_service = Mock()
-            mock_endpoint_service.sync_sdk_function_endpoints = Mock(return_value=expected_stats)
+            mock_endpoint_service.sync_sdk_endpoints = Mock(return_value=expected_stats)
             mock_service.return_value = mock_endpoint_service
 
             result = await handler.sync_function_endpoints(
@@ -48,7 +48,7 @@ class TestSDKMessageHandler:
             )
 
             assert result == expected_stats
-            mock_endpoint_service.sync_sdk_function_endpoints.assert_called_once_with(
+            mock_endpoint_service.sync_sdk_endpoints.assert_called_once_with(
                 db=test_db,
                 project_id=project_context["project_id"],
                 environment=project_context["environment"],
@@ -66,9 +66,7 @@ class TestSDKMessageHandler:
 
         with patch("rhesis.backend.app.services.endpoint.EndpointService") as mock_service:
             mock_endpoint_service = Mock()
-            mock_endpoint_service.sync_sdk_function_endpoints.side_effect = Exception(
-                "Database error"
-            )
+            mock_endpoint_service.sync_sdk_endpoints.side_effect = Exception("Database error")
             mock_service.return_value = mock_endpoint_service
 
             result = await handler.sync_function_endpoints(
