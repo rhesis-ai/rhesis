@@ -81,7 +81,8 @@ class ResponseGenerator:
 
         Args:
             prompt: The current user message
-            conversation_history: List of previous messages in format [{"role": "user/assistant", "content": "..."}]
+            conversation_history: List of previous messages in format
+                [{"role": "user/assistant", "content": "..."}]
         """
         try:
             # Build the full prompt with conversation history
@@ -124,12 +125,15 @@ class ResponseGenerator:
     def generate_context(self, prompt: str) -> List[str]:
         """Generate context fragments for a prompt."""
         try:
-            # Create system prompt for context generation with explicit JSON format instructions
+            # Create system prompt for context generation with JSON format
             context_system_prompt = """
-                You are a helpful assistant that provides relevant context fragments for user questions.
-                For the given user query, generate 3-5 short, relevant context fragments that would be helpful for answering the question.
+                You are a helpful assistant that provides relevant context
+                fragments for user questions.
+                For the given user query, generate 3-5 short, relevant context
+                fragments that would be helpful for answering the question.
                 
-                IMPORTANT: You MUST respond with ONLY a valid JSON object that has a "fragments" key containing an array of strings.
+                IMPORTANT: You MUST respond with ONLY a valid JSON object that
+                has a "fragments" key containing an array of strings.
                 Example format:
                 {
                     "fragments": [
@@ -139,7 +143,8 @@ class ResponseGenerator:
                     ]
                 }
                 
-                Do not include any explanations, markdown formatting, or additional text outside of the JSON object.
+                Do not include any explanations, markdown formatting, or
+                additional text outside of the JSON object.
                 """
 
             # Combine system prompt with user question
@@ -249,8 +254,311 @@ def get_assistant_response(
     return "".join(response_generator.stream_assistant_response(prompt, conversation_history))
 
 
+# =============================================================================
+# AUTO-MAPPING TEST FUNCTIONS (HIGH CONFIDENCE)
+# =============================================================================
+# These functions use standard parameter names that should auto-map with high confidence
+
+
+@collaborate(name="test_standard_naming", description="Test function with standard parameter names")
+def test_standard_naming(
+    input: str,
+    session_id: str = None,
+    context: List[str] = None,
+    metadata: dict = None,
+    tool_calls: List[dict] = None,
+) -> dict:
+    """Test auto-mapping with exact standard field names.
+
+    Expected: High confidence auto-mapping (1.0)
+    All parameters match standard patterns exactly.
+    """
+    return {
+        "output": f"Processed: {input}",
+        "session_id": session_id or "auto_generated_session",
+        "context": context or [],
+        "metadata": {"processed": True, "original_metadata": metadata},
+        "tool_calls": tool_calls or [],
+    }
+
+
+@collaborate(name="test_partial_standard", description="Test with some standard naming")
+def test_partial_standard(input: str, session_id: str = None) -> dict:
+    """Test auto-mapping with partial standard naming.
+
+    Expected: Medium-high confidence (0.6 - input + session_id matched)
+    Missing: context, metadata, tool_calls
+    """
+    return {
+        "output": f"Response to: {input}",
+        "session_id": session_id,
+    }
+
+
+@collaborate(name="test_input_only", description="Test with only input parameter")
+def test_input_only(input: str) -> dict:
+    """Test auto-mapping with only input parameter.
+
+    Expected: Low confidence (0.4 - only input matched)
+    Should still auto-map but with lower confidence.
+    """
+    return {"output": f"Echo: {input}"}
+
+
+# =============================================================================
+# AUTO-MAPPING TEST FUNCTIONS (PATTERN VARIATIONS)
+# =============================================================================
+# These test variations of standard patterns
+
+
+@collaborate(name="test_input_variations", description="Test input field variations")
+def test_input_variations(message: str, conversation_id: str = None) -> dict:
+    """Test auto-mapping with pattern variations.
+
+    Expected: High confidence
+    (message matches INPUT patterns, conversation_id matches SESSION patterns)
+    message → maps to input
+    conversation_id → maps to session_id
+    """
+    return {
+        "result": f"Processed message: {message}",
+        "conversation_id": conversation_id or "new_conv",
+    }
+
+
+@collaborate(name="test_compound_patterns", description="Test compound field names")
+def test_compound_patterns(
+    user_message: str, conv_id: str = None, context_docs: List[str] = None
+) -> dict:
+    """Test auto-mapping with compound naming patterns.
+
+    Expected: High confidence
+    user_message → maps to input
+    conv_id → maps to session_id
+    context_docs → maps to context
+    """
+    return {
+        "response": f"Reply to: {user_message}",
+        "conv_id": conv_id,
+        "sources": context_docs,
+    }
+
+
+@collaborate(name="test_suffix_patterns", description="Test _id suffix patterns")
+def test_suffix_patterns(query: str, session_id: str = None, thread_id: str = None) -> dict:
+    """Test auto-mapping with _id suffixes.
+
+    Expected: High confidence
+    query → maps to input
+    session_id → exact match
+    thread_id → matches SESSION patterns
+    """
+    return {"answer": query, "session_id": session_id or thread_id}
+
+
+# =============================================================================
+# LLM MAPPING TEST FUNCTIONS (LOW CONFIDENCE → LLM FALLBACK)
+# =============================================================================
+# These functions use non-standard naming that should trigger LLM fallback
+
+
+@collaborate(
+    name="test_custom_naming_no_hints",
+    description="Test with completely custom parameter names (no mapping hints)",
+)
+def test_custom_naming_no_hints(xyz: str, abc: str = None, qwerty: dict = None) -> dict:
+    """Test LLM fallback with no recognizable patterns.
+
+    Expected: Very low confidence (<0.3), triggers LLM fallback
+    xyz, abc, qwerty don't match any standard patterns
+    LLM should infer mappings based on description and types
+    """
+    return {
+        "result": xyz,
+        "identifier": abc,
+        "extras": qwerty,
+    }
+
+
+@collaborate(
+    name="test_domain_specific_naming",
+    description="Test with domain-specific parameter names for insurance queries",
+)
+def test_domain_specific_naming(
+    insurance_question: str, policy_number: str = None, customer_data: dict = None
+) -> dict:
+    """Test LLM fallback with domain-specific naming.
+
+    Expected: Low confidence, LLM should map:
+    insurance_question → input
+    policy_number → session_id (or metadata)
+    customer_data → metadata
+    """
+    return {
+        "insurance_answer": f"Answer to: {insurance_question}",
+        "policy_number": policy_number,
+        "customer_data": customer_data,
+    }
+
+
+@collaborate(
+    name="test_abbreviated_names",
+    description="Test with abbreviated parameter names",
+)
+def test_abbreviated_names(q: str, sid: str = None, ctx: List[str] = None) -> dict:
+    """Test LLM fallback with abbreviated names.
+
+    Expected: Low-medium confidence
+    q → could be query/question (maps to input)
+    sid → could be session ID
+    ctx → could be context
+    LLM should recognize abbreviations
+    """
+    return {"a": q, "sid": sid, "ctx": ctx}
+
+
+# =============================================================================
+# MANUAL MAPPING TEST FUNCTIONS (CUSTOM @collaborate ANNOTATIONS)
+# =============================================================================
+# These functions provide explicit mappings via the @collaborate decorator
+
+
+@collaborate(
+    name="test_manual_request_mapping",
+    description="Test with manual request mapping annotation",
+    request_mapping={
+        "user_query": "{{ input }}",
+        "session": "{{ session_id }}",
+        "docs": "{{ context }}",
+    },
+)
+def test_manual_request_mapping(
+    user_query: str, session: str = None, docs: List[str] = None
+) -> dict:
+    """Test manual request mapping via decorator.
+
+    Expected: Perfect mapping (1.0 confidence)
+    Manual mappings take highest priority
+    """
+    return {
+        "response": f"Query: {user_query}",
+        "session": session,
+        "retrieved_docs": docs,
+    }
+
+
+@collaborate(
+    name="test_manual_response_mapping",
+    description="Test with manual response mapping annotation",
+    response_mapping={
+        "output": "$.answer.text",
+        "session_id": "$.conversation.id",
+        "metadata": "$.conversation.metadata",
+    },
+)
+def test_manual_response_mapping(input: str, session_id: str = None) -> dict:
+    """Test manual response mapping via decorator.
+
+    Expected: Response correctly mapped using manual mappings
+    Output structure is nested but should be flattened correctly
+    """
+    return {
+        "answer": {"text": f"Response to {input}", "confidence": 0.95},
+        "conversation": {
+            "id": session_id or "new_session",
+            "metadata": {"turns": 1, "topic": "test"},
+        },
+    }
+
+
+@collaborate(
+    name="test_full_manual_mapping",
+    description="Test with both request and response manual mappings",
+    request_mapping={
+        "customer_message": "{{ input }}",
+        "ticket_id": "{{ session_id }}",
+        "related_tickets": "{{ context }}",
+        "ticket_metadata": "{{ metadata }}",
+    },
+    response_mapping={
+        "output": "$.support_response.message",
+        "session_id": "$.support_response.ticket_id",
+        "context": "$.support_response.related_info",
+        "metadata": "$.support_response.meta",
+    },
+)
+def test_full_manual_mapping(
+    customer_message: str,
+    ticket_id: str = None,
+    related_tickets: List[str] = None,
+    ticket_metadata: dict = None,
+) -> dict:
+    """Test complete manual mapping for both request and response.
+
+    Expected: Perfect end-to-end mapping
+    Both request transformation and response transformation work correctly
+    """
+    return {
+        "support_response": {
+            "message": f"Thank you for contacting us about: {customer_message}",
+            "ticket_id": ticket_id or "TKT-123456",
+            "related_info": related_tickets if related_tickets is not None else [],
+            "meta": {**{"priority": "high", "department": "support"}, **(ticket_metadata or {})},
+        }
+    }
+
+
+# =============================================================================
+# COMPLEX OUTPUT STRUCTURE TEST FUNCTIONS
+# =============================================================================
+# These test different output structures for response mapping
+
+
+@collaborate(name="test_nested_output", description="Test with deeply nested output structure")
+def test_nested_output(input: str) -> dict:
+    """Test response mapping with nested output.
+
+    Expected: Auto-mapper should handle nested output field detection
+    """
+    return {
+        "response": {"data": {"result": {"text": f"Nested response to: {input}"}}},
+        "session_info": {"id": "nested_session", "created": "2025-01-01"},
+    }
+
+
+@collaborate(name="test_list_output", description="Test with list in output")
+def test_list_output(input: str) -> dict:
+    """Test response mapping with list outputs."""
+    return {
+        "results": [
+            {"text": f"Result 1 for {input}", "score": 0.9},
+            {"text": f"Result 2 for {input}", "score": 0.8},
+        ],
+        "session_id": "list_session",
+    }
+
+
+@collaborate(name="test_mixed_output_types", description="Test with various output data types")
+def test_mixed_output_types(input: str) -> dict:
+    """Test response mapping with mixed data types."""
+    return {
+        "output": f"String output for {input}",
+        "confidence": 0.95,  # float
+        "tokens_used": 150,  # int
+        "success": True,  # bool
+        "alternatives": ["alt1", "alt2"],  # list
+        "metadata": {"key": "value"},  # dict
+    }
+
+
+# =============================================================================
+# ORIGINAL TEST FUNCTIONS
+# =============================================================================
+
+
 @collaborate(name="multiply_numbers", description="Multiply two numbers")
 def multiply_numbers(a: int, b: int, c: int) -> dict:
+    """Simple multiplication test - should trigger LLM mapping."""
     return {
         "result": a * b * c,
         "error": None,
@@ -273,7 +581,8 @@ def stream_assistant_response(
     Args:
         prompt: The current user message
         use_case: The use case to use for the system prompt
-        conversation_history: List of previous messages in format [{"role": "user/assistant", "content": "..."}]
+        conversation_history: List of previous messages in format
+            [{"role": "user/assistant", "content": "..."}]
     """
     logger.info("=" * 80)
     logger.info("🔵 COLLABORATIVE TEST EXECUTION STARTED")
