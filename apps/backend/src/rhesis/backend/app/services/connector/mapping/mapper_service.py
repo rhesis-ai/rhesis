@@ -22,9 +22,9 @@ class MappingResult(BaseModel):
     response_mapping: Dict[str, str] = Field(
         description="Mapping from function output to standard fields"
     )
-    source: Literal["sdk_manual", "existing_db", "auto_mapped", "llm_generated"] = Field(
-        description="Source of the mappings"
-    )
+    source: Literal[
+        "sdk_manual", "sdk_manual_partial", "existing_db", "auto_mapped", "llm_generated"
+    ] = Field(description="Source of the mappings")
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence score for the mappings")
     should_update: bool = Field(
         description="Whether the endpoint should be updated with these mappings"
