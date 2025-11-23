@@ -1,0 +1,728 @@
+{
+  "test_run": "2025-11-23 23:08:17",
+  "available_endpoints": 
+[
+  {
+    "id": "bc54bb84-ad8d-43d8-9918-e4cf253fdebd",
+    "name": "AskBosch (multiply_numbers)",
+    "function": "multiply_numbers",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "input": "{{ input }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result }}"
+    }
+  },
+  {
+    "id": "6d13f689-648c-4f62-9a9b-e651243c8785",
+    "name": "AskBosch (test_list_output)",
+    "function": "test_list_output",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "input": "{{ input }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result }}"
+    }
+  },
+  {
+    "id": "666a4e4e-2edf-4bf3-8f99-66939e676652",
+    "name": "AskBosch (test_nested_output)",
+    "function": "test_nested_output",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "input": "{{ input }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result }}"
+    }
+  },
+  {
+    "id": "d65e20e0-8480-48cc-bdec-dc9b683ff6ab",
+    "name": "AskBosch (test_full_manual_mapping)",
+    "function": "test_full_manual_mapping",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "customer_message": "{{ input }}",
+      "ticket_id": "{{ session_id }}",
+      "related_tickets": "{{ context }}",
+      "ticket_metadata": "{{ metadata }}"
+    },
+    "response_mapping": {
+      "output": "$.support_response.message",
+      "session_id": "$.support_response.ticket_id",
+      "context": "$.support_response.related_info",
+      "metadata": "$.support_response.meta"
+    }
+  },
+  {
+    "id": "941d3fb2-8964-4324-ad97-aa845859b769",
+    "name": "AskBosch (test_domain_specific_naming)",
+    "function": "test_domain_specific_naming",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "input": "{{ input }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result }}"
+    }
+  },
+  {
+    "id": "7f47da17-2d5f-40e5-bbf5-096e04d0f23f",
+    "name": "AskBosch (test_manual_response_mapping)",
+    "function": "test_manual_response_mapping",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "input": "{{ input }}",
+      "session_id": "{{ session_id }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result or output or content or text or answer }}",
+      "context": "{{ context or sources or documents or chunks or retrieved_docs }}",
+      "metadata": "{{ metadata or meta or info or stats }}",
+      "tool_calls": "{{ tool_calls or tools or functions or function_calls }}"
+    }
+  },
+  {
+    "id": "2d29311a-d09e-4800-86f9-24872feae97d",
+    "name": "AskBosch (test_abbreviated_names)",
+    "function": "test_abbreviated_names",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "input": "{{ input }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result }}"
+    }
+  },
+  {
+    "id": "5c7c9595-94ae-457f-be5d-57a4092d497b",
+    "name": "AskBosch (test_suffix_patterns)",
+    "function": "test_suffix_patterns",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "query": "{{ input }}",
+      "session_id": "{{ session_id }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result or output or content or text or answer }}",
+      "context": "{{ context or sources or documents or chunks or retrieved_docs }}",
+      "metadata": "{{ metadata or meta or info or stats }}",
+      "tool_calls": "{{ tool_calls or tools or functions or function_calls }}"
+    }
+  },
+  {
+    "id": "8ee2190d-8d50-4921-a375-386629dbdc02",
+    "name": "AskBosch (test_custom_naming_no_hints)",
+    "function": "test_custom_naming_no_hints",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "input": "{{ input }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result }}"
+    }
+  },
+  {
+    "id": "7ed993a6-70c3-4266-98ee-060406f71794",
+    "name": "AskBosch (test_compound_patterns)",
+    "function": "test_compound_patterns",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "user_message": "{{ input }}",
+      "conv_id": "{{ session_id }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result or output or content or text or answer }}",
+      "context": "{{ context or sources or documents or chunks or retrieved_docs }}",
+      "metadata": "{{ metadata or meta or info or stats }}",
+      "tool_calls": "{{ tool_calls or tools or functions or function_calls }}"
+    }
+  },
+  {
+    "id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+    "name": "AskBosch (test_standard_naming)",
+    "function": "test_standard_naming",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "input": "{{ input }}",
+      "session_id": "{{ session_id }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result or output or content or text or answer }}",
+      "context": "{{ context or sources or documents or chunks or retrieved_docs }}",
+      "metadata": "{{ metadata or meta or info or stats }}",
+      "tool_calls": "{{ tool_calls or tools or functions or function_calls }}"
+    }
+  },
+  {
+    "id": "0a809dd3-5305-4897-8091-89479df6a5fe",
+    "name": "AskBosch (test_input_only)",
+    "function": "test_input_only",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "input": "{{ input }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result }}"
+    }
+  },
+  {
+    "id": "224ff5f3-63fa-4d2e-9e3e-de270867bfdb",
+    "name": "AskBosch (test_custom_field_passthrough)",
+    "function": "test_custom_field_passthrough",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "question": "{{ input }}",
+      "policy_id": "{{ policy_number }}",
+      "tier": "{{ customer_tier }}",
+      "lang": "{{ language }}"
+    },
+    "response_mapping": {
+      "output": "$.answer",
+      "session_id": "$.policy_id",
+      "metadata": "$.customer_info"
+    }
+  },
+  {
+    "id": "264002d0-0bf5-4c09-bd52-1d25a641ad5f",
+    "name": "AskBosch (stream_assistant_response)",
+    "function": "stream_assistant_response",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "prompt": "{{ input }}",
+      "conversation_history": "{{ session_id }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result or output or content or text or answer }}",
+      "context": "{{ context or sources or documents or chunks or retrieved_docs }}",
+      "metadata": "{{ metadata or meta or info or stats }}",
+      "tool_calls": "{{ tool_calls or tools or functions or function_calls }}"
+    }
+  },
+  {
+    "id": "651b078d-3fde-4d93-a726-ceff7afc5826",
+    "name": "AskBosch (test_input_variations)",
+    "function": "test_input_variations",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "message": "{{ input }}",
+      "conversation_id": "{{ session_id }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result or output or content or text or answer }}",
+      "context": "{{ context or sources or documents or chunks or retrieved_docs }}",
+      "metadata": "{{ metadata or meta or info or stats }}",
+      "tool_calls": "{{ tool_calls or tools or functions or function_calls }}"
+    }
+  },
+  {
+    "id": "f5cb7188-c05e-47e1-89f7-cb4ba94093c4",
+    "name": "AskBosch (test_manual_request_mapping)",
+    "function": "test_manual_request_mapping",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "user_query": "{{ input }}",
+      "session": "{{ session_id }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result or output or content or text or answer }}",
+      "context": "{{ context or sources or documents or chunks or retrieved_docs }}",
+      "metadata": "{{ metadata or meta or info or stats }}",
+      "tool_calls": "{{ tool_calls or tools or functions or function_calls }}"
+    }
+  },
+  {
+    "id": "76677dda-1457-4e15-a348-dd21cbc961ae",
+    "name": "AskBosch (test_partial_standard)",
+    "function": "test_partial_standard",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "input": "{{ input }}",
+      "session_id": "{{ session_id }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result or output or content or text or answer }}",
+      "context": "{{ context or sources or documents or chunks or retrieved_docs }}",
+      "metadata": "{{ metadata or meta or info or stats }}",
+      "tool_calls": "{{ tool_calls or tools or functions or function_calls }}"
+    }
+  },
+  {
+    "id": "8ca0ea9b-94d5-4c43-8986-00e99a262033",
+    "name": "AskBosch (test_mixed_output_types)",
+    "function": "test_mixed_output_types",
+    "status": {
+      "id": "d030b8e6-52bd-4dba-a4e5-9536415a0714",
+      "nano_id": null,
+      "name": "Active",
+      "description": "Describes an active entity",
+      "user_id": null,
+      "organization_id": "b2b20496-b388-4454-a864-2440a5afe13b"
+    },
+    "request_mapping": {
+      "input": "{{ input }}"
+    },
+    "response_mapping": {
+      "output": "{{ response or result }}"
+    }
+  },
+  {
+    "id": "d1e10a6a-79c0-422a-813c-801be9e9f9b3",
+    "name": "SDK - 4d6da08b-c884-4485-999e-c85d6f25b79a (development)",
+    "function": null,
+    "status": null,
+    "request_mapping": null,
+    "response_mapping": null
+  }
+]
+,
+  "tests": [
+    {
+      "test_number": 1,
+      "category": "AUTO-MAPPING",
+      "test_name": "Standard Naming",
+      "function_name": "test_standard_naming",
+      "description": "Exact match on input & session_id (confidence: 0.7)",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "Test with all standard fields",
+        "session_id": "test_123"
+    },
+      "response": {"output":"Processed: Test with all standard fields","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 2,
+      "category": "AUTO-MAPPING",
+      "test_name": "Partial Standard",
+      "function_name": "test_partial_standard",
+      "description": "Only input & session_id, missing context/metadata/tool_calls",
+      "endpoint_id": "76677dda-1457-4e15-a348-dd21cbc961ae",
+      "request": {
+        "input": "Test with partial standard naming",
+        "session_id": "partial_456"
+    },
+      "response": {"output":"Response to: Test with partial standard naming","context":null,"metadata":null,"tool_calls":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 3,
+      "category": "AUTO-MAPPING",
+      "test_name": "Input Only",
+      "function_name": "test_input_only",
+      "description": "Only input field (confidence: 0.5, should still auto-map)",
+      "endpoint_id": "0a809dd3-5305-4897-8091-89479df6a5fe",
+      "request": {
+        "input": "Test with only input parameter"
+    },
+      "response": {"output":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 4,
+      "category": "PATTERN-VARIATIONS",
+      "test_name": "Input Variations",
+      "function_name": "test_input_variations",
+      "description": "message→input, conversation_id→session_id mapping",
+      "endpoint_id": "651b078d-3fde-4d93-a726-ceff7afc5826",
+      "request": {
+        "input": "Testing message parameter",
+        "session_id": "conv_789"
+    },
+      "response": {"output":"Processed message: Testing message parameter","context":null,"metadata":null,"tool_calls":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 5,
+      "category": "PATTERN-VARIATIONS",
+      "test_name": "Compound Patterns",
+      "function_name": "test_compound_patterns",
+      "description": "user_message→input, conv_id→session_id, context_docs→context",
+      "endpoint_id": "7ed993a6-70c3-4266-98ee-060406f71794",
+      "request": {
+        "input": "Testing compound names",
+        "session_id": "compound_123"
+    },
+      "response": {"output":"Reply to: Testing compound names","context":null,"metadata":null,"tool_calls":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 6,
+      "category": "PATTERN-VARIATIONS",
+      "test_name": "Suffix Patterns",
+      "function_name": "test_suffix_patterns",
+      "description": "query→input, session_id/thread_id→session_id",
+      "endpoint_id": "5c7c9595-94ae-457f-be5d-57a4092d497b",
+      "request": {
+        "input": "Testing _id suffixes",
+        "session_id": "suffix_456"
+    },
+      "response": {"output":"Testing _id suffixes","context":null,"metadata":null,"tool_calls":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 7,
+      "category": "LLM-FALLBACK",
+      "test_name": "Custom Naming No Hints",
+      "function_name": "test_custom_naming_no_hints",
+      "description": "xyz/abc/qwerty params, LLM should infer mappings",
+      "endpoint_id": "8ee2190d-8d50-4921-a375-386629dbdc02",
+      "request": {
+        "input": "Testing completely custom parameters",
+        "session_id": "custom_789"
+    },
+      "response": {"output":"SDK function error: test_custom_naming_no_hints() got an unexpected keyword argument 'input'","error":true,"error_type":"sdk_function_error","message":"test_custom_naming_no_hints() got an unexpected keyword argument 'input'","request":{"project_id":"cb02f1bd-b2b4-444c-99f8-2f8f8e6f83f9","environment":"development","function_name":"test_custom_naming_no_hints","duration_ms":0.0209808349609375}},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 8,
+      "category": "LLM-FALLBACK",
+      "test_name": "Domain Specific Naming",
+      "function_name": "test_domain_specific_naming",
+      "description": "insurance_question→input, policy_number→session_id",
+      "endpoint_id": "941d3fb2-8964-4324-ad97-aa845859b769",
+      "request": {
+        "input": "What is covered in my policy?",
+        "session_id": "POL-123456"
+    },
+      "response": {"output":"SDK function error: test_domain_specific_naming() got an unexpected keyword argument 'input'","error":true,"error_type":"sdk_function_error","message":"test_domain_specific_naming() got an unexpected keyword argument 'input'","request":{"project_id":"cb02f1bd-b2b4-444c-99f8-2f8f8e6f83f9","environment":"development","function_name":"test_domain_specific_naming","duration_ms":0.025033950805664062}},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 9,
+      "category": "LLM-FALLBACK",
+      "test_name": "Abbreviated Names",
+      "function_name": "test_abbreviated_names",
+      "description": "q→input, sid→session_id, ctx→context",
+      "endpoint_id": "2d29311a-d09e-4800-86f9-24872feae97d",
+      "request": {
+        "input": "Testing abbreviations",
+        "session_id": "abbr_999"
+    },
+      "response": {"output":"SDK function error: test_abbreviated_names() got an unexpected keyword argument 'input'","error":true,"error_type":"sdk_function_error","message":"test_abbreviated_names() got an unexpected keyword argument 'input'","request":{"project_id":"cb02f1bd-b2b4-444c-99f8-2f8f8e6f83f9","environment":"development","function_name":"test_abbreviated_names","duration_ms":0.007867813110351562}},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 10,
+      "category": "MANUAL-MAPPING",
+      "test_name": "Manual Request Mapping",
+      "function_name": "test_manual_request_mapping",
+      "description": "Custom request_mapping via @collaborate decorator",
+      "endpoint_id": "f5cb7188-c05e-47e1-89f7-cb4ba94093c4",
+      "request": {
+        "input": "Testing manual request mapping",
+        "session_id": "manual_req_123",
+        "context": ["doc1", "doc2", "doc3"]
+    },
+      "response": {"output":"Query: Testing manual request mapping","context":["None"],"metadata":null,"tool_calls":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 11,
+      "category": "MANUAL-MAPPING",
+      "test_name": "Manual Response Mapping",
+      "function_name": "test_manual_response_mapping",
+      "description": "Custom response_mapping extracting nested fields",
+      "endpoint_id": "7f47da17-2d5f-40e5-bbf5-096e04d0f23f",
+      "request": {
+        "input": "Testing manual response mapping",
+        "session_id": "manual_resp_456"
+    },
+      "response": {"output":"{'text': 'Response to Testing manual response mapping', 'confidence': 0.95}","context":null,"metadata":null,"tool_calls":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 12,
+      "category": "MANUAL-MAPPING",
+      "test_name": "Full Manual Mapping",
+      "function_name": "test_full_manual_mapping",
+      "description": "Both request & response manually mapped",
+      "endpoint_id": "d65e20e0-8480-48cc-bdec-dc9b683ff6ab",
+      "request": {
+        "input": "I need support with my ticket",
+        "session_id": "TKT-789",
+        "context": ["ticket_history"],
+        "metadata": {"urgency": "high"}
+    },
+      "response": {"output":"SDK function error: 'str' object is not a mapping","error":true,"error_type":"sdk_function_error","message":"'str' object is not a mapping","request":{"project_id":"cb02f1bd-b2b4-444c-99f8-2f8f8e6f83f9","environment":"development","function_name":"test_full_manual_mapping","duration_ms":0.07009506225585938}},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 13,
+      "category": "CUSTOM-FIELDS",
+      "test_name": "Custom Field Passthrough",
+      "function_name": "test_custom_field_passthrough",
+      "description": "Custom fields (policy_number, customer_tier, language) passed through",
+      "endpoint_id": "224ff5f3-63fa-4d2e-9e3e-de270867bfdb",
+      "request": {
+        "input": "What is my coverage?",
+        "policy_number": "POL-987654",
+        "customer_tier": "gold",
+        "language": "fr"
+    },
+      "response": {"output":"[FR] Coverage info for policy POL-987654 (tier: gold): What is my coverage?","session_id":"POL-987654","metadata":{"tier":"gold","language":"fr","premium_customer":true}},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 14,
+      "category": "COMPLEX-OUTPUT",
+      "test_name": "Nested Output",
+      "function_name": "test_nested_output",
+      "description": "Response with deeply nested output structure",
+      "endpoint_id": "666a4e4e-2edf-4bf3-8f99-66939e676652",
+      "request": {
+        "input": "Testing deeply nested response"
+    },
+      "response": {"output":"{'data': {'result': {'text': 'Nested response to: Testing deeply nested response'}}}"},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 15,
+      "category": "COMPLEX-OUTPUT",
+      "test_name": "List Output",
+      "function_name": "test_list_output",
+      "description": "Response with list/array outputs",
+      "endpoint_id": "6d13f689-648c-4f62-9a9b-e651243c8785",
+      "request": {
+        "input": "Testing list output"
+    },
+      "response": {"output":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 16,
+      "category": "COMPLEX-OUTPUT",
+      "test_name": "Mixed Output Types",
+      "function_name": "test_mixed_output_types",
+      "description": "Response with string, float, int, bool, list, dict",
+      "endpoint_id": "8ca0ea9b-94d5-4c43-8986-00e99a262033",
+      "request": {
+        "input": "Testing mixed data types"
+    },
+      "response": {"output":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 17,
+      "category": "FIELD-SEPARATION",
+      "test_name": "Response Fields in Request Ignored",
+      "function_name": "test_standard_naming",
+      "description": "CRITICAL: context/metadata/tool_calls in request should be IGNORED",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "Validate field separation",
+        "session_id": "sep_test",
+        "context": ["should", "be", "ignored"],
+        "metadata": {"should": "be_ignored"},
+        "tool_calls": [{"should": "be_ignored"}]
+    },
+      "response": {"output":"Processed: Validate field separation","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 18,
+      "category": "EDGE-CASES",
+      "test_name": "Empty Input",
+      "function_name": "test_standard_naming",
+      "description": "Empty string input",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "",
+        "session_id": "empty_test"
+    },
+      "response": {"output":"Processed: ","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 19,
+      "category": "EDGE-CASES",
+      "test_name": "Very Long Input",
+      "function_name": "test_standard_naming",
+      "description": "1000 character input",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "session_id": "long_test"
+    },
+      "response": {"output":"Processed: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 20,
+      "category": "EDGE-CASES",
+      "test_name": "Unicode and Emoji",
+      "function_name": "test_standard_naming",
+      "description": "Unicode characters from multiple languages + emoji",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "Testing: 你好 🎉 مرحبا שלום",
+        "session_id": "unicode_test"
+    },
+      "response": {"output":"Processed: Testing: 你好 🎉 مرحبا שלום","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    }
+,
+    {
+      "test_number": 21,
+      "category": "EDGE-CASES",
+      "test_name": "JSON Special Characters",
+      "function_name": "test_standard_naming",
+      "description": "JSON special characters requiring escaping",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "Testing: \"quotes\" and \\backslash\\ and \ttab",
+        "session_id": "json_escape_test"
+    },
+      "response": {"output":"Processed: Testing: \"quotes\" and \\backslash\\ and \ttab","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    }
+
+  ],
+  "summary": {
+    "total_tests": 21,
+    "success_count": 21,
+    "error_count": 0,
+    "success_rate": "100.0%",
+    "completed_at": "2025-11-23 23:08:29"
+  }
+}

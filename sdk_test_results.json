@@ -1,0 +1,110 @@
+{
+  "test_run": "2025-11-23 23:00:45",
+  "tests": [
+  "available_endpoints": 
+,
+    {
+      "test_number": 1,
+      "test_name": "test_standard_naming",
+      "description": "Auto-mapping with standard field names (input, session_id)",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "Hello, this is a test message",
+        "session_id": "test_session_123"
+    },
+      "response": {"output":"Processed: Hello, this is a test message","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    },
+    {
+      "test_number": 2,
+      "test_name": "test_field_separation",
+      "description": "Verify context/metadata/tool_calls in request are ignored (they are RESPONSE fields)",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "Testing field separation",
+        "session_id": "session_456",
+        "context": ["doc1", "doc2"],
+        "metadata": {"priority": "high"},
+        "tool_calls": [{"name": "search"}]
+    },
+      "response": {"output":"Processed: Testing field separation","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    },
+    {
+      "test_number": 3,
+      "test_name": "test_optional_session",
+      "description": "Test with only required field (input), session_id is optional",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "Testing without session_id"
+    },
+      "response": {"output":"Processed: Testing without session_id","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    },
+    {
+      "test_number": 4,
+      "test_name": "test_empty_input",
+      "description": "Test with empty input string",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "",
+        "session_id": "empty_test"
+    },
+      "response": {"output":"Processed: ","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    },
+    {
+      "test_number": 5,
+      "test_name": "test_long_input",
+      "description": "Test with longer input text",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "This is a much longer input message to test how the system handles more substantial text. It should still process correctly and return the appropriate response with all the standard fields populated as expected.",
+        "session_id": "long_test_789"
+    },
+      "response": {"output":"Processed: This is a much longer input message to test how the system handles more substantial text. It should still process correctly and return the appropriate response with all the standard fields populated as expected.","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    },
+    {
+      "test_number": 6,
+      "test_name": "test_special_chars",
+      "description": "Test with special characters in input",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "Testing with special chars: @#$%^&*()_+-=[]{}|;:,.<>?",
+        "session_id": "special_chars_test"
+    },
+      "response": {"output":"Processed: Testing with special chars: @#$%^&*()_+-=[]{}|;:,.<>?","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    },
+    {
+      "test_number": 7,
+      "test_name": "test_unicode",
+      "description": "Test with Unicode and emoji characters",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "Testing Unicode: 你好世界 🎉 café",
+        "session_id": "unicode_test"
+    },
+      "response": {"output":"Processed: Testing Unicode: 你好世界 🎉 café","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    },
+    {
+      "test_number": 8,
+      "test_name": "test_complex_input",
+      "description": "Test with custom nested field (demonstrates passthrough)",
+      "endpoint_id": "5fa73ff4-6e19-4061-898b-f602f3c6de90",
+      "request": {
+        "input": "What about complex data?",
+        "session_id": "complex_test",
+        "custom_field": {"nested": "value", "array": [1, 2, 3]}
+    },
+      "response": {"output":"Processed: What about complex data?","context":null,"metadata":"{'processed': True, 'original_metadata': None}","tool_calls":null},
+      "status": "success"
+    }
+  ],
+  "summary": {
+    "total_tests": 8,
+    "completed_at": "2025-11-23 23:00:50"
+  }
+}
