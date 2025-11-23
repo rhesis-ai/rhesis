@@ -310,3 +310,4 @@ infrastructure/k8s/manifests/configmaps/*
 !infrastructure/k8s/manifests/secrets/rhesis-secrets.yaml.example
 !infrastructure/k8s/manifests/configmaps/rhesis-config.yaml.example
 *test_results*.json
+*TEST_ANALYSIS*.md
