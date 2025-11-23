@@ -439,6 +439,10 @@ def test_manual_request_mapping(
 
     Expected: Perfect mapping (1.0 confidence)
     Manual mappings take highest priority
+
+    NOTE: This function maps 'context' as an INPUT (not typical, but valid).
+    Demonstrates that standard field names can be used flexibly with manual mappings.
+    For explicit RAG where frontend retrieves docs and passes them to the function.
     """
     return {
         "response": f"Query: {user_query}",
@@ -548,6 +552,58 @@ def test_mixed_output_types(input: str) -> dict:
         "success": True,  # bool
         "alternatives": ["alt1", "alt2"],  # list
         "metadata": {"key": "value"},  # dict
+    }
+
+
+# =============================================================================
+# CUSTOM FIELD PASSTHROUGH TEST
+# =============================================================================
+
+
+@collaborate(
+    name="test_custom_field_passthrough",
+    description="Test custom fields passed through request mapping",
+    request_mapping={
+        "question": "{{ input }}",
+        "policy_id": "{{ policy_number }}",  # Custom field
+        "tier": "{{ customer_tier }}",  # Custom field
+        "lang": "{{ language }}",  # Custom field
+    },
+    response_mapping={
+        "output": "$.answer",
+        "session_id": "$.policy_id",
+        "metadata": "$.customer_info",
+    },
+)
+def test_custom_field_passthrough(
+    question: str, policy_id: str = None, tier: str = "standard", lang: str = "en"
+) -> dict:
+    """Test that custom fields from API request are passed through correctly.
+
+    Expected behavior:
+    - API request includes: input, policy_number, customer_tier, language
+    - These map to: question, policy_id, tier, lang
+    - Function receives all custom fields correctly
+
+    API Request example:
+    {
+        "input": "What is my coverage?",
+        "policy_number": "POL-123456",
+        "customer_tier": "premium",
+        "language": "es"
+    }
+    """
+    answer_text = (
+        f"[{lang.upper()}] Coverage info for policy {policy_id} (tier: {tier}): {question}"
+    )
+    return {
+        "answer": answer_text,
+        "policy_id": policy_id,
+        "customer_info": {
+            "tier": tier,
+            "language": lang,
+            "premium_customer": tier in ["premium", "gold"],
+        },
     }
 
 

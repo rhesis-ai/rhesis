@@ -34,36 +34,83 @@ def collaborate(
 
     Args:
         name: Optional function name for registration (defaults to function.__name__)
-        request_mapping: Manual input mappings (standard field → function param)
-            Example: {"user_message": "{{ input }}", "conv_id": "{{ session_id }}"}
-        response_mapping: Manual output mappings (function output → standard field)
-            Example: {"output": "$.result.text", "session_id": "$.conv_id"}
+        request_mapping: Manual input mappings (Rhesis standard field → function param)
+            Maps incoming API request fields to your function's parameters.
+            Standard Rhesis REQUEST fields: input, session_id
+            Custom fields: Any additional fields in the request are passed through
+            Template syntax: Jinja2 ({{ variable_name }})
+            Example: {
+                "user_message": "{{ input }}",
+                "conv_id": "{{ session_id }}",
+                "policy_id": "{{ policy_number }}"  # Custom field
+            }
+        response_mapping: Manual output mappings (function output → Rhesis standard field)
+            Maps your function's return value to Rhesis API response fields.
+            Standard Rhesis RESPONSE fields: output, context, metadata, tool_calls
+            Path syntax: Jinja2 or JSONPath ($.path.to.field)
+            Example: {
+                "output": "$.result.text",
+                "session_id": "$.conv_id",
+                "context": "$.sources",
+                "metadata": "$.stats"
+            }
         **metadata: Additional metadata about the function
 
     Returns:
         Decorated function
 
     Examples:
-        # Auto-mapping (most common - no manual config needed)
+        # Example 1: Auto-mapping (zero config - recommended)
         @collaborate()
         def chat(input: str, session_id: str = None):
+            # REQUEST: input, session_id auto-detected
+            # RESPONSE: output, session_id auto-extracted
             return {"output": "...", "session_id": session_id}
 
-        # Manual override (custom naming)
+        # Example 2: Manual mapping with custom naming
         @collaborate(
             request_mapping={
-                "user_query": "{{ input }}",
-                "conv_id": "{{ session_id }}",
-                "docs": "{{ context }}"
+                "user_query": "{{ input }}",      # Standard field
+                "conv_id": "{{ session_id }}",    # Standard field
+                "docs": "{{ context }}"           # Standard field
             },
             response_mapping={
-                "output": "{{ jsonpath('$.result.text') }}",
+                "output": "$.result.text",        # Nested output
                 "session_id": "$.conv_id",
                 "context": "$.sources"
             }
         )
         def chat(user_query: str, conv_id: str = None, docs: list = None):
             return {"result": {"text": "..."}, "conv_id": conv_id, "sources": [...]}
+
+        # Example 3: Custom fields with manual mapping
+        @collaborate(
+            request_mapping={
+                "question": "{{ input }}",
+                "policy_id": "{{ policy_number }}",  # Custom field from request
+                "tier": "{{ customer_tier }}"        # Custom field from request
+            },
+            response_mapping={
+                "output": "$.answer",
+                "metadata": "$.stats"
+            }
+        )
+        def insurance_query(question: str, policy_id: str, tier: str):
+            # Custom fields (policy_number, customer_tier) must be in API request
+            return {"answer": "...", "stats": {"premium": tier == "gold"}}
+
+    Field Separation:
+        REQUEST fields (function inputs):
+        - input: User query/message (required in API request)
+        - session_id: Conversation tracking (optional in API request)
+        - custom fields: Any additional fields in the API request
+
+        RESPONSE fields (function outputs):
+        - output: Main response text (extracted from function return)
+        - context: Retrieved documents/sources
+        - metadata: Response metadata/stats
+        - tool_calls: Available tools/functions
+        - session_id: Can also be in response to preserve conversation ID
 
     Raises:
         RuntimeError: If RhesisClient not initialized before using decorator
