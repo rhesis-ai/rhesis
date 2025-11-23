@@ -23,8 +23,8 @@ class MappingSource(str, Enum):
 
     Priority order (highest to lowest):
     1. SDK_MANUAL - Explicit mappings from developer via @collaborate decorator (100% reliable)
-    2. SDK_MANUAL_PARTIAL - Hybrid: some manual, some auto-generated (high reliability)
-    3. EXISTING_DB - Previously saved mappings, preserved to avoid overwriting manual edits
+    2. SDK_HYBRID - Hybrid: developer manual + auto-generated (high reliability)
+    3. PREVIOUSLY_SAVED - Previously saved mappings, preserved to avoid overwriting manual edits
     4. AUTO_MAPPED - Heuristic-based pattern matching (reliable for standard names)
     5. LLM_GENERATED - AI-inferred mappings when patterns fail (best-effort fallback)
     """
@@ -34,11 +34,18 @@ class MappingSource(str, Enum):
     Developer explicitly specified both request and response mappings via @collaborate decorator.
     """
 
-    SDK_MANUAL_PARTIAL = "sdk_manual_partial"
-    """Developer specified one mapping (request OR response), other was auto-generated."""
+    SDK_HYBRID = "sdk_hybrid"
+    """
+    Hybrid approach: Developer specified one mapping via @collaborate (request OR response),
+    the other was auto-generated. Combines manual developer input with automatic inference.
+    """
 
-    EXISTING_DB = "existing_db"
-    """Mappings loaded from database, preserved to avoid overwriting manual user edits."""
+    PREVIOUSLY_SAVED = "previously_saved"
+    """
+    Mappings loaded from database and preserved on SDK reconnection.
+    Used to avoid overwriting manual edits that users may have made via the UI.
+    Has should_update=False to prevent re-generation on subsequent syncs.
+    """
 
     AUTO_MAPPED = "auto_mapped"
     """Mappings detected via heuristic pattern matching (e.g., 'input' param → input field)."""
@@ -152,10 +159,10 @@ class MappingService:
 
                 if not final_request_mapping:
                     final_request_mapping = auto_result["request_mapping"]
-                    source = MappingSource.SDK_MANUAL_PARTIAL
+                    source = MappingSource.SDK_HYBRID
                 if not final_response_mapping:
                     final_response_mapping = auto_result["response_mapping"]
-                    source = MappingSource.SDK_MANUAL_PARTIAL
+                    source = MappingSource.SDK_HYBRID
 
             return MappingResult(
                 request_mapping=final_request_mapping,
@@ -167,22 +174,24 @@ class MappingService:
                     "Explicit mappings from @collaborate decorator"
                     + (
                         " with auto-generated components"
-                        if source == MappingSource.SDK_MANUAL_PARTIAL
+                        if source == MappingSource.SDK_HYBRID
                         else ""
                     )
                 ),
             )
 
-        # Priority 2: Existing DB mappings (preserve manual edits on reconnection)
+        # Priority 2: Previously saved mappings (preserve manual edits on reconnection)
         if endpoint.request_mapping and endpoint.response_mapping:
-            logger.info(f"[{function_name}] Using existing DB mappings (preserving manual edits)")
+            logger.info(
+                f"[{function_name}] Using previously saved mappings (preserving manual edits)"
+            )
             return MappingResult(
                 request_mapping=endpoint.request_mapping,
                 response_mapping=endpoint.response_mapping,
-                source=MappingSource.EXISTING_DB,
+                source=MappingSource.PREVIOUSLY_SAVED,
                 confidence=1.0,
                 should_update=False,
-                reasoning="Existing mappings preserved from database",
+                reasoning="Previously saved mappings preserved from database",
             )
 
         # Priority 3: Auto-mapping with heuristics
