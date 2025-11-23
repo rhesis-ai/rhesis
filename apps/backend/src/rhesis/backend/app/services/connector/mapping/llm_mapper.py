@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.logging import logger
+from rhesis.sdk.models.factory import get_model
 
 
 class MappingGenerationOutput(BaseModel):
@@ -78,8 +79,15 @@ class LLMMapper:
         logger.info(f"Generating mappings with LLM for function: {function_name}")
 
         try:
-            # Get user's generation model
-            model = get_user_generation_model(db, user)
+            # Get user's generation model (can be string or BaseLLM instance)
+            model_or_provider = get_user_generation_model(db, user)
+
+            # If it's a string (provider name), convert to model instance
+            if isinstance(model_or_provider, str):
+                logger.debug(f"Converting provider '{model_or_provider}' to model instance")
+                model = get_model(provider=model_or_provider)
+            else:
+                model = model_or_provider
 
             # Render prompt with function details
             prompt = self.prompt_template.render(
