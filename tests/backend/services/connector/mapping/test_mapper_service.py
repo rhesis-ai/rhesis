@@ -67,8 +67,14 @@ class TestMappingResult:
 
     def test_source_literal_validation(self):
         """Test that source is validated against allowed values."""
-        # Valid sources
-        valid_sources = ["sdk_manual", "existing_db", "auto_mapped", "llm_generated"]
+        # Valid sources (updated enum values)
+        valid_sources = [
+            "sdk_manual",
+            "sdk_hybrid",
+            "previously_saved",
+            "auto_mapped",
+            "llm_generated",
+        ]
         for source in valid_sources:
             result = MappingResult(
                 request_mapping={},
@@ -143,7 +149,7 @@ class TestMappingService:
         )
 
         assert isinstance(result, MappingResult)
-        assert result.source == "existing_db"
+        assert result.source == "previously_saved"
         assert result.confidence == 1.0
         assert result.should_update is False  # Don't overwrite existing mappings
         assert result.request_mapping == mock_endpoint_with_existing_mappings.request_mapping
@@ -250,7 +256,7 @@ class TestMappingService:
         mock_endpoint,
         standard_function_signature,
     ):
-        """Test that both request_mapping and response_mapping must be present for Priority 1."""
+        """Test hybrid mapping when only one mapping is provided."""
         # Only request_mapping (no response_mapping)
         sdk_metadata = {"request_mapping": {"input": "{{ input }}"}}
 
@@ -262,9 +268,10 @@ class TestMappingService:
             function_data=standard_function_signature,
         )
 
-        # Should fall through to auto-mapping (not use Priority 1)
-        assert result.source != "sdk_manual"
-        assert result.source == "auto_mapped"
+        # Should use hybrid approach: manual request + auto-generated response
+        assert result.source == "sdk_hybrid"
+        assert result.request_mapping == {"input": "{{ input }}"}
+        assert result.response_mapping != {}  # Auto-generated
 
     def test_empty_endpoint_triggers_auto_mapping(
         self,
@@ -334,6 +341,10 @@ class TestMappingService:
             function_data=all_fields_signature,
         )
 
-        assert result.confidence == pytest.approx(1.0)
+        # Only request fields (input, session_id) should be in request_mapping
+        # context, metadata, tool_calls are RESPONSE fields
+        assert result.confidence == pytest.approx(0.7)  # Only 2/5 matched (request fields)
         assert result.source == "auto_mapped"
-        assert len(result.request_mapping) == 5  # All fields mapped
+        assert len(result.request_mapping) == 2  # Only request fields (input, session_id)
+        assert "input" in result.request_mapping
+        assert "session_id" in result.request_mapping

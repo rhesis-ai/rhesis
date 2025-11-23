@@ -16,12 +16,14 @@ class TestFieldConfig:
             pattern_type="input",
             template_var="{{ input }}",
             confidence_weight=0.5,
+            field_location="request",
             is_required=True,
         )
         assert config.name == "input"
         assert config.pattern_type == "input"
         assert config.template_var == "{{ input }}"
         assert config.confidence_weight == 0.5
+        assert config.field_location == "request"
         assert config.is_required is True
 
 
