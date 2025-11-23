@@ -311,3 +311,4 @@ infrastructure/k8s/manifests/configmaps/*
 !infrastructure/k8s/manifests/configmaps/rhesis-config.yaml.example
 *test_results*.json
 *TEST_ANALYSIS*.md
+sdk_test_analysis.md
