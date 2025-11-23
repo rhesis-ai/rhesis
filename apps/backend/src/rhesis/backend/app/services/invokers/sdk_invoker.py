@@ -42,7 +42,9 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     detail="SDK endpoint missing metadata (function_name, project_id, environment)",
                 )
 
-            function_name = endpoint.endpoint_metadata.get("function_name")
+            # Extract function name from nested sdk_connection metadata
+            sdk_connection = endpoint.endpoint_metadata.get("sdk_connection", {})
+            function_name = sdk_connection.get("function_name")
             project_id = endpoint.project_id
             environment = endpoint.environment
 
