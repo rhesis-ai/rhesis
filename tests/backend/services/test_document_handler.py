@@ -39,9 +39,7 @@ class DocumentHandlerTestMixin(DocumentHandlerTestMixin):
 
 @pytest.mark.unit
 @pytest.mark.service
-class TestDocumentHandlerInitialization(
-    DocumentHandlerTestMixin, BaseDocumentHandlerTests
-):
+class TestDocumentHandlerInitialization(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Test DocumentHandler initialization and configuration."""
 
     def test_init_with_default_storage_service(self):
@@ -63,9 +61,7 @@ class TestDocumentHandlerInitialization(
         mock_storage = MagicMock()
         custom_max_size = 10 * 1024 * 1024  # 10MB
 
-        handler = DocumentHandler(
-            storage_service=mock_storage, max_size=custom_max_size
-        )
+        handler = DocumentHandler(storage_service=mock_storage, max_size=custom_max_size)
 
         assert handler.storage_service == mock_storage
         assert handler.max_size == custom_max_size
@@ -131,9 +127,7 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
         mock_file.filename = "large.txt"
         mock_file.read = AsyncMock(return_value=large_content)
 
-        with pytest.raises(
-            ValueError, match="Source size exceeds limit of 100 bytes"
-        ):
+        with pytest.raises(ValueError, match="Source size exceeds limit of 100 bytes"):
             await handler.save_document(
                 document=mock_file, organization_id="org-123", source_id="source-456"
             )
@@ -170,12 +164,8 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
             assert metadata["file_size"] == len(content)
 
             # Verify storage service calls
-            mock_storage.get_file_path.assert_called_once_with(
-                "org-123", "source-456", "test.txt"
-            )
-            mock_storage.save_file.assert_called_once_with(
-                content, "test/path/file.txt"
-            )
+            mock_storage.get_file_path.assert_called_once_with("org-123", "source-456", "test.txt")
+            mock_storage.save_file.assert_called_once_with(content, "test/path/file.txt")
             mock_extract.assert_called_once_with(
                 content, "test.txt", "test/path/file.txt", None, "org-123", None
             )
@@ -183,9 +173,7 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
 
 @pytest.mark.unit
 @pytest.mark.service
-class TestDocumentHandlerFileOperations(
-    DocumentHandlerTestMixin, BaseDocumentHandlerTests
-):
+class TestDocumentHandlerFileOperations(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Test document file operations."""
 
     @pytest.mark.asyncio
@@ -236,9 +224,7 @@ class TestDocumentHandlerFileOperations(
 
 @pytest.mark.unit
 @pytest.mark.service
-class TestDocumentHandlerMetadataExtraction(
-    DocumentHandlerTestMixin, BaseDocumentHandlerTests
-):
+class TestDocumentHandlerMetadataExtraction(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Test metadata extraction methods."""
 
     def test_extract_metadata_basic(self):
@@ -255,9 +241,7 @@ class TestDocumentHandlerMetadataExtraction(
             mock_hash.return_value = "abc123hash"
             mock_mime.return_value = "text/plain"
 
-            metadata = handler._extract_metadata(
-                content, filename, "test/path/file.txt"
-            )
+            metadata = handler._extract_metadata(content, filename, "test/path/file.txt")
 
             expected_metadata = {
                 "file_size": len(content),
@@ -270,9 +254,7 @@ class TestDocumentHandlerMetadataExtraction(
             # Check all fields
             assert metadata["file_size"] == expected_metadata["file_size"]
             assert metadata["file_hash"] == expected_metadata["file_hash"]
-            assert (
-                metadata["original_filename"] == expected_metadata["original_filename"]
-            )
+            assert metadata["original_filename"] == expected_metadata["original_filename"]
             assert metadata["file_type"] == expected_metadata["file_type"]
             assert metadata["file_path"] == expected_metadata["file_path"]
 
@@ -344,9 +326,7 @@ class TestDocumentHandlerMetadataExtraction(
 
 @pytest.mark.integration
 @pytest.mark.service
-class TestDocumentHandlerIntegration(
-    DocumentHandlerTestMixin, BaseDocumentHandlerTests
-):
+class TestDocumentHandlerIntegration(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Integration tests for DocumentHandler with real file operations."""
 
     @pytest.mark.asyncio
@@ -528,9 +508,7 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         binary_content = bytes(range(256))  # All possible byte values
         filename = "binary_file.bin"
 
-        metadata = handler._extract_metadata(
-            binary_content, filename, "test/path/binary_file.bin"
-        )
+        metadata = handler._extract_metadata(binary_content, filename, "test/path/binary_file.bin")
 
         assert metadata["file_size"] == 256
         assert metadata["file_type"] == "application/octet-stream"

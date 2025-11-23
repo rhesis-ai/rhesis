@@ -15,12 +15,12 @@ from rhesis.backend.logging import logger
 class MappingGenerationOutput(BaseModel):
     """Structured output schema for LLM mapping generation."""
 
-    request_template: Dict[str, str] = Field(
+    request_mapping: Dict[str, str] = Field(
         description=(
             'Function parameter mappings using Jinja2 syntax: {"param": "{{ standard_field }}"}'
         )
     )
-    response_mappings: Dict[str, str] = Field(
+    response_mapping: Dict[str, str] = Field(
         description=(
             'Output field mappings using JSONPath/Jinja2: {"standard_field": "$.output.path"}'
         )
@@ -69,8 +69,8 @@ class LLMMapper:
 
         Returns:
             {
-                "request_template": {...},
-                "response_mappings": {...},
+                "request_mapping": {...},
+                "response_mapping": {...},
                 "confidence": float,
                 "reasoning": str
             }
@@ -111,8 +111,8 @@ class LLMMapper:
             logger.error(f"LLM mapping generation failed for {function_name}: {e}", exc_info=True)
             # Return minimal fallback mappings
             return {
-                "request_template": {"input": "{{ input }}"},
-                "response_mappings": {"output": "{{ response or result }}"},
+                "request_mapping": {"input": "{{ input }}"},
+                "response_mapping": {"output": "{{ response or result }}"},
                 "confidence": 0.3,
                 "reasoning": f"LLM generation failed: {e}. Using minimal fallback.",
             }

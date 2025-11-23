@@ -28,8 +28,8 @@ class AutoMapper:
 
         Returns:
             {
-                "request_template": {"message": "{{ input }}", ...},
-                "response_mappings": {"output": "{{ response }}", ...},
+                "request_mapping": {"message": "{{ input }}", ...},
+                "response_mapping": {"output": "{{ response }}", ...},
                 "confidence": 0.8,
                 "matched_fields": ["input", "session_id"],
                 "missing_fields": ["context", "metadata", "tool_calls"]
@@ -52,7 +52,7 @@ class AutoMapper:
                 )
 
         # Auto-detect output mappings (basic heuristics)
-        response_mappings = self._infer_output_mappings(return_type)
+        response_mapping = self._infer_output_mappings(return_type)
 
         # Calculate confidence
         confidence = self._calculate_confidence(matched_fields)
@@ -69,8 +69,8 @@ class AutoMapper:
         )
 
         return {
-            "request_template": request_template,
-            "response_mappings": response_mappings,
+            "request_mapping": request_template,
+            "response_mapping": response_mapping,
             "confidence": confidence,
             "matched_fields": matched_fields,
             "missing_fields": missing_fields,
@@ -120,20 +120,20 @@ class AutoMapper:
             "tool_calls": ["tool_calls", "tools", "functions", "function_calls"],
         }
 
-        # Build response mappings with fallback patterns
-        response_mappings = {}
+        # Build response mapping with fallback patterns
+        response_mapping = {}
 
         # Add output field (special case - always included)
         output_pattern = " or ".join(fallback_patterns["output"])
-        response_mappings["output"] = f"{{{{ {output_pattern} }}}}"
+        response_mapping["output"] = f"{{{{ {output_pattern} }}}}"
 
         # Add all standard fields with fallback patterns
         for field_config in MappingPatterns.STANDARD_FIELDS:
             if field_config.name in fallback_patterns:
                 pattern = " or ".join(fallback_patterns[field_config.name])
-                response_mappings[field_config.name] = f"{{{{ {pattern} }}}}"
+                response_mapping[field_config.name] = f"{{{{ {pattern} }}}}"
 
-        return response_mappings
+        return response_mapping
 
     def _calculate_confidence(self, matched_fields: List[str]) -> float:
         """

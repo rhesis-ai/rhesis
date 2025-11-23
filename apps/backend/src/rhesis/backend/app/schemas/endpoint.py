@@ -35,9 +35,9 @@ class EndpointMetadataSchema(Base):
     Schema for endpoint_metadata JSONB field.
 
     Notes on mapping fields:
-    - parameter_mapping: Maps function parameters to backend fields (like request_body_template)
+    - parameter_mapping: Maps function parameters to backend fields (like request_mapping)
       Example: {"location": "{{ input }}", "unit": "celsius"}
-    - output_mapping: Maps function output to backend fields (like response_mappings)
+    - output_mapping: Maps function output to backend fields (like response_mapping)
       Example: {"temperature": "result.temp", "conditions": "result.weather[0].description"}
     """
 
@@ -82,12 +82,12 @@ class EndpointBase(Base):
     endpoint_path: Optional[str] = None
     request_headers: Optional[Dict[str, str]] = None
     query_params: Optional[Dict[str, Any]] = None
-    request_body_template: Optional[Dict[str, Any]] = None
+    request_mapping: Optional[Dict[str, Any]] = None
     input_mappings: Optional[Dict[str, Any]] = None
 
     # Response Handling
     response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
-    response_mappings: Optional[Dict[str, str]] = None
+    response_mapping: Optional[Dict[str, str]] = None
     validation_rules: Optional[Dict[str, Any]] = None
 
     project_id: Optional[UUID4] = None
@@ -140,12 +140,12 @@ class Endpoint(Base):
     endpoint_path: Optional[str] = None
     request_headers: Optional[Dict[str, str]] = None
     query_params: Optional[Dict[str, Any]] = None
-    request_body_template: Optional[Dict[str, Any]] = None
+    request_mapping: Optional[Dict[str, Any]] = None
     input_mappings: Optional[Dict[str, Any]] = None
 
     # Response Handling
     response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
-    response_mappings: Optional[Dict[str, str]] = None
+    response_mapping: Optional[Dict[str, str]] = None
     validation_rules: Optional[Dict[str, Any]] = None
 
     project_id: Optional[UUID4] = None

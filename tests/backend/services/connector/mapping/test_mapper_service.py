@@ -18,16 +18,16 @@ class TestMappingResult:
     def test_create_mapping_result(self):
         """Test creating a valid MappingResult."""
         result = MappingResult(
-            request_template={"input": "{{ input }}"},
-            response_mappings={"output": "{{ response }}"},
+            request_mapping={"input": "{{ input }}"},
+            response_mapping={"output": "{{ response }}"},
             source="auto_mapped",
             confidence=0.8,
             should_update=True,
             reasoning="Auto-detected from function signature",
         )
 
-        assert result.request_template == {"input": "{{ input }}"}
-        assert result.response_mappings == {"output": "{{ response }}"}
+        assert result.request_mapping == {"input": "{{ input }}"}
+        assert result.response_mapping == {"output": "{{ response }}"}
         assert result.source == "auto_mapped"
         assert result.confidence == 0.8
         assert result.should_update is True
@@ -37,8 +37,8 @@ class TestMappingResult:
         """Test that confidence is validated (0.0-1.0)."""
         # Valid confidence
         result = MappingResult(
-            request_template={},
-            response_mappings={},
+            request_mapping={},
+            response_mapping={},
             source="auto_mapped",
             confidence=0.5,
             should_update=True,
@@ -48,8 +48,8 @@ class TestMappingResult:
         # Invalid confidence (too high)
         with pytest.raises(Exception):  # Pydantic ValidationError
             MappingResult(
-                request_template={},
-                response_mappings={},
+                request_mapping={},
+                response_mapping={},
                 source="auto_mapped",
                 confidence=1.5,
                 should_update=True,
@@ -58,8 +58,8 @@ class TestMappingResult:
         # Invalid confidence (negative)
         with pytest.raises(Exception):
             MappingResult(
-                request_template={},
-                response_mappings={},
+                request_mapping={},
+                response_mapping={},
                 source="auto_mapped",
                 confidence=-0.1,
                 should_update=True,
@@ -71,8 +71,8 @@ class TestMappingResult:
         valid_sources = ["sdk_manual", "existing_db", "auto_mapped", "llm_generated"]
         for source in valid_sources:
             result = MappingResult(
-                request_template={},
-                response_mappings={},
+                request_mapping={},
+                response_mapping={},
                 source=source,
                 confidence=0.8,
                 should_update=True,
@@ -82,8 +82,8 @@ class TestMappingResult:
     def test_default_reasoning(self):
         """Test that reasoning has a default value."""
         result = MappingResult(
-            request_template={},
-            response_mappings={},
+            request_mapping={},
+            response_mapping={},
             source="auto_mapped",
             confidence=0.8,
             should_update=True,
@@ -121,8 +121,8 @@ class TestMappingService:
         assert result.source == "sdk_manual"
         assert result.confidence == 1.0
         assert result.should_update is True
-        assert result.request_template == sdk_metadata_with_manual_mappings["request_template"]
-        assert result.response_mappings == sdk_metadata_with_manual_mappings["response_mappings"]
+        assert result.request_mapping == sdk_metadata_with_manual_mappings["request_mapping"]
+        assert result.response_mapping == sdk_metadata_with_manual_mappings["response_mapping"]
         assert "Explicit mappings" in result.reasoning
 
     def test_priority_2_existing_db_mappings(
@@ -146,8 +146,8 @@ class TestMappingService:
         assert result.source == "existing_db"
         assert result.confidence == 1.0
         assert result.should_update is False  # Don't overwrite existing mappings
-        assert result.request_template == mock_endpoint_with_existing_mappings.request_body_template
-        assert result.response_mappings == mock_endpoint_with_existing_mappings.response_mappings
+        assert result.request_mapping == mock_endpoint_with_existing_mappings.request_mapping
+        assert result.response_mapping == mock_endpoint_with_existing_mappings.response_mapping
         assert "preserved" in result.reasoning.lower()
 
     def test_priority_3_auto_mapping_high_confidence(
@@ -171,8 +171,8 @@ class TestMappingService:
         assert result.source == "auto_mapped"
         assert result.confidence >= 0.7
         assert result.should_update is True
-        assert "input" in result.request_template
-        assert "session_id" in result.request_template
+        assert "input" in result.request_mapping
+        assert "session_id" in result.request_mapping
         assert "Auto-detected" in result.reasoning
 
     def test_priority_4_llm_fallback(
@@ -196,8 +196,8 @@ class TestMappingService:
         # Mock the LLM mapper
         with patch.object(mapping_service.llm_mapper, "generate_mappings") as mock_llm:
             mock_llm.return_value = {
-                "request_template": {"xyz": "{{ input }}"},
-                "response_mappings": {"output": "{{ response }}"},
+                "request_mapping": {"xyz": "{{ input }}"},
+                "response_mapping": {"output": "{{ response }}"},
                 "confidence": 0.85,
                 "reasoning": "Generated by LLM",
             }
@@ -227,8 +227,8 @@ class TestMappingService:
         """Test that priorities cascade correctly."""
         # Priority 1 wins over Priority 2
         mock_endpoint_with_existing = Mock()
-        mock_endpoint_with_existing.request_body_template = {"old": "{{ input }}"}
-        mock_endpoint_with_existing.response_mappings = {"output": "{{ old }}"}
+        mock_endpoint_with_existing.request_mapping = {"old": "{{ input }}"}
+        mock_endpoint_with_existing.response_mapping = {"output": "{{ old }}"}
 
         result = mapping_service.generate_or_use_existing(
             db=mock_db_session,
@@ -240,7 +240,7 @@ class TestMappingService:
 
         # Should use SDK manual mappings, not existing DB mappings
         assert result.source == "sdk_manual"
-        assert result.request_template != mock_endpoint_with_existing.request_body_template
+        assert result.request_mapping != mock_endpoint_with_existing.request_mapping
 
     def test_partial_sdk_metadata(
         self,
@@ -250,9 +250,9 @@ class TestMappingService:
         mock_endpoint,
         standard_function_signature,
     ):
-        """Test that both request_template and response_mappings must be present for Priority 1."""
-        # Only request_template (no response_mappings)
-        sdk_metadata = {"request_template": {"input": "{{ input }}"}}
+        """Test that both request_mapping and response_mapping must be present for Priority 1."""
+        # Only request_mapping (no response_mapping)
+        sdk_metadata = {"request_mapping": {"input": "{{ input }}"}}
 
         result = mapping_service.generate_or_use_existing(
             db=mock_db_session,
@@ -276,8 +276,8 @@ class TestMappingService:
     ):
         """Test that empty endpoint without mappings triggers auto-mapping."""
         # Endpoint with no mappings
-        mock_endpoint.request_body_template = None
-        mock_endpoint.response_mappings = None
+        mock_endpoint.request_mapping = None
+        mock_endpoint.response_mapping = None
 
         result = mapping_service.generate_or_use_existing(
             db=mock_db_session,
@@ -294,8 +294,8 @@ class TestMappingService:
     def test_result_attributes(self, mapping_service):
         """Test that MappingResult has all expected attributes."""
         result = MappingResult(
-            request_template={"input": "{{ input }}"},
-            response_mappings={"output": "{{ response }}"},
+            request_mapping={"input": "{{ input }}"},
+            response_mapping={"output": "{{ response }}"},
             source="auto_mapped",
             confidence=0.8,
             should_update=True,
@@ -303,8 +303,8 @@ class TestMappingService:
         )
 
         # Verify all attributes are accessible
-        assert result.request_template == {"input": "{{ input }}"}
-        assert result.response_mappings == {"output": "{{ response }}"}
+        assert result.request_mapping == {"input": "{{ input }}"}
+        assert result.response_mapping == {"output": "{{ response }}"}
         assert result.source == "auto_mapped"
         assert result.confidence == 0.8
         assert result.should_update is True
@@ -336,4 +336,4 @@ class TestMappingService:
 
         assert result.confidence == pytest.approx(1.0)
         assert result.source == "auto_mapped"
-        assert len(result.request_template) == 5  # All fields mapped
+        assert len(result.request_mapping) == 5  # All fields mapped

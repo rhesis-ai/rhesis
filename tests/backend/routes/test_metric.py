@@ -69,10 +69,12 @@ class MetricTestMixin:
 # Standard entity tests - gets ALL tests from base classes
 class TestMetricStandardRoutes(MetricTestMixin, BaseEntityRouteTests):
     """Complete standard metric route tests using base classes"""
+
     pass
 
 
 # === METRIC-SPECIFIC TESTS (Enhanced with Factories) ===
+
 
 @pytest.mark.integration
 class TestMetricBehaviorRelationships(MetricTestMixin, BaseEntityTests):
@@ -127,7 +129,9 @@ class TestMetricBehaviorRelationships(MetricTestMixin, BaseEntityTests):
         assert remove_response.status_code == status.HTTP_200_OK
         result = remove_response.json()
         assert result["status"] == "success"
-        assert "removed" in result["message"].lower() or "not associated" in result["message"].lower()
+        assert (
+            "removed" in result["message"].lower() or "not associated" in result["message"].lower()
+        )
 
     def test_bulk_behavior_association(self, metric_factory, behavior_factory):
         """🔗 Test associating multiple behaviors with metric"""
@@ -135,11 +139,13 @@ class TestMetricBehaviorRelationships(MetricTestMixin, BaseEntityTests):
         metric = metric_factory.create(self.get_sample_data())
 
         # Create multiple behaviors using batch creation
-        behaviors = behavior_factory.create_batch([
-            BehaviorDataFactory.sample_data(),
-            BehaviorDataFactory.sample_data(),
-            BehaviorDataFactory.sample_data()
-        ])
+        behaviors = behavior_factory.create_batch(
+            [
+                BehaviorDataFactory.sample_data(),
+                BehaviorDataFactory.sample_data(),
+                BehaviorDataFactory.sample_data(),
+            ]
+        )
 
         # Associate all behaviors with the metric
         for behavior in behaviors:
@@ -172,6 +178,7 @@ class TestMetricBehaviorRelationships(MetricTestMixin, BaseEntityTests):
 
 
 # === METRIC-SPECIFIC VALIDATION TESTS ===
+
 
 @pytest.mark.unit
 class TestMetricValidation(MetricTestMixin, BaseEntityTests):
@@ -236,6 +243,7 @@ class TestMetricValidation(MetricTestMixin, BaseEntityTests):
 
 # === EDGE CASE TESTS (Enhanced with Factory Data) ===
 
+
 @pytest.mark.unit
 class TestMetricEdgeCases(MetricTestMixin, BaseEntityTests):
     """Enhanced metric edge case tests using factory system"""
@@ -250,7 +258,7 @@ class TestMetricEdgeCases(MetricTestMixin, BaseEntityTests):
         # Should handle long prompts gracefully
         assert response.status_code in [
             status.HTTP_200_OK,  # If long prompts are allowed
-            status.HTTP_422_UNPROCESSABLE_ENTITY  # If they're rejected
+            status.HTTP_422_UNPROCESSABLE_ENTITY,  # If they're rejected
         ]
 
     def test_create_metric_special_characters(self, metric_factory):
@@ -289,11 +297,12 @@ class TestMetricEdgeCases(MetricTestMixin, BaseEntityTests):
             # If rejected, should be a validation error
             assert response.status_code in [
                 status.HTTP_400_BAD_REQUEST,
-                status.HTTP_422_UNPROCESSABLE_ENTITY
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
             ]
 
 
 # === PERFORMANCE TESTS (Using Factory Batches) ===
+
 
 @pytest.mark.slow
 @pytest.mark.integration
@@ -306,7 +315,7 @@ class TestMetricPerformance(MetricTestMixin, BaseEntityTests):
         batch_data = []
         for i in range(10):
             data = MetricDataFactory.sample_data()
-            data["name"] = f"Performance Test Metric {i+1}"
+            data["name"] = f"Performance Test Metric {i + 1}"
             batch_data.append(data)
 
         # Create all metrics using factory batch method

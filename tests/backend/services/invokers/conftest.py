@@ -28,8 +28,8 @@ def sample_endpoint_rest():
         auth_type=EndpointAuthType.BEARER_TOKEN.value,
         auth_token="test-bearer-token",
         request_headers={"Content-Type": "application/json"},
-        request_body_template='{"message": "{{ input }}"}',
-        response_mappings={
+        request_mapping='{"message": "{{ input }}"}',
+        response_mapping={
             "output": "$.response.text",
             "tokens": "$.usage.total_tokens",
         },
@@ -46,8 +46,8 @@ def sample_endpoint_websocket():
         url="wss://ws.example.com/chat",
         auth_type=EndpointAuthType.BEARER_TOKEN.value,
         auth_token="test-ws-token",
-        request_body_template='{"query": "{{ input }}", "auth_token": "{{ auth_token }}"}',
-        response_mappings={
+        request_mapping='{"query": "{{ input }}", "auth_token": "{{ auth_token }}"}',
+        response_mapping={
             "output": "$.message",
             "conversation_id": "$.conversation_id",
         },
@@ -68,8 +68,8 @@ def sample_endpoint_oauth():
         client_id="test-client-id",
         client_secret="test-client-secret",
         audience="https://api.example.com",
-        request_body_template='{"query": "{{ input }}"}',
-        response_mappings={"output": "$.result"},
+        request_mapping='{"query": "{{ input }}"}',
+        response_mapping={"output": "$.result"},
     )
     # Set cached token
     endpoint.last_token = "cached-access-token"
@@ -88,8 +88,8 @@ def sample_endpoint_conversation():
         url="https://api.example.com/chat",
         auth_type=EndpointAuthType.BEARER_TOKEN.value,
         auth_token="test-token",
-        request_body_template='{"message": "{{ input }}", "conversation_id": {{ conversation_id | tojson }}}',
-        response_mappings={
+        request_mapping='{"message": "{{ input }}", "conversation_id": {{ conversation_id | tojson }}}',
+        response_mapping={
             "output": "$.message",
             "conversation_id": "$.conversation_id",
             "context": "$.context",

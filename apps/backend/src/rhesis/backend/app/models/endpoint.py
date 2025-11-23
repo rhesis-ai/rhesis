@@ -36,12 +36,12 @@ class Endpoint(Base, TagsMixin):
     endpoint_path = Column(String)
     request_headers = Column(JSON)
     query_params = Column(JSON)
-    request_body_template = Column(JSON)
+    request_mapping = Column(JSON)
     input_mappings = Column(JSON)
 
     # Response Handling
     response_format = Column(String, nullable=False, default=EndpointResponseFormat.JSON.value)
-    response_mappings = Column(JSON)
+    response_mapping = Column(JSON)
     validation_rules = Column(JSON)
 
     # Status relationship (keeping existing relationship)

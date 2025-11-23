@@ -16,10 +16,10 @@ from .llm_mapper import LLMMapper
 class MappingResult(BaseModel):
     """Result of mapping generation with metadata."""
 
-    request_template: Dict[str, str] = Field(
+    request_mapping: Dict[str, str] = Field(
         description="Jinja2 template mapping standard fields to function parameters"
     )
-    response_mappings: Dict[str, str] = Field(
+    response_mapping: Dict[str, str] = Field(
         description="Mapping from function output to standard fields"
     )
     source: Literal["sdk_manual", "existing_db", "auto_mapped", "llm_generated"] = Field(
@@ -65,20 +65,20 @@ class MappingService:
             function_data: Function information
 
         Returns:
-            MappingResult with request_template, response_mappings, source, confidence,
+            MappingResult with request_mapping, response_mapping, source, confidence,
             should_update flag, and reasoning
         """
         function_name = function_data.get("name", "unknown")
 
         # Priority 1: SDK manual mappings from @collaborate decorator
-        sdk_request = sdk_metadata.get("request_template")
-        sdk_response = sdk_metadata.get("response_mappings")
+        sdk_request = sdk_metadata.get("request_mapping")
+        sdk_response = sdk_metadata.get("response_mapping")
 
         if sdk_request and sdk_response:
             logger.info(f"[{function_name}] Using SDK manual mappings")
             return MappingResult(
-                request_template=sdk_request,
-                response_mappings=sdk_response,
+                request_mapping=sdk_request,
+                response_mapping=sdk_response,
                 source="sdk_manual",
                 confidence=1.0,
                 should_update=True,
@@ -86,11 +86,11 @@ class MappingService:
             )
 
         # Priority 2: Existing DB mappings (preserve manual edits on reconnection)
-        if endpoint.request_body_template and endpoint.response_mappings:
+        if endpoint.request_mapping and endpoint.response_mapping:
             logger.info(f"[{function_name}] Using existing DB mappings (preserving manual edits)")
             return MappingResult(
-                request_template=endpoint.request_body_template,
-                response_mappings=endpoint.response_mappings,
+                request_mapping=endpoint.request_mapping,
+                response_mapping=endpoint.response_mapping,
                 source="existing_db",
                 confidence=1.0,
                 should_update=False,
@@ -113,8 +113,8 @@ class MappingService:
                 f"(confidence: {auto_result['confidence']:.2f})"
             )
             return MappingResult(
-                request_template=auto_result["request_template"],
-                response_mappings=auto_result["response_mappings"],
+                request_mapping=auto_result["request_mapping"],
+                response_mapping=auto_result["response_mapping"],
                 source="auto_mapped",
                 confidence=auto_result["confidence"],
                 should_update=True,
@@ -140,8 +140,8 @@ class MappingService:
         )
 
         return MappingResult(
-            request_template=llm_result["request_template"],
-            response_mappings=llm_result["response_mappings"],
+            request_mapping=llm_result["request_mapping"],
+            response_mapping=llm_result["response_mapping"],
             source="llm_generated",
             confidence=llm_result["confidence"],
             should_update=True,

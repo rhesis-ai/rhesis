@@ -18,26 +18,22 @@ fake = Faker()
 def db_test_configuration(test_db: Session, test_organization, db_user) -> TestConfiguration:
     """
     🧪 Create a real test configuration entity in the test database
-    
+
     This fixture creates an actual TestConfiguration record in the database that can be
     used for foreign key relationships in tests.
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture for creator
-        
+
     Returns:
         TestConfiguration: Real test configuration record with valid database ID
     """
     test_config = TestConfiguration(
         user_id=db_user.id,
         organization_id=test_organization.id,
-        attributes={
-            "model": "gpt-3.5-turbo",
-            "temperature": 0.7,
-            "max_tokens": 1000
-        }
+        attributes={"model": "gpt-3.5-turbo", "temperature": 0.7, "max_tokens": 1000},
     )
     test_db.add(test_config)
     test_db.flush()  # Make sure the object gets an ID
@@ -46,20 +42,22 @@ def db_test_configuration(test_db: Session, test_organization, db_user) -> TestC
 
 
 @pytest.fixture
-def db_test_run(test_db: Session, test_organization, db_user, db_status, db_test_configuration) -> TestRun:
+def db_test_run(
+    test_db: Session, test_organization, db_user, db_status, db_test_configuration
+) -> TestRun:
     """
     🧪 Create a real test run entity in the test database
-    
+
     This fixture creates an actual TestRun record in the database that can be
     used for foreign key relationships in tests.
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture for creator
         db_status: Status fixture
         db_test_configuration: Test configuration fixture
-        
+
     Returns:
         TestRun: Real test run record with valid database ID
     """
@@ -69,10 +67,7 @@ def db_test_run(test_db: Session, test_organization, db_user, db_status, db_test
         organization_id=test_organization.id,
         status_id=db_status.id,
         test_configuration_id=db_test_configuration.id,
-        attributes={
-            "started_at": fake.date_time_this_year().isoformat(),
-            "environment": "test"
-        }
+        attributes={"started_at": fake.date_time_this_year().isoformat(), "environment": "test"},
     )
     test_db.add(test_run)
     test_db.flush()  # Make sure the object gets an ID
@@ -81,32 +76,31 @@ def db_test_run(test_db: Session, test_organization, db_user, db_status, db_test
 
 
 @pytest.fixture
-def db_test_run_running(test_db: Session, test_organization, db_user, db_test_configuration, db_status: Status) -> TestRun:
+def db_test_run_running(
+    test_db: Session, test_organization, db_user, db_test_configuration, db_status: Status
+) -> TestRun:
     """
     🧪 Create a test run in RUNNING status
-    
+
     This fixture creates a TestRun with RUNNING status for testing status updates.
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture for creator
         db_test_configuration: Test configuration fixture
-        
+
     Returns:
         TestRun: Real test run record in RUNNING status
     """
-    
+
     test_run = TestRun(
         name=fake.catch_phrase() + " Running Test Run",
         user_id=db_user.id,
         organization_id=test_organization.id,
         status_id=db_status.id,
         test_configuration_id=db_test_configuration.id,
-        attributes={
-            "started_at": fake.date_time_this_year().isoformat(),
-            "environment": "test"
-        }
+        attributes={"started_at": fake.date_time_this_year().isoformat(), "environment": "test"},
     )
     test_db.add(test_run)
     test_db.flush()  # Make sure the object gets an ID

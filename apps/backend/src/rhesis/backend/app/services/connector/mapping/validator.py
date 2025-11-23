@@ -19,8 +19,8 @@ class MappingValidator:
         project_id: str,
         environment: str,
         function_name: str,
-        request_template: Dict[str, str],
-        response_mappings: Dict[str, str],
+        request_mapping: Dict[str, str],
+        response_mapping: Dict[str, str],
         timeout: float = 5.0,
     ) -> Dict[str, Any]:
         """
@@ -32,8 +32,8 @@ class MappingValidator:
             project_id: Project identifier
             environment: Environment name
             function_name: Function name to test
-            request_template: Request template to validate
-            response_mappings: Response mappings to validate
+            request_mapping: Request template to validate
+            response_mapping: Response mappings to validate
             timeout: Timeout in seconds
 
         Returns:
@@ -59,7 +59,7 @@ class MappingValidator:
 
         try:
             # Render template to function kwargs
-            function_kwargs = self.template_renderer.render(request_template, test_input)
+            function_kwargs = self.template_renderer.render(request_mapping, test_input)
             logger.debug(f"Rendered function kwargs for {function_name}: {function_kwargs}")
 
             # Execute via WebSocket with blocking wait

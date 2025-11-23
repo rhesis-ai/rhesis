@@ -24,13 +24,13 @@ You are a mapping generator for SDK function integration with the Rhesis testing
 **Your Task:**
 Generate two mappings to integrate this function with Rhesis:
 
-1. **request_template:** Map standard Rhesis input fields → function parameters
+1. **request_mapping:** Map standard Rhesis input fields → function parameters
    - Format: `{"function_param": "{{ standard_field }}"}`
    - Use Jinja2 template syntax with standard field names
    - Example: `{"message": "{{ input }}", "conversation_id": "{{ session_id }}", "docs": "{{ context }}"}`
    - Only map fields that make semantic sense for this function
 
-2. **response_mappings:** Map function output → standard Rhesis output fields  
+2. **response_mapping:** Map function output → standard Rhesis output fields  
    - Use JSONPath for nested values: {% raw %}`$.field.path`{% endraw %}
    - Use Jinja2 for simple fields: {% raw %}`{{ field }}`{% endraw %}
    - Combine with jsonpath() function: {% raw %}`{{ jsonpath('$.nested.value') or 'default' }}`{% endraw %}
@@ -38,8 +38,8 @@ Generate two mappings to integrate this function with Rhesis:
    - Example complex: {% raw %}`{"output": "{{ jsonpath('$.text') or jsonpath('$.result') }}"}`{% endraw %}
 
 **Format Requirements:**
-- request_template values MUST use Jinja2 syntax: {% raw %}`"{{ field }}"`{% endraw %}
-- response_mappings can use JSONPath ({% raw %}`$.path`{% endraw %}), Jinja2 ({% raw %}`{{ field }}`{% endraw %}), or both
+- request_mapping values MUST use Jinja2 syntax: {% raw %}`"{{ field }}"`{% endraw %}
+- response_mapping can use JSONPath ({% raw %}`$.path`{% endraw %}), Jinja2 ({% raw %}`{{ field }}`{% endraw %}), or both
 - Be conservative: only map fields that clearly correspond
 - Set confidence based on how certain you are (0.0-1.0)
 
@@ -47,10 +47,10 @@ Generate two mappings to integrate this function with Rhesis:
 {% raw %}
 ```json
 {
-  "request_template": {
+  "request_mapping": {
     "param_name": "{{ standard_field }}"
   },
-  "response_mappings": {
+  "response_mapping": {
     "standard_field": "{{ output_field or $.json.path }}"
   },
   "confidence": 0.85,

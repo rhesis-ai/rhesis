@@ -17,10 +17,8 @@ from .associations import *
 __all__ = [
     # Demographic relationships
     "dimension_with_demographics",
-
     # Hierarchical relationships
     "topic_with_children",
-
     # Associations
-    "behavior_with_metrics"
+    "behavior_with_metrics",
 ]

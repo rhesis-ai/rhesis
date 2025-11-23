@@ -68,8 +68,8 @@ def mock_endpoint():
     """Mock endpoint for testing."""
     endpoint = Mock()
     endpoint.id = "endpoint-123"
-    endpoint.request_body_template = None
-    endpoint.response_mappings = None
+    endpoint.request_mapping = None
+    endpoint.response_mapping = None
     endpoint.endpoint_metadata = {}
     return endpoint
 
@@ -79,11 +79,11 @@ def mock_endpoint_with_existing_mappings():
     """Mock endpoint with existing mappings (should be preserved)."""
     endpoint = Mock()
     endpoint.id = "endpoint-456"
-    endpoint.request_body_template = {
+    endpoint.request_mapping = {
         "custom_param": "{{ input }}",
         "session": "{{ session_id }}",
     }
-    endpoint.response_mappings = {
+    endpoint.response_mapping = {
         "output": "$.result.text",
         "session_id": "$.session_info.id",
     }
@@ -101,12 +101,12 @@ def sdk_metadata_with_manual_mappings() -> Dict[str, Any]:
     """SDK metadata with manual mappings from @collaborate decorator."""
     return {
         "description": "Chat function with manual mappings",
-        "request_template": {
+        "request_mapping": {
             "user_query": "{{ input }}",
             "conv_id": "{{ session_id }}",
             "docs": "{{ context }}",
         },
-        "response_mappings": {
+        "response_mapping": {
             "output": "{{ jsonpath('$.result.text') }}",
             "session_id": "$.conv_id",
             "context": "$.sources",

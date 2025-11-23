@@ -30,13 +30,13 @@ class TestAutoMapper:
         assert len(result["missing_fields"]) == 2  # metadata and tool_calls
 
         # Check request template
-        assert result["request_template"]["input"] == "{{ input }}"
-        assert result["request_template"]["session_id"] == "{{ session_id }}"
-        assert result["request_template"]["context"] == "{{ context }}"
+        assert result["request_mapping"]["input"] == "{{ input }}"
+        assert result["request_mapping"]["session_id"] == "{{ session_id }}"
+        assert result["request_mapping"]["context"] == "{{ context }}"
 
         # Check response mappings exist
-        assert "output" in result["response_mappings"]
-        assert "session_id" in result["response_mappings"]
+        assert "output" in result["response_mapping"]
+        assert "session_id" in result["response_mapping"]
 
     def test_custom_naming_low_confidence(self, auto_mapper, custom_function_signature):
         """Test auto-mapping with custom naming (should trigger LLM fallback)."""
@@ -82,7 +82,7 @@ class TestAutoMapper:
         assert result["confidence"] == 0.5  # Only input matched
         assert "input" in result["matched_fields"]
         assert len(result["matched_fields"]) == 1
-        assert result["request_template"]["text"] == "{{ input }}"
+        assert result["request_mapping"]["text"] == "{{ input }}"
 
     def test_no_matches(self, auto_mapper):
         """Test auto-mapping with no matching parameters."""
@@ -101,7 +101,7 @@ class TestAutoMapper:
         assert len(result["matched_fields"]) == 0
         assert len(result["missing_fields"]) == 5  # All standard fields missing
 
-    def test_response_mappings_structure(self, auto_mapper, standard_function_signature):
+    def test_response_mapping_structure(self, auto_mapper, standard_function_signature):
         """Test that response mappings have correct structure."""
         result = auto_mapper.generate_mappings(
             function_name=standard_function_signature["name"],
@@ -109,19 +109,19 @@ class TestAutoMapper:
             return_type=standard_function_signature["return_type"],
         )
 
-        response_mappings = result["response_mappings"]
+        response_mapping = result["response_mapping"]
 
         # Should have all standard fields plus output
-        assert "output" in response_mappings
-        assert "session_id" in response_mappings
-        assert "context" in response_mappings
-        assert "metadata" in response_mappings
-        assert "tool_calls" in response_mappings
+        assert "output" in response_mapping
+        assert "session_id" in response_mapping
+        assert "context" in response_mapping
+        assert "metadata" in response_mapping
+        assert "tool_calls" in response_mapping
 
         # Should use Jinja2 'or' syntax for fallbacks
-        assert "or" in response_mappings["output"]
-        assert "{{" in response_mappings["output"]
-        assert "}}" in response_mappings["output"]
+        assert "or" in response_mapping["output"]
+        assert "{{" in response_mapping["output"]
+        assert "}}" in response_mapping["output"]
 
     def test_confidence_calculation(self, auto_mapper):
         """Test confidence calculation with different field combinations."""
@@ -221,5 +221,5 @@ class TestAutoMapper:
         )
 
         # Should only have one mapping for input field
-        assert result["request_template"]["input"] == "{{ input }}"
-        assert "user_input" not in result["request_template"]
+        assert result["request_mapping"]["input"] == "{{ input }}"
+        assert "user_input" not in result["request_mapping"]

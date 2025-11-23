@@ -142,11 +142,11 @@ function TabPanel(props: TabPanelProps) {
 interface FormData
   extends Omit<
     Endpoint,
-    'id' | 'request_headers' | 'request_body_template' | 'response_mappings'
+    'id' | 'request_headers' | 'request_mapping' | 'response_mapping'
   > {
   request_headers?: string;
-  request_body_template?: string;
-  response_mappings?: string;
+  request_mapping?: string;
+  response_mapping?: string;
   auth_token?: string; // Write-only field for create/update
 }
 
@@ -210,8 +210,8 @@ export default function EndpointForm() {
     organization_id: '',
     auth_token: '',
     request_headers: '{}',
-    request_body_template: '{}',
-    response_mappings: '{}',
+    request_mapping: '{}',
+    response_mapping: '{}',
   });
 
   // Set project_id from URL parameter if provided
@@ -303,8 +303,8 @@ export default function EndpointForm() {
       // Handle JSON string fields
       const jsonStringFields = [
         'request_headers',
-        'request_body_template',
-        'response_mappings',
+        'request_mapping',
+        'response_mapping',
       ] as const;
       for (const field of jsonStringFields) {
         const value = transformedData[field] as string;
@@ -736,9 +736,9 @@ export default function EndpointForm() {
                   height="300px"
                   defaultLanguage="json"
                   theme={editorTheme}
-                  value={formData.request_body_template}
+                  value={formData.request_mapping}
                   onChange={value =>
-                    handleJsonChange('request_body_template', value || '')
+                    handleJsonChange('request_mapping', value || '')
                   }
                   options={{
                     minimap: { enabled: false },
@@ -779,9 +779,9 @@ export default function EndpointForm() {
                   height="200px"
                   defaultLanguage="json"
                   theme={editorTheme}
-                  value={formData.response_mappings}
+                  value={formData.response_mapping}
                   onChange={value =>
-                    handleJsonChange('response_mappings', value || '')
+                    handleJsonChange('response_mapping', value || '')
                   }
                   options={{
                     minimap: { enabled: false },

@@ -38,7 +38,7 @@ class TestUnmappableScenarios:
         assert result["confidence"] == 0.0
         assert len(result["matched_fields"]) == 0
         assert len(result["missing_fields"]) == 5  # All standard fields missing
-        assert result["request_template"] == {}
+        assert result["request_mapping"] == {}
 
     def test_function_with_only_unrelated_parameters(self, auto_mapper):
         """Test function where no parameters match any patterns."""
@@ -57,7 +57,7 @@ class TestUnmappableScenarios:
         assert result["confidence"] == 0.0
         assert len(result["matched_fields"]) == 0
         assert len(result["missing_fields"]) == 5
-        assert result["request_template"] == {}
+        assert result["request_mapping"] == {}
 
     def test_fallback_when_all_parameters_unmatchable(
         self,
@@ -79,8 +79,8 @@ class TestUnmappableScenarios:
         # Mock LLM to return mappings
         with patch.object(mapping_service.llm_mapper, "generate_mappings") as mock_llm:
             mock_llm.return_value = {
-                "request_template": {"operand_a": "{{ input }}"},
-                "response_mappings": {"output": "{{ result }}"},
+                "request_mapping": {"operand_a": "{{ input }}"},
+                "response_mapping": {"output": "{{ result }}"},
                 "confidence": 0.6,
                 "reasoning": "LLM inferred that operand_a could map to input",
             }
@@ -128,8 +128,8 @@ class TestLLMFailureHandling:
             # Should return minimal fallback
             assert result["confidence"] == 0.3
             assert "LLM generation failed" in result["reasoning"]
-            assert "input" in result["request_template"]
-            assert "output" in result["response_mappings"]
+            assert "input" in result["request_mapping"]
+            assert "output" in result["response_mapping"]
 
     def test_llm_invalid_response_returns_fallback(self, llm_mapper, mock_db_session, mock_user):
         """Test that invalid LLM response triggers fallback."""
@@ -218,21 +218,21 @@ class TestMinimalFallbackMappings:
         """Test that minimal fallback has correct structure."""
         # Simulate the fallback return from the exception handler
         fallback = {
-            "request_template": {"input": "{{ input }}"},
-            "response_mappings": {"output": "{{ response or result }}"},
+            "request_mapping": {"input": "{{ input }}"},
+            "response_mapping": {"output": "{{ response or result }}"},
             "confidence": 0.3,
             "reasoning": "LLM generation failed: Test error. Using minimal fallback.",
         }
 
         # Verify structure
-        assert "request_template" in fallback
-        assert "response_mappings" in fallback
+        assert "request_mapping" in fallback
+        assert "response_mapping" in fallback
         assert "confidence" in fallback
         assert "reasoning" in fallback
 
         # Verify minimal mappings
-        assert "input" in fallback["request_template"]
-        assert "output" in fallback["response_mappings"]
+        assert "input" in fallback["request_mapping"]
+        assert "output" in fallback["response_mapping"]
         assert fallback["confidence"] < 0.7  # Below threshold
 
     def test_fallback_can_be_used_by_mapper_service(
@@ -259,8 +259,8 @@ class TestMinimalFallbackMappings:
         # Mock LLM to fail and return fallback
         with patch.object(service.llm_mapper, "generate_mappings") as mock_llm:
             mock_llm.return_value = {
-                "request_template": {"input": "{{ input }}"},
-                "response_mappings": {"output": "{{ response or result }}"},
+                "request_mapping": {"input": "{{ input }}"},
+                "response_mapping": {"output": "{{ response or result }}"},
                 "confidence": 0.3,
                 "reasoning": "Fallback used due to LLM failure",
             }
@@ -277,8 +277,8 @@ class TestMinimalFallbackMappings:
             assert isinstance(result, MappingResult)
             assert result.source == "llm_generated"
             assert result.confidence == 0.3
-            assert len(result.request_template) >= 1
-            assert len(result.response_mappings) >= 1
+            assert len(result.request_mapping) >= 1
+            assert len(result.response_mapping) >= 1
 
 
 class TestResponseMappingEdgeCases:
@@ -289,7 +289,7 @@ class TestResponseMappingEdgeCases:
         """Create AutoMapper instance."""
         return AutoMapper()
 
-    def test_response_mappings_with_any_return_type(self, auto_mapper):
+    def test_response_mapping_with_any_return_type(self, auto_mapper):
         """Test response mappings when return type is 'any'."""
         result = auto_mapper.generate_mappings(
             function_name="dynamic_func",
@@ -298,12 +298,12 @@ class TestResponseMappingEdgeCases:
         )
 
         # Should still generate response mappings with fallback patterns
-        assert "output" in result["response_mappings"]
-        assert "session_id" in result["response_mappings"]
+        assert "output" in result["response_mapping"]
+        assert "session_id" in result["response_mapping"]
         # Should have 'or' for fallback patterns
-        assert "or" in result["response_mappings"]["output"]
+        assert "or" in result["response_mapping"]["output"]
 
-    def test_response_mappings_with_primitive_return(self, auto_mapper):
+    def test_response_mapping_with_primitive_return(self, auto_mapper):
         """Test response mappings when return type is primitive (string, number)."""
         result = auto_mapper.generate_mappings(
             function_name="get_string",
@@ -312,12 +312,12 @@ class TestResponseMappingEdgeCases:
         )
 
         # Should still generate response mappings
-        assert "output" in result["response_mappings"]
+        assert "output" in result["response_mapping"]
         # Fallback patterns should work for primitive returns too
-        assert "response" in result["response_mappings"]["output"]
+        assert "response" in result["response_mapping"]["output"]
 
-    def test_empty_response_mappings_handling(self, auto_mapper):
-        """Test that response_mappings is never empty."""
+    def test_empty_response_mapping_handling(self, auto_mapper):
+        """Test that response_mapping is never empty."""
         result = auto_mapper.generate_mappings(
             function_name="void_func",
             parameters={},
@@ -325,5 +325,5 @@ class TestResponseMappingEdgeCases:
         )
 
         # Should always have response mappings with at least 'output'
-        assert "output" in result["response_mappings"]
-        assert len(result["response_mappings"]) >= 5  # All standard fields
+        assert "output" in result["response_mapping"]
+        assert len(result["response_mapping"]) >= 5  # All standard fields

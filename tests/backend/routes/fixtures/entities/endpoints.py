@@ -96,11 +96,11 @@ def working_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
         "config_source": "manual",
         "method": "POST",
         "request_headers": {"Content-Type": "application/json", "Accept": "application/json"},
-        "request_body_template": {
+        "request_mapping": {
             "query": "{{input}}",
             "context": {"session_id": "{{session_id}}", "timestamp": "{{timestamp}}"},
         },
-        "response_mappings": {"result": "$.data.response", "confidence": "$.data.confidence"},
+        "response_mapping": {"result": "$.data.response", "confidence": "$.data.confidence"},
         "validation_rules": {"required_fields": ["input"], "max_input_length": 1000},
     }
 
@@ -167,7 +167,7 @@ def endpoint_with_complex_config(authenticated_client: TestClient) -> Dict[str, 
             "context": "$.session_id",
             "metadata": {"timestamp": "$.timestamp", "version": "2.0"},
         },
-        "response_mappings": {
+        "response_mapping": {
             "result": "$.data.result",
             "confidence": "$.data.confidence",
             "processing_time": "$.metadata.duration",
@@ -215,9 +215,9 @@ def db_endpoint(test_db: Session, test_organization, db_user, db_status) -> Endp
         endpoint_path=endpoint_data["endpoint_path"],
         request_headers=endpoint_data["request_headers"],
         query_params=endpoint_data["query_params"],
-        request_body_template=endpoint_data["request_body_template"],
+        request_mapping=endpoint_data["request_mapping"],
         response_format=endpoint_data["response_format"],
-        response_mappings=endpoint_data["response_mappings"],
+        response_mapping=endpoint_data["response_mapping"],
         validation_rules=endpoint_data["validation_rules"],
         auth_type=endpoint_data["auth_type"],
         auth=endpoint_data["auth"],

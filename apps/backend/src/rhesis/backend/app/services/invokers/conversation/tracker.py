@@ -6,7 +6,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.logging import logger
 
 # Conversation tracking field names (priority-ordered)
-# Used for convention-based detection of conversation tracking fields in response_mappings
+# Used for convention-based detection of conversation tracking fields in response_mapping
 # Tier 1: Most common (90% of APIs)
 CONVERSATION_FIELD_NAMES = [
     "conversation_id",
@@ -27,11 +27,11 @@ class ConversationTracker:
     @staticmethod
     def detect_conversation_field(endpoint: Endpoint) -> Optional[str]:
         """
-        Detect which conversation tracking field is configured in response_mappings.
+        Detect which conversation tracking field is configured in response_mapping.
         Uses convention-based detection by checking common field names.
 
         This enables automatic conversation tracking when a field like 'conversation_id',
-        'session_id', 'thread_id', etc. is mapped in response_mappings.
+        'session_id', 'thread_id', etc. is mapped in response_mapping.
 
         Args:
             endpoint: The endpoint configuration
@@ -39,15 +39,15 @@ class ConversationTracker:
         Returns:
             The field name to use for conversation tracking, or None if not configured.
         """
-        response_mappings = endpoint.response_mappings or {}
+        response_mapping = endpoint.response_mapping or {}
 
         # Check common field names (auto-detection)
         for field_name in CONVERSATION_FIELD_NAMES:
-            if field_name in response_mappings:
+            if field_name in response_mapping:
                 logger.info(f"Auto-detected conversation tracking field: {field_name}")
                 return field_name
 
-        logger.debug("No conversation tracking field detected in response_mappings")
+        logger.debug("No conversation tracking field detected in response_mapping")
         return None
 
     @staticmethod

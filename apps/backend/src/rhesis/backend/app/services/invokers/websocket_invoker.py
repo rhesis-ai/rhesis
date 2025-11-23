@@ -155,7 +155,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             logger.debug(f"Template context keys: {list(template_context.keys())}")
 
             message_data = self.template_renderer.render(
-                endpoint.request_body_template or {}, template_context
+                endpoint.request_mapping or {}, template_context
             )
 
             template_duration = time.time() - template_start_time
@@ -387,13 +387,13 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     logger.debug("Applying response mappings...")
                     mapping_start_time = time.time()
 
-                    response_mappings = endpoint.response_mappings or {}
+                    response_mapping = endpoint.response_mapping or {}
                     logger.debug(
-                        f"Response mappings: {json.dumps(response_mappings, indent=2, default=str)}"
+                        f"Response mapping: {json.dumps(response_mapping, indent=2, default=str)}"
                     )
 
                     mapped_response = self.response_mapper.map_response(
-                        final_response, response_mappings
+                        final_response, response_mapping
                     )
                     mapping_duration = time.time() - mapping_start_time
 

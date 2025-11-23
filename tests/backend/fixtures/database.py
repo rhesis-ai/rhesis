@@ -27,20 +27,20 @@ SQLALCHEMY_DATABASE_TEST_URL = get_database_url()
 test_engine = create_engine(
     SQLALCHEMY_DATABASE_TEST_URL,
     # Reduced pool settings for testing
-    pool_size=5,                   # Smaller than production (10)
-    max_overflow=10,               # Smaller than production (20)
-    pool_pre_ping=True,            # Same as production
-    pool_recycle=3600,             # Same as production (1 hour)
-    pool_timeout=10,               # Same as production
+    pool_size=5,  # Smaller than production (10)
+    max_overflow=10,  # Smaller than production (20)
+    pool_pre_ping=True,  # Same as production
+    pool_recycle=3600,  # Same as production (1 hour)
+    pool_timeout=10,  # Same as production
     # Same connection args as production
     connect_args={
-        "connect_timeout": 10,          # Same as production
+        "connect_timeout": 10,  # Same as production
         "application_name": "rhesis-backend-test",  # Distinguish test connections
-        "keepalives_idle": "300",       # Same as production
-        "keepalives_interval": "10",    # Same as production
-        "keepalives_count": "3",        # Same as production
-        "tcp_user_timeout": "30000",    # Same as production
-    }
+        "keepalives_idle": "300",  # Same as production
+        "keepalives_interval": "10",  # Same as production
+        "keepalives_count": "3",  # Same as production
+        "tcp_user_timeout": "30000",  # Same as production
+    },
 )
 
 TestingSessionLocal = sessionmaker(
@@ -64,8 +64,12 @@ def setup_test_database():
 @pytest.fixture
 def test_db(test_org_id, authenticated_user_id):
     """🗄️ Provide a database session for testing - allows service code to manage transactions."""
-    from rhesis.backend.app.database import clear_tenant_context, _current_tenant_organization_id, _current_tenant_user_id
-    
+    from rhesis.backend.app.database import (
+        clear_tenant_context,
+        _current_tenant_organization_id,
+        _current_tenant_user_id,
+    )
+
     # Create session but let service code manage transactions (like production)
     db = TestingSessionLocal()
     try:
@@ -74,30 +78,28 @@ def test_db(test_org_id, authenticated_user_id):
             try:
                 UUID(test_org_id)  # Validate UUID format
                 db.execute(
-                    text('SET "app.current_organization" = :org_id'), 
-                    {"org_id": test_org_id}
+                    text('SET "app.current_organization" = :org_id'), {"org_id": test_org_id}
                 )
             except (ValueError, TypeError) as e:
                 raise ValueError(f"Invalid test_org_id: {test_org_id}")
-        
+
         if authenticated_user_id:
             try:
                 UUID(authenticated_user_id)  # Validate UUID format
                 db.execute(
-                    text('SET "app.current_user" = :user_id'), 
-                    {"user_id": authenticated_user_id}
+                    text('SET "app.current_user" = :user_id'), {"user_id": authenticated_user_id}
                 )
             except (ValueError, TypeError) as e:
                 raise ValueError(f"Invalid authenticated_user_id: {authenticated_user_id}")
-        
+
         # Store in context vars for any legacy code that might need it
         _current_tenant_organization_id.set(test_org_id)
         if authenticated_user_id:
             _current_tenant_user_id.set(authenticated_user_id)
-            
+
         yield db
         # Let service code handle commit/rollback as it does in production
-        
+
     finally:
         # Ensure any open transaction is rolled back
         try:
@@ -105,7 +107,7 @@ def test_db(test_org_id, authenticated_user_id):
                 db.rollback()
         except Exception:
             pass
-        
+
         # Clear context vars and close session
         clear_tenant_context()
         db.close()

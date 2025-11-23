@@ -40,14 +40,14 @@ The system uses special placeholders that are automatically replaced with actual
 
 #### Common Fields
 
-- `request_body_template`: String containing the JSON template for the request body
+- `request_mapping`: String containing the JSON template for the request body
 - `request_headers`: String containing the JSON template for request headers
 - `query_params`: String containing URL query parameters (optional)
 
 #### REST Example
 
 ```json
-// request_body_template
+// request_mapping
 {
   "query": "{{ input }}"
 }
@@ -62,7 +62,7 @@ The system uses special placeholders that are automatically replaced with actual
 #### WebSocket Example
 
 ```json
-// request_body_template
+// request_mapping
 {
   "auth_token": "{{ auth_token }}",
   "session_id": "{{ session_id }}",
@@ -80,12 +80,12 @@ The system uses special placeholders that are automatically replaced with actual
 ### Response Configuration Fields
 
 - `response_format`: Format of the response (e.g., "json")
-- `response_mappings`: String containing JSON mapping of response fields
+- `response_mapping`: String containing JSON mapping of response fields
 
 #### REST Example
 
 ```json
-// response_mappings
+// response_mapping
 {
   "output": "$.data.response"
 }
@@ -94,7 +94,7 @@ The system uses special placeholders that are automatically replaced with actual
 #### WebSocket Example
 
 ```json
-// response_mappings
+// response_mapping
 {
   "conversation_id": "$.conversation_id",
   "error": "$.error",
@@ -130,10 +130,10 @@ The system uses special placeholders that are automatically replaced with actual
   "connection_type": "REST",
   "method": "POST",
   "endpoint_path": "/query",
-  "request_body_template": "{\"query\": \"{{ input }}\"}",
+  "request_mapping": "{\"query\": \"{{ input }}\"}",
   "request_headers": "{\"Authorization\": \"Bearer {{ auth_token }}\", \"Content-Type\": \"application/json\"}",
   "response_format": "json",
-  "response_mappings": "{\"result\": \"$.data.result\"}",
+  "response_mapping": "{\"result\": \"$.data.result\"}",
   "auth_type": "bearer"
 }
 ```
@@ -148,10 +148,10 @@ The system uses special placeholders that are automatically replaced with actual
   "connection_type": "WebSocket",
   "method": "WS",
   "endpoint_path": "/chat",
-  "request_body_template": "{\"auth_token\": \"{{ auth_token }}\", \"session_id\": \"{{ session_id }}\", \"query\": \"{{ input }}\"}",
+  "request_mapping": "{\"auth_token\": \"{{ auth_token }}\", \"session_id\": \"{{ session_id }}\", \"query\": \"{{ input }}\"}",
   "request_headers": "{\"Upgrade\": \"websocket\", \"Connection\": \"Upgrade\", \"Sec-WebSocket-Version\": \"13\"}",
   "response_format": "json",
-  "response_mappings": "{\"conversation_id\": \"$.conversation_id\", \"status\": \"$.message\"}",
+  "response_mapping": "{\"conversation_id\": \"$.conversation_id\", \"status\": \"$.message\"}",
   "auth_type": "client_credentials",
   "client_id": "your-client-id",
   "client_secret": "your-client-secret",

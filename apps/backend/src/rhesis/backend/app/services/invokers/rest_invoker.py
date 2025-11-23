@@ -105,7 +105,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         # Prepare headers and body
         headers = self._prepare_headers(db, endpoint, input_data)
         request_body = self.template_renderer.render(
-            endpoint.request_body_template or {}, template_context
+            endpoint.request_mapping or {}, template_context
         )
 
         # Extract conversation ID from rendered body
@@ -177,7 +177,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             response_data = response.json()
 
             mapped_response = self.response_mapper.map_response(
-                response_data, endpoint.response_mappings or {}
+                response_data, endpoint.response_mapping or {}
             )
 
             # Add conversation tracking field to response if configured and available

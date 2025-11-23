@@ -165,10 +165,10 @@ export interface Endpoint {
   endpoint_path: string;
   request_headers: Record<string, string>;
   query_params?: any;
-  request_body_template: Record<string, any>;
+  request_mapping: Record<string, any>;
   input_mappings?: any;
   response_format: string;
-  response_mappings: Record<string, string>;
+  response_mapping: Record<string, string>;
   validation_rules?: any;
   project_id: UUID;
   status_id?: UUID;

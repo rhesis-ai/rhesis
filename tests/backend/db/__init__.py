@@ -20,7 +20,7 @@ TestDataManager = DatabaseTestDataManager
 
 __all__ = [
     "setup_test_environment",
-    "create_temp_postgres_db", 
+    "create_temp_postgres_db",
     "create_test_session",
     "verify_test_database_isolation",
     "TestDataManager",

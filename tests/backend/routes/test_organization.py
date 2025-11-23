@@ -89,7 +89,9 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
     owner_id_field = "owner_id"
     assignee_id_field = None  # Organizations don't have assignee_id
 
-    def get_sample_data_with_users(self, user_id: str = None, owner_id: str = None, assignee_id: str = None) -> Dict[str, Any]:
+    def get_sample_data_with_users(
+        self, user_id: str = None, owner_id: str = None, assignee_id: str = None
+    ) -> Dict[str, Any]:
         """Override to provide organization data with user relationships"""
         data = super().get_sample_data()
         if owner_id:
@@ -108,7 +110,9 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
 
         response = authenticated_client.post(self.endpoints.create, json=sample_data)
 
-        assert response.status_code == status.HTTP_200_OK, f"Failed to create organization: {response.text}"
+        assert response.status_code == status.HTTP_200_OK, (
+            f"Failed to create organization: {response.text}"
+        )
 
         data = response.json()
         assert data[self.name_field] == sample_data[self.name_field]
@@ -127,7 +131,9 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
 
         response = authenticated_client.post(self.endpoints.create, json=minimal_data)
 
-        assert response.status_code == status.HTTP_200_OK, f"Failed to create organization: {response.text}"
+        assert response.status_code == status.HTTP_200_OK, (
+            f"Failed to create organization: {response.text}"
+        )
 
         data = response.json()
         assert data[self.name_field] == minimal_data[self.name_field]
@@ -135,7 +141,9 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
         assert data["owner_id"] == str(authenticated_user.id)
         assert data["user_id"] == str(authenticated_user.id)
 
-    def test_entity_with_special_characters(self, authenticated_client: TestClient, authenticated_user):
+    def test_entity_with_special_characters(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """🏃‍♂️ Test entity creation with special characters"""
         special_data = self.get_special_chars_data()
         # Organizations require user relationships
@@ -145,12 +153,13 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
         response = authenticated_client.post(self.endpoints.create, json=special_data)
 
         # Should handle special characters gracefully
-        assert response.status_code in [
-            status.HTTP_200_OK,
-            status.HTTP_422_UNPROCESSABLE_ENTITY
-        ], f"Unexpected response for special chars: {response.status_code} - {response.text}"
+        assert response.status_code in [status.HTTP_200_OK, status.HTTP_422_UNPROCESSABLE_ENTITY], (
+            f"Unexpected response for special chars: {response.status_code} - {response.text}"
+        )
 
-    def test_entity_with_null_description(self, authenticated_client: TestClient, authenticated_user):
+    def test_entity_with_null_description(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """🏃‍♂️ Test entity creation with explicit null description"""
         null_data = self.get_null_description_data()
         # Organizations require user relationships
@@ -159,7 +168,9 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
 
         response = authenticated_client.post(self.endpoints.create, json=null_data)
 
-        assert response.status_code == status.HTTP_200_OK, f"Failed with null description: {response.text}"
+        assert response.status_code == status.HTTP_200_OK, (
+            f"Failed with null description: {response.text}"
+        )
 
     def test_list_entities_invalid_pagination(self, authenticated_client: TestClient):
         """Test entity list with invalid pagination parameters"""
@@ -171,7 +182,7 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             status.HTTP_400_BAD_REQUEST,
             status.HTTP_403_FORBIDDEN,  # RLS might cause this
-            status.HTTP_500_INTERNAL_SERVER_ERROR  # Organization router wraps errors
+            status.HTTP_500_INTERNAL_SERVER_ERROR,  # Organization router wraps errors
         ], f"Unexpected status for invalid pagination: {response.status_code} - {response.text}"
 
         # Test negative offset
@@ -181,7 +192,7 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             status.HTTP_400_BAD_REQUEST,
             status.HTTP_403_FORBIDDEN,
-            status.HTTP_500_INTERNAL_SERVER_ERROR  # Organization router wraps errors
+            status.HTTP_500_INTERNAL_SERVER_ERROR,  # Organization router wraps errors
         ], f"Unexpected status for negative offset: {response.status_code} - {response.text}"
 
     def test_get_entity_by_id_not_found(self, authenticated_client: TestClient):
@@ -194,7 +205,7 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
         assert response.status_code in [
             status.HTTP_404_NOT_FOUND,
             status.HTTP_403_FORBIDDEN,  # RLS might prevent access
-            status.HTTP_500_INTERNAL_SERVER_ERROR  # Organization router wraps errors
+            status.HTTP_500_INTERNAL_SERVER_ERROR,  # Organization router wraps errors
         ], f"Unexpected status for non-existent entity: {response.status_code} - {response.text}"
 
     def test_update_entity_not_found(self, authenticated_client: TestClient):
@@ -208,8 +219,10 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
         assert response.status_code in [
             status.HTTP_404_NOT_FOUND,
             status.HTTP_403_FORBIDDEN,  # RLS might prevent access
-            status.HTTP_422_UNPROCESSABLE_ENTITY  # Validation might fail first
-        ], f"Unexpected status for updating non-existent entity: {response.status_code} - {response.text}"
+            status.HTTP_422_UNPROCESSABLE_ENTITY,  # Validation might fail first
+        ], (
+            f"Unexpected status for updating non-existent entity: {response.status_code} - {response.text}"
+        )
 
     def test_delete_entity_success(self, authenticated_client: TestClient):
         """Override base delete test - organizations have RLS and superuser requirements"""
@@ -231,7 +244,7 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
             get_response = authenticated_client.get(self.endpoints.get(entity_id))
             assert get_response.status_code in [
                 status.HTTP_404_NOT_FOUND,
-                status.HTTP_403_FORBIDDEN  # RLS might prevent access to verify deletion
+                status.HTTP_403_FORBIDDEN,  # RLS might prevent access to verify deletion
             ]
 
     def create_entity(self, client: TestClient, data: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -248,10 +261,15 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
             data["user_id"] = real_user_id
         else:
             import pytest
-            pytest.skip("Organization creation requires authenticated user - could not get user ID from API key")
+
+            pytest.skip(
+                "Organization creation requires authenticated user - could not get user ID from API key"
+            )
 
         response = client.post(self.endpoints.create, json=data)
-        assert response.status_code == status.HTTP_200_OK, f"Failed to create {self.entity_name}: {response.text}"
+        assert response.status_code == status.HTTP_200_OK, (
+            f"Failed to create {self.entity_name}: {response.text}"
+        )
         return response.json()
 
     def _get_authenticated_user_id(self) -> str | None:
@@ -284,11 +302,14 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
 
 # === ORGANIZATION-SPECIFIC TESTS (Enhanced with Factories) ===
 
+
 @pytest.mark.integration
 class TestOrganizationUserRelationships(OrganizationTestMixin, BaseEntityTests):
     """Organization-specific user relationship tests"""
 
-    def test_create_organization_requires_owner_and_user_ids(self, authenticated_client: TestClient, authenticated_user):
+    def test_create_organization_requires_owner_and_user_ids(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """Test organization creation requires owner_id and user_id"""
         data = self.get_sample_data()
         # Explicitly remove owner_id and user_id to test validation
@@ -298,11 +319,16 @@ class TestOrganizationUserRelationships(OrganizationTestMixin, BaseEntityTests):
         response = authenticated_client.post(self.endpoints.create, json=data)
 
         # Should fail without required user relationships
-        assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY]
+        assert response.status_code in [
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+        ]
         error_detail = response.json().get("detail", "")
         assert any(field in str(error_detail) for field in ["owner_id", "user_id", "required"])
 
-    def test_create_organization_with_valid_user_ids(self, organization_with_owner, authenticated_user):
+    def test_create_organization_with_valid_user_ids(
+        self, organization_with_owner, authenticated_user
+    ):
         """Test organization creation with valid user relationships"""
         data = self.get_sample_data()
 
@@ -317,19 +343,24 @@ class TestOrganizationUserRelationships(OrganizationTestMixin, BaseEntityTests):
         """Test organization creation with invalid user IDs"""
         data = self.get_sample_data()
         data["owner_id"] = str(uuid.uuid4())  # Non-existent user
-        data["user_id"] = str(uuid.uuid4())   # Non-existent user
+        data["user_id"] = str(uuid.uuid4())  # Non-existent user
 
         response = authenticated_client.post(self.endpoints.create, json=data)
 
         # Should handle foreign key constraint violations gracefully
-        assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR]
+        assert response.status_code in [
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ]
 
 
 @pytest.mark.integration
 class TestOrganizationOnboarding(OrganizationTestMixin, BaseEntityTests):
     """Organization onboarding and initial data management tests"""
 
-    def test_load_initial_data_incomplete_onboarding(self, authenticated_client: TestClient, organization_incomplete_onboarding):
+    def test_load_initial_data_incomplete_onboarding(
+        self, authenticated_client: TestClient, organization_incomplete_onboarding
+    ):
         """🏗️ Test loading initial data for organization with incomplete onboarding"""
         # Create organization with incomplete onboarding
         org = organization_incomplete_onboarding()
@@ -343,7 +374,9 @@ class TestOrganizationOnboarding(OrganizationTestMixin, BaseEntityTests):
         assert result["status"] == "success"
         assert "loaded successfully" in result["message"].lower()
 
-    def test_load_initial_data_already_complete(self, authenticated_client: TestClient, organization_complete_onboarding):
+    def test_load_initial_data_already_complete(
+        self, authenticated_client: TestClient, organization_complete_onboarding
+    ):
         """✅ Test loading initial data for organization with completed onboarding"""
         # Create organization with completed onboarding
         org = organization_complete_onboarding()
@@ -355,7 +388,9 @@ class TestOrganizationOnboarding(OrganizationTestMixin, BaseEntityTests):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "already initialized" in response.json()["detail"].lower()
 
-    def test_rollback_initial_data_complete_onboarding(self, authenticated_client: TestClient, organization_complete_onboarding):
+    def test_rollback_initial_data_complete_onboarding(
+        self, authenticated_client: TestClient, organization_complete_onboarding
+    ):
         """🔄 Test rolling back initial data for completed organization"""
         # Create organization with completed onboarding
         org = organization_complete_onboarding()
@@ -369,7 +404,9 @@ class TestOrganizationOnboarding(OrganizationTestMixin, BaseEntityTests):
         assert result["status"] == "success"
         assert "rolled back successfully" in result["message"].lower()
 
-    def test_rollback_initial_data_incomplete_onboarding(self, authenticated_client: TestClient, organization_incomplete_onboarding):
+    def test_rollback_initial_data_incomplete_onboarding(
+        self, authenticated_client: TestClient, organization_incomplete_onboarding
+    ):
         """🚫 Test rolling back initial data for incomplete organization"""
         # Create organization with incomplete onboarding
         org = organization_incomplete_onboarding()
@@ -381,7 +418,9 @@ class TestOrganizationOnboarding(OrganizationTestMixin, BaseEntityTests):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "not initialized yet" in response.json()["detail"].lower()
 
-    def test_onboarding_workflow_complete_cycle(self, authenticated_client: TestClient, organization_incomplete_onboarding):
+    def test_onboarding_workflow_complete_cycle(
+        self, authenticated_client: TestClient, organization_incomplete_onboarding
+    ):
         """🔄 Test complete onboarding workflow cycle"""
         # Create organization with incomplete onboarding
         org = organization_incomplete_onboarding()
@@ -442,18 +481,20 @@ class TestOrganizationDomainManagement(OrganizationTestMixin, BaseEntityTests):
         assert org["domain"] == domain
         assert org["is_domain_verified"] is True
 
-    def test_update_organization_domain_verification(self, authenticated_client: TestClient, organization_with_domain):
+    def test_update_organization_domain_verification(
+        self, authenticated_client: TestClient, organization_with_domain
+    ):
         """🔄 Test updating organization domain verification status"""
         # Create organization with unverified domain
         org = organization_with_domain(domain="example.com", verified=False)
 
         # Update to verified
-        update_data = {
-            "is_domain_verified": True
-        }
+        update_data = {"is_domain_verified": True}
 
         response = authenticated_client.put(self.endpoints.put(org["id"]), json=update_data)
-        assert response.status_code == status.HTTP_200_OK, f"Failed to update domain verification: {response.text}"
+        assert response.status_code == status.HTTP_200_OK, (
+            f"Failed to update domain verification: {response.text}"
+        )
 
         updated_org = response.json()
         assert updated_org["is_domain_verified"] is True
@@ -479,19 +520,20 @@ class TestOrganizationLimitsAndSubscription(OrganizationTestMixin, BaseEntityTes
         assert org["is_active"] is False
         assert org["max_users"] == 10
 
-    def test_update_organization_limits(self, authenticated_client: TestClient, organization_with_limits):
+    def test_update_organization_limits(
+        self, authenticated_client: TestClient, organization_with_limits
+    ):
         """🔄 Test updating organization limits"""
         # Create organization with initial limits
         org = organization_with_limits(max_users=50, active=True)
 
         # Update limits
-        update_data = {
-            "max_users": 100,
-            "is_active": False
-        }
+        update_data = {"max_users": 100, "is_active": False}
 
         response = authenticated_client.put(self.endpoints.put(org["id"]), json=update_data)
-        assert response.status_code == status.HTTP_200_OK, f"Failed to update organization limits: {response.text}"
+        assert response.status_code == status.HTTP_200_OK, (
+            f"Failed to update organization limits: {response.text}"
+        )
 
         updated_org = response.json()
         assert updated_org["max_users"] == 100
@@ -502,7 +544,9 @@ class TestOrganizationLimitsAndSubscription(OrganizationTestMixin, BaseEntityTes
 class TestOrganizationDeletion(OrganizationTestMixin, BaseEntityTests):
     """Organization deletion and authorization tests"""
 
-    def test_delete_organization_requires_superuser(self, authenticated_client: TestClient, organization_with_owner, authenticated_user):
+    def test_delete_organization_requires_superuser(
+        self, authenticated_client: TestClient, organization_with_owner, authenticated_user
+    ):
         """🔒 Test organization deletion requires superuser permissions"""
         # Create organization
         org = organization_with_owner()
@@ -528,11 +572,14 @@ class TestOrganizationDeletion(OrganizationTestMixin, BaseEntityTests):
 
 # === VALIDATION TESTS ===
 
+
 @pytest.mark.unit
 class TestOrganizationValidation(OrganizationTestMixin, BaseEntityTests):
     """Organization-specific validation tests"""
 
-    def test_create_organization_required_fields(self, authenticated_client: TestClient, authenticated_user):
+    def test_create_organization_required_fields(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """Test organization creation with required fields only"""
         data = self.get_minimal_data()
         data["owner_id"] = str(authenticated_user.id)
@@ -544,7 +591,9 @@ class TestOrganizationValidation(OrganizationTestMixin, BaseEntityTests):
         created_org = response.json()
         assert created_org["name"] == data["name"]
 
-    def test_create_organization_with_all_fields(self, authenticated_client: TestClient, authenticated_user):
+    def test_create_organization_with_all_fields(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """Test organization creation with all optional fields"""
         data = self.get_sample_data()
         data["owner_id"] = str(authenticated_user.id)
@@ -559,13 +608,15 @@ class TestOrganizationValidation(OrganizationTestMixin, BaseEntityTests):
         assert created_org["website"] == data.get("website")
         assert created_org["email"] == data.get("email")
 
-    def test_organization_email_validation(self, authenticated_client: TestClient, authenticated_user):
+    def test_organization_email_validation(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """📧 Test organization email validation"""
         valid_emails = [
             "contact@company.com",
             "info@startup.io",
             "hello@organization.org",
-            "support@business.co.uk"
+            "support@business.co.uk",
         ]
 
         for email in valid_emails:
@@ -581,13 +632,15 @@ class TestOrganizationValidation(OrganizationTestMixin, BaseEntityTests):
             created_org = response.json()
             assert created_org["email"] == email
 
-    def test_organization_website_validation(self, authenticated_client: TestClient, authenticated_user):
+    def test_organization_website_validation(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """🌐 Test organization website URL validation"""
         valid_urls = [
             "https://company.com",
             "http://startup.io",
             "https://www.organization.org",
-            "https://business.co.uk/about"
+            "https://business.co.uk/about",
         ]
 
         for url in valid_urls:
@@ -606,11 +659,14 @@ class TestOrganizationValidation(OrganizationTestMixin, BaseEntityTests):
 
 # === EDGE CASE TESTS ===
 
+
 @pytest.mark.unit
 class TestOrganizationEdgeCases(OrganizationTestMixin, BaseEntityTests):
     """Enhanced organization edge case tests using factory system"""
 
-    def test_create_organization_long_name(self, authenticated_client: TestClient, authenticated_user):
+    def test_create_organization_long_name(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """Test creating organization with very long name"""
         data = self.get_edge_case_data("long_name")
         data["owner_id"] = str(authenticated_user.id)
@@ -622,10 +678,12 @@ class TestOrganizationEdgeCases(OrganizationTestMixin, BaseEntityTests):
         assert response.status_code in [
             status.HTTP_200_OK,  # If long names are allowed
             status.HTTP_201_CREATED,  # If long names are allowed
-            status.HTTP_422_UNPROCESSABLE_ENTITY  # If they're rejected
+            status.HTTP_422_UNPROCESSABLE_ENTITY,  # If they're rejected
         ]
 
-    def test_create_organization_special_characters(self, authenticated_client: TestClient, authenticated_user):
+    def test_create_organization_special_characters(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """Test creating organization with special characters"""
         data = self.get_edge_case_data("special_chars")
         data["owner_id"] = str(authenticated_user.id)
@@ -638,7 +696,9 @@ class TestOrganizationEdgeCases(OrganizationTestMixin, BaseEntityTests):
         created_org = response.json()
         assert created_org["name"] == data["name"]
 
-    def test_create_organization_unicode(self, authenticated_client: TestClient, authenticated_user):
+    def test_create_organization_unicode(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """Test creating organization with unicode characters"""
         data = self.get_edge_case_data("unicode")
         data["owner_id"] = str(authenticated_user.id)
@@ -650,7 +710,9 @@ class TestOrganizationEdgeCases(OrganizationTestMixin, BaseEntityTests):
         created_org = response.json()
         assert created_org["name"] == data["name"]
 
-    def test_create_organization_sql_injection_attempt(self, authenticated_client: TestClient, authenticated_user):
+    def test_create_organization_sql_injection_attempt(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """🛡️ Test organization creation with SQL injection attempt"""
         data = self.get_edge_case_data("sql_injection")
         data["owner_id"] = str(authenticated_user.id)
@@ -667,10 +729,12 @@ class TestOrganizationEdgeCases(OrganizationTestMixin, BaseEntityTests):
             # If rejected, should be a validation error
             assert response.status_code in [
                 status.HTTP_400_BAD_REQUEST,
-                status.HTTP_422_UNPROCESSABLE_ENTITY
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
             ]
 
-    def test_organization_max_limits_edge_case(self, authenticated_client: TestClient, authenticated_user):
+    def test_organization_max_limits_edge_case(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """📊 Test organization with maximum limit values"""
         data = self.get_edge_case_data("max_limits")
         data["owner_id"] = str(authenticated_user.id)
@@ -682,11 +746,12 @@ class TestOrganizationEdgeCases(OrganizationTestMixin, BaseEntityTests):
         assert response.status_code in [
             status.HTTP_200_OK,
             status.HTTP_201_CREATED,
-            status.HTTP_422_UNPROCESSABLE_ENTITY  # If limits are enforced
+            status.HTTP_422_UNPROCESSABLE_ENTITY,  # If limits are enforced
         ]
 
 
 # === PERFORMANCE TESTS ===
+
 
 @pytest.mark.slow
 @pytest.mark.integration
@@ -706,7 +771,9 @@ class TestOrganizationPerformance(OrganizationTestMixin, BaseEntityTests):
         names = [org["name"] for org in organizations]
         assert len(set(names)) == len(names)  # All unique names
 
-    def test_organization_list_pagination(self, authenticated_client: TestClient, organization_batch_creator):
+    def test_organization_list_pagination(
+        self, authenticated_client: TestClient, organization_batch_creator
+    ):
         """🚀 Test list pagination with large dataset"""
         # Create batch of organizations
         organizations = organization_batch_creator(count=10)
@@ -728,6 +795,7 @@ class TestOrganizationPerformance(OrganizationTestMixin, BaseEntityTests):
 
 
 # === MULTI-STATE SCENARIO TESTS ===
+
 
 @pytest.mark.integration
 class TestOrganizationMultiState(OrganizationTestMixin, BaseEntityTests):

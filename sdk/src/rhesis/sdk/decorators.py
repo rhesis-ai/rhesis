@@ -21,8 +21,8 @@ def _register_default_client(client: "Client") -> None:  # noqa: F821
 
 def collaborate(
     name: str | None = None,
-    request_template: dict | None = None,
-    response_mappings: dict | None = None,
+    request_mapping: dict | None = None,
+    response_mapping: dict | None = None,
     **metadata,
 ) -> Callable:
     """
@@ -34,9 +34,9 @@ def collaborate(
 
     Args:
         name: Optional function name for registration (defaults to function.__name__)
-        request_template: Manual input mappings (standard field → function param)
+        request_mapping: Manual input mappings (standard field → function param)
             Example: {"user_message": "{{ input }}", "conv_id": "{{ session_id }}"}
-        response_mappings: Manual output mappings (function output → standard field)
+        response_mapping: Manual output mappings (function output → standard field)
             Example: {"output": "$.result.text", "session_id": "$.conv_id"}
         **metadata: Additional metadata about the function
 
@@ -51,12 +51,12 @@ def collaborate(
 
         # Manual override (custom naming)
         @collaborate(
-            request_template={
+            request_mapping={
                 "user_query": "{{ input }}",
                 "conv_id": "{{ session_id }}",
                 "docs": "{{ context }}"
             },
-            response_mappings={
+            response_mapping={
                 "output": "{{ jsonpath('$.result.text') }}",
                 "session_id": "$.conv_id",
                 "context": "$.sources"
@@ -80,10 +80,10 @@ def collaborate(
 
         # Include mappings in metadata sent to backend
         enriched_metadata = metadata.copy()
-        if request_template:
-            enriched_metadata["request_template"] = request_template
-        if response_mappings:
-            enriched_metadata["response_mappings"] = response_mappings
+        if request_mapping:
+            enriched_metadata["request_mapping"] = request_mapping
+        if response_mapping:
+            enriched_metadata["response_mapping"] = response_mapping
 
         # Lazy connector initialization happens here
         _default_client.register_collaborative_function(func_name, func, enriched_metadata)

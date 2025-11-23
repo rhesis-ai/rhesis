@@ -812,11 +812,11 @@
             "request_headers": {
                 "Content-Type": "application/json"
             },
-            "request_body_template": {
+            "request_mapping": {
                 "message": "{{ input }}",
                 "session_id": "{{ session_id }}"
             },
-            "response_mappings": {
+            "response_mapping": {
                 "output": "$.message",
                 "session_id": "$.session_id",
                 "metadata": "$.metadata",

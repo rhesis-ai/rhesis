@@ -298,7 +298,7 @@ class TestEndpointConfiguration(EndpointTestMixin, BaseEntityTests):
                 "context": {"session": "$.session_id", "timestamp": "$.metadata.timestamp"},
                 "options": {"format": "json", "version": "v2"},
             },
-            "response_mappings": {  # Correct field name from schema
+            "response_mapping": {  # Correct field name from schema
                 "result": "$.data.transformed_result",
                 "confidence": "$.analytics.confidence_score",
                 "processing_time": "$.stats.duration",  # Flat structure - no nested objects
@@ -312,7 +312,7 @@ class TestEndpointConfiguration(EndpointTestMixin, BaseEntityTests):
         data = response.json()
         assert data["name"] == mapping_endpoint_data["name"]
         assert "input_mappings" in data  # Use correct field name
-        assert "response_mappings" in data  # Use correct field name
+        assert "response_mapping" in data  # Use correct field name
         assert data["input_mappings"]["user_query"] == "$.input"
 
 

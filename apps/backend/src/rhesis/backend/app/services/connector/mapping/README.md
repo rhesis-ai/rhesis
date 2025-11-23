@@ -80,12 +80,12 @@ Developer provides explicit mappings in the `@collaborate` decorator:
 from rhesis.sdk import collaborate
 
 @collaborate(
-    request_template={
+    request_mapping={
         "user_query": "{{ input }}",
         "conv_id": "{{ session_id }}",
         "docs": "{{ context }}"
     },
-    response_mappings={
+    response_mapping={
         "output": "{{ jsonpath('$.result.text') }}",
         "session_id": "$.conv_id",
         "context": "$.sources"
@@ -141,12 +141,12 @@ def chat(input: str, session_id: str = None, context: list = None):
     return {"output": "...", "session_id": session_id}
 
 # Generated mappings (confidence: 0.8)
-request_template = {
+request_mapping = {
     "input": "{{ input }}",
     "session_id": "{{ session_id }}",
     "context": "{{ context }}"
 }
-response_mappings = {
+response_mapping = {
     "output": "{{ response or result or output or content }}",
     "session_id": "{{ session_id or conversation_id or conv_id }}",
     # ... fallback patterns for flexibility
@@ -175,11 +175,11 @@ def analyze_query(user_message: str, conversation_thread: str = None):
     }
 
 # LLM generates:
-request_template = {
+request_mapping = {
     "user_message": "{{ input }}",
     "conversation_thread": "{{ session_id }}"
 }
-response_mappings = {
+response_mapping = {
     "output": "{{ jsonpath('$.analysis.summary') }}",
     "session_id": "$.thread"
 }
@@ -211,7 +211,7 @@ Mix auto-mapping with custom hints:
 ```python
 @collaborate(
     # Only override what's different, rest is auto-mapped
-    request_template={
+    request_mapping={
         "user_query": "{{ input }}",  # Custom parameter name
     }
 )
@@ -225,13 +225,13 @@ Complete control for complex scenarios:
 
 ```python
 @collaborate(
-    request_template={
+    request_mapping={
         "q": "{{ input }}",
         "thread": "{{ session_id }}",
         "docs": "{{ context }}",
         "meta": "{{ metadata }}"
     },
-    response_mappings={
+    response_mapping={
         "output": "{{ jsonpath('$.result.response.text') }}",
         "session_id": "$.thread_info.id",
         "context": "$.retrieved_docs",
@@ -294,7 +294,7 @@ STANDARD_FIELDS = [
 for field_config in MappingPatterns.STANDARD_FIELDS:
     match = self._find_best_match(param_names, field_config.pattern_type)
     if match:
-        request_template[param_name] = field_config.template_var
+        request_mapping[param_name] = field_config.template_var
         matched_fields.append(field_config.name)
 ```
 
@@ -303,8 +303,8 @@ for field_config in MappingPatterns.STANDARD_FIELDS:
 **Returns Pydantic Model:**
 ```python
 class MappingResult(BaseModel):
-    request_template: Dict[str, str]
-    response_mappings: Dict[str, str]
+    request_mapping: Dict[str, str]
+    response_mapping: Dict[str, str]
     source: Literal["sdk_manual", "existing_db", "auto_mapped", "llm_generated"]
     confidence: float  # 0.0-1.0
     should_update: bool
@@ -338,8 +338,8 @@ mapping_result = mapper_service.generate_or_use_existing(
 
 # 2. Update endpoint if needed
 if mapping_result.should_update:
-    endpoint.request_body_template = mapping_result.request_template
-    endpoint.response_mappings = mapping_result.response_mappings
+    endpoint.request_mapping = mapping_result.request_mapping
+    endpoint.response_mapping = mapping_result.response_mapping
     
     # Store metadata for transparency
     endpoint.endpoint_metadata["mapping_info"] = {

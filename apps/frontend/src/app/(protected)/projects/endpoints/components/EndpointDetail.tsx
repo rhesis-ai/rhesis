@@ -750,13 +750,13 @@ export default function EndpointDetail({
                   theme={editorTheme}
                   value={JSON.stringify(
                     isEditing
-                      ? editedValues.request_body_template
-                      : endpoint.request_body_template || {},
+                      ? editedValues.request_mapping
+                      : endpoint.request_mapping || {},
                     null,
                     2
                   )}
                   onChange={value =>
-                    handleJsonChange('request_body_template', value || '')
+                    handleJsonChange('request_mapping', value || '')
                   }
                   options={{
                     readOnly: !isEditing,
@@ -784,13 +784,13 @@ export default function EndpointDetail({
                   theme={editorTheme}
                   value={JSON.stringify(
                     isEditing
-                      ? editedValues.response_mappings
-                      : endpoint.response_mappings || {},
+                      ? editedValues.response_mapping
+                      : endpoint.response_mapping || {},
                     null,
                     2
                   )}
                   onChange={value =>
-                    handleJsonChange('response_mappings', value || '')
+                    handleJsonChange('response_mapping', value || '')
                   }
                   options={{
                     readOnly: !isEditing,

@@ -54,8 +54,8 @@ def validate_and_update_status(
                 project_id=project_id,
                 environment=environment,
                 function_name=function_name,
-                request_template=endpoint.request_body_template,
-                response_mappings=endpoint.response_mappings,
+                request_mapping=endpoint.request_mapping,
+                response_mapping=endpoint.response_mapping,
                 timeout=timeout,
             )
         )

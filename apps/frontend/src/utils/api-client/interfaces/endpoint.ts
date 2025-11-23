@@ -19,12 +19,12 @@ export interface Endpoint {
   endpoint_path?: string;
   request_headers?: Record<string, string>;
   query_params?: Record<string, any>;
-  request_body_template?: Record<string, any>;
+  request_mapping?: Record<string, any>;
   input_mappings?: Record<string, any>;
 
   // Response Handling
   response_format: 'json' | 'xml' | 'text';
-  response_mappings?: Record<string, string>;
+  response_mapping?: Record<string, string>;
   validation_rules?: Record<string, any>;
 
   status_id?: string;
