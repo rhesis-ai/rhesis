@@ -22,21 +22,23 @@ class TestAutoMapper:
             description=standard_function_signature["metadata"]["description"],
         )
 
-        # Should match input, session_id, and context
-        assert result["confidence"] == pytest.approx(0.8)  # 0.5 + 0.2 + 0.1
+        # Should match input and session_id (REQUEST fields only)
+        # Context is a RESPONSE field, not counted in request confidence
+        assert result["confidence"] == pytest.approx(0.7)  # 0.5 + 0.2 (request fields only)
         assert "input" in result["matched_fields"]
         assert "session_id" in result["matched_fields"]
-        assert "context" in result["matched_fields"]
-        assert len(result["missing_fields"]) == 2  # metadata and tool_calls
+        assert len(result["missing_fields"]) == 0  # All REQUEST fields matched
 
-        # Check request template
+        # Check request template (only REQUEST fields)
         assert result["request_mapping"]["input"] == "{{ input }}"
         assert result["request_mapping"]["session_id"] == "{{ session_id }}"
-        assert result["request_mapping"]["context"] == "{{ context }}"
+        assert "context" not in result["request_mapping"]  # RESPONSE field
 
         # Check response mappings exist
         assert "output" in result["response_mapping"]
-        assert "session_id" in result["response_mapping"]
+        assert "context" in result["response_mapping"]  # RESPONSE field
+        assert "metadata" in result["response_mapping"]  # RESPONSE field
+        assert "tool_calls" in result["response_mapping"]  # RESPONSE field
 
     def test_custom_naming_low_confidence(self, auto_mapper, custom_function_signature):
         """Test auto-mapping with custom naming (should trigger LLM fallback)."""
@@ -99,7 +101,7 @@ class TestAutoMapper:
         # No matches should result in 0 confidence
         assert result["confidence"] == 0.0
         assert len(result["matched_fields"]) == 0
-        assert len(result["missing_fields"]) == 5  # All standard fields missing
+        assert len(result["missing_fields"]) == 2  # Only REQUEST fields (input, session_id)
 
     def test_response_mapping_structure(self, auto_mapper, standard_function_signature):
         """Test that response mappings have correct structure."""
@@ -111,12 +113,14 @@ class TestAutoMapper:
 
         response_mapping = result["response_mapping"]
 
-        # Should have all standard fields plus output
+        # Should have RESPONSE fields plus output
         assert "output" in response_mapping
-        assert "session_id" in response_mapping
         assert "context" in response_mapping
         assert "metadata" in response_mapping
         assert "tool_calls" in response_mapping
+
+        # session_id is a REQUEST field, not a RESPONSE field
+        assert "session_id" not in response_mapping
 
         # Should use Jinja2 'or' syntax for fallbacks
         assert "or" in response_mapping["output"]
@@ -133,7 +137,7 @@ class TestAutoMapper:
         )
         assert result["confidence"] == 0.5
 
-        # Input + session_id
+        # Input + session_id (all REQUEST fields)
         result = auto_mapper.generate_mappings(
             function_name="test",
             parameters={
@@ -142,9 +146,9 @@ class TestAutoMapper:
             },
             return_type="string",
         )
-        assert result["confidence"] == 0.7
+        assert result["confidence"] == pytest.approx(0.7)
 
-        # Input + session_id + context
+        # Input + session_id + context (context is RESPONSE field, doesn't affect confidence)
         result = auto_mapper.generate_mappings(
             function_name="test",
             parameters={
@@ -154,9 +158,10 @@ class TestAutoMapper:
             },
             return_type="string",
         )
-        assert result["confidence"] == pytest.approx(0.8)
+        # Confidence is still 0.7 because context is a RESPONSE field
+        assert result["confidence"] == pytest.approx(0.7)
 
-        # All fields
+        # All fields (but confidence only counts REQUEST fields)
         result = auto_mapper.generate_mappings(
             function_name="test",
             parameters={
@@ -168,7 +173,9 @@ class TestAutoMapper:
             },
             return_type="string",
         )
-        assert result["confidence"] == pytest.approx(1.0)
+        # Confidence is 0.7 because only REQUEST fields (input, session_id) count
+        # context, metadata, tool_calls are RESPONSE fields
+        assert result["confidence"] == pytest.approx(0.7)
 
     def test_case_insensitive_matching(self, auto_mapper):
         """Test that parameter matching is case-insensitive."""
@@ -186,23 +193,23 @@ class TestAutoMapper:
         assert "session_id" in result["matched_fields"]
 
     def test_matched_fields_tracking(self, auto_mapper, standard_function_signature):
-        """Test that matched and missing fields are correctly tracked."""
+        """Test that matched and missing REQUEST fields are correctly tracked."""
         result = auto_mapper.generate_mappings(
             function_name=standard_function_signature["name"],
             parameters=standard_function_signature["parameters"],
             return_type=standard_function_signature["return_type"],
         )
 
-        # Check matched fields
+        # Check matched REQUEST fields
         assert isinstance(result["matched_fields"], list)
         assert "input" in result["matched_fields"]
         assert "session_id" in result["matched_fields"]
-        assert "context" in result["matched_fields"]
+        # context is a RESPONSE field, not tracked in matched_fields
+        assert "context" not in result["matched_fields"]
 
-        # Check missing fields
+        # Check missing REQUEST fields (should be empty since both request fields matched)
         assert isinstance(result["missing_fields"], list)
-        assert "metadata" in result["missing_fields"]
-        assert "tool_calls" in result["missing_fields"]
+        assert len(result["missing_fields"]) == 0
 
         # No overlap between matched and missing
         assert set(result["matched_fields"]).isdisjoint(set(result["missing_fields"]))

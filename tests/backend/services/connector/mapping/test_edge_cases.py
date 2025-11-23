@@ -37,7 +37,7 @@ class TestUnmappableScenarios:
         # Should have 0 confidence (no parameters to match)
         assert result["confidence"] == 0.0
         assert len(result["matched_fields"]) == 0
-        assert len(result["missing_fields"]) == 5  # All standard fields missing
+        assert len(result["missing_fields"]) == 2  # Only REQUEST fields (input, session_id)
         assert result["request_mapping"] == {}
 
     def test_function_with_only_unrelated_parameters(self, auto_mapper):
@@ -56,7 +56,7 @@ class TestUnmappableScenarios:
         # Should have 0 confidence
         assert result["confidence"] == 0.0
         assert len(result["matched_fields"]) == 0
-        assert len(result["missing_fields"]) == 5
+        assert len(result["missing_fields"]) == 2  # Only REQUEST fields (input, session_id)
         assert result["request_mapping"] == {}
 
     def test_fallback_when_all_parameters_unmatchable(
@@ -192,7 +192,7 @@ class TestPartialMappingScenarios:
         assert result["confidence"] == 0.5
         assert "input" in result["matched_fields"]
         assert "session_id" not in result["matched_fields"]
-        assert len(result["missing_fields"]) == 4
+        assert len(result["missing_fields"]) == 1  # Only missing session_id (REQUEST field)
 
     def test_very_weak_partial_matches(self, auto_mapper):
         """Test with parameters that barely match patterns."""
@@ -299,7 +299,10 @@ class TestResponseMappingEdgeCases:
 
         # Should still generate response mappings with fallback patterns
         assert "output" in result["response_mapping"]
-        assert "session_id" in result["response_mapping"]
+        assert "context" in result["response_mapping"]  # RESPONSE field
+        assert "metadata" in result["response_mapping"]  # RESPONSE field
+        # session_id is a REQUEST field, not RESPONSE
+        assert "session_id" not in result["response_mapping"]
         # Should have 'or' for fallback patterns
         assert "or" in result["response_mapping"]["output"]
 
@@ -324,6 +327,10 @@ class TestResponseMappingEdgeCases:
             return_type="void",
         )
 
-        # Should always have response mappings with at least 'output'
+        # Should always have response mappings with output and RESPONSE fields
         assert "output" in result["response_mapping"]
-        assert len(result["response_mapping"]) >= 5  # All standard fields
+        assert "context" in result["response_mapping"]
+        assert "metadata" in result["response_mapping"]
+        assert "tool_calls" in result["response_mapping"]
+        # Should have at least 4 fields (output + 3 RESPONSE fields)
+        assert len(result["response_mapping"]) >= 4
