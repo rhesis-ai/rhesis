@@ -74,7 +74,7 @@ class TestEndpointService:
 
         # Mock only the invoker creation, use real endpoint from fixture
         with patch(
-            "rhesis.backend.app.services.endpoint.create_invoker", return_value=mock_invoker
+            "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
         ):
             result = service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), input_data)
 
@@ -95,7 +95,7 @@ class TestEndpointService:
 
         # Mock only the invoker creation, use real endpoint from fixture
         with patch(
-            "rhesis.backend.app.services.endpoint.create_invoker", return_value=mock_invoker
+            "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
         ):
             with pytest.raises(HTTPException) as exc_info:
                 service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), {})
@@ -114,7 +114,7 @@ class TestEndpointService:
 
         # Mock only the invoker creation, use real endpoint from fixture
         with patch(
-            "rhesis.backend.app.services.endpoint.create_invoker", return_value=mock_invoker
+            "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
         ):
             with pytest.raises(HTTPException) as exc_info:
                 service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), {})
@@ -268,7 +268,7 @@ class TestEndpointServiceIntegration:
         input_data = {"message": "test input"}
 
         with patch(
-            "rhesis.backend.app.services.endpoint.create_invoker", return_value=mock_invoker
+            "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
         ):
             result = service.invoke_endpoint(mock_db, "endpoint123", input_data)
 
@@ -295,7 +295,7 @@ class TestEndpointServiceIntegration:
         mock_query.filter.return_value.first.return_value = mock_endpoint
 
         with patch(
-            "rhesis.backend.app.services.endpoint.create_invoker",
+            "rhesis.backend.app.services.endpoint.service.create_invoker",
             side_effect=ValueError("Invalid connection type"),
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -363,13 +363,13 @@ class TestSDKEndpointSync:
             },
         ]
 
-    def test_sync_sdk_function_endpoints_create_new(
+    def test_sync_sdk_endpoints_create_new(
         self, test_db: Session, sdk_project_context, sample_functions_data
     ):
         """Test creating new SDK function endpoints"""
         service = EndpointService()
 
-        result = service.sync_sdk_function_endpoints(
+        result = service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -414,14 +414,14 @@ class TestSDKEndpointSync:
             assert sdk_conn["project_id"] == sdk_project_context["project_id"]
             assert sdk_conn["environment"] == sdk_project_context["environment"]
 
-    def test_sync_sdk_function_endpoints_update_existing(
+    def test_sync_sdk_endpoints_update_existing(
         self, test_db: Session, sdk_project_context, sample_functions_data
     ):
         """Test updating existing SDK function endpoints"""
         service = EndpointService()
 
         # First sync - create endpoints
-        service.sync_sdk_function_endpoints(
+        service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -453,7 +453,7 @@ class TestSDKEndpointSync:
         ]
 
         # Second sync - update endpoints
-        result = service.sync_sdk_function_endpoints(
+        result = service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -487,14 +487,14 @@ class TestSDKEndpointSync:
         assert "Updated description" in updated_endpoint.description
         assert "c" in updated_endpoint.endpoint_metadata["function_schema"]["parameters"]
 
-    def test_sync_sdk_function_endpoints_mark_removed_inactive(
+    def test_sync_sdk_endpoints_mark_removed_inactive(
         self, test_db: Session, sdk_project_context, sample_functions_data
     ):
         """Test marking removed functions as inactive"""
         service = EndpointService()
 
         # First sync - create 2 endpoints
-        service.sync_sdk_function_endpoints(
+        service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -506,7 +506,7 @@ class TestSDKEndpointSync:
         # Second sync - only keep one function
         reduced_functions = [sample_functions_data[0]]  # Only calculate_sum
 
-        result = service.sync_sdk_function_endpoints(
+        result = service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -550,14 +550,14 @@ class TestSDKEndpointSync:
         assert inactive_status.name == "Inactive"
         assert active_status.name == "Active"
 
-    def test_sync_sdk_function_endpoints_mixed_operations(
+    def test_sync_sdk_endpoints_mixed_operations(
         self, test_db: Session, sdk_project_context, sample_functions_data
     ):
         """Test mixed create, update, and mark inactive operations"""
         service = EndpointService()
 
         # First sync - create 2 endpoints
-        service.sync_sdk_function_endpoints(
+        service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -585,7 +585,7 @@ class TestSDKEndpointSync:
             },
         ]
 
-        result = service.sync_sdk_function_endpoints(
+        result = service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -600,14 +600,14 @@ class TestSDKEndpointSync:
         assert result["marked_inactive"] == 1
         assert len(result["errors"]) == 0
 
-    def test_sync_sdk_function_endpoints_empty_functions(
+    def test_sync_sdk_endpoints_empty_functions(
         self, test_db: Session, sdk_project_context, sample_functions_data
     ):
         """Test syncing with empty functions list (all should be marked inactive)"""
         service = EndpointService()
 
         # First sync - create endpoints
-        service.sync_sdk_function_endpoints(
+        service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -617,7 +617,7 @@ class TestSDKEndpointSync:
         )
 
         # Second sync with empty list
-        result = service.sync_sdk_function_endpoints(
+        result = service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -632,14 +632,14 @@ class TestSDKEndpointSync:
         assert result["marked_inactive"] == 2
         assert len(result["errors"]) == 0
 
-    def test_sync_sdk_function_endpoints_reactivate_inactive(
+    def test_sync_sdk_endpoints_reactivate_inactive(
         self, test_db: Session, sdk_project_context, sample_functions_data
     ):
         """Test reactivating previously inactive endpoint"""
         service = EndpointService()
 
         # Create endpoints
-        service.sync_sdk_function_endpoints(
+        service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -649,7 +649,7 @@ class TestSDKEndpointSync:
         )
 
         # Mark all inactive
-        service.sync_sdk_function_endpoints(
+        service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -659,7 +659,7 @@ class TestSDKEndpointSync:
         )
 
         # Reactivate one function
-        result = service.sync_sdk_function_endpoints(
+        result = service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -692,14 +692,14 @@ class TestSDKEndpointSync:
         status = test_db.query(Status).filter(Status.id == reactivated_endpoint.status_id).first()
         assert status.name == "Active"
 
-    def test_sync_sdk_function_endpoints_different_environments(
+    def test_sync_sdk_endpoints_different_environments(
         self, test_db: Session, sdk_project_context, sample_functions_data
     ):
         """Test that syncing is scoped to specific environment"""
         service = EndpointService()
 
         # Create endpoints in development
-        service.sync_sdk_function_endpoints(
+        service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment="development",
@@ -710,7 +710,7 @@ class TestSDKEndpointSync:
 
         # Create endpoints in production with different functions
         production_functions = [sample_functions_data[0]]  # Only one function
-        result = service.sync_sdk_function_endpoints(
+        result = service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment="production",
@@ -751,13 +751,13 @@ class TestSDKEndpointSync:
         assert len(dev_endpoints) == 2
         assert len(prod_endpoints) == 1
 
-    def test_sync_sdk_function_endpoints_metadata_persistence(
+    def test_sync_sdk_endpoints_metadata_persistence(
         self, test_db: Session, sdk_project_context, sample_functions_data
     ):
         """Test that all metadata fields are properly persisted"""
         service = EndpointService()
 
-        result = service.sync_sdk_function_endpoints(
+        result = service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
