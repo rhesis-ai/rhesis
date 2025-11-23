@@ -68,22 +68,25 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     request_details={"project_id": str(project_id), "environment": environment},
                 )
 
-            # Prepare conversation context
+            # Prepare conversation context (includes input_data + any extra context)
             template_context, conversation_field = self._prepare_conversation_context(
                 endpoint, input_data
             )
 
-            # Transform standardized input to function kwargs using request_mapping
+            # Transform ALL input fields to function kwargs using request_mapping
+            # Note: template_context contains ALL fields from input_data, not just standard ones
+            # This allows custom fields to be mapped through request_mapping templates
             request_mapping = endpoint.request_mapping or {}
 
             if not request_mapping:
-                # Fallback: pass through all standard fields as-is
+                # Fallback: pass through all fields as-is
                 logger.warning(
                     f"No request_mapping configured for {function_name}, using passthrough"
                 )
                 function_kwargs = template_context
             else:
-                # Render template to get function parameters
+                # Render template with ALL available fields from input_data
+                # This ensures custom/additional fields can be mapped in the template
                 function_kwargs = self.template_renderer.render(request_mapping, template_context)
 
             logger.info(

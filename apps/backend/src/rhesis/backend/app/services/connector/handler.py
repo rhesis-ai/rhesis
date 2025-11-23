@@ -43,7 +43,7 @@ class SDKMessageHandler:
             from rhesis.backend.app.services.endpoint import EndpointService
 
             endpoint_service = EndpointService()
-            stats = endpoint_service.sync_sdk_endpoints(
+            stats = await endpoint_service.sync_sdk_endpoints(
                 db=db,
                 project_id=project_id,
                 environment=environment,

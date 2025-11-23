@@ -55,11 +55,13 @@ async def invoke(
         db: Database session
         endpoint_id: ID of the endpoint to invoke
         input_data: Input data containing:
-            - input: Main user input/query
+            - input: (required) Main user input/query
             - session_id: (optional) Conversation session ID
             - context: (optional) Additional context
             - metadata: (optional) Request metadata
             - tool_calls: (optional) Available tool calls
+            - **any custom fields**: Additional fields are passed through and
+              available in request_mapping templates
         organization_id: Organization ID for security filtering (CRITICAL)
         user_id: User ID for context injection (CRITICAL)
 

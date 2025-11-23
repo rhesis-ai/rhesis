@@ -117,7 +117,7 @@ class EndpointService:
         with open(self.schema_path, "r") as f:
             return json.load(f)
 
-    def sync_sdk_endpoints(
+    async def sync_sdk_endpoints(
         self,
         db: Session,
         project_id: str,
@@ -142,7 +142,7 @@ class EndpointService:
         Returns:
             Dict with sync statistics (created, updated, marked_inactive counts)
         """
-        return sdk_sync.sync_sdk_endpoints(
+        return await sdk_sync.sync_sdk_endpoints(
             db=db,
             project_id=project_id,
             environment=environment,

@@ -39,8 +39,11 @@ class AutoMapper:
         request_template = {}
         matched_fields = []
 
-        # Iterate through all configured standard fields
-        for field_config in MappingPatterns.STANDARD_FIELDS:
+        # Iterate through REQUEST fields only for request mapping
+        request_fields = [
+            f for f in MappingPatterns.STANDARD_FIELDS if f.field_location == "request"
+        ]
+        for field_config in request_fields:
             match = self._find_best_match(param_names, field_config.pattern_type)
             if match:
                 param_name, match_confidence = match
@@ -57,9 +60,11 @@ class AutoMapper:
         # Calculate confidence
         confidence = self._calculate_confidence(matched_fields)
 
-        # Determine missing fields
-        all_field_names = [f.name for f in MappingPatterns.STANDARD_FIELDS]
-        missing_fields = [f for f in all_field_names if f not in matched_fields]
+        # Determine missing REQUEST fields (only count request fields as missing)
+        request_field_names = [
+            f.name for f in MappingPatterns.STANDARD_FIELDS if f.field_location == "request"
+        ]
+        missing_fields = [f for f in request_field_names if f not in matched_fields]
 
         logger.info(
             f"Auto-mapping for {function_name}: "
@@ -103,7 +108,7 @@ class AutoMapper:
         Infer basic output mappings based on return type.
 
         Uses fallback patterns with Jinja2 'or' syntax for flexibility.
-        Creates mappings for all standard fields plus "output".
+        Creates mappings for output and all RESPONSE standard fields.
 
         Args:
             return_type: Function return type
@@ -113,10 +118,10 @@ class AutoMapper:
         """
         # Fallback patterns for common field names
         fallback_patterns = {
-            "output": ["response", "result", "output", "content", "text"],
+            "output": ["response", "result", "output", "content", "text", "answer"],
             "session_id": ["session_id", "conversation_id", "conv_id", "thread_id", "chat_id"],
-            "context": ["context", "sources", "documents", "chunks"],
-            "metadata": ["metadata", "meta", "info"],
+            "context": ["context", "sources", "documents", "chunks", "retrieved_docs"],
+            "metadata": ["metadata", "meta", "info", "stats"],
             "tool_calls": ["tool_calls", "tools", "functions", "function_calls"],
         }
 
@@ -127,8 +132,11 @@ class AutoMapper:
         output_pattern = " or ".join(fallback_patterns["output"])
         response_mapping["output"] = f"{{{{ {output_pattern} }}}}"
 
-        # Add all standard fields with fallback patterns
-        for field_config in MappingPatterns.STANDARD_FIELDS:
+        # Add RESPONSE fields with fallback patterns
+        response_fields = [
+            f for f in MappingPatterns.STANDARD_FIELDS if f.field_location == "response"
+        ]
+        for field_config in response_fields:
             if field_config.name in fallback_patterns:
                 pattern = " or ".join(fallback_patterns[field_config.name])
                 response_mapping[field_config.name] = f"{{{{ {pattern} }}}}"
@@ -137,11 +145,14 @@ class AutoMapper:
 
     def _calculate_confidence(self, matched_fields: List[str]) -> float:
         """
-        Calculate mapping confidence based on matched fields.
+        Calculate mapping confidence based on matched REQUEST fields.
 
         Uses weights defined in STANDARD_FIELDS configuration.
         Confidence >= 0.7 is considered high and triggers auto-mapping.
         Confidence < 0.7 triggers LLM fallback.
+
+        Only REQUEST fields contribute to confidence (response fields are
+        always included with fallback patterns).
 
         Args:
             matched_fields: List of successfully matched field names
@@ -151,7 +162,10 @@ class AutoMapper:
         """
         confidence = 0.0
 
-        for field_config in MappingPatterns.STANDARD_FIELDS:
+        request_fields = [
+            f for f in MappingPatterns.STANDARD_FIELDS if f.field_location == "request"
+        ]
+        for field_config in request_fields:
             if field_config.name in matched_fields:
                 confidence += field_config.confidence_weight
 

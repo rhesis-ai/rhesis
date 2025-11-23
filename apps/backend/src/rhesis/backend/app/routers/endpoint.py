@@ -175,8 +175,9 @@ async def invoke_endpoint(
                     "error": "Missing required field 'input'",
                     "received_fields": list(input_data.keys()),
                     "expected_format": {
-                        "input": "Your query text here",
+                        "input": "Your query text here (required)",
                         "session_id": "optional-session-id",
+                        "custom_field": "any additional fields are passed through",
                     },
                 },
             )

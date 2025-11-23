@@ -12,6 +12,7 @@ class FieldConfig:
     pattern_type: str  # Pattern lookup key (e.g., "input", "session")
     template_var: str  # Jinja2 variable name (e.g., "{{ input }}")
     confidence_weight: float  # Weight for confidence calculation
+    field_location: str  # "request" or "response"
     is_required: bool = False  # Whether this field is required for high confidence
 
 
@@ -28,12 +29,16 @@ class MappingPatterns:
 
     # ==================== STANDARD FIELDS CONFIGURATION ====================
     # Add new fields here to automatically include them in auto-mapping
+    # REQUEST fields: input parameters to the function
+    # RESPONSE fields: output fields from the function
     STANDARD_FIELDS = [
+        # REQUEST FIELDS (function inputs)
         FieldConfig(
             name="input",
             pattern_type="input",
             template_var="{{ input }}",
             confidence_weight=0.5,
+            field_location="request",
             is_required=True,
         ),
         FieldConfig(
@@ -41,13 +46,16 @@ class MappingPatterns:
             pattern_type="session",
             template_var="{{ session_id }}",
             confidence_weight=0.2,
+            field_location="request",
             is_required=False,
         ),
+        # RESPONSE FIELDS (function outputs)
         FieldConfig(
             name="context",
             pattern_type="context",
             template_var="{{ context }}",
             confidence_weight=0.1,
+            field_location="response",
             is_required=False,
         ),
         FieldConfig(
@@ -55,6 +63,7 @@ class MappingPatterns:
             pattern_type="metadata",
             template_var="{{ metadata }}",
             confidence_weight=0.1,
+            field_location="response",
             is_required=False,
         ),
         FieldConfig(
@@ -62,6 +71,7 @@ class MappingPatterns:
             pattern_type="tool_calls",
             template_var="{{ tool_calls }}",
             confidence_weight=0.1,
+            field_location="response",
             is_required=False,
         ),
     ]

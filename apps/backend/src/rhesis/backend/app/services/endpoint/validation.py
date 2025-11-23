@@ -1,6 +1,5 @@
 """Validation logic for SDK endpoints."""
 
-import asyncio
 from typing import Any, Dict
 
 from sqlalchemy.orm import Session
@@ -11,7 +10,7 @@ from rhesis.backend.app.utils.status import get_or_create_status
 from rhesis.backend.logging import logger
 
 
-def validate_and_update_status(
+async def validate_and_update_status(
     db: Session,
     endpoint: Endpoint,
     project_id: str,
@@ -49,15 +48,13 @@ def validate_and_update_status(
     logger.info(f"[{function_name}] Validating mappings...")
 
     try:
-        validation_result = asyncio.run(
-            validator.validate_mappings(
-                project_id=project_id,
-                environment=environment,
-                function_name=function_name,
-                request_mapping=endpoint.request_mapping,
-                response_mapping=endpoint.response_mapping,
-                timeout=timeout,
-            )
+        validation_result = await validator.validate_mappings(
+            project_id=project_id,
+            environment=environment,
+            function_name=function_name,
+            request_mapping=endpoint.request_mapping,
+            response_mapping=endpoint.response_mapping,
+            timeout=timeout,
         )
 
         if validation_result["success"]:

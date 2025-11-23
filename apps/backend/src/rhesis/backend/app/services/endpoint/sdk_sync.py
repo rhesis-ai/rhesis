@@ -19,7 +19,7 @@ from .mapper import generate_and_apply_mappings
 from .validation import validate_and_update_status
 
 
-def sync_sdk_endpoints(
+async def sync_sdk_endpoints(
     db: Session,
     project_id: str,
     environment: str,
@@ -140,7 +140,7 @@ def sync_sdk_endpoints(
                 )
 
                 # Validate mappings and update status
-                validate_and_update_status(
+                await validate_and_update_status(
                     db=db,
                     endpoint=endpoint,
                     project_id=project_id,
@@ -200,7 +200,7 @@ def sync_sdk_endpoints(
                 )
 
                 # Validate mappings and update status
-                validate_and_update_status(
+                await validate_and_update_status(
                     db=db,
                     endpoint=endpoint,
                     project_id=project_id,
