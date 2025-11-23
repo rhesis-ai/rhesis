@@ -70,7 +70,13 @@ class ConversationTracker:
             Tuple of (template_context, conversation_field)
         """
         conversation_field = ConversationTracker.detect_conversation_field(endpoint)
-        template_context = {**input_data, **extra_context}
+
+        # Filter out system fields that shouldn't be passed to SDK functions
+        # These are internal fields used by the backend but not part of the API contract
+        system_fields = {"organization_id", "user_id"}
+        filtered_input_data = {k: v for k, v in input_data.items() if k not in system_fields}
+
+        template_context = {**filtered_input_data, **extra_context}
 
         if conversation_field:
             if conversation_field in input_data and input_data[conversation_field] is not None:
