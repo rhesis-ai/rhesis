@@ -56,7 +56,7 @@ def generate_and_apply_mappings(
     # Update endpoint if mappings should be updated
     updated = False
     if mapping_result.should_update:
-        endpoint.request_mapping = mapping_result.request_template
+        endpoint.request_mapping = mapping_result.request_mapping
         endpoint.response_mapping = mapping_result.response_mapping
         flag_modified(endpoint, "request_mapping")
         flag_modified(endpoint, "response_mapping")
