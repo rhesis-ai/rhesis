@@ -2,6 +2,6 @@
   "command": "npx",
   "args": ["-y", "@notionhq/notion-mcp-server"],
   "env": {
-    "NOTION_TOKEN": {{ auth_token | tojson }}
+    "NOTION_TOKEN": {{ NOTION_TOKEN | tojson }}
   }
 }
