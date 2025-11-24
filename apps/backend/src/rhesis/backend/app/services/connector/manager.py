@@ -40,6 +40,9 @@ class ConnectionManager:
         # Store completed test results: {test_run_id: result_dict}
         self._test_results: Dict[str, Dict[str, Any]] = {}
 
+        # Track background tasks to prevent silent failures
+        self._background_tasks: set = set()
+
     def get_connection_key(self, project_id: str, environment: str) -> str:
         """
         Generate connection key.
@@ -52,6 +55,30 @@ class ConnectionManager:
             Connection key string
         """
         return f"{project_id}:{environment}"
+
+    def _track_background_task(self, coro) -> asyncio.Task:
+        """
+        Create and track a background task to prevent silent failures.
+
+        Args:
+            coro: Coroutine to run as background task
+
+        Returns:
+            Created task
+        """
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+
+        # Add exception handler to log errors
+        def log_exception(t: asyncio.Task) -> None:
+            try:
+                t.result()
+            except Exception as e:
+                logger.error(f"Background task failed: {e}", exc_info=True)
+
+        task.add_done_callback(log_exception)
+        return task
 
     async def connect(self, project_id: str, environment: str, websocket: WebSocket) -> None:
         """
@@ -99,8 +126,8 @@ class ConnectionManager:
         # Remove from Redis
         if redis_manager.is_available:
             try:
-                # Create task to delete from Redis (non-blocking)
-                asyncio.create_task(self._remove_connection_from_redis(key))
+                # Create tracked task to delete from Redis (non-blocking)
+                self._track_background_task(self._remove_connection_from_redis(key))
             except Exception as e:
                 logger.warning(f"Failed to schedule Redis cleanup: {e}")
 
@@ -240,8 +267,8 @@ class ConnectionManager:
         # Also publish to Redis for workers
         if redis_manager.is_available:
             try:
-                # Publish to response channel for RPC
-                asyncio.create_task(self._publish_rpc_response(test_run_id, result))
+                # Publish to response channel for RPC (tracked)
+                self._track_background_task(self._publish_rpc_response(test_run_id, result))
             except Exception as e:
                 logger.warning(f"Failed to publish RPC response: {e}")
 
@@ -409,41 +436,61 @@ class ConnectionManager:
             "for worker SDK invocations"
         )
 
-        # Use tenacity for retry logic with exponential backoff
-        async for attempt in AsyncRetrying(
-            stop=stop_after_attempt(10),
-            wait=wait_exponential(multiplier=5, min=5, max=300),
-            retry=retry_if_exception_type(Exception),
-            reraise=False,
-        ):
-            with attempt:
-                try:
-                    pubsub = redis_manager.client.pubsub()
-                    await pubsub.subscribe("ws:rpc:requests")
+        # Track pubsub instance to ensure cleanup
+        pubsub = None
 
-                    async for message in pubsub.listen():
-                        if message["type"] == "message":
+        try:
+            # Use tenacity for retry logic with exponential backoff
+            async for attempt in AsyncRetrying(
+                stop=stop_after_attempt(10),
+                wait=wait_exponential(multiplier=5, min=5, max=300),
+                retry=retry_if_exception_type(Exception),
+                reraise=False,
+            ):
+                with attempt:
+                    try:
+                        # Close previous pubsub if it exists (from failed attempt)
+                        if pubsub:
                             try:
-                                request = json.loads(message["data"])
-                                await self._handle_rpc_request(request)
-                            except Exception as e:
-                                logger.error(f"Error handling RPC request: {e}", exc_info=True)
+                                await pubsub.close()
+                            except Exception:
+                                pass  # Ignore errors closing stale pubsub
 
+                        pubsub = redis_manager.client.pubsub()
+                        await pubsub.subscribe("ws:rpc:requests")
+
+                        async for message in pubsub.listen():
+                            if message["type"] == "message":
+                                try:
+                                    request = json.loads(message["data"])
+                                    await self._handle_rpc_request(request)
+                                except Exception as e:
+                                    logger.error(f"Error handling RPC request: {e}", exc_info=True)
+
+                    except Exception as e:
+                        attempt_num = attempt.retry_state.attempt_number
+                        logger.error(
+                            f"RPC listener crashed (attempt {attempt_num}/10): {e}",
+                            exc_info=True,
+                        )
+                        if attempt_num < 10:
+                            logger.warning("RPC listener will retry with exponential backoff...")
+                        raise
+
+            # If we exit the retry loop, we've exhausted all attempts
+            logger.error(
+                "RPC listener failed 10 times. Giving up on automatic restarts. "
+                "Manual intervention required."
+            )
+
+        finally:
+            # Always clean up pubsub connection
+            if pubsub:
+                try:
+                    await pubsub.close()
+                    logger.debug("RPC listener pubsub connection closed")
                 except Exception as e:
-                    attempt_num = attempt.retry_state.attempt_number
-                    logger.error(
-                        f"RPC listener crashed (attempt {attempt_num}/10): {e}",
-                        exc_info=True,
-                    )
-                    if attempt_num < 10:
-                        logger.warning("RPC listener will retry with exponential backoff...")
-                    raise
-
-        # If we exit the retry loop, we've exhausted all attempts
-        logger.error(
-            "RPC listener failed 10 times. Giving up on automatic restarts. "
-            "Manual intervention required."
-        )
+                    logger.warning(f"Error closing RPC listener pubsub: {e}")
 
     async def _handle_rpc_request(self, request: Dict[str, Any]) -> None:
         """

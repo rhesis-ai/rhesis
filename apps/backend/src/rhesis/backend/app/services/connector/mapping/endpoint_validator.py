@@ -14,6 +14,35 @@ logger = logging.getLogger(__name__)
 class EndpointValidationService:
     """Service for handling async endpoint validation after registration."""
 
+    def __init__(self):
+        """Initialize endpoint validation service."""
+        # Track background tasks to prevent silent failures
+        self._background_tasks: set = set()
+
+    def _track_background_task(self, coro) -> asyncio.Task:
+        """
+        Create and track a background task to prevent silent failures.
+
+        Args:
+            coro: Coroutine to run as background task
+
+        Returns:
+            Created task
+        """
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+
+        # Add exception handler to log errors
+        def log_exception(t: asyncio.Task) -> None:
+            try:
+                t.result()
+            except Exception as e:
+                logger.error(f"Validation background task failed: {e}", exc_info=True)
+
+        task.add_done_callback(log_exception)
+        return task
+
     async def start_validation(
         self,
         project_id: str,
@@ -28,8 +57,8 @@ class EndpointValidationService:
         This runs after registration completes to avoid blocking WebSocket processing.
         The background task creates its own database session to avoid using a closed session.
         """
-        # Start validation in background - don't await it
-        asyncio.create_task(
+        # Start validation in background - don't await it (tracked)
+        self._track_background_task(
             self._validate_endpoints_async(
                 project_id=project_id,
                 environment=environment,
