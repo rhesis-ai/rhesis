@@ -29,7 +29,7 @@ class BaseRunner(ABC):
     """
 
     @abstractmethod
-    def run(
+    async def run(
         self,
         db: Session,
         test: Test,
@@ -68,7 +68,7 @@ class SingleTurnRunner(BaseRunner):
     in-place execution service (ephemeral results).
     """
 
-    def run(
+    async def run(
         self,
         db: Session,
         test: Test,
@@ -109,7 +109,7 @@ class SingleTurnRunner(BaseRunner):
 
         # Execute endpoint
         endpoint_service = get_endpoint_service()
-        result = endpoint_service.invoke_endpoint(
+        result = await endpoint_service.invoke_endpoint(
             db=db,
             endpoint_id=endpoint_id,
             input_data={"input": prompt_content},
@@ -152,7 +152,7 @@ class MultiTurnRunner(BaseRunner):
     in-place execution service (ephemeral results).
     """
 
-    def run(
+    async def run(
         self,
         db: Session,
         test: Test,

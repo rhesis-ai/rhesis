@@ -20,7 +20,7 @@ from rhesis.backend.tasks.execution.executors.runners import MultiTurnRunner, Si
 from rhesis.backend.tasks.execution.test import get_evaluation_model
 
 
-def execute_test_in_place(
+async def execute_test_in_place(
     db: Session,
     request_data: Dict[str, Any],
     endpoint_id: str,
@@ -103,7 +103,7 @@ def execute_test_in_place(
 
     # Execute based on test type
     if is_multi_turn:
-        result = _execute_multi_turn_in_place(
+        result = await _execute_multi_turn_in_place(
             db=db,
             test=test,
             endpoint_id=endpoint_id,
@@ -114,7 +114,7 @@ def execute_test_in_place(
             start_time=start_time,
         )
     else:
-        result = _execute_single_turn_in_place(
+        result = await _execute_single_turn_in_place(
             db=db,
             test=test,
             prompt_content=prompt_content,
@@ -205,7 +205,7 @@ def _create_inplace_test(
     return InlineTest()
 
 
-def _execute_single_turn_in_place(
+async def _execute_single_turn_in_place(
     db: Session,
     test: models.Test,
     prompt_content: str,
@@ -222,7 +222,7 @@ def _execute_single_turn_in_place(
 
     # Run core execution (shared with executor)
     runner = SingleTurnRunner()
-    execution_time, processed_result, metrics_results = runner.run(
+    execution_time, processed_result, metrics_results = await runner.run(
         db=db,
         test=test,
         endpoint_id=endpoint_id,
@@ -256,7 +256,7 @@ def _execute_single_turn_in_place(
     }
 
 
-def _execute_multi_turn_in_place(
+async def _execute_multi_turn_in_place(
     db: Session,
     test: models.Test,
     endpoint_id: str,
@@ -271,7 +271,7 @@ def _execute_multi_turn_in_place(
 
     # Run core execution (shared with executor)
     runner = MultiTurnRunner()
-    execution_time, penelope_trace, metrics_results = runner.run(
+    execution_time, penelope_trace, metrics_results = await runner.run(
         db=db,
         test=test,
         endpoint_id=endpoint_id,

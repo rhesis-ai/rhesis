@@ -115,7 +115,8 @@ class Client:
         if self._connector_manager is None:
             if not self.project_id:
                 raise RuntimeError(
-                    "@collaborate requires project_id parameter or RHESIS_PROJECT_ID environment variable"
+                    "@collaborate requires project_id parameter or "
+                    "RHESIS_PROJECT_ID environment variable"
                 )
             from rhesis.sdk.connector.manager import ConnectorManager
 

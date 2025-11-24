@@ -88,9 +88,10 @@ class TestE2EFlow:
             "user_id": str(db_test_with_prompt.user_id),
         }
 
+    @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    def test_e2e_single_test_execution(self, mock_create_metric, mock_invoke, full_test_setup):
+    async def test_e2e_single_test_execution(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test complete flow: task → execution → evaluation → storage."""
         # Mock endpoint invocation
         mock_invoke.return_value = {"output": "The answer is 4", "status_code": 200}
@@ -107,7 +108,7 @@ class TestE2EFlow:
 
         from rhesis.backend.tasks.execution.test_execution import execute_test
 
-        result = execute_test(
+        result = await execute_test(
             db=full_test_setup["db"],
             test_config_id=full_test_setup["test_config_id"],
             test_run_id=full_test_setup["test_run_id"],
@@ -127,9 +128,10 @@ class TestE2EFlow:
         # Verify endpoint was invoked (mock was called)
         assert mock_invoke.called
 
+    @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    def test_e2e_with_multiple_metrics(self, mock_create_metric, mock_invoke, full_test_setup):
+    async def test_e2e_with_multiple_metrics(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test execution with multiple metrics."""
         mock_invoke.return_value = {"output": "Positive response", "status_code": 200}
 
@@ -154,7 +156,7 @@ class TestE2EFlow:
 
         from rhesis.backend.tasks.execution.test_execution import execute_test
 
-        result = execute_test(
+        result = await execute_test(
             db=full_test_setup["db"],
             test_config_id=full_test_setup["test_config_id"],
             test_run_id=full_test_setup["test_run_id"],
@@ -170,9 +172,10 @@ class TestE2EFlow:
         # Verify endpoint was invoked
         assert mock_invoke.called
 
+    @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    def test_e2e_handles_endpoint_error(self, mock_create_metric, mock_invoke, full_test_setup):
+    async def test_e2e_handles_endpoint_error(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test flow handles endpoint errors gracefully."""
         # Endpoint fails
         mock_invoke.side_effect = Exception("Endpoint unavailable")
@@ -181,7 +184,7 @@ class TestE2EFlow:
 
         # Should handle error gracefully
         try:
-            result = execute_test(
+            result = await execute_test(
                 db=full_test_setup["db"],
                 test_config_id=full_test_setup["test_config_id"],
                 test_run_id=full_test_setup["test_run_id"],
@@ -196,9 +199,10 @@ class TestE2EFlow:
             # If it raises, that's also acceptable current behavior
             assert "unavailable" in str(e).lower() or "error" in str(e).lower()
 
+    @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    def test_e2e_handles_metric_evaluation_error(
+    async def test_e2e_handles_metric_evaluation_error(
         self, mock_create_metric, mock_invoke, full_test_setup
     ):
         """Test flow handles metric evaluation errors gracefully."""
@@ -215,7 +219,7 @@ class TestE2EFlow:
         from rhesis.backend.tasks.execution.test_execution import execute_test
 
         # Should handle gracefully and still store result
-        result = execute_test(
+        result = await execute_test(
             db=full_test_setup["db"],
             test_config_id=full_test_setup["test_config_id"],
             test_run_id=full_test_setup["test_run_id"],
@@ -228,9 +232,10 @@ class TestE2EFlow:
         # Result should still be returned even if metrics fail
         assert result is not None
 
+    @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    def test_e2e_with_ragas_metric(
+    async def test_e2e_with_ragas_metric(
         self,
         mock_create_metric,
         mock_invoke,
@@ -308,7 +313,7 @@ class TestE2EFlow:
 
         from rhesis.backend.tasks.execution.test_execution import execute_test
 
-        result = execute_test(
+        result = await execute_test(
             db=test_db,
             test_config_id=str(test_config.id),
             test_run_id=str(test_run.id),
@@ -320,14 +325,15 @@ class TestE2EFlow:
 
         assert result is not None
 
+    @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
-    def test_e2e_stores_execution_time(self, mock_invoke, full_test_setup):
+    async def test_e2e_stores_execution_time(self, mock_invoke, full_test_setup):
         """Test that execution time is tracked and stored."""
         mock_invoke.return_value = {"output": "Response", "status_code": 200}
 
         from rhesis.backend.tasks.execution.test_execution import execute_test
 
-        result = execute_test(
+        result = await execute_test(
             db=full_test_setup["db"],
             test_config_id=full_test_setup["test_config_id"],
             test_run_id=full_test_setup["test_run_id"],
@@ -342,9 +348,10 @@ class TestE2EFlow:
         assert "execution_time" in result
         assert result["execution_time"] >= 0
 
+    @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    def test_e2e_metric_results_structure(self, mock_create_metric, mock_invoke, full_test_setup):
+    async def test_e2e_metric_results_structure(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test that metric results are stored in correct structure."""
         mock_invoke.return_value = {"output": "Test response", "status_code": 200}
 
@@ -359,7 +366,7 @@ class TestE2EFlow:
 
         from rhesis.backend.tasks.execution.test_execution import execute_test
 
-        result = execute_test(
+        result = await execute_test(
             db=full_test_setup["db"],
             test_config_id=full_test_setup["test_config_id"],
             test_run_id=full_test_setup["test_run_id"],
@@ -380,9 +387,10 @@ class TestE2EFlow:
             # Should have key metric fields (exact structure may vary)
             assert "score" in metric_data or "passed" in metric_data
 
+    @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    def test_e2e_result_queryable_via_api(self, mock_create_metric, mock_invoke, full_test_setup):
+    async def test_e2e_result_queryable_via_api(self, mock_create_metric, mock_invoke, full_test_setup):
         """Test that stored results are queryable."""
         mock_invoke.return_value = {"output": "Response", "status_code": 200}
 
@@ -395,7 +403,7 @@ class TestE2EFlow:
 
         from rhesis.backend.tasks.execution.test_execution import execute_test
 
-        result = execute_test(
+        result = await execute_test(
             db=full_test_setup["db"],
             test_config_id=full_test_setup["test_config_id"],
             test_run_id=full_test_setup["test_run_id"],
@@ -412,8 +420,9 @@ class TestE2EFlow:
         assert "metrics" in result
         assert "execution_time" in result
 
+    @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
-    def test_execute_test_full_integration_without_adapter_mock(
+    async def test_execute_test_full_integration_without_adapter_mock(
         self,
         mock_invoke,
         test_db,
@@ -482,7 +491,7 @@ class TestE2EFlow:
         # Including: get_test_metrics → prepare_metric_configs →
         #            evaluator → adapter → SDK metric creation
         try:
-            result = execute_test(
+            result = await execute_test(
                 db=test_db,
                 test_config_id=str(test_config.id),
                 test_run_id=str(test_run.id),

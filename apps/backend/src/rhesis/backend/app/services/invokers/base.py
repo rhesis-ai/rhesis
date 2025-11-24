@@ -40,6 +40,15 @@ class BaseEndpointInvoker(ABC):
         """
         pass
 
+    def get_execution_context(self) -> str:
+        """
+        Identify the execution context for this invoker.
+
+        Returns:
+            String identifying the invoker type/context (e.g., 'rest', 'websocket', 'sdk')
+        """
+        return self.__class__.__name__.lower().replace("endpointinvoker", "").replace("invoker", "")
+
     # Conversation tracking methods (delegated to ConversationTracker)
     def _detect_conversation_field(self, endpoint: Endpoint):
         """Detect conversation tracking field from response mappings."""

@@ -282,7 +282,8 @@ def execute_single_test(
             model = get_evaluation_model(db, user_id)
 
             # Execute the test
-            result = execute_test(
+            import asyncio
+            result = asyncio.run(execute_test(
                 db=db,
                 test_config_id=test_config_id,
                 test_run_id=test_run_id,
@@ -291,7 +292,7 @@ def execute_single_test(
                 organization_id=organization_id,
                 user_id=user_id,
                 model=model,
-            )
+            ))
 
         # Validate and normalize the result
         result = validate_and_normalize_result(result, test_id)
