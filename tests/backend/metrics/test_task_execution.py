@@ -11,11 +11,8 @@ import pytest
 
 from rhesis.backend.metrics import Evaluator, MetricResult
 from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
-from rhesis.backend.tasks.execution.test_execution import (
-    get_test_and_prompt,
-    get_test_metrics,
-    prepare_metric_configs,
-)
+from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt, get_test_metrics
+from rhesis.backend.tasks.execution.executors.metrics import prepare_metric_configs
 
 
 class TestTaskExecution:

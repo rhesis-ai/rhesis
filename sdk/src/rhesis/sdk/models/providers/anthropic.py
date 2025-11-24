@@ -2,11 +2,12 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-PROVIDER = "anthropic"
 DEFAULT_MODEL_NAME = "claude-4"
 
 
 class AnthropicLLM(LiteLLM):
+    PROVIDER = "anthropic"
+
     def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         AnthropicLLM: Anthropic LLM Provider
@@ -34,4 +35,4 @@ class AnthropicLLM(LiteLLM):
         api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if api_key is None:
             raise ValueError("ANTHROPIC_API_KEY is not set")
-        super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
+        super().__init__(self.PROVIDER + "/" + model_name, api_key=api_key)

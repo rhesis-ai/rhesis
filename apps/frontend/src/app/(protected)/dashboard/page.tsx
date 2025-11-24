@@ -16,20 +16,28 @@ import {
   PlayArrowIcon,
 } from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function DashboardPage() {
   const { data: session } = useSession();
+  const { forceSyncToDatabase } = useOnboarding();
+
+  // Trigger immediate sync to database when dashboard loads
+  React.useEffect(() => {
+    if (session?.session_token) {
+      forceSyncToDatabase();
+    }
+  }, [session?.session_token, forceSyncToDatabase]);
 
   return (
     <PageContainer>
       {/* Charts Section */}
       <DashboardCharts />
 
-      {/* DataGrids Section */}
+      {/* DataGrids Section - 2x2 Grid */}
 
       <Grid container spacing={3} sx={{ mt: 2 }}>
-        {/* First row of DataGrids */}
-
+        {/* Newest Tests - Top Left */}
         <Grid item xs={12} md={6}>
           <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
@@ -40,6 +48,7 @@ export default function DashboardPage() {
           </Paper>
         </Grid>
 
+        {/* Updated Tests - Top Right */}
         <Grid item xs={12} md={6}>
           <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
@@ -50,7 +59,7 @@ export default function DashboardPage() {
           </Paper>
         </Grid>
 
-        {/* Second row of DataGrids */}
+        {/* Newest Test Sets - Bottom Left */}
         <Grid item xs={12} md={6}>
           <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
@@ -61,6 +70,7 @@ export default function DashboardPage() {
           </Paper>
         </Grid>
 
+        {/* Recent Test Runs - Bottom Right */}
         <Grid item xs={12} md={6}>
           <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>

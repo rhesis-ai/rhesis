@@ -82,6 +82,17 @@ class PrivacySettings(BaseModel):
     show_activity: Optional[bool] = Field(None, description="Show activity status")
 
 
+class OnboardingProgress(BaseModel):
+    """Onboarding progress tracking"""
+
+    project_created: bool = False
+    endpoint_setup: bool = False
+    users_invited: bool = False
+    test_cases_created: bool = False
+    dismissed: bool = False
+    last_updated: Optional[datetime] = None
+
+
 class UserSettings(BaseModel):
     """Complete user settings schema"""
 
@@ -93,6 +104,7 @@ class UserSettings(BaseModel):
     notifications: Optional[NotificationSettings] = Field(default_factory=NotificationSettings)
     localization: Optional[LocalizationSettings] = Field(default_factory=LocalizationSettings)
     privacy: Optional[PrivacySettings] = Field(default_factory=PrivacySettings)
+    onboarding: Optional[OnboardingProgress] = Field(default_factory=OnboardingProgress)
 
 
 class UserSettingsUpdate(BaseModel):
@@ -105,6 +117,7 @@ class UserSettingsUpdate(BaseModel):
     notifications: Optional[NotificationSettings] = None
     localization: Optional[LocalizationSettings] = None
     privacy: Optional[PrivacySettings] = None
+    onboarding: Optional[OnboardingProgress] = None
 
 
 # User schemas

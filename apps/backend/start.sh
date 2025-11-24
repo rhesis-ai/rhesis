@@ -26,6 +26,9 @@ is_production() {
     [ "${ENVIRONMENT}" = "production" ] || [ "${BACKEND_ENV}" = "production" ]
 }
 
+is_local() {
+    [ "${ENVIRONMENT}" = "local" ] || [ "${BACKEND_ENV}" = "local" ]
+}
 # Function to display banner
 show_banner() {
     echo -e "${CYAN}"
@@ -35,7 +38,7 @@ show_banner() {
     echo " |  _ <|  _  | |___ ___) | | ___) |"
     echo " |_| \_\_| |_|_____|____/___|____/ "
     echo -e "${NC}"
-    
+
     echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
     echo -e "${WHITE}🚀 Starting Rhesis Backend Server${NC}"
     echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
@@ -45,11 +48,11 @@ show_banner() {
 # Function to run database migrations
 run_migrations() {
     log "${BLUE}🔄 Running database migrations...${NC}"
-    
+
     # Check for migrate.sh in the same directory as start.sh
     if [ -f "./migrate.sh" ]; then
         log "${BLUE}📍 Found migration script at: $(pwd)/migrate.sh${NC}"
-        
+
         # Run migrations
         if ./migrate.sh; then
             log "${GREEN}✅ Database migrations completed successfully${NC}"
@@ -65,13 +68,13 @@ run_migrations() {
 # Function to validate environment
 validate_environment() {
     log "${BLUE}🔍 Validating environment...${NC}"
-    
+
     BACKEND_SRC="src/rhesis/backend"
     # Check if the main application exists
     if [ ! -f "$BACKEND_SRC/app/main.py" ]; then
         handle_error "Main application file not found"
     fi
-    
+
     log "${GREEN}✅ Environment validation passed${NC}"
 }
 
@@ -81,7 +84,7 @@ start_server() {
     local port="${PORT:-8080}"
     local workers="${WORKERS:-4}"
     local timeout="${TIMEOUT:-60}"
-    
+
     log "${BLUE}📋 Server Configuration:${NC}"
     log "  Host: $host"
     log "  Port: $port"
@@ -89,7 +92,7 @@ start_server() {
     log "  Timeout: ${timeout}s"
     log "  Environment: $(is_production && echo "production" || echo "development")"
     echo ""
-    
+
     if is_production; then
         log "${BLUE}🏭 Starting production server with Gunicorn...${NC}"
         exec gunicorn \
@@ -101,9 +104,16 @@ start_server() {
             --error-logfile - \
             --log-level info \
             rhesis.backend.app.main:app
+    elif is_local; then
+        log "${BLUE}🛠️  Starting local production server with Uvicorn...${NC}"
+        exec uvicorn \
+            rhesis.backend.app.main:app \
+            --host "$host" \
+            --port "$port" \
+
     else
         log "${BLUE}🛠️  Starting development server with Uvicorn...${NC}"
-        exec uv run uvicorn \
+        exec uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
             --port "$port" \
@@ -125,19 +135,19 @@ cleanup() {
 main() {
     # Set up signal handlers
     trap cleanup SIGTERM SIGINT
-    
+
     # Show banner
     show_banner
-    
+
     # Log startup information
     log "${BLUE}🚀 Starting Rhesis Backend startup sequence...${NC}"
     log "${BLUE}📅 Startup time: $(date)${NC}"
     log "${BLUE}👤 Running as user: $(whoami)${NC}"
     log "${BLUE}📁 Working directory: $(pwd)${NC}"
-    
+
     # Validate environment
     validate_environment
-    
+
     # Run database migrations (only if database is configured and not skipped)
     if [ "${SKIP_MIGRATIONS:-false}" = "true" ]; then
         log "${YELLOW}⚠️  SKIP_MIGRATIONS is set, skipping migrations (handled by deployment pipeline)${NC}"
@@ -146,7 +156,7 @@ main() {
     else
         log "${YELLOW}⚠️  No database configuration found, skipping migrations${NC}"
     fi
-    
+
     # Start the server
     log "${BLUE}▶️  Launching server...${NC}"
     echo ""
@@ -154,4 +164,4 @@ main() {
 }
 
 # Execute main function
-main "$@" 
+main "$@"

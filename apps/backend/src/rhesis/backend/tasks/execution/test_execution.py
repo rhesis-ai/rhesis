@@ -12,24 +12,14 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
+# Additional backward compatibility imports for functions moved during refactoring
 from rhesis.backend.logging.rhesis_logger import logger
 
 # Import factory for executor creation
 from rhesis.backend.tasks.execution.executors import create_executor
 
-# Re-export helper functions for backward compatibility with existing tests
-# These functions are now properly located in executors.shared but are available
-# here for any code that imports them from test_execution
-from rhesis.backend.tasks.execution.executors.shared import (
-    get_test_and_prompt,
-    get_test_metrics,
-    prepare_metric_configs,
-)
-
-# Additional backward compatibility imports for functions moved during refactoring
-from rhesis.backend.app.dependencies import get_endpoint_service
-from rhesis.backend.tasks.execution.response_extractor import extract_response_with_fallback
-from rhesis.backend.app.utils.crud_utils import get_or_create_status
+# Import get_test_and_prompt from data module
+from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
 
 # ============================================================================
 # MAIN EXECUTION FUNCTION (Strategy Pattern Entry Point)

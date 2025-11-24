@@ -2,11 +2,12 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-PROVIDER = "meta_llama"
 DEFAULT_MODEL_NAME = "Llama-3.3-70B-Instruct"
 
 
 class MetaLlamaLLM(LiteLLM):
+    PROVIDER = "meta_llama"
+
     def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         MetaLlamaLLM: Meta Llama LLM Provider
@@ -35,4 +36,4 @@ class MetaLlamaLLM(LiteLLM):
         api_key = api_key or os.getenv("LLAMA_API_KEY")
         if api_key is None:
             raise ValueError("LLAMA_API_KEY is not set")
-        super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
+        super().__init__(self.PROVIDER + "/" + model_name, api_key=api_key)

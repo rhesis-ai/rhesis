@@ -31,7 +31,12 @@ import ApiIcon from '@mui/icons-material/Api';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
-import { ConfigChips, TestSample, ChatMessage } from './shared/types';
+import {
+  ConfigChips,
+  AnyTestSample,
+  ChatMessage,
+  TestType,
+} from './shared/types';
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
 import ChipGroup from './shared/ChipGroup';
 import TestSampleCard from './shared/TestSampleCard';
@@ -42,8 +47,9 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 interface TestGenerationInterfaceProps {
+  testType: TestType;
   configChips: ConfigChips;
-  testSamples: TestSample[];
+  testSamples: AnyTestSample[];
   chatMessages: ChatMessage[];
   description: string;
   selectedSources: SourceData[];
@@ -64,7 +70,7 @@ interface TestGenerationInterfaceProps {
   isLoadingSamples: boolean;
   isLoadingMore: boolean;
   regeneratingSampleId: string | null;
-  onSamplesUpdate?: (samples: TestSample[]) => void;
+  onSamplesUpdate?: (samples: AnyTestSample[]) => void;
 }
 
 /**
@@ -72,6 +78,7 @@ interface TestGenerationInterfaceProps {
  * 2-panel interface with configuration on left and preview on right
  */
 export default function TestGenerationInterface({
+  testType,
   configChips,
   testSamples,
   chatMessages,
@@ -103,7 +110,7 @@ export default function TestGenerationInterface({
     environment: string;
   } | null>(null);
   const [localTestSamples, setLocalTestSamples] =
-    useState<TestSample[]>(testSamples);
+    useState<AnyTestSample[]>(testSamples);
   const [isFetchingResponses, setIsFetchingResponses] = useState(false);
   const [processedSampleIds, setProcessedSampleIds] = useState<Set<string>>(
     new Set()
@@ -270,11 +277,16 @@ export default function TestGenerationInterface({
           }
 
           try {
-            // Invoke the endpoint with the sample's prompt
+            // Invoke the endpoint with the sample's prompt or goal
+            const inputText =
+              sample.testType === 'single_turn'
+                ? sample.prompt
+                : sample.prompt.goal;
+
             const response = await endpointsClient.invokeEndpoint(
               selectedEndpointId,
               {
-                input: sample.prompt,
+                input: inputText,
               }
             );
 
@@ -676,6 +688,18 @@ export default function TestGenerationInterface({
                     <Typography variant="h6" fontWeight="bold">
                       Review Test Cases
                     </Typography>
+                    <Chip
+                      label={
+                        testType === 'single_turn'
+                          ? 'Single-Turn'
+                          : 'Multi-Turn'
+                      }
+                      size="small"
+                      color={
+                        testType === 'single_turn' ? 'primary' : 'secondary'
+                      }
+                      sx={{ ml: 1 }}
+                    />
                     <Tooltip
                       title="Preview of generated test samples. Rate them to improve future generations."
                       arrow

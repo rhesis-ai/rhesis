@@ -3,10 +3,10 @@ import re
 import sys
 from logging.config import fileConfig
 
+from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 
-from alembic import context
 from rhesis.backend.app.models import Base
 
 # load environment variables

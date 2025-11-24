@@ -45,7 +45,9 @@ RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
 
 # Install dependencies
-RUN uv sync
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync
 
 # ============================================================================
 # STAGE 2: Runtime - Create minimal runtime image

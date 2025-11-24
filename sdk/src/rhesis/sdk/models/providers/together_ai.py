@@ -2,11 +2,12 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-PROVIDER = "together_ai"
 DEFAULT_MODEL_NAME = "togethercomputer/llama-2-70b-chat"
 
 
 class TogetherAILLM(LiteLLM):
+    PROVIDER = "together_ai"
+
     def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         TogetherAILLM: Together AI LLM Provider
@@ -35,4 +36,4 @@ class TogetherAILLM(LiteLLM):
         api_key = api_key or os.getenv("TOGETHERAI_API_KEY")
         if api_key is None:
             raise ValueError("TOGETHERAI_API_KEY is not set")
-        super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
+        super().__init__(self.PROVIDER + "/" + model_name, api_key=api_key)
