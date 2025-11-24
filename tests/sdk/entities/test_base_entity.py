@@ -44,7 +44,7 @@ def test_delete_by_id(mock_request, test_entity):
         method="DELETE",
         url="http://test:8000/test/1",
         headers={
-            "Authorization": "Bearer test_api_key",
+            "Authorization": "Bearer rh-test-token",
             "Content-Type": "application/json",
         },
         json=None,
@@ -72,7 +72,7 @@ def test_push_with_id(mock_request, test_entity):
         method="PUT",
         url="http://test:8000/test/1",
         headers={
-            "Authorization": "Bearer test_api_key",
+            "Authorization": "Bearer rh-test-token",
             "Content-Type": "application/json",
         },
         json={"name": "Test", "description": "Test", "id": 1},
@@ -87,7 +87,7 @@ def test_push_without_id(mock_request, test_entity_without_id):
         method="POST",
         url="http://test:8000/test",
         headers={
-            "Authorization": "Bearer test_api_key",
+            "Authorization": "Bearer rh-test-token",
             "Content-Type": "application/json",
         },
         json={"name": "Test", "description": "Test", "id": None},
@@ -107,7 +107,7 @@ def test_pull_by_id(mock_request, test_entity):
         method="GET",
         url="http://test:8000/test/1",
         headers={
-            "Authorization": "Bearer test_api_key",
+            "Authorization": "Bearer rh-test-token",
             "Content-Type": "application/json",
         },
         json=None,

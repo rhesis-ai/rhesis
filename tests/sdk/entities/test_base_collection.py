@@ -3,6 +3,7 @@ from enum import Enum
 from unittest.mock import MagicMock, patch
 
 from requests.exceptions import HTTPError
+
 from rhesis.sdk.client import HTTPStatus
 from rhesis.sdk.entities.base_collection import BaseCollection
 
@@ -26,7 +27,7 @@ def test_all(mock_request):
         method="GET",
         url="http://test:8000/test",
         headers={
-            "Authorization": "Bearer test_api_key",
+            "Authorization": "Bearer rh-test-token",
             "Content-Type": "application/json",
         },
         json=None,
@@ -42,7 +43,7 @@ def test_exists(mock_request):
         method="GET",
         url="http://test:8000/test/10",
         headers={
-            "Authorization": "Bearer test_api_key",
+            "Authorization": "Bearer rh-test-token",
             "Content-Type": "application/json",
         },
         json=None,
