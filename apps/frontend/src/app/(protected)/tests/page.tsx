@@ -37,9 +37,8 @@ export default function TestsPage() {
   const isOnTestCasesTour =
     tourParam === 'testCases' || activeTour === 'testCases';
 
-  // Disable "Add Tests" button when onboarding is active, UNLESS user is on the testCases tour
-  const shouldDisableAddButton =
-    !progress.dismissed && !isComplete && !isOnTestCasesTour;
+  // Disable "Add Tests" button ONLY when user is actively on a tour OTHER than testCases
+  const shouldDisableAddButton = activeTour !== null && !isOnTestCasesTour;
 
   // Start tour only after charts are loaded
   React.useEffect(() => {
