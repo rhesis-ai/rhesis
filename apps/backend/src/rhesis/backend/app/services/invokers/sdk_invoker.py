@@ -161,7 +161,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 test_run_id=test_run_id,
                 function_name=function_name,
                 inputs=function_kwargs,
-                timeout=30.0,
+                    timeout=30.0,
             )
 
             # Check if request failed to send
