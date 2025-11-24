@@ -86,6 +86,10 @@ Object.defineProperty(window, 'scrollTo', {
   writable: true,
 });
 
+// Make window.location configurable for tests
+delete window.location;
+window.location = new URL('http://localhost:3000');
+
 // Mock localStorage
 const localStorageMock = {
   getItem: jest.fn(),
