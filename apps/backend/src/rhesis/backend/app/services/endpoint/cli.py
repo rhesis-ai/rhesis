@@ -1,6 +1,7 @@
 """Command-line interface for endpoint testing."""
 
 import argparse
+import asyncio
 import uuid
 
 from rhesis.backend.app.database import get_db
@@ -29,12 +30,14 @@ def main():
 
     try:
         with get_db() as db:
-            result = service.invoke_endpoint(
-                db=db,
-                endpoint_id=args.endpoint_id,
-                input_data=input_data,
-                organization_id=args.org_id,
-                user_id=args.user_id,
+            result = asyncio.run(
+                service.invoke_endpoint(
+                    db=db,
+                    endpoint_id=args.endpoint_id,
+                    input_data=input_data,
+                    organization_id=args.org_id,
+                    user_id=args.user_id,
+                )
             )
             print(result.get("response", result))
     except Exception as e:

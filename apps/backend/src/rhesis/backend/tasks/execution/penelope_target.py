@@ -7,6 +7,7 @@ SDK initialization. This is used for multi-turn test execution where Penelope ru
 within the backend worker context.
 """
 
+import asyncio
 from typing import Any, Optional
 from uuid import UUID
 
@@ -201,12 +202,14 @@ class BackendEndpointTarget(Target):
                 f"with message: '{message[:100]}...', conversation_id: {final_conversation_id}"
             )
 
-            response_data = self.endpoint_service.invoke_endpoint(
-                db=self.db,
-                endpoint_id=self.endpoint_id,
-                input_data=input_data,
-                organization_id=self.organization_id,
-                user_id=self.user_id,
+            response_data = asyncio.run(
+                self.endpoint_service.invoke_endpoint(
+                    db=self.db,
+                    endpoint_id=self.endpoint_id,
+                    input_data=input_data,
+                    organization_id=self.organization_id,
+                    user_id=self.user_id,
+                )
             )
 
             if response_data is None:
