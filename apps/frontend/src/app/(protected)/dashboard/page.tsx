@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid2';
+import { Grid } from '@mui/material';
 import Paper from '@mui/material/Paper';
 import DashboardCharts from './components/DashboardCharts';
 import LatestTestRunsGrid from './components/LatestTestRunsGrid';

@@ -4,12 +4,12 @@ import React, { useState } from 'react';
 import {
   Box,
   Typography,
-  Grid,
   Card,
   CardContent,
   Button,
   Chip,
 } from '@mui/material';
+import { Grid } from '@mui/material';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import { TestTemplate, TestType } from './shared/types';
@@ -88,7 +88,7 @@ export default function SelectTestCreationMethod({
           const isPopular = index < 3;
 
           return (
-            <Grid item xs={12} sm={6} md={3} key={template.id}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={template.id}>
               <Card
                 sx={{
                   height: '100%',
