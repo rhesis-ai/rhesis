@@ -114,9 +114,13 @@ export default function ContactInformationForm({
           {error}
         </Alert>
       )}
-
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6,
+          }}
+        >
           <TextField
             fullWidth
             label="Email"
@@ -131,7 +135,12 @@ export default function ContactInformationForm({
           />
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6,
+          }}
+        >
           <TextField
             fullWidth
             label="Phone"
@@ -144,7 +153,7 @@ export default function ContactInformationForm({
           />
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={12}>
           <TextField
             fullWidth
             label="Address"
@@ -157,7 +166,7 @@ export default function ContactInformationForm({
           />
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Button
             type="submit"
             variant="contained"

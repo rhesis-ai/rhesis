@@ -51,9 +51,9 @@ TEST_EXIT_CODE=$?
 
 echo "🔍 Testing build process..."
 
-# Use --no-lint to skip linting (since we already did it)
-echo "Running build with --no-lint..."
-npx next build --no-lint
+# Run build (linting already done above, build may run it again)
+echo "Running build..."
+npx next build
 BUILD_EXIT_CODE=$?
 
 # Clean up the build artifacts after validation

@@ -422,7 +422,6 @@ export default function ComparisonView({
           </Box>
         </Box>
       )}
-
       {/* Statistics */}
       {baselineTestResults && (
         <Paper
@@ -511,12 +510,16 @@ export default function ComparisonView({
           </Box>
         </Paper>
       )}
-
       {/* Comparison Headers - Moved Here */}
       {baselineTestResults && (
         <Grid container spacing={3} sx={{ mb: 3 }}>
           {/* Baseline Run */}
-          <Grid item xs={12} md={6}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 6,
+            }}
+          >
             <Card sx={{ height: '100%' }}>
               <CardContent sx={{ p: 3 }}>
                 <Typography
@@ -588,7 +591,12 @@ export default function ComparisonView({
           </Grid>
 
           {/* Current Run */}
-          <Grid item xs={12} md={6}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 6,
+            }}
+          >
             <Card
               sx={{
                 bgcolor: theme.palette.background.light2,
@@ -647,7 +655,6 @@ export default function ComparisonView({
           </Grid>
         </Grid>
       )}
-
       {/* Test-by-Test Comparison */}
       {baselineTestResults && (
         <Card>
@@ -770,9 +777,6 @@ export default function ComparisonView({
                       <Grid container spacing={0}>
                         {/* Baseline Response/Evaluation */}
                         <Grid
-                          item
-                          xs={12}
-                          md={6}
                           sx={{
                             p: 2,
                             borderRight: { md: 1 },
@@ -782,6 +786,10 @@ export default function ComparisonView({
                               : isRegressed
                                 ? `${theme.palette.background.default}`
                                 : 'transparent',
+                          }}
+                          size={{
+                            xs: 12,
+                            md: 6,
                           }}
                         >
                           {/* Header with Status Inline */}
@@ -841,9 +849,6 @@ export default function ComparisonView({
 
                         {/* Current Response/Evaluation */}
                         <Grid
-                          item
-                          xs={12}
-                          md={6}
                           sx={{
                             p: 2,
                             bgcolor: isImproved
@@ -855,6 +860,10 @@ export default function ComparisonView({
                                   ? alpha(theme.palette.error.main, 0.08)
                                   : theme.palette.background.light3
                                 : 'transparent',
+                          }}
+                          size={{
+                            xs: 12,
+                            md: 6,
                           }}
                         >
                           {/* Header with Status Inline */}
@@ -926,7 +935,6 @@ export default function ComparisonView({
           </CardContent>
         </Card>
       )}
-
       {/* Detailed Comparison Dialog */}
       {/* For multi-turn tests, show side-by-side conversations. For single-turn, show detailed metrics. */}
       <Dialog
@@ -983,12 +991,13 @@ export default function ComparisonView({
                 >
                   {/* Baseline Conversation Column */}
                   <Grid
-                    item
-                    xs={12}
-                    md={6}
                     sx={{
                       borderRight: { md: 1 },
                       borderColor: 'divider',
+                    }}
+                    size={{
+                      xs: 12,
+                      md: 6,
                     }}
                   >
                     <Box
@@ -1078,9 +1087,13 @@ export default function ComparisonView({
                       )}
                     </Box>
                   </Grid>
-
                   {/* Current Conversation Column */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6,
+                    }}
+                  >
                     <Box
                       sx={{
                         height: '100%',
@@ -1190,12 +1203,13 @@ export default function ComparisonView({
                 >
                   {/* Baseline Column */}
                   <Grid
-                    item
-                    xs={12}
-                    md={6}
                     sx={{
                       borderRight: { md: 1 },
                       borderColor: 'divider',
+                    }}
+                    size={{
+                      xs: 12,
+                      md: 6,
                     }}
                   >
                     <Box
@@ -1501,9 +1515,13 @@ export default function ComparisonView({
                       )}
                     </Box>
                   </Grid>
-
                   {/* Current Column */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6,
+                    }}
+                  >
                     <Box
                       sx={{
                         p: 3,

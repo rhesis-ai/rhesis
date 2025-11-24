@@ -29,7 +29,12 @@ export default function ProjectContent({ project }: { project: Project }) {
     <Paper sx={{ p: 3 }}>
       <Grid container spacing={4}>
         {/* Description Section */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6,
+          }}
+        >
           <Box>
             <Typography
               variant="overline"
@@ -48,7 +53,12 @@ export default function ProjectContent({ project }: { project: Project }) {
         </Grid>
 
         {/* Metadata Section */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6,
+          }}
+        >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {/* Status & Environment */}
             <Box>
@@ -162,7 +172,7 @@ export default function ProjectContent({ project }: { project: Project }) {
 
         {/* Tags Section */}
         {project.tags && project.tags.length > 0 && (
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Box>
               <Typography
                 variant="overline"
