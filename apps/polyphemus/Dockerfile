@@ -58,6 +58,14 @@ RUN cd /app && uv pip install -e apps/polyphemus
 ENV TRANSFORMERS_CACHE="/app/model_cache"
 RUN mkdir -p /app/model_cache
 
+# Pre-download the default model during build to avoid runtime downloads in Cloud Run
+# This prevents rate limiting issues when Cloud Run instances start fresh
+# The model is baked into the image, so new instances don't need to download it
+ARG DEFAULT_MODEL=huggingface/distilgpt2
+ENV DEFAULT_MODEL=${DEFAULT_MODEL}
+# Extract model name from provider/model format (e.g., "huggingface/distilgpt2" -> "distilgpt2")
+RUN /app/.venv/bin/python -c "import os; os.environ['TRANSFORMERS_CACHE'] = '/app/model_cache'; from transformers import AutoModelForCausalLM, AutoTokenizer; full_name = '${DEFAULT_MODEL}'; model_name = full_name.split('/')[-1] if '/' in full_name else full_name; print('Pre-downloading default model:', model_name); AutoModelForCausalLM.from_pretrained(model_name, cache_dir='/app/model_cache'); AutoTokenizer.from_pretrained(model_name, cache_dir='/app/model_cache'); print('Model pre-downloaded successfully')" || echo "Warning: Model pre-download failed, will download on first request"
+
 # Create non-root user
 RUN adduser --disabled-password --gecos '' appuser && \
     chown -R appuser:appuser /app
