@@ -2,11 +2,14 @@
 
 import inspect
 import json
+import logging
 from typing import Any, Optional, Union
 
 from deepeval.models.base_model import DeepEvalBaseLLM
 
 from rhesis.sdk.models.base import BaseLLM
+
+logger = logging.getLogger(__name__)
 
 
 class DeepEvalModelWrapper(DeepEvalBaseLLM):
@@ -40,88 +43,41 @@ class DeepEvalModelWrapper(DeepEvalBaseLLM):
             # Model doesn't support schema, generate as string
             result = self._model.generate(prompt, **kwargs)
 
-        # If schema provided, try to convert result to schema object
+        # If schema provided, try to convert result to schema instance
         if schema is not None:
+            # If result is a string, parse as JSON first
             if isinstance(result, str):
-                return self._parse_to_schema(result, schema)
+                try:
+                    parsed_json = json.loads(result)
+                except (json.JSONDecodeError, ValueError):
+                    # If parsing fails, return the string as-is
+                    # DeepEval will handle the error
+                    return result
             elif isinstance(result, dict):
-                # Result is already a dict, try to instantiate schema
-                return self._dict_to_schema(result, schema)
+                # Result is already a dict
+                parsed_json = result
+            else:
+                # Result is some other type, return as-is
+                return result
+
+            # Try to instantiate the Pydantic schema
+            try:
+                schema_instance = schema(**parsed_json)
+                logger.debug(
+                    f"Successfully instantiated schema {schema.__name__} "
+                    f"from parsed data with keys: {list(parsed_json.keys())}"
+                )
+                return schema_instance
+            except (TypeError, ValueError) as e:
+                # If instantiation fails, log and return the raw data
+                # This allows DeepEval to provide more specific error messages
+                logger.warning(
+                    f"Failed to instantiate schema {schema.__name__}: {e}. "
+                    f"Returning raw data with keys: {list(parsed_json.keys())}"
+                )
+                return parsed_json
 
         return result  # type: ignore[return-value]
-
-    def _parse_to_schema(self, result: str, schema: Any) -> Union[str, Any]:
-        """
-        Parse string result to Pydantic schema object.
-
-        Args:
-            result: String result from model
-            schema: Pydantic schema class
-
-        Returns:
-            Schema instance or original string if parsing fails
-        """
-        try:
-            # Try to parse JSON
-            parsed_json = json.loads(result)
-            return self._dict_to_schema(parsed_json, schema)
-
-        except json.JSONDecodeError:
-            # Not valid JSON, return string as-is
-            return result
-        except Exception:
-            # Catch-all for any other errors
-            return result
-
-    def _dict_to_schema(self, data: Any, schema: Any) -> Any:
-        """
-        Convert dict/list data to Pydantic schema object.
-
-        Args:
-            data: Parsed JSON data (dict or list)
-            schema: Pydantic schema class
-
-        Returns:
-            Schema instance or original data if conversion fails
-        """
-        try:
-            # If data is a dict, try to instantiate schema
-            if isinstance(data, dict):
-                try:
-                    schema_instance = schema(**data)
-
-                    # Verify it's a proper Pydantic instance, not a dict
-                    if isinstance(schema_instance, dict):
-                        # Schema constructor returned a dict somehow
-                        # This shouldn't happen with Pydantic but handle it
-                        # Try using model_validate if available (Pydantic v2)
-                        if hasattr(schema, "model_validate"):
-                            return schema.model_validate(data)
-                        # Try parse_obj for Pydantic v1
-                        elif hasattr(schema, "parse_obj"):
-                            return schema.parse_obj(data)
-                        # Fall back to returning the dict
-                        return data
-
-                    return schema_instance
-
-                except (TypeError, ValueError, AttributeError):
-                    # Direct instantiation failed, try Pydantic validators
-                    if hasattr(schema, "model_validate"):
-                        # Pydantic v2
-                        return schema.model_validate(data)
-                    elif hasattr(schema, "parse_obj"):
-                        # Pydantic v1
-                        return schema.parse_obj(data)
-                    # If all fails, return original data
-                    return data
-
-            # If data is a list or other type, return as-is
-            return data
-
-        except Exception:
-            # If all parsing attempts fail, return original data
-            return data
 
     async def a_generate(
         self, prompt: str, schema: Optional[Any] = None, **kwargs
