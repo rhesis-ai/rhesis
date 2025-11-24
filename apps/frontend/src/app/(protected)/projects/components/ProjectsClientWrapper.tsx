@@ -68,11 +68,14 @@ export default function ProjectsClientWrapper({
 }: ProjectsClientWrapperProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects || []);
   const notifications = useNotifications();
-  const { markStepComplete, progress, isComplete } = useOnboarding();
+  const { markStepComplete, progress, isComplete, activeTour } =
+    useOnboarding();
 
-  // Check if create project button should be disabled
-  const isProjectButtonDisabled =
-    !progress.projectCreated && !progress.dismissed && !isComplete;
+  // Check if user is currently on the project tour
+  const isOnProjectTour = activeTour === 'project';
+
+  // Disable button ONLY when user is actively on a tour OTHER than project
+  const isProjectButtonDisabled = activeTour !== null && !isOnProjectTour;
 
   // Enable tour for this page
   useOnboardingTour('project');

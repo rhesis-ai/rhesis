@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -15,6 +15,7 @@ import EditNoteIcon from '@mui/icons-material/EditNote';
 import { TestTemplate, TestType } from './shared/types';
 import { TEMPLATES } from '@/config/test-templates';
 import SelectionModal, { SelectionCardConfig } from './shared/SelectionModal';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 interface SelectTestCreationMethodProps {
   open: boolean;
@@ -41,6 +42,14 @@ export default function SelectTestCreationMethod({
 }: SelectTestCreationMethodProps) {
   const [showAllTemplates, setShowAllTemplates] = useState(false);
   const visibleTemplates = showAllTemplates ? TEMPLATES : TEMPLATES.slice(0, 4);
+  const { markStepComplete } = useOnboarding();
+
+  // Mark onboarding step complete when the modal opens
+  useEffect(() => {
+    if (open) {
+      markStepComplete('testCasesCreated');
+    }
+  }, [open, markStepComplete]);
 
   const testTypeLabel =
     testType === 'single_turn' ? 'Single-Turn' : 'Multi-Turn';
