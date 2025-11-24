@@ -53,6 +53,12 @@ def _get_mcp_client_by_tool_id(
     # Get provider name for the client
     provider = tool.tool_provider_type.type_value
 
+    # Parse credentials JSON
+    try:
+        credentials_dict = json.loads(tool.credentials)
+    except (json.JSONDecodeError, TypeError) as e:
+        raise ValueError(f"Invalid credentials format for tool '{tool_id}': {e}")
+
     # Check if tool uses custom provider (requires manual JSON config) or standard provider
     if provider == "custom":
         # Custom provider: requires tool_metadata with full JSON config
@@ -62,13 +68,13 @@ def _get_mcp_client_by_tool_id(
         manager = MCPClientManager.from_tool_config(
             tool_name=f"{provider}Api",
             tool_config=tool.tool_metadata,
-            auth_token=tool.auth_token,
+            credentials=credentials_dict,
         )
     else:
         # Standard provider: SDK constructs config from YAML templates
         manager = MCPClientManager.from_provider(
             provider=provider,
-            auth_token=tool.auth_token,
+            credentials=credentials_dict,
         )
 
     client = manager.create_client(f"{provider}Api")

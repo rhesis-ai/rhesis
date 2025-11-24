@@ -21,11 +21,10 @@ class Tool(Base, OrganizationAndUserMixin):
     tool_provider_type_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=False)
     status_id = Column(GUID(), ForeignKey("status.id"), nullable=True)
 
-    # Authentication (encrypted)
-    auth_token = Column(EncryptedString(), nullable=False)
+    # Authentication credentials (encrypted JSON containing all auth data)
+    # Examples: {"NOTION_TOKEN": "ntn_abc..."} or
+    credentials = Column(EncryptedString(), nullable=False)
 
-    # Provider-specific configuration (JSON with {{auth_token}} placeholders)
-    # Optional - can be empty for provider-based MCP tools where SDK handles config
     tool_metadata = Column(JSONB, nullable=True, default=None)
 
     # Relationships

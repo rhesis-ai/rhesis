@@ -35,9 +35,9 @@ def create_tool(
     """
     Create a new tool integration.
 
-    The auth_token will be encrypted in the database.
-    If you want to use a custom provider, you need to provide the JSON config in tool_metadata.
-    In that case, you need to use the {{auth_token}} placeholder in the JSON config.
+    The credentials (JSON dict) will be encrypted in the database.
+    Examples: {"NOTION_TOKEN": "ntn_abc..."} or {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_abc..."}
+    If you want to use a custom provider, you need to provide the full JSON config in tool_metadata.
     """
     organization_id, user_id = tenant_context
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
@@ -59,7 +59,7 @@ def read_tools(
     """
     Get all tools for the current organization.
 
-    Note: auth_token is excluded from the response for security.
+    Note: credentials is excluded from the response for security.
     """
     organization_id, user_id = tenant_context
     tools = crud.get_tools(
@@ -85,7 +85,7 @@ def read_tool(
     """
     Get a specific tool by ID.
 
-    Note: auth_token is excluded from the response for security.
+    Note: credentials is excluded from the response for security.
     """
     organization_id, user_id = tenant_context
     tool = crud.get_tool(db=db, tool_id=tool_id, organization_id=organization_id, user_id=user_id)
@@ -105,7 +105,7 @@ def update_tool(
     """
     Update a tool.
 
-    Only provide auth_token if you want to update it (it will be re-encrypted).
+    Only provide credentials if you want to update them (they will be re-encrypted).
     """
     organization_id, user_id = tenant_context
     db_tool = crud.update_tool(
