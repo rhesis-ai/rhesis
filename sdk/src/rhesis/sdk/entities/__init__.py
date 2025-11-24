@@ -15,6 +15,8 @@ from .category import Categories, Category
 from .prompt import Prompt, Prompts
 from .status import Status, Statuses
 from .test import Test, Tests
+from .test_result import TestResult, TestResults
+from .test_run import TestRun, TestRuns
 from .test_set import TestSet, TestSets
 from .topic import Topic, Topics
 
@@ -33,6 +35,10 @@ __all__ = [
     "Statuses",
     "Test",
     "Tests",
+    "TestResult",
+    "TestResults",
+    "TestRun",
+    "TestRuns",
     "TestSet",
     "TestSets",
     "Topic",

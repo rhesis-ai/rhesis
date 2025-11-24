@@ -32,6 +32,8 @@ class Endpoints(Enum):
     TOPICS = "topics"
     PROMPTS = "prompts"
     ENDPOINTS = "endpoints"
+    TEST_RESULTS = "test_results"
+    TEST_RUNS = "test_runs"
 
 
 class Methods(Enum):
