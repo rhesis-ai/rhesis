@@ -113,14 +113,14 @@ export default function EndpointGrid({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const { data: session } = useSession();
-  const { progress, isComplete } = useOnboarding();
+  const { progress, isComplete, activeTour } = useOnboarding();
 
   // Check if user is currently on the endpoint tour
-  const isOnEndpointTour = searchParams.get('tour') === 'endpoint';
+  const isOnEndpointTour =
+    searchParams.get('tour') === 'endpoint' || activeTour === 'endpoint';
 
-  // Disable buttons when onboarding is active, UNLESS user is on the endpoint tour
-  const shouldDisableButtons =
-    !progress.dismissed && !isComplete && !isOnEndpointTour;
+  // Disable buttons ONLY when user is actively on a tour OTHER than endpoint
+  const shouldDisableButtons = activeTour !== null && !isOnEndpointTour;
 
   // Fetch projects when component mounts
   useEffect(() => {

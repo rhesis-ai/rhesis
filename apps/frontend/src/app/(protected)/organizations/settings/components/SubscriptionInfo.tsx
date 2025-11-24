@@ -46,7 +46,12 @@ export default function SubscriptionInfo({
     <Box>
       <Grid container spacing={3}>
         {/* Active Status */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6,
+          }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <Typography variant="body2" color="text.secondary">
               Organization Status:
@@ -70,7 +75,12 @@ export default function SubscriptionInfo({
         </Grid>
 
         {/* Max Users */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6,
+          }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <PeopleIcon fontSize="small" color="action" />
             <Typography variant="body2" color="text.secondary">
@@ -83,7 +93,7 @@ export default function SubscriptionInfo({
         </Grid>
 
         {/* Subscription End Date */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <EventIcon fontSize="small" color="action" />
             <Typography variant="body2" color="text.secondary">
@@ -117,7 +127,7 @@ export default function SubscriptionInfo({
         </Grid>
 
         {/* Organization Created Date */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <EventIcon fontSize="small" color="action" />
             <Typography variant="body2" color="text.secondary">
@@ -129,7 +139,7 @@ export default function SubscriptionInfo({
           </Typography>
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Alert severity="info">
             To modify subscription details or user limits, please contact your
             account manager or support team.

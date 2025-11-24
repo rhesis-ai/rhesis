@@ -89,23 +89,53 @@ export default function TasksCharts({ sessionToken }: TasksChartsProps) {
   return (
     <Box sx={{ mb: 3 }}>
       <Grid container spacing={3}>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 2.4,
+          }}
+        >
           <StatCard title="Total" value={stats.total} />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 2.4,
+          }}
+        >
           <StatCard title="Open" value={stats.open} color="warning" />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 2.4,
+          }}
+        >
           <StatCard
             title="In Progress"
             value={stats.inProgress}
             color="primary"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 2.4,
+          }}
+        >
           <StatCard title="Completed" value={stats.completed} color="success" />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 2.4,
+          }}
+        >
           <StatCard title="Cancelled" value={stats.cancelled} color="error" />
         </Grid>
       </Grid>

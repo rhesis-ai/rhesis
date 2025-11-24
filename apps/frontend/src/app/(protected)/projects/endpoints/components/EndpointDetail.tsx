@@ -391,12 +391,17 @@ export default function EndpointDetail({
 
         <TabPanel value={currentTab} index={0}>
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Basic Details
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 6,
+                  }}
+                >
                   {isEditing ? (
                     <TextField
                       fullWidth
@@ -413,7 +418,12 @@ export default function EndpointDetail({
                     </>
                   )}
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 6,
+                  }}
+                >
                   {isEditing ? (
                     <TextField
                       fullWidth
@@ -439,14 +449,19 @@ export default function EndpointDetail({
               </Grid>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Request Configuration
               </Typography>
               <Grid container spacing={2}>
                 {/* Hide URL field for SDK connection type */}
                 {endpoint.connection_type !== 'SDK' && (
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6,
+                    }}
+                  >
                     {isEditing ? (
                       <TextField
                         fullWidth
@@ -464,7 +479,12 @@ export default function EndpointDetail({
                     )}
                   </Grid>
                 )}
-                <Grid item xs={12} md={endpoint.connection_type === 'SDK' ? 12 : 3}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: endpoint.connection_type === 'SDK' ? 12 : 3,
+                  }}
+                >
                   {isEditing ? (
                     <FormControl fullWidth>
                       <InputLabel>Connection Type</InputLabel>
@@ -493,7 +513,12 @@ export default function EndpointDetail({
                 </Grid>
                 {/* Hide method field for SDK connection type */}
                 {endpoint.connection_type !== 'SDK' && (
-                  <Grid item xs={12} md={3}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 3,
+                    }}
+                  >
                     {isEditing ? (
                       <FormControl fullWidth>
                         <InputLabel>Method</InputLabel>
@@ -523,12 +548,12 @@ export default function EndpointDetail({
             </Grid>
 
             {/* Project Selection */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Project
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   {isEditing ? (
                     <FormControl fullWidth>
                       <InputLabel>Project</InputLabel>
@@ -595,7 +620,7 @@ export default function EndpointDetail({
               </Grid>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={12}>
               {isEditing ? (
                 <FormControl fullWidth>
                   <InputLabel>Environment</InputLabel>
@@ -626,7 +651,7 @@ export default function EndpointDetail({
               )}
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle2" color="text.secondary">
                 Status
               </Typography>
@@ -657,7 +682,7 @@ export default function EndpointDetail({
                 <>
                   {/* Function Name */}
                   {endpoint.endpoint_metadata.sdk_connection?.function_name && (
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Typography variant="subtitle2" color="text.secondary">
                         Function Name
                       </Typography>
@@ -669,7 +694,7 @@ export default function EndpointDetail({
 
                   {/* Function Description */}
                   {endpoint.endpoint_metadata.function_schema?.description && (
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Typography variant="subtitle2" color="text.secondary">
                         Description
                       </Typography>
@@ -681,7 +706,7 @@ export default function EndpointDetail({
 
                   {/* Function Parameters */}
                   {endpoint.endpoint_metadata.function_schema?.parameters && (
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
                         Function Parameters
                       </Typography>
@@ -739,13 +764,13 @@ export default function EndpointDetail({
 
                   {/* Mapping Information */}
                   {endpoint.endpoint_metadata.mapping_info && (
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
                         Mapping Status
                       </Typography>
                       <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
                         <Grid container spacing={2}>
-                          <Grid item xs={12} sm={6}>
+                          <Grid size={{ xs: 12, sm: 6 }}>
                             <Typography variant="caption" color="text.secondary">
                               Source
                             </Typography>
@@ -790,7 +815,7 @@ export default function EndpointDetail({
                             </Box>
                           </Grid>
                           {endpoint.endpoint_metadata.mapping_info.confidence !== undefined && (
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                               <Typography variant="caption" color="text.secondary">
                                 Confidence
                               </Typography>
@@ -800,7 +825,7 @@ export default function EndpointDetail({
                             </Grid>
                           )}
                           {endpoint.endpoint_metadata.mapping_info.reasoning && (
-                            <Grid item xs={12}>
+                            <Grid size={12}>
                               <Typography variant="caption" color="text.secondary">
                                 Reasoning
                               </Typography>
@@ -816,7 +841,7 @@ export default function EndpointDetail({
 
                   {/* Validation Error */}
                   {endpoint.endpoint_metadata.validation_error && (
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Alert severity="error">
                         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
                           Validation Error
@@ -835,7 +860,7 @@ export default function EndpointDetail({
 
                   {/* Last Error */}
                   {endpoint.endpoint_metadata.last_error && !endpoint.endpoint_metadata.validation_error && (
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Alert severity="warning">
                         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
                           Last Error
@@ -848,7 +873,7 @@ export default function EndpointDetail({
                   )}
 
                   {/* Timestamps and Status */}
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     {endpoint.endpoint_metadata.created_at && (
                       <>
                         <Typography variant="caption" color="text.secondary">
@@ -860,7 +885,7 @@ export default function EndpointDetail({
                       </>
                     )}
                   </Grid>
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     {endpoint.endpoint_metadata.last_registered && (
                       <>
                         <Typography variant="caption" color="text.secondary">
@@ -872,7 +897,7 @@ export default function EndpointDetail({
                       </>
                     )}
                   </Grid>
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <Typography variant="caption" color="text.secondary">
                       Status
                     </Typography>
@@ -896,7 +921,7 @@ export default function EndpointDetail({
                   </Grid>
                 </>
               ) : (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="body2" color="text.secondary">
                     No SDK connection metadata available
                   </Typography>
@@ -910,7 +935,7 @@ export default function EndpointDetail({
           <Grid container spacing={2}>
             {/* Authorization Section - Hidden for SDK */}
             {endpoint.connection_type !== 'SDK' && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
                   Authorization (Optional)
                 </Typography>
@@ -991,7 +1016,7 @@ export default function EndpointDetail({
 
             {/* Request Headers Section - Hidden for SDK */}
             {endpoint.connection_type !== 'SDK' && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
                   Request Headers (Optional)
                 </Typography>
@@ -1030,7 +1055,7 @@ export default function EndpointDetail({
               </Grid>
             )}
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Request Mapping
               </Typography>
@@ -1064,7 +1089,7 @@ export default function EndpointDetail({
 
         <TabPanel value={currentTab} index={endpoint.connection_type === 'SDK' ? 3 : 2}>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Response Mapping
               </Typography>
@@ -1098,7 +1123,7 @@ export default function EndpointDetail({
 
         <TabPanel value={currentTab} index={endpoint.connection_type === 'SDK' ? 4 : 3}>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Test your endpoint configuration with sample data
               </Typography>
@@ -1125,7 +1150,7 @@ export default function EndpointDetail({
               </Box>
             </Grid>
 
-            <Grid item xs={12} sx={{ mt: 2 }}>
+            <Grid sx={{ mt: 2 }} size={12}>
               <LoadingButton
                 variant="contained"
                 color="primary"
@@ -1169,7 +1194,7 @@ export default function EndpointDetail({
             </Grid>
 
             {testResponse && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
                   Response
                 </Typography>

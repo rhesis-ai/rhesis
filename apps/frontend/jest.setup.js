@@ -86,6 +86,26 @@ Object.defineProperty(window, 'scrollTo', {
   writable: true,
 });
 
+// Make window.location configurable for tests
+// Create a mock location object with all necessary properties and methods
+delete window.location;
+window.location = {
+  href: 'http://localhost:3000',
+  origin: 'http://localhost:3000',
+  protocol: 'http:',
+  host: 'localhost:3000',
+  hostname: 'localhost',
+  port: '3000',
+  pathname: '/',
+  search: '',
+  hash: '',
+  // Location methods that components may call
+  assign: jest.fn(),
+  replace: jest.fn(),
+  reload: jest.fn(),
+  toString: jest.fn(() => 'http://localhost:3000'),
+};
+
 // Mock localStorage
 const localStorageMock = {
   getItem: jest.fn(),

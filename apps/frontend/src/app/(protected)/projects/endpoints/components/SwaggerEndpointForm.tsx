@@ -29,6 +29,8 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import { auth } from '@/auth';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 // Import icons for project icon rendering
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -100,6 +102,8 @@ export default function SwaggerEndpointForm() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
   const { data: session } = useSession();
+  const { markStepComplete } = useOnboarding();
+  const notifications = useNotifications();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -194,6 +198,15 @@ export default function SwaggerEndpointForm() {
 
     try {
       await createEndpoint(formData as unknown as Omit<Endpoint, 'id'>);
+
+      // Mark onboarding step as complete
+      markStepComplete('endpointSetup');
+
+      // Show success notification
+      notifications.show('Endpoint created successfully!', {
+        severity: 'success',
+      });
+
       router.push('/projects/endpoints');
     } catch (error) {
       setError((error as Error).message);
@@ -232,12 +245,17 @@ export default function SwaggerEndpointForm() {
         <Box sx={{ p: 3 }}>
           <Grid container spacing={3}>
             {/* General Information */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 General Information
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 6,
+                  }}
+                >
                   <TextField
                     fullWidth
                     label="Name"
@@ -246,7 +264,12 @@ export default function SwaggerEndpointForm() {
                     required
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 6,
+                  }}
+                >
                   <TextField
                     fullWidth
                     label="Description"
@@ -260,12 +283,12 @@ export default function SwaggerEndpointForm() {
             </Grid>
 
             {/* Swagger URL */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Swagger Configuration
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <TextField
                       fullWidth
@@ -290,12 +313,12 @@ export default function SwaggerEndpointForm() {
             </Grid>
 
             {/* Project Selection */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Project
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   {projects.length === 0 && !loadingProjects ? (
                     <Alert
                       severity="warning"
@@ -384,12 +407,12 @@ export default function SwaggerEndpointForm() {
             </Grid>
 
             {/* Environment */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Environment
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <ToggleButtonGroup
                     value={formData.environment}
                     exclusive
@@ -436,7 +459,6 @@ export default function SwaggerEndpointForm() {
           </Grid>
         </Box>
       </Card>
-
       {error && (
         <Box sx={{ mt: 2 }}>
           <Alert severity="error">{error}</Alert>

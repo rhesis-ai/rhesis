@@ -4,7 +4,6 @@ import React, { ReactNode } from 'react';
 import {
   Box,
   Typography,
-  Grid,
   Card,
   CardContent,
   Button,
@@ -13,6 +12,7 @@ import {
   DialogContent,
   IconButton,
 } from '@mui/material';
+import { Grid } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
@@ -133,7 +133,7 @@ export default function SelectionModal({
           }}
         >
           {cards.map(card => (
-            <Grid item xs={12} md={6} key={card.id}>
+            <Grid size={{ xs: 12, md: 6 }} key={card.id}>
               <Card
                 sx={{
                   height: '100%',

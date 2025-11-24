@@ -99,11 +99,11 @@ export default async function TestDetailPage({ params }: PageProps) {
 
         <Grid container spacing={3}>
           {/* Main Content Column */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Paper sx={{ p: 3, mb: 4 }}>
               <Grid container spacing={3}>
                 {/* Action Buttons */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TestToTestSet
                     sessionToken={session.session_token}
                     testId={identifier}
@@ -125,7 +125,7 @@ export default async function TestDetailPage({ params }: PageProps) {
                 </Grid>
 
                 {/* Main Info */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TestDetailData
                     sessionToken={session.session_token}
                     test={test}
@@ -133,7 +133,7 @@ export default async function TestDetailPage({ params }: PageProps) {
                 </Grid>
 
                 {/* Tags Section */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Divider sx={{ my: 2 }} />
                   <TestTags sessionToken={session.session_token} test={test} />
                 </Grid>
