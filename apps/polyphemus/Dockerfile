@@ -1,5 +1,4 @@
-# Use standard Python base image (CUDA runtime provided by Cloud Run GPU environment)
-# The SDK will install torch with appropriate CUDA support
+# Use standard Python base image 
 FROM mirror.gcr.io/library/python:3.10.17-slim
 
 # Set environment variables
