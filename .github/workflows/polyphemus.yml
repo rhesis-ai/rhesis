@@ -155,13 +155,15 @@ jobs:
         run: |
           # Build without cache to ensure all dependencies are up-to-date
           # Build context is repo root to access SDK and pyproject.toml (like backend)
+          # Pre-download default model during build to avoid runtime downloads in Cloud Run
+          DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }}"
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, tag with commit SHA
-            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/polyphemus/Dockerfile .
+            docker build --no-cache --pull --build-arg DEFAULT_MODEL="$DEFAULT_MODEL" -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/polyphemus/Dockerfile .
             echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
           else
             # For regular deployments, use latest tag
-            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:latest -f apps/polyphemus/Dockerfile .
+            docker build --no-cache --pull --build-arg DEFAULT_MODEL="$DEFAULT_MODEL" -t ${{ env.IMAGE_NAME }}:latest -f apps/polyphemus/Dockerfile .
             echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
           fi
 
@@ -332,8 +334,7 @@ jobs:
               --revision-suffix=${{ env.COMMIT_SHA }} \
               --no-cpu-throttling \
               --set-env-vars="$(cat <<EOF
-          HF_MODEL=${{ secrets.HF_MODEL || 'cognitivecomputations/Dolphin3.0-Llama3.1-8B' }},
-          HF_TOKEN=${{ secrets.HF_TOKEN || '' }},
+          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
           TRANSFORMERS_CACHE=/app/model_cache
           EOF
           )"
@@ -361,8 +362,7 @@ jobs:
               --concurrency=1 \
               --no-cpu-throttling \
               --set-env-vars="$(cat <<EOF
-          HF_MODEL=${{ secrets.HF_MODEL || 'cognitivecomputations/Dolphin3.0-Llama3.1-8B' }},
-          HF_TOKEN=${{ secrets.HF_TOKEN || '' }},
+          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
           TRANSFORMERS_CACHE=/app/model_cache
           EOF
           )"

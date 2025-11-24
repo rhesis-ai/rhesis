@@ -228,11 +228,11 @@ services:
     build:
       context: .
       dockerfile: apps/polyphemus/Dockerfile
+      args:
+        DEFAULT_MODEL: ${DEFAULT_MODEL:-huggingface/distilgpt2}
     container_name: rhesis-polyphemus
     environment:
       <<: [*common-environment]
-      HF_MODEL: ${HF_MODEL:-huggingface/distilgpt2}
-      HF_TOKEN: ${HF_TOKEN:-}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-huggingface/distilgpt2}
       TRANSFORMERS_CACHE: /app/model_cache
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
