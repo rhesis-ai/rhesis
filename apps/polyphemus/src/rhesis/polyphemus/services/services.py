@@ -199,11 +199,28 @@ async def generate_text(request: GenerateRequest) -> Dict:
     top_k = request.top_k
 
     # Get model instance based on request (lazy initialization on first access)
-    # If model name is invalid, fall back to default
+    # Note: get_polyphemus_instance has internal fallback logic that masks failures
+    # We need to check if the returned model actually matches what was requested
     requested_model_name = request.model
     try:
         llm = await get_polyphemus_instance(model_name=requested_model_name)
-        actual_model_name = requested_model_name  # Track that we're using the requested model
+
+        # Check if get_polyphemus_instance fell back internally to default
+        # by comparing the returned model's name with what was requested
+        returned_model_name = getattr(llm, "_model_name", getattr(llm, "model_name", None))
+
+        # If a non-default model was requested but a different model was returned,
+        # a fallback occurred. Only set actual_model_name if models match.
+        if requested_model_name and returned_model_name != requested_model_name:
+            # Fallback to default happened internally
+            logger.info(
+                f"Model fallback detected: requested '{requested_model_name}' "
+                f"but received '{returned_model_name}' (likely default)"
+            )
+            actual_model_name = None
+        else:
+            # Either no model was requested (use default) or requested model loaded
+            actual_model_name = requested_model_name
     except Exception as model_error:
         logger.warning(
             f"Failed to load model '{requested_model_name}', using default: {str(model_error)}"
