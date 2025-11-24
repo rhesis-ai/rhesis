@@ -261,6 +261,19 @@ class ConnectionManager:
             del self._test_results[test_run_id]
         return result
 
+    def cleanup_test_result(self, test_run_id: str) -> None:
+        """
+        Remove a test result from memory to prevent memory leaks.
+
+        This should be called when a test times out or is no longer needed.
+
+        Args:
+            test_run_id: Test run identifier to clean up
+        """
+        if test_run_id in self._test_results:
+            del self._test_results[test_run_id]
+            logger.debug(f"Cleaned up orphaned test result: {test_run_id}")
+
     def get_connection_status(self, project_id: str, environment: str) -> ConnectionStatus:
         """
         Get connection status for a project.

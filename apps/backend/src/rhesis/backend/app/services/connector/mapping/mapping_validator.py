@@ -132,8 +132,9 @@ class MappingValidator:
                             "test_output": test_result.dict(),
                         }
 
-            # Timeout reached
+            # Timeout reached - clean up test result to prevent memory leak
             logger.warning(f"Validation test for {function_name} timed out after {timeout}s")
+            connection_manager.cleanup_test_result(test_run_id)
             return {
                 "success": False,
                 "error": f"Validation test timed out after {timeout} seconds",
@@ -142,6 +143,8 @@ class MappingValidator:
 
         except Exception as e:
             logger.error(f"Validation error for {function_name}: {e}", exc_info=True)
+            # Clean up test result on error to prevent memory leak
+            connection_manager.cleanup_test_result(test_run_id)
             return {
                 "success": False,
                 "error": str(e),
