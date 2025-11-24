@@ -211,6 +211,8 @@ class ConnectionManager:
 
             if elapsed > timeout:
                 logger.error(f"Timeout waiting for SDK result: {test_run_id}")
+                # Clean up to prevent memory leak
+                self.cleanup_test_result(test_run_id)
                 return {"error": "timeout"}
 
             # Check if result is available
