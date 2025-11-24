@@ -107,8 +107,10 @@ async def sync_sdk_endpoints(
                 # Update existing endpoint
                 endpoint = existing_by_function[function_name]
 
-                # Update metadata
+                # Update metadata - preserve existing fields like mapping_info
+                existing_metadata = endpoint.endpoint_metadata or {}
                 endpoint.endpoint_metadata = {
+                    **existing_metadata,  # Preserve existing fields (e.g., mapping_info)
                     "sdk_connection": {
                         "project_id": project_id,
                         "environment": environment,
