@@ -89,8 +89,9 @@ export default function TestConfigurationConfirmation({
             <Grid
               size={{
                 xs: 12,
-                lg: 6
-              }}>
+                lg: 6,
+              }}
+            >
               <Box>
                 <Typography variant="subtitle1">
                   Configuration Summary
@@ -249,8 +250,9 @@ export default function TestConfigurationConfirmation({
             <Grid
               size={{
                 xs: 12,
-                lg: 6
-              }}>
+                lg: 6,
+              }}
+            >
               <Box>
                 <TestSetSizeSelector
                   selectedSize={testSetSize}

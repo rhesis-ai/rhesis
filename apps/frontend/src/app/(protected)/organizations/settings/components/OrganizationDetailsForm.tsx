@@ -134,8 +134,9 @@ export default function OrganizationDetailsForm({
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <TextField
             fullWidth
             label="Organization Name"
@@ -149,8 +150,9 @@ export default function OrganizationDetailsForm({
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <TextField
             fullWidth
             label="Display Name"
@@ -175,8 +177,9 @@ export default function OrganizationDetailsForm({
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <TextField
             fullWidth
             label="Website"
@@ -192,8 +195,9 @@ export default function OrganizationDetailsForm({
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <TextField
             fullWidth
             label="Logo URL"

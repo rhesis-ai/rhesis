@@ -168,8 +168,9 @@ export default function TestResultsSummary({
           size={{
             xs: 12,
             sm: 6,
-            md: 3
-          }}>
+            md: 3,
+          }}
+        >
           <Card
             elevation={theme.elevation.standard}
             sx={{ height: '100%', minHeight: 120 }}
@@ -208,8 +209,9 @@ export default function TestResultsSummary({
           size={{
             xs: 12,
             sm: 6,
-            md: 3
-          }}>
+            md: 3,
+          }}
+        >
           <Card
             elevation={theme.elevation.standard}
             sx={{ height: '100%', minHeight: 120 }}
@@ -248,8 +250,9 @@ export default function TestResultsSummary({
           size={{
             xs: 12,
             sm: 6,
-            md: 3
-          }}>
+            md: 3,
+          }}
+        >
           <Card
             elevation={theme.elevation.standard}
             sx={{ height: '100%', minHeight: 120 }}
@@ -292,8 +295,9 @@ export default function TestResultsSummary({
           size={{
             xs: 12,
             sm: 6,
-            md: 3
-          }}>
+            md: 3,
+          }}
+        >
           <Card
             elevation={theme.elevation.standard}
             sx={{ height: '100%', minHeight: 120 }}
@@ -391,8 +395,9 @@ export default function TestResultsSummary({
                   <Grid
                     size={{
                       xs: 6,
-                      sm: 3
-                    }}>
+                      sm: 3,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Total Tests
                     </Typography>
@@ -403,8 +408,9 @@ export default function TestResultsSummary({
                   <Grid
                     size={{
                       xs: 6,
-                      sm: 3
-                    }}>
+                      sm: 3,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Passed
                     </Typography>
@@ -419,8 +425,9 @@ export default function TestResultsSummary({
                   <Grid
                     size={{
                       xs: 6,
-                      sm: 3
-                    }}>
+                      sm: 3,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Failed
                     </Typography>
@@ -435,8 +442,9 @@ export default function TestResultsSummary({
                   <Grid
                     size={{
                       xs: 6,
-                      sm: 3
-                    }}>
+                      sm: 3,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Pass Rate
                     </Typography>

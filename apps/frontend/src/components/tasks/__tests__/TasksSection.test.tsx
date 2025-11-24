@@ -43,9 +43,9 @@ describe('TasksSection - Infinite Loading Fix', () => {
     jest.clearAllMocks();
     mockApiClientFactory.mockImplementation(
       () =>
-        (({
-          getTasksClient: () => mockTasksClient
-        }) as any)
+        ({
+          getTasksClient: () => mockTasksClient,
+        }) as any
     );
   });
 

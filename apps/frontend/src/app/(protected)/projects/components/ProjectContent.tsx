@@ -32,8 +32,9 @@ export default function ProjectContent({ project }: { project: Project }) {
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <Box>
             <Typography
               variant="overline"
@@ -55,8 +56,9 @@ export default function ProjectContent({ project }: { project: Project }) {
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {/* Status & Environment */}
             <Box>

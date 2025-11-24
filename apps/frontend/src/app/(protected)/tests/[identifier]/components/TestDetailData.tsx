@@ -226,8 +226,9 @@ export default function TestDetailData({
       <Grid
         size={{
           xs: 12,
-          md: 6
-        }}>
+          md: 6,
+        }}
+      >
         <Box sx={{ mb: 2 }}>
           <BaseFreesoloAutocomplete
             options={behaviors}
@@ -337,8 +338,9 @@ export default function TestDetailData({
       <Grid
         size={{
           xs: 12,
-          md: 6
-        }}>
+          md: 6,
+        }}
+      >
         <Box sx={{ mb: 2 }}>
           <BaseFreesoloAutocomplete
             options={topics}
@@ -389,7 +391,7 @@ export default function TestDetailData({
       {/* Conditional rendering based on test type */}
       {isMultiTurn ? (
         /* Multi-Turn Configuration Fields */
-        (<Grid size={12}>
+        <Grid size={12}>
           <MultiTurnConfigFields
             sessionToken={sessionToken}
             testId={test.id}
@@ -400,10 +402,10 @@ export default function TestDetailData({
             }
             onUpdate={refreshTest}
           />
-        </Grid>)
+        </Grid>
       ) : (
         /* Standard Test Fields */
-        (<>
+        <>
           <Grid size={12}>
             <Box sx={{ mb: 1 }}>
               <Typography
@@ -455,7 +457,7 @@ export default function TestDetailData({
               fieldName="expected_response"
             />
           </Grid>
-        </>)
+        </>
       )}
       {/* Sources Section */}
       {test.test_metadata?.sources && test.test_metadata.sources.length > 0 && (

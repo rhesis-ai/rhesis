@@ -186,8 +186,9 @@ export default function TestResultsFilters({
           size={{
             xs: 12,
             sm: 6,
-            md: 3
-          }}>
+            md: 3,
+          }}
+        >
           <FormControl fullWidth>
             <InputLabel>Time Range</InputLabel>
             <Select
@@ -209,8 +210,9 @@ export default function TestResultsFilters({
           size={{
             xs: 12,
             sm: 6,
-            md: 3
-          }}>
+            md: 3,
+          }}
+        >
           <FormControl fullWidth>
             <InputLabel>Test Set</InputLabel>
             <Select
@@ -234,8 +236,9 @@ export default function TestResultsFilters({
           size={{
             xs: 12,
             sm: 6,
-            md: 3
-          }}>
+            md: 3,
+          }}
+        >
           <FormControl fullWidth>
             <InputLabel>Test Run</InputLabel>
             <Select

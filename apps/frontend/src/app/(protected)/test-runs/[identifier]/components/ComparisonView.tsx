@@ -517,8 +517,9 @@ export default function ComparisonView({
           <Grid
             size={{
               xs: 12,
-              md: 6
-            }}>
+              md: 6,
+            }}
+          >
             <Card sx={{ height: '100%' }}>
               <CardContent sx={{ p: 3 }}>
                 <Typography
@@ -593,8 +594,9 @@ export default function ComparisonView({
           <Grid
             size={{
               xs: 12,
-              md: 6
-            }}>
+              md: 6,
+            }}
+          >
             <Card
               sx={{
                 bgcolor: theme.palette.background.light2,
@@ -787,8 +789,9 @@ export default function ComparisonView({
                           }}
                           size={{
                             xs: 12,
-                            md: 6
-                          }}>
+                            md: 6,
+                          }}
+                        >
                           {/* Header with Status Inline */}
                           <Box
                             sx={{
@@ -860,8 +863,9 @@ export default function ComparisonView({
                           }}
                           size={{
                             xs: 12,
-                            md: 6
-                          }}>
+                            md: 6,
+                          }}
+                        >
                           {/* Header with Status Inline */}
                           <Box
                             sx={{
@@ -980,7 +984,7 @@ export default function ComparisonView({
             <Box>
               {isMultiTurn ? (
                 /* Multi-turn: Show side-by-side conversations */
-                (<Grid
+                <Grid
                   container
                   spacing={0}
                   sx={{ height: 'calc(90vh - 200px)' }}
@@ -993,8 +997,9 @@ export default function ComparisonView({
                     }}
                     size={{
                       xs: 12,
-                      md: 6
-                    }}>
+                      md: 6,
+                    }}
+                  >
                     <Box
                       sx={{
                         height: '100%',
@@ -1086,8 +1091,9 @@ export default function ComparisonView({
                   <Grid
                     size={{
                       xs: 12,
-                      md: 6
-                    }}>
+                      md: 6,
+                    }}
+                  >
                     <Box
                       sx={{
                         height: '100%',
@@ -1187,10 +1193,10 @@ export default function ComparisonView({
                       )}
                     </Box>
                   </Grid>
-                </Grid>)
+                </Grid>
               ) : (
                 /* Single-turn: Show detailed metrics comparison */
-                (<Grid
+                <Grid
                   container
                   spacing={0}
                   sx={{ height: 'calc(90vh - 200px)' }}
@@ -1203,8 +1209,9 @@ export default function ComparisonView({
                     }}
                     size={{
                       xs: 12,
-                      md: 6
-                    }}>
+                      md: 6,
+                    }}
+                  >
                     <Box
                       sx={{
                         p: 3,
@@ -1512,8 +1519,9 @@ export default function ComparisonView({
                   <Grid
                     size={{
                       xs: 12,
-                      md: 6
-                    }}>
+                      md: 6,
+                    }}
+                  >
                     <Box
                       sx={{
                         p: 3,
@@ -1896,7 +1904,7 @@ export default function ComparisonView({
                       })}
                     </Box>
                   </Grid>
-                </Grid>)
+                </Grid>
               )}
             </Box>
           )}

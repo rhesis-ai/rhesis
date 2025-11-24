@@ -240,8 +240,9 @@ export default function SwaggerEndpointForm() {
                 <Grid
                   size={{
                     xs: 12,
-                    md: 6
-                  }}>
+                    md: 6,
+                  }}
+                >
                   <TextField
                     fullWidth
                     label="Name"
@@ -253,8 +254,9 @@ export default function SwaggerEndpointForm() {
                 <Grid
                   size={{
                     xs: 12,
-                    md: 6
-                  }}>
+                    md: 6,
+                  }}
+                >
                   <TextField
                     fullWidth
                     label="Description"

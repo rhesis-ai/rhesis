@@ -218,8 +218,9 @@ export default function LandingPage() {
           size={{
             xs: false,
             sm: 4,
-            md: 7
-          }}>
+            md: 7,
+          }}
+        >
           <AppBar
             position="relative"
             color="transparent"
@@ -348,8 +349,9 @@ export default function LandingPage() {
           size={{
             xs: 12,
             sm: 8,
-            md: 5
-          }}>
+            md: 5,
+          }}
+        >
           <Box
             sx={{
               display: 'flex',
@@ -441,8 +443,9 @@ export default function LandingPage() {
         size={{
           xs: false,
           sm: 4,
-          md: 7
-        }}>
+          md: 7,
+        }}
+      >
         <AppBar
           position="relative"
           color="transparent"
@@ -569,8 +572,9 @@ export default function LandingPage() {
         size={{
           xs: 12,
           sm: 8,
-          md: 5
-        }}>
+          md: 5,
+        }}
+      >
         <Box
           sx={{
             display: 'flex',

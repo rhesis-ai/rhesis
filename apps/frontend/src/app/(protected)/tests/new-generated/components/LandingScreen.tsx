@@ -97,8 +97,9 @@ export default function LandingScreen({
           <Grid
             size={{
               xs: 12,
-              md: 6
-            }}>
+              md: 6,
+            }}
+          >
             <Card
               sx={{
                 height: '100%',
@@ -151,8 +152,9 @@ export default function LandingScreen({
           <Grid
             size={{
               xs: 12,
-              md: 6
-            }}>
+              md: 6,
+            }}
+          >
             <Card
               sx={{
                 height: '100%',
@@ -222,8 +224,9 @@ export default function LandingScreen({
                   size={{
                     xs: 12,
                     sm: 6,
-                    md: 3
-                  }}>
+                    md: 3,
+                  }}
+                >
                   <Card
                     sx={{
                       height: '100%',

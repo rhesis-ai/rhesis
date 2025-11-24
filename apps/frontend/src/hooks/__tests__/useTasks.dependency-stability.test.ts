@@ -33,9 +33,9 @@ describe('useTasks - Dependency Stability', () => {
     jest.clearAllMocks();
     mockApiClientFactory.mockImplementation(
       () =>
-        (({
-          getTasksClient: () => mockTasksClient
-        }) as any)
+        ({
+          getTasksClient: () => mockTasksClient,
+        }) as any
     );
   });
 

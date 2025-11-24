@@ -137,8 +137,9 @@ export default function ProjectsClientWrapper({
               size={{
                 xs: 12,
                 md: 6,
-                lg: 4
-              }}>
+                lg: 4,
+              }}
+            >
               <ProjectCard project={project} />
             </Grid>
           ))}

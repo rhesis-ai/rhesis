@@ -272,8 +272,9 @@ export default function TestDetailMetricsTab({
         <Grid
           size={{
             xs: 12,
-            md: behaviorStats.hasMultipleBehaviors ? 4 : 6
-          }}>
+            md: behaviorStats.hasMultipleBehaviors ? 4 : 6,
+          }}
+        >
           <Card>
             <CardContent>
               <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -294,8 +295,9 @@ export default function TestDetailMetricsTab({
             <Grid
               size={{
                 xs: 12,
-                md: 4
-              }}>
+                md: 4,
+              }}
+            >
               <Card>
                 <CardContent>
                   <Typography
@@ -320,8 +322,9 @@ export default function TestDetailMetricsTab({
             <Grid
               size={{
                 xs: 12,
-                md: 4
-              }}>
+                md: 4,
+              }}
+            >
               <Card>
                 <CardContent>
                   <Typography
@@ -347,8 +350,9 @@ export default function TestDetailMetricsTab({
           <Grid
             size={{
               xs: 12,
-              md: 6
-            }}>
+              md: 6,
+            }}
+          >
             <Card>
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -396,8 +400,9 @@ export default function TestDetailMetricsTab({
               <Grid
                 size={{
                   xs: 12,
-                  md: 6
-                }}>
+                  md: 6,
+                }}
+              >
                 <Typography
                   variant="caption"
                   color="text.secondary"
@@ -456,8 +461,9 @@ export default function TestDetailMetricsTab({
               <Grid
                 size={{
                   xs: 12,
-                  md: 6
-                }}>
+                  md: 6,
+                }}
+              >
                 <Typography
                   variant="caption"
                   color="text.secondary"

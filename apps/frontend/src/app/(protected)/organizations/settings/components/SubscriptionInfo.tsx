@@ -49,8 +49,9 @@ export default function SubscriptionInfo({
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <Typography variant="body2" color="text.secondary">
               Organization Status:
@@ -77,8 +78,9 @@ export default function SubscriptionInfo({
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <PeopleIcon fontSize="small" color="action" />
             <Typography variant="body2" color="text.secondary">

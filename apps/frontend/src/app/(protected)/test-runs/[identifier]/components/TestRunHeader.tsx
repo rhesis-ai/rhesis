@@ -271,8 +271,9 @@ export default function TestRunHeader({
           size={{
             xs: 12,
             sm: 6,
-            md: 3
-          }}>
+            md: 3,
+          }}
+        >
           <SummaryCard
             title="Pass Rate"
             value={`${stats.passRate}%`}
@@ -301,8 +302,9 @@ export default function TestRunHeader({
           size={{
             xs: 12,
             sm: 6,
-            md: 3
-          }}>
+            md: 3,
+          }}
+        >
           <SummaryCard
             title="Tests Executed"
             value={stats.total}
@@ -323,8 +325,9 @@ export default function TestRunHeader({
           size={{
             xs: 12,
             sm: 6,
-            md: 3
-          }}>
+            md: 3,
+          }}
+        >
           <SummaryCard
             title="Duration"
             value={stats.duration}
@@ -343,8 +346,9 @@ export default function TestRunHeader({
           size={{
             xs: 12,
             sm: 6,
-            md: 3
-          }}>
+            md: 3,
+          }}
+        >
           <Card
             sx={{
               height: '100%',

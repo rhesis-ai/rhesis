@@ -181,8 +181,9 @@ export function ProjectContent({ project }: { project: Project }) {
             <Grid
               size={{
                 xs: 12,
-                md: 6
-              }}>
+                md: 6,
+              }}
+            >
               {/* Project Description */}
               <Box sx={{ mb: 3 }}>
                 <Typography
@@ -224,8 +225,9 @@ export function ProjectContent({ project }: { project: Project }) {
             <Grid
               size={{
                 xs: 12,
-                md: 6
-              }}>
+                md: 6,
+              }}
+            >
               {/* Project Environment & Use Case */}
               {(project.environment || project.useCase) && (
                 <Box sx={{ mb: 3 }}>

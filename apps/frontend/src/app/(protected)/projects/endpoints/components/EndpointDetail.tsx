@@ -396,8 +396,9 @@ export default function EndpointDetail({
                 <Grid
                   size={{
                     xs: 12,
-                    md: 6
-                  }}>
+                    md: 6,
+                  }}
+                >
                   {isEditing ? (
                     <TextField
                       fullWidth
@@ -417,8 +418,9 @@ export default function EndpointDetail({
                 <Grid
                   size={{
                     xs: 12,
-                    md: 6
-                  }}>
+                    md: 6,
+                  }}
+                >
                   {isEditing ? (
                     <TextField
                       fullWidth
@@ -452,8 +454,9 @@ export default function EndpointDetail({
                 <Grid
                   size={{
                     xs: 12,
-                    md: 6
-                  }}>
+                    md: 6,
+                  }}
+                >
                   {isEditing ? (
                     <TextField
                       fullWidth
@@ -473,8 +476,9 @@ export default function EndpointDetail({
                 <Grid
                   size={{
                     xs: 12,
-                    md: 3
-                  }}>
+                    md: 3,
+                  }}
+                >
                   {isEditing ? (
                     <FormControl fullWidth>
                       <InputLabel>Protocol</InputLabel>
@@ -504,8 +508,9 @@ export default function EndpointDetail({
                 <Grid
                   size={{
                     xs: 12,
-                    md: 3
-                  }}>
+                    md: 3,
+                  }}
+                >
                   {isEditing ? (
                     <FormControl fullWidth>
                       <InputLabel>Method</InputLabel>

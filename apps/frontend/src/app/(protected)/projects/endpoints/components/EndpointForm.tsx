@@ -402,8 +402,9 @@ export default function EndpointForm() {
                 <Grid
                   size={{
                     xs: 12,
-                    md: 6
-                  }}>
+                    md: 6,
+                  }}
+                >
                   <TextField
                     fullWidth
                     required
@@ -417,8 +418,9 @@ export default function EndpointForm() {
                 <Grid
                   size={{
                     xs: 12,
-                    md: 6
-                  }}>
+                    md: 6,
+                  }}
+                >
                   <TextField
                     fullWidth
                     label="Description"
@@ -440,8 +442,9 @@ export default function EndpointForm() {
                 <Grid
                   size={{
                     xs: 12,
-                    md: 6
-                  }}>
+                    md: 6,
+                  }}
+                >
                   <TextField
                     fullWidth
                     label="URL"
@@ -457,8 +460,9 @@ export default function EndpointForm() {
                 <Grid
                   size={{
                     xs: 12,
-                    md: 3
-                  }}>
+                    md: 3,
+                  }}
+                >
                   <FormControl fullWidth>
                     <InputLabel>Protocol</InputLabel>
                     <Select
@@ -479,8 +483,9 @@ export default function EndpointForm() {
                 <Grid
                   size={{
                     xs: 12,
-                    md: 3
-                  }}>
+                    md: 3,
+                  }}
+                >
                   <FormControl fullWidth>
                     <InputLabel>Method</InputLabel>
                     <Select

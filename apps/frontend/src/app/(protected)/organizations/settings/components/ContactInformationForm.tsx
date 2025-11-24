@@ -118,8 +118,9 @@ export default function ContactInformationForm({
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <TextField
             fullWidth
             label="Email"
@@ -137,8 +138,9 @@ export default function ContactInformationForm({
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <TextField
             fullWidth
             label="Phone"

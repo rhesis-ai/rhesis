@@ -272,8 +272,9 @@ export default function CreateTaskPage() {
                   <Grid
                     size={{
                       xs: 12,
-                      sm: 6
-                    }}>
+                      sm: 6,
+                    }}
+                  >
                     <FormControl fullWidth disabled={isSaving}>
                       <InputLabel>Status</InputLabel>
                       <Select
@@ -293,8 +294,9 @@ export default function CreateTaskPage() {
                   <Grid
                     size={{
                       xs: 12,
-                      sm: 6
-                    }}>
+                      sm: 6,
+                    }}
+                  >
                     <FormControl fullWidth disabled={isSaving}>
                       <InputLabel>Priority</InputLabel>
                       <Select
