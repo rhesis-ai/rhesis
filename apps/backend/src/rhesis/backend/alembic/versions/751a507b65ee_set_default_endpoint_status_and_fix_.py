@@ -5,16 +5,14 @@ Revises: 85ba2badbec1
 Create Date: 2025-11-24
 
 """
+
+from typing import Sequence, Union
+
 from alembic import op
-import sqlalchemy as sa
-from typing import Union, Sequence
-import rhesis
-
-
 
 # revision identifiers, used by Alembic.
-revision: str = '751a507b65ee'
-down_revision: Union[str, None] = '85ba2badbec1'
+revision: str = "751a507b65ee"
+down_revision: Union[str, None] = "85ba2badbec1"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -34,7 +32,7 @@ def upgrade() -> None:
         AND endpoint.organization_id = s.organization_id
         AND s.name = 'Active'
     """)
-    
+
     # Update metrics to set context_required to False for specific metrics
     op.execute("""
         UPDATE metric 
@@ -49,7 +47,7 @@ def downgrade() -> None:
     1. Set endpoints back to NULL where they were set to 'Active'
     2. Set context_required back to TRUE for the specified metrics
     """
-    # Note: We cannot reliably revert endpoints to NULL as we don't know 
+    # Note: We cannot reliably revert endpoints to NULL as we don't know
     # which ones were NULL before. This is effectively a one-way migration for endpoints.
     # However, we can attempt to revert based on the 'Active' status name.
     op.execute("""
@@ -59,7 +57,7 @@ def downgrade() -> None:
         WHERE endpoint.status_id = s.id
         AND s.name = 'Active'
     """)
-    
+
     # Revert metrics context_required to TRUE
     op.execute("""
         UPDATE metric 
