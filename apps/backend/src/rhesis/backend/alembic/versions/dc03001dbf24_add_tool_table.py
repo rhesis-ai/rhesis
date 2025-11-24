@@ -29,7 +29,7 @@ def upgrade() -> None:
         sa.Column("tool_provider_type_id", rhesis.backend.app.models.guid.GUID(), nullable=False),
         sa.Column("status_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
         sa.Column(
-            "auth_token", rhesis.backend.app.utils.encryption.EncryptedString(), nullable=False
+            "credentials", rhesis.backend.app.utils.encryption.EncryptedString(), nullable=False
         ),
         sa.Column("tool_metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column(
@@ -90,8 +90,7 @@ def upgrade() -> None:
     tool_provider_values = """
         ('ToolProviderType', 'notion', 'Notion workspace integration'),
         ('ToolProviderType', 'github', 'GitHub repository integration'),
-        ('ToolProviderType', 'google', 'Google services integration'),
-        ('ToolProviderType', 'gdrive', 'Google Drive integration'),
+        ('ToolProviderType', 'atlassian', 'Atlassian integration for Jira and Confluence'),
         ('ToolProviderType', 'custom', 'Custom provider with manual configuration')
     """
 

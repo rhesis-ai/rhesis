@@ -509,13 +509,8 @@
         },
         {
             "type_name": "ToolProviderType",
-            "type_value": "google",
-            "description": "Google services integration"
-        },
-        {
-            "type_name": "ToolProviderType",
-            "type_value": "gdrive",
-            "description": "Google Drive integration"
+            "type_value": "atlassian",
+            "description": "Atlassian integration for Jira and Confluence"
         },
         {
             "type_name": "ToolProviderType",
