@@ -71,12 +71,9 @@ class ConversationTracker:
         """
         conversation_field = ConversationTracker.detect_conversation_field(endpoint)
 
-        # Filter out system fields that shouldn't be passed to SDK functions
-        # These are internal fields used by the backend but not part of the API contract
-        system_fields = {"organization_id", "user_id"}
-        filtered_input_data = {k: v for k, v in input_data.items() if k not in system_fields}
-
-        template_context = {**filtered_input_data, **extra_context}
+        # Use input_data as-is - system field filtering is now handled by specific invokers
+        # that need it (e.g., SDK invoker filters out organization_id/user_id for function calls)
+        template_context = {**input_data, **extra_context}
 
         if conversation_field:
             if conversation_field in input_data and input_data[conversation_field] is not None:

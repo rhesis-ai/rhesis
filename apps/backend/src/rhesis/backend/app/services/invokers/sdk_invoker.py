@@ -75,21 +75,30 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 endpoint, input_data
             )
 
+            # Filter out system fields that shouldn't be passed to SDK functions
+            # These are internal fields used by the backend but not part of the API contract
+            system_fields = {"organization_id", "user_id"}
+            filtered_template_context = {
+                k: v for k, v in template_context.items() if k not in system_fields
+            }
+
             # Transform ALL input fields to function kwargs using request_mapping
-            # Note: template_context contains ALL fields from input_data, not just standard ones
+            # Note: filtered_template_context contains fields from input_data (minus system fields)
             # This allows custom fields to be mapped through request_mapping templates
             request_mapping = endpoint.request_mapping or {}
 
             if not request_mapping:
-                # Fallback: pass through all fields as-is
+                # Fallback: pass through all fields as-is (excluding system fields)
                 logger.warning(
                     f"No request_mapping configured for {function_name}, using passthrough"
                 )
-                function_kwargs = template_context
+                function_kwargs = filtered_template_context
             else:
-                # Render template with ALL available fields from input_data
+                # Render template with available fields from input_data (excluding system fields)
                 # This ensures custom/additional fields can be mapped in the template
-                function_kwargs = self.template_renderer.render(request_mapping, template_context)
+                function_kwargs = self.template_renderer.render(
+                    request_mapping, filtered_template_context
+                )
 
             logger.info(
                 f"Invoking SDK function: {function_name} "
