@@ -57,13 +57,18 @@ class ErrorResponseBuilder:
         """
         from .headers import HeaderManager
 
+        # Convert project_id to string if it's a UUID object
+        project_id = local_vars.get("project_id")
+        if project_id is not None:
+            project_id = str(project_id)
+
         return RequestDetails(
             connection_type=connection_type,
             method=local_vars.get("method", "UNKNOWN"),
             url=local_vars.get("url", local_vars.get("uri", "UNKNOWN")),
             headers=HeaderManager.sanitize_headers(local_vars.get("headers", {})),
             body=local_vars.get("request_body", local_vars.get("message_data")),
-            project_id=local_vars.get("project_id"),
+            project_id=project_id,
             environment=local_vars.get("environment"),
             function_name=local_vars.get("function_name"),
         )

@@ -1,5 +1,6 @@
 """Connection manager for WebSocket connections with SDKs."""
 
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -126,6 +127,61 @@ class ConnectionManager:
         except Exception as e:
             logger.error(f"Error sending test request to {key}: {e}")
             return False
+
+    async def send_and_await_result(
+        self,
+        project_id: str,
+        environment: str,
+        test_run_id: str,
+        function_name: str,
+        inputs: Dict[str, Any],
+        timeout: float = 30.0,
+    ) -> Dict[str, Any]:
+        """
+        Send test request and wait for result.
+
+        Args:
+            project_id: Project identifier
+            environment: Environment name
+            test_run_id: Test run identifier
+            function_name: Function to execute
+            inputs: Function inputs
+            timeout: Timeout in seconds (default: 30.0)
+
+        Returns:
+            Result dictionary with one of:
+            - {"status": "success", "output": {...}, "duration_ms": float}
+            - {"status": "error", "error": str, "duration_ms": float}
+            - {"error": "send_failed", "details": str}
+            - {"error": "timeout"}
+        """
+        # Send the request
+        sent = await self.send_test_request(
+            project_id, environment, test_run_id, function_name, inputs
+        )
+
+        if not sent:
+            return {"error": "send_failed", "details": "Failed to send message to SDK"}
+
+        # Wait for result with timeout
+        start_time = asyncio.get_event_loop().time()
+        poll_interval = 0.1  # Poll every 100ms
+
+        while True:
+            elapsed = asyncio.get_event_loop().time() - start_time
+
+            if elapsed > timeout:
+                logger.error(f"Timeout waiting for SDK result: {test_run_id}")
+                return {"error": "timeout"}
+
+            # Check if result is available
+            result = self.get_test_result(test_run_id)
+            if result:
+                logger.debug(f"Received SDK result for {test_run_id}")
+                return result
+
+            # Wait before next poll
+            await asyncio.sleep(poll_interval)
 
     def _resolve_test_result(self, test_run_id: str, result: Dict[str, Any]) -> None:
         """
