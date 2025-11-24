@@ -33,9 +33,9 @@ describe('useComments - Dependency Stability', () => {
     jest.clearAllMocks();
     mockApiClientFactory.mockImplementation(
       () =>
-        ({
-          getCommentsClient: () => mockCommentsClient,
-        }) as any
+        (({
+          getCommentsClient: () => mockCommentsClient
+        }) as any)
     );
   });
 

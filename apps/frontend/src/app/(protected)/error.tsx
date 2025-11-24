@@ -177,14 +177,14 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
     <PageContainer title={pageTitle} breadcrumbs={breadcrumbs}>
       {notFoundEntityData ? (
         // Not found entity UI (404)
-        <NotFoundAlert
+        (<NotFoundAlert
           entityData={notFoundEntityData}
           backUrl={backUrl}
           backLabel={backLabel}
-        />
+        />)
       ) : deletedEntityData ? (
         // Deleted entity UI with restore functionality (410)
-        <DeletedEntityAlert
+        (<DeletedEntityAlert
           entityData={deletedEntityData}
           sessionToken={session?.session_token}
           backUrl={backUrl}
@@ -196,10 +196,10 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
               window.location.reload();
             }, 1000);
           }}
-        />
+        />)
       ) : (
         // Generic error UI with retry
-        <Paper role="alert" aria-live="assertive" aria-atomic="true">
+        (<Paper role="alert" aria-live="assertive" aria-atomic="true">
           <Box p={3}>
             <Typography variant="h6" color="error" gutterBottom>
               Something went wrong
@@ -243,7 +243,7 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
               </Button>
             </Box>
           </Box>
-        </Paper>
+        </Paper>)
       )}
     </PageContainer>
   );

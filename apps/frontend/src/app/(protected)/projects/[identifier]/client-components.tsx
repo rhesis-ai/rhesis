@@ -151,7 +151,7 @@ export function ProjectContent({ project }: { project: Project }) {
     <Paper sx={{ p: 3, mb: 4 }}>
       <Grid container spacing={3}>
         {/* Project Header */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
               {getProjectIcon(project)}
@@ -178,7 +178,11 @@ export function ProjectContent({ project }: { project: Project }) {
 
           {/* Project Info */}
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               {/* Project Description */}
               <Box sx={{ mb: 3 }}>
                 <Typography
@@ -217,7 +221,11 @@ export function ProjectContent({ project }: { project: Project }) {
               )}
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               {/* Project Environment & Use Case */}
               {(project.environment || project.useCase) && (
                 <Box sx={{ mb: 3 }}>

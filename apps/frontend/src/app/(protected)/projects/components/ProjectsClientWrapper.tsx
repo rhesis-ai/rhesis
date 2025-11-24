@@ -109,18 +109,23 @@ export default function ProjectsClientWrapper({
           Create Project
         </Button>
       </Box>
-
       {/* Projects grid */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {Array.isArray(projects) &&
           projects.map(project => (
-            <Grid item key={project.id} xs={12} md={6} lg={4}>
+            <Grid
+              key={project.id}
+              size={{
+                xs: 12,
+                md: 6,
+                lg: 4
+              }}>
               <ProjectCard project={project} />
             </Grid>
           ))}
 
         {(!Array.isArray(projects) || projects.length === 0) && (
-          <Grid item xs={12}>
+          <Grid size={12}>
             <EmptyStateMessage
               title="No projects found"
               description="Create your first project to start building and testing your AI applications. Projects help you organize your work and collaborate with your team."

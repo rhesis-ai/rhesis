@@ -30,6 +30,7 @@
     "@icons-pack/react-simple-icons": "^11.2.0",
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^7",
+    "@mui/lab": "^7.0.0",
     "@mui/material": "^7",
     "@mui/material-nextjs": "^7",
     "@mui/x-data-grid": "^7.27.3",

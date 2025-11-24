@@ -130,9 +130,12 @@ export default function OrganizationDetailsForm({
           {error}
         </Alert>
       )}
-
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TextField
             fullWidth
             label="Organization Name"
@@ -143,7 +146,11 @@ export default function OrganizationDetailsForm({
           />
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TextField
             fullWidth
             label="Display Name"
@@ -153,7 +160,7 @@ export default function OrganizationDetailsForm({
           />
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={12}>
           <TextField
             fullWidth
             label="Description"
@@ -165,7 +172,11 @@ export default function OrganizationDetailsForm({
           />
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TextField
             fullWidth
             label="Website"
@@ -178,7 +189,11 @@ export default function OrganizationDetailsForm({
           />
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TextField
             fullWidth
             label="Logo URL"
@@ -193,7 +208,7 @@ export default function OrganizationDetailsForm({
           />
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Button
             type="submit"
             variant="contained"

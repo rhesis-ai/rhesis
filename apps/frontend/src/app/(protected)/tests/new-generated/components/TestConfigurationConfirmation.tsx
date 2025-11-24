@@ -84,7 +84,11 @@ export default function TestConfigurationConfirmation({
           {/* Main Content Grid */}
           <Grid container spacing={4}>
             {/* Left Column - Configuration Summary */}
-            <Grid item xs={12} lg={6}>
+            <Grid
+              size={{
+                xs: 12,
+                lg: 6
+              }}>
               <Box>
                 <Typography variant="subtitle1">
                   Configuration Summary
@@ -221,7 +225,11 @@ export default function TestConfigurationConfirmation({
             </Grid>
 
             {/* Right Column - Test Set Size Selection */}
-            <Grid item xs={12} lg={6}>
+            <Grid
+              size={{
+                xs: 12,
+                lg: 6
+              }}>
               <Box>
                 <TestSetSizeSelector
                   selectedSize={testSetSize}
@@ -241,7 +249,6 @@ export default function TestConfigurationConfirmation({
           </Alert>
         </Paper>
       </Box>
-
       {/* Action Bar */}
       <ActionBar
         leftButton={{

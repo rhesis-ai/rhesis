@@ -89,12 +89,15 @@ export default function LandingScreen({
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-
       <DialogContent sx={{ pt: 4, px: 3 }}>
         {/* Primary Action Cards */}
         <Grid container spacing={3} sx={{ mb: 6, mt: 1 }}>
           {/* AI Generation Card */}
-          <Grid item xs={12} md={6}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 6
+            }}>
             <Card
               sx={{
                 height: '100%',
@@ -144,7 +147,11 @@ export default function LandingScreen({
           </Grid>
 
           {/* Manual Writing Card */}
-          <Grid item xs={12} md={6}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 6
+            }}>
             <Card
               sx={{
                 height: '100%',
@@ -209,7 +216,13 @@ export default function LandingScreen({
               const isPopular = index < 3;
 
               return (
-                <Grid item xs={12} sm={6} md={3} key={template.id}>
+                <Grid
+                  key={template.id}
+                  size={{
+                    xs: 12,
+                    sm: 6,
+                    md: 3
+                  }}>
                   <Card
                     sx={{
                       height: '100%',
