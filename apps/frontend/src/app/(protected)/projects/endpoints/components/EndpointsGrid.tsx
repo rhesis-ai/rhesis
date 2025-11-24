@@ -323,23 +323,23 @@ export default function EndpointGrid({
       renderCell: params => {
         const endpoint = params.row as Endpoint;
         const status = endpoint.status;
-        
+
         if (!status) {
           return (
-            <Chip 
-              label="Unknown" 
-              size="small" 
-              variant="outlined" 
+            <Chip
+              label="Unknown"
+              size="small"
+              variant="outlined"
               color="default"
             />
           );
         }
 
         return (
-          <Chip 
-            label={status.name} 
-            size="small" 
-            variant="outlined" 
+          <Chip
+            label={status.name}
+            size="small"
+            variant="outlined"
             color={getStatusColor(status.name)}
           />
         );

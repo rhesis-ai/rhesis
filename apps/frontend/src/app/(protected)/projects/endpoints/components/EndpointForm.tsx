@@ -473,7 +473,9 @@ export default function EndpointForm() {
                     <Select
                       name="connectionType"
                       value={formData.connection_type}
-                      onChange={e => handleChange('connection_type', e.target.value)}
+                      onChange={e =>
+                        handleChange('connection_type', e.target.value)
+                      }
                       label="Connection Type"
                       required
                     >
