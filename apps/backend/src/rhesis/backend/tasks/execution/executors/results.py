@@ -74,11 +74,12 @@ def check_existing_result(
     }
 
 
-def process_endpoint_result(result: Dict) -> Dict:
+def process_endpoint_result(result: Any) -> Dict:
     """
     Process endpoint result to ensure output field is populated.
 
     Uses fallback logic from response_extractor.
+    Handles both dict results and ErrorResponse Pydantic objects.
 
     Returns:
         Processed result with output field populated using the fallback hierarchy
@@ -86,8 +87,22 @@ def process_endpoint_result(result: Dict) -> Dict:
     if not result:
         return {}
 
+    # Handle ErrorResponse Pydantic objects by converting to dict
+    if hasattr(result, 'to_dict'):
+        # Use to_dict() method if available (ErrorResponse)
+        result_dict = result.to_dict()
+    elif hasattr(result, 'dict'):
+        # Use dict() method for other Pydantic models
+        result_dict = result.dict(exclude_none=True)
+    elif isinstance(result, dict):
+        # Already a dict
+        result_dict = result
+    else:
+        logger.warning(f"Unexpected result type: {type(result)}, attempting to convert")
+        result_dict = dict(result) if result else {}
+
     # Create a DEEP copy of the result to avoid modifying the original or sharing references
-    processed_result = copy.deepcopy(result)
+    processed_result = copy.deepcopy(result_dict)
 
     # Use the existing fallback logic to get the processed output
     processed_output = extract_response_with_fallback(processed_result)

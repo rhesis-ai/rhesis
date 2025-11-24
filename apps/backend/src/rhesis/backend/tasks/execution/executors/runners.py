@@ -114,30 +114,33 @@ class SingleTurnRunner(BaseRunner):
             endpoint_id=endpoint_id,
             input_data={"input": prompt_content},
             organization_id=organization_id,
+            user_id=user_id,
         )
 
         # Calculate execution time
         execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
         logger.debug(f"[SingleTurnRunner] Completed in {execution_time:.2f}ms")
 
-        # Process result
+        # Process result (converts ErrorResponse to dict if needed)
         processed_result = process_endpoint_result(result)
 
         # Evaluate metrics if requested
         metrics_results = {}
         if evaluate_metrics and metric_configs:
-            context = result.get("context", []) if result else []
+            # Use processed_result (dict) to extract context
+            context = processed_result.get("context", []) if processed_result else []
             metrics_evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
 
             if model:
                 logger.debug(f"[SingleTurnRunner] Using model: {model}")
 
+            # Pass processed_result (dict) instead of raw result
             metrics_results = evaluate_prompt_response(
                 metrics_evaluator=metrics_evaluator,
                 prompt_content=prompt_content,
                 expected_response=expected_response,
                 context=context,
-                result=result,
+                result=processed_result,
                 metrics=metric_configs,
             )
 

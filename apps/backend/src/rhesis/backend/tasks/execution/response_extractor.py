@@ -5,12 +5,12 @@ This module provides utilities for extracting meaningful responses from endpoint
 using a fallback hierarchy system.
 """
 
-from typing import Dict
+from typing import Any, Dict, Union
 
 from rhesis.backend.logging.rhesis_logger import logger
 
 
-def extract_response_with_fallback(result: Dict) -> str:
+def extract_response_with_fallback(result: Union[Dict, Any]) -> str:
     """
     Extract response from result using the fallback hierarchy:
     1. First try to extract output from successful response
@@ -18,7 +18,7 @@ def extract_response_with_fallback(result: Dict) -> str:
     3. If metadata is not available, use error content as output
 
     Args:
-        result: The response dictionary from endpoint invocation
+        result: The response dictionary from endpoint invocation, or an ErrorResponse Pydantic object
         Expected format: {"output": "...", "session_id": "...", "metadata": "..."}
 
     Returns:
@@ -28,10 +28,21 @@ def extract_response_with_fallback(result: Dict) -> str:
         logger.warning("No result provided, returning empty string")
         return ""
 
-    # Handle non-dict inputs gracefully
+    # Convert ErrorResponse or other Pydantic objects to dict
     if not isinstance(result, dict):
-        logger.warning(f"Non-dict input provided: {type(result)}, returning empty string")
-        return ""
+        if hasattr(result, 'to_dict'):
+            # Use to_dict() method if available (ErrorResponse)
+            result = result.to_dict()
+        elif hasattr(result, 'dict'):
+            # Use dict() method for other Pydantic models
+            result = result.dict(exclude_none=True)
+        else:
+            logger.warning(f"Non-dict input provided: {type(result)}, attempting to convert")
+            try:
+                result = dict(result)
+            except (TypeError, ValueError):
+                logger.error(f"Cannot convert {type(result)} to dict, returning empty string")
+                return ""
 
     # Handle error responses first
     if result.get("error", False):

@@ -68,7 +68,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                         f"SDK not connected for project {project_id} in {environment} environment"
                     ),
                     message="SDK client is not currently connected",
-                    request_details={"project_id": str(project_id), "environment": environment},
+                    request_details=self._safe_request_details(locals(), "SDK"),
                 )
 
             # Prepare conversation context (includes input_data + any extra context)
@@ -126,11 +126,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     error_type="sdk_send_failed",
                     output_message="Failed to send request to SDK",
                     message=result.get("details", "Unknown error"),
-                    request_details={
-                        "project_id": str(project_id),
-                        "environment": environment,
-                        "function_name": function_name,
-                    },
+                    request_details=self._safe_request_details(locals(), "SDK"),
                 )
 
             # Check if timeout occurred
@@ -139,11 +135,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     error_type="sdk_timeout",
                     output_message="SDK function execution timed out",
                     message="Function did not respond within 30 seconds",
-                    request_details={
-                        "project_id": str(project_id),
-                        "environment": environment,
-                        "function_name": function_name,
-                    },
+                    request_details=self._safe_request_details(locals(), "SDK"),
                 )
 
             # Check if SDK function returned error
@@ -152,12 +144,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     error_type="sdk_function_error",
                     output_message=f"SDK function error: {result.get('error', 'Unknown error')}",
                     message=result.get("error", "Function execution failed"),
-                    request_details={
-                        "project_id": str(project_id),
-                        "environment": environment,
-                        "function_name": function_name,
-                        "duration_ms": result.get("duration_ms"),
-                    },
+                    request_details=self._safe_request_details(locals(), "SDK"),
+                    duration_ms=result.get("duration_ms"),
                 )
 
             # Extract raw output from SDK
