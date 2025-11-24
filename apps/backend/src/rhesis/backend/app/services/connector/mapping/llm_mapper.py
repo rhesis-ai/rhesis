@@ -97,8 +97,6 @@ class LLMMapper:
                 description=description,
             )
 
-            logger.debug(f"LLM prompt for {function_name}:\n{prompt[:500]}...")
-
             # Call LLM with Pydantic schema for structured output
             response = model.generate(
                 prompt=prompt,
