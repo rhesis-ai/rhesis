@@ -1,6 +1,5 @@
 # Import DeepEvalBaseLLM for proper custom model implementation
 
-import json
 import logging
 from typing import Any, Optional, Union
 
@@ -18,20 +17,9 @@ class DeepEvalModelWrapper(DeepEvalBaseLLM):
     def load_model(self, *args, **kwargs):  # type: ignore[override]
         return self._model.load_model(*args, **kwargs)
 
-    def _convert_to_schema(self, result: Any, schema: Any) -> Any:
-        """Convert result to Pydantic schema instance if possible."""
-        # Parse string to dict if needed
-        if isinstance(result, str):
-            try:
-                result = json.loads(result)
-            except (json.JSONDecodeError, ValueError):
-                return result  # Return string, let DeepEval handle error
-
-        # If not a dict at this point, return as-is
-        if not isinstance(result, dict):
-            return result
-
-        # Try to instantiate schema
+    def _convert_to_schema(self, result: dict, schema: Any) -> Any:
+        """Convert dict result to Pydantic schema instance."""
+        # When schema is provided, model always returns a dict
         try:
             schema_instance = schema(**result)
             logger.debug(f"Instantiated {schema.__name__} with keys: {list(result.keys())}")
