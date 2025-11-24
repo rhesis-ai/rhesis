@@ -34,6 +34,22 @@ class Tracer:
         self.environment = environment
         self.base_url = base_url
 
+    def _serialize_result(self, result: Any) -> Any:
+        """
+        Serialize result, handling Pydantic models automatically.
+
+        Args:
+            result: Function output (dict, primitive, or Pydantic model)
+
+        Returns:
+            Serialized result (always JSON-compatible)
+        """
+        # Check if result is a Pydantic model
+        if hasattr(result, "model_dump"):
+            return result.model_dump()
+        # Already serializable (dict, list, str, int, etc.)
+        return result
+
     def trace_execution(
         self,
         function_name: str,
@@ -70,8 +86,10 @@ class Tracer:
 
             # Handle regular functions
             duration_ms = (time.time() - start_time) * 1000
-            self._send_trace_async(function_name, inputs, result, duration_ms, "success")
-            return result
+            # Serialize Pydantic models before tracing
+            serialized_result = self._serialize_result(result)
+            self._send_trace_async(function_name, inputs, serialized_result, duration_ms, "success")
+            return result  # Return original (potentially Pydantic model)
 
         except Exception as e:
             # Handle errors

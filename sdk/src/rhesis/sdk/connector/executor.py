@@ -13,6 +13,22 @@ logger = logging.getLogger(__name__)
 class TestExecutor:
     """Handles execution of remote test requests."""
 
+    def _serialize_result(self, result: Any) -> Any:
+        """
+        Serialize result, handling Pydantic models automatically.
+
+        Args:
+            result: Function output (dict, primitive, or Pydantic model)
+
+        Returns:
+            Serialized result (always JSON-compatible)
+        """
+        # Check if result is a Pydantic model
+        if hasattr(result, "model_dump"):
+            return result.model_dump()
+        # Already serializable (dict, list, str, int, etc.)
+        return result
+
     async def execute(
         self,
         func: Callable,
@@ -45,6 +61,9 @@ class TestExecutor:
 
             # Handle generators (consume and collect output)
             result = await self._consume_generator(result)
+
+            # Serialize Pydantic models to dicts
+            result = self._serialize_result(result)
 
             duration_ms = (time.time() - start_time) * 1000
 
