@@ -30,6 +30,7 @@
     "@icons-pack/react-simple-icons": "^11.2.0",
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^7",
+    "@mui/lab": "^7.0.0",
     "@mui/material": "^7",
     "@mui/material-nextjs": "^7",
     "@mui/x-data-grid": "^7.27.3",
@@ -69,6 +70,7 @@
   "devDependencies": {
     "@axe-core/react": "^4.7.0",
     "@next/bundle-analyzer": "^15.3.2",
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.5.2",

@@ -99,7 +99,7 @@ function EditableField({
     type === 'number' ? value : !value || value === '' ? ' ' : String(value);
 
   return (
-    <Grid item xs={12}>
+    <Grid size={12}>
       <Box sx={{ mb: 1 }}>
         <Typography variant="subtitle2" color="text.secondary" gutterBottom>
           {label}
@@ -412,7 +412,6 @@ export default function MultiTurnConfigFields({
         helperText="What the target should do - the success criteria for this test"
         maxLength={5000}
       />
-
       {showInstructions && (
         <EditableField
           label="Instructions (Optional)"
@@ -425,7 +424,6 @@ export default function MultiTurnConfigFields({
           maxLength={10000}
         />
       )}
-
       {showRestrictions && (
         <EditableField
           label="Restrictions (Optional)"
@@ -438,7 +436,6 @@ export default function MultiTurnConfigFields({
           maxLength={10000}
         />
       )}
-
       {showScenario && (
         <EditableField
           label="Scenario (Optional)"
@@ -451,7 +448,6 @@ export default function MultiTurnConfigFields({
           maxLength={5000}
         />
       )}
-
       {showMaxTurns && (
         <EditableField
           label="Max. Turns"
@@ -464,9 +460,8 @@ export default function MultiTurnConfigFields({
           onRemove={() => removeField('max_turns', setShowMaxTurns)}
         />
       )}
-
       {hiddenFields.length > 0 && (
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {hiddenFields.map(field => (
               <Button

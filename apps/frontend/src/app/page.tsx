@@ -209,17 +209,17 @@ export default function LandingPage() {
       <Grid container component="main" sx={{ height: '100vh' }}>
         {/* Left side - Background and content */}
         <Grid
-          item
-          xs={false}
-          sm={4}
-          md={7}
           sx={{
             backgroundColor: 'primary.dark',
             position: 'relative',
             display: 'flex',
             flexDirection: 'column',
           }}
-        >
+          size={{
+            xs: false,
+            sm: 4,
+            md: 7
+          }}>
           <AppBar
             position="relative"
             color="transparent"
@@ -340,9 +340,16 @@ export default function LandingPage() {
             </Box>
           </Box>
         </Grid>
-
         {/* Right side - Authentication message */}
-        <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
+        <Grid
+          component={Paper}
+          elevation={6}
+          square
+          size={{
+            xs: 12,
+            sm: 8,
+            md: 5
+          }}>
           <Box
             sx={{
               display: 'flex',
@@ -425,17 +432,17 @@ export default function LandingPage() {
     <Grid container component="main" sx={{ height: '100vh' }}>
       {/* Left side - Background and content */}
       <Grid
-        item
-        xs={false}
-        sm={4}
-        md={7}
         sx={{
           backgroundColor: 'primary.dark',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
         }}
-      >
+        size={{
+          xs: false,
+          sm: 4,
+          md: 7
+        }}>
         <AppBar
           position="relative"
           color="transparent"
@@ -554,9 +561,16 @@ export default function LandingPage() {
           </Box>
         </Box>
       </Grid>
-
       {/* Right side - Login form */}
-      <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
+      <Grid
+        component={Paper}
+        elevation={6}
+        square
+        size={{
+          xs: 12,
+          sm: 8,
+          md: 5
+        }}>
         <Box
           sx={{
             display: 'flex',

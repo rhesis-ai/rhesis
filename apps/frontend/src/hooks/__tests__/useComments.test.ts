@@ -37,9 +37,9 @@ describe('useComments', () => {
     jest.clearAllMocks();
     mockApiClientFactory.mockImplementation(
       () =>
-        ({
-          getCommentsClient: () => mockCommentsClient,
-        }) as any
+        (({
+          getCommentsClient: () => mockCommentsClient
+        }) as any)
     );
   });
 

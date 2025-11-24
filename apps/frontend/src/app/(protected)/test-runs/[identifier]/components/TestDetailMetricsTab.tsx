@@ -267,10 +267,13 @@ export default function TestDetailMetricsTab({
           </ToggleButtonGroup>
         )}
       </Box>
-
       {/* Summary Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={behaviorStats.hasMultipleBehaviors ? 4 : 6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: behaviorStats.hasMultipleBehaviors ? 4 : 6
+          }}>
           <Card>
             <CardContent>
               <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -288,7 +291,11 @@ export default function TestDetailMetricsTab({
 
         {behaviorStats.hasMultipleBehaviors ? (
           <>
-            <Grid item xs={12} md={4}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 4
+              }}>
               <Card>
                 <CardContent>
                   <Typography
@@ -310,7 +317,11 @@ export default function TestDetailMetricsTab({
               </Card>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 4
+              }}>
               <Card>
                 <CardContent>
                   <Typography
@@ -333,7 +344,11 @@ export default function TestDetailMetricsTab({
             </Grid>
           </>
         ) : (
-          <Grid item xs={12} md={6}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 6
+            }}>
             <Card>
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -352,7 +367,6 @@ export default function TestDetailMetricsTab({
           </Grid>
         )}
       </Grid>
-
       {/* Goal Achievement Details */}
       {goalAchievementData && (
         <Card sx={{ mb: 3 }} variant="outlined">
@@ -379,7 +393,11 @@ export default function TestDetailMetricsTab({
 
             <Grid container spacing={2}>
               {/* Criteria Progress */}
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography
                   variant="caption"
                   color="text.secondary"
@@ -435,7 +453,11 @@ export default function TestDetailMetricsTab({
               </Grid>
 
               {/* Confidence */}
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography
                   variant="caption"
                   color="text.secondary"
@@ -491,7 +513,7 @@ export default function TestDetailMetricsTab({
               {/* Criteria Breakdown */}
               {goalAchievementData.criteriaEvaluations &&
                 goalAchievementData.criteriaEvaluations.length > 0 && (
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Divider sx={{ my: 2 }} />
                     <Box
                       sx={{
@@ -575,7 +597,7 @@ export default function TestDetailMetricsTab({
 
               {/* Collapsible Reason */}
               {goalAchievementData.reason && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Divider sx={{ my: 1 }} />
                   <Box
                     sx={{
@@ -620,7 +642,6 @@ export default function TestDetailMetricsTab({
           </CardContent>
         </Card>
       )}
-
       {/* Metrics Details Table - Only for Single-turn tests */}
       {!isMultiTurn && (
         <TableContainer>

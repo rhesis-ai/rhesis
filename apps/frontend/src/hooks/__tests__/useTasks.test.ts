@@ -38,9 +38,9 @@ describe('useTasks', () => {
     jest.clearAllMocks();
     mockApiClientFactory.mockImplementation(
       () =>
-        ({
-          getTasksClient: () => mockTasksClient,
-        }) as any
+        (({
+          getTasksClient: () => mockTasksClient
+        }) as any)
     );
   });
 
