@@ -20,7 +20,6 @@ from .test_run import TestRun, TestRuns
 from .test_set import TestSet, TestSets
 from .topic import Topic, Topics
 
-load_dotenv("/Users/arek/Desktop/rhesis/.env")
 __all__ = [
     "BaseEntity",
     "BaseCollection",

@@ -126,13 +126,3 @@ class TestSet(BaseEntity):
 class TestSets(BaseCollection):
     endpoint = ENDPOINT
     entity_class = TestSet
-
-
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv("/Users/arek/Desktop/rhesis/.env", override=True)
-    endpoint = Endpoint(id="be95b292-c3a9-42b9-a74d-142b28f0b9f0")
-
-    test_set = TestSets.pull("13af7c23-4e43-4257-b402-1ebae66de390")
-    test_set.execute(endpoint)

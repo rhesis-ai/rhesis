@@ -23,16 +23,3 @@ class TestResult(BaseEntity):
 class TestResults(BaseCollection):
     endpoint = ENDPOINT
     entity_class = TestResult
-
-
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv(override=True)
-    import os
-
-    print(os.getenv("RHESIS_API_KEY"))
-    print(os.getenv("RHESIS_API_URL"))
-
-    test_result = TestResult(id="fe64fe45-0a80-49c4-8f0d-286bde4abbff").pull()
-    print(test_result)
