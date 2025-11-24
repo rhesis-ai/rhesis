@@ -253,7 +253,6 @@ export default function ProjectDetailsStep({
       <Typography variant="h6" gutterBottom align="center">
         Enter Project Details
       </Typography>
-
       <Typography
         variant="body1"
         color="text.secondary"
@@ -262,10 +261,9 @@ export default function ProjectDetailsStep({
       >
         Please provide basic information about this project
       </Typography>
-
       <Grid container spacing={SPACING.betweenFields} sx={{ width: '100%' }}>
         {/* Owner Dropdown */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <FormControl fullWidth error={errors.owner_id && attemptedSubmit}>
             <InputLabel>Owner</InputLabel>
             <Select
@@ -323,14 +321,14 @@ export default function ProjectDetailsStep({
         </Grid>
 
         {/* Icon Selector */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <IconSelector
             selectedIcon={formData.icon}
             onChange={handleIconChange}
           />
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={12}>
           <TextField
             fullWidth
             label="Project Name"
@@ -347,7 +345,7 @@ export default function ProjectDetailsStep({
           />
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={12}>
           <TextField
             fullWidth
             label="Description"
@@ -366,7 +364,6 @@ export default function ProjectDetailsStep({
           />
         </Grid>
       </Grid>
-
       <Box
         sx={{
           display: 'flex',

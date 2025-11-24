@@ -76,9 +76,8 @@ export default function DomainSettingsForm({
           {error}
         </Alert>
       )}
-
       <Grid container spacing={3}>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Domain verification status:
@@ -101,7 +100,7 @@ export default function DomainSettingsForm({
           </Box>
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={12}>
           <TextField
             fullWidth
             label="Domain"
@@ -113,7 +112,7 @@ export default function DomainSettingsForm({
         </Grid>
 
         {!organization.is_domain_verified && formData.domain && (
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Alert severity="info">
               After saving your domain, you&apos;ll need to verify ownership to
               enable automatic user association. Contact support for
@@ -122,7 +121,7 @@ export default function DomainSettingsForm({
           </Grid>
         )}
 
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Button
             type="submit"
             variant="contained"

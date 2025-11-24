@@ -570,7 +570,6 @@ export default function TaskDetailPage({ params }: PageProps) {
           </Button>
         )}
       </Box>
-
       <Box sx={{ flexGrow: 1, pt: 3 }}>
         {/* Show warning if there's an error but we have cached data */}
         {error && editedTask && (
@@ -611,13 +610,13 @@ export default function TaskDetailPage({ params }: PageProps) {
         )}
 
         <Grid container spacing={3}>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Paper sx={{ p: 4 }}>
               {/* Task Details Section */}
 
               {/* Status and Priority Row */}
               <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <FormControl fullWidth disabled={isSaving}>
                     <InputLabel>Status</InputLabel>
                     <Select
@@ -633,7 +632,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <FormControl fullWidth disabled={isSaving}>
                     <InputLabel>Priority</InputLabel>
                     <Select
@@ -653,7 +652,7 @@ export default function TaskDetailPage({ params }: PageProps) {
 
               {/* Creator and Assignee Row */}
               <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <FormControl fullWidth disabled>
                     <InputLabel>Creator</InputLabel>
                     <Select
@@ -717,7 +716,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <FormControl fullWidth disabled={isSaving}>
                     <InputLabel shrink>Assignee</InputLabel>
                     <Select
