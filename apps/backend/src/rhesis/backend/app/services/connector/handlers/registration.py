@@ -5,9 +5,6 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.services.connector.mapping.endpoint_validator import (
-    endpoint_validation_service,
-)
 from rhesis.backend.app.services.connector.schemas import RegisterMessage
 
 logger = logging.getLogger(__name__)
@@ -72,6 +69,11 @@ class RegistrationHandler:
 
                 # Start endpoint validation after registration completes
                 logger.info("Starting endpoint validation for registered endpoints...")
+                
+                # Use lazy import to avoid circular import
+                from rhesis.backend.app.services.connector.mapping import get_endpoint_validation_service
+                endpoint_validation_service = get_endpoint_validation_service()
+                
                 await endpoint_validation_service.start_validation(
                     db=db,
                     project_id=project_id,

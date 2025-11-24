@@ -6,7 +6,6 @@ from typing import Any, Dict
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.app.services.connector.mapping import MappingValidator
 from rhesis.backend.app.utils.status import get_or_create_status
 from rhesis.backend.logging import logger
 
@@ -108,6 +107,9 @@ async def validate_and_update_status_async(
 
     This version doesn't block and uses the simplified validation approach.
     """
+    # Import here to avoid circular import
+    from rhesis.backend.app.services.connector.mapping import MappingValidator
+    
     validator = MappingValidator()
 
     logger.info(f"[{function_name}] Starting async validation...")
