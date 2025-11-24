@@ -1,6 +1,5 @@
 # Import DeepEvalBaseLLM for proper custom model implementation
 
-import inspect
 import json
 import logging
 from typing import Any, Optional, Union
@@ -53,15 +52,8 @@ class DeepEvalModelWrapper(DeepEvalBaseLLM):
         Returns:
             Generated response (str or schema instance if schema provided)
         """
-        # Check if model supports schema parameter
-        supports_schema = "schema" in inspect.signature(self._model.generate).parameters
-
-        # Generate response
-        result = (
-            self._model.generate(prompt, schema=schema, **kwargs)
-            if supports_schema
-            else self._model.generate(prompt, **kwargs)
-        )
+        # Generate response (all our models support schema parameter)
+        result = self._model.generate(prompt, schema=schema, **kwargs)
 
         # Convert to schema if provided
         return self._convert_to_schema(result, schema) if schema else result
