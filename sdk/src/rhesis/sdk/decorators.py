@@ -2,13 +2,16 @@
 
 from collections.abc import Callable
 from functools import wraps
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from rhesis.sdk.client import Client
 
 # Module-level default client (managed transparently)
-_default_client: Optional["Client"] = None  # noqa: F821
+_default_client: Optional["Client"] = None
 
 
-def _register_default_client(client: "Client") -> None:  # noqa: F821
+def _register_default_client(client: "Client") -> None:  # pyright: ignore[reportUnusedFunction]
     """
     Internal: Automatically register client (called from Client.__init__).
 
