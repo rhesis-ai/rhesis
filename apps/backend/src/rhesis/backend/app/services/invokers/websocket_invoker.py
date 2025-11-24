@@ -2,7 +2,7 @@ import asyncio
 import json
 import time
 import unicodedata
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from sqlalchemy.orm import Session
 from websockets.asyncio.client import connect
@@ -12,6 +12,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.logging import logger
 
 from .base import BaseEndpointInvoker
+from .common.schemas import ErrorResponse
 
 
 class WebSocketEndpointInvoker(BaseEndpointInvoker):
@@ -88,7 +89,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
     async def invoke(
         self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    ) -> Union[Dict[str, Any], ErrorResponse]:
         """Invoke the WebSocket endpoint with proper authentication."""
         start_time = time.time()
 

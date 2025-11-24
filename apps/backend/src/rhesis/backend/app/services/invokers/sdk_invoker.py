@@ -2,7 +2,7 @@
 
 import asyncio
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.logging import logger
 
 from .base import BaseEndpointInvoker
+from .common.schemas import ErrorResponse
 
 
 class SdkEndpointInvoker(BaseEndpointInvoker):
@@ -22,7 +23,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
     async def invoke(
         self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    ) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Invoke SDK function through WebSocket connection.
 
@@ -32,7 +33,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             input_data: Standardized input data (input, session_id, context, metadata, tool_calls)
 
         Returns:
-            Standardized response dict with output and metadata
+            Standardized response dict with output and metadata, or ErrorResponse for errors
         """
         try:
             # Validate endpoint has required metadata

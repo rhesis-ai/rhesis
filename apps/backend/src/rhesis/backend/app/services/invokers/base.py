@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 # Import modular components
 from .auth import AuthenticationManager
 from .common import ErrorResponseBuilder, HeaderManager
+from .common.schemas import ErrorResponse
 from .conversation import ConversationTracker
 from .templating import ResponseMapper, TemplateRenderer
 
@@ -26,7 +27,7 @@ class BaseEndpointInvoker(ABC):
     @abstractmethod
     async def invoke(
         self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    ) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Invoke the endpoint with the given input data.
 
@@ -36,7 +37,7 @@ class BaseEndpointInvoker(ABC):
             input_data: Input data to be mapped to the endpoint's request template
 
         Returns:
-            Dict containing the mapped response from the endpoint
+            Dict containing the mapped response from the endpoint, or ErrorResponse for errors
         """
         pass
 
@@ -96,7 +97,7 @@ class BaseEndpointInvoker(ABC):
         message: str,
         request_details: Dict = None,
         **kwargs,
-    ):
+    ) -> ErrorResponse:
         """Create standardized error response."""
         return self.error_builder.create_error_response(
             error_type, output_message, message, request_details, **kwargs
