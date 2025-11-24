@@ -7,6 +7,12 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import WebSocket
 from sqlalchemy.orm import Session
+from tenacity import (
+    AsyncRetrying,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from rhesis.backend.app.services.connector.handler import message_handler
 from rhesis.backend.app.services.connector.redis_client import redis_manager
@@ -390,6 +396,7 @@ class ConnectionManager:
         Background task to handle RPC requests from workers.
 
         Subscribes to ws:rpc:requests channel and forwards requests to WebSocket connections.
+        Uses tenacity for exponential backoff and retry limits to prevent infinite crash loops.
         """
         if not redis_manager.is_available:
             logger.warning("⚠️ Redis not available, RPC listener not started")
@@ -400,23 +407,41 @@ class ConnectionManager:
             "for worker SDK invocations"
         )
 
-        try:
-            pubsub = redis_manager.client.pubsub()
-            await pubsub.subscribe("ws:rpc:requests")
+        # Use tenacity for retry logic with exponential backoff
+        async for attempt in AsyncRetrying(
+            stop=stop_after_attempt(10),
+            wait=wait_exponential(multiplier=5, min=5, max=300),
+            retry=retry_if_exception_type(Exception),
+            reraise=False,
+        ):
+            with attempt:
+                try:
+                    pubsub = redis_manager.client.pubsub()
+                    await pubsub.subscribe("ws:rpc:requests")
 
-            async for message in pubsub.listen():
-                if message["type"] == "message":
-                    try:
-                        request = json.loads(message["data"])
-                        await self._handle_rpc_request(request)
-                    except Exception as e:
-                        logger.error(f"Error handling RPC request: {e}", exc_info=True)
+                    async for message in pubsub.listen():
+                        if message["type"] == "message":
+                            try:
+                                request = json.loads(message["data"])
+                                await self._handle_rpc_request(request)
+                            except Exception as e:
+                                logger.error(f"Error handling RPC request: {e}", exc_info=True)
 
-        except Exception as e:
-            logger.error(f"RPC listener crashed: {e}", exc_info=True)
-            # Attempt to restart listener after delay
-            await asyncio.sleep(5)
-            asyncio.create_task(self._listen_for_rpc_requests())
+                except Exception as e:
+                    attempt_num = attempt.retry_state.attempt_number
+                    logger.error(
+                        f"RPC listener crashed (attempt {attempt_num}/10): {e}",
+                        exc_info=True,
+                    )
+                    if attempt_num < 10:
+                        logger.warning("RPC listener will retry with exponential backoff...")
+                    raise
+
+        # If we exit the retry loop, we've exhausted all attempts
+        logger.error(
+            "RPC listener failed 10 times. Giving up on automatic restarts. "
+            "Manual intervention required."
+        )
 
     async def _handle_rpc_request(self, request: Dict[str, Any]) -> None:
         """
