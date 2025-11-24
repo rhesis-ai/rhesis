@@ -58,7 +58,7 @@ class ErrorResponse(BaseModel):
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
-        return self.dict(exclude_none=True)
+        return self.model_dump(exclude_none=True)
 
 
 class SuccessResponse(BaseModel):

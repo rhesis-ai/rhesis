@@ -35,8 +35,11 @@ def extract_response_with_fallback(result: Union[Dict, Any]) -> str:
         if hasattr(result, "to_dict"):
             # Use to_dict() method if available (ErrorResponse)
             result = result.to_dict()
+        elif hasattr(result, "model_dump"):
+            # Use model_dump() for Pydantic v2 models
+            result = result.model_dump(exclude_none=True)
         elif hasattr(result, "dict"):
-            # Use dict() method for other Pydantic models
+            # Fallback to dict() for Pydantic v1 models
             result = result.dict(exclude_none=True)
         else:
             logger.warning(f"Non-dict input provided: {type(result)}, attempting to convert")

@@ -110,6 +110,15 @@ class TemplateRenderer:
             var_name = match.group(1)
             if var_name in render_context:
                 value = render_context[var_name]
+
+                # Check if value is a Pydantic model - convert to dict for serialization
+                if hasattr(value, "model_dump"):
+                    logger.debug(
+                        f"Converting Pydantic model {type(value).__name__} to dict "
+                        f"for template {{ {var_name} }}"
+                    )
+                    return value.model_dump(exclude_none=True)
+
                 # If the value is a complex type, return it directly
                 if isinstance(value, (dict, list)):
                     logger.debug(f"Preserving {type(value).__name__} for template {{ {var_name} }}")

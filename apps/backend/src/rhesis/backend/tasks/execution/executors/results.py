@@ -88,11 +88,14 @@ def process_endpoint_result(result: Any) -> Dict:
         return {}
 
     # Handle ErrorResponse Pydantic objects by converting to dict
-    if hasattr(result, 'to_dict'):
+    if hasattr(result, "to_dict"):
         # Use to_dict() method if available (ErrorResponse)
         result_dict = result.to_dict()
-    elif hasattr(result, 'dict'):
-        # Use dict() method for other Pydantic models
+    elif hasattr(result, "model_dump"):
+        # Use model_dump() for Pydantic v2 models
+        result_dict = result.model_dump(exclude_none=True)
+    elif hasattr(result, "dict"):
+        # Fallback to dict() for Pydantic v1 models
         result_dict = result.dict(exclude_none=True)
     elif isinstance(result, dict):
         # Already a dict
