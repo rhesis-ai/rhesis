@@ -8,7 +8,7 @@ within the backend worker context.
 """
 
 import asyncio
-from typing import Any, Optional
+from typing import Any, Coroutine, Optional, TypeVar
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -17,6 +17,33 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.penelope.targets.base import Target, TargetResponse
+
+T = TypeVar("T")
+
+
+def run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """
+    Run async coroutine in sync context, handling existing event loops.
+
+    If an event loop is running (e.g., Celery), uses a thread pool.
+    Otherwise, runs directly with asyncio.run().
+
+    Args:
+        coro: Coroutine to execute
+
+    Returns:
+        Result of the coroutine
+    """
+    try:
+        asyncio.get_running_loop()
+        # Event loop exists - use thread pool
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor() as pool:
+            return pool.submit(asyncio.run, coro).result()
+    except RuntimeError:
+        # No event loop - run directly
+        return asyncio.run(coro)
 
 
 class BackendEndpointTarget(Target):
@@ -179,8 +206,8 @@ class BackendEndpointTarget(Target):
             )
 
         try:
-            # TargetInteractionTool already extracts conversation_id and passes it as the second parameter
-            # kwargs should not contain conversation fields (they're filtered out by TargetInteractionTool)
+            # TargetInteractionTool extracts conversation_id and passes it as second parameter
+            # kwargs should not contain conversation fields (filtered by TargetInteractionTool)
             # So we can use conversation_id directly
             final_conversation_id = conversation_id
 
@@ -202,7 +229,7 @@ class BackendEndpointTarget(Target):
                 f"with message: '{message[:100]}...', conversation_id: {final_conversation_id}"
             )
 
-            response_data = asyncio.run(
+            response_data = run_async(
                 self.endpoint_service.invoke_endpoint(
                     db=self.db,
                     endpoint_id=self.endpoint_id,
@@ -217,6 +244,19 @@ class BackendEndpointTarget(Target):
                     success=False,
                     content="",
                     error="Endpoint invocation returned None",
+                )
+
+            # Handle ErrorResponse objects (Pydantic models) from invokers
+            from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+
+            if isinstance(response_data, ErrorResponse):
+                # Convert Pydantic ErrorResponse to dict
+                response_dict = response_data.to_dict()
+                return TargetResponse(
+                    success=False,
+                    content="",
+                    error=response_dict.get("output", "Endpoint invocation failed"),
+                    metadata={"error_details": response_dict},
                 )
 
             # Extract response content from Rhesis standard response structure
@@ -256,7 +296,7 @@ class BackendEndpointTarget(Target):
 
             logger.info(
                 f"BackendEndpointTarget received response from {self.endpoint_id}: "
-                f"'{str(response_text)[:100]}...', returning conversation_id: {response_conversation_id}"
+                f"'{str(response_text)[:100]}...', conversation_id: {response_conversation_id}"
             )
 
             return TargetResponse(
