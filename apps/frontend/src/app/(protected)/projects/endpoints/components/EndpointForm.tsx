@@ -61,6 +61,7 @@ import {
 } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 // Map of icon names to components for easy lookup
 const ICON_MAP: Record<string, React.ComponentType> = {
@@ -177,6 +178,7 @@ export default function EndpointForm() {
   const [showAuthToken, setShowAuthToken] = useState(false);
   const { data: session } = useSession();
   const notifications = useNotifications();
+  const { markStepComplete } = useOnboarding();
 
   // Determine editor theme based on MUI theme
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
@@ -336,6 +338,9 @@ export default function EndpointForm() {
       // Ensure we're sending a single object, not an array
       const endpointData = transformedData as unknown as Omit<Endpoint, 'id'>;
       await createEndpoint(endpointData);
+
+      // Mark onboarding step as complete
+      markStepComplete('endpointSetup');
 
       // Show success notification
       notifications.show('Endpoint created successfully!', {
