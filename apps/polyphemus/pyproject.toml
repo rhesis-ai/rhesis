@@ -3,10 +3,14 @@ name = "polyphemus"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-    # Benchmarking dependencies
-    "torch",
-    "transformers",
-    "tqdm",
+    # Core ML dependencies
+    "tqdm>=4.65.0",
+    # FastAPI and server dependencies
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.23.0",
+    "gunicorn>=21.0.0",
+    # SDK dependency (required for HuggingFaceLLM)
+    "rhesis-sdk[huggingface]",
 ]
 
 [project.optional-dependencies]
@@ -21,3 +25,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rhesis"]
+
+[tool.uv.sources.rhesis-sdk]
+path = "../../sdk"

@@ -1,28 +1,17 @@
-"""
-Multi-turn test executor using Penelope.
+"""Multi-turn test executor using Penelope."""
 
-Handles agentic multi-turn test execution where Penelope orchestrates
-conversations to achieve test goals.
-
-This executor is intentionally simple and loosely coupled:
-- It extracts only the metrics from Penelope's result
-- It stores the complete Penelope trace as-is without processing
-- This preserves all information and avoids tight coupling to Penelope's structure
-"""
-
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
-from rhesis.backend.tasks.execution.executors.shared import (
+from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
+from rhesis.backend.tasks.execution.executors.results import (
     check_existing_result,
     create_test_result_record,
-    get_test_and_prompt,
 )
-from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
+from rhesis.backend.tasks.execution.executors.runners import MultiTurnRunner
 
 
 class MultiTurnTestExecutor(BaseTestExecutor):
@@ -80,7 +69,6 @@ class MultiTurnTestExecutor(BaseTestExecutor):
             Exception: If Penelope execution fails
         """
         logger.info(f"[MultiTurnExecutor] Starting multi-turn test execution for test {test_id}")
-        start_time = datetime.utcnow()
 
         try:
             # Check for existing result to avoid duplicates
@@ -94,69 +82,16 @@ class MultiTurnTestExecutor(BaseTestExecutor):
             # Retrieve test data - validation ensures goal exists in test_configuration
             test, _, _ = get_test_and_prompt(db, test_id, organization_id)
 
-            # Extract multi-turn configuration from test
-            # Validation in get_test_and_prompt ensures goal exists for multi-turn tests
-            test_config = test.test_configuration or {}
-
-            # Get test parameters from configuration
-            goal = test_config["goal"]  # Required field, validated in get_test_and_prompt
-            instructions = test_config.get("instructions")
-            scenario = test_config.get("scenario")
-            restrictions = test_config.get("restrictions")
-            context = test_config.get("context")
-            max_turns = test_config.get("max_turns", 10)
-
-            logger.debug(
-                f"[MultiTurnExecutor] Configuration - goal: {goal[:50]}..., "
-                f"max_turns: {max_turns}, has_instructions: {instructions is not None}"
-            )
-
-            # Initialize Penelope agent
-            from rhesis.penelope import PenelopeAgent
-
-            # Use provided model or let Penelope use its default
-            agent = PenelopeAgent(model=model) if model else PenelopeAgent()
-            logger.debug("[MultiTurnExecutor] Initialized Penelope agent")
-
-            # Create backend-specific target
-            target = BackendEndpointTarget(
+            # Run core execution (shared with in-place service)
+            runner = MultiTurnRunner()
+            execution_time, penelope_trace, metrics_results = runner.run(
                 db=db,
+                test=test,
                 endpoint_id=endpoint_id,
                 organization_id=organization_id,
                 user_id=user_id,
+                model=model,
             )
-            logger.debug(
-                f"[MultiTurnExecutor] Created BackendEndpointTarget for endpoint {endpoint_id}"
-            )
-
-            # Execute test with Penelope
-            logger.info("[MultiTurnExecutor] Executing Penelope test...")
-            penelope_result = agent.execute_test(
-                target=target,
-                goal=goal,
-                instructions=instructions,
-                scenario=scenario,
-                restrictions=restrictions,
-                context=context,
-                max_turns=max_turns,
-            )
-
-            # Calculate execution time
-            execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-            logger.debug(
-                f"[MultiTurnExecutor] Penelope execution completed in {execution_time:.2f}ms "
-                f"({penelope_result.turns_used} turns)"
-            )
-
-            # Convert Penelope result to dict using Pydantic v2's model_dump
-            # mode="json" ensures all data (including datetime) is JSON-serializable
-            penelope_trace = penelope_result.model_dump(mode="json")
-
-            # Extract metrics (pop them from the trace)
-            metrics_results = penelope_trace.pop("metrics", {})
-
-            # Store the complete Penelope trace as-is (no processing, no loss of information)
-            processed_result = penelope_trace
 
             # Store result
             create_test_result_record(
@@ -169,7 +104,7 @@ class MultiTurnTestExecutor(BaseTestExecutor):
                 user_id=user_id,
                 execution_time=execution_time,
                 metrics_results=metrics_results,
-                processed_result=processed_result,
+                processed_result=penelope_trace,
             )
 
             # Return execution summary

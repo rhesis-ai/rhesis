@@ -25,9 +25,13 @@ const truncateName = (name: string): string => {
 
 interface TestChartsProps {
   sessionToken: string;
+  onLoadComplete?: () => void;
 }
 
-export default function TestCharts({ sessionToken }: TestChartsProps) {
+export default function TestCharts({
+  sessionToken,
+  onLoadComplete,
+}: TestChartsProps) {
   // Better state tracking with a ref
   const isMountedRef = useRef(true);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -78,12 +82,16 @@ export default function TestCharts({ sessionToken }: TestChartsProps) {
       } finally {
         if (isMountedRef.current) {
           setIsLoading(false);
+          // Notify parent that loading is complete
+          if (onLoadComplete) {
+            onLoadComplete();
+          }
         }
       }
     };
 
     fetchTestStats();
-  }, [sessionToken, isInitialized]);
+  }, [sessionToken, isInitialized, onLoadComplete]);
 
   // Chart data generation functions
   const generateBehaviorData = () => {

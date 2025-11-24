@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Grid, Button, Alert, Paper } from '@mui/material';
 import { Project } from '@/utils/api-client/interfaces/project';
 import ProjectCard from './ProjectCard';
@@ -10,6 +10,8 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import Link from 'next/link';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useOnboardingTour } from '@/hooks/useOnboardingTour';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 import styles from '@/styles/ProjectsClientWrapper.module.css';
 
 /** Type for alert/snackbar severity */
@@ -66,6 +68,21 @@ export default function ProjectsClientWrapper({
 }: ProjectsClientWrapperProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects || []);
   const notifications = useNotifications();
+  const { markStepComplete, progress, isComplete } = useOnboarding();
+
+  // Check if create project button should be disabled
+  const isProjectButtonDisabled =
+    !progress.projectCreated && !progress.dismissed && !isComplete;
+
+  // Enable tour for this page
+  useOnboardingTour('project');
+
+  // Mark step as complete when user has projects
+  useEffect(() => {
+    if (projects.length > 0 && !progress.projectCreated) {
+      markStepComplete('projectCreated');
+    }
+  }, [projects.length, progress.projectCreated, markStepComplete]);
 
   // Show error state if no session token
   if (!sessionToken) {
@@ -100,11 +117,13 @@ export default function ProjectsClientWrapper({
         }}
       >
         <Button
-          component={Link}
-          href="/projects/create-new"
+          component={isProjectButtonDisabled ? 'button' : Link}
+          href={isProjectButtonDisabled ? undefined : '/projects/create-new'}
           variant="contained"
           color="primary"
           startIcon={<AddIcon />}
+          data-tour="create-project-button"
+          disabled={isProjectButtonDisabled}
         >
           Create Project
         </Button>

@@ -84,8 +84,9 @@ class TestData(BaseModel):
         - prompt is provided (single-turn test), OR
         - test_configuration with goal is provided (multi-turn test)
         """
-        from rhesis.backend.app.schemas.multi_turn_test_config import validate_multi_turn_config
         from pydantic import ValidationError
+
+        from rhesis.backend.app.schemas.multi_turn_test_config import validate_multi_turn_config
 
         prompt = info.data.get("prompt")
 
