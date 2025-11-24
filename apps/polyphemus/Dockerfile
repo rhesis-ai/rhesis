@@ -12,6 +12,7 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for modern dependency management
@@ -20,23 +21,25 @@ RUN pip install --no-cache-dir uv
 # Set working directory
 WORKDIR /app
 
-# Copy pyproject.toml first for better caching
-# Build context is repo root, so pyproject.toml is at apps/polyphemus/
-COPY apps/polyphemus/pyproject.toml apps/polyphemus/uv.lock* ./
-
-# Copy SDK directory (required dependency for rhesis.sdk imports)
+# Copy SDK directory first (required dependency for rhesis.sdk imports)
 # Build context is repo root, SDK is at sdk/
 COPY sdk /app/sdk/
 
-# Copy ONLY the minimal Python package structure needed for dependency resolution
-# This prevents source code changes from invalidating the dependency cache
-RUN mkdir -p /app/src/rhesis/polyphemus
-# Create __init__.py files if they don't exist (package structure)
-RUN touch /app/src/rhesis/__init__.py || true
-COPY apps/polyphemus/src/rhesis/polyphemus/__init__.py /app/src/rhesis/polyphemus/__init__.py
+# Copy polyphemus source code and pyproject.toml
+# Build context is repo root, so paths are relative to that
+COPY apps/polyphemus /app/apps/polyphemus/
 
-# Fix paths in pyproject.toml to point to the correct locations in Docker
-RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml || true
+# Set up the source structure to match the package layout
+# Create a proper namespace package (no __init__.py in rhesis to allow namespace sharing)
+RUN mkdir -p /app/src/rhesis && \
+    cp -r /app/apps/polyphemus/src/rhesis/polyphemus /app/src/rhesis/ && \
+    cp -r /app/sdk/src/rhesis/sdk /app/src/rhesis/
+
+# Create virtual environment first (matching rh script: uv venv)
+RUN uv venv
+
+# Add the virtual environment to the PATH
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Compile bytecode to improve performance
 ENV UV_COMPILE_BYTECODE=1
@@ -45,12 +48,11 @@ ENV UV_NO_MANAGED_PYTHON=1
 # Skip the installation of the dev dependencies
 ENV UV_NO_DEV=1
 
-# Install dependencies using uv
-# The SDK (rhesis-sdk[huggingface]) will install torch with appropriate CUDA support
-RUN uv sync
+# Install SDK first in editable mode with huggingface extras (matching rh script: uv pip install -e sdk)
+RUN uv pip install -e /app/sdk[huggingface]
 
-# Copy the application code (from build context repo root)
-COPY apps/polyphemus/src/rhesis/polyphemus /app/src/rhesis/polyphemus/
+# Install polyphemus in editable mode (matching rh script: uv pip install -e apps/polyphemus)
+RUN cd /app && uv pip install -e apps/polyphemus
 
 # For caching models (optional - can be overridden at runtime)
 ENV TRANSFORMERS_CACHE="/app/model_cache"

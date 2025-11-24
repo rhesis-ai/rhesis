@@ -157,11 +157,11 @@ jobs:
           # Build context is repo root to access SDK and pyproject.toml (like backend)
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, tag with commit SHA
-            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/polyphemus/src/rhesis/polyphemus/Dockerfile .
+            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/polyphemus/Dockerfile .
             echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
           else
             # For regular deployments, use latest tag
-            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:latest -f apps/polyphemus/src/rhesis/polyphemus/Dockerfile .
+            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:latest -f apps/polyphemus/Dockerfile .
             echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
           fi
 
