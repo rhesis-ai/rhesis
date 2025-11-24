@@ -26,11 +26,9 @@ export default function GenerateTestsPage() {
 
       if (storedTestType) {
         setTestType(storedTestType);
-        // If there's a template, start the flow immediately
-        if (hasTemplate) {
-          setShowModal(false);
-          setFlowStarted(true);
-        }
+        // If testType exists, start the flow immediately (user came from /tests page)
+        setShowModal(false);
+        setFlowStarted(true);
       }
     }
   }, []);

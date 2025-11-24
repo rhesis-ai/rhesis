@@ -109,7 +109,7 @@ export default function SelectionModal({
 
       <DialogContent
         sx={{
-          pt: 3,
+          pt: 4,
           px: 3,
           pb: 3,
           overflow: fillHeight ? 'hidden' : 'auto',
@@ -125,7 +125,6 @@ export default function SelectionModal({
           spacing={3}
           sx={{
             mb: additionalContent ? 6 : 0,
-            mt: 0,
             ...(fillHeight && {
               flex: 1,
               alignContent: 'center',
