@@ -253,17 +253,17 @@ class MCPClientManager:
             await client.disconnect()
 
     @classmethod
-    def from_tool_config(cls, tool_name: str, tool_config: Dict, auth_token: str):
+    def from_tool_config(cls, tool_name: str, tool_config: Dict, credentials: Dict[str, str]):
         """
         Create MCPClientManager from database tool configuration.
 
-        The user provides the complete tool_metadata JSON with {{auth_token}} placeholders.
-        This method substitutes the placeholders with the actual encrypted token.
+        The user provides the complete tool_metadata JSON with credential placeholders.
+        This method substitutes the placeholders with the actual credential values.
 
         Args:
             tool_name: Name for the MCP server (e.g., "notionApi")
-            tool_config: Tool metadata dict with {{auth_token}} placeholders
-            auth_token: The decrypted authentication token
+            tool_config: Tool metadata dict with credential placeholders like {{NOTION_TOKEN}}
+            credentials: Dictionary of credential key-value pairs
 
         Returns:
             MCPClientManager instance configured with the tool
@@ -273,15 +273,16 @@ class MCPClientManager:
                 "command": "npx",
                 "args": ["-y", "@notionhq/notion-mcp-server"],
                 "env": {
-                    "OPENAPI_MCP_HEADERS": '{"Authorization": "Bearer {{auth_token}}"}'
+                    "NOTION_TOKEN": "{{NOTION_TOKEN}}"
                 }
             }
-            manager = MCPClientManager.from_tool_config("notionApi", tool_config, "ntn_abc123...")
+            credentials = {"NOTION_TOKEN": "ntn_abc123..."}
+            manager = MCPClientManager.from_tool_config("notionApi", tool_config, credentials)
         """
         # Use Jinja to safely render the placeholders without breaking JSON
         env = jinja2.Environment(autoescape=False)
         template = env.from_string(json.dumps(tool_config))
-        rendered = template.render(auth_token=auth_token)
+        rendered = template.render(**credentials)
         processed_config = json.loads(rendered)
 
         # Wrap in mcpServers format expected by create_client
@@ -290,22 +291,23 @@ class MCPClientManager:
         return cls(config_dict=config_dict)
 
     @classmethod
-    def from_provider(cls, provider: str, auth_token: str):
+    def from_provider(cls, provider: str, credentials: Dict[str, str]):
         """
         Create MCPClientManager from a provider name.
 
         Automatically loads the right MCP config for that provider,
-        renders it with the auth token, and creates a manager.
+        renders it with the provided credentials, and creates a manager.
 
         Args:
             provider: Provider name (e.g., "notion", "github", "gdrive")
-            auth_token: Authentication token/credential
+            credentials: Dictionary of credential key-value pairs
 
         Returns:
             MCPClientManager instance ready to use
 
         Example:
-            manager = MCPClientManager.from_provider("notion", "ntn_abc123...")
+            credentials = {"NOTION_TOKEN": "ntn_abc123..."}
+            manager = MCPClientManager.from_provider("notion", credentials)
         """
         # -----------------------------
         # Load and render Jinja template
@@ -322,7 +324,7 @@ class MCPClientManager:
         template = env.from_string(template_file.read_text())
 
         # Render with proper JSON-escaping via the built-in `tojson` filter
-        rendered = template.render(auth_token=auth_token)
+        rendered = template.render(**credentials)
 
         # Parse rendered JSON into dict
         config = json.loads(rendered)
