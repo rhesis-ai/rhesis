@@ -34,6 +34,7 @@ class Endpoints(Enum):
     ENDPOINTS = "endpoints"
     TEST_RESULTS = "test_results"
     TEST_RUNS = "test_runs"
+    TEST_CONFIGURATIONS = "test_configurations"
 
 
 class Methods(Enum):

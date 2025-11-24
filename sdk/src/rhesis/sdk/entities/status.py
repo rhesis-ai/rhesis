@@ -10,6 +10,8 @@ ENDPOINT = Endpoints.STATUSES
 class Status(BaseEntity):
     # Yes, this is not pretty, but the plural of status is statuses, check on Merriam-Webster ;)
     endpoint: ClassVar[Endpoints] = ENDPOINT
+    name: str
+    description: Optional[str] = None
     id: Optional[str] = None
 
 
