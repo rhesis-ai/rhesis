@@ -1,3 +1,5 @@
+import { Status } from './status';
+
 export interface Endpoint {
   id: string;
   name: string;
@@ -39,6 +41,9 @@ export interface Endpoint {
     useCase?: string;
     name?: string;
   };
+
+  // Nested status object (when included in response)
+  status?: Status;
 
   // Note: auth_token, client_secret, last_token are write-only fields
   // They can be set during create/update but are never returned in responses

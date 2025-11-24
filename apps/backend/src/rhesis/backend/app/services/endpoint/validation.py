@@ -48,6 +48,10 @@ async def validate_and_update_status(
     logger.info(f"[{function_name}] Validating mappings...")
 
     try:
+        logger.info(f"[{function_name}] Starting validation with mappings...")
+        logger.debug(f"[{function_name}] Request mapping: {endpoint.request_mapping}")
+        logger.debug(f"[{function_name}] Response mapping: {endpoint.response_mapping}")
+
         validation_result = await validator.validate_mappings(
             project_id=project_id,
             environment=environment,
@@ -57,18 +61,29 @@ async def validate_and_update_status(
             timeout=timeout,
         )
 
+        logger.info(f"[{function_name}] Validation result: {validation_result}")
+
         if validation_result["success"]:
             # Set Active status
             active_status = get_or_create_status(db, "Active", "General", organization_id, user_id)
             if active_status:
                 endpoint.status_id = active_status.id
-            logger.info(f"[{function_name}] ✓ Validation passed")
+                logger.info(
+                    f"[{function_name}] ✓ Validation passed - Status set to Active (ID: {active_status.id})"
+                )
+            else:
+                logger.error(f"[{function_name}] Failed to get/create Active status")
             return {"success": True, "error": None, "status_set": "Active"}
         else:
             # Set Error status but keep endpoint
             error_status = get_or_create_status(db, "Error", "General", organization_id, user_id)
             if error_status:
                 endpoint.status_id = error_status.id
+                logger.error(
+                    f"[{function_name}] ✗ Validation failed - Status set to Error (ID: {error_status.id})"
+                )
+            else:
+                logger.error(f"[{function_name}] Failed to get/create Error status")
             error_msg = validation_result.get("error", "Unknown validation error")
             logger.error(f"[{function_name}] ✗ Validation failed: {error_msg}")
             return {"success": False, "error": error_msg, "status_set": "Error"}

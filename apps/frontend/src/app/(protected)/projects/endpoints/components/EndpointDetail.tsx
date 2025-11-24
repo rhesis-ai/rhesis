@@ -62,6 +62,7 @@ import {
 import { LoadingButton } from '@mui/lab';
 import { updateEndpoint, invokeEndpoint } from '@/actions/endpoints';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { getStatusColor } from '@/utils/status-colors';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
 
@@ -586,7 +587,7 @@ export default function EndpointDetail({
               </Grid>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item xs={12} md={6}>
               {isEditing ? (
                 <FormControl fullWidth>
                   <InputLabel>Environment</InputLabel>
@@ -604,7 +605,7 @@ export default function EndpointDetail({
                 </FormControl>
               ) : (
                 <>
-                  <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
                     Environment
                   </Typography>
                   <Chip
@@ -614,6 +615,27 @@ export default function EndpointDetail({
                     sx={{ textTransform: 'capitalize' }}
                   />
                 </>
+              )}
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Status
+              </Typography>
+              {endpoint.status ? (
+                <Chip
+                  label={endpoint.status.name}
+                  size="small"
+                  variant="outlined"
+                  color={getStatusColor(endpoint.status.name)}
+                />
+              ) : (
+                <Chip
+                  label="Unknown"
+                  size="small"
+                  variant="outlined"
+                  color="default"
+                />
               )}
             </Grid>
           </Grid>

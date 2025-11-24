@@ -282,7 +282,7 @@ def test_standard_naming(
     }
 
 
-@collaborate(name="test_partial_standard", description="Test with some standard naming")
+# @collaborate(name="test_partial_standard", description="Test with some standard naming")
 def test_partial_standard(input: str, session_id: str = None) -> dict:
     """Test auto-mapping with partial standard naming.
 
@@ -295,7 +295,7 @@ def test_partial_standard(input: str, session_id: str = None) -> dict:
     }
 
 
-@collaborate(name="test_input_only", description="Test with only input parameter")
+# @collaborate(name="test_input_only", description="Test with only input parameter")
 def test_input_only(input: str) -> dict:
     """Test auto-mapping with only input parameter.
 
@@ -311,7 +311,7 @@ def test_input_only(input: str) -> dict:
 # These test variations of standard patterns
 
 
-@collaborate(name="test_input_variations", description="Test input field variations")
+# @collaborate(name="test_input_variations", description="Test input field variations")
 def test_input_variations(message: str, conversation_id: str = None) -> dict:
     """Test auto-mapping with pattern variations.
 
@@ -326,7 +326,7 @@ def test_input_variations(message: str, conversation_id: str = None) -> dict:
     }
 
 
-@collaborate(name="test_compound_patterns", description="Test compound field names")
+# @collaborate(name="test_compound_patterns", description="Test compound field names")
 def test_compound_patterns(
     user_message: str, conv_id: str = None, context_docs: List[str] = None
 ) -> dict:
@@ -344,7 +344,7 @@ def test_compound_patterns(
     }
 
 
-@collaborate(name="test_suffix_patterns", description="Test _id suffix patterns")
+# @collaborate(name="test_suffix_patterns", description="Test _id suffix patterns")
 def test_suffix_patterns(query: str, session_id: str = None, thread_id: str = None) -> dict:
     """Test auto-mapping with _id suffixes.
 
@@ -362,10 +362,10 @@ def test_suffix_patterns(query: str, session_id: str = None, thread_id: str = No
 # These functions use non-standard naming that should trigger LLM fallback
 
 
-@collaborate(
-    name="test_custom_naming_no_hints",
-    description="Test with completely custom parameter names (no mapping hints)",
-)
+# @collaborate(
+#     name="test_custom_naming_no_hints",
+#     description="Test with completely custom parameter names (no mapping hints)",
+# )
 def test_custom_naming_no_hints(xyz: str, abc: str = None, qwerty: dict = None) -> dict:
     """Test LLM fallback with no recognizable patterns.
 
@@ -380,10 +380,10 @@ def test_custom_naming_no_hints(xyz: str, abc: str = None, qwerty: dict = None) 
     }
 
 
-@collaborate(
-    name="test_domain_specific_naming",
-    description="Test with domain-specific parameter names for insurance queries",
-)
+# @collaborate(
+#     name="test_domain_specific_naming",
+#     description="Test with domain-specific parameter names for insurance queries",
+# )
 def test_domain_specific_naming(
     insurance_question: str, policy_number: str = None, customer_data: dict = None
 ) -> dict:
@@ -401,10 +401,10 @@ def test_domain_specific_naming(
     }
 
 
-@collaborate(
-    name="test_abbreviated_names",
-    description="Test with abbreviated parameter names",
-)
+# @collaborate(
+#     name="test_abbreviated_names",
+#     description="Test with abbreviated parameter names",
+# )
 def test_abbreviated_names(q: str, sid: str = None, ctx: List[str] = None) -> dict:
     """Test LLM fallback with abbreviated names.
 
@@ -423,15 +423,15 @@ def test_abbreviated_names(q: str, sid: str = None, ctx: List[str] = None) -> di
 # These functions provide explicit mappings via the @collaborate decorator
 
 
-@collaborate(
-    name="test_manual_request_mapping",
-    description="Test with manual request mapping annotation",
-    request_mapping={
-        "user_query": "{{ input }}",
-        "session": "{{ session_id }}",
-        "docs": "{{ context }}",
-    },
-)
+# @collaborate(
+#     name="test_manual_request_mapping",
+#     description="Test with manual request mapping annotation",
+#     request_mapping={
+#         "user_query": "{{ input }}",
+#         "session": "{{ session_id }}",
+#         "docs": "{{ context }}",
+#     },
+# )
 def test_manual_request_mapping(
     user_query: str, session: str = None, docs: List[str] = None
 ) -> dict:
@@ -451,15 +451,15 @@ def test_manual_request_mapping(
     }
 
 
-@collaborate(
-    name="test_manual_response_mapping",
-    description="Test with manual response mapping annotation",
-    response_mapping={
-        "output": "$.answer.text",
-        "session_id": "$.conversation.id",
-        "metadata": "$.conversation.metadata",
-    },
-)
+# @collaborate(
+#     name="test_manual_response_mapping",
+#     description="Test with manual response mapping annotation",
+#     response_mapping={
+#         "output": "$.answer.text",
+#         "session_id": "$.conversation.id",
+#         "metadata": "$.conversation.metadata",
+#     },
+# )
 def test_manual_response_mapping(input: str, session_id: str = None) -> dict:
     """Test manual response mapping via decorator.
 
@@ -475,22 +475,22 @@ def test_manual_response_mapping(input: str, session_id: str = None) -> dict:
     }
 
 
-@collaborate(
-    name="test_full_manual_mapping",
-    description="Test with both request and response manual mappings",
-    request_mapping={
-        "customer_message": "{{ input }}",
-        "ticket_id": "{{ session_id }}",
-        "related_tickets": "{{ context }}",
-        "ticket_metadata": "{{ metadata }}",
-    },
-    response_mapping={
-        "output": "$.support_response.message",
-        "session_id": "$.support_response.ticket_id",
-        "context": "$.support_response.related_info",
-        "metadata": "$.support_response.meta",
-    },
-)
+# @collaborate(
+#     name="test_full_manual_mapping",
+#     description="Test with both request and response manual mappings",
+#     request_mapping={
+#         "customer_message": "{{ input }}",
+#         "ticket_id": "{{ session_id }}",
+#         "related_tickets": "{{ context }}",
+#         "ticket_metadata": "{{ metadata }}",
+#     },
+#     response_mapping={
+#         "output": "$.support_response.message",
+#         "session_id": "$.support_response.ticket_id",
+#         "context": "$.support_response.related_info",
+#         "metadata": "$.support_response.meta",
+#     },
+# )
 def test_full_manual_mapping(
     customer_message: str,
     ticket_id: str = None,
@@ -518,7 +518,7 @@ def test_full_manual_mapping(
 # These test different output structures for response mapping
 
 
-@collaborate(name="test_nested_output", description="Test with deeply nested output structure")
+# @collaborate(name="test_nested_output", description="Test with deeply nested output structure")
 def test_nested_output(input: str) -> dict:
     """Test response mapping with nested output.
 
@@ -530,7 +530,7 @@ def test_nested_output(input: str) -> dict:
     }
 
 
-@collaborate(name="test_list_output", description="Test with list in output")
+# @collaborate(name="test_list_output", description="Test with list in output")
 def test_list_output(input: str) -> dict:
     """Test response mapping with list outputs."""
     return {
@@ -542,7 +542,7 @@ def test_list_output(input: str) -> dict:
     }
 
 
-@collaborate(name="test_mixed_output_types", description="Test with various output data types")
+# @collaborate(name="test_mixed_output_types", description="Test with various output data types")
 def test_mixed_output_types(input: str) -> dict:
     """Test response mapping with mixed data types."""
     return {
@@ -560,21 +560,21 @@ def test_mixed_output_types(input: str) -> dict:
 # =============================================================================
 
 
-@collaborate(
-    name="test_custom_field_passthrough",
-    description="Test custom fields passed through request mapping",
-    request_mapping={
-        "question": "{{ input }}",
-        "policy_id": "{{ policy_number }}",  # Custom field
-        "tier": "{{ customer_tier }}",  # Custom field
-        "lang": "{{ language }}",  # Custom field
-    },
-    response_mapping={
-        "output": "$.answer",
-        "session_id": "$.policy_id",
-        "metadata": "$.customer_info",
-    },
-)
+# @collaborate(
+#     name="test_custom_field_passthrough",
+#     description="Test custom fields passed through request mapping",
+#     request_mapping={
+#         "question": "{{ input }}",
+#         "policy_id": "{{ policy_number }}",  # Custom field
+#         "tier": "{{ customer_tier }}",  # Custom field
+#         "lang": "{{ language }}",  # Custom field
+#     },
+#     response_mapping={
+#         "output": "$.answer",
+#         "session_id": "$.policy_id",
+#         "metadata": "$.customer_info",
+#     },
+# )
 def test_custom_field_passthrough(
     question: str, policy_id: str = None, tier: str = "standard", lang: str = "en"
 ) -> dict:
@@ -623,9 +623,9 @@ def multiply_numbers(a: int, b: int, c: int) -> dict:
     }
 
 
-@collaborate(
-    name="stream_assistant_response", description="Stream assistant responses for insurance queries"
-)
+# @collaborate(
+#     name="stream_assistant_response", description="Stream assistant responses for insurance queries"
+# )
 def stream_assistant_response(
     prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
 ) -> Generator[str, None, None]:
