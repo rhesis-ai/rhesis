@@ -1,6 +1,7 @@
 """Connection manager for WebSocket connections with SDKs."""
 
 import asyncio
+import json
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -8,6 +9,7 @@ from fastapi import WebSocket
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.connector.handler import message_handler
+from rhesis.backend.app.services.connector.redis_client import redis_manager
 from rhesis.backend.app.services.connector.schemas import (
     ConnectionStatus,
     ExecuteTestMessage,
@@ -58,6 +60,21 @@ class ConnectionManager:
         self._connections[key] = websocket
         logger.info(f"Connected: {key}")
 
+        # Store in Redis for worker visibility
+        if redis_manager.is_available:
+            try:
+                redis_key = f"ws:connection:{key}"
+                await redis_manager.client.setex(
+                    redis_key,
+                    3600,  # 1 hour TTL
+                    "active",
+                )
+                logger.info(
+                    f"✅ SDK connection registered in Redis: {key} (redis_key={redis_key}, TTL=1h)"
+                )
+            except Exception as e:
+                logger.error(f"❌ Failed to store connection in Redis for {key}: {e}")
+
     def disconnect(self, project_id: str, environment: str) -> None:
         """
         Unregister a WebSocket connection.
@@ -72,6 +89,22 @@ class ConnectionManager:
         if key in self._registries:
             del self._registries[key]
         logger.info(f"Disconnected: {key}")
+
+        # Remove from Redis
+        if redis_manager.is_available:
+            try:
+                # Create task to delete from Redis (non-blocking)
+                asyncio.create_task(self._remove_connection_from_redis(key))
+            except Exception as e:
+                logger.warning(f"Failed to schedule Redis cleanup: {e}")
+
+    async def _remove_connection_from_redis(self, key: str) -> None:
+        """Remove connection from Redis (async helper)."""
+        try:
+            await redis_manager.client.delete(f"ws:connection:{key}")
+            logger.debug(f"Removed connection from Redis: {key}")
+        except Exception as e:
+            logger.warning(f"Failed to remove connection from Redis: {e}")
 
     def register_functions(
         self, project_id: str, environment: str, functions: List[FunctionMetadata]
@@ -193,8 +226,24 @@ class ConnectionManager:
         """
         logger.debug(f"Storing test result: {test_run_id}")
 
-        # Store result for synchronous retrieval
+        # Store result in memory for backend process
         self._test_results[test_run_id] = result
+
+        # Also publish to Redis for workers
+        if redis_manager.is_available:
+            try:
+                # Publish to response channel for RPC
+                asyncio.create_task(self._publish_rpc_response(test_run_id, result))
+            except Exception as e:
+                logger.warning(f"Failed to publish RPC response: {e}")
+
+    async def _publish_rpc_response(self, test_run_id: str, result: Dict[str, Any]) -> None:
+        """Publish RPC response to Redis (async helper)."""
+        try:
+            await redis_manager.client.publish(f"ws:rpc:response:{test_run_id}", json.dumps(result))
+            logger.debug(f"Published RPC response to Redis: {test_run_id}")
+        except Exception as e:
+            logger.warning(f"Failed to publish RPC response: {e}")
 
     def get_test_result(self, test_run_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -322,6 +371,95 @@ class ConnectionManager:
         else:
             logger.warning(f"Unknown message type: {message_type}")
             return None
+
+    async def _listen_for_rpc_requests(self) -> None:
+        """
+        Background task to handle RPC requests from workers.
+
+        Subscribes to ws:rpc:requests channel and forwards requests to WebSocket connections.
+        """
+        if not redis_manager.is_available:
+            logger.warning("⚠️ Redis not available, RPC listener not started")
+            return
+
+        logger.info(
+            "🎧 RPC LISTENER STARTED - Subscribing to 'ws:rpc:requests' channel "
+            "for worker SDK invocations"
+        )
+
+        try:
+            pubsub = redis_manager.client.pubsub()
+            await pubsub.subscribe("ws:rpc:requests")
+
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    try:
+                        request = json.loads(message["data"])
+                        await self._handle_rpc_request(request)
+                    except Exception as e:
+                        logger.error(f"Error handling RPC request: {e}", exc_info=True)
+
+        except Exception as e:
+            logger.error(f"RPC listener crashed: {e}", exc_info=True)
+            # Attempt to restart listener after delay
+            await asyncio.sleep(5)
+            asyncio.create_task(self._listen_for_rpc_requests())
+
+    async def _handle_rpc_request(self, request: Dict[str, Any]) -> None:
+        """
+        Handle RPC request from worker.
+
+        Args:
+            request: RPC request with keys: request_id, project_id, environment,
+                    function_name, inputs
+        """
+        request_id = request.get("request_id")
+        project_id = request.get("project_id")
+        environment = request.get("environment")
+        function_name = request.get("function_name")
+        inputs = request.get("inputs", {})
+
+        logger.info(
+            f"Handling RPC request {request_id}: {function_name} "
+            f"(project: {project_id}, env: {environment})"
+        )
+
+        # Look up WebSocket connection
+        key = self.get_connection_key(project_id, environment)
+
+        if key not in self._connections:
+            logger.error(f"No connection for RPC request: {key}")
+            # Publish error response
+            if redis_manager.is_available:
+                try:
+                    error_response = {"error": "send_failed", "details": f"No connection for {key}"}
+                    await redis_manager.client.publish(
+                        f"ws:rpc:response:{request_id}", json.dumps(error_response)
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to publish error response: {e}")
+            return
+
+        # Forward to SDK via WebSocket
+        websocket = self._connections[key]
+        message = ExecuteTestMessage(
+            test_run_id=request_id, function_name=function_name, inputs=inputs
+        )
+
+        try:
+            await websocket.send_json(message.model_dump())
+            logger.debug(f"Forwarded RPC request to WebSocket: {request_id}")
+        except Exception as e:
+            logger.error(f"Error forwarding RPC request to WebSocket: {e}")
+            # Publish error response
+            if redis_manager.is_available:
+                try:
+                    error_response = {"error": "send_failed", "details": str(e)}
+                    await redis_manager.client.publish(
+                        f"ws:rpc:response:{request_id}", json.dumps(error_response)
+                    )
+                except Exception as pub_err:
+                    logger.error(f"Failed to publish error response: {pub_err}")
 
 
 # Global connection manager instance

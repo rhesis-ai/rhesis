@@ -5,7 +5,8 @@ This module provides utilities for extracting meaningful responses from endpoint
 using a fallback hierarchy system.
 """
 
-from typing import Any, Dict, Union
+import json
+from typing import Any, Dict, List, Union
 
 from rhesis.backend.logging.rhesis_logger import logger
 
@@ -18,7 +19,8 @@ def extract_response_with_fallback(result: Union[Dict, Any]) -> str:
     3. If metadata is not available, use error content as output
 
     Args:
-        result: The response dictionary from endpoint invocation, or an ErrorResponse Pydantic object
+        result: The response dictionary from endpoint invocation,
+                or an ErrorResponse Pydantic object
         Expected format: {"output": "...", "session_id": "...", "metadata": "..."}
 
     Returns:
@@ -30,10 +32,10 @@ def extract_response_with_fallback(result: Union[Dict, Any]) -> str:
 
     # Convert ErrorResponse or other Pydantic objects to dict
     if not isinstance(result, dict):
-        if hasattr(result, 'to_dict'):
+        if hasattr(result, "to_dict"):
             # Use to_dict() method if available (ErrorResponse)
             result = result.to_dict()
-        elif hasattr(result, 'dict'):
+        elif hasattr(result, "dict"):
             # Use dict() method for other Pydantic models
             result = result.dict(exclude_none=True)
         else:
@@ -42,7 +44,7 @@ def extract_response_with_fallback(result: Union[Dict, Any]) -> str:
                 result = dict(result)
             except (TypeError, ValueError):
                 logger.error(f"Cannot convert {type(result)} to dict, returning empty string")
-                return ""
+        return ""
 
     # Handle error responses first
     if result.get("error", False):
@@ -136,3 +138,73 @@ def extract_meaningful_content_from_metadata(metadata) -> str:
     summary_items = [f"{key}: {value}" for key, value in meaningful_items]
     result = "; ".join(summary_items)
     return result
+
+
+def normalize_context_to_list(context: Any) -> List[str]:
+    """
+    Normalize context from various formats to a list of strings.
+
+    SDK functions may return context as:
+    - A single string
+    - A JSON string representing a list
+    - Already a list of strings
+    - A list of dicts/objects
+    - None or empty
+
+    Args:
+        context: The context value in any format
+
+    Returns:
+        A list of strings, or empty list if context is None/empty
+    """
+    if not context:
+        return []
+
+    # Already a list
+    if isinstance(context, list):
+        # Convert all items to strings
+        normalized = []
+        for item in context:
+            if isinstance(item, str):
+                normalized.append(item)
+            elif isinstance(item, dict):
+                # Convert dict to JSON string
+                try:
+                    normalized.append(json.dumps(item))
+                except (TypeError, ValueError) as e:
+                    logger.warning(f"Failed to serialize context dict to JSON: {e}")
+                    normalized.append(str(item))
+            else:
+                # Convert other types to string
+                normalized.append(str(item))
+        return normalized
+
+    # Single string - could be plain text or JSON
+    if isinstance(context, str):
+        context_str = context.strip()
+
+        # Try to parse as JSON (might be a JSON array)
+        if context_str.startswith("[") and context_str.endswith("]"):
+            try:
+                parsed = json.loads(context_str)
+                if isinstance(parsed, list):
+                    # Recursively normalize the parsed list
+                    return normalize_context_to_list(parsed)
+            except json.JSONDecodeError:
+                # Not valid JSON, treat as single string
+                pass
+
+        # Single string context - wrap in list
+        return [context_str] if context_str else []
+
+    # Dict - convert to JSON string and wrap in list
+    if isinstance(context, dict):
+        try:
+            return [json.dumps(context)]
+        except (TypeError, ValueError) as e:
+            logger.warning(f"Failed to serialize context dict to JSON: {e}")
+            return [str(context)]
+
+    # Other types - convert to string and wrap in list
+    logger.debug(f"Normalizing unexpected context type {type(context)} to list")
+    return [str(context)]

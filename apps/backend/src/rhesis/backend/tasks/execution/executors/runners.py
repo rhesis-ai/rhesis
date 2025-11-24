@@ -13,6 +13,7 @@ from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.execution.constants import MetricScope
 from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
 from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
+from rhesis.backend.tasks.execution.response_extractor import normalize_context_to_list
 
 from .data import get_test_metrics
 from .metrics import prepare_metric_configs
@@ -127,8 +128,10 @@ class SingleTurnRunner(BaseRunner):
         # Evaluate metrics if requested
         metrics_results = {}
         if evaluate_metrics and metric_configs:
-            # Use processed_result (dict) to extract context
-            context = processed_result.get("context", []) if processed_result else []
+            # Extract and normalize context to List[str]
+            # SDK functions may return context as string, JSON string, list, etc.
+            raw_context = processed_result.get("context") if processed_result else None
+            context = normalize_context_to_list(raw_context)
             metrics_evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
 
             if model:
@@ -179,7 +182,6 @@ class MultiTurnRunner(BaseRunner):
             Tuple of (execution_time_ms, penelope_trace, metrics_results)
         """
         start_time = datetime.utcnow()
-        test_id = str(test.id)
 
         # Extract multi-turn configuration
         test_config = test.test_configuration or {}

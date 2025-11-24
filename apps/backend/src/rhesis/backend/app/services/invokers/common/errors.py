@@ -32,7 +32,11 @@ class ErrorResponseBuilder:
         # Convert request_details dict to RequestDetails schema if provided
         request_schema = None
         if request_details:
-            request_schema = RequestDetails(**request_details)
+            # Handle case where request_details is already a RequestDetails object
+            if isinstance(request_details, RequestDetails):
+                request_schema = request_details
+            else:
+                request_schema = RequestDetails(**request_details)
 
         # Create the error response with validation
         return ErrorResponse(

@@ -1,6 +1,7 @@
 """SDK endpoint invoker for WebSocket-connected SDK functions."""
 
 import asyncio
+import os
 import uuid
 from typing import Any, Dict, Union
 
@@ -58,18 +59,10 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     ),
                 )
 
-            # Validate SDK connection
-            from rhesis.backend.app.services.connector.manager import connection_manager
-
-            if not connection_manager.is_connected(str(project_id), environment):
-                return self._create_error_response(
-                    error_type="sdk_not_connected",
-                    output_message=(
-                        f"SDK not connected for project {project_id} in {environment} environment"
-                    ),
-                    message="SDK client is not currently connected",
-                    request_details=self._safe_request_details(locals(), "SDK"),
-                )
+            # Detect if running in worker context
+            is_worker = os.getenv("CELERY_WORKER_NAME") is not None
+            context_type = "WORKER (will use RPC)" if is_worker else "BACKEND (direct connection)"
+            logger.info(f"SDK invocation context: {context_type}")
 
             # Prepare conversation context (includes input_data + any extra context)
             template_context, conversation_field = self._prepare_conversation_context(
@@ -103,22 +96,73 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
             logger.info(
                 f"Invoking SDK function: {function_name} "
-                f"(project: {project_id}, env: {environment})"
+                f"(project: {project_id}, env: {environment}, worker: {is_worker})"
             )
             logger.debug(f"Function kwargs: {function_kwargs}")
 
             # Generate unique test run ID for this invocation
             test_run_id = f"invoke_{uuid.uuid4().hex[:12]}"
 
-            # Send request and wait for result
-            result = await connection_manager.send_and_await_result(
-                project_id=str(project_id),
-                environment=environment,
-                test_run_id=test_run_id,
-                function_name=function_name,
-                inputs=function_kwargs,
-                timeout=30.0,  # 30 second timeout for SDK function execution
-            )
+            # Choose invocation method based on context
+            if is_worker:
+                # Use RPC client for worker context
+                from rhesis.backend.app.services.connector.rpc_client import SDKRpcClient
+
+                try:
+                    rpc_client = SDKRpcClient()
+                    await rpc_client.initialize()
+                except RuntimeError as e:
+                    # Redis not available - fail with clear message
+                    return self._create_error_response(
+                        error_type="sdk_rpc_unavailable",
+                        output_message="Cannot invoke SDK from worker: Redis not configured",
+                        message=str(e),
+                        request_details=self._safe_request_details(locals(), "SDK"),
+                    )
+
+                # Check connection via RPC client
+                if not await rpc_client.is_connected(str(project_id), environment):
+                    return self._create_error_response(
+                        error_type="sdk_not_connected",
+                        output_message=f"SDK not connected: {project_id} in {environment}",
+                        message="SDK client is not currently connected",
+                        request_details=self._safe_request_details(locals(), "SDK"),
+                    )
+
+                # Send request via RPC
+                result = await rpc_client.send_and_await_result(
+                    project_id=str(project_id),
+                    environment=environment,
+                    test_run_id=test_run_id,
+                    function_name=function_name,
+                    inputs=function_kwargs,
+                    timeout=30.0,
+                )
+
+                # Clean up RPC client
+                await rpc_client.close()
+
+            else:
+                # Direct access for backend context (no Redis needed)
+                from rhesis.backend.app.services.connector.manager import connection_manager
+
+                if not connection_manager.is_connected(str(project_id), environment):
+                    return self._create_error_response(
+                        error_type="sdk_not_connected",
+                        output_message=f"SDK not connected: {project_id} in {environment}",
+                        message="SDK client is not currently connected",
+                        request_details=self._safe_request_details(locals(), "SDK"),
+                    )
+
+                # Send request directly
+                result = await connection_manager.send_and_await_result(
+                    project_id=str(project_id),
+                    environment=environment,
+                    test_run_id=test_run_id,
+                    function_name=function_name,
+                    inputs=function_kwargs,
+                    timeout=30.0,
+                )
 
             # Check if request failed to send
             if result.get("error") == "send_failed":
