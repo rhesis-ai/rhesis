@@ -1,1 +1,12 @@
 notebooks/
+
+# .cursorignore
+node_modules/
+__pycache__/
+.git/
+dist/
+build/
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
