@@ -80,7 +80,7 @@ jobs:
       if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         cache-dependency-path: apps/frontend/package-lock.json
 
@@ -130,13 +130,13 @@ jobs:
         # else
         #   echo "- **Backend**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
         # fi
-        
+
         if [ "${{ steps.filter.outputs.penelope }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           echo "- **Penelope**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
         else
           echo "- **Penelope**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
         fi
-        
+
         if [ "${{ steps.filter.outputs.frontend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           echo "- **Frontend**: ESLint, Prettier formatting, TypeScript type checking, and build validation ✅" >> "$GITHUB_STEP_SUMMARY"
         else
