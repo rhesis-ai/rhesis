@@ -29,6 +29,8 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import { auth } from '@/auth';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 // Import icons for project icon rendering
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -100,6 +102,8 @@ export default function SwaggerEndpointForm() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
   const { data: session } = useSession();
+  const { markStepComplete } = useOnboarding();
+  const notifications = useNotifications();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -194,6 +198,15 @@ export default function SwaggerEndpointForm() {
 
     try {
       await createEndpoint(formData as unknown as Omit<Endpoint, 'id'>);
+
+      // Mark onboarding step as complete
+      markStepComplete('endpointSetup');
+
+      // Show success notification
+      notifications.show('Endpoint created successfully!', {
+        severity: 'success',
+      });
+
       router.push('/projects/endpoints');
     } catch (error) {
       setError((error as Error).message);
