@@ -21,9 +21,11 @@ import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
 import SendIcon from '@mui/icons-material/Send';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import CircularProgress from '@mui/material/CircularProgress';
 import { AnyTestSample } from './types';
 import ContextPreview from './ContextPreview';
+import ConversationHistoryModal from './ConversationHistoryModal';
 
 interface TestSampleCardProps {
   sample: AnyTestSample;
@@ -49,6 +51,7 @@ export default function TestSampleCard({
   );
   const [localFeedback, setLocalFeedback] = useState(sample.feedback);
   const [expandedDetails, setExpandedDetails] = useState(false);
+  const [showConversationModal, setShowConversationModal] = useState(false);
 
   const handleThumbsUp = () => {
     // Toggle: if already rated 5, set to 0 (unrated), otherwise set to 5
@@ -312,43 +315,102 @@ export default function TestSampleCard({
               </Paper>
             </Box>
 
-            {/* Response (Right-aligned) - if present or loading */}
-            {(sample.response ||
-              sample.isLoadingResponse ||
-              sample.responseError) && (
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    maxWidth: '80%',
-                    border: 1,
-                    borderColor: sample.responseError
-                      ? 'error.main'
-                      : 'divider',
-                    borderRadius: theme => theme.shape.borderRadius,
-                    px: 1.5,
-                    py: 1,
-                    bgcolor: sample.responseError
-                      ? 'error.lighter'
-                      : 'background.paper',
-                  }}
-                >
-                  {sample.isLoadingResponse ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CircularProgress size={16} />
-                      <Typography variant="body2" color="text.secondary">
-                        Loading response...
-                      </Typography>
-                    </Box>
-                  ) : sample.responseError ? (
-                    <Typography variant="body2" color="error.main">
-                      Error: {sample.responseError}
+            {/* Response or Conversation Preview */}
+            {sample.testType === 'multi_turn' &&
+            (sample.conversation ||
+              sample.isLoadingConversation ||
+              sample.conversationError) ? (
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  mt: 2,
+                }}
+              >
+                {sample.isLoadingConversation ? (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      px: 2,
+                      py: 1,
+                    }}
+                  >
+                    <CircularProgress size={16} />
+                    <Typography variant="body2" color="text.secondary">
+                      Simulating conversation...
                     </Typography>
-                  ) : (
-                    <Typography variant="body2">{sample.response}</Typography>
-                  )}
-                </Paper>
+                  </Box>
+                ) : sample.conversationError ? (
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      maxWidth: '80%',
+                      border: 1,
+                      borderColor: 'error.main',
+                      borderRadius: theme => theme.shape.borderRadius,
+                      px: 1.5,
+                      py: 1,
+                      bgcolor: 'error.lighter',
+                    }}
+                  >
+                    <Typography variant="body2" color="error.main">
+                      Error: {sample.conversationError}
+                    </Typography>
+                  </Paper>
+                ) : sample.conversation && sample.conversation.length > 0 ? (
+                  <Button
+                    variant="outlined"
+                    startIcon={<VisibilityIcon />}
+                    onClick={() => setShowConversationModal(true)}
+                    size="small"
+                  >
+                    View Conversation ({sample.conversation.length} turns)
+                  </Button>
+                ) : null}
               </Box>
+            ) : (
+              /* Single-turn response (Right-aligned) - if present or loading */
+              (sample.response ||
+                sample.isLoadingResponse ||
+                sample.responseError) && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      maxWidth: '80%',
+                      border: 1,
+                      borderColor: sample.responseError
+                        ? 'error.main'
+                        : 'divider',
+                      borderRadius: theme => theme.shape.borderRadius,
+                      px: 1.5,
+                      py: 1,
+                      bgcolor: sample.responseError
+                        ? 'error.lighter'
+                        : 'background.paper',
+                    }}
+                  >
+                    {sample.isLoadingResponse ? (
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        <CircularProgress size={16} />
+                        <Typography variant="body2" color="text.secondary">
+                          Loading response...
+                        </Typography>
+                      </Box>
+                    ) : sample.responseError ? (
+                      <Typography variant="body2" color="error.main">
+                        Error: {sample.responseError}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2">{sample.response}</Typography>
+                    )}
+                  </Paper>
+                </Box>
+              )
             )}
           </Box>
 
@@ -420,6 +482,19 @@ export default function TestSampleCard({
           </Fade>
         )}
       </CardContent>
+
+      {/* Conversation History Modal for Multi-Turn Tests */}
+      {sample.testType === 'multi_turn' && sample.conversation && (
+        <ConversationHistoryModal
+          open={showConversationModal}
+          onClose={() => setShowConversationModal(false)}
+          conversationSummary={sample.conversation}
+          testConfiguration={sample.prompt}
+          behavior={sample.behavior}
+          topic={sample.topic}
+          category={sample.category}
+        />
+      )}
     </Card>
   );
 }

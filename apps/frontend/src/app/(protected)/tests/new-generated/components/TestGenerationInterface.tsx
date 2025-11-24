@@ -249,16 +249,22 @@ export default function TestGenerationInterface({
       try {
         const apiFactory = new ApiClientFactory(session.session_token);
         const endpointsClient = apiFactory.getEndpointsClient();
+        const testsClient = apiFactory.getTestsClient();
 
         // Mark samples to fetch as loading
         const updatedSamples = localTestSamples.map(sample => {
           if (samplesToFetch.some(s => s.id === sample.id)) {
             const newSample = {
               ...sample,
-              isLoadingResponse: true,
+              isLoadingResponse: sample.testType === 'single_turn',
+              isLoadingConversation: sample.testType === 'multi_turn',
             };
             delete newSample.response;
             delete newSample.responseError;
+            if (sample.testType === 'multi_turn') {
+              delete newSample.conversation;
+              delete newSample.conversationError;
+            }
             return newSample;
           }
           return sample;
@@ -277,52 +283,99 @@ export default function TestGenerationInterface({
           }
 
           try {
-            // Invoke the endpoint with the sample's prompt or goal
-            const inputText =
-              sample.testType === 'single_turn'
-                ? sample.prompt
-                : sample.prompt.goal;
+            if (sample.testType === 'single_turn') {
+              // Single-turn: use old invoke endpoint
+              const response = await endpointsClient.invokeEndpoint(
+                selectedEndpointId,
+                {
+                  input: sample.prompt,
+                }
+              );
 
-            const response = await endpointsClient.invokeEndpoint(
-              selectedEndpointId,
-              {
-                input: inputText,
+              // Extract response text from various possible response formats
+              let responseText = '';
+              if (typeof response === 'string') {
+                responseText = response;
+              } else if (response?.output) {
+                responseText = response.output;
+              } else if (response?.text) {
+                responseText = response.text;
+              } else if (response?.response) {
+                responseText = response.response;
+              } else if (response?.content) {
+                responseText = response.content;
+              } else {
+                responseText = JSON.stringify(response);
               }
-            );
 
-            // Extract response text from various possible response formats
-            let responseText = '';
-            if (typeof response === 'string') {
-              responseText = response;
-            } else if (response?.output) {
-              responseText = response.output;
-            } else if (response?.text) {
-              responseText = response.text;
-            } else if (response?.response) {
-              responseText = response.response;
-            } else if (response?.content) {
-              responseText = response.content;
+              updatedSamples[i] = {
+                ...sample,
+                response: responseText,
+                isLoadingResponse: false,
+              };
+              delete updatedSamples[i].responseError;
             } else {
-              responseText = JSON.stringify(response);
+              // Multi-turn: use new /tests/execute endpoint
+              const executeRequest = {
+                endpoint_id: selectedEndpointId,
+                test_configuration: {
+                  goal: sample.prompt.goal,
+                  instructions: sample.prompt.instructions,
+                  restrictions: sample.prompt.restrictions,
+                  scenario: sample.prompt.scenario,
+                },
+                behavior: sample.behavior,
+                topic: sample.topic,
+                category: sample.category,
+                evaluate_metrics: false, // We just want conversation output
+              };
+
+              const executeResponse =
+                await testsClient.executeTest(executeRequest);
+
+              // Extract conversation from test_output
+              let conversation = [];
+              if (
+                executeResponse.test_output &&
+                typeof executeResponse.test_output === 'object'
+              ) {
+                conversation =
+                  executeResponse.test_output.conversation_summary || [];
+              }
+
+              updatedSamples[i] = {
+                ...sample,
+                conversation,
+                isLoadingConversation: false,
+                // Also set response to a summary for display
+                response: `Goal: ${sample.prompt.goal} (${conversation.length} turns)`,
+              };
+              delete updatedSamples[i].conversationError;
             }
 
-            updatedSamples[i] = {
-              ...sample,
-              response: responseText,
-              isLoadingResponse: false,
-            };
-            delete updatedSamples[i].responseError;
             newProcessedIds.add(sample.id);
           } catch (error) {
-            updatedSamples[i] = {
-              ...sample,
-              isLoadingResponse: false,
-              responseError:
-                error instanceof Error
-                  ? error.message
-                  : 'Failed to fetch response',
-            };
-            delete updatedSamples[i].response;
+            if (sample.testType === 'single_turn') {
+              updatedSamples[i] = {
+                ...sample,
+                isLoadingResponse: false,
+                responseError:
+                  error instanceof Error
+                    ? error.message
+                    : 'Failed to fetch response',
+              };
+              delete updatedSamples[i].response;
+            } else {
+              updatedSamples[i] = {
+                ...sample,
+                isLoadingConversation: false,
+                conversationError:
+                  error instanceof Error
+                    ? error.message
+                    : 'Failed to execute test',
+              };
+              delete updatedSamples[i].conversation;
+            }
             newProcessedIds.add(sample.id);
           }
 

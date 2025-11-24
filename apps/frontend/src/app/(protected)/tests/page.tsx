@@ -107,12 +107,14 @@ export default function TestsPage() {
   }, []);
 
   const handleSelectAI = React.useCallback(() => {
-    // Keep modal open during navigation
+    // Close modal before navigation
+    setShowModal(false);
     router.push('/tests/new-generated');
   }, [router]);
 
   const handleSelectManual = React.useCallback(() => {
-    // Keep modal open during navigation
+    // Close modal before navigation
+    setShowModal(false);
     router.push('/tests/new-manual');
   }, [router]);
 
@@ -120,7 +122,8 @@ export default function TestsPage() {
     (template: TestTemplate) => {
       // Store only template ID (icon component can't be serialized)
       sessionStorage.setItem('selectedTemplateId', template.id);
-      // Keep modal open during navigation
+      // Close modal before navigation
+      setShowModal(false);
       router.push('/tests/new-generated');
     },
     [router]
