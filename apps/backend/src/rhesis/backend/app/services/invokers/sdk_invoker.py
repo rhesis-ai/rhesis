@@ -155,14 +155,14 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     )
 
                 # Send request directly
-            result = await connection_manager.send_and_await_result(
-                project_id=str(project_id),
-                environment=environment,
-                test_run_id=test_run_id,
-                function_name=function_name,
-                inputs=function_kwargs,
-                timeout=30.0,
-            )
+                result = await connection_manager.send_and_await_result(
+                    project_id=str(project_id),
+                    environment=environment,
+                    test_run_id=test_run_id,
+                    function_name=function_name,
+                    inputs=function_kwargs,
+                    timeout=30.0,
+                )
 
             # Check if request failed to send
             if result.get("error") == "send_failed":
