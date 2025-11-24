@@ -19,6 +19,28 @@ class DeepEvalModelWrapper(DeepEvalBaseLLM):
     def load_model(self, *args, **kwargs):  # type: ignore[override]
         return self._model.load_model(*args, **kwargs)
 
+    def _convert_to_schema(self, result: Any, schema: Any) -> Any:
+        """Convert result to Pydantic schema instance if possible."""
+        # Parse string to dict if needed
+        if isinstance(result, str):
+            try:
+                result = json.loads(result)
+            except (json.JSONDecodeError, ValueError):
+                return result  # Return string, let DeepEval handle error
+
+        # If not a dict at this point, return as-is
+        if not isinstance(result, dict):
+            return result
+
+        # Try to instantiate schema
+        try:
+            schema_instance = schema(**result)
+            logger.debug(f"Instantiated {schema.__name__} with keys: {list(result.keys())}")
+            return schema_instance
+        except (TypeError, ValueError) as e:
+            logger.warning(f"Failed to instantiate {schema.__name__}: {e}")
+            return result  # Return dict as fallback
+
     def generate(self, prompt: str, schema: Optional[Any] = None, **kwargs) -> Union[str, Any]:
         """
         Generate response from the model with optional structured output.
@@ -31,53 +53,18 @@ class DeepEvalModelWrapper(DeepEvalBaseLLM):
         Returns:
             Generated response (str or schema instance if schema provided)
         """
-        # Check if underlying model's generate() accepts schema parameter
-        model_generate_sig = inspect.signature(self._model.generate)
-        supports_schema = "schema" in model_generate_sig.parameters
+        # Check if model supports schema parameter
+        supports_schema = "schema" in inspect.signature(self._model.generate).parameters
 
         # Generate response
-        if supports_schema:
-            # Model supports schema natively
-            result = self._model.generate(prompt, schema=schema, **kwargs)
-        else:
-            # Model doesn't support schema, generate as string
-            result = self._model.generate(prompt, **kwargs)
+        result = (
+            self._model.generate(prompt, schema=schema, **kwargs)
+            if supports_schema
+            else self._model.generate(prompt, **kwargs)
+        )
 
-        # If schema provided, try to convert result to schema instance
-        if schema is not None:
-            # If result is a string, parse as JSON first
-            if isinstance(result, str):
-                try:
-                    parsed_json = json.loads(result)
-                except (json.JSONDecodeError, ValueError):
-                    # If parsing fails, return the string as-is
-                    # DeepEval will handle the error
-                    return result
-            elif isinstance(result, dict):
-                # Result is already a dict
-                parsed_json = result
-            else:
-                # Result is some other type, return as-is
-                return result
-
-            # Try to instantiate the Pydantic schema
-            try:
-                schema_instance = schema(**parsed_json)
-                logger.debug(
-                    f"Successfully instantiated schema {schema.__name__} "
-                    f"from parsed data with keys: {list(parsed_json.keys())}"
-                )
-                return schema_instance
-            except (TypeError, ValueError) as e:
-                # If instantiation fails, log and return the raw data
-                # This allows DeepEval to provide more specific error messages
-                logger.warning(
-                    f"Failed to instantiate schema {schema.__name__}: {e}. "
-                    f"Returning raw data with keys: {list(parsed_json.keys())}"
-                )
-                return parsed_json
-
-        return result  # type: ignore[return-value]
+        # Convert to schema if provided
+        return self._convert_to_schema(result, schema) if schema else result
 
     async def a_generate(
         self, prompt: str, schema: Optional[Any] = None, **kwargs
