@@ -15,6 +15,7 @@ describe('quick_start', () => {
       jest.resetModules();
       process.env = { ...originalEnv };
       // Restore window.location to the initial state
+      // @ts-ignore - jsdom location reassignment
       window.location = savedLocation;
     });
 
@@ -22,6 +23,7 @@ describe('quick_start', () => {
       // Restore original process.env after all tests
       process.env = originalEnv;
       // Restore original window.location
+      // @ts-ignore - jsdom location reassignment
       window.location = savedLocation;
     });
 
@@ -123,8 +125,9 @@ describe('quick_start', () => {
       });
 
       it('should use window.location.hostname when hostname not provided', () => {
-        // @ts-ignore
+        // @ts-ignore - jsdom location replacement
         delete window.location;
+        // @ts-ignore - jsdom location replacement
         window.location = { hostname: 'localhost' } as Location;
 
         const result = isQuickStartEnabled();
@@ -161,8 +164,9 @@ describe('quick_start', () => {
       it('should handle empty hostname string', () => {
         // Empty string should fall back to window.location.hostname
         // For this test, we'll test with empty string but ensure window.location is set correctly
-        // @ts-ignore
+        // @ts-ignore - jsdom location replacement
         delete window.location;
+        // @ts-ignore - jsdom location replacement
         window.location = { hostname: 'localhost' } as Location;
 
         const result = isQuickStartEnabled('');
