@@ -130,8 +130,7 @@ def downgrade() -> None:
     tool_provider_cleanup_values = """
         ('notion'),
         ('github'),
-        ('google'),
-        ('gdrive'),
+        ('atlassian'),
         ('custom')
     """
 
