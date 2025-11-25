@@ -30,6 +30,7 @@ class BaseCollection(Generic[T]):
         return response
 
     @handle_http_errors
+    @classmethod
     def first(cls) -> Optional[Dict[str, Any]]:
         """Retrieve the first record matching the query parameters."""
         records = cls.all()
