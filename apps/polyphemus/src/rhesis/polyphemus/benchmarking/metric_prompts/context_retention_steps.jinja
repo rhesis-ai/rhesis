@@ -1,0 +1,47 @@
+Follow these steps systematically:
+
+1. ANALYZE THE CONTEXT
+   - Read all provided context chunks carefully
+   - Identify key facts, entities, dates, and relationships
+   - Note any ambiguities or gaps in the context
+
+2. ANALYZE THE QUERY
+   - What information is the query requesting?
+   - Which context chunks are relevant to the query?
+   - Is context essential or supplementary for this query?
+
+3. ANALYZE THE RESPONSE
+   - What claims or statements does the response make?
+   - Which statements come from context vs. general knowledge?
+   - Are there any statements that contradict the context?
+
+4. EVALUATE INFORMATION EXTRACTION
+   - List relevant context facts that WERE incorporated
+   - List relevant context facts that WERE NOT incorporated
+   - Assess completeness of extraction (40% weight)
+
+5. EVALUATE FACTUAL ACCURACY
+   - Check each claim against the context
+   - Identify any contradictions or inaccuracies
+   - Note any fabricated details when context was available
+   - Assess accuracy (30% weight)
+
+6. EVALUATE CONTEXT DEPENDENCY
+   - Was context used as primary source when it should be?
+   - Did model inappropriately rely on outside knowledge?
+   - Assess grounding in context (20% weight)
+
+7. EVALUATE SYNTHESIS
+   - Was information combined across chunks effectively?
+   - Was context applied appropriately to the query?
+   - Assess synthesis quality (10% weight)
+
+8. COMPUTE FINAL SCORE
+   - Weight each criterion by its percentage
+   - Consider overall context utilization quality
+   - Assign final score on 0-1 scale
+
+9. WRITE EXPLANATION
+   - Provide specific examples of good/poor context usage
+   - Quote relevant parts of context and response
+   - Justify the score with concrete evidence
