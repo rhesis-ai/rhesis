@@ -124,6 +124,58 @@ class TestSet(BaseEntity):
         else:
             raise ValueError("LLM response was not in the expected format")
 
+    @classmethod
+    def _create(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a test set using the bulk endpoint.
+
+        Args:
+            data: Dictionary containing test set data including tests
+
+        Returns:
+            Dict containing the created test set data from the API
+
+        Raises:
+            ValueError: If tests are not provided
+        """
+        if not data.get("tests"):
+            raise ValueError("Test set must have at least one test before creating")
+
+        client = Client()
+        response = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.POST,
+            url_params="bulk",
+            data=data,
+        )
+        return response
+
+    def push(self) -> Optional[Dict[str, Any]]:
+        """Save the test set to the database.
+
+        For creation (no ID): Uses the bulk endpoint to create test set with tests.
+        For updates (has ID): Uses the standard update endpoint.
+
+        Returns:
+            Dict containing the response from the API, or None if error occurred.
+
+        Example:
+            >>> test_set = TestSet(
+            ...     name="My Test Set",
+            ...     description="Test set description",
+            ...     short_description="Short desc",
+            ...     tests=[test1, test2, test3]
+            ... )
+            >>> result = test_set.push()
+            >>> print(f"Created test set with ID: {test_set.id}")
+        """
+        data = self.model_dump()
+
+        response = self._create(data)
+        if response and "id" in response:
+            self.id = response["id"]
+
+        return response
+
 
 class TestSets(BaseCollection):
     endpoint = ENDPOINT
