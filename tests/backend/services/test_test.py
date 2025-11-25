@@ -18,10 +18,10 @@ from rhesis.backend.app.constants import EntityType
 from tests.backend.routes.fixtures.entities.users import db_user, test_organization
 from tests.backend.routes.fixtures.entities.statuses import test_type_lookup, db_status
 from tests.backend.routes.fixtures.data_factories import (
-    BehaviorDataFactory, 
-    TopicDataFactory, 
-    CategoryDataFactory, 
-    PromptDataFactory
+    BehaviorDataFactory,
+    TopicDataFactory,
+    CategoryDataFactory,
+    PromptDataFactory,
 )
 
 
@@ -30,14 +30,13 @@ def create_test_set_data(**overrides):
     """Create test set data using existing patterns."""
     from tests.backend.routes.fixtures.data_factories import generate_test_data
     from faker import Faker
+
     fake = Faker()
-    
-    data = {
-        "name": fake.catch_phrase() + " Test Set",
-        "description": fake.text(max_nb_chars=200)
-    }
+
+    data = {"name": fake.catch_phrase() + " Test Set", "description": fake.text(max_nb_chars=200)}
     data.update(overrides)
     return data
+
 
 def create_bulk_test_data(**overrides):
     """Create test data for bulk operations using existing factories."""
@@ -46,7 +45,7 @@ def create_bulk_test_data(**overrides):
         "topic": TopicDataFactory.minimal_data()["name"],
         "behavior": BehaviorDataFactory.minimal_data()["name"],
         "category": CategoryDataFactory.minimal_data()["name"],
-        "test_configuration": {}
+        "test_configuration": {},
     }
     data.update(overrides)
     return data
@@ -57,60 +56,58 @@ def create_bulk_test_data(**overrides):
 class TestBulkCreateTests:
     """Test bulk_create_tests function."""
 
-    def test_bulk_create_tests_success(self, test_db: Session, authenticated_user_id, test_org_id, 
-                                      test_organization, test_type_lookup, db_status, db_user):
+    def test_bulk_create_tests_success(
+        self,
+        test_db: Session,
+        authenticated_user_id,
+        test_org_id,
+        test_organization,
+        test_type_lookup,
+        db_status,
+        db_user,
+    ):
         """Test successful bulk creation of tests."""
         # Prepare test data (no content field - it goes in the prompt)
         test_data_list = [
             create_bulk_test_data(),
             create_bulk_test_data(),
         ]
-        
+
         # Mock the load_defaults function with actual defaults structure
         mock_defaults = {
             "test": {
                 "test_type": "Single-Turn",
                 "status": "New",
                 "priority": 1,
-                "test_configuration": None
+                "test_configuration": None,
             },
-            "prompt": {
-                "language_code": "en-US",
-                "status": "New"
-            },
-            "topic": {
-                "status": "Active"
-            },
-            "behavior": {
-                "status": "Active"
-            },
-            "category": {
-                "status": "Active",
-                "entity_type": "Test"
-            }
+            "prompt": {"language_code": "en-US", "status": "New"},
+            "topic": {"status": "Active"},
+            "behavior": {"status": "Active"},
+            "category": {"status": "Active", "entity_type": "Test"},
         }
-        
+
         # Required entities are provided by fixtures (test_type_lookup, db_status, db_user)
-        
+
         # Only mock the load_defaults to control the test behavior
-        with patch('rhesis.backend.app.services.test.load_defaults') as mock_load_defaults:
+        with patch("rhesis.backend.app.services.test.load_defaults") as mock_load_defaults:
             mock_load_defaults.return_value = mock_defaults
-            
+
             # Call the function with real database entities
             result = test_service.bulk_create_tests(
                 db=test_db,
                 tests_data=test_data_list,
                 organization_id=test_org_id,
-                user_id=authenticated_user_id
+                user_id=authenticated_user_id,
             )
-            
+
             # Verify result
             assert len(result) == 2
             assert all(isinstance(test, models.Test) for test in result)
-            
+
             # Verify the mocked function was called
             mock_load_defaults.assert_called_once()
-            
+
             # Verify the tests have the expected relationships
             for test in result:
                 assert str(test.organization_id) == test_org_id
@@ -121,38 +118,44 @@ class TestBulkCreateTests:
                 assert test.category_id is not None
                 assert test.status_id is not None
 
-    def test_bulk_create_tests_with_test_set_id(self, test_db: Session, authenticated_user_id, test_org_id,
-                                               test_organization, test_type_lookup, db_status, db_user):
+    def test_bulk_create_tests_with_test_set_id(
+        self,
+        test_db: Session,
+        authenticated_user_id,
+        test_org_id,
+        test_organization,
+        test_type_lookup,
+        db_status,
+        db_user,
+    ):
         """Test bulk_create_tests with a test_set_id parameter."""
         # Required entities are provided by fixtures (test_type_lookup, db_status, db_user)
         # Create a test set first
         test_set_data = create_test_set_data()
         test_set = models.TestSet(
-            **test_set_data,
-            organization_id=test_org_id,
-            user_id=authenticated_user_id
+            **test_set_data, organization_id=test_org_id, user_id=authenticated_user_id
         )
         test_db.add(test_set)
         test_db.commit()
-        
+
         # Prepare test data using the same format as the successful test
         test_data_list = [
             create_bulk_test_data(),
         ]
-        
+
         # Required entities are provided by fixtures
         result = test_service.bulk_create_tests(
             db=test_db,
             tests_data=test_data_list,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
-            test_set_id=str(test_set.id)
+            test_set_id=str(test_set.id),
         )
-        
+
         # Verify result
         assert len(result) == 1
         assert all(isinstance(test, models.Test) for test in result)
-        
+
         # Verify the tests have the expected relationships
         for test in result:
             assert str(test.organization_id) == test_org_id
@@ -168,14 +171,14 @@ class TestBulkCreateTests:
         test_data_list = [
             create_bulk_test_data(),
         ]
-        
+
         # Call with invalid organization_id
         with pytest.raises(Exception, match="Failed to create tests"):
             test_service.bulk_create_tests(
                 db=test_db,
                 tests_data=test_data_list,
                 organization_id="invalid-uuid",
-                user_id=authenticated_user_id
+                user_id=authenticated_user_id,
             )
 
 
@@ -184,42 +187,49 @@ class TestBulkCreateTests:
 class TestTestSetAssociationsInTestService:
     """Test test set association functions in test service."""
 
-    def test_create_test_set_associations_success(self, test_db: Session, authenticated_user_id, test_org_id,
-                                                 test_organization, test_type_lookup, db_status, db_user):
+    def test_create_test_set_associations_success(
+        self,
+        test_db: Session,
+        authenticated_user_id,
+        test_org_id,
+        test_organization,
+        test_type_lookup,
+        db_status,
+        db_user,
+    ):
         """Test successful creation of test set associations in test service."""
         # Create test set
         test_set_data = create_test_set_data()
         test_set = models.TestSet(
-            **test_set_data,
-            organization_id=test_org_id,
-            user_id=authenticated_user_id
+            **test_set_data, organization_id=test_org_id, user_id=authenticated_user_id
         )
         test_db.add(test_set)
         test_db.commit()
-        
+
         # Required entities are provided by fixtures (test_type_lookup, db_status, db_user)
-        
+
         # Create test data and use the real service to create tests
         test_data_list = [
             create_bulk_test_data(),
             create_bulk_test_data(),
         ]
-        
+
         # Use the real bulk_create_tests service to create tests with proper relationships
         created_tests = test_service.bulk_create_tests(
             db=test_db,
             tests_data=test_data_list,
             organization_id=test_org_id,
-            user_id=authenticated_user_id
+            user_id=authenticated_user_id,
         )
-        
+
         test1, test2 = created_tests[0], created_tests[1]
-        
+
         test_ids = [str(test1.id), str(test2.id)]
-        
+
         # Mock the entire create_test_set_associations function
-        with patch('rhesis.backend.app.services.test.create_test_set_associations') as mock_create_associations:
-            
+        with patch(
+            "rhesis.backend.app.services.test.create_test_set_associations"
+        ) as mock_create_associations:
             mock_create_associations.return_value = {
                 "success": True,
                 "total_tests": 2,
@@ -229,190 +239,197 @@ class TestTestSetAssociationsInTestService:
                     "existing_associations": 0,
                     "invalid_associations": 0,
                     "existing_test_ids": [],
-                    "invalid_test_ids": []
-                }
+                    "invalid_test_ids": [],
+                },
             }
-            
+
             # Call the function (which should be mocked)
             result = test_service.create_test_set_associations(
                 db=test_db,
                 test_set_id=str(test_set.id),
                 test_ids=test_ids,
                 organization_id=test_org_id,
-                user_id=authenticated_user_id
+                user_id=authenticated_user_id,
             )
-            
+
             # Verify result
             assert result["success"] is True
             assert result["total_tests"] == 2
             assert result["metadata"]["new_associations"] == 2
-            
+
             # Verify create_test_set_associations was called with correct parameters
             mock_create_associations.assert_called_once_with(
                 db=test_db,
                 test_set_id=str(test_set.id),
                 test_ids=test_ids,
                 organization_id=test_org_id,
-                user_id=authenticated_user_id
+                user_id=authenticated_user_id,
             )
 
-    def test_create_test_set_associations_test_set_not_found(self, test_db: Session, authenticated_user_id, test_org_id):
+    def test_create_test_set_associations_test_set_not_found(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
         """Test create_test_set_associations with non-existent test set."""
         non_existent_id = str(uuid.uuid4())
         test_ids = [str(uuid.uuid4())]
-        
+
         result = test_service.create_test_set_associations(
             db=test_db,
             test_set_id=non_existent_id,
             test_ids=test_ids,
             organization_id=test_org_id,
-            user_id=authenticated_user_id
+            user_id=authenticated_user_id,
         )
-        
+
         assert result["success"] is False
         assert result["total_tests"] == 0
         assert "not found" in result["message"]
         assert result["metadata"]["new_associations"] == 0
 
-    def test_remove_test_set_associations_success(self, test_db: Session, authenticated_user_id, test_org_id,
-                                                 test_organization, test_type_lookup, db_status, db_user):
+    def test_remove_test_set_associations_success(
+        self,
+        test_db: Session,
+        authenticated_user_id,
+        test_org_id,
+        test_organization,
+        test_type_lookup,
+        db_status,
+        db_user,
+    ):
         """Test successful removal of test set associations."""
         # Create test set
         test_set_data = create_test_set_data()
         test_set = models.TestSet(
-            **test_set_data,
-            organization_id=test_org_id,
-            user_id=authenticated_user_id
+            **test_set_data, organization_id=test_org_id, user_id=authenticated_user_id
         )
         test_db.add(test_set)
         test_db.commit()
-        
+
         # Required entities are provided by fixtures (test_type_lookup, db_status, db_user)
-        
+
         # Create test using the real service
         test_data_list = [create_bulk_test_data()]
         created_tests = test_service.bulk_create_tests(
             db=test_db,
             tests_data=test_data_list,
             organization_id=test_org_id,
-            user_id=authenticated_user_id
+            user_id=authenticated_user_id,
         )
         test = created_tests[0]
-        
+
         # Create association manually for testing
         from rhesis.backend.app.models.test import test_test_set_association
+
         test_db.execute(
             test_test_set_association.insert().values(
                 test_id=test.id,
                 test_set_id=test_set.id,
                 organization_id=test_org_id,
-                user_id=authenticated_user_id
+                user_id=authenticated_user_id,
             )
         )
         test_db.commit()
-        
+
         test_ids = [str(test.id)]
-        
+
         # Mock the entire remove_test_set_associations function
-        with patch('rhesis.backend.app.services.test.remove_test_set_associations') as mock_remove_associations:
-            
+        with patch(
+            "rhesis.backend.app.services.test.remove_test_set_associations"
+        ) as mock_remove_associations:
             mock_remove_associations.return_value = {
                 "success": True,
                 "removed_associations": 1,
                 "message": "Successfully removed 1 association",
-                "metadata": {
-                    "removed_associations": 1,
-                    "total_tests": 1
-                }
+                "metadata": {"removed_associations": 1, "total_tests": 1},
             }
-            
+
             # Call the function (which should be mocked)
             result = test_service.remove_test_set_associations(
                 db=test_db,
                 test_set_id=str(test_set.id),
                 test_ids=test_ids,
                 organization_id=test_org_id,
-                user_id=authenticated_user_id
+                user_id=authenticated_user_id,
             )
-            
+
             # Verify result
             assert result["success"] is True
             assert result["removed_associations"] == 1
             assert "Successfully removed" in result["message"]
-            
+
             # Verify remove_test_set_associations was called with correct parameters
             mock_remove_associations.assert_called_once_with(
                 db=test_db,
                 test_set_id=str(test_set.id),
                 test_ids=test_ids,
                 organization_id=test_org_id,
-                user_id=authenticated_user_id
+                user_id=authenticated_user_id,
             )
 
-    def test_remove_test_set_associations_test_set_not_found(self, test_db: Session, authenticated_user_id, test_org_id):
+    def test_remove_test_set_associations_test_set_not_found(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
         """Test remove_test_set_associations with non-existent test set."""
         non_existent_id = str(uuid.uuid4())
         test_ids = [str(uuid.uuid4())]
-        
+
         # Mock the function to simulate test set not found error
-        with patch('rhesis.backend.app.services.test.remove_test_set_associations') as mock_remove_associations:
+        with patch(
+            "rhesis.backend.app.services.test.remove_test_set_associations"
+        ) as mock_remove_associations:
             mock_remove_associations.return_value = {
                 "success": False,
                 "removed_associations": 0,
                 "message": f"Test set with ID {non_existent_id} not found",
-                "metadata": {
-                    "removed_associations": 0,
-                    "total_tests": 0
-                }
+                "metadata": {"removed_associations": 0, "total_tests": 0},
             }
-            
+
             result = test_service.remove_test_set_associations(
                 db=test_db,
                 test_set_id=non_existent_id,
                 test_ids=test_ids,
                 organization_id=test_org_id,
-                user_id=authenticated_user_id
+                user_id=authenticated_user_id,
             )
-            
+
             assert result["success"] is False
             assert result["removed_associations"] == 0
             assert "not found" in result["message"]
 
-    def test_remove_test_set_associations_no_existing_associations(self, test_db: Session, authenticated_user_id, test_org_id):
+    def test_remove_test_set_associations_no_existing_associations(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
         """Test remove_test_set_associations when no associations exist."""
         # Create test set
         test_set_data = create_test_set_data()
         test_set = models.TestSet(
-            **test_set_data,
-            organization_id=test_org_id,
-            user_id=authenticated_user_id
+            **test_set_data, organization_id=test_org_id, user_id=authenticated_user_id
         )
         test_db.add(test_set)
         test_db.commit()
-        
+
         # Try to remove associations for non-existent test
         test_ids = [str(uuid.uuid4())]
-        
+
         # Mock the function to simulate no existing associations
-        with patch('rhesis.backend.app.services.test.remove_test_set_associations') as mock_remove_associations:
+        with patch(
+            "rhesis.backend.app.services.test.remove_test_set_associations"
+        ) as mock_remove_associations:
             mock_remove_associations.return_value = {
                 "success": False,
                 "removed_associations": 0,
                 "message": "None of the provided test IDs are associated with this test set",
-                "metadata": {
-                    "removed_associations": 0,
-                    "total_tests": 1
-                }
+                "metadata": {"removed_associations": 0, "total_tests": 1},
             }
-            
+
             result = test_service.remove_test_set_associations(
                 db=test_db,
                 test_set_id=str(test_set.id),
                 test_ids=test_ids,
                 organization_id=test_org_id,
-                user_id=authenticated_user_id
+                user_id=authenticated_user_id,
             )
-            
+
             assert result["success"] is False
             assert result["removed_associations"] == 0
             assert "None of the provided test IDs are associated" in result["message"]

@@ -16,16 +16,16 @@ fake = Faker()
 def db_prompt(test_db: Session, test_organization, db_user, db_status) -> Prompt:
     """
     🤖 Create a real prompt in the test database
-    
+
     This fixture creates an actual Prompt record in the database that can be
     used for foreign key relationships in tests.
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture for creator
         db_status: Status fixture
-        
+
     Returns:
         Prompt: Real prompt record with valid database ID
     """
@@ -35,7 +35,7 @@ def db_prompt(test_db: Session, test_organization, db_user, db_status) -> Prompt
         expected_response=fake.paragraph(nb_sentences=2),
         user_id=db_user.id,
         organization_id=test_organization.id,
-        status_id=db_status.id
+        status_id=db_status.id,
     )
     test_db.add(prompt)
     test_db.commit()  # Commit the transaction to make it visible to other transactions
@@ -47,13 +47,13 @@ def db_prompt(test_db: Session, test_organization, db_user, db_status) -> Prompt
 def db_multilingual_prompt(test_db: Session, test_organization, db_user, db_status) -> Prompt:
     """
     🤖 Create a multilingual prompt in the test database
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture for creator
         db_status: Status fixture
-        
+
     Returns:
         Prompt: Real multilingual prompt record
     """
@@ -63,7 +63,7 @@ def db_multilingual_prompt(test_db: Session, test_organization, db_user, db_stat
         expected_response="I am doing well, thank you!",
         user_id=db_user.id,
         organization_id=test_organization.id,
-        status_id=db_status.id
+        status_id=db_status.id,
     )
     test_db.add(prompt)
     test_db.commit()  # Commit the transaction to make it visible to other transactions
@@ -75,13 +75,13 @@ def db_multilingual_prompt(test_db: Session, test_organization, db_user, db_stat
 def db_parent_prompt(test_db: Session, test_organization, db_user, db_status) -> Prompt:
     """
     🤖 Create a parent prompt for multiturn scenarios
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture for creator
         db_status: Status fixture
-        
+
     Returns:
         Prompt: Real parent prompt record
     """
@@ -91,7 +91,7 @@ def db_parent_prompt(test_db: Session, test_organization, db_user, db_status) ->
         expected_response="This is the expected response to the first turn.",
         user_id=db_user.id,
         organization_id=test_organization.id,
-        status_id=db_status.id
+        status_id=db_status.id,
     )
     test_db.add(prompt)
     test_db.commit()  # Commit the transaction to make it visible to other transactions
@@ -100,17 +100,19 @@ def db_parent_prompt(test_db: Session, test_organization, db_user, db_status) ->
 
 
 @pytest.fixture
-def db_child_prompt(test_db: Session, test_organization, db_user, db_status, db_parent_prompt) -> Prompt:
+def db_child_prompt(
+    test_db: Session, test_organization, db_user, db_status, db_parent_prompt
+) -> Prompt:
     """
     🤖 Create a child prompt for multiturn scenarios
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture for creator
         db_status: Status fixture
         db_parent_prompt: Parent prompt fixture
-        
+
     Returns:
         Prompt: Real child prompt record with parent relationship
     """
@@ -121,7 +123,7 @@ def db_child_prompt(test_db: Session, test_organization, db_user, db_status, db_
         parent_id=db_parent_prompt.id,
         user_id=db_user.id,
         organization_id=test_organization.id,
-        status_id=db_status.id
+        status_id=db_status.id,
     )
     test_db.add(prompt)
     test_db.commit()  # Commit the transaction to make it visible to other transactions

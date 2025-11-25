@@ -24,7 +24,7 @@ def sample_behavior(authenticated_client: TestClient) -> Dict[str, Any]:
     """
     behavior_data = {
         "name": fake.word().title() + " Test Behavior",
-        "description": fake.text(max_nb_chars=100)
+        "description": fake.text(max_nb_chars=100),
     }
 
     response = authenticated_client.post(APIEndpoints.BEHAVIORS.create, json=behavior_data)

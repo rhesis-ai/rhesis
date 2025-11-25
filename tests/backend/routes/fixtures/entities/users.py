@@ -30,6 +30,7 @@ try:
 except ImportError:
     # Fallback for tests that don't need real models
     from typing import TYPE_CHECKING
+
     if TYPE_CHECKING:
         from rhesis.backend.app.models.user import User
         from rhesis.backend.app.models.organization import Organization
@@ -45,6 +46,7 @@ fake = Faker()
 
 
 # === 🎭 MOCK FIXTURES (Unit Tests - No Database) ===
+
 
 @pytest.fixture
 def mock_user_data() -> Dict[str, Any]:
@@ -66,7 +68,7 @@ def mock_user_data() -> Dict[str, Any]:
         "is_active": True,
         "is_superuser": False,
         "organization_id": fake.uuid4(),
-        "display_name": fake.name()
+        "display_name": fake.name(),
     }
 
 
@@ -79,12 +81,14 @@ def mock_admin_data(mock_user_data) -> Dict[str, Any]:
         Dict containing mock admin user data
     """
     admin_data = mock_user_data.copy()
-    admin_data.update({
-        "email": f"admin+{fake.uuid4()[:8]}@example.com",
-        "name": f"Admin {fake.last_name()}",
-        "given_name": "Admin",
-        "is_superuser": True
-    })
+    admin_data.update(
+        {
+            "email": f"admin+{fake.uuid4()[:8]}@example.com",
+            "name": f"Admin {fake.last_name()}",
+            "given_name": "Admin",
+            "is_superuser": True,
+        }
+    )
     return admin_data
 
 
@@ -97,10 +101,7 @@ def mock_inactive_user_data(mock_user_data) -> Dict[str, Any]:
         Dict containing mock inactive user data
     """
     inactive_data = mock_user_data.copy()
-    inactive_data.update({
-        "is_active": False,
-        "email": f"inactive+{fake.uuid4()[:8]}@example.com"
-    })
+    inactive_data.update({"is_active": False, "email": f"inactive+{fake.uuid4()[:8]}@example.com"})
     return inactive_data
 
 
@@ -129,6 +130,7 @@ def mock_user_object() -> Mock:
 
 
 # === 🗄️ DATABASE FIXTURES (Integration Tests - Real Database) ===
+
 
 @pytest.fixture
 def db_user(test_db, test_org_id):
@@ -162,7 +164,7 @@ def db_user(test_db, test_org_id):
         is_active=True,
         is_superuser=False,
         auth0_id=f"auth0|{uuid.uuid4()}",
-        organization_id=test_org_id
+        organization_id=test_org_id,
     )
     test_db.add(user)
     test_db.flush()  # Make sure the object gets an ID
@@ -193,7 +195,7 @@ def db_admin(test_db, test_org_id):
         is_active=True,
         is_superuser=True,
         auth0_id=f"auth0|{fake.uuid4()}",
-        organization_id=test_org_id
+        organization_id=test_org_id,
     )
     test_db.add(admin)
     test_db.flush()  # Make sure the object gets an ID
@@ -222,7 +224,7 @@ def db_inactive_user(test_db, test_org_id):
         is_active=False,
         is_superuser=False,
         auth0_id=f"auth0|{fake.uuid4()}",
-        organization_id=test_org_id
+        organization_id=test_org_id,
     )
     test_db.add(user)
     test_db.flush()  # Make sure the object gets an ID
@@ -248,6 +250,7 @@ def db_owner_user(test_db, test_org_id):
         pytest.skip("User model not available")
 
     import time
+
     unique_suffix = f"{int(time.time() * 1000000)}"  # microsecond timestamp
     owner = User(
         email=f"owner+{unique_suffix}@example.com",
@@ -257,7 +260,7 @@ def db_owner_user(test_db, test_org_id):
         is_active=True,
         is_superuser=False,
         auth0_id=f"auth0|{fake.uuid4()}",
-        organization_id=test_org_id
+        organization_id=test_org_id,
     )
     test_db.add(owner)
     test_db.flush()  # Make sure the object gets an ID
@@ -283,6 +286,7 @@ def db_assignee_user(test_db, test_org_id):
         pytest.skip("User model not available")
 
     import time
+
     unique_suffix = f"{int(time.time() * 1000000)}"  # microsecond timestamp
     assignee = User(
         email=f"assignee+{unique_suffix}@example.com",
@@ -292,7 +296,7 @@ def db_assignee_user(test_db, test_org_id):
         is_active=True,
         is_superuser=False,
         auth0_id=f"auth0|{fake.uuid4()}",
-        organization_id=test_org_id
+        organization_id=test_org_id,
     )
     test_db.add(assignee)
     test_db.flush()  # Make sure the object gets an ID
@@ -301,6 +305,7 @@ def db_assignee_user(test_db, test_org_id):
 
 
 # === 🔑 AUTHENTICATED FIXTURES (The Real Authenticated User) ===
+
 
 @pytest.fixture
 def authenticated_user(test_db, authenticated_user_id):
@@ -349,7 +354,7 @@ def authenticated_user_data(authenticated_user) -> Dict[str, Any]:
         "is_active": authenticated_user.is_active,
         "is_superuser": authenticated_user.is_superuser,
         "organization_id": str(authenticated_user.organization_id),
-        "display_name": authenticated_user.display_name
+        "display_name": authenticated_user.display_name,
     }
 
 
@@ -378,6 +383,7 @@ def test_organization(test_db, test_org_id):
 
 # === 🎯 CONVENIENCE FIXTURES (Common Combinations) ===
 
+
 @pytest.fixture
 def user_trio(db_user, db_owner_user, db_assignee_user):
     """
@@ -391,11 +397,7 @@ def user_trio(db_user, db_owner_user, db_assignee_user):
     Returns:
         Dict with 'user', 'owner', and 'assignee' keys
     """
-    return {
-        "user": db_user,
-        "owner": db_owner_user,
-        "assignee": db_assignee_user
-    }
+    return {"user": db_user, "owner": db_owner_user, "assignee": db_assignee_user}
 
 
 @pytest.fixture
@@ -406,10 +408,7 @@ def admin_and_user(db_admin, db_user):
     Returns:
         Dict with 'admin' and 'user' keys
     """
-    return {
-        "admin": db_admin,
-        "user": db_user
-    }
+    return {"admin": db_admin, "user": db_user}
 
 
 # LEGACY ALIASES (for backward compatibility - will be removed in future)
@@ -424,17 +423,28 @@ db_admin_user = db_admin
 # Export all fixtures for easy discovery
 __all__ = [
     # Mock fixtures (unit tests)
-    "mock_user_data", "mock_admin_data", "mock_inactive_user_data", "mock_user_object",
-
+    "mock_user_data",
+    "mock_admin_data",
+    "mock_inactive_user_data",
+    "mock_user_object",
     # Database fixtures (integration tests)
-    "db_user", "db_admin", "db_inactive_user", "db_owner_user", "db_assignee_user",
-
+    "db_user",
+    "db_admin",
+    "db_inactive_user",
+    "db_owner_user",
+    "db_assignee_user",
     # Authenticated fixtures (the real user)
-    "authenticated_user", "authenticated_user_data", "test_organization",
-
+    "authenticated_user",
+    "authenticated_user_data",
+    "test_organization",
     # Convenience fixtures
-    "user_trio", "admin_and_user",
-
+    "user_trio",
+    "admin_and_user",
     # Legacy aliases (deprecated)
-    "sample_user", "mock_user", "admin_user", "inactive_user", "db_authenticated_user", "db_admin_user"
+    "sample_user",
+    "mock_user",
+    "admin_user",
+    "inactive_user",
+    "db_authenticated_user",
+    "db_admin_user",
 ]

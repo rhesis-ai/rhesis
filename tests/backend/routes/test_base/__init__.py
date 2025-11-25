@@ -10,7 +10,7 @@ authentication validation, and performance testing.
 The base test classes are organized into focused modules:
 
 - **`core.py`** - Abstract base class and core functionality
-- **`user_detection.py`** - Intelligent auto-detection of user relationship fields  
+- **`user_detection.py`** - Intelligent auto-detection of user relationship fields
 - **`crud.py`** - Comprehensive CRUD operation tests
 - **`user_relationships.py`** - User field testing (creation, updates, ownership transfer)
 - **`list_operations.py`** - List operations, pagination, sorting, filtering
@@ -27,13 +27,13 @@ from tests.backend.routes.base import BaseEntityRouteTests
 class TestMyEntity(BaseEntityRouteTests):
     entity_name = "my_entity"  # Auto-detection happens here!
     endpoints = APIEndpoints.MY_ENTITY
-    
+
     def get_sample_data(self):
         return {"name": "Sample Entity"}
-    
+
     def get_minimal_data(self):
         return {"name": "Minimal"}
-    
+
     def get_update_data(self):
         return {"name": "Updated Entity"}
 ```
@@ -67,18 +67,18 @@ from .user_detection import UserFieldDetector
 class BaseEntityRouteTests(
     BaseCRUDTests,
     BaseUserRelationshipTests,
-    BaseListOperationTests, 
+    BaseListOperationTests,
     BaseAuthenticationTests,
     BaseEdgeCaseTests,
     BasePerformanceTests,
-    BaseHealthTests
+    BaseHealthTests,
 ):
     """
     Complete base test suite for any entity - includes all standard tests
-    
+
     This class combines all the modular test classes into a comprehensive
     test suite that provides:
-    
+
     - ✅ Full CRUD operation testing
     - 👤 Automatic user relationship field testing
     - 🔗 List operations and filtering
@@ -86,30 +86,28 @@ class BaseEntityRouteTests(
     - 🏃‍♂️ Edge case handling
     - 🐌 Performance validation
     - ✅ Health checks
-    
+
     Simply inherit from this class and define your entity-specific methods
     to get comprehensive test coverage with automatic user field detection.
     """
+
     pass
 
 
 # Export everything for easy imports
 __all__ = [
     # Main composite class
-    'BaseEntityRouteTests',
-    
+    "BaseEntityRouteTests",
     # Core classes
-    'BaseEntityTests',
-    
+    "BaseEntityTests",
     # Individual test modules
-    'BaseCRUDTests',
-    'BaseUserRelationshipTests',
-    'BaseListOperationTests',
-    'BaseAuthenticationTests',
-    'BaseEdgeCaseTests',
-    'BasePerformanceTests',
-    'BaseHealthTests',
-    
+    "BaseCRUDTests",
+    "BaseUserRelationshipTests",
+    "BaseListOperationTests",
+    "BaseAuthenticationTests",
+    "BaseEdgeCaseTests",
+    "BasePerformanceTests",
+    "BaseHealthTests",
     # Utilities
-    'UserFieldDetector',
+    "UserFieldDetector",
 ]

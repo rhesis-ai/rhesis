@@ -73,11 +73,48 @@ token_enabled_routes = [
     "/comments/",
     "/sources/",
     "/models/",
+    "/connector/",
 ]
+
+
+def is_websocket_route(route: APIRoute) -> bool:
+    """
+    Check if a route is a WebSocket endpoint.
+
+    WebSocket routes need special handling because they cannot use
+    FastAPI's dependency injection system in the same way as HTTP routes.
+    They must accept the connection first, then handle authentication manually.
+
+    Args:
+        route: The APIRoute to check
+
+    Returns:
+        True if this is a WebSocket route, False otherwise
+    """
+    import inspect
+
+    # Check if the route has a dependant with a callable
+    if not hasattr(route, "dependant") or not route.dependant:
+        return False
+
+    if not hasattr(route.dependant, "call") or not route.dependant.call:
+        return False
+
+    # Get the function signature
+    try:
+        sig = inspect.signature(route.dependant.call)
+        # WebSocket routes have a 'websocket' parameter of type WebSocket
+        return "websocket" in sig.parameters
+    except (ValueError, TypeError):
+        return False
 
 
 class AuthenticatedAPIRoute(APIRoute):
     def get_dependencies(self):
+        # WebSocket routes handle authentication manually in the endpoint
+        if is_websocket_route(self):
+            return []
+
         if self.path in public_routes:
             # No auth required
             return []
@@ -126,10 +163,29 @@ async def lifespan(app: FastAPI):
     with get_db() as db:
         initialize_local_environment(db)
 
+    # Initialize Redis for SDK RPC (optional, doesn't fail startup)
+    from rhesis.backend.app.services.connector.manager import connection_manager
+    from rhesis.backend.app.services.connector.redis_client import redis_manager
+
+    await redis_manager.initialize()  # Logs warning if fails, doesn't raise
+
+    # Only start RPC listener if Redis is available
+    if redis_manager.is_available:
+        connection_manager._track_background_task(connection_manager._listen_for_rpc_requests())
+        logger.info(
+            "🚀 SDK RPC SYSTEM INITIALIZED - Workers can now invoke SDK functions via Redis bridge"
+        )
+    else:
+        logger.warning(
+            "⚠️ Redis not available - SDK RPC from workers will not work. "
+            "Workers will not be able to invoke SDK functions."
+        )
+
     yield  # Application is running
 
-    # Shutdown: Add any cleanup code here if needed in the future
-    pass
+    # Shutdown: Clean up Redis connection
+    if redis_manager.is_available:
+        await redis_manager.close()
 
 
 app = FastAPI(

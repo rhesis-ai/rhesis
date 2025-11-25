@@ -38,17 +38,21 @@ def execute_tests_sequentially(
         logger.info(f"Executing test {i}/{len(tests)}: {test.id}")
 
         try:
-            # Execute the test synchronously - call the execution logic directly
-            result = execute_test(
-                db=session,
-                test_config_id=str(test_config.id),
-                test_run_id=str(test_run.id),
-                test_id=str(test.id),
-                endpoint_id=str(test_config.endpoint_id),
-                organization_id=str(test_config.organization_id)
-                if test_config.organization_id
-                else None,
-                user_id=str(test_config.user_id) if test_config.user_id else None,
+            # Execute the test asynchronously
+            import asyncio
+
+            result = asyncio.run(
+                execute_test(
+                    db=session,
+                    test_config_id=str(test_config.id),
+                    test_run_id=str(test_run.id),
+                    test_id=str(test.id),
+                    endpoint_id=str(test_config.endpoint_id),
+                    organization_id=str(test_config.organization_id)
+                    if test_config.organization_id
+                    else None,
+                    user_id=str(test_config.user_id) if test_config.user_id else None,
+                )
             )
             results.append(result)
 

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 # Import modular components
 from .auth import AuthenticationManager
 from .common import ErrorResponseBuilder, HeaderManager
+from .common.schemas import ErrorResponse
 from .conversation import ConversationTracker
 from .templating import ResponseMapper, TemplateRenderer
 
@@ -24,7 +25,9 @@ class BaseEndpointInvoker(ABC):
         self.conversation_tracker = ConversationTracker()
 
     @abstractmethod
-    def invoke(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def invoke(
+        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
+    ) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Invoke the endpoint with the given input data.
 
@@ -34,9 +37,18 @@ class BaseEndpointInvoker(ABC):
             input_data: Input data to be mapped to the endpoint's request template
 
         Returns:
-            Dict containing the mapped response from the endpoint
+            Dict containing the mapped response from the endpoint, or ErrorResponse for errors
         """
         pass
+
+    def get_execution_context(self) -> str:
+        """
+        Identify the execution context for this invoker.
+
+        Returns:
+            String identifying the invoker type/context (e.g., 'rest', 'websocket', 'sdk')
+        """
+        return self.__class__.__name__.lower().replace("endpointinvoker", "").replace("invoker", "")
 
     # Conversation tracking methods (delegated to ConversationTracker)
     def _detect_conversation_field(self, endpoint: Endpoint):
@@ -85,12 +97,12 @@ class BaseEndpointInvoker(ABC):
         message: str,
         request_details: Dict = None,
         **kwargs,
-    ):
+    ) -> ErrorResponse:
         """Create standardized error response."""
         return self.error_builder.create_error_response(
             error_type, output_message, message, request_details, **kwargs
         )
 
-    def _safe_request_details(self, local_vars: Dict, protocol: str = "unknown"):
+    def _safe_request_details(self, local_vars: Dict, connection_type: str = "unknown"):
         """Safely create request details from local variables."""
-        return self.error_builder.safe_request_details(local_vars, protocol)
+        return self.error_builder.safe_request_details(local_vars, connection_type)

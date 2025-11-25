@@ -248,6 +248,10 @@ echo ""
 echo "=== Celery Worker Startup ==="
 echo "Starting Celery worker with full output..."
 
+# Set worker context environment variable for RPC detection
+export CELERY_WORKER_NAME="worker@$(hostname)"
+echo "Worker context identifier: $CELERY_WORKER_NAME"
+
 # Build the complete command with memory optimizations
 # NOTE: Using --pool=solo instead of prefork to avoid process-level race conditions
 # during test execution. With prefork, multiple worker processes can interfere with

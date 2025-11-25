@@ -20,7 +20,7 @@ class TestConversationTracker:
     def test_detect_conversation_field_with_session_id(self, sample_endpoint_rest):
         """Test detection of session_id field."""
         tracker = ConversationTracker()
-        sample_endpoint_rest.response_mappings = {"session_id": "$.session_id", "output": "$.text"}
+        sample_endpoint_rest.response_mapping = {"session_id": "$.session_id", "output": "$.text"}
 
         field = tracker.detect_conversation_field(sample_endpoint_rest)
 
@@ -29,7 +29,7 @@ class TestConversationTracker:
     def test_detect_conversation_field_with_thread_id(self, sample_endpoint_rest):
         """Test detection of thread_id field."""
         tracker = ConversationTracker()
-        sample_endpoint_rest.response_mappings = {"thread_id": "$.thread.id", "output": "$.text"}
+        sample_endpoint_rest.response_mapping = {"thread_id": "$.thread.id", "output": "$.text"}
 
         field = tracker.detect_conversation_field(sample_endpoint_rest)
 
@@ -39,7 +39,7 @@ class TestConversationTracker:
         """Test that conversation_id takes priority over session_id."""
         tracker = ConversationTracker()
         # Both are present, conversation_id should be detected first
-        sample_endpoint_rest.response_mappings = {
+        sample_endpoint_rest.response_mapping = {
             "session_id": "$.session.id",
             "conversation_id": "$.conv.id",
             "output": "$.text",
@@ -53,7 +53,7 @@ class TestConversationTracker:
     def test_detect_conversation_field_no_tracking(self, sample_endpoint_rest):
         """Test detection when no conversation field is configured."""
         tracker = ConversationTracker()
-        sample_endpoint_rest.response_mappings = {"output": "$.text"}
+        sample_endpoint_rest.response_mapping = {"output": "$.text"}
 
         field = tracker.detect_conversation_field(sample_endpoint_rest)
 
@@ -62,7 +62,7 @@ class TestConversationTracker:
     def test_detect_conversation_field_empty_mappings(self, sample_endpoint_rest):
         """Test detection with empty response mappings."""
         tracker = ConversationTracker()
-        sample_endpoint_rest.response_mappings = {}
+        sample_endpoint_rest.response_mapping = {}
 
         field = tracker.detect_conversation_field(sample_endpoint_rest)
 
@@ -71,7 +71,7 @@ class TestConversationTracker:
     def test_detect_conversation_field_none_mappings(self, sample_endpoint_rest):
         """Test detection with None response mappings."""
         tracker = ConversationTracker()
-        sample_endpoint_rest.response_mappings = None
+        sample_endpoint_rest.response_mapping = None
 
         field = tracker.detect_conversation_field(sample_endpoint_rest)
 
@@ -123,7 +123,7 @@ class TestConversationTracker:
     def test_prepare_conversation_context_no_tracking(self, sample_endpoint_rest):
         """Test context preparation when no conversation tracking configured."""
         tracker = ConversationTracker()
-        sample_endpoint_rest.response_mappings = {"output": "$.text"}
+        sample_endpoint_rest.response_mapping = {"output": "$.text"}
         input_data = {"input": "Hello"}
 
         context, field = tracker.prepare_conversation_context(sample_endpoint_rest, input_data)

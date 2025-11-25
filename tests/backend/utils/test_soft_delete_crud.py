@@ -41,31 +41,32 @@ class TestSoftDeletion:
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
         behavior_id = behavior.id
-        
+
         # Soft delete the behavior
         deleted = crud_utils.delete_item(
             test_db, models.Behavior, behavior_id, organization_id=test_org_id
         )
-        
+
         # Verify item was returned
         assert deleted is not None
         assert deleted.id == behavior_id
         assert deleted.deleted_at is not None
         assert isinstance(deleted.deleted_at, datetime)
-        
+
         # Verify item raises ItemDeletedException in normal queries
         from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+
         with pytest.raises(ItemDeletedException):
-            crud_utils.get_item(
-                test_db, models.Behavior, behavior_id, organization_id=test_org_id
-            )
-        
+            crud_utils.get_item(test_db, models.Behavior, behavior_id, organization_id=test_org_id)
+
         # Verify item still exists in database with deleted_at set
         with without_soft_delete_filter():
             found_with_deleted = crud_utils.get_item(
-                test_db, models.Behavior, behavior_id, 
+                test_db,
+                models.Behavior,
+                behavior_id,
                 organization_id=test_org_id,
-                include_deleted=True
+                include_deleted=True,
             )
             assert found_with_deleted is not None
             assert found_with_deleted.deleted_at is not None
@@ -73,33 +74,29 @@ class TestSoftDeletion:
     def test_delete_item_returns_none_if_not_found(self, test_db: Session, test_org_id):
         """Test that delete_item returns None if item doesn't exist."""
         non_existent_id = uuid.uuid4()
-        
+
         result = crud_utils.delete_item(
             test_db, models.Behavior, non_existent_id, organization_id=test_org_id
         )
-        
+
         assert result is None
 
     def test_get_item_excludes_deleted_by_default(self, test_db: Session, test_org_id):
         """Test that get_item raises exception for soft-deleted items by default."""
         from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
-        
+
         # Create and delete a behavior
         behavior_data = BehaviorDataFactory.sample_data()
         behavior = crud_utils.create_item(
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
         behavior_id = behavior.id
-        
-        crud_utils.delete_item(
-            test_db, models.Behavior, behavior_id, organization_id=test_org_id
-        )
-        
+
+        crud_utils.delete_item(test_db, models.Behavior, behavior_id, organization_id=test_org_id)
+
         # Try to get the deleted item - should raise exception
         with pytest.raises(ItemDeletedException):
-            crud_utils.get_item(
-                test_db, models.Behavior, behavior_id, organization_id=test_org_id
-            )
+            crud_utils.get_item(test_db, models.Behavior, behavior_id, organization_id=test_org_id)
 
     def test_get_item_includes_deleted_when_requested(self, test_db: Session, test_org_id):
         """Test that get_item can include soft-deleted items when requested."""
@@ -109,18 +106,14 @@ class TestSoftDeletion:
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
         behavior_id = behavior.id
-        
-        crud_utils.delete_item(
-            test_db, models.Behavior, behavior_id, organization_id=test_org_id
-        )
-        
+
+        crud_utils.delete_item(test_db, models.Behavior, behavior_id, organization_id=test_org_id)
+
         # Get the deleted item with include_deleted=True
         found = crud_utils.get_item(
-            test_db, models.Behavior, behavior_id, 
-            organization_id=test_org_id,
-            include_deleted=True
+            test_db, models.Behavior, behavior_id, organization_id=test_org_id, include_deleted=True
         )
-        
+
         assert found is not None
         assert found.id == behavior_id
         assert found.deleted_at is not None
@@ -129,23 +122,17 @@ class TestSoftDeletion:
         """Test that get_deleted_items returns only soft-deleted items."""
         # Create multiple behaviors
         active_behavior = crud_utils.create_item(
-            test_db, models.Behavior, 
-            BehaviorDataFactory.sample_data(),
-            organization_id=test_org_id
+            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
         )
-        
+
         deleted_behavior1 = crud_utils.create_item(
-            test_db, models.Behavior, 
-            BehaviorDataFactory.sample_data(),
-            organization_id=test_org_id
+            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
         )
-        
+
         deleted_behavior2 = crud_utils.create_item(
-            test_db, models.Behavior, 
-            BehaviorDataFactory.sample_data(),
-            organization_id=test_org_id
+            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
         )
-        
+
         # Delete some behaviors
         crud_utils.delete_item(
             test_db, models.Behavior, deleted_behavior1.id, organization_id=test_org_id
@@ -153,20 +140,20 @@ class TestSoftDeletion:
         crud_utils.delete_item(
             test_db, models.Behavior, deleted_behavior2.id, organization_id=test_org_id
         )
-        
+
         # Get deleted items
         deleted_items = crud_utils.get_deleted_items(
             test_db, models.Behavior, organization_id=test_org_id
         )
-        
+
         deleted_ids = [item.id for item in deleted_items]
-        
+
         # Verify only deleted items are returned
         assert len(deleted_items) >= 2  # At least our two deleted items
         assert deleted_behavior1.id in deleted_ids
         assert deleted_behavior2.id in deleted_ids
         assert active_behavior.id not in deleted_ids
-        
+
         # Verify all returned items have deleted_at set
         for item in deleted_items:
             assert item.deleted_at is not None
@@ -179,21 +166,19 @@ class TestSoftDeletion:
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
         behavior_id = behavior.id
-        
-        crud_utils.delete_item(
-            test_db, models.Behavior, behavior_id, organization_id=test_org_id
-        )
-        
+
+        crud_utils.delete_item(test_db, models.Behavior, behavior_id, organization_id=test_org_id)
+
         # Restore the behavior
         restored = crud_utils.restore_item(
             test_db, models.Behavior, behavior_id, organization_id=test_org_id
         )
-        
+
         # Verify restoration
         assert restored is not None
         assert restored.id == behavior_id
         assert restored.deleted_at is None
-        
+
         # Verify item is now returned in normal queries
         found = crud_utils.get_item(
             test_db, models.Behavior, behavior_id, organization_id=test_org_id
@@ -205,11 +190,11 @@ class TestSoftDeletion:
     def test_restore_item_returns_none_if_not_found(self, test_db: Session, test_org_id):
         """Test that restore_item returns None if item doesn't exist."""
         non_existent_id = uuid.uuid4()
-        
+
         result = crud_utils.restore_item(
             test_db, models.Behavior, non_existent_id, organization_id=test_org_id
         )
-        
+
         assert result is None
 
     def test_restore_item_works_on_non_deleted_items(self, test_db: Session, test_org_id):
@@ -220,12 +205,12 @@ class TestSoftDeletion:
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
         behavior_id = behavior.id
-        
+
         # Try to restore (should be a no-op)
         restored = crud_utils.restore_item(
             test_db, models.Behavior, behavior_id, organization_id=test_org_id
         )
-        
+
         # Verify it returns the item
         assert restored is not None
         assert restored.id == behavior_id
@@ -239,20 +224,22 @@ class TestSoftDeletion:
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
         behavior_id = behavior.id
-        
+
         # Hard delete the behavior
         success = crud_utils.hard_delete_item(
             test_db, models.Behavior, behavior_id, organization_id=test_org_id
         )
-        
+
         assert success is True
-        
+
         # Verify item is completely gone
         with without_soft_delete_filter():
             found = crud_utils.get_item(
-                test_db, models.Behavior, behavior_id,
+                test_db,
+                models.Behavior,
+                behavior_id,
                 organization_id=test_org_id,
-                include_deleted=True
+                include_deleted=True,
             )
             assert found is None
 
@@ -264,35 +251,35 @@ class TestSoftDeletion:
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
         behavior_id = behavior.id
-        
-        crud_utils.delete_item(
-            test_db, models.Behavior, behavior_id, organization_id=test_org_id
-        )
-        
+
+        crud_utils.delete_item(test_db, models.Behavior, behavior_id, organization_id=test_org_id)
+
         # Hard delete the soft-deleted behavior
         success = crud_utils.hard_delete_item(
             test_db, models.Behavior, behavior_id, organization_id=test_org_id
         )
-        
+
         assert success is True
-        
+
         # Verify item is completely gone
         with without_soft_delete_filter():
             found = crud_utils.get_item(
-                test_db, models.Behavior, behavior_id,
+                test_db,
+                models.Behavior,
+                behavior_id,
                 organization_id=test_org_id,
-                include_deleted=True
+                include_deleted=True,
             )
             assert found is None
 
     def test_hard_delete_returns_false_if_not_found(self, test_db: Session, test_org_id):
         """Test that hard_delete_item returns False if item doesn't exist."""
         non_existent_id = uuid.uuid4()
-        
+
         result = crud_utils.hard_delete_item(
             test_db, models.Behavior, non_existent_id, organization_id=test_org_id
         )
-        
+
         assert result is False
 
     def test_soft_delete_multiple_records(self, test_db: Session, test_org_id):
@@ -305,29 +292,27 @@ class TestSoftDeletion:
                 test_db, models.Topic, topic_data, organization_id=test_org_id
             )
             topics.append(topic)
-        
+
         # Delete 3 of them
         for i in range(3):
-            crud_utils.delete_item(
-                test_db, models.Topic, topics[i].id, organization_id=test_org_id
-            )
-        
+            crud_utils.delete_item(test_db, models.Topic, topics[i].id, organization_id=test_org_id)
+
         # Get all topics (should exclude deleted)
-        all_topics_query = QueryBuilder(test_db, models.Topic)\
-            .with_organization_filter(test_org_id)\
-            .all()
-        
+        all_topics_query = (
+            QueryBuilder(test_db, models.Topic).with_organization_filter(test_org_id).all()
+        )
+
         # Should have 2 active topics
         active_ids = [t.id for t in all_topics_query]
         assert len([t for t in all_topics_query if t.deleted_at is None]) >= 2
         assert topics[3].id in active_ids
         assert topics[4].id in active_ids
-        
+
         # Get deleted topics
         deleted_topics = crud_utils.get_deleted_items(
             test_db, models.Topic, organization_id=test_org_id
         )
-        
+
         deleted_ids = [t.id for t in deleted_topics]
         assert len(deleted_ids) >= 3
         assert topics[0].id in deleted_ids
@@ -348,23 +333,25 @@ class TestSoftDeleteContext:
             test_db, models.Category, category_data, organization_id=test_org_id
         )
         category_id = category.id
-        
-        crud_utils.delete_item(
-            test_db, models.Category, category_id, organization_id=test_org_id
-        )
-        
+
+        crud_utils.delete_item(test_db, models.Category, category_id, organization_id=test_org_id)
+
         # Normal query should not find it
-        normal_query = QueryBuilder(test_db, models.Category)\
-            .with_organization_filter(test_org_id)\
+        normal_query = (
+            QueryBuilder(test_db, models.Category)
+            .with_organization_filter(test_org_id)
             .filter_by_id(category_id)
+        )
         assert normal_query is None
-        
+
         # Query with context manager should find it
         with without_soft_delete_filter():
-            with_deleted_query = QueryBuilder(test_db, models.Category)\
-                .with_organization_filter(test_org_id)\
-                .with_deleted()\
+            with_deleted_query = (
+                QueryBuilder(test_db, models.Category)
+                .with_organization_filter(test_org_id)
+                .with_deleted()
                 .filter_by_id(category_id)
+            )
             assert with_deleted_query is not None
             assert with_deleted_query.id == category_id
             assert with_deleted_query.deleted_at is not None
@@ -377,28 +364,27 @@ class TestSoftDeleteContext:
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
         behavior_id = behavior.id
-        
-        crud_utils.delete_item(
-            test_db, models.Behavior, behavior_id, organization_id=test_org_id
-        )
-        
+
+        crud_utils.delete_item(test_db, models.Behavior, behavior_id, organization_id=test_org_id)
+
         # Nested context managers
         with without_soft_delete_filter():
             with without_soft_delete_filter():
                 found = crud_utils.get_item(
-                    test_db, models.Behavior, behavior_id,
+                    test_db,
+                    models.Behavior,
+                    behavior_id,
                     organization_id=test_org_id,
-                    include_deleted=True
+                    include_deleted=True,
                 )
                 assert found is not None
                 assert found.deleted_at is not None
-        
+
         # Outside context, should raise exception for deleted item
         from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+
         with pytest.raises(ItemDeletedException):
-            crud_utils.get_item(
-                test_db, models.Behavior, behavior_id, organization_id=test_org_id
-            )
+            crud_utils.get_item(test_db, models.Behavior, behavior_id, organization_id=test_org_id)
 
 
 @pytest.mark.unit
@@ -412,7 +398,7 @@ class TestBaseModelSoftDeleteMethods:
         behavior = crud_utils.create_item(
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
-        
+
         assert behavior.is_deleted is False
         assert behavior.deleted_at is None
 
@@ -422,11 +408,11 @@ class TestBaseModelSoftDeleteMethods:
         behavior = crud_utils.create_item(
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
-        
+
         # Soft delete
         behavior.soft_delete()
         test_db.commit()
-        
+
         assert behavior.is_deleted is True
         assert behavior.deleted_at is not None
         assert isinstance(behavior.deleted_at, datetime)
@@ -437,12 +423,12 @@ class TestBaseModelSoftDeleteMethods:
         behavior = crud_utils.create_item(
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
-        
+
         before_delete = datetime.now(timezone.utc)
         behavior.soft_delete()
         after_delete = datetime.now(timezone.utc)
         test_db.commit()
-        
+
         assert behavior.deleted_at is not None
         assert before_delete <= behavior.deleted_at <= after_delete
 
@@ -452,16 +438,16 @@ class TestBaseModelSoftDeleteMethods:
         behavior = crud_utils.create_item(
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
-        
+
         # Soft delete
         behavior.soft_delete()
         test_db.commit()
         assert behavior.deleted_at is not None
-        
+
         # Restore
         behavior.restore()
         test_db.commit()
-        
+
         assert behavior.deleted_at is None
         assert behavior.is_deleted is False
 
@@ -471,24 +457,24 @@ class TestBaseModelSoftDeleteMethods:
         behavior = crud_utils.create_item(
             test_db, models.Behavior, behavior_data, organization_id=test_org_id
         )
-        
+
         # First soft delete
         behavior.soft_delete()
         test_db.commit()
         first_deleted_at = behavior.deleted_at
-        
+
         # Restore
         behavior.restore()
         test_db.commit()
-        
+
         # Second soft delete (after a brief moment)
         import time
+
         time.sleep(0.01)  # Small delay to ensure different timestamp
         behavior.soft_delete()
         test_db.commit()
         second_deleted_at = behavior.deleted_at
-        
+
         assert first_deleted_at is not None
         assert second_deleted_at is not None
         assert second_deleted_at >= first_deleted_at
-

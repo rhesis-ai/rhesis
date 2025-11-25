@@ -68,26 +68,40 @@ class BaseListOperationTests(BaseEntityTests):
         self.create_entity(authenticated_client)
 
         # Test ascending sort by name
-        response = authenticated_client.get(f"{self.endpoints.list}?sort_by={self.name_field}&sort_order=asc")
+        response = authenticated_client.get(
+            f"{self.endpoints.list}?sort_by={self.name_field}&sort_order=asc"
+        )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert isinstance(data, list)
 
         # Test descending sort by created_at (default)
-        response = authenticated_client.get(f"{self.endpoints.list}?sort_by=created_at&sort_order=desc")
+        response = authenticated_client.get(
+            f"{self.endpoints.list}?sort_by=created_at&sort_order=desc"
+        )
         assert response.status_code == status.HTTP_200_OK
 
     def test_list_entities_invalid_pagination(self, authenticated_client: TestClient):
         """Test entity list with invalid pagination parameters"""
         # Test negative limit
         response = authenticated_client.get(f"{self.endpoints.list}?limit=-1")
-        assert response.status_code in [status.HTTP_200_OK, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_400_BAD_REQUEST]
+        assert response.status_code in [
+            status.HTTP_200_OK,
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_400_BAD_REQUEST,
+        ]
 
         # Test negative skip
         response = authenticated_client.get(f"{self.endpoints.list}?skip=-1")
-        assert response.status_code in [status.HTTP_200_OK, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_400_BAD_REQUEST]
+        assert response.status_code in [
+            status.HTTP_200_OK,
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_400_BAD_REQUEST,
+        ]
 
-    def test_list_entities_filter_by_user(self, authenticated_client: TestClient, db_authenticated_user):
+    def test_list_entities_filter_by_user(
+        self, authenticated_client: TestClient, db_authenticated_user
+    ):
         """Test filtering entities by user relationship fields"""
         if not self.has_user_relationships():
             pytest.skip(f"{self.entity_name} does not have user relationship fields")
@@ -97,9 +111,7 @@ class BaseListOperationTests(BaseEntityTests):
 
         # Create entity with specific user
         user_entity_data = self.get_sample_data_with_users(
-            user_id=test_user_id,
-            owner_id=test_user_id,
-            assignee_id=test_user_id
+            user_id=test_user_id, owner_id=test_user_id, assignee_id=test_user_id
         )
         created_entity = self.create_entity(authenticated_client, user_entity_data)
 

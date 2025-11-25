@@ -41,9 +41,7 @@ class StorageServiceTestMixin(StorageServiceTestMixin):
 
 @pytest.mark.unit
 @pytest.mark.service
-class TestStorageServiceInitialization(
-    StorageServiceTestMixin, BaseStorageServiceTests
-):
+class TestStorageServiceInitialization(StorageServiceTestMixin, BaseStorageServiceTests):
     """Test StorageService initialization and configuration."""
 
     def test_init_without_gcs_configuration(self):
@@ -98,7 +96,9 @@ class TestStorageServiceInitialization(
 
             # The service should successfully initialize with cloud storage when credentials are provided
             assert storage_service.storage_uri == "gs://sources-rhesis-prd"
-            assert storage_service.use_cloud_storage is True  # Successfully initialized with mocked credentials
+            assert (
+                storage_service.use_cloud_storage is True
+            )  # Successfully initialized with mocked credentials
 
     @patch("rhesis.backend.app.services.storage_service.fsspec.filesystem")
     def test_file_system_initialization_local(self, mock_fsspec):
@@ -124,9 +124,7 @@ class TestStorageServiceFilePaths(StorageServiceTestMixin, BaseStorageServiceTes
         mock_storage_dir = MagicMock()
         mock_path.return_value.__truediv__.return_value = mock_storage_dir
         mock_storage_dir.mkdir.return_value = None
-        mock_storage_dir.__truediv__.return_value = (
-            "/tmp/rhesis-files/org-123/source-456_test.pdf"
-        )
+        mock_storage_dir.__truediv__.return_value = "/tmp/rhesis-files/org-123/source-456_test.pdf"
 
         with patch.dict(
             os.environ,
@@ -148,9 +146,7 @@ class TestStorageServiceFilePaths(StorageServiceTestMixin, BaseStorageServiceTes
 
 @pytest.mark.unit
 @pytest.mark.service
-class TestStorageServiceFileOperations(
-    StorageServiceTestMixin, BaseStorageServiceTests
-):
+class TestStorageServiceFileOperations(StorageServiceTestMixin, BaseStorageServiceTests):
     """Test file operations with mocked file system."""
 
     @pytest.mark.asyncio
@@ -178,13 +174,15 @@ class TestStorageServiceFileOperations(
         storage_service = StorageService()
         file_path = "test/path/file.txt"
         test_content = b"test file content"
-        
+
         # Mock the cloud storage check to fail, then mock local file operations
-        with patch.object(storage_service.fs, 'open', side_effect=Exception("Cloud storage not available")):
-            with patch('builtins.open', mock_open(read_data=test_content)):
-                with patch('os.path.exists', return_value=True):
+        with patch.object(
+            storage_service.fs, "open", side_effect=Exception("Cloud storage not available")
+        ):
+            with patch("builtins.open", mock_open(read_data=test_content)):
+                with patch("os.path.exists", return_value=True):
                     result = await storage_service.get_file(file_path)
-        
+
         assert result == test_content
 
     @pytest.mark.asyncio
@@ -221,7 +219,7 @@ class TestStorageServiceFileOperations(
         file_path = "test/path/file.txt"
 
         # Mock local file existence check since we're using local storage
-        with patch('os.path.exists', return_value=True):
+        with patch("os.path.exists", return_value=True):
             result = storage_service.file_exists(file_path)
 
         assert result is True
@@ -232,7 +230,7 @@ class TestStorageServiceFileOperations(
         file_path = "test/path/file.txt"
 
         # Mock local file existence check since we're using local storage
-        with patch('os.path.exists', return_value=False):
+        with patch("os.path.exists", return_value=False):
             result = storage_service.file_exists(file_path)
 
         assert result is False
@@ -256,8 +254,8 @@ class TestStorageServiceFileOperations(
         file_path = "test/path/file.txt"
 
         # Mock local file operations since we're using local storage
-        with patch('os.path.exists', return_value=True):
-            with patch('os.path.getsize', return_value=1024):
+        with patch("os.path.exists", return_value=True):
+            with patch("os.path.getsize", return_value=1024):
                 result = storage_service.get_file_size(file_path)
 
         assert result == 1024

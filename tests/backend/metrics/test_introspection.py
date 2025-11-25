@@ -23,11 +23,11 @@ class TestMetricIntrospection:
         mock_metric.name = "AllParamsMetric"
         mock_metric.requires_ground_truth = False
         mock_metric.requires_context = False
-        
+
         # Set up the evaluate method to accept all parameters
         def evaluate_all(input, output, expected_output, context):
             return MetricResult(score=0.9)
-        
+
         mock_metric.evaluate = evaluate_all
         mock_metric.evaluate.return_value = MetricResult(score=0.9)
 
@@ -50,12 +50,12 @@ class TestMetricIntrospection:
         mock_metric.name = "ContextualRelevancy"
         mock_metric.requires_ground_truth = False
         mock_metric.requires_context = True
-        
+
         # Set up the evaluate method to only accept input and context
         def evaluate_no_output(input, context):
             # This should NOT receive output parameter
             return MetricResult(score=0.85)
-        
+
         mock_metric.evaluate = evaluate_no_output
         mock_metric.evaluate.return_value = MetricResult(score=0.85)
 
@@ -79,11 +79,11 @@ class TestMetricIntrospection:
         mock_metric.name = "AnswerRelevancy"
         mock_metric.requires_ground_truth = False
         mock_metric.requires_context = False
-        
+
         # Set up the evaluate method to only accept input and output
         def evaluate_no_expected(input, output):
             return MetricResult(score=0.75)
-        
+
         mock_metric.evaluate = evaluate_no_expected
         mock_metric.evaluate.return_value = MetricResult(score=0.75)
 
@@ -106,10 +106,10 @@ class TestMetricIntrospection:
         mock_metric.name = "MinimalMetric"
         mock_metric.requires_ground_truth = False
         mock_metric.requires_context = False
-        
+
         def evaluate_only_input(input):
             return MetricResult(score=1.0)
-        
+
         mock_metric.evaluate = evaluate_only_input
         mock_metric.evaluate.return_value = MetricResult(score=1.0)
 
@@ -129,7 +129,7 @@ class TestMetricIntrospection:
     ):
         """
         Integration test: verify introspection works with actual DeepEval signature.
-        
+
         This test simulates the exact signature of DeepEvalContextualRelevancy.evaluate()
         which only accepts (self, input, context) and not output.
         """
@@ -140,11 +140,11 @@ class TestMetricIntrospection:
         mock_metric.name = "DeepEvalContextualRelevancy"
         mock_metric.requires_ground_truth = False
         mock_metric.requires_context = True
-        
+
         def contextual_relevancy_evaluate(input, context=None):
             """Matches the actual signature from sdk/metrics/providers/deepeval/metrics.py"""
             return MetricResult(score=0.88)
-        
+
         mock_metric.evaluate = contextual_relevancy_evaluate
         mock_create_metric.return_value = mock_metric
 
@@ -173,12 +173,10 @@ class TestMetricIntrospection:
         assert results["Contextual Relevancy"]["score"] == 0.88
 
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    def test_introspection_with_real_deepeval_answer_relevancy_signature(
-        self, mock_create_metric
-    ):
+    def test_introspection_with_real_deepeval_answer_relevancy_signature(self, mock_create_metric):
         """
         Integration test: verify introspection works with DeepEval AnswerRelevancy.
-        
+
         This metric accepts (self, input, output) but not expected_output or context.
         """
         evaluator = MetricEvaluator()
@@ -188,11 +186,11 @@ class TestMetricIntrospection:
         mock_metric.name = "DeepEvalAnswerRelevancy"
         mock_metric.requires_ground_truth = False
         mock_metric.requires_context = False
-        
+
         def answer_relevancy_evaluate(input, output):
             """Matches the actual signature from sdk/metrics/providers/deepeval/metrics.py"""
             return MetricResult(score=0.92)
-        
+
         mock_metric.evaluate = answer_relevancy_evaluate
         mock_create_metric.return_value = mock_metric
 
@@ -219,4 +217,3 @@ class TestMetricIntrospection:
         # Results are keyed by metric name, not class_name
         assert "Answer Relevancy" in results
         assert results["Answer Relevancy"]["score"] == 0.92
-

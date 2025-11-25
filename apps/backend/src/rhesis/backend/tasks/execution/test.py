@@ -282,15 +282,19 @@ def execute_single_test(
             model = get_evaluation_model(db, user_id)
 
             # Execute the test
-            result = execute_test(
-                db=db,
-                test_config_id=test_config_id,
-                test_run_id=test_run_id,
-                test_id=test_id,
-                endpoint_id=endpoint_id,
-                organization_id=organization_id,
-                user_id=user_id,
-                model=model,
+            import asyncio
+
+            result = asyncio.run(
+                execute_test(
+                    db=db,
+                    test_config_id=test_config_id,
+                    test_run_id=test_run_id,
+                    test_id=test_id,
+                    endpoint_id=endpoint_id,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    model=model,
+                )
             )
 
         # Validate and normalize the result

@@ -10,7 +10,9 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def behavior_with_metrics(authenticated_client: TestClient, sample_behavior: Dict[str, Any], sample_metric: Dict[str, Any]) -> Dict[str, Any]:
+def behavior_with_metrics(
+    authenticated_client: TestClient, sample_behavior: Dict[str, Any], sample_metric: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Create a behavior with associated metrics
 
@@ -35,7 +37,4 @@ def behavior_with_metrics(authenticated_client: TestClient, sample_behavior: Dic
         # Gracefully handle if the association endpoint doesn't exist
         pass
 
-    return {
-        "behavior": sample_behavior,
-        "metric": sample_metric
-    }
+    return {"behavior": sample_behavior, "metric": sample_metric}

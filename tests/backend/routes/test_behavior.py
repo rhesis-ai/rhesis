@@ -63,10 +63,12 @@ class BehaviorTestMixin:
 # Standard entity tests - gets ALL tests from base classes
 class TestBehaviorStandardRoutes(BehaviorTestMixin, BaseEntityRouteTests):
     """Complete standard behavior route tests using base classes"""
+
     pass
 
 
 # === BEHAVIOR-SPECIFIC TESTS (Enhanced with Factories) ===
+
 
 @pytest.mark.integration
 class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
@@ -116,11 +118,14 @@ class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
 
         # Create multiple metrics using batch creation
         from .fixtures.data_factories import MetricDataFactory
-        metrics = metric_factory.create_batch([
-            MetricDataFactory.sample_data(),
-            MetricDataFactory.sample_data(),
-            MetricDataFactory.sample_data()
-        ])
+
+        metrics = metric_factory.create_batch(
+            [
+                MetricDataFactory.sample_data(),
+                MetricDataFactory.sample_data(),
+                MetricDataFactory.sample_data(),
+            ]
+        )
 
         # Associate all metrics with the behavior
         for metric in metrics:
@@ -139,6 +144,7 @@ class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
 
 # === EDGE CASE TESTS (Enhanced with Factory Data) ===
 
+
 @pytest.mark.unit
 class TestBehaviorEdgeCases(BehaviorTestMixin, BaseEntityTests):
     """Enhanced behavior edge case tests using factory system"""
@@ -153,7 +159,7 @@ class TestBehaviorEdgeCases(BehaviorTestMixin, BaseEntityTests):
         # Adjust assertion based on your API's behavior
         assert response.status_code in [
             status.HTTP_200_OK,  # If long names are allowed
-            status.HTTP_422_UNPROCESSABLE_ENTITY  # If they're rejected
+            status.HTTP_422_UNPROCESSABLE_ENTITY,  # If they're rejected
         ]
 
     def test_create_behavior_special_characters(self, behavior_factory):
@@ -192,11 +198,12 @@ class TestBehaviorEdgeCases(BehaviorTestMixin, BaseEntityTests):
             # If rejected, should be a validation error
             assert response.status_code in [
                 status.HTTP_400_BAD_REQUEST,
-                status.HTTP_422_UNPROCESSABLE_ENTITY
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
             ]
 
 
 # === PERFORMANCE TESTS (Using Factory Batches) ===
+
 
 @pytest.mark.slow
 @pytest.mark.integration

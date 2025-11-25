@@ -19,8 +19,8 @@ class Endpoint(Base, TagsMixin):
     # Core Fields
     name = Column(String, nullable=False)
     description = Column(String)
-    protocol = Column(String, nullable=False)
-    url = Column(String, nullable=False)
+    connection_type = Column(String, nullable=False)
+    url = Column(String, nullable=True)
     auth = Column(JSON)
     environment = Column(String, nullable=False, default=EndpointEnvironment.DEVELOPMENT.value)
 
@@ -29,18 +29,19 @@ class Endpoint(Base, TagsMixin):
     openapi_spec_url = Column(String)
     openapi_spec = Column(JSON)
     llm_suggestions = Column(JSON)
+    endpoint_metadata = Column(JSON)
 
     # Request Structure
     method = Column(String)  # Required for REST
     endpoint_path = Column(String)
     request_headers = Column(JSON)
     query_params = Column(JSON)
-    request_body_template = Column(JSON)
+    request_mapping = Column(JSON)
     input_mappings = Column(JSON)
 
     # Response Handling
     response_format = Column(String, nullable=False, default=EndpointResponseFormat.JSON.value)
-    response_mappings = Column(JSON)
+    response_mapping = Column(JSON)
     validation_rules = Column(JSON)
 
     # Status relationship (keeping existing relationship)

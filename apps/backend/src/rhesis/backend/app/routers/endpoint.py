@@ -138,7 +138,7 @@ def update_endpoint(
 
 
 @router.post("/{endpoint_id}/invoke")
-def invoke_endpoint(
+async def invoke_endpoint(
     endpoint_id: uuid.UUID,
     input_data: Dict[str, Any],
     db: Session = Depends(get_tenant_db_session),
@@ -175,14 +175,15 @@ def invoke_endpoint(
                     "error": "Missing required field 'input'",
                     "received_fields": list(input_data.keys()),
                     "expected_format": {
-                        "input": "Your query text here",
+                        "input": "Your query text here (required)",
                         "session_id": "optional-session-id",
+                        "custom_field": "any additional fields are passed through",
                     },
                 },
             )
 
         organization_id, user_id = tenant_context
-        result = endpoint_service.invoke_endpoint(
+        result = await endpoint_service.invoke_endpoint(
             db, str(endpoint_id), input_data, organization_id=organization_id, user_id=str(user_id)
         )
         logger.info(f"API invoke successful for endpoint {endpoint_id}")

@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 import requests
 from fastapi import HTTPException
@@ -18,6 +18,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.logging import logger
 
 from .base import BaseEndpointInvoker, ResponseMapper, TemplateRenderer
+from .common.schemas import ErrorResponse
 
 
 class RestEndpointInvoker(BaseEndpointInvoker):
@@ -34,7 +35,9 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         self.template_renderer = TemplateRenderer()
         self.response_mapper = ResponseMapper()
 
-    def invoke(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def invoke(
+        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
+    ) -> Union[Dict[str, Any], ErrorResponse]:
         """Invoke the REST endpoint with proper authentication."""
         try:
             # Prepare request components
@@ -105,7 +108,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         # Prepare headers and body
         headers = self._prepare_headers(db, endpoint, input_data)
         request_body = self.template_renderer.render(
-            endpoint.request_body_template or {}, template_context
+            endpoint.request_mapping or {}, template_context
         )
 
         # Extract conversation ID from rendered body
@@ -124,17 +127,17 @@ class RestEndpointInvoker(BaseEndpointInvoker):
     def _create_request_details(self, method: str, url: str, headers: Dict, body: Any) -> Dict:
         """Create request details dictionary with sanitized headers."""
         return {
-            "protocol": "REST",
+            "connection_type": "REST",
             "method": method,
             "url": url,
             "headers": self._sanitize_headers(headers),
             "body": body,
         }
 
-    def _safe_request_details(self, local_vars: Dict, protocol: str) -> Dict:
+    def _safe_request_details(self, local_vars: Dict, connection_type: str) -> Dict:
         """Safely create request details from local variables with sanitized headers."""
         return {
-            "protocol": protocol,
+            "connection_type": connection_type,
             "method": local_vars.get("method", "UNKNOWN"),
             "url": local_vars.get("url", "UNKNOWN"),
             "headers": self._sanitize_headers(local_vars.get("headers", {})),
@@ -177,7 +180,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             response_data = response.json()
 
             mapped_response = self.response_mapper.map_response(
-                response_data, endpoint.response_mappings or {}
+                response_data, endpoint.response_mapping or {}
             )
 
             # Add conversation tracking field to response if configured and available
