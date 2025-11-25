@@ -592,7 +592,12 @@ async def extract_mcp_item(
     try:
         organization_id, user_id = tenant_context
         content = await extract_mcp(
-            request.id, request.tool_id, db, current_user, organization_id, user_id
+            request.id,
+            request.tool_id,
+            db,
+            current_user,
+            organization_id,
+            user_id,
         )
         return {"content": content}
     except Exception as e:
