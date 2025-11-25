@@ -1,19 +1,21 @@
-"""
-Available models:
-https://ollama.com/library
-"""
-
 from typing import Optional, Type, Union
 
 from pydantic import BaseModel
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-PROVIDER = "ollama"
+"""
+According to the LiteLLM documentation, the Provider has to be set to ollama_chat for better
+responses.
+https://docs.litellm.ai/docs/providers/ollama#using-ollama-apichat
+"""
+
 DEFAULT_MODEL_NAME = "llama3.1"
 
 
 class OllamaLLM(LiteLLM):
+    PROVIDER = "ollama_chat"
+
     def __init__(self, model_name: str = DEFAULT_MODEL_NAME, **kwargs):
         """
         OllamaLLM: Ollama LLM Provider
@@ -42,7 +44,7 @@ class OllamaLLM(LiteLLM):
             ValueError: If the API key is not set.
         """
         self.api_base = kwargs.get("api_base", "http://localhost:11434")
-        super().__init__(PROVIDER + "/" + model_name)
+        super().__init__(self.PROVIDER + "/" + model_name)
 
     def generate(
         self,

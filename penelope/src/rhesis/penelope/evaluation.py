@@ -29,7 +29,7 @@ class GoalEvaluator:
         """Initialize with SDK metric."""
         self.goal_metric = goal_metric
 
-    def evaluate(self, state: "TestState", goal: str) -> MetricResult:
+    def evaluate(self, state: "TestState", goal: str, instructions: str = "") -> MetricResult:
         """
         Evaluate goal achievement using SDK metric.
 
@@ -39,19 +39,22 @@ class GoalEvaluator:
         Args:
             state: Current test state with conversation
             goal: The test goal
+            instructions: Optional test instructions that specify HOW the test should be conducted.
+                         These provide critical context for evaluating whether the goal was
+                         properly achieved.
 
         Returns:
             SDK MetricResult (no conversion!)
         """
         # Need minimum conversation
-        if len(state.conversation) < 2:
+        if len(state.conversation) < 1:
             # Return minimal result for insufficient data
             return MetricResult(
                 score=0.0,
                 details={
                     "is_successful": False,
                     "confidence": 0.0,
-                    "reason": "Insufficient conversation for evaluation (< 2 messages)",
+                    "reason": "Insufficient conversation for evaluation (< 1 turn)",
                 },
             )
 
@@ -60,4 +63,5 @@ class GoalEvaluator:
         return self.goal_metric.evaluate(
             conversation_history=state.conversation,
             goal=goal,
+            instructions=instructions,
         )

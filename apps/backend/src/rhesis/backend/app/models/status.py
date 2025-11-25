@@ -33,3 +33,4 @@ class Status(Base, OrganizationAndUserMixin):
     models = relationship("Model", back_populates="status")
     tasks = relationship("Task", back_populates="status")
     sources = relationship("Source", back_populates="status")
+    tools = relationship("Tool", back_populates="status")

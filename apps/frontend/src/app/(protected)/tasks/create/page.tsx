@@ -241,7 +241,7 @@ export default function CreateTaskPage() {
     >
       <Box sx={{ flexGrow: 1, pt: 3 }}>
         <Grid container spacing={3}>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Paper sx={{ p: 3 }}>
               {error && (
                 <Alert severity="error" sx={{ mb: 2 }}>
@@ -251,7 +251,7 @@ export default function CreateTaskPage() {
 
               <form onSubmit={handleSubmit}>
                 <Grid container spacing={3}>
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <TextField
                       fullWidth
                       label="Task Title"
@@ -269,7 +269,12 @@ export default function CreateTaskPage() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      sm: 6,
+                    }}
+                  >
                     <FormControl fullWidth disabled={isSaving}>
                       <InputLabel>Status</InputLabel>
                       <Select
@@ -286,7 +291,12 @@ export default function CreateTaskPage() {
                     </FormControl>
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      sm: 6,
+                    }}
+                  >
                     <FormControl fullWidth disabled={isSaving}>
                       <InputLabel>Priority</InputLabel>
                       <Select
@@ -303,7 +313,7 @@ export default function CreateTaskPage() {
                     </FormControl>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <FormControl fullWidth disabled={isSaving}>
                       <InputLabel shrink>Assignee</InputLabel>
                       <Select
@@ -427,7 +437,7 @@ export default function CreateTaskPage() {
                     </FormControl>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <TextField
                       fullWidth
                       label="Description"
@@ -446,7 +456,7 @@ export default function CreateTaskPage() {
                     />
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Box
                       sx={{
                         display: 'flex',

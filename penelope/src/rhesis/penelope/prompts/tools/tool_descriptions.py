@@ -13,7 +13,8 @@ receive a response.
 {target_documentation}
 
 This is your PRIMARY tool for testing. Each call represents one conversational turn
-with the system under test.
+with the system under test. Only target interaction tools like this count as turns -
+internal tools (analyze_response, extract_information) do not increment the turn counter.
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -38,9 +39,9 @@ BEST PRACTICES:
    └─ Note any errors, warnings, or unexpected formatting
 
 2. Maintain Conversation Context
-   ├─ Use the session_id from previous responses for follow-ups
-   ├─ Don't start a new session unless testing fresh conversation
-   └─ Session continuity is crucial for multi-turn testing
+   ├─ Use the conversation_id from previous responses for follow-ups
+   ├─ Don't start a new conversation unless testing fresh conversation
+   └─ Conversation continuity is crucial for multi-turn testing
 
 3. Test Systematically
    ├─ Each message should have a specific testing purpose
@@ -62,18 +63,18 @@ EXAMPLE USAGE:
 ... )
 {{
   "response": "Our electronics refund policy allows...",
-  "session_id": "abc123",
+  "conversation_id": "abc123",
   "success": true
 }}
 
 # Good Example 2: Natural follow-up
 >>> send_message_to_target(
 ...     message="What if I opened the box but didn't use it?",
-...     session_id="abc123"
+...     conversation_id="abc123"
 ... )
 {{
   "response": "If the product is unopened and in original condition...",
-  "session_id": "abc123",
+  "conversation_id": "abc123",
   "success": true
 }}
 
@@ -96,11 +97,11 @@ EXAMPLE USAGE:
 
 IMPORTANT NOTES:
 
-⚠ Session Management:
-  - First message: Leave session_id empty, you'll get one in response
-  - Follow-ups: Always use the session_id from the previous response
-  - New conversation: Omit session_id to start fresh
-  - Sessions may expire after inactivity (typically 1 hour)
+⚠ Conversation Management:
+  - First message: Leave conversation_id empty, you'll get one in response
+  - Follow-ups: Always use the conversation_id from the previous response
+  - New conversation: Omit conversation_id to start fresh
+  - Conversations may expire after inactivity (typically 1 hour)
 
 ⚠ Error Handling:
   - If success=false, check the error field for details

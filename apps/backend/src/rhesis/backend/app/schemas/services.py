@@ -3,6 +3,21 @@ from typing import Any, Dict, List, Optional
 from pydantic import UUID4, BaseModel, Field
 
 
+class GenerationConfig(BaseModel):
+    """
+    Configuration for test generation using ConfigSynthesizer.
+
+    This schema mirrors the SDK's GenerationConfig to maintain consistency
+    between frontend requests and SDK expectations.
+    """
+
+    generation_prompt: Optional[str] = None  # Describe what you want to test
+    behaviors: Optional[List[str]] = None  # Behaviors to test
+    categories: Optional[List[str]] = None  # Test categories
+    topics: Optional[List[str]] = None  # Topics to cover
+    additional_context: Optional[str] = None  # Additional context (JSON string)
+
+
 class PromptRequest(BaseModel):
     prompt: str
     stream: bool = False
@@ -62,12 +77,22 @@ class IterationMessage(BaseModel):
 
 
 class GenerateTestsRequest(BaseModel):
-    prompt: dict
+    """
+    Unified request for test generation (both sampling and bulk).
+
+    - For sampling: num_tests=5, run synchronously via /services/generate/tests
+    - For bulk: num_tests=1000, run as background task via /test_sets/generate
+
+    The config field contains the core generation parameters. Context information
+    like chip_states, rated_samples, and previous_messages should be serialized
+    into config.additional_context as a JSON string.
+    """
+
+    config: GenerationConfig
     num_tests: int = 5
+    batch_size: int = 20
     sources: Optional[List[SourceData]] = None
-    chip_states: Optional[List[ChipState]] = None
-    rated_samples: Optional[List[RatedSample]] = None
-    previous_messages: Optional[List[IterationMessage]] = None
+    name: Optional[str] = None  # Used only for bulk generation to name the test set
 
 
 class TestPrompt(BaseModel):
@@ -144,16 +169,128 @@ class GenerateContentRequest(BaseModel):
 
 class TestConfigRequest(BaseModel):
     prompt: str
-    sample_size: int = 5
     project_id: Optional[UUID4] = None
+    previous_messages: Optional[List[IterationMessage]] = None
 
 
 class TestConfigItem(BaseModel):
     name: str
     description: str
+    active: bool
 
 
 class TestConfigResponse(BaseModel):
     behaviors: List[TestConfigItem]
     topics: List[TestConfigItem]
     categories: List[TestConfigItem]
+
+
+class GenerateMultiTurnTestsRequest(BaseModel):
+    """Request for generating multi-turn test cases."""
+
+    generation_prompt: str
+    behavior: Optional[list[str]] = None
+    category: Optional[list[str]] = None
+    topic: Optional[list[str]] = None
+    num_tests: int = 5
+
+
+class MultiTurnTestConfiguration(BaseModel):
+    """Multi-turn test configuration with goal, instructions, restrictions, and scenario."""
+
+    goal: str
+    instructions: str = ""  # Optional - how Penelope should conduct the test
+    restrictions: str = ""  # Optional - forbidden behaviors for the target
+    scenario: str = ""  # Optional - contextual framing for the test
+
+
+class MultiTurnTest(BaseModel):
+    """Multi-turn test case with structured configuration."""
+
+    test_configuration: MultiTurnTestConfiguration
+    behavior: str
+    category: str
+    topic: str
+    test_type: str
+
+
+class GenerateMultiTurnTestsResponse(BaseModel):
+    """Response containing generated multi-turn test cases."""
+
+    tests: List[MultiTurnTest]
+
+
+# MCP Schemas
+
+
+class ItemResult(BaseModel):
+    """Minimal item metadata for search results."""
+
+    id: str
+    url: str
+    title: str
+
+
+class SearchMCPRequest(BaseModel):
+    """Request to search MCP server."""
+
+    query: str
+    tool_id: str
+
+
+class ExtractMCPRequest(BaseModel):
+    """Request to extract MCP item content."""
+
+    id: str
+    tool_id: str
+
+
+class QueryMCPRequest(BaseModel):
+    """General-purpose request to query MCP server with custom task."""
+
+    query: str
+    tool_id: str
+    system_prompt: Optional[str] = None
+    max_iterations: Optional[int] = 10
+
+
+class ExtractMCPResponse(BaseModel):
+    """Response containing extracted content from MCP item."""
+
+    content: str
+
+
+class ToolCall(BaseModel):
+    """Tool call in agent execution."""
+
+    tool_name: str
+    arguments: Dict[str, Any]
+
+
+class ToolResult(BaseModel):
+    """Result from tool execution."""
+
+    tool_name: str
+    success: bool
+    content: Optional[str] = None
+    error: Optional[str] = None
+
+
+class ExecutionStep(BaseModel):
+    """Single step in agent execution history."""
+
+    iteration: int
+    reasoning: str
+    action: str
+    tool_calls: List[ToolCall]
+    tool_results: List[ToolResult]
+
+
+class QueryMCPResponse(BaseModel):
+    """Response from general-purpose MCP query."""
+
+    final_answer: str
+    success: bool
+    iterations_used: int
+    max_iterations_reached: bool
+    execution_history: List[ExecutionStep]

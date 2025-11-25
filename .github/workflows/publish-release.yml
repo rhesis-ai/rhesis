@@ -69,6 +69,6 @@ jobs:
 
       - name: Close release PR and merge to main
         run: |
-          gh pr merge --auto --merge
+          gh pr merge --merge
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}

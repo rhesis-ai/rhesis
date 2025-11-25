@@ -1,0 +1,273 @@
+---
+description: This rule applies when creating pull requests using the GitHub CLI.
+alwaysApply: false
+---
+
+# Pull Request Creation Rules
+
+## Overview
+
+Pull request creation should be based on the GitHub CLI (`gh`) and follow best practices for small, focused, and well-documented changes.
+
+## Core Principles
+
+### 1. Write Small Pull Requests
+- **Small PRs are better**: Smaller pull requests are easier and faster to review and merge
+- **Less room for bugs**: Focused changes reduce the likelihood of introducing bugs
+- **Clearer history**: Small PRs provide a clearer history of changes and make it easier to track down issues
+- **Faster feedback**: Reviewers can provide quicker, more focused feedback
+
+### 2. One Logical Change Per PR
+- Each PR should represent one logical unit of work
+- Avoid mixing unrelated changes (e.g., bug fixes + new features)
+- If you have multiple changes, create separate PRs
+
+## GitHub CLI Requirements
+
+### Prerequisites
+- Ensure GitHub CLI (`gh`) is installed and authenticated
+- Verify you're in a git repository with a remote origin
+
+### Basic PR Creation Command
+```bash
+gh pr create --title "Your PR Title" --body "Your PR Description" --base main
+```
+
+## PR Title Guidelines
+
+### Format
+- Use clear, descriptive titles that explain what the PR does
+- Start with an action verb (Add, Fix, Update, Remove, etc.)
+- Keep titles concise but informative (ideally under 72 characters)
+
+### Examples
+- ✅ **Good**: "Add user authentication middleware"
+- ✅ **Good**: "Fix timeout issue in API client"
+- ✅ **Good**: "Update documentation for new endpoints"
+- ❌ **Bad**: "Changes"
+- ❌ **Bad**: "Fix stuff"
+- ❌ **Bad**: "WIP"
+
+## PR Description Requirements
+
+Every PR description must include the following sections:
+
+### 1. Purpose of the Pull Request
+Clearly explain why this change is needed:
+```markdown
+## Purpose
+This PR adds user authentication middleware to secure our API endpoints.
+```
+
+### 2. Overview of What Changed
+Summarize the key changes made:
+```markdown
+## What Changed
+- Added JWT authentication middleware
+- Updated route handlers to use authentication
+- Added tests for authentication flow
+- Updated API documentation
+```
+
+### 3. Additional Context
+Include links to relevant information:
+```markdown
+## Additional Context
+- Closes #123
+- Related to discussion in #456
+- Follows up on PR #789
+- See design document: [link]
+```
+
+## Complete PR Description Template
+
+```markdown
+## Purpose
+[Explain why this change is needed]
+
+## What Changed
+- [Key change 1]
+- [Key change 2]
+- [Key change 3]
+
+## Additional Context
+- [Links to issues, tickets, or previous conversations]
+- [Any relevant background information]
+- [Breaking changes or migration notes if applicable]
+
+## Testing
+[How to test these changes]
+
+## Screenshots (if applicable)
+[Include screenshots for UI changes]
+```
+
+## PR Creation Workflow
+
+### 1. Before Creating the PR
+```bash
+# Ensure your branch is up to date
+git fetch origin
+git rebase origin/main
+
+# Push your branch
+git push origin your-branch-name
+```
+
+### 2. Create the PR
+```bash
+# Create PR with title and description
+gh pr create \
+  --title "Your descriptive title" \
+  --body "$(cat << 'EOF'
+## Purpose
+[Your purpose here]
+
+## What Changed
+- [Change 1]
+- [Change 2]
+
+## Additional Context
+- Closes #123
+EOF
+)" \
+  --base main
+```
+
+### 3. After Creating the PR
+```bash
+# Assign yourself as reviewer if needed
+gh pr edit --add-assignee @me
+
+# Add labels if your repository uses them
+gh pr edit --add-label "feature" --add-label "backend"
+
+# Request specific reviewers
+gh pr edit --add-reviewer username1,username2
+```
+
+## Best Practices
+
+### Size Guidelines
+- **Ideal**: 1-200 lines of code changes
+- **Acceptable**: 200-400 lines of code changes  
+- **Large**: 400+ lines (should be broken down if possible)
+
+### Content Guidelines
+1. **Single Responsibility**: Each PR should do one thing well
+2. **Complete Feature**: Don't leave features half-implemented
+3. **Self-Contained**: PR should be reviewable without external context
+4. **Tested**: Include tests for new functionality
+5. **Documented**: Update documentation for user-facing changes
+
+### Review Readiness Checklist
+Before creating a PR, ensure:
+- [ ] Code follows project style guidelines
+- [ ] All tests pass locally
+- [ ] Documentation is updated if needed
+- [ ] Commit messages follow conventional commits format
+- [ ] No debugging code or console.log statements remain
+- [ ] No merge conflicts with target branch
+
+## Common Commands
+
+### View PR Status
+```bash
+# View your PR
+gh pr view
+
+# View PR in browser
+gh pr view --web
+
+# Check PR status
+gh pr status
+```
+
+### Update PR
+```bash
+# Update PR title
+gh pr edit --title "New title"
+
+# Update PR description
+gh pr edit --body "New description"
+
+# Add reviewers
+gh pr edit --add-reviewer username
+```
+
+### Merge PR
+```bash
+# Merge when ready (if you have permissions)
+gh pr merge --squash
+gh pr merge --merge
+gh pr merge --rebase
+```
+
+## Examples
+
+### Simple Feature PR
+```bash
+gh pr create \
+  --title "Add user profile endpoint" \
+  --body "## Purpose
+Add a new API endpoint to fetch user profile information.
+
+## What Changed
+- Added GET /api/users/profile endpoint
+- Added UserProfile model and schema
+- Added tests for the new endpoint
+- Updated API documentation
+
+## Additional Context
+- Closes #456
+- Part of user management feature set" \
+  --base main
+```
+
+### Bug Fix PR
+```bash
+gh pr create \
+  --title "Fix memory leak in data processor" \
+  --body "## Purpose
+Resolve memory leak that occurs during large data processing operations.
+
+## What Changed
+- Fixed event listener cleanup in DataProcessor class
+- Added proper resource disposal in error handling
+- Added memory usage tests
+
+## Additional Context
+- Fixes #789
+- Reported by users processing >10MB files" \
+  --base main
+```
+
+## Integration with Project Tools
+
+### Using Project's PR Script (When Appropriate)
+The project has existing PR tools in `.github/pr` and `.github/create-pr.sh`. These are for automated workflows and should not be used by Cursor. Always use `gh` CLI directly as specified in this rule.
+
+### Branch Naming
+Follow the project's branch naming conventions:
+- `feature/description`
+- `fix/description`  
+- `hotfix/description`
+
+## Troubleshooting
+
+### Common Issues
+1. **"No commits between branches"**: Ensure you have commits on your feature branch
+2. **"Branch not found"**: Push your branch first with `git push origin branch-name`
+3. **"Permission denied"**: Ensure you have write access to the repository
+
+### Getting Help
+```bash
+# View gh pr help
+gh pr create --help
+
+# Check authentication
+gh auth status
+
+# View repository info
+gh repo view
+```

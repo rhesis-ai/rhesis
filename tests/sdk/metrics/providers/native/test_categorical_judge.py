@@ -10,8 +10,7 @@ from rhesis.sdk.metrics.providers.native.categorical_judge import (
 
 
 @pytest.fixture
-def metric(monkeypatch):
-    monkeypatch.setenv("RHESIS_API_KEY", "test_api_key")
+def metric():
     return CategoricalJudge(
         evaluation_prompt="test_prompt",
         name="test_metric",

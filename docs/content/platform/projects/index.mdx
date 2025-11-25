@@ -13,14 +13,24 @@ Organize and manage your testing projects with comprehensive project management 
 Projects solve the organizational challenge of testing multiple AI applications at scale. Without projects, tests, endpoints, and results become scattered and hard to manage. Projects provide:
 
 - **Isolation**: Keep testing work for different applications separate
+- **Endpoint Organization**: All endpoints for an AI application grouped together, whether testing dev, staging, or production
 - **Context**: All related tests, endpoints, and results in one place
 - **Collaboration**: Clear ownership and team access per application
-- **Environment Management**: Track development, staging, and production separately
-- **Historical Tracking**: Understand how each AI application evolves over time
+- **Environment Management**: Create multiple endpoints per project to test across development, staging, and production environments
+- **Historical Tracking**: Understand how each AI application evolves over time across all environments
 
 ## Understanding Projects
 
-A project in Rhesis represents a specific AI application or testing initiative you want to evaluate. Think of a project as a container that brings together everything related to testing a particular AI system. Within a project, you'll find the endpoints that connect to your AI services, the tests you've created to evaluate behavior, test sets that organize those tests for execution, and all the historical results from your test runs.
+A project in Rhesis represents a specific AI application or testing initiative you want to evaluate. Think of a project as a container that brings together everything related to testing a particular AI system.
+
+**Projects are the parent organization structure for endpoints.** Each project can have multiple endpoints nested within it, allowing you to test the same AI application across different environments (development, staging, production) or compare different implementations and API configurations. Within a project, you'll find:
+
+- **Endpoints**: The API configurations that connect to your LLM application (each project can have many endpoints)
+- **Tests**: The test cases you've created to evaluate behavior
+- **Test Sets**: Collections of tests organized for execution
+- **Test Results**: All historical results from your test runs
+
+This nested structure means you always create endpoints within the context of a project, keeping all related testing infrastructure organized together.
 
 ## Creating a Project
 
@@ -42,10 +52,15 @@ The final step shows you a summary of all your project details. Review everythin
 
 Once your project is created, you'll typically:
 
-1. Add endpoints that connect to your AI application
-2. Create or generate tests
-3. Organize tests into test sets
-4. Run tests and analyze results
+1. **Add endpoints** that connect to your LLM application's API. Each endpoint is created within this project and can represent different environments (development, staging, production) or different API implementations. For example, you might create:
+   - A development endpoint pointing to your local LLM application instance
+   - A staging endpoint for pre-production validation of your LLM application
+   - A production endpoint for live system monitoring
+2. **Create or generate tests** to validate your AI behavior
+3. **Organize tests into test sets** for execution
+4. **Run tests against any of your project's endpoints** and analyze results
+
+This multi-endpoint approach lets you validate that your AI works correctly across all environments before deploying changes to production.
 
 ## Managing Projects
 
@@ -89,6 +104,27 @@ You can toggle a project's status anytime from the project edit drawer using the
 </Callout>
 
 To delete a project, open the project details page, click **Delete**, and confirm in the modal dialog. This permanently removes the project and all associated endpoints, tests, and test sets.
+
+### Managing Endpoints Within Projects
+
+Since endpoints are nested within projects, you'll always create and manage them in the context of a specific project. This hierarchical structure provides several benefits:
+
+**Multiple Endpoints Per Project**
+
+Each project can have as many endpoints as you need. Common patterns include:
+
+- **Environment-based endpoints**: Create separate endpoints for development, staging, and production environments, each pointing to the corresponding deployment of your LLM application
+- **Implementation comparison**: Set up multiple endpoints pointing to different versions or implementations of your LLM application to compare their performance on the same tests
+- **Configuration variants**: Test different API configurations, system prompts, or request parameters by creating endpoints with varying settings
+- **A/B testing**: Run parallel endpoints with different implementations or configurations of your LLM application to validate which performs better
+
+**Viewing Project Endpoints**
+
+From the project details page, you can see all endpoints associated with the project. Each endpoint shows its environment (development, staging, or production), making it easy to identify which deployment stage it represents.
+
+**Executing Tests**
+
+When you run a test set, you select which of the project's endpoints to execute it against. This lets you run identical tests across different environments or configurations to ensure consistency and identify issues before they reach production.
 
 ## Project Organization
 

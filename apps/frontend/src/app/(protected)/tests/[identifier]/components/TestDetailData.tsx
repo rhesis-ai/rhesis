@@ -223,7 +223,12 @@ export default function TestDetailData({
 
   return (
     <Grid container spacing={2}>
-      <Grid item xs={12} md={6}>
+      <Grid
+        size={{
+          xs: 12,
+          md: 6,
+        }}
+      >
         <Box sx={{ mb: 2 }}>
           <BaseFreesoloAutocomplete
             options={behaviors}
@@ -330,7 +335,12 @@ export default function TestDetailData({
           />
         </Box>
       </Grid>
-      <Grid item xs={12} md={6}>
+      <Grid
+        size={{
+          xs: 12,
+          md: 6,
+        }}
+      >
         <Box sx={{ mb: 2 }}>
           <BaseFreesoloAutocomplete
             options={topics}
@@ -378,11 +388,10 @@ export default function TestDetailData({
           />
         </Box>
       </Grid>
-
       {/* Conditional rendering based on test type */}
       {isMultiTurn ? (
         /* Multi-Turn Configuration Fields */
-        <Grid item xs={12}>
+        <Grid size={12}>
           <MultiTurnConfigFields
             sessionToken={sessionToken}
             testId={test.id}
@@ -397,7 +406,7 @@ export default function TestDetailData({
       ) : (
         /* Standard Test Fields */
         <>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Box sx={{ mb: 1 }}>
               <Typography
                 variant="subtitle2"
@@ -422,7 +431,7 @@ export default function TestDetailData({
               onUpdate={refreshTest}
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Box sx={{ mb: 1 }}>
               <Typography
                 variant="subtitle2"
@@ -450,10 +459,9 @@ export default function TestDetailData({
           </Grid>
         </>
       )}
-
       {/* Sources Section */}
       {test.test_metadata?.sources && test.test_metadata.sources.length > 0 && (
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Box sx={{ mb: 1 }}>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Sources

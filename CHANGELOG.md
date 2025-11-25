@@ -13,6 +13,75 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.4.3] - 2025-11-17
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.3**
+- **Frontend 0.4.3**
+- **SDK 0.4.2**
+
+### Summary of Changes
+
+**Backend v0.4.3:**
+- Added centralized conversation tracking for improved multi-turn conversation handling.
+
+
+**Frontend v0.4.3:**
+- Fixes a bug that caused the frontend Docker image to fail during local deployment.
+- Resolves a file ownership issue (chown bug).
+
+
+**SDK v0.4.2:**
+Initial release or no significant changes.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
+## [0.4.2] - 2025-11-13
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.2**
+- **Frontend 0.4.2**
+- **SDK 0.4.1**
+
+### Summary of Changes
+
+**Backend v0.4.2:**
+- Added support for multi-turn tests, including configuration, execution, and conversational metrics.
+- Improved local development setup with Docker Compose and enhanced command-line interface.
+- Introduced generic MCP (Multi-Choice Prompting) integration endpoints and user model configuration.
+- Added scenarios, tags and comments infrastructure for sources, and improved test set type handling.
+
+
+**Frontend v0.4.2:**
+- Implemented multi-turn test support with configuration UI, goal display, and metrics integration.
+- Simplified MCP import workflow to a single-step process with Notion integration in the knowledge page.
+- Enhanced test set management with test type display and filtering.
+- Improved local development setup with Docker Compose and auto-login feature.
+
+
+**SDK v0.4.1:**
+- Added support for Langchain integration and Penelope language model.
+- Introduced Conversational Metrics infrastructure with Goal Achievement Judge and DeepEval integration.
+- Enhanced Multi-Chain Processing (MCP) Agent with autonomous ReAct loop, improved error handling, and provider configuration.
+- Added structured output support for tool calling via Pydantic schemas and improved VertexAI provider reliability.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.4.1] - 2025-10-30
 
 ### Platform Release

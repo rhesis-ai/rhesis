@@ -13,15 +13,19 @@ import {
   Alert,
   LinearProgress,
   IconButton,
+  Chip,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import UploadIcon from '@mui/icons-material/Upload';
+import CloudIcon from '@mui/icons-material/Cloud';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DragAndDropUpload from '@/components/common/DragAndDropUpload';
+import MCPImportDialog from './MCPImportDialog';
 import {
   FILE_SIZE_CONSTANTS,
   FILE_TYPE_CONSTANTS,
+  formatFileSize,
 } from '@/constants/knowledge';
 
 interface UploadSourceDialogProps {
@@ -42,6 +46,7 @@ export default function UploadSourceDialog({
   const [description, setDescription] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mcpDialogOpen, setMcpDialogOpen] = useState(false);
   const notifications = useNotifications();
 
   const handleFileSelect = (file: File) => {
@@ -130,100 +135,174 @@ export default function UploadSourceDialog({
     }
   };
 
+  const handleMcpImport = () => {
+    // Close the upload dialog and open MCP dialog
+    setMcpDialogOpen(true);
+  };
+
+  const handleMcpClose = () => {
+    setMcpDialogOpen(false);
+    // Don't reopen the upload dialog - user cancelled the import
+  };
+
+  const handleMcpSuccess = () => {
+    setMcpDialogOpen(false);
+    handleClose();
+    onSuccess?.();
+  };
+
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: { minHeight: '400px' },
-      }}
-    >
-      <DialogTitle>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box display="flex" alignItems="center" gap={1}>
-            <UploadIcon />
-            <Typography variant="h6">Upload Source</Typography>
-          </Box>
-          <IconButton onClick={handleClose} disabled={uploading}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-          {/* File Upload Section */}
-          <Box>
-            <Typography variant="subtitle2" gutterBottom>
-              Select File
-            </Typography>
-            <DragAndDropUpload
-              onFileSelect={handleFileSelect}
-              onFileRemove={handleFileRemove}
-              selectedFile={file}
-              accept={FILE_TYPE_CONSTANTS.ACCEPTED_EXTENSIONS}
-              maxSize={FILE_SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
-              disabled={uploading}
-            />
-          </Box>
-
-          {/* Title Field */}
-          <TextField
-            label="Title"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            fullWidth
-            required
-            disabled={uploading}
-            placeholder="Enter a title for this source"
-          />
-
-          {/* Description Field */}
-          <TextField
-            label="Description"
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            fullWidth
-            multiline
-            rows={3}
-            disabled={uploading}
-            placeholder="Optional description of this source"
-          />
-
-          {/* Error Display */}
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          {/* Upload Progress */}
-          {uploading && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Uploading source...
-              </Typography>
-              <LinearProgress />
+    <>
+      <Dialog
+        open={open && !mcpDialogOpen}
+        onClose={handleClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { minHeight: '400px' },
+        }}
+      >
+        <DialogTitle>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Box display="flex" alignItems="center" gap={1}>
+              <UploadIcon />
+              <Typography variant="h6">Upload Source</Typography>
             </Box>
-          )}
-        </Box>
-      </DialogContent>
+            <IconButton onClick={handleClose} disabled={uploading}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
 
-      <DialogActions sx={{ p: 3, pt: 1 }}>
-        <Button onClick={handleClose} disabled={uploading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleUpload}
-          variant={uploading ? 'outlined' : 'contained'}
-          disabled={!file || !title.trim() || uploading}
-          startIcon={<UploadIcon />}
-        >
-          {uploading ? 'Uploading...' : 'Upload Source'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+            {/* Info Box */}
+            <Alert severity="info" sx={{ mb: 1 }}>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Upload knowledge sources to use as context for test generation
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Supported formats:{' '}
+                <Typography
+                  component="span"
+                  variant="body2"
+                  sx={{ fontStyle: 'italic' }}
+                >
+                  {FILE_TYPE_CONSTANTS.ACCEPTED_EXTENSIONS.split(',')
+                    .map(ext => ext.replace('.', ''))
+                    .join(', ')}
+                </Typography>{' '}
+                (max {formatFileSize(FILE_SIZE_CONSTANTS.MAX_UPLOAD_SIZE)})
+              </Typography>
+            </Alert>
+
+            {/* File Upload Section */}
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Select File
+              </Typography>
+              <DragAndDropUpload
+                onFileSelect={handleFileSelect}
+                onFileRemove={handleFileRemove}
+                selectedFile={file}
+                accept={FILE_TYPE_CONSTANTS.ACCEPTED_EXTENSIONS}
+                maxSize={FILE_SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
+                disabled={uploading}
+              />
+
+              {/* Import from Notion Button */}
+              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<CloudIcon />}
+                  disabled
+                  fullWidth
+                  sx={{
+                    justifyContent: 'space-between',
+                    textTransform: 'none',
+                  }}
+                >
+                  <span>Import from Notion</span>
+                  <Chip
+                    label="Coming Soon"
+                    size="small"
+                    sx={{
+                      height: '20px',
+                      fontSize: theme => theme.typography.caption.fontSize,
+                      backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                    }}
+                  />
+                </Button>
+              </Box>
+            </Box>
+
+            {/* Title Field */}
+            <TextField
+              label="Title"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              fullWidth
+              required
+              disabled={uploading}
+              placeholder="Enter a title for this source"
+            />
+
+            {/* Description Field */}
+            <TextField
+              label="Description"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              fullWidth
+              multiline
+              rows={3}
+              disabled={uploading}
+              placeholder="Optional description of this source"
+            />
+
+            {/* Error Display */}
+            {error && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {error}
+              </Alert>
+            )}
+
+            {/* Upload Progress */}
+            {uploading && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Uploading source...
+                </Typography>
+                <LinearProgress />
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 3, pt: 1 }}>
+          <Button onClick={handleClose} disabled={uploading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpload}
+            variant={uploading ? 'outlined' : 'contained'}
+            disabled={!file || !title.trim() || uploading}
+            startIcon={<UploadIcon />}
+          >
+            {uploading ? 'Uploading...' : 'Upload Source'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <MCPImportDialog
+        open={mcpDialogOpen}
+        onClose={handleMcpClose}
+        onSuccess={handleMcpSuccess}
+        sessionToken={sessionToken}
+      />
+    </>
   );
 }

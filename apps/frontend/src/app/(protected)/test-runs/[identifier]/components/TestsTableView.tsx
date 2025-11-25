@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -31,6 +31,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer from './TestResultDrawer';
 import ReviewJudgementDrawer, { ReviewData } from './ReviewJudgementDrawer';
+import { findStatusByCategory } from '@/utils/testResultStatus';
 
 interface TestsTableViewProps {
   tests: TestResultDetail[];
@@ -49,6 +50,9 @@ interface TestsTableViewProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
+  testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
+  project?: { icon?: string; useCase?: string; name?: string };
+  projectName?: string;
 }
 
 export default function TestsTableView({
@@ -63,7 +67,12 @@ export default function TestsTableView({
   currentUserName,
   currentUserPicture,
   initialSelectedTestId,
+  testSetType,
+  project,
+  projectName,
 }: TestsTableViewProps) {
+  const isMultiTurn =
+    testSetType?.toLowerCase().includes('multi-turn') || false;
   const theme = useTheme();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -78,24 +87,77 @@ export default function TestsTableView({
     null
   );
   const [hasInitialSelection, setHasInitialSelection] = useState(false);
+  const [isConfirmingReview, setIsConfirmingReview] = useState(false);
+  const isConfirmingRef = useRef(false);
+
+  // Local state to track immediate test updates before parent prop updates
+  const [localTestUpdates, setLocalTestUpdates] = useState<
+    Record<string, TestResultDetail>
+  >({});
+
+  // Merge local updates with tests prop for immediate UI updates
+  const mergedTests = React.useMemo(() => {
+    if (Object.keys(localTestUpdates).length === 0) {
+      return tests;
+    }
+    const merged = tests.map(test => {
+      const updated = localTestUpdates[test.id];
+      return updated || test;
+    });
+    return merged;
+  }, [tests, localTestUpdates]);
+
+  // Clear local updates when tests prop changes AND includes our local updates
+  React.useEffect(() => {
+    if (Object.keys(localTestUpdates).length > 0) {
+      // Check if any of our local updates are now in the tests prop
+      const allUpdatesIncluded = Object.keys(localTestUpdates).every(testId => {
+        const propTest = tests.find(t => t.id === testId);
+        const localTest = localTestUpdates[testId];
+        // Check if the prop test has the same last_review as our local update
+        return (
+          propTest?.last_review?.review_id === localTest?.last_review?.review_id
+        );
+      });
+
+      if (allUpdatesIncluded) {
+        setLocalTestUpdates({});
+      }
+    }
+  }, [tests, localTestUpdates]);
 
   // Handle initial selection when initialSelectedTestId is provided
   React.useEffect(() => {
-    if (initialSelectedTestId && tests.length > 0 && !hasInitialSelection) {
-      const testIndex = tests.findIndex(t => t.id === initialSelectedTestId);
+    if (
+      initialSelectedTestId &&
+      mergedTests.length > 0 &&
+      !hasInitialSelection
+    ) {
+      const testIndex = mergedTests.findIndex(
+        t => t.id === initialSelectedTestId
+      );
       if (testIndex !== -1) {
         // Calculate which page the test is on
         const testPage = Math.floor(testIndex / rowsPerPage);
         const rowIndexInPage = testIndex % rowsPerPage;
 
         setPage(testPage);
-        setSelectedTest(tests[testIndex]);
+        setSelectedTest(mergedTests[testIndex]);
         setSelectedRowIndex(rowIndexInPage);
         setDrawerOpen(true);
         setHasInitialSelection(true);
       }
     }
-  }, [initialSelectedTestId, tests, rowsPerPage, hasInitialSelection]);
+  }, [initialSelectedTestId, mergedTests, rowsPerPage, hasInitialSelection]);
+
+  // Sync selectedTest with tests array when tests are updated (e.g., after review changes)
+  React.useEffect(() => {
+    setSelectedTest(prev => {
+      if (!prev) return prev;
+      const updated = mergedTests.find(t => t.id === prev.id);
+      return updated && updated !== prev ? updated : prev;
+    });
+  }, [mergedTests]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -123,6 +185,16 @@ export default function TestsTableView({
     setDrawerOpen(false);
   };
 
+  // Handle test result updates from the drawer (e.g., when reviews are added/deleted)
+  const handleTestResultUpdateInDrawer = (updatedTest: TestResultDetail) => {
+    // Update local selected test state if it's the same test
+    if (selectedTest && selectedTest.id === updatedTest.id) {
+      setSelectedTest(updatedTest);
+    }
+    // Propagate to parent component to update the tests array
+    onTestResultUpdate(updatedTest);
+  };
+
   const handleOverruleJudgement = (
     event: React.MouseEvent,
     test: TestResultDetail
@@ -142,7 +214,7 @@ export default function TestsTableView({
       // Update the test in the parent component
       onTestResultUpdate(updatedTest);
     } catch (error) {
-      // Error handling - could be logged to monitoring service
+      console.error('Failed to save overrule judgement:', error);
     }
   };
 
@@ -152,7 +224,13 @@ export default function TestsTableView({
   ) => {
     event.stopPropagation();
 
+    // Atomic check-and-set to prevent duplicate submissions
+    if (isConfirmingRef.current) return;
+    isConfirmingRef.current = true;
+
     try {
+      setIsConfirmingReview(true);
+
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
@@ -163,21 +241,24 @@ export default function TestsTableView({
       });
 
       // Determine the current automated status
-      const metrics = test.test_metrics?.metrics || {};
-      const metricValues = Object.values(metrics);
-      const totalMetrics = metricValues.length;
-      const passedMetrics = metricValues.filter(m => m.is_successful).length;
-      const automatedPassed =
-        totalMetrics > 0 && passedMetrics === totalMetrics;
+      // For multi-turn tests
+      let automatedPassed = false;
+      if (isMultiTurn && test.test_output?.goal_evaluation) {
+        automatedPassed =
+          test.test_output.goal_evaluation.all_criteria_met || false;
+      } else {
+        // For single-turn tests
+        const metrics = test.test_metrics?.metrics || {};
+        const metricValues = Object.values(metrics);
+        const totalMetrics = metricValues.length;
+        const passedMetrics = metricValues.filter(m => m.is_successful).length;
+        automatedPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
+      }
 
-      // Find appropriate status ID
-      const statusKeywords = automatedPassed
-        ? ['pass', 'success', 'completed']
-        : ['fail', 'error'];
-      const targetStatus = statuses.find(status =>
-        statusKeywords.some(keyword =>
-          status.name.toLowerCase().includes(keyword)
-        )
+      // Find appropriate status ID using centralized utility
+      const targetStatus = findStatusByCategory(
+        statuses,
+        automatedPassed ? 'passed' : 'failed'
       );
 
       if (!targetStatus) {
@@ -192,16 +273,133 @@ export default function TestsTableView({
         { type: 'test', reference: null }
       );
 
-      // Refresh the test result
-      const updatedTest = await testResultsClient.getTestResult(test.id);
+      // Poll for the updated test result with exponential backoff
+      // Use a timestamp to ensure we only use the most recent response
+      const requestTimestamp = Date.now();
+      let updatedTest: TestResultDetail | null = null;
+      const delays = [100, 200, 400, 800]; // Exponential backoff delays
+
+      for (const delay of delays) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+        const fetchedTest = await testResultsClient.getTestResult(test.id);
+
+        // Check if last_review property is now present
+        if (fetchedTest.last_review) {
+          updatedTest = fetchedTest;
+          break;
+        }
+      }
+
+      // Final fetch to get the most recent state
+      // This ensures we get the latest data regardless of previous poll results
+      const finalTest = await testResultsClient.getTestResult(test.id);
+      updatedTest = finalTest;
+
+      // IMMEDIATELY update local state for instant UI feedback
+      setLocalTestUpdates(prev => ({
+        ...prev,
+        [updatedTest.id]: updatedTest,
+      }));
+
+      // Update local selected test if this is the currently selected test
+      if (selectedTest && selectedTest.id === test.id) {
+        setSelectedTest(updatedTest);
+      }
+
+      // Propagate to parent component
       onTestResultUpdate(updatedTest);
     } catch (error) {
-      // Error handling - could be logged to monitoring service
+      console.error('Failed to confirm review:', error);
+    } finally {
+      setIsConfirmingReview(false);
+      isConfirmingRef.current = false;
     }
   };
 
   // Calculate test result status (considering reviews from backend)
   const getTestStatus = (test: TestResultDetail) => {
+    // For multi-turn tests, use goal_evaluation
+    if (isMultiTurn && test.test_output?.goal_evaluation) {
+      const allCriteriaMet = test.test_output.goal_evaluation.all_criteria_met;
+      const totalCriteria =
+        test.test_output.goal_evaluation.criteria_evaluations?.length || 0;
+      const metCriteria =
+        test.test_output.goal_evaluation.criteria_evaluations?.filter(
+          c => c.met
+        )?.length || 0;
+
+      const originalPassed = allCriteriaMet === true;
+      const lastReview = test.last_review;
+
+      // Check for human review FIRST (reviews override automated results)
+      if (lastReview && lastReview.status?.name) {
+        const reviewStatusName = lastReview.status.name.toLowerCase();
+        const reviewPassed =
+          reviewStatusName.includes('pass') ||
+          reviewStatusName.includes('success') ||
+          reviewStatusName.includes('completed');
+
+        // Calculate conflict ourselves (don't trust backend's matches_review)
+        // A conflict exists if the review decision differs from the automated decision
+        const hasConflict = reviewPassed !== originalPassed;
+
+        const result = {
+          passed: reviewPassed,
+          label: reviewPassed ? 'Passed' : 'Failed',
+          count: `${metCriteria}/${totalCriteria}`,
+          isOverruled: true,
+          hasConflict,
+          automatedPassed: originalPassed,
+          hasExecutionError: false,
+          reviewData: {
+            reviewer: lastReview.user?.name || 'Unknown',
+            comments: lastReview.comments,
+            updated_at: lastReview.updated_at,
+            newStatus: reviewPassed ? 'passed' : 'failed',
+          },
+        };
+
+        return result;
+      }
+
+      // No review, check for execution errors/failures
+      const hasExecutionError = test.test_output.status === 'error';
+      const hasExecutionFailure = test.test_output.status === 'failure';
+
+      if (hasExecutionError) {
+        return {
+          passed: false,
+          label: 'Error',
+          count: `${metCriteria}/${totalCriteria}`,
+          isOverruled: false,
+          hasConflict: false,
+          hasExecutionError: true,
+        };
+      }
+
+      if (hasExecutionFailure) {
+        return {
+          passed: false,
+          label: 'Failed',
+          count: `${metCriteria}/${totalCriteria}`,
+          isOverruled: false,
+          hasConflict: false,
+          hasExecutionError: false,
+        };
+      }
+
+      return {
+        passed: originalPassed,
+        label: originalPassed ? 'Passed' : 'Failed',
+        count: `${metCriteria}/${totalCriteria}`,
+        isOverruled: false,
+        hasConflict: false,
+        automatedPassed: originalPassed,
+        hasExecutionError: false,
+      };
+    }
+
+    // For single-turn tests, use metrics (original logic)
     const metrics = test.test_metrics?.metrics || {};
     const metricValues = Object.values(metrics);
     const totalMetrics = metricValues.length;
@@ -225,23 +423,27 @@ export default function TestsTableView({
     const lastReview = test.last_review;
 
     // If there's a review, use the review status
-    if (lastReview) {
+    if (lastReview && lastReview.status?.name) {
       const reviewStatusName = lastReview.status.name.toLowerCase();
       const reviewPassed =
         reviewStatusName.includes('pass') ||
         reviewStatusName.includes('success') ||
         reviewStatusName.includes('completed');
 
+      // Calculate conflict ourselves (don't trust backend's matches_review)
+      // A conflict exists if the review decision differs from the automated decision
+      const hasConflict = reviewPassed !== originalPassed;
+
       return {
         passed: reviewPassed,
         label: reviewPassed ? 'Passed' : 'Failed',
         count: `${passedMetrics}/${totalMetrics}`,
         isOverruled: true,
-        hasConflict: !test.matches_review,
+        hasConflict,
         automatedPassed: originalPassed, // Keep original automated result
         hasExecutionError: false,
         reviewData: {
-          reviewer: lastReview.user.name,
+          reviewer: lastReview.user?.name || 'Unknown',
           comments: lastReview.comments,
           updated_at: lastReview.updated_at,
           newStatus: reviewPassed ? 'passed' : 'failed',
@@ -270,8 +472,11 @@ export default function TestsTableView({
 
   // Paginated tests
   const paginatedTests = useMemo(() => {
-    return tests.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  }, [tests, page, rowsPerPage]);
+    return mergedTests.slice(
+      page * rowsPerPage,
+      page * rowsPerPage + rowsPerPage
+    );
+  }, [mergedTests, page, rowsPerPage]);
 
   // Keyboard navigation
   React.useEffect(() => {
@@ -337,25 +542,35 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '25%',
+                  width: '22%',
                 }}
               >
-                Prompt
+                {isMultiTurn ? 'Goal' : 'Prompt'}
               </TableCell>
               <TableCell
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '35%',
+                  width: '10%',
+                  textAlign: 'center',
                 }}
               >
-                Response
+                Result
               </TableCell>
               <TableCell
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '15%',
+                  width: '30%',
+                }}
+              >
+                {isMultiTurn ? 'Evaluation Reasoning' : 'Response'}
+              </TableCell>
+              <TableCell
+                sx={{
+                  backgroundColor: theme.palette.background.paper,
+                  fontWeight: 600,
+                  width: '13%',
                   textAlign: 'center',
                 }}
               >
@@ -412,7 +627,7 @@ export default function TestsTableView({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
                   <Typography color="text.secondary">
                     Loading tests...
                   </Typography>
@@ -420,7 +635,7 @@ export default function TestsTableView({
               </TableRow>
             ) : paginatedTests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
                   <Typography color="text.secondary">
                     No tests to display
                   </Typography>
@@ -430,11 +645,19 @@ export default function TestsTableView({
               paginatedTests.map((test, index) => {
                 const status = getTestStatus(test);
                 const failedMetrics = getFailedMetrics(test);
-                const promptContent =
-                  test.prompt_id && prompts[test.prompt_id]
+
+                // Get prompt/goal content based on test type
+                const promptContent = isMultiTurn
+                  ? test.test_output?.test_configuration?.goal || 'N/A'
+                  : test.prompt_id && prompts[test.prompt_id]
                     ? prompts[test.prompt_id].content
-                    : 'N/A';
-                const responseContent = test.test_output?.output || 'N/A';
+                    : test.test?.prompt?.content || 'N/A';
+
+                // Get response/evaluation content based on test type
+                const responseContent = isMultiTurn
+                  ? test.test_output?.goal_evaluation?.reason || 'N/A'
+                  : test.test_output?.output || 'N/A';
+
                 const isRowSelected = selectedRowIndex === index;
 
                 return (
@@ -467,6 +690,28 @@ export default function TestsTableView({
                           {truncateText(promptContent, 150)}
                         </Typography>
                       </Tooltip>
+                    </TableCell>
+
+                    {/* Result Column */}
+                    <TableCell align="center">
+                      <Chip
+                        label={status.label}
+                        size="small"
+                        sx={{
+                          backgroundColor: status.hasExecutionError
+                            ? alpha(theme.palette.warning.main, 0.1)
+                            : status.passed
+                              ? alpha(theme.palette.success.main, 0.1)
+                              : alpha(theme.palette.error.main, 0.1),
+                          color: status.hasExecutionError
+                            ? 'warning.main'
+                            : status.passed
+                              ? 'success.main'
+                              : 'error.main',
+                          fontWeight: 600,
+                          minWidth: 70,
+                        }}
+                      />
                     </TableCell>
 
                     {/* Response Column */}
@@ -536,7 +781,7 @@ export default function TestsTableView({
                         {status.isOverruled ? (
                           <Tooltip
                             title={
-                              status.reviewData
+                              'reviewData' in status && status.reviewData
                                 ? `Human review by ${status.reviewData.reviewer}: ${
                                     status.reviewData.newStatus === 'passed'
                                       ? 'Passed'
@@ -546,7 +791,8 @@ export default function TestsTableView({
                             }
                           >
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              {status.reviewData?.newStatus === 'passed' ? (
+                              {'reviewData' in status &&
+                              status.reviewData?.newStatus === 'passed' ? (
                                 <CheckIcon
                                   sx={{
                                     fontSize: 20,
@@ -687,22 +933,28 @@ export default function TestsTableView({
                         {/* Show Confirm Review button only if not already reviewed */}
                         {!test.last_review && (
                           <Tooltip title="Confirm Review">
-                            <IconButton
-                              size="small"
-                              onClick={e => handleConfirmReview(e, test)}
-                              sx={{
-                                '&:hover': {
-                                  backgroundColor: alpha(
-                                    theme.palette.success.main,
-                                    0.1
-                                  ),
-                                },
-                              }}
-                            >
-                              <CheckIcon
-                                sx={{ fontSize: 18, color: 'action.active' }}
-                              />
-                            </IconButton>
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={e => handleConfirmReview(e, test)}
+                                disabled={isConfirmingReview}
+                                sx={{
+                                  '&:hover': {
+                                    backgroundColor: alpha(
+                                      theme.palette.success.main,
+                                      0.1
+                                    ),
+                                  },
+                                  '&:disabled': {
+                                    color: 'action.disabled',
+                                  },
+                                }}
+                              >
+                                <CheckIcon
+                                  sx={{ fontSize: 18, color: 'action.active' }}
+                                />
+                              </IconButton>
+                            </span>
                           </Tooltip>
                         )}
 
@@ -738,7 +990,7 @@ export default function TestsTableView({
       <TablePagination
         rowsPerPageOptions={[10, 25, 50, 100]}
         component="div"
-        count={tests.length}
+        count={mergedTests.length}
         rowsPerPage={rowsPerPage}
         page={page}
         onPageChange={handleChangePage}
@@ -760,11 +1012,14 @@ export default function TestsTableView({
         behaviors={behaviors}
         testRunId={testRunId}
         sessionToken={sessionToken}
-        onTestResultUpdate={onTestResultUpdate}
+        onTestResultUpdate={handleTestResultUpdateInDrawer}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
         currentUserPicture={currentUserPicture}
         initialTab={initialTab}
+        testSetType={testSetType}
+        project={project}
+        projectName={projectName}
       />
 
       {/* Review Judgement Drawer */}

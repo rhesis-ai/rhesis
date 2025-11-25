@@ -144,19 +144,23 @@ class BackendEndpointTarget(Target):
     def send_message(
         self,
         message: str,
-        session_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
         **kwargs: Any,
     ) -> TargetResponse:
         """
         Send a message to the endpoint via the backend endpoint service.
 
+        Uses Penelope's intelligent conversation ID extraction to support multiple
+        conversation tracking field names (conversation_id, session_id, thread_id, etc.).
+
         Args:
             message: The message to send
-            session_id: Optional session ID for multi-turn conversations
-            **kwargs: Additional parameters (ignored for endpoints)
+            conversation_id: Optional conversation ID for multi-turn conversations
+            **kwargs: Additional parameters, including other conversation tracking fields
+                     (session_id, thread_id, chat_id, etc.)
 
         Returns:
-            TargetResponse with the endpoint's response
+            TargetResponse with the endpoint's response and extracted conversation_id
         """
         # Validate input
         if not message or not message.strip():
@@ -174,15 +178,27 @@ class BackendEndpointTarget(Target):
             )
 
         try:
+            # TargetInteractionTool already extracts conversation_id and passes it as the second parameter
+            # kwargs should not contain conversation fields (they're filtered out by TargetInteractionTool)
+            # So we can use conversation_id directly
+            final_conversation_id = conversation_id
+
             # Prepare input data in the format expected by the endpoint service
             input_data = {"input": message}
-            if session_id:
-                input_data["session_id"] = session_id
+            if final_conversation_id:
+                input_data["session_id"] = final_conversation_id
+
+            logger.debug(
+                f"BackendEndpointTarget input conversation tracking - "
+                f"conversation_id: {conversation_id}, "
+                f"kwargs: {list(kwargs.keys())}, "
+                f"final_conversation_id: {final_conversation_id}"
+            )
 
             # Invoke endpoint through the backend service
-            logger.debug(
+            logger.info(
                 f"BackendEndpointTarget invoking endpoint {self.endpoint_id} "
-                f"with message length {len(message)}"
+                f"with message: '{message[:100]}...', conversation_id: {final_conversation_id}"
             )
 
             response_data = self.endpoint_service.invoke_endpoint(
@@ -203,12 +219,29 @@ class BackendEndpointTarget(Target):
             # Extract response content from Rhesis standard response structure
             # Standard fields: output, session_id, metadata, context
             response_text = response_data.get("output", "")
-            response_session_id = response_data.get("session_id", session_id)
 
-            # Build metadata including context if available
+            # Extract conversation_id using smart field detection (match Penelope EndpointTarget)
+            from rhesis.penelope.conversation import extract_conversation_id
+
+            # Extract session_id from endpoint response (endpoint manages session lifecycle)
+            response_conversation_id = extract_conversation_id(response_data)
+            if not response_conversation_id:
+                # Fallback to input conversation_id for subsequent turns
+                response_conversation_id = final_conversation_id
+
+            # Debug logging for conversation ID tracking (match Penelope EndpointTarget format)
+            logger.debug(
+                f"BackendEndpoint conversation tracking - Input: {final_conversation_id}, "
+                f"Response extracted: {extract_conversation_id(response_data)}, "
+                f"Final: {response_conversation_id}"
+            )
+
+            # Build metadata including context if available (match Penelope EndpointTarget format)
             response_metadata = {
                 "raw_response": response_data,
                 "message_sent": message,
+                "input_conversation_id": final_conversation_id,
+                "extracted_conversation_id": response_conversation_id,
             }
 
             # Include Rhesis metadata fields if present
@@ -218,15 +251,15 @@ class BackendEndpointTarget(Target):
             if "context" in response_data and response_data["context"]:
                 response_metadata["context"] = response_data["context"]
 
-            logger.debug(
+            logger.info(
                 f"BackendEndpointTarget received response from {self.endpoint_id}: "
-                f"{len(str(response_text))} chars"
+                f"'{str(response_text)[:100]}...', returning conversation_id: {response_conversation_id}"
             )
 
             return TargetResponse(
                 success=True,
                 content=str(response_text),
-                session_id=response_session_id,
+                conversation_id=response_conversation_id,
                 metadata=response_metadata,
             )
 
@@ -288,15 +321,17 @@ The Rhesis backend handles all authentication, request mapping, and
 response parsing according to the endpoint's configuration.
 
 How to interact:
-- Use send_message_to_target(message, session_id) to send messages
+- Use send_message_to_target(message, conversation_id) to send messages
 - Messages should be natural, conversational text
-- Maintain session_id across turns for conversation continuity
-- Session typically expires after 1 hour of inactivity
+- Maintain conversation_id across turns for conversation continuity
+- Supports flexible conversation tracking (conversation_id, session_id, thread_id, etc.)
+- Conversation typically expires after 1 hour of inactivity
 
 Best practices:
 - Write messages as a real user would
 - Check responses before deciding next actions
-- Use consistent session_id for related questions
+- Use consistent conversation_id for related questions
 - The endpoint may use RAG or other context mechanisms internally
+- BackendEndpointTarget intelligently extracts conversation IDs from any supported field
 """
         return doc

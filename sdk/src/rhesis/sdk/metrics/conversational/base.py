@@ -32,6 +32,7 @@ class ConversationalMetricBase(ABC):
         self.description = config.description
         self.score_type = config.score_type
         self.metric_type = config.metric_type
+        self.metric_scope = config.metric_scope
         self.requires_ground_truth = config.requires_ground_truth
         self.requires_context = config.requires_context
         self.class_name = config.class_name
@@ -54,6 +55,20 @@ class ConversationalMetricBase(ABC):
     def model(self, value: Union[BaseLLM, str]):
         """Set the model."""
         self._model = self._set_model(value)
+
+    @property
+    def is_goal_achievement_metric(self) -> bool:
+        """
+        Identify whether this metric is a goal achievement metric.
+
+        Goal achievement metrics provide detailed criteria evaluations and
+        may need special handling to avoid data duplication in systems
+        that maintain separate detailed goal evaluation data.
+
+        Returns:
+            False by default. Subclasses like GoalAchievementJudge override this.
+        """
+        return False
 
     @abstractmethod
     def evaluate(

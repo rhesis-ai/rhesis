@@ -66,21 +66,32 @@ def example_multiple_metrics():
         instructions="Ask about return windows, refund methods, and exceptions",
     )
 
-    # Access results - all metrics appear in result.metrics
+    # Access results - metrics contain summary data, goal_evaluation has detailed data
     print("\n=== Evaluation Results ===")
     for metric_name, metric_data in result.metrics.items():
         print(f"\n{metric_name}:")
         print(f"  Score: {metric_data['score']}")
-        print(f"  Successful: {metric_data.get('details', {}).get('is_successful', 'N/A')}")
+        print(f"  Successful: {metric_data.get('is_successful', 'N/A')}")
 
-        # Goal Achievement has structured criteria
-        if metric_name == "Goal Achievement":
-            criteria = metric_data.get("details", {}).get("criteria_evaluations", [])
-            if criteria:
-                print("  Criteria breakdown:")
-                for criterion in criteria:
-                    status = "✓" if criterion.get("met") else "✗"
-                    print(f"    {status} {criterion.get('criterion')}")
+        # For goal achievement metrics, show criteria summary from metrics
+        if metric_name in ["Goal Achievement", "Penelope Goal Evaluation"]:
+            criteria_met = metric_data.get("criteria_met", 0)
+            criteria_total = metric_data.get("criteria_total", 0)
+            print(f"  Criteria: {criteria_met}/{criteria_total} met")
+
+    # Show detailed goal evaluation breakdown (if available)
+    if result.goal_evaluation and "criteria_evaluations" in result.goal_evaluation:
+        print("\n=== Detailed Goal Evaluation ===")
+        criteria = result.goal_evaluation["criteria_evaluations"]
+        print("Criteria breakdown:")
+        for criterion in criteria:
+            status = "✓" if criterion.get("met") else "✗"
+            turns = criterion.get("relevant_turns", [])
+            print(f"  {status} {criterion.get('criterion')} (turns: {turns})")
+            if criterion.get("evidence"):
+                print(f"    Evidence: {criterion['evidence'][:100]}...")
+
+        print(f"\nOverall: {result.goal_evaluation.get('reason', 'No reason provided')}")
 
     return result
 
@@ -394,10 +405,10 @@ def print_test_results(result, test_name: str):
     for metric_name, metric_data in result.metrics.items():
         print(f"\n{metric_name}:")
         print(f"  Score: {metric_data['score']}")
-        print(f"  Successful: {metric_data.get('details', {}).get('is_successful', 'N/A')}")
+        print(f"  Successful: {metric_data.get('is_successful', 'N/A')}")
 
-        # Show structured criteria if available
-        criteria = metric_data.get("details", {}).get("criteria_evaluations", [])
+        # Show structured criteria if available (flattened structure)
+        criteria = metric_data.get("criteria_evaluations", [])
         if criteria:
             print("  Criteria breakdown:")
             for criterion in criteria:

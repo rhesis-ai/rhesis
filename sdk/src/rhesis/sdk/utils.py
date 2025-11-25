@@ -27,13 +27,8 @@ def count_tokens(text: str, encoding_name: str = "cl100k_base") -> Optional[int]
     try:
         encoding = tiktoken.get_encoding(encoding_name)
         return len(encoding.encode(text))
-    except Exception as e:
-        # Log the error but don't raise it to avoid breaking client code
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.error(f"Failed to count tokens: {str(e)}")
-        return None
+    except Exception:
+        raise ValueError("Failed to count tokens")
 
 
 def extract_json_from_text(text: str, fallback_to_partial: bool = True) -> Dict[str, Any]:

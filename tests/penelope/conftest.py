@@ -1,9 +1,17 @@
 """Shared fixtures for Penelope tests."""
 
-import pytest
+import os
 from unittest.mock import Mock
+
+import pytest
+
+# Mock OpenAI API key to prevent DeepEval from failing during imports
+# This is needed because the SDK imports DeepEval metrics which try to initialize OpenAI clients
+if "OPENAI_API_KEY" not in os.environ:
+    os.environ["OPENAI_API_KEY"] = "mock-api-key-for-testing"
 from rhesis.penelope.targets.base import Target, TargetResponse
 from rhesis.penelope.tools.base import Tool, ToolResult
+
 from rhesis.sdk.models.base import BaseLLM
 
 
@@ -37,11 +45,11 @@ def mock_target():
         def description(self) -> str:
             return "Mock target for testing"
 
-        def send_message(self, message: str, session_id=None, **kwargs):
+        def send_message(self, message: str, conversation_id=None, **kwargs):
             return TargetResponse(
                 success=True,
                 content="Mock response",
-                session_id=session_id or "session-123",
+                conversation_id=conversation_id,
             )
 
         def validate_configuration(self):
@@ -91,4 +99,3 @@ def sample_test_state(sample_test_context):
     from rhesis.penelope.context import TestState
 
     return TestState(context=sample_test_context)
-

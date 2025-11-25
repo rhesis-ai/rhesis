@@ -264,3 +264,149 @@ def get_model(
 
     # Use the factory function to create the model instance
     return factory_func(config.model_name, config.api_key, **kwargs)
+
+
+def get_available_models(provider: str) -> list[str]:
+    """Get the list of available models for a specific provider.
+
+    This function retrieves the available models by calling the provider class's
+    get_available_models() method. It supports all LiteLLM-based providers.
+
+    Args:
+        provider: Provider name (e.g., "anthropic", "openai", "gemini", "groq")
+
+    Returns:
+        List of available model names for the provider
+
+    Raises:
+        ValueError: If the provider is not supported or doesn't support listing models
+        ImportError: If required dependencies for the provider are missing
+
+    Examples:
+        >>> # Get Anthropic models
+        >>> models = get_available_models("anthropic")
+        >>> print(models)
+        ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', ...]
+
+        >>> # Get OpenAI models
+        >>> models = get_available_models("openai")
+
+        >>> # Get Gemini models
+        >>> models = get_available_models("gemini")
+    """
+    if provider not in PROVIDER_REGISTRY:
+        available_providers = ", ".join(sorted(PROVIDER_REGISTRY.keys()))
+        raise ValueError(
+            f"Provider '{provider}' not supported. Available providers: {available_providers}"
+        )
+
+    # Map of providers that support get_available_models (LiteLLM-based providers)
+    litellm_providers = {
+        "anthropic": _get_anthropic_models,
+        "cohere": _get_cohere_models,
+        "gemini": _get_gemini_models,
+        "groq": _get_groq_models,
+        "meta_llama": _get_meta_llama_models,
+        "mistral": _get_mistral_models,
+        "ollama": _get_ollama_models,
+        "openai": _get_openai_models,
+        "perplexity": _get_perplexity_models,
+        "replicate": _get_replicate_models,
+        "together_ai": _get_together_ai_models,
+        "vertex_ai": _get_vertex_ai_models,
+    }
+
+    if provider not in litellm_providers:
+        raise ValueError(
+            f"Provider '{provider}' does not support listing available models. "
+            f"Only the following providers support this feature: "
+            f"{', '.join(sorted(litellm_providers.keys()))}"
+        )
+
+    # Call the provider-specific function to get models
+    return litellm_providers[provider]()
+
+
+# Provider-specific functions to get available models
+def _get_anthropic_models() -> list[str]:
+    """Get available Anthropic models."""
+    from rhesis.sdk.models.providers.anthropic import AnthropicLLM
+
+    return AnthropicLLM.get_available_models()
+
+
+def _get_cohere_models() -> list[str]:
+    """Get available Cohere models."""
+    from rhesis.sdk.models.providers.cohere import CohereLLM
+
+    return CohereLLM.get_available_models()
+
+
+def _get_gemini_models() -> list[str]:
+    """Get available Gemini models."""
+    from rhesis.sdk.models.providers.gemini import GeminiLLM
+
+    return GeminiLLM.get_available_models()
+
+
+def _get_groq_models() -> list[str]:
+    """Get available Groq models."""
+    from rhesis.sdk.models.providers.groq import GroqLLM
+
+    return GroqLLM.get_available_models()
+
+
+def _get_meta_llama_models() -> list[str]:
+    """Get available Meta Llama models."""
+    from rhesis.sdk.models.providers.meta_llama import MetaLlamaLLM
+
+    return MetaLlamaLLM.get_available_models()
+
+
+def _get_mistral_models() -> list[str]:
+    """Get available Mistral models."""
+    from rhesis.sdk.models.providers.mistral import MistralLLM
+
+    return MistralLLM.get_available_models()
+
+
+def _get_ollama_models() -> list[str]:
+    """Get available Ollama models."""
+    from rhesis.sdk.models.providers.ollama import OllamaLLM
+
+    return OllamaLLM.get_available_models()
+
+
+def _get_openai_models() -> list[str]:
+    """Get available OpenAI models."""
+    from rhesis.sdk.models.providers.openai import OpenAILLM
+
+    return OpenAILLM.get_available_models()
+
+
+def _get_perplexity_models() -> list[str]:
+    """Get available Perplexity models."""
+    from rhesis.sdk.models.providers.perplexity import PerplexityLLM
+
+    return PerplexityLLM.get_available_models()
+
+
+def _get_replicate_models() -> list[str]:
+    """Get available Replicate models."""
+    from rhesis.sdk.models.providers.replicate import ReplicateLLM
+
+    return ReplicateLLM.get_available_models()
+
+
+def _get_together_ai_models() -> list[str]:
+    """Get available Together AI models."""
+    from rhesis.sdk.models.providers.together_ai import TogetherAILLM
+
+    return TogetherAILLM.get_available_models()
+
+
+def _get_vertex_ai_models() -> list[str]:
+    """Get available Vertex AI models."""
+    from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
+
+    return VertexAILLM.get_available_models()

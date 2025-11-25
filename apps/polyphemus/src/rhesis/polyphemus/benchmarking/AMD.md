@@ -6,7 +6,7 @@ If you have any other experiences, please add them here
 ## Arch Linux
 Install the ROCm components on the system needed for torch
 ```
-sudo pacman -S python-pytorch-rocm
+sudo pacman -Su python-pytorch-rocm
 ```
 
 For the next step, if you have torch installed already, you need to remove it:

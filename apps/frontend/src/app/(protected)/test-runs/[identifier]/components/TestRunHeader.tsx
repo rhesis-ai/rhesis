@@ -22,6 +22,7 @@ import Link from 'next/link';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
+import { getTestResultStatus } from '@/utils/testResultStatus';
 
 interface TestRunHeaderProps {
   testRun: TestRunDetail;
@@ -134,6 +135,12 @@ export default function TestRunHeader({
 }: TestRunHeaderProps) {
   const theme = useTheme();
 
+  // Determine if this is a multi-turn test set
+  const isMultiTurn =
+    testRun.test_configuration?.test_set?.test_set_type?.type_value
+      ?.toLowerCase()
+      .includes('multi-turn') || false;
+
   // Calculate statistics
   const stats = useMemo(() => {
     const total = testResults.length;
@@ -142,28 +149,38 @@ export default function TestRunHeader({
     let passed = 0;
     let failed = 0;
     let executionErrors = 0;
+    let totalTurns = 0;
+    let testsWithTurnData = 0;
 
     testResults.forEach(result => {
-      const metrics = result.test_metrics?.metrics;
+      // Use unified status determination for both single-turn and multi-turn tests
+      // This checks test_metrics.metrics[].is_successful which is set by backend
+      // for both single-turn (SDK metrics) and multi-turn (Penelope metrics)
+      const status = getTestResultStatus(result);
 
-      // No metrics or empty metrics = execution error
-      if (!metrics || Object.keys(metrics).length === 0) {
+      if (status === 'Error') {
         executionErrors++;
-        return;
+      } else if (status === 'Pass') {
+        passed++;
+      } else if (status === 'Fail') {
+        failed++;
       }
 
-      // Check if all metrics passed
-      const allPassed = Object.values(metrics).every(
-        metric => metric.is_successful
-      );
-      if (allPassed) {
-        passed++;
-      } else {
-        failed++;
+      // For multi-turn tests, track turn depth
+      if (isMultiTurn && result.test_output) {
+        const turns =
+          result.test_output.turns_used ||
+          result.test_output.stats?.total_turns;
+        if (turns) {
+          totalTurns += turns;
+          testsWithTurnData++;
+        }
       }
     });
 
     const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : '0.0';
+    const avgTurnDepth =
+      testsWithTurnData > 0 ? (totalTurns / testsWithTurnData).toFixed(0) : '0';
 
     // Calculate duration
     const startedAt = testRun.attributes?.started_at;
@@ -238,18 +255,25 @@ export default function TestRunHeader({
       failed,
       executionErrors,
       passRate,
+      avgTurnDepth,
       duration,
       status,
       statusColor,
       statusLabel,
     };
-  }, [testResults, testRun]);
+  }, [testResults, testRun, isMultiTurn]);
 
   return (
     <Box sx={{ mb: 4 }}>
       <Grid container spacing={3}>
         {/* Pass Rate Card */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <SummaryCard
             title="Pass Rate"
             value={`${stats.passRate}%`}
@@ -274,14 +298,22 @@ export default function TestRunHeader({
         </Grid>
 
         {/* Tests Executed Card */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <SummaryCard
             title="Tests Executed"
             value={stats.total}
             subtitle={
-              stats.executionErrors > 0
-                ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
-                : `${stats.passed} passed, ${stats.failed} failed`
+              isMultiTurn
+                ? `Avg ${stats.avgTurnDepth} turns`
+                : stats.executionErrors > 0
+                  ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
+                  : `${stats.passed} passed, ${stats.failed} failed`
             }
             icon={<PlayCircleOutlineIcon />}
             color="primary"
@@ -289,7 +321,13 @@ export default function TestRunHeader({
         </Grid>
 
         {/* Duration Card */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <SummaryCard
             title="Duration"
             value={stats.duration}
@@ -304,7 +342,13 @@ export default function TestRunHeader({
         </Grid>
 
         {/* Status Card */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <Card
             sx={{
               height: '100%',
@@ -402,7 +446,7 @@ export default function TestRunHeader({
 
               {testRun.test_configuration?.endpoint?.id ? (
                 <Link
-                  href={`/endpoints/${testRun.test_configuration.endpoint.id}`}
+                  href={`/projects/endpoints/${testRun.test_configuration.endpoint.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ textDecoration: 'none' }}

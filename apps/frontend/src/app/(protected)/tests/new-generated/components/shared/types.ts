@@ -9,6 +9,21 @@ import { Project } from '@/utils/api-client/interfaces/project';
 export type { ProcessedDocument };
 
 /**
+ * Test type selection
+ */
+export type TestType = 'single_turn' | 'multi_turn';
+
+/**
+ * Multi-turn prompt structure
+ */
+export interface MultiTurnPrompt {
+  goal: string;
+  instructions: string;
+  restrictions: string;
+  scenario: string;
+}
+
+/**
  * Individual chip configuration
  */
 export interface ChipConfig {
@@ -39,10 +54,11 @@ export interface ChipState {
 }
 
 /**
- * Test sample with rating and feedback
+ * Test sample with rating and feedback (single-turn)
  */
 export interface TestSample {
   id: string;
+  testType: 'single_turn';
   prompt: string;
   response?: string;
   behavior: string;
@@ -53,6 +69,29 @@ export interface TestSample {
   responseError?: string;
   context?: Array<{ name: string; description?: string; content?: string }>; // Sources used
 }
+
+/**
+ * Multi-turn test sample with rating and feedback
+ */
+export interface MultiTurnTestSample {
+  id: string;
+  testType: 'multi_turn';
+  prompt: MultiTurnPrompt;
+  response?: string;
+  behavior: string;
+  topic: string;
+  category: string;
+  rating: number | null; // 1-5 or null
+  feedback: string;
+  isLoadingResponse?: boolean;
+  responseError?: string;
+  context?: Array<{ name: string; description?: string; content?: string }>; // Sources used
+}
+
+/**
+ * Union type for all test samples
+ */
+export type AnyTestSample = TestSample | MultiTurnTestSample;
 
 /**
  * Chat message in the refinement interface
@@ -129,6 +168,7 @@ export interface FlowState {
   // Navigation
   currentScreen: FlowStep;
   mode: GenerationMode | null;
+  testType: TestType;
 
   // Input Screen
   description: string;

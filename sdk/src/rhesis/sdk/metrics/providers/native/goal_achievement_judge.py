@@ -74,6 +74,20 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
     passing custom values for evaluation_prompt, evaluation_steps, or reasoning.
     """
 
+    @property
+    def is_goal_achievement_metric(self) -> bool:
+        """
+        Identify this metric as a goal achievement metric.
+
+        This property is used by systems like Penelope to determine whether
+        to create simplified summary versions of this metric's results to
+        avoid duplication with detailed goal evaluation data.
+
+        Returns:
+            True for GoalAchievementJudge, False for other metrics
+        """
+        return True
+
     def __init__(
         self,
         evaluation_prompt: Optional[str] = None,
@@ -144,6 +158,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         self,
         conversation_history: ConversationHistory,
         goal: Optional[str] = None,
+        instructions: Optional[str] = None,
         **additional_template_vars,
     ) -> str:
         """
@@ -156,6 +171,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         Args:
             conversation_history: The conversation to evaluate
             goal: Optional conversation goal
+            instructions: Optional test instructions specifying HOW the test should be conducted
             **additional_template_vars: Additional template variables
 
         Returns:
@@ -181,6 +197,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             "evaluation_examples": self.evaluation_examples,
             "conversation_text": conversation_text,
             "goal": goal or GOAL_DEFAULT,
+            "instructions": instructions,  # Add test instructions for context
             "turn_count": len(conversation_history),
             "min_score": self.min_score,
             "max_score": self.max_score,
@@ -201,6 +218,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         self,
         conversation_history: ConversationHistory,
         goal: Optional[str] = None,
+        instructions: Optional[str] = None,
     ) -> MetricResult:
         """
         Evaluate goal achievement in the conversation.
@@ -209,6 +227,10 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             conversation_history: The conversation to evaluate
             goal: Optional explicit goal statement. If not provided, the goal
                   should be inferred from the conversation context.
+            instructions: Optional test instructions that specify HOW the test
+                  should be conducted (e.g., "send 6 exact messages", "do not stop early").
+                  These provide critical context for evaluating whether the goal was
+                  properly achieved.
 
         Returns:
             MetricResult with:
@@ -225,6 +247,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
                     - threshold: The threshold value for success
                     - turn_count: Number of turns in the conversation
                     - goal: The goal that was evaluated
+                    - instructions: The test instructions (if provided)
                     - criteria_evaluations: List of CriterionEvaluation objects (breakdown)
                     - all_criteria_met: Whether all criteria were met
                     - confidence: Confidence level (0.0 to 1.0)
@@ -236,7 +259,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         self._validate_evaluate_inputs(conversation_history, goal)
 
         # Generate the evaluation prompt
-        prompt = self._get_prompt_template(conversation_history, goal)
+        prompt = self._get_prompt_template(conversation_history, goal, instructions=instructions)
 
         # Use the shared numeric evaluation pattern with conversational-specific details
         return self._execute_numeric_evaluation(

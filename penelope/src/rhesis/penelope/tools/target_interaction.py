@@ -46,6 +46,10 @@ class TargetInteractionTool(Tool):
     def name(self) -> str:
         return "send_message_to_target"
 
+    def is_target_interaction_tool(self) -> bool:
+        """This tool represents a target interaction and counts as a turn."""
+        return True
+
     @property
     def description(self) -> str:
         return TARGET_INTERACTION_TOOL_DESCRIPTION_TEMPLATE.format(
@@ -53,35 +57,63 @@ class TargetInteractionTool(Tool):
         )
 
     def execute(
-        self, message: str = "", session_id: Optional[str] = None, **kwargs: Any
+        self, message: str = "", conversation_id: Optional[str] = None, **kwargs: Any
     ) -> ToolResult:
         """
         Execute the target interaction tool.
 
         Args:
             message: The user message to send (validated via Pydantic)
-            session_id: Optional session ID for multi-turn conversations
-            **kwargs: Additional target-specific parameters
+            conversation_id: Optional conversation ID for multi-turn conversations
+            **kwargs: Additional target-specific parameters, including other conversation
+                     tracking fields (thread_id, chat_id, etc.)
 
         Returns:
             ToolResult with the target's response
         """
         try:
-            # Send message to target
-            response = self.target.send_message(message, session_id, **kwargs)
+            # Extract conversation ID from any supported field
+            from rhesis.penelope.conversation import (
+                CONVERSATION_FIELD_NAMES,
+                extract_conversation_id,
+            )
+
+            # Build params dict with all conversation fields
+            params = kwargs.copy()
+            if conversation_id:
+                params["conversation_id"] = conversation_id
+
+            # Extract the actual conversation ID from any field
+            final_conversation_id = extract_conversation_id(params)
+
+            # Send message to target (conversation_id is passed as positional arg, not in kwargs)
+            # Remove conversation fields from params to avoid duplication
+            target_params = {k: v for k, v in params.items() if k not in CONVERSATION_FIELD_NAMES}
+            response = self.target.send_message(message, final_conversation_id, **target_params)
 
             # Convert TargetResponse to ToolResult
             if response.success:
+                from rhesis.penelope.conversation import get_conversation_field_name
+
+                # Determine which conversation field was used
+                conv_field_name = get_conversation_field_name(params) or "conversation_id"
+
+                output = {
+                    "response": response.content,
+                    "metadata": response.metadata,
+                }
+
+                # Add conversation ID with the appropriate field name (even if None)
+                conversation_value = response.conversation_id
+                output[conv_field_name] = conversation_value
+
                 return ToolResult(
                     success=True,
-                    output={
-                        "response": response.content,
-                        "session_id": response.session_id,
-                        "metadata": response.metadata,
-                    },
+                    output=output,
                     metadata={
                         "message_sent": message,
-                        "session_id_used": session_id,
+                        "conversation_id_used": final_conversation_id,
+                        "conversation_field_name": conv_field_name,
                         "target_type": self.target.target_type,
                         "target_id": self.target.target_id,
                     },

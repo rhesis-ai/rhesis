@@ -1,5 +1,6 @@
 export default {
   index: "Overview",
+  changelog: "Changelog",
   frontend: "Frontend (Platform)",
   backend: "Backend",
   worker: "Worker",

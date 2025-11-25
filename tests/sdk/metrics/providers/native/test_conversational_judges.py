@@ -168,27 +168,6 @@ def test_goal_achievement_judge_format_conversation(mock_model, sample_conversat
     assert "I need help finding a new insurance policy" in formatted
 
 
-@pytest.mark.skip(reason="Requires actual LLM interaction")
-def test_goal_achievement_judge_evaluate_real(sample_conversation):
-    """Test evaluation with a real LLM (skipped in normal test runs)."""
-    from rhesis.sdk.models import VertexAILLM
-
-    judge = GoalAchievementJudge(
-        model=VertexAILLM(model_name="gemini-2.0-flash"),
-        threshold=0.7,
-    )
-
-    result = judge.evaluate(
-        conversation_history=sample_conversation,
-        goal="Customer learns about auto insurance options",
-    )
-
-    assert result.score is not None
-    assert 0.0 <= result.score <= 1.0
-    assert "reason" in result.details
-    assert "is_successful" in result.details
-
-
 def test_goal_achievement_judge_evaluate_with_mock(mock_model, sample_conversation):
     """Test evaluate method with mocked LLM response."""
     judge = GoalAchievementJudge(model=mock_model, threshold=0.7)

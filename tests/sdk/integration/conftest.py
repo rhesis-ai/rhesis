@@ -1,4 +1,5 @@
 import hashlib
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -16,6 +17,16 @@ RED = "\033[0;31m"
 CYAN = "\033[0;36m"
 NC = "\033[0m"  # No Color
 
+DATABASE_PORT = 10000
+BACKEND_PORT = 10001
+
+
+@pytest.fixture(scope="session", autouse=True)
+def set_env():
+    os.environ["RHESIS_BASE_URL"] = f"http://localhost:{BACKEND_PORT}"
+    os.environ["RHESIS_API_KEY"] = "rh-test-token"
+    print(f"{GREEN}✅ Environment variables set for docker-compose mode{NC}")
+
 
 def clear_all_tables() -> None:
     """Clear all data from key tables."""
@@ -28,6 +39,7 @@ def clear_all_tables() -> None:
             database="rhesis-db",
             user="rhesis-user",
             password="your-secured-password",
+            port=DATABASE_PORT,
         )
         conn.autocommit = True
         cur = conn.cursor()
@@ -77,6 +89,7 @@ def setup_test_data() -> None:
             database="rhesis-db",
             user="rhesis-user",
             password="your-secured-password",
+            port=DATABASE_PORT,
         )
         conn.autocommit = False
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -139,12 +152,18 @@ def setup_test_data() -> None:
         pytest.fail(f"❌ Unexpected error: {e}")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def docker_compose_test_env() -> Generator[dict, None, None]:
+    """
+    Set up isolated docker-compose environment for integration tests.
+
+    This fixture ensures tests run in a clean, reproducible environment.
+    """
+    print(f"{BLUE}🐳 Starting isolated docker-compose environment{NC}")
     compose_file = Path(__file__).parent / "docker-compose.yml"
     # Test if backend is running
     max_attempts = 3
-    backend_url = "http://localhost:8080/health"
+    backend_url = f"http://localhost:{BACKEND_PORT}/health"
     backend_is_running = False
 
     print("🔄 Checking if backend is running...")
@@ -163,7 +182,7 @@ def docker_compose_test_env() -> Generator[dict, None, None]:
     if not backend_is_running:
         print("🔄 Backend is not running, starting backend...")
         result = subprocess.run(
-            ["docker", "compose", "-f", compose_file, "up", "-d", "--build"],
+            ["docker", "compose", "-f", compose_file, "up", "--detach", "--build"],
             text=True,
         )
 
@@ -197,17 +216,20 @@ def docker_compose_test_env() -> Generator[dict, None, None]:
     setup_test_data()
 
     # Yield test environment info
-    yield {
-        "base_url": "http://localhost:8080",
+    test_config = {
+        "base_url": f"http://localhost:{BACKEND_PORT}",
         "api_key": "rh-test-token",
     }
+
+    # Yield test environment info
+    yield test_config
 
 
 @pytest.fixture(scope="function")
 def db_cleanup(docker_compose_test_env):
     """
     Automatic database cleanup for integration tests.
-    Runs automatically before and after EACH test in tests/sdk/.
+    Runs automatically before and after EACH test.
     """
     # 🧼 Cleanup at START (before test runs)
     conn = None
@@ -217,10 +239,11 @@ def db_cleanup(docker_compose_test_env):
             database="rhesis-db",
             user="rhesis-user",
             password="your-secured-password",
+            port=DATABASE_PORT,
         )
         conn.autocommit = True
         cur = conn.cursor()
-        cur.execute("TRUNCATE TABLE metric CASCADE;")
+        cur.execute("TRUNCATE TABLE metric, behavior CASCADE;")
         cur.close()
         conn.close()
     except Exception as e:
@@ -239,10 +262,11 @@ def db_cleanup(docker_compose_test_env):
             database="rhesis-db",
             user="rhesis-user",
             password="your-secured-password",
+            port=DATABASE_PORT,
         )
         conn.autocommit = True
         cur = conn.cursor()
-        cur.execute("TRUNCATE TABLE metric CASCADE;")
+        cur.execute("TRUNCATE TABLE metric, behavior CASCADE;")
         cur.close()
         conn.close()
     except Exception as e:

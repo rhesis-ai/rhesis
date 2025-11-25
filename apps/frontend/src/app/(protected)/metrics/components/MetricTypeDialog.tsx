@@ -8,7 +8,6 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useRouter } from 'next/navigation';
-import GradingIcon from '@mui/icons-material/Grading';
 import ApiIcon from '@mui/icons-material/Api';
 import CodeIcon from '@mui/icons-material/Code';
 import ChatIcon from '@mui/icons-material/Chat';
@@ -75,7 +74,7 @@ export default function MetricTypeDialog({
               sx={{
                 p: 2,
                 mb: 2,
-                border: '1px solid',
+                border: theme => `${theme.spacing(0.125)} solid`,
                 borderColor: 'divider',
                 borderRadius: theme => theme.shape.borderRadius * 0.25,
                 cursor: option.disabled ? 'not-allowed' : 'pointer',
@@ -83,7 +82,9 @@ export default function MetricTypeDialog({
                 '&:hover': {
                   bgcolor: option.disabled ? undefined : 'action.hover',
                 },
-                transition: 'background-color 0.2s',
+                transition: theme.transitions.create('background-color', {
+                  duration: theme.transitions.duration.short,
+                }),
                 position: 'relative',
               }}
             >

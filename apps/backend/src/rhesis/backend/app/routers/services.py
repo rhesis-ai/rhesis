@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
@@ -12,10 +13,18 @@ from rhesis.backend.app.schemas.services import (
     DocumentUploadResponse,
     ExtractDocumentRequest,
     ExtractDocumentResponse,
+    ExtractMCPRequest,
+    ExtractMCPResponse,
     GenerateContentRequest,
+    GenerateMultiTurnTestsRequest,
+    GenerateMultiTurnTestsResponse,
     GenerateTestsRequest,
     GenerateTestsResponse,
+    ItemResult,
     PromptRequest,
+    QueryMCPRequest,
+    QueryMCPResponse,
+    SearchMCPRequest,
     TestConfigRequest,
     TestConfigResponse,
     TextResponse,
@@ -26,11 +35,12 @@ from rhesis.backend.app.services.gemini_client import (
     get_json_response,
 )
 from rhesis.backend.app.services.generation import (
+    generate_multiturn_tests,
     generate_tests,
-    process_sources_to_documents,
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.handlers import DocumentHandler
+from rhesis.backend.app.services.mcp_service import extract_mcp, query_mcp, search_mcp
 from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
@@ -86,7 +96,8 @@ async def get_ai_json_response(prompt_request: PromptRequest):
 
         return get_json_response(prompt_request.prompt)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Failed to get JSON response: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to get AI response. Please try again.")
 
 
 @router.post("/openai/chat")
@@ -116,7 +127,10 @@ async def get_ai_chat_response(chat_request: ChatRequest):
             response_format=chat_request.response_format,
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Failed to get chat response: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=400, detail="Failed to get chat response. Please try again."
+        )
 
 
 @router.post("/chat/completions")
@@ -139,7 +153,10 @@ async def create_chat_completion_endpoint(request: dict):
 
         return response
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Failed to create chat completion: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=400, detail="Failed to create chat completion. Please try again."
+        )
 
 
 @router.post("/generate/content")
@@ -200,7 +217,8 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 
         return response
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Failed to generate content: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to generate content. Please try again.")
 
 
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
@@ -225,41 +243,76 @@ async def generate_tests_endpoint(
         GenerateTestsResponse: The generated test cases
     """
     try:
-        prompt = request.prompt
-        num_tests = request.num_tests
-        sources = request.sources
-        chip_states = request.chip_states
-        rated_samples = request.rated_samples
-        previous_messages = request.previous_messages
+        # Validate config
+        if not request.config.behaviors:
+            raise HTTPException(status_code=400, detail="At least one behavior must be specified")
 
-        if not prompt:
-            raise HTTPException(status_code=400, detail="prompt is required")
+        # Generate tests synchronously
+        tests = await generate_tests(
+            db=db,
+            user=current_user,
+            config=request.config,
+            num_tests=request.num_tests,
+            sources=request.sources,
+        )
 
-        # Prepare sources from sources if provided
-        # Fetch full source data from database if only IDs are provided
-        sources_sdk = []
-        if sources:
-            organization_id, user_id = tenant_context
-            sources_sdk, _, _ = process_sources_to_documents(
-                sources=sources,
-                db=db,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
+        # Return Pydantic model - FastAPI handles serialization
+        return GenerateTestsResponse(tests=tests)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate tests: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to generate tests. Please try again.")
 
-        test_cases = await generate_tests(
-            db,
-            current_user,
-            prompt,
-            num_tests,
-            sources_sdk,
-            chip_states=chip_states,
-            rated_samples=rated_samples,
-            previous_messages=previous_messages,
+
+@router.post("/generate/multiturn-tests", response_model=GenerateMultiTurnTestsResponse)
+async def generate_multiturn_tests_endpoint(
+    request: GenerateMultiTurnTestsRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Generate multi-turn test cases using the MultiTurnSynthesizer.
+
+    Multi-turn tests include structured prompts with goals, instructions, and restrictions
+    for testing LLM agents across multiple conversation turns.
+
+    Args:
+        request: The request containing the generation prompt and optional parameters
+            - generation_prompt: Description of what to test
+            - behavior: Optional behavior type (e.g., "Compliance", "Reliability")
+            - category: Optional category (e.g., "Harmful", "Harmless")
+            - topic: Optional specific topic
+            - num_tests: Number of tests to generate (default: 5)
+        db: Database session
+        tenant_context: Tenant context containing organization_id and user_id
+        current_user: Current authenticated user
+
+    Returns:
+        GenerateMultiTurnTestsResponse: The generated multi-turn test cases
+    """
+    try:
+        # Prepare config dict from request
+        config = {
+            "generation_prompt": request.generation_prompt,
+            "behavior": request.behavior,
+            "category": request.category,
+            "topic": request.topic,
+        }
+
+        test_cases = await generate_multiturn_tests(
+            db=db,
+            user=current_user,
+            config=config,
+            num_tests=request.num_tests,
         )
         return {"tests": test_cases}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Failed to generate multi-turn tests: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=400, detail="Failed to generate multi-turn tests. Please try again."
+        )
 
 
 @router.post("/generate/text", response_model=TextResponse)
@@ -301,7 +354,8 @@ async def generate_text(prompt_request: PromptRequest):
 
         return TextResponse(text=response)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Failed to generate text: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to generate text. Please try again.")
 
 
 @router.post("/documents/upload", response_model=DocumentUploadResponse)
@@ -396,7 +450,11 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
             status_code=404, detail="Document not found. Please check the file path."
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to extract document content: {str(e)}")
+        logger.error(f"Failed to extract document content: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to extract document content. Please check the file format and try again.",
+        )
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)
@@ -418,7 +476,6 @@ async def generate_test_config(
 
     Args:
         request: Contains prompt (description) for test configuration generation,
-            optional sample_size (default: 5, max: 20) for number of items per category,
             and optional project_id to include project context
         db: Database session (injected)
         tenant_context: Organization and user context (injected)
@@ -433,15 +490,15 @@ async def generate_test_config(
 
         logger.info(
             f"Test config generation request for prompt: {request.prompt[:100]}... "
-            f"with sample_size: {request.sample_size} for organization: {organization_id}"
+            f"for organization: {organization_id}"
         )
 
         service = TestConfigGeneratorService(db=db, user=current_user)
         result = service.generate_config(
             request.prompt,
-            request.sample_size,
             organization_id=organization_id,
-            project_id=request.project_id,
+            project_id=str(request.project_id) if request.project_id else None,
+            previous_messages=request.previous_messages,
         )
 
         logger.info("Test config generation successful")
@@ -455,3 +512,147 @@ async def generate_test_config(
     except Exception as e:
         logger.error(f"Unexpected error in test config generation: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/mcp/search", response_model=List[ItemResult])
+async def search_mcp_server(
+    request: SearchMCPRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Search MCP server for items matching a natural language query.
+
+    Uses an AI agent to intelligently search the connected MCP server and
+    return structured results. The agent automatically selects the appropriate
+    search tools and formats results consistently.
+
+    Args:
+        request: SearchMCPRequest with query and server_name
+
+    Returns:
+        List of items, each containing:
+        - id: Item identifier (use this for extraction)
+        - url: Direct link to view the item
+        - title: Human-readable item title
+
+    Raises:
+        HTTPException: 500 error if search fails
+
+    Example:
+        POST /mcp/search
+        {
+            "query": "Find pages about authentication",
+            "server_name": "notionApi"
+        }
+    """
+    try:
+        organization_id, user_id = tenant_context
+        return await search_mcp(
+            request.query, request.tool_id, db, current_user, organization_id, user_id
+        )
+    except Exception as e:
+        logger.error(f"Failed to search MCP server: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail="Failed to search MCP server. Please try again."
+        )
+
+
+@router.post("/mcp/extract", response_model=ExtractMCPResponse)
+async def extract_mcp_item(
+    request: ExtractMCPRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Extract full content from an MCP item as markdown.
+
+    Uses an AI agent to retrieve and convert item content to markdown format.
+    The agent navigates the item structure and extracts all relevant content
+    including text, headings, lists, and nested blocks.
+
+    Args:
+        request: ExtractMCPRequest with item id and server_name
+
+    Returns:
+        ExtractMCPResponse containing markdown-formatted content
+
+    Raises:
+        HTTPException: 500 error if extraction fails or item not found
+
+    Example:
+        POST /mcp/extract
+        {
+            "id": "page-id-from-search",
+            "server_name": "notionApi"
+        }
+    """
+    try:
+        organization_id, user_id = tenant_context
+        content = await extract_mcp(
+            request.id, request.tool_id, db, current_user, organization_id, user_id
+        )
+        return {"content": content}
+    except Exception as e:
+        logger.error(f"Failed to extract MCP item: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to extract content. Please verify the item ID and try again.",
+        )
+
+
+@router.post("/mcp/query", response_model=QueryMCPResponse)
+async def query_mcp_server(
+    request: QueryMCPRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Execute arbitrary tasks on an MCP server with full flexibility.
+
+    Unlike /search and /extract, this endpoint handles any MCP task with
+    custom prompts and returns detailed execution traces. Use this for
+    complex operations like creating, updating, or analyzing content.
+
+    Args:
+        request: QueryMCPRequest with query, server_name, optional system_prompt and max_iterations
+
+    Returns:
+        QueryMCPResponse with result and execution history
+
+    Raises:
+        HTTPException: 500 error if task execution fails
+
+    Examples:
+        # Create content
+        {"query": "Create a page titled 'Q1 Planning'", "server_name": "notionApi"}
+
+        # Custom agent behavior
+        {
+            "query": "Analyze authentication issues",
+            "server_name": "github",
+            "system_prompt": "You are a security analyst...",
+            "max_iterations": 15
+        }
+    """
+    try:
+        organization_id, user_id = tenant_context
+        result = await query_mcp(
+            query=request.query,
+            tool_id=request.tool_id,
+            db=db,
+            user=current_user,
+            organization_id=organization_id,
+            user_id=user_id,
+            system_prompt=request.system_prompt,
+            max_iterations=request.max_iterations,
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Failed to query MCP server: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail="Failed to execute query on MCP server. Please try again."
+        )

@@ -30,12 +30,16 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
+import { findStatusByCategory } from '@/utils/testResultStatus';
 
 interface TestDetailReviewsTabProps {
   test: TestResultDetail;
   sessionToken: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   currentUserId: string;
+  initialComment?: string;
+  initialStatus?: 'passed' | 'failed';
+  onCommentUsed?: () => void;
 }
 
 export default function TestDetailReviewsTab({
@@ -43,6 +47,9 @@ export default function TestDetailReviewsTab({
   sessionToken,
   onTestResultUpdate,
   currentUserId,
+  initialComment = '',
+  initialStatus,
+  onCommentUsed,
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
 
@@ -59,6 +66,18 @@ export default function TestDetailReviewsTab({
   const [reviewToDelete, setReviewToDelete] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Handle initial comment and status from turn review
+  useEffect(() => {
+    if (initialComment) {
+      setReason(initialComment);
+      setShowReviewForm(true);
+      if (initialStatus) {
+        setNewStatus(initialStatus);
+      }
+      onCommentUsed?.();
+    }
+  }, [initialComment, initialStatus, onCommentUsed]);
+
   // Fetch available statuses
   useEffect(() => {
     const fetchStatuses = async () => {
@@ -69,7 +88,9 @@ export default function TestDetailReviewsTab({
           entity_type: 'TestResult',
         });
         setStatuses(statusList);
-      } catch (err) {}
+      } catch (err) {
+        console.error('Failed to fetch statuses:', err);
+      }
     };
 
     if (showReviewForm) {
@@ -84,15 +105,10 @@ export default function TestDetailReviewsTab({
       return;
     }
 
-    // Find the appropriate status
-    const statusKeywords =
-      newStatus === 'passed'
-        ? ['pass', 'success', 'completed']
-        : ['fail', 'error'];
-    const targetStatus = statuses.find(status =>
-      statusKeywords.some(keyword =>
-        status.name.toLowerCase().includes(keyword)
-      )
+    // Find the appropriate status using centralized utility
+    const targetStatus = findStatusByCategory(
+      statuses,
+      newStatus === 'passed' ? 'passed' : 'failed'
     );
 
     if (!targetStatus) {
@@ -192,18 +208,33 @@ export default function TestDetailReviewsTab({
   const hasReviews =
     test.test_reviews?.reviews && test.test_reviews.reviews.length > 0;
   const lastReview = test.last_review;
-  const hasConflict = !test.matches_review && lastReview;
+
+  // Calculate conflict ourselves (don't trust backend's matches_review)
+  // A conflict exists if the review decision differs from the automated decision
+  let hasConflict = false;
+  if (lastReview && lastReview.status?.name) {
+    const reviewStatusName = lastReview.status.name.toLowerCase();
+    const reviewPassed =
+      reviewStatusName.includes('pass') ||
+      reviewStatusName.includes('success') ||
+      reviewStatusName.includes('completed');
+
+    hasConflict = reviewPassed !== automatedStatus.passed;
+  }
 
   // Format date helper
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleString();
   };
 
-  // Get review status
+  // Get review status with normalized display label
   const getReviewStatusDisplay = (
     statusName: string
   ): {
     passed: boolean;
+    label: string;
   } => {
     const name = statusName.toLowerCase();
     const isPassed =
@@ -211,8 +242,17 @@ export default function TestDetailReviewsTab({
       name.includes('success') ||
       name.includes('completed');
 
+    // Normalize status labels for consistency
+    let label = statusName;
+    if (name === 'fail') {
+      label = 'Failed';
+    } else if (name === 'pass') {
+      label = 'Passed';
+    }
+
     return {
       passed: isPassed,
+      label,
     };
   };
 
@@ -276,7 +316,7 @@ export default function TestDetailReviewsTab({
                       <>
                         <StatusChip
                           passed={display.passed}
-                          label={lastReview.status.name}
+                          label={display.label}
                           size="small"
                           variant="outlined"
                         />
@@ -394,7 +434,7 @@ export default function TestDetailReviewsTab({
                           )}
                           <StatusChip
                             passed={display.passed}
-                            label={review.status.name}
+                            label={display.label}
                             size="small"
                             variant="outlined"
                           />

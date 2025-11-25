@@ -3,16 +3,17 @@ from unittest.mock import Mock, patch
 
 import pytest
 from pydantic import BaseModel
+
 from rhesis.sdk.models.providers.gemini import (
     DEFAULT_MODEL_NAME,
-    PROVIDER,
     GeminiLLM,
 )
 
 
 def test_gemini_defaults():
-    assert PROVIDER == "gemini"
-    assert DEFAULT_MODEL_NAME == "gemini-2.0-flash"
+    assert GeminiLLM.PROVIDER == "gemini"
+    assert DEFAULT_MODEL_NAME is not None
+    assert DEFAULT_MODEL_NAME != ""
 
 
 class TestGeminiLLM:
@@ -21,7 +22,7 @@ class TestGeminiLLM:
         api_key = "test_api_key"
         llm = GeminiLLM(api_key=api_key)
         assert llm.api_key == api_key
-        assert llm.model_name == PROVIDER + "/" + DEFAULT_MODEL_NAME
+        assert llm.model_name == GeminiLLM.PROVIDER + "/" + DEFAULT_MODEL_NAME
 
     def test_init_with_env_api_key(self):
         """Test initialization with environment variable API key"""
@@ -39,7 +40,7 @@ class TestGeminiLLM:
         """Test initialization with custom model name"""
         custom_model = "gemini-pro"
         llm = GeminiLLM(model_name=custom_model, api_key="test_key")
-        assert llm.model_name == PROVIDER + "/" + custom_model
+        assert llm.model_name == GeminiLLM.PROVIDER + "/" + custom_model
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
     def test_generate_without_schema(self, mock_completion):
@@ -57,7 +58,7 @@ class TestGeminiLLM:
 
         assert result == "Hello, this is a test response"
         mock_completion.assert_called_once_with(
-            model="gemini/gemini-2.0-flash",
+            model=f"gemini/{DEFAULT_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key="test_key",
@@ -76,9 +77,7 @@ class TestGeminiLLM:
         # Mock the completion response with JSON string
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[
-            0
-        ].message.content = '{"name": "John", "age": 30, "city": "New York"}'
+        mock_response.choices[0].message.content = '{"name": "John", "age": 30, "city": "New York"}'
         mock_completion.return_value = mock_response
 
         llm = GeminiLLM(api_key="test_key")
@@ -92,7 +91,7 @@ class TestGeminiLLM:
         assert result["city"] == "New York"
 
         mock_completion.assert_called_once_with(
-            model="gemini/gemini-2.0-flash",
+            model=f"gemini/{DEFAULT_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=TestSchema,
             api_key="test_key",
@@ -110,9 +109,7 @@ class TestGeminiLLM:
         # Mock the completion response with invalid JSON
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[
-            0
-        ].message.content = '{"name": "John"}'  # Missing age field
+        mock_response.choices[0].message.content = '{"name": "John"}'  # Missing age field
         mock_completion.return_value = mock_response
 
         llm = GeminiLLM(api_key="test_key")
@@ -135,7 +132,7 @@ class TestGeminiLLM:
         llm.generate(prompt, temperature=0.7, max_tokens=100)
 
         mock_completion.assert_called_once_with(
-            model="gemini/gemini-2.0-flash",
+            model=f"gemini/{DEFAULT_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key="test_key",

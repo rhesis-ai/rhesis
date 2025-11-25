@@ -4,12 +4,6 @@ Vertex AI Provider for Rhesis SDK
 This provider enables access to Google's Vertex AI models (including Gemini) via LiteLLM.
 It supports regional deployment and automatic credential detection (base64 or file path).
 
-Available models (ordered by performance):
-    • gemini-2.0-flash (RECOMMENDED - fastest, best for production)
-    • gemini-2.0-flash-exp (experimental features)
-    • gemini-2.5-flash (slower than 2.0, not recommended)
-    • gemini-1.5-pro-latest
-    • gemini-pro
 
 Regional availability:
     • gemini-2.0-flash: Available in us-central1, us-east4, us-west1,
@@ -35,7 +29,6 @@ from rhesis.sdk.models.providers.litellm import LiteLLM
 # Track temp files created by this process for cleanup
 _temp_credential_files: Set[str] = set()
 
-PROVIDER = "vertex_ai"
 DEFAULT_MODEL_NAME = "gemini-2.0-flash"
 
 
@@ -57,6 +50,8 @@ atexit.register(_cleanup_temp_credentials)
 
 
 class VertexAILLM(LiteLLM):
+    PROVIDER = "vertex_ai"
+
     def __init__(
         self,
         model_name: str = DEFAULT_MODEL_NAME,
@@ -115,7 +110,7 @@ class VertexAILLM(LiteLLM):
 
         # Initialize parent LiteLLM with vertex_ai prefix
         # Don't pass api_key as Vertex AI uses credentials
-        super().__init__(f"{PROVIDER}/{model_name}", api_key=None)
+        super().__init__(f"{self.PROVIDER}/{model_name}", api_key=None)
 
     def _load_credentials_from_base64(self, credentials: str) -> dict:
         """
@@ -377,7 +372,7 @@ class VertexAILLM(LiteLLM):
             dict: Configuration details including project, location, and credentials source
         """
         return {
-            "provider": PROVIDER,
+            "provider": self.PROVIDER,
             "model": self.model_name,
             "project": self.model["project"],
             "location": self.model["location"],

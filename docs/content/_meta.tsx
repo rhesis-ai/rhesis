@@ -5,5 +5,4 @@ export default {
   sdk: "SDK",
   penelope: "Penelope",
   development: "Development",
-  telemetry: "Telemetry",
 };

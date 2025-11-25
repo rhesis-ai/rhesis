@@ -14,11 +14,25 @@ def sdk_config_to_backend_config(config: Dict[str, Any]) -> Dict[str, Any]:
     else:
         config["reference_score"] = None
 
+    # Convert metric_scope enum values to strings for backend
+    if config.get("metric_scope"):
+        config["metric_scope"] = [
+            scope.value if hasattr(scope, "value") else str(scope)
+            for scope in config["metric_scope"]
+        ]
+
     return config
 
 
 def backend_config_to_sdk_config(config: Dict[str, Any]) -> Dict[str, Any]:
     config["requires_ground_truth"] = config.pop("ground_truth_required", None)
+
+    # Convert metric_scope strings back to enum values for SDK
+    if config.get("metric_scope"):
+        from rhesis.sdk.metrics.base import MetricScope
+
+        config["metric_scope"] = [MetricScope(scope) for scope in config["metric_scope"]]
+
     return config
 
 

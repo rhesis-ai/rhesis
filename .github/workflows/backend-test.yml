@@ -1,7 +1,7 @@
 name: "[Test] Backend"
 
 # USAGE INSTRUCTIONS:
-# 
+#
 # This workflow automatically detects the environment:
 #   • GitHub Actions: Uses environment secrets from 'test' environment
 #   • Local 'act': Uses secrets from --secret-file (environment is skipped)
@@ -50,6 +50,8 @@ on:
         required: false
         default: true
         type: boolean
+  schedule:
+    - cron: '0 0 * * *'
 
 # Workflow-level env can only contain non-secret variables
 env:
@@ -61,10 +63,10 @@ jobs:
   test:
     name: 🧪 Backend Tests (${{ inputs.test_markers == 'custom' && inputs.custom_markers || inputs.test_markers }})
     runs-on: ubuntu-latest
-    
+
     # 👇 Only apply environment when running on GitHub (not act)
     environment: test
-    
+
     env:
       # Database configuration with isolation
       SQLALCHEMY_DB_MODE: test
@@ -73,12 +75,12 @@ jobs:
       SQLALCHEMY_DB_HOST: localhost
       SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
       SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-      
+
       # Application configuration
       LOG_LEVEL: ${{ secrets.LOG_LEVEL }}
       BROKER_URL: ${{ secrets.BROKER_URL }}
       CELERY_RESULT_BACKEND: ${{ secrets.CELERY_RESULT_BACKEND }}
-      
+
       # External services
       AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
       AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
@@ -106,10 +108,10 @@ jobs:
       STORAGE_SERVICE_URI: ${{ secrets.STORAGE_SERVICE_URI }}
       STORAGE_SERVICE_ACCOUNT_KEY: ${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}
       LOCAL_STORAGE_PATH: ${{ secrets.LOCAL_STORAGE_PATH }}
-      
+
       # Encryption
       DB_ENCRYPTION_KEY: ${{ secrets.DB_ENCRYPTION_KEY }}
-    
+
     services:
       postgres:
         image: postgres:15
@@ -176,7 +178,7 @@ jobs:
           echo "GITHUB_ACTIONS: ${GITHUB_ACTIONS:-not set}"
           echo "CI: ${CI:-not set}"
           echo "Isolated database name: $SQLALCHEMY_DB_NAME"
-          
+
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
@@ -195,26 +197,26 @@ jobs:
           echo "🔗 Setting up test database and user..."
           echo "Creating isolated database: $SQLALCHEMY_DB_NAME"
           echo "Database user: $SQLALCHEMY_DB_USER"
-          
+
           # Drop and recreate user to ensure clean state
           PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
             DROP USER IF EXISTS \"$SQLALCHEMY_DB_USER\";
             CREATE USER \"$SQLALCHEMY_DB_USER\" WITH PASSWORD '$SQLALCHEMY_DB_PASS' CREATEDB;
           " || exit 1
-          
+
           # Create isolated database for this run
           echo "Creating database: $SQLALCHEMY_DB_NAME"
           PGPASSWORD=postgres createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$SQLALCHEMY_DB_NAME" || {
             echo "❌ Failed to create database $SQLALCHEMY_DB_NAME"
             exit 1
           }
-          
+
           # Grant comprehensive privileges
           PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
             GRANT ALL PRIVILEGES ON DATABASE \"$SQLALCHEMY_DB_NAME\" TO \"$SQLALCHEMY_DB_USER\";
             GRANT ALL ON SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
           " || exit 1
-          
+
           # Connect to the new database and grant schema permissions
           PGPASSWORD=postgres psql -h localhost -U postgres -d "$SQLALCHEMY_DB_NAME" -c "
             GRANT ALL ON SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
@@ -223,7 +225,7 @@ jobs:
             ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO \"$SQLALCHEMY_DB_USER\";
             ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO \"$SQLALCHEMY_DB_USER\";
           " || exit 1
-          
+
           # Verify database exists
           PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
             SELECT datname FROM pg_database WHERE datname = '$SQLALCHEMY_DB_NAME';
@@ -231,7 +233,7 @@ jobs:
             echo "❌ Database $SQLALCHEMY_DB_NAME was not created successfully"
             exit 1
           }
-          
+
           # Test connection to the new database with proper authentication
           echo "Testing connection with user credentials..."
           PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c 'SELECT current_user, current_database();' || {
@@ -243,7 +245,7 @@ jobs:
             }
             exit 1
           }
-          
+
           echo "✅ Database and user created successfully"
 
       - name: Run database migrations
@@ -257,7 +259,7 @@ jobs:
           echo "  SQLALCHEMY_DB_USER: $SQLALCHEMY_DB_USER"
           echo "  SQLALCHEMY_DB_HOST: $SQLALCHEMY_DB_HOST"
           echo "  SQLALCHEMY_DB_PASS: [REDACTED - $(if [ -n "$SQLALCHEMY_DB_PASS" ]; then echo "SET"; else echo "NOT SET"; fi)]"
-          
+
           # Verify database exists before running migrations
           PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c 'SELECT version();' || {
             echo "❌ Cannot connect to database $SQLALCHEMY_DB_NAME for migrations"
@@ -265,7 +267,7 @@ jobs:
             PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c '\l'
             exit 1
           }
-          
+
           # Ensure environment variables take precedence over .env file
           export SQLALCHEMY_DB_MODE="test"
           export SQLALCHEMY_DB_NAME="$SQLALCHEMY_DB_NAME"
@@ -273,7 +275,7 @@ jobs:
           export SQLALCHEMY_DB_USER="$SQLALCHEMY_DB_USER"
           export SQLALCHEMY_DB_PASS="$SQLALCHEMY_DB_PASS"
           export SQLALCHEMY_DB_HOST="localhost"
-          
+
           echo "🔄 Running Alembic with exported environment variables..."
           echo "Final environment check:"
           echo "  SQLALCHEMY_DATABASE_TEST_URL: $SQLALCHEMY_DATABASE_TEST_URL"
@@ -284,8 +286,8 @@ jobs:
           echo "🔍 Verifying database structure..."
           echo "Checking isolated database: $SQLALCHEMY_DB_NAME"
           PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c "
-            SELECT COUNT(*) as table_count 
-            FROM information_schema.tables 
+            SELECT COUNT(*) as table_count
+            FROM information_schema.tables
             WHERE table_schema = 'public';
           " || exit 1
           echo "✅ Database structure verified"
@@ -300,7 +302,7 @@ jobs:
           echo "🚀 Setting up test environment..."
           echo "Using isolated database: $SQLALCHEMY_DB_NAME"
           echo "Database URL: $SQLALCHEMY_DATABASE_TEST_URL"
-          
+
           # Setup test environment and capture API token
           API_TOKEN=$(timeout 300 uv run python -c "
           import os
@@ -308,7 +310,7 @@ jobs:
           setup_test_environment()
           print(os.environ.get('RHESIS_API_KEY', ''))
           " | tail -1) || exit 1
-          
+
           # Export the API token for subsequent steps
           echo "RHESIS_API_KEY=${API_TOKEN}" >> $GITHUB_OUTPUT
           echo "✅ Test environment ready"
@@ -333,7 +335,7 @@ jobs:
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
           echo "🧪 Running tests with database: $SQLALCHEMY_DB_NAME"
           echo "Database URL: $SQLALCHEMY_DATABASE_TEST_URL"
-          
+
           # Ensure environment variables take precedence over .env file for tests
           export SQLALCHEMY_DB_MODE="test"
           export SQLALCHEMY_DB_NAME="$SQLALCHEMY_DB_NAME"
@@ -341,7 +343,7 @@ jobs:
           export SQLALCHEMY_DB_USER="$SQLALCHEMY_DB_USER"
           export SQLALCHEMY_DB_PASS="$SQLALCHEMY_DB_PASS"
           export SQLALCHEMY_DB_HOST="localhost"
-          
+
           ${{ steps.pytest_cmd.outputs.cmd }}
 
       - name: Upload test results to Codecov
@@ -374,7 +376,7 @@ jobs:
           DB_ENCRYPTION_KEY: ${{ secrets.DB_ENCRYPTION_KEY }}
         run: |
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
-          
+
           # Ensure environment variables take precedence over .env file for coverage
           export SQLALCHEMY_DB_MODE="test"
           export SQLALCHEMY_DB_NAME="$SQLALCHEMY_DB_NAME"
@@ -382,7 +384,7 @@ jobs:
           export SQLALCHEMY_DB_USER="$SQLALCHEMY_DB_USER"
           export SQLALCHEMY_DB_PASS="$SQLALCHEMY_DB_PASS"
           export SQLALCHEMY_DB_HOST="localhost"
-          
+
           if [ "${{ inputs.test_markers }}" = "all" ]; then
             uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=junit-coverage.xml -o junit_family=legacy -v
           elif [ "${{ inputs.test_markers }}" = "custom" ]; then

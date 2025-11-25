@@ -2,11 +2,12 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-PROVIDER = "mistral"
 DEFAULT_MODEL_NAME = "mistral-medium-latest"
 
 
 class MistralLLM(LiteLLM):
+    PROVIDER = "mistral"
+
     def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         MistralLLM: Mistral LLM Provider
@@ -34,4 +35,4 @@ class MistralLLM(LiteLLM):
         api_key = api_key or os.getenv("MISTRAL_API_KEY")
         if api_key is None:
             raise ValueError("MISTRAL_API_KEY is not set")
-        super().__init__(PROVIDER + "/" + model_name, api_key=api_key)
+        super().__init__(self.PROVIDER + "/" + model_name, api_key=api_key)

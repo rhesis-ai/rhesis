@@ -1,6 +1,7 @@
 """Tests for PenelopeConfig."""
 
 import logging
+
 import pytest
 from rhesis.penelope.config import PenelopeConfig
 
@@ -147,13 +148,13 @@ def test_config_default_model():
     """Test default model configuration."""
     PenelopeConfig.reset()
     
-    # Should default to vertex_ai
+    # Should default to rhesis
     model = PenelopeConfig.get_default_model()
-    assert model == "vertex_ai"
+    assert model == "rhesis"
     
-    # Should default to gemini-2.0-flash
+    # Should default to default
     model_name = PenelopeConfig.get_default_model_name()
-    assert model_name == "gemini-2.0-flash"
+    assert model_name == "default"
     
     # Cleanup
     PenelopeConfig.reset()
@@ -227,7 +228,6 @@ def test_config_set_default_max_iterations():
 
 def test_config_set_invalid_max_iterations():
     """Test that setting invalid max iterations raises error."""
-    import pytest
     
     with pytest.raises(ValueError, match="max_iterations must be positive"):
         PenelopeConfig.set_default_max_iterations(0)
@@ -279,4 +279,3 @@ def test_config_programmatic_overrides_env_max_iterations(monkeypatch):
     
     # Cleanup
     PenelopeConfig.reset()
-

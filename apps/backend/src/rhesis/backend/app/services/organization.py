@@ -322,6 +322,16 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 commit=False,
             )
 
+            # Get test set type
+            test_set_type = get_or_create_type_lookup(
+                db=db,
+                type_name="TestSetType",
+                type_value=item["test_set_type"],
+                organization_id=organization_id,
+                user_id=user_id,
+                commit=False,
+            )
+
             # Create test set
             test_set = get_or_create_entity(
                 db=db,
@@ -332,6 +342,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     "short_description": item["short_description"],
                     "status_id": status.id,
                     "license_type_id": license_type.id,
+                    "test_set_type_id": test_set_type.id,
                     "visibility": item["visibility"],
                     "attributes": item["metadata"],
                     "user_id": uuid.UUID(user_id),  # Set the creating user
@@ -548,6 +559,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 "reference_score": item.get("reference_score"),
                 "categories": item.get("categories"),  # New: categories for categorical metrics
                 "passing_categories": item.get("passing_categories"),  # New: passing categories
+                "metric_scope": item.get(
+                    "metric_scope"
+                ),  # New: metric scope for test type applicability
                 "metric_type_id": metric_type.id,
                 "backend_type_id": backend_type.id,
                 "status_id": status.id,

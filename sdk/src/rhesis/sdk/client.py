@@ -6,10 +6,35 @@ import requests
 from rhesis.sdk.config import get_api_key, get_base_url
 
 
+class HTTPStatus:
+    """HTTP status codes for consistent testing.
+    See tests/backend/routes/endpoints.py for definitions
+    """
+
+    OK = 200
+    CREATED = 201
+    BAD_REQUEST = 400
+    UNAUTHORIZED = 401
+    FORBIDDEN = 403
+    NOT_FOUND = 404
+    UNPROCESSABLE_ENTITY = 422
+    INTERNAL_SERVER_ERROR = 500
+
+
 class Endpoints(Enum):
     BEHAVIORS = "behaviors"
     METRICS = "metrics"
     HEALTH = "health"
+    CATEGORIES = "categories"
+    STATUSES = "statuses"
+    TEST_SETS = "test_sets"
+    TESTS = "tests"
+    TOPICS = "topics"
+    PROMPTS = "prompts"
+    ENDPOINTS = "endpoints"
+    TEST_RESULTS = "test_results"
+    TEST_RUNS = "test_runs"
+    TEST_CONFIGURATIONS = "test_configurations"
 
 
 class Methods(Enum):
@@ -76,7 +101,7 @@ class Client:
         if url_params is not None:
             url = f"{url}/{url_params}"
         response = requests.request(
-            method.value, url, headers=self.headers, json=data, params=params
+            method=method.value, url=url, headers=self.headers, json=data, params=params
         )
         response.raise_for_status()
         return response.json()

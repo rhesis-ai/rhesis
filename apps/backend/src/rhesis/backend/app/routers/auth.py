@@ -311,3 +311,91 @@ async def demo_redirect(request: Request):
     except Exception as e:
         logger.error(f"Demo redirect error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Demo redirect failed: {str(e)}")
+
+
+@router.post("/local-login")
+async def local_login(request: Request, db: Session = Depends(get_db_session)):
+    """
+    Quick Start mode authentication endpoint.
+
+    ⚠️ WARNING: This endpoint is for QUICK START ONLY!
+    It bypasses Auth0 and logs in as the default admin@local.dev user.
+
+    This endpoint uses multi-factor detection to ensure it only works when
+    QUICK_START=true AND all deployment signals confirm local deployment.
+    """
+    from rhesis.backend.app import crud
+    from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
+
+    # Check if Quick Start mode is enabled
+    # Pass hostname and headers for security validation
+    # Handle None hostname properly (don't convert None to string "None")
+    hostname = request.url.hostname if request.url.hostname is not None else None
+    if not is_quick_start_enabled(hostname=hostname, headers=dict(request.headers)):
+        logger.warning("Attempted to use /auth/local-login but Quick Start mode is not enabled")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Quick Start mode is not enabled. "
+                "This endpoint is only available in Quick Start / local deployment."
+            ),
+        )
+
+    logger.warning("⚠️  QUICK START MODE LOGIN - Bypassing Auth0 authentication!")
+    logger.warning("⚠️  This should NEVER be used in production!")
+
+    try:
+        # Find the QUICK START MODE  user
+        user = crud.get_user_by_email(db, "admin@local.dev")
+
+        if not user:
+            logger.error("QUICK START MODE user (admin@local.dev) not found in database")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(
+                    "QUICK START MODE user not found. "
+                    "Please ensure the database was initialized with init_local_user.sql"
+                ),
+            )
+
+        # Set up session
+        request.session["user_id"] = str(user.id)
+        session_token = create_session_token(user)
+
+        logger.info(f"QUICK START MODE login successful for user: {user.email}")
+
+        # Track login activity if telemetry is enabled
+        if is_telemetry_enabled():
+            set_telemetry_enabled(
+                enabled=True,
+                user_id=str(user.id),
+                org_id=str(user.organization_id) if user.organization_id else None,
+            )
+            track_user_activity(
+                event_type="login",
+                session_id=request.session.get("_id"),
+                login_method="local_dev",
+                auth_provider="local",
+            )
+
+        # Return session token
+        return {
+            "success": True,
+            "session_token": session_token,
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "name": user.name,
+                "organization_id": str(user.organization_id) if user.organization_id else None,
+            },
+            "message": "⚠️  QUICK START MODE login - Not for production use!",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"QUICK START MODE login error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"QUICK START MODE login failed: {str(e)}",
+        )

@@ -18,7 +18,6 @@ import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
 import ClearIcon from '@mui/icons-material/Clear';
 import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Dialog from '@mui/material/Dialog';
@@ -32,7 +31,10 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import MetricCard from './MetricCard';
 import MetricTypeDialog from './MetricTypeDialog';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import {
+  MetricDetail,
+  MetricScope,
+} from '@/utils/api-client/interfaces/metric';
 import type {
   Behavior as ApiBehavior,
   BehaviorWithMetrics,
@@ -44,12 +46,14 @@ interface FilterState {
   backend: string[];
   type: string[];
   scoreType: string[];
+  metricScope: string[];
 }
 
 interface FilterOptions {
   backend: { type_value: string }[];
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
+  metricScope: { value: string; label: string }[];
 }
 
 interface BehaviorMetrics {
@@ -242,7 +246,22 @@ export default function MetricsDirectoryTab({
         filters.scoreType.length === 0 ||
         (metric.score_type && filters.scoreType.includes(metric.score_type));
 
-      return searchMatch && backendMatch && typeMatch && scoreTypeMatch;
+      // Metric scope filter
+      const metricScopeMatch =
+        !filters.metricScope ||
+        filters.metricScope.length === 0 ||
+        (metric.metric_scope &&
+          filters.metricScope.some(scope =>
+            metric.metric_scope?.includes(scope as MetricScope)
+          ));
+
+      return (
+        searchMatch &&
+        backendMatch &&
+        typeMatch &&
+        scoreTypeMatch &&
+        metricScopeMatch
+      );
     });
   };
 
@@ -252,7 +271,8 @@ export default function MetricsDirectoryTab({
       filters.search !== '' ||
       filters.backend.length > 0 ||
       filters.type.length > 0 ||
-      filters.scoreType.length > 0
+      filters.scoreType.length > 0 ||
+      filters.metricScope.length > 0
     );
   };
 
@@ -263,6 +283,7 @@ export default function MetricsDirectoryTab({
       backend: [],
       type: [],
       scoreType: [],
+      metricScope: [],
     });
   };
 
@@ -493,7 +514,7 @@ export default function MetricsDirectoryTab({
           justifyContent: 'center',
           alignItems: 'center',
           p: 4,
-          minHeight: '400px',
+          minHeight: theme => theme.spacing(50),
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -655,26 +676,11 @@ export default function MetricsDirectoryTab({
                 </MenuItem>
                 {filterOptions.type.map(option => (
                   <MenuItem key={option.type_value} value={option.type_value}>
-                    <Box>
-                      <Typography>
-                        {option.type_value
-                          .replace(/-/g, ' ')
-                          .split(' ')
-                          .map(
-                            word => word.charAt(0).toUpperCase() + word.slice(1)
-                          )
-                          .join(' ')}
-                      </Typography>
-                      {option.description && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          display="block"
-                        >
-                          {option.description}
-                        </Typography>
-                      )}
-                    </Box>
+                    {option.type_value
+                      .replace(/-/g, ' ')
+                      .split(' ')
+                      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                      .join(' ')}
                   </MenuItem>
                 ))}
               </Select>
@@ -730,129 +736,141 @@ export default function MetricsDirectoryTab({
                 ))}
               </Select>
             </FormControl>
+
+            {/* Metric Scope Filter */}
+            <FormControl sx={{ minWidth: 200, flex: 1 }} size="small">
+              <InputLabel id="metric-scope-filter-label">
+                Metric Scope
+              </InputLabel>
+              <Select
+                labelId="metric-scope-filter-label"
+                id="metric-scope-filter"
+                multiple
+                value={filters.metricScope}
+                onChange={e =>
+                  handleFilterChange('metricScope', e.target.value as string[])
+                }
+                label="Metric Scope"
+                renderValue={selected => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.length === 0 ? (
+                      <em>Select metric scope</em>
+                    ) : (
+                      selected.map(value => (
+                        <Chip
+                          key={value}
+                          label={
+                            filterOptions.metricScope.find(
+                              opt => opt.value === value
+                            )?.label || value
+                          }
+                          size="small"
+                        />
+                      ))
+                    )}
+                  </Box>
+                )}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: 224,
+                      width: 250,
+                    },
+                  },
+                }}
+              >
+                <MenuItem disabled value="">
+                  <em>Select metric scope</em>
+                </MenuItem>
+                {filterOptions.metricScope.map(option => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </Stack>
       </Box>
-
       {/* Metrics Stack */}
       <Box sx={{ p: 3, flex: 1, overflow: 'auto' }}>
-        <Stack
-          spacing={3}
+        <Box
           sx={{
-            '& > *': {
-              display: 'flex',
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              gap: 3,
-              '& > *': {
-                flex: {
-                  xs: '1 1 100%',
-                  sm: '1 1 calc(50% - 12px)',
-                  md: '1 1 calc(33.333% - 16px)',
-                },
-                minWidth: { xs: '100%', sm: '300px', md: '320px' },
-                maxWidth: {
-                  xs: '100%',
-                  sm: 'calc(50% - 12px)',
-                  md: 'calc(33.333% - 16px)',
-                },
-              },
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, 1fr)',
+              md: 'repeat(3, 1fr)',
             },
+            gap: 3,
           }}
         >
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-            {filteredMetrics.map(metric => {
-              const assignedBehaviors = activeBehaviors.filter(b => {
-                if (!Array.isArray(metric.behaviors)) return false;
-                // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
-                const behaviorIds = metric.behaviors.map(behavior =>
-                  typeof behavior === 'string' ? behavior : behavior.id
-                );
-                return behaviorIds.includes(b.id as string);
-              });
-              const behaviorNames = assignedBehaviors.map(
-                b => b.name || 'Unnamed Behavior'
+          {filteredMetrics.map(metric => {
+            const assignedBehaviors = activeBehaviors.filter(b => {
+              if (!Array.isArray(metric.behaviors)) return false;
+              // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
+              const behaviorIds = metric.behaviors.map(behavior =>
+                typeof behavior === 'string' ? behavior : behavior.id
               );
+              return behaviorIds.includes(b.id as string);
+            });
+            const behaviorNames = assignedBehaviors.map(
+              b => b.name || 'Unnamed Behavior'
+            );
 
-              return (
+            return (
+              <Box
+                key={metric.id}
+                sx={{
+                  position: 'relative',
+                  ...(assignMode && {
+                    cursor: 'pointer',
+                    transition: theme.transitions.create(
+                      ['transform', 'box-shadow'],
+                      {
+                        duration: theme.transitions.duration.short,
+                      }
+                    ),
+                    '&:hover': {
+                      transform: `translateY(-${theme.spacing(0.5)})`,
+                    },
+                    '&:active': {
+                      transform: `translateY(-${theme.spacing(0.25)})`,
+                    },
+                  }),
+                }}
+                onClick={
+                  assignMode
+                    ? () => {
+                        setSelectedMetric(metric);
+                        setAssignDialogOpen(true);
+                      }
+                    : undefined
+                }
+              >
                 <Box
-                  key={metric.id}
                   sx={{
-                    position: 'relative',
-                    flex: {
-                      xs: '1 1 100%',
-                      sm: '1 1 calc(50% - 12px)',
-                      md: '1 1 calc(33.333% - 16px)',
-                    },
-                    minWidth: { xs: '100%', sm: '300px', md: '320px' },
-                    maxWidth: {
-                      xs: '100%',
-                      sm: 'calc(50% - 12px)',
-                      md: 'calc(33.333% - 16px)',
-                    },
-                    ...(assignMode && {
-                      cursor: 'pointer',
-                      transition:
-                        'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                      '&:hover': {
-                        transform: 'translateY(-4px)',
-                      },
-                      '&:active': {
-                        transform: 'translateY(-2px)',
-                      },
-                    }),
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    display: 'flex',
+                    gap: 1,
+                    zIndex: 1,
                   }}
-                  onClick={
-                    assignMode
-                      ? () => {
-                          setSelectedMetric(metric);
-                          setAssignDialogOpen(true);
-                        }
-                      : undefined
-                  }
                 >
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 8,
-                      right: 8,
-                      display: 'flex',
-                      gap: 1,
-                      zIndex: 1,
-                    }}
-                  >
-                    {/* Only show detail button for rhesis and custom metrics */}
-                    {(metric.backend_type?.type_value?.toLowerCase() ===
-                      'rhesis' ||
-                      metric.backend_type?.type_value?.toLowerCase() ===
-                        'custom') && (
-                      <IconButton
-                        size="small"
-                        onClick={e => {
-                          if (assignMode) e.stopPropagation();
-                          handleMetricDetail(metric.id);
-                        }}
-                        sx={{
-                          padding: '2px',
-                          '& .MuiSvgIcon-root': {
-                            fontSize:
-                              theme?.typography?.helperText?.fontSize ||
-                              '0.75rem',
-                          },
-                        }}
-                      >
-                        <OpenInNewIcon fontSize="inherit" />
-                      </IconButton>
-                    )}
+                  {/* Only show detail button for rhesis and custom metrics */}
+                  {(metric.backend_type?.type_value?.toLowerCase() ===
+                    'rhesis' ||
+                    metric.backend_type?.type_value?.toLowerCase() ===
+                      'custom') && (
                     <IconButton
                       size="small"
                       onClick={e => {
                         if (assignMode) e.stopPropagation();
-                        setSelectedMetric(metric);
-                        setAssignDialogOpen(true);
+                        handleMetricDetail(metric.id);
                       }}
                       sx={{
-                        padding: '2px',
+                        padding: theme.spacing(0.25),
                         '& .MuiSvgIcon-root': {
                           fontSize:
                             theme?.typography?.helperText?.fontSize ||
@@ -860,52 +878,69 @@ export default function MetricsDirectoryTab({
                         },
                       }}
                     >
-                      <AddIcon fontSize="inherit" />
+                      <OpenInNewIcon fontSize="inherit" />
                     </IconButton>
-                    {/* Only show delete button for unassigned custom metrics */}
-                    {assignedBehaviors.length === 0 &&
-                      metric.backend_type?.type_value?.toLowerCase() ===
-                        'custom' && (
-                        <IconButton
-                          size="small"
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleDeleteMetric(metric.id, metric.name);
-                          }}
-                          sx={{
-                            padding: '2px',
-                            '& .MuiSvgIcon-root': {
-                              fontSize:
-                                theme?.typography?.helperText?.fontSize ||
-                                '0.75rem',
-                            },
-                          }}
-                        >
-                          <DeleteIcon fontSize="inherit" />
-                        </IconButton>
-                      )}
-                  </Box>
-                  <MetricCard
-                    type={
-                      isValidMetricType(metric.metric_type?.type_value)
-                        ? metric.metric_type.type_value
-                        : undefined
-                    }
-                    title={metric.name}
-                    description={metric.description}
-                    backend={metric.backend_type?.type_value}
-                    metricType={metric.metric_type?.type_value}
-                    scoreType={metric.score_type}
-                    usedIn={behaviorNames}
-                    showUsage={true}
-                  />
+                  )}
+                  <IconButton
+                    size="small"
+                    onClick={e => {
+                      if (assignMode) e.stopPropagation();
+                      setSelectedMetric(metric);
+                      setAssignDialogOpen(true);
+                    }}
+                    sx={{
+                      padding: theme => theme.spacing(0.25),
+                      '& .MuiSvgIcon-root': {
+                        fontSize:
+                          theme?.typography?.helperText?.fontSize || '0.75rem',
+                      },
+                    }}
+                  >
+                    <AddIcon fontSize="inherit" />
+                  </IconButton>
+                  {/* Only show delete button for unassigned custom metrics */}
+                  {assignedBehaviors.length === 0 &&
+                    metric.backend_type?.type_value?.toLowerCase() ===
+                      'custom' && (
+                      <IconButton
+                        size="small"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleDeleteMetric(metric.id, metric.name);
+                        }}
+                        sx={{
+                          padding: theme.spacing(0.25),
+                          '& .MuiSvgIcon-root': {
+                            fontSize:
+                              theme?.typography?.helperText?.fontSize ||
+                              '0.75rem',
+                          },
+                        }}
+                      >
+                        <DeleteIcon fontSize="inherit" />
+                      </IconButton>
+                    )}
                 </Box>
-              );
-            })}
-          </Box>
-        </Stack>
+                <MetricCard
+                  type={
+                    isValidMetricType(metric.metric_type?.type_value)
+                      ? metric.metric_type.type_value
+                      : undefined
+                  }
+                  title={metric.name}
+                  description={metric.description}
+                  backend={metric.backend_type?.type_value}
+                  metricType={metric.metric_type?.type_value}
+                  scoreType={metric.score_type}
+                  metricScope={metric.metric_scope}
+                  usedIn={behaviorNames}
+                  showUsage={true}
+                />
+              </Box>
+            );
+          })}
+        </Box>
       </Box>
-
       {/* Dialogs */}
       <DeleteModal
         open={deleteMetricDialogOpen}
@@ -915,7 +950,6 @@ export default function MetricsDirectoryTab({
         itemType="metric"
         itemName={metricToDeleteCompletely?.name}
       />
-
       <AssignMetricDialog
         open={assignDialogOpen}
         onClose={() => {
@@ -927,7 +961,6 @@ export default function MetricsDirectoryTab({
         isLoading={isLoading}
         error={error}
       />
-
       <MetricTypeDialog
         open={createMetricOpen}
         onClose={() => setCreateMetricOpen(false)}

@@ -14,12 +14,13 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BoltIcon from '@mui/icons-material/Bolt';
-import { ConfigChips, TestSetSize, ChipConfig } from './shared/types';
+import { ConfigChips, TestSetSize, ChipConfig, TestType } from './shared/types';
 import TestSetSizeSelector from './shared/TestSetSizeSelector';
 import ActionBar from '@/components/common/ActionBar';
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
 
 interface TestConfigurationConfirmationProps {
+  testType: TestType;
   configChips: ConfigChips;
   testSetSize: TestSetSize;
   testSetName: string;
@@ -36,6 +37,7 @@ interface TestConfigurationConfirmationProps {
  * Final confirmation screen before generating tests
  */
 export default function TestConfigurationConfirmation({
+  testType,
   configChips,
   testSetSize,
   testSetName,
@@ -84,7 +86,12 @@ export default function TestConfigurationConfirmation({
           {/* Main Content Grid */}
           <Grid container spacing={4}>
             {/* Left Column - Configuration Summary */}
-            <Grid item xs={12} lg={6}>
+            <Grid
+              size={{
+                xs: 12,
+                lg: 6,
+              }}
+            >
               <Box>
                 <Typography variant="subtitle1">
                   Configuration Summary
@@ -93,6 +100,25 @@ export default function TestConfigurationConfirmation({
                   {activeChipsCount} active configuration
                   {activeChipsCount !== 1 ? 's' : ''}
                 </Typography>
+
+                {/* Test Type */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography
+                    variant="subtitle2"
+                    color="text.secondary"
+                    gutterBottom
+                  >
+                    Test Type
+                  </Typography>
+                  <Chip
+                    label={
+                      testType === 'single_turn'
+                        ? 'Single-Turn Tests'
+                        : 'Multi-Turn Tests'
+                    }
+                    color={testType === 'single_turn' ? 'primary' : 'secondary'}
+                  />
+                </Box>
 
                 {/* Behavior Chips */}
                 {configChips.behavior.some(chip => chip.active) && (
@@ -221,7 +247,12 @@ export default function TestConfigurationConfirmation({
             </Grid>
 
             {/* Right Column - Test Set Size Selection */}
-            <Grid item xs={12} lg={6}>
+            <Grid
+              size={{
+                xs: 12,
+                lg: 6,
+              }}
+            >
               <Box>
                 <TestSetSizeSelector
                   selectedSize={testSetSize}
@@ -241,7 +272,6 @@ export default function TestConfigurationConfirmation({
           </Alert>
         </Paper>
       </Box>
-
       {/* Action Bar */}
       <ActionBar
         leftButton={{
