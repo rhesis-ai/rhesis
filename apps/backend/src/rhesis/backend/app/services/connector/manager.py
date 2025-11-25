@@ -344,10 +344,7 @@ class ConnectionManager:
         cancelled_items = list(self._cancelled_tests.items())
         removed_count = len(cancelled_items) - 5000
         self._cancelled_tests = OrderedDict(cancelled_items[-5000:])
-        logger.info(
-            f"Cleaned up old cancelled tests. "
-            f"Removed {removed_count} entries, kept 5000"
-        )
+        logger.info(f"Cleaned up old cancelled tests. Removed {removed_count} entries, kept 5000")
 
     def get_connection_status(self, project_id: str, environment: str) -> ConnectionStatus:
         """
