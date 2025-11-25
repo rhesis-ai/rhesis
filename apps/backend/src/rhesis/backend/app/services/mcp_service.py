@@ -1,12 +1,14 @@
 """MCP service for generic integration using MCPAgent."""
 
 import json
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import jinja2
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientManager
@@ -21,7 +23,67 @@ jinja_env = jinja2.Environment(
 )
 
 
-async def search_mcp(query: str, server_name: str, db: Session, user: User) -> List[Dict[str, str]]:
+def _get_mcp_client_by_tool_id(
+    db: Session, tool_id: str, organization_id: str, user_id: str = None
+):
+    """
+    Get MCP client from database configuration by tool ID.
+
+    Args:
+        db: Database session
+        tool_id: Tool instance ID
+        organization_id: Organization ID (for authorization check)
+        user_id: User ID (for authorization check)
+
+    Returns:
+        Tuple of (MCPClient, provider_name) ready to use
+
+    Raises:
+        ValueError: If tool not found or not an MCP integration
+    """
+    tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
+
+    if not tool:
+        raise ValueError(f"Tool '{tool_id}' not found. Please add it in /integrations/tools")
+
+    # Verify tool type is MCP
+    if tool.tool_type.type_value != "mcp":
+        raise ValueError(f"Tool '{tool.name}' is not an MCP integration")
+
+    # Get provider name for the client
+    provider = tool.tool_provider_type.type_value
+
+    # Parse credentials JSON
+    try:
+        credentials_dict = json.loads(tool.credentials)
+    except (json.JSONDecodeError, TypeError) as e:
+        raise ValueError(f"Invalid credentials format for tool '{tool_id}': {e}")
+
+    # Check if tool uses custom provider (requires manual JSON config) or standard provider
+    if provider == "custom":
+        # Custom provider: requires tool_metadata with full JSON config
+        if not tool.tool_metadata:
+            raise ValueError("Custom provider tools require tool_metadata configuration")
+
+        manager = MCPClientManager.from_tool_config(
+            tool_name=f"{provider}Api",
+            tool_config=tool.tool_metadata,
+            credentials=credentials_dict,
+        )
+    else:
+        # Standard provider: SDK constructs config from YAML templates
+        manager = MCPClientManager.from_provider(
+            provider=provider,
+            credentials=credentials_dict,
+        )
+
+    client = manager.create_client(f"{provider}Api")
+    return client
+
+
+async def search_mcp(
+    query: str, tool_id: str, db: Session, user: User, organization_id: str, user_id: str = None
+) -> List[Dict[str, str]]:
     """
     Search MCP server for items matching query.
 
@@ -31,9 +93,10 @@ async def search_mcp(query: str, server_name: str, db: Session, user: User) -> L
 
     Args:
         query: Natural language search query (e.g., "Find pages about authentication")
-        server_name: Name of the MCP server (e.g., "notionApi", "github")
+        tool_id: ID of the configured tool instance
         db: Database session
         user: Current user (for retrieving default generation model)
+        organization_id: Organization ID for loading tools from database
 
     Returns:
         List of dicts, each containing:
@@ -47,16 +110,17 @@ async def search_mcp(query: str, server_name: str, db: Session, user: User) -> L
     Example:
         >>> results = await search_mcp(
         ...     "pages created last week",
-        ...     "notionApi",
+        ...     "tool-uuid-123",
         ...     db,
-        ...     user
+        ...     user,
+        ...     org_id
         ... )
         >>> print(results[0]["title"])
     """
     model = get_user_generation_model(db, user)
 
-    manager = MCPClientManager()
-    client = manager.create_client(server_name)
+    # Load MCP client from database tool configuration
+    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
 
     search_prompt = jinja_env.get_template("mcp_search_prompt.jinja2").render()
     agent = MCPAgent(
@@ -75,7 +139,9 @@ async def search_mcp(query: str, server_name: str, db: Session, user: User) -> L
     return json.loads(result.final_answer)
 
 
-async def extract_mcp(id: str, server_name: str, db: Session, user: User) -> str:
+async def extract_mcp(
+    id: str, tool_id: str, db: Session, user: User, organization_id: str, user_id: str = None
+) -> str:
     """
     Extract full content from an MCP item as markdown.
 
@@ -85,9 +151,10 @@ async def extract_mcp(id: str, server_name: str, db: Session, user: User) -> str
 
     Args:
         id: Item identifier (typically obtained from search_mcp results)
-        server_name: Name of the MCP server (e.g., "notionApi", "github")
+        tool_id: ID of the configured tool instance
         db: Database session
         user: Current user (for retrieving default generation model)
+        organization_id: Organization ID for loading tools from database
 
     Returns:
         Full item content formatted as markdown string
@@ -98,16 +165,17 @@ async def extract_mcp(id: str, server_name: str, db: Session, user: User) -> str
     Example:
         >>> content = await extract_mcp(
         ...     "page-id-123",
-        ...     "notionApi",
+        ...     "tool-uuid-123",
         ...     db,
-        ...     user
+        ...     user,
+        ...     org_id
         ... )
         >>> print(content[:100])  # First 100 chars
     """
     model = get_user_generation_model(db, user)
 
-    manager = MCPClientManager()
-    client = manager.create_client(server_name)
+    # Load MCP client from database tool configuration
+    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
 
     extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render()
     agent = MCPAgent(
@@ -128,9 +196,11 @@ async def extract_mcp(id: str, server_name: str, db: Session, user: User) -> str
 
 async def query_mcp(
     query: str,
-    server_name: str,
+    tool_id: str,
     db: Session,
     user: User,
+    organization_id: str,
+    user_id: str = None,
     system_prompt: Optional[str] = None,
     max_iterations: int = 10,
 ) -> Dict[str, Any]:
@@ -143,9 +213,10 @@ async def query_mcp(
 
     Args:
         query: Natural language task description
-        server_name: Name of the MCP server (e.g., "notionApi", "github")
+        tool_id: ID of the configured tool instance
         db: Database session
         user: Current user (for retrieving default generation model)
+        organization_id: Organization ID for loading tools from database
         system_prompt: Custom agent instructions (optional)
         max_iterations: Maximum reasoning steps (default: 10)
 
@@ -158,13 +229,13 @@ async def query_mcp(
     Example:
         >>> result = await query_mcp(
         ...     "Create a page titled 'Q1 Goals'",
-        ...     "notionApi", db, user
+        ...     "tool-uuid-123", db, user, org_id
         ... )
     """
     model = get_user_generation_model(db, user)
 
-    manager = MCPClientManager()
-    client = manager.create_client(server_name)
+    # Load MCP client from database tool configuration
+    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
 
     if not system_prompt:
         system_prompt = jinja_env.get_template("mcp_default_query_prompt.jinja2").render()

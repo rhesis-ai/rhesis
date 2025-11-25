@@ -54,3 +54,4 @@ class Organization(Base, TagsMixin):
     tokens = relationship("Token", back_populates="organization")
     type_lookups = relationship("TypeLookup", back_populates="organization")
     use_cases = relationship("UseCase", back_populates="organization")
+    tools = relationship("Tool", back_populates="organization")
