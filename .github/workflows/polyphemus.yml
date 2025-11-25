@@ -147,6 +147,10 @@ jobs:
           service-type: polyphemus
           project-id: ${{ secrets.PROJECT_ID }}
 
+      - name: Set additional environment variables
+        run: |
+          echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
+
       - name: Configure Docker for GCR
         run: |
           gcloud auth configure-docker
@@ -248,6 +252,10 @@ jobs:
           environment: ${{ env.ENVIRONMENT }}
           service-type: polyphemus
           project-id: ${{ secrets.PROJECT_ID }}
+
+      - name: Set additional environment variables
+        run: |
+          echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
 
       - name: Set service name and image name
         run: |
