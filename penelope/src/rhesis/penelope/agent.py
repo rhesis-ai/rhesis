@@ -540,7 +540,7 @@ class PenelopeAgent:
         conditions = self._create_stopping_conditions(instructions=instructions)
 
         # Main agent loop
-        logger.info(f"Starting test execution: {instructions[:100]}...")
+        logger.info(f"Starting test execution (instructions length: {len(instructions) if instructions else 0} chars)")
 
         while True:
             # Check stopping conditions
