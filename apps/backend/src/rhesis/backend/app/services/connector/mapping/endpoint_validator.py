@@ -104,9 +104,9 @@ class EndpointValidationService:
 
                 # Validate each endpoint
                 for endpoint in endpoints:
-                    function_name = endpoint.endpoint_metadata.get("sdk_connection", {}).get(
-                        "function_name"
-                    )
+                    # Safely access endpoint_metadata (may be None)
+                    endpoint_metadata = endpoint.endpoint_metadata or {}
+                    function_name = endpoint_metadata.get("sdk_connection", {}).get("function_name")
                     if function_name:
                         logger.info(f"Validating {function_name} asynchronously...")
 

@@ -108,9 +108,33 @@ class TestResultHandler:
 
             recent_cutoff = datetime.utcnow() - timedelta(seconds=30)
 
-            error_status = db.query(Status).filter(Status.name == "Error").first()
+            # First, get a sample endpoint to determine the organization
+            # We'll use this to filter statuses by organization for tenant isolation
+            sample_endpoint = (
+                db.query(Endpoint)
+                .filter(
+                    Endpoint.project_id == project_id,
+                    Endpoint.environment == environment,
+                )
+                .first()
+            )
+
+            if not sample_endpoint:
+                logger.debug(f"No endpoints found for {project_id}:{environment}")
+                return
+
+            organization_id = sample_endpoint.organization_id
+
+            # Query Error status with organization filter for tenant isolation
+            error_status = (
+                db.query(Status)
+                .filter(Status.name == "Error", Status.organization_id == organization_id)
+                .first()
+            )
             if not error_status:
-                logger.warning("Could not find Error status in database")
+                logger.warning(
+                    f"Could not find Error status in database for organization {organization_id}"
+                )
                 return
 
             # Find recently created/updated endpoints in Error status for this project
@@ -149,14 +173,24 @@ class TestResultHandler:
                 )
                 return
 
-            function_name = target_endpoint.endpoint_metadata.get("sdk_connection", {}).get(
+            # Safely access endpoint_metadata (may be None)
+            endpoint_metadata = target_endpoint.endpoint_metadata or {}
+            function_name = endpoint_metadata.get("sdk_connection", {}).get(
                 "function_name", "unknown"
             )
 
             # Update endpoint status based on test result
             if result.status == "success":
                 # Test passed - update to Active status
-                active_status = db.query(Status).filter(Status.name == "Active").first()
+                # Filter by organization_id for tenant isolation
+                active_status = (
+                    db.query(Status)
+                    .filter(
+                        Status.name == "Active",
+                        Status.organization_id == target_endpoint.organization_id,
+                    )
+                    .first()
+                )
                 if active_status:
                     target_endpoint.status_id = active_status.id
                     db.commit()
@@ -164,7 +198,10 @@ class TestResultHandler:
                         f"🟢 Late validation result: {function_name} updated to Active status"
                     )
                 else:
-                    logger.error("Could not find Active status in database")
+                    logger.error(
+                        f"Could not find Active status in database for organization "
+                        f"{target_endpoint.organization_id}"
+                    )
             else:
                 # Test failed - keep Error status but log the actual error
                 logger.info(
