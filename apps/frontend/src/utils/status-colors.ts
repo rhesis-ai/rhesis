@@ -11,27 +11,32 @@ export type StatusColor = 'success' | 'error' | 'warning' | 'info' | 'default';
  */
 export function getStatusColor(statusName: string): StatusColor {
   const name = statusName.toLowerCase();
-  
+
   // Active/Success states
   if (name === 'active' || name === 'completed' || name === 'success') {
     return 'success';
   }
-  
+
   // Error/Failed states
   if (name === 'error' || name === 'failed' || name === 'failure') {
     return 'error';
   }
-  
+
   // Warning/Pending states
-  if (name === 'pending' || name === 'in progress' || name === 'progress' || name === 'partial') {
+  if (
+    name === 'pending' ||
+    name === 'in progress' ||
+    name === 'progress' ||
+    name === 'partial'
+  ) {
     return 'warning';
   }
-  
+
   // Info states
   if (name === 'info' || name === 'running') {
     return 'info';
   }
-  
+
   // Default for unknown states
   return 'default';
 }
@@ -43,7 +48,7 @@ export function getStatusColor(statusName: string): StatusColor {
  */
 export function getStatusThemeColor(statusName: string): string {
   const color = getStatusColor(statusName);
-  
+
   switch (color) {
     case 'success':
       return 'success.main';
