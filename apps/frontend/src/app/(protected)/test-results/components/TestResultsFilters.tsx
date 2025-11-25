@@ -180,10 +180,15 @@ export default function TestResultsFilters({
           </Button>
         )}
       </Box>
-
       <Grid container spacing={theme.customSpacing.container.medium}>
         {/* Time Range */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <FormControl fullWidth>
             <InputLabel>Time Range</InputLabel>
             <Select
@@ -201,7 +206,13 @@ export default function TestResultsFilters({
         </Grid>
 
         {/* Test Set Filter - First in order, now populated */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <FormControl fullWidth>
             <InputLabel>Test Set</InputLabel>
             <Select
@@ -221,7 +232,13 @@ export default function TestResultsFilters({
         </Grid>
 
         {/* Test Run Filter - Second in order, filtered by test set */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <FormControl fullWidth>
             <InputLabel>Test Run</InputLabel>
             <Select
@@ -243,7 +260,6 @@ export default function TestResultsFilters({
           </FormControl>
         </Grid>
       </Grid>
-
       {/* Active Filters Display */}
       {hasActiveFilters && (
         <Box

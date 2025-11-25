@@ -1,6 +1,6 @@
 """Metrics for evaluating RAG and generation systems."""
 
-from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult, MetricScope
 from rhesis.sdk.metrics.config.loader import MetricConfigLoader
 from rhesis.sdk.metrics.constants import (
     OPERATOR_MAP,
@@ -18,6 +18,11 @@ from rhesis.sdk.metrics.conversational import (
 )
 from rhesis.sdk.metrics.factory import MetricFactory
 from rhesis.sdk.metrics.providers.deepeval.conversational_metrics import (
+    DeepEvalConversationCompleteness,
+    DeepEvalGoalAccuracy,
+    DeepEvalKnowledgeRetention,
+    DeepEvalRoleAdherence,
+    DeepEvalToolUse,
     DeepEvalTurnRelevancy,
 )
 from rhesis.sdk.metrics.providers.deepeval.factory import DeepEvalMetricFactory
@@ -58,6 +63,7 @@ __all__ = [
     "BaseMetric",
     "MetricConfig",
     "MetricResult",
+    "MetricScope",
     "MetricConfigLoader",
     "MetricFactory",
     # Conversational metrics
@@ -91,6 +97,11 @@ __all__ = [
     "DeepTeamIllegal",
     # DeepEval conversational metrics
     "DeepEvalTurnRelevancy",
+    "DeepEvalRoleAdherence",
+    "DeepEvalKnowledgeRetention",
+    "DeepEvalConversationCompleteness",
+    "DeepEvalGoalAccuracy",
+    "DeepEvalToolUse",
     # Rhesis
     "RhesisMetricFactory",
     # Rhesis metrics

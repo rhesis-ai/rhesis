@@ -48,10 +48,11 @@ class TestPrompt(BaseModel):
 
 
 class TestData(BaseModel):
-    prompt: TestPrompt
+    prompt: Optional[TestPrompt] = None  # Optional for Multi-Turn tests
     behavior: str
     category: str
     topic: str
+    test_type: Optional[str] = None
     test_configuration: Optional[Dict[str, Any]] = None
     assignee_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
@@ -75,11 +76,53 @@ class TestData(BaseModel):
             # If it's not a valid UUID, return None instead of raising an error
             return None
 
+    @field_validator("test_configuration")
+    @classmethod
+    def validate_multi_turn_or_prompt(cls, v, info):
+        """
+        Validate that either:
+        - prompt is provided (single-turn test), OR
+        - test_configuration with goal is provided (multi-turn test)
+        """
+        from pydantic import ValidationError
+
+        from rhesis.backend.app.schemas.multi_turn_test_config import validate_multi_turn_config
+
+        prompt = info.data.get("prompt")
+
+        # If prompt is provided, it's a single-turn test - OK
+        if prompt:
+            return v
+
+        # If no prompt, must be multi-turn - validate goal exists
+        if not v or not v.get("goal"):
+            raise ValueError(
+                "Either 'prompt' must be provided (for single-turn tests) "
+                "or 'test_configuration' with 'goal' must be provided (for multi-turn tests)"
+            )
+
+        # If 'goal' is present, validate as multi-turn config
+        if "goal" in v:
+            try:
+                validated_config = validate_multi_turn_config(v)
+                return validated_config.model_dump(exclude_none=True)
+            except ValidationError as e:
+                error_messages = []
+                for error in e.errors():
+                    field = " -> ".join(str(loc) for loc in error["loc"])
+                    error_messages.append(f"{field}: {error['msg']}")
+                raise ValueError(
+                    f"Invalid multi-turn test configuration: {'; '.join(error_messages)}"
+                )
+
+        return v
+
 
 class TestSetBulkCreate(BaseModel):
     name: str
     description: Optional[str] = None
     short_description: Optional[str] = None
+    test_set_type: Optional[str] = None
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     priority: Optional[int] = None

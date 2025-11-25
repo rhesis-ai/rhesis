@@ -148,7 +148,7 @@ export default function SourceSelector({
   if (sources.length === 0) {
     return (
       <Alert severity="info" sx={{ mb: 2 }}>
-        No sources available. Please upload sources in the Sources section
+        No sources available. Please upload sources in the Knowledge section
         first.
       </Alert>
     );

@@ -117,18 +117,18 @@ async def cleanup_stale_sessions():
     while True:
         try:
             await asyncio.sleep(SESSION_CLEANUP_INTERVAL_MINUTES * 60)
-            
+
             # Find stale sessions
             stale_session_ids = [
                 session_id
                 for session_id, session_data in sessions.items()
                 if session_data.is_stale(SESSION_TIMEOUT_HOURS)
             ]
-            
+
             # Remove stale sessions
             for session_id in stale_session_ids:
                 del sessions[session_id]
-            
+
             if stale_session_ids:
                 logger.info(
                     f"🧹 Cleaned up {len(stale_session_ids)} stale sessions. "
@@ -136,7 +136,7 @@ async def cleanup_stale_sessions():
                 )
             else:
                 logger.debug(f"🧹 Session cleanup: {len(sessions)} active sessions, 0 stale")
-                
+
         except Exception as e:
             logger.error(f"❌ Error in session cleanup task: {e}")
 
@@ -150,9 +150,9 @@ async def lifespan(app: FastAPI):
         f"🚀 Started session cleanup task (interval: {SESSION_CLEANUP_INTERVAL_MINUTES}min, "
         f"timeout: {SESSION_TIMEOUT_HOURS}h)"
     )
-    
+
     yield
-    
+
     # Cleanup on shutdown
     cleanup_task.cancel()
     try:
@@ -312,7 +312,7 @@ async def chat(request: Request, chat_request: ChatRequest, auth: dict = Depends
         if session_id not in sessions:
             sessions[session_id] = SessionData()
             logger.info(f"📝 Created new session: {session_id}")
-        
+
         # Update session access time
         sessions[session_id].update_access_time()
 
@@ -351,10 +351,10 @@ async def chat(request: Request, chat_request: ChatRequest, auth: dict = Depends
 async def get_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     # Update access time when retrieving session
     sessions[session_id].update_access_time()
-    
+
     return {
         "messages": sessions[session_id].messages,
         "created_at": sessions[session_id].created_at.isoformat(),

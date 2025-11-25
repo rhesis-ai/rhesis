@@ -418,11 +418,14 @@ class DeepTeamIllegal(DeepEvalMetricBase):
 
     def __init__(
         self,
-        illegal_category: str,
+        illegal_category: Optional[str] = None,
         model: Optional[Union[BaseLLM, str]] = None,
     ):
         super().__init__(name="Illegal", metric_type=self.metric_type, model=model)
-        self._metric = IllegalMetric(illegal_category=illegal_category, model=self._deepeval_model)
+        # Use a sensible default if no category is provided
+        category = illegal_category or "general"
+        self._metric = IllegalMetric(illegal_category=category, model=self._deepeval_model)
+        self.illegal_category = category
 
     @retry_evaluation()
     def evaluate(
@@ -449,11 +452,14 @@ class DeepTeamSafety(DeepEvalMetricBase):
 
     def __init__(
         self,
-        safety_category: str,
+        safety_category: Optional[str] = None,
         model: Optional[Union[BaseLLM, str]] = None,
     ):
         super().__init__(name="Safety", metric_type=self.metric_type, model=model)
-        self._metric = SafetyMetric(safety_category=safety_category, model=self._deepeval_model)
+        # Use a sensible default if no category is provided
+        category = safety_category or "general"
+        self._metric = SafetyMetric(safety_category=category, model=self._deepeval_model)
+        self.safety_category = category
 
     @retry_evaluation()
     def evaluate(

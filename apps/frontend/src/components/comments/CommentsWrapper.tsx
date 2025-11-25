@@ -51,7 +51,7 @@ export default function CommentsWrapper({
   const handleCreateComment = async (text: string): Promise<void> => {
     await createComment(text);
     // Notify parent that counts have changed
-    onCountsChange?.();
+    await onCountsChange?.();
   };
 
   const handleEditComment = async (
@@ -64,7 +64,7 @@ export default function CommentsWrapper({
   const handleDeleteComment = async (commentId: string): Promise<void> => {
     await deleteComment(commentId);
     // Notify parent that counts have changed
-    onCountsChange?.();
+    await onCountsChange?.();
   };
 
   const handleReactToComment = async (

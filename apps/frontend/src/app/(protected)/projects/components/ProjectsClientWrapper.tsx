@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Grid, Button, Alert, Paper } from '@mui/material';
 import { Project } from '@/utils/api-client/interfaces/project';
 import ProjectCard from './ProjectCard';
@@ -10,6 +10,8 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import Link from 'next/link';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useOnboardingTour } from '@/hooks/useOnboardingTour';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 import styles from '@/styles/ProjectsClientWrapper.module.css';
 
 /** Type for alert/snackbar severity */
@@ -66,6 +68,24 @@ export default function ProjectsClientWrapper({
 }: ProjectsClientWrapperProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects || []);
   const notifications = useNotifications();
+  const { markStepComplete, progress, isComplete, activeTour } =
+    useOnboarding();
+
+  // Check if user is currently on the project tour
+  const isOnProjectTour = activeTour === 'project';
+
+  // Disable button ONLY when user is actively on a tour OTHER than project
+  const isProjectButtonDisabled = activeTour !== null && !isOnProjectTour;
+
+  // Enable tour for this page
+  useOnboardingTour('project');
+
+  // Mark step as complete when user has projects
+  useEffect(() => {
+    if (projects.length > 0 && !progress.projectCreated) {
+      markStepComplete('projectCreated');
+    }
+  }, [projects.length, progress.projectCreated, markStepComplete]);
 
   // Show error state if no session token
   if (!sessionToken) {
@@ -100,27 +120,35 @@ export default function ProjectsClientWrapper({
         }}
       >
         <Button
-          component={Link}
-          href="/projects/create-new"
+          component={isProjectButtonDisabled ? 'button' : Link}
+          href={isProjectButtonDisabled ? undefined : '/projects/create-new'}
           variant="contained"
           color="primary"
           startIcon={<AddIcon />}
+          data-tour="create-project-button"
+          disabled={isProjectButtonDisabled}
         >
           Create Project
         </Button>
       </Box>
-
       {/* Projects grid */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {Array.isArray(projects) &&
           projects.map(project => (
-            <Grid item key={project.id} xs={12} md={6} lg={4}>
+            <Grid
+              key={project.id}
+              size={{
+                xs: 12,
+                md: 6,
+                lg: 4,
+              }}
+            >
               <ProjectCard project={project} />
             </Grid>
           ))}
 
         {(!Array.isArray(projects) || projects.length === 0) && (
-          <Grid item xs={12}>
+          <Grid size={12}>
             <EmptyStateMessage
               title="No projects found"
               description="Create your first project to start building and testing your AI applications. Projects help you organize your work and collaborate with your team."

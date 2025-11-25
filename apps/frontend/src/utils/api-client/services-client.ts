@@ -29,40 +29,18 @@ interface Test {
 }
 
 import { DocumentMetadata } from './interfaces/documents';
-
-interface SourceData {
-  id: string;
-  name?: string;
-  description?: string;
-  content?: string;
-}
-
-interface GenerateTestsRequest {
-  prompt: object;
-  num_tests?: number;
-  sources?: SourceData[];
-  // Iteration context - same as test config
-  chip_states?: ChipState[];
-  rated_samples?: RatedSample[];
-  previous_messages?: IterationMessage[];
-}
-
-interface GenerateTestsResponse {
-  tests: Test[];
-}
+import {
+  GenerationConfig,
+  SourceData,
+  GenerateTestsRequest,
+  GenerateTestsResponse,
+} from './interfaces/test-set';
 
 interface ChipState {
   label: string;
   description: string;
   active: boolean;
   category: 'behavior' | 'topic' | 'category' | 'scenario';
-}
-
-interface RatedSample {
-  prompt: string;
-  response: string;
-  rating: number;
-  feedback?: string;
 }
 
 interface IterationMessage {
@@ -73,17 +51,14 @@ interface IterationMessage {
 
 interface GenerateTestConfigRequest {
   prompt: string;
-  sample_size: number;
   project_id?: string;
-  // Iteration context
-  chip_states?: ChipState[];
-  rated_samples?: RatedSample[];
   previous_messages?: IterationMessage[];
 }
 
 interface TestConfigItem {
   name: string;
   description: string;
+  active: boolean;
 }
 
 interface GenerateTestConfigResponse {
@@ -93,6 +68,33 @@ interface GenerateTestConfigResponse {
   scenarios: TestConfigItem[];
 }
 
+// Multi-turn test types
+interface MultiTurnPrompt {
+  goal: string;
+  instructions: string[];
+  restrictions: string[];
+  scenarios: string[];
+}
+
+interface MultiTurnTest {
+  prompt: MultiTurnPrompt;
+  behavior: string;
+  category: string;
+  topic: string;
+}
+
+interface GenerateMultiTurnTestsRequest {
+  generation_prompt: string;
+  behavior?: string[];
+  category?: string[];
+  topic?: string[];
+  num_tests?: number;
+}
+
+interface GenerateMultiTurnTestsResponse {
+  tests: MultiTurnTest[];
+}
+
 interface TextResponse {
   text: string;
 }
@@ -100,6 +102,17 @@ interface TextResponse {
 interface ExtractDocumentResponse {
   content: string;
   format: string;
+}
+
+// MCP Types
+export interface MCPItem {
+  id: string;
+  url: string;
+  title: string;
+}
+
+export interface MCPExtractResponse {
+  content: string;
 }
 
 export class ServicesClient extends BaseApiClient {
@@ -180,6 +193,21 @@ export class ServicesClient extends BaseApiClient {
     );
   }
 
+  async generateMultiTurnTests(
+    request: GenerateMultiTurnTestsRequest
+  ): Promise<GenerateMultiTurnTestsResponse> {
+    return this.fetch<GenerateMultiTurnTestsResponse>(
+      `${API_ENDPOINTS.services}/generate/multiturn-tests`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      }
+    );
+  }
+
   async generateDocumentMetadata(content: string): Promise<DocumentMetadata> {
     const structuredPrompt = `
     Generate a concise name and description for this document content.
@@ -212,5 +240,49 @@ export class ServicesClient extends BaseApiClient {
         description: '',
       };
     }
+  }
+
+  /**
+   * Search MCP server for items matching the query
+   * @param query - Search query string
+   * @param serverName - MCP server name (e.g., "notionApi")
+   * @returns Array of MCP items with id, url, and title
+   */
+  async searchMCP(query: string, serverName: string): Promise<MCPItem[]> {
+    return this.fetch<MCPItem[]>(`${API_ENDPOINTS.services}/mcp/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        server_name: serverName,
+      }),
+    });
+  }
+
+  /**
+   * Extract full content from an MCP item as markdown
+   * @param id - MCP item ID
+   * @param serverName - MCP server name (e.g., "notionApi")
+   * @returns Extracted content as markdown
+   */
+  async extractMCP(
+    id: string,
+    serverName: string
+  ): Promise<MCPExtractResponse> {
+    return this.fetch<MCPExtractResponse>(
+      `${API_ENDPOINTS.services}/mcp/extract`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+          server_name: serverName,
+        }),
+      }
+    );
   }
 }

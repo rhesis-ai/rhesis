@@ -1,9 +1,91 @@
 # Hint: Build this image with an expanded build context
 # `docker build -t rhesis-worker -f apps/worker/Dockerfile .`
+#
+# IMPORTANT: This Dockerfile uses a two-stage build for optimal layer caching
+# and minimal image size.
+#
+# For critical deployments, use --no-cache to force a complete rebuild:
+# `docker build --no-cache -t rhesis-worker -f apps/worker/Dockerfile .`
+# The python version must match the version in the .python-version file.
+# ============================================================================
+# STAGE 1: Builder - Install dependencies and build artifacts
+# ============================================================================
+FROM mirror.gcr.io/library/python:3.10.17-slim AS builder
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Use Python 3.10.17 base image
-# IMPORTANT: The python version must match the version in the .python-version file.
-FROM mirror.gcr.io/library/python:3.10.17-slim
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    python3-dev \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Celery worker requirements
+COPY apps/worker/pyproject.toml /app/pyproject.toml
+
+# Compile bytecode to improve performance
+ENV UV_COMPILE_BYTECODE=1
+# Use only system Python provided by the base image. It speeds up the build process and limit
+# the size of the image.
+ENV UV_NO_MANAGED_PYTHON=1
+
+# Skip the installation of the dev dependencies
+ENV UV_NO_DEV=1
+
+# Copy the SDK, Penelope, and backend directories
+COPY sdk /app/sdk/
+COPY penelope /app/penelope/
+COPY apps/backend /app/backend/
+
+# Fix paths in pyproject.toml to point to the correct locations in Docker
+RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
+
+# Install dependencies
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync
+
+# ============================================================================
+# STAGE 2: Runtime - Create minimal runtime image
+# ============================================================================
+FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+# Install only runtime dependencies (no build tools)
+# Keep git as it's needed by ragas package at runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    jq \
+    procps \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user and directories
+RUN adduser --disabled-password --gecos '' celery-user && \
+    mkdir -p /app /var/log/celery && \
+    chown celery-user:celery-user /app /var/log/celery
+
+# Copy the virtual environment from builder
+COPY --from=builder --chown=celery-user:celery-user /app/.venv /app/.venv
+
+# Copy dependencies from builder
+COPY --from=builder --chown=celery-user:celery-user /app/sdk /app/sdk
+COPY --from=builder --chown=celery-user:celery-user /app/penelope /app/penelope
+COPY --from=builder --chown=celery-user:celery-user /app/backend /app/backend
+
+# Copy worker-specific files with proper ownership and permissions
+COPY --chown=celery-user:celery-user --chmod=755 apps/worker/start.sh /app/start.sh
+COPY --chown=celery-user:celery-user --chmod=755 apps/worker/health_server.py /app/health_server.py
+
+# Switch to the non-root user
+USER celery-user
 
 # Set environment variables for Python optimization
 ENV PYTHONUNBUFFERED=1 \
@@ -12,86 +94,13 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONMALLOC=malloc \
     MALLOC_TRIM_THRESHOLD_=100000 \
     MALLOC_MMAP_THRESHOLD_=131072 \
-    MALLOC_TOP_PAD_=131072
-
-# Set working directory
-WORKDIR /app
-
-# Install system dependencies including PostgreSQL client and uv
-RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    python3-dev \
-    curl \
-    jq \
-    gcc \
-    g++ \
-    procps \
-    git \
-    && pip install --no-cache-dir uv \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy SDK and Penelope directories
-COPY sdk /app/sdk/
-COPY penelope /app/penelope/
-
-# Copy backend directory
-COPY apps/backend /app/backend/
-
-# Copy Celery worker requirements
-COPY apps/worker/pyproject.toml /app/pyproject.toml
-
-# Copy health check server
-COPY apps/worker/health_server.py /app/health_server.py
-
-# Create directory for Celery logs
-RUN mkdir -p /var/log/celery
-
-# Create non-root user
-RUN useradd -m celery_user && \
-    chown -R celery_user:celery_user /app /var/log/celery
-
-# Copy and set permissions for the startup script
-COPY apps/worker/start.sh /app/start.sh
-RUN chmod +x /app/start.sh && \
-    chmod +x /app/health_server.py && \
-    chown celery_user:celery_user /app/start.sh && \
-    chown celery_user:celery_user /app/health_server.py
-
-# Ensure the script is executable even after volume mounts
-RUN chmod +x /app/start.sh
-
-
-# Compile bytecode to improve performance   
-ENV UV_COMPILE_BYTECODE=1 
-# Use only system Python provided by the base image. It speeds up the build process and limit 
-# the size of the image.
-ENV UV_NO_MANAGED_PYTHON=1
-# Add the virtual environment to the PATH. It activates the virtual environment allowing to
-# call python from the command line.
-ENV PATH="/app/.venv/bin:$PATH"
-# Set Python path to find the modules and add GC optimizations
-ENV PYTHONPATH=/app:/app/backend/src \
+    MALLOC_TOP_PAD_=131072 \
+    PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH=/app:/app/backend/src \
     CELERY_OPTIMIZATION=fair \
     CELERY_DISABLE_RATE_LIMITS=True \
     CELERY_TASK_ALWAYS_EAGER=False \
     CELERY_TASK_EAGER_PROPAGATES=False
-
-# Fix paths in pyproject.toml to point to the correct locations in Docker
-RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
-
-RUN uv sync 
-
-#Add environment variable for the path. This way the Python environment is activated.
-
-# Remove build dependencies after installing Python packages
-# Keep git as it's needed by ragas package at runtime
-RUN apt-get purge -y gcc \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
-
-
-USER celery_user
 
 # Default Celery configuration (can be overridden at runtime)
 ENV CELERY_WORKER_CONCURRENCY=2 \

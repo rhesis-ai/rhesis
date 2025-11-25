@@ -27,9 +27,9 @@
   </a>
 </p>
 
-> Your team defines expectations, Rhesis generates and executes thousands of test scenarios. So that you know what you ship.
+**Rhesis generates test inputs for LLM and agentic applications using AI, then evaluates the outputs to catch issues before production.**
 
-Rhesis is an open-source testing platform that transforms how Gen AI teams validate their applications. Collaborative test management turns domain expertise into comprehensive automated testing: legal defines requirements, marketing sets expectations, engineers build quality, and everyone knows exactly how the Gen AI application performs before users do.
+Instead of manually writing test cases for every edge case your chatbot, RAG system, or agentic application might encounter, describe what your app should and shouldn't do in plain language. Rhesis generates hundreds of test scenarios based on your requirements, runs them against your application, and shows you where it breaks.
 
 <img src="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/69039cdfccde6a7b02eac36f_Release%200.4.1.gif"
      loading="lazy"
@@ -39,72 +39,65 @@ Rhesis is an open-source testing platform that transforms how Gen AI teams valid
      srcset="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/69039cdfccde6a7b02eac36f_Release%200.4.1.gif 1080w"
      >
 
-## 🎯 Why Rhesis?
+## The Problem
 
-**The Gen AI Testing Challenge**
+LLM and agentic applications are hard to test because outputs are non-deterministic and user inputs are unpredictable. You can't write enough manual test cases to cover all the ways your chatbot, RAG system, or agentic application might respond inappropriately, leak information, or fail to follow instructions.
 
-Gen AI applications present unique testing challenges that traditional approaches can't handle:
-- **Non-deterministic outputs**: Same input, different responses
-- **Unexpected edge cases**: Unpredictable user inputs lead to problematic outputs
-- **Ethical risks**: Biased, harmful, or inappropriate content generation
-- **Compliance requirements**: Industry-specific regulatory standards
+Traditional unit tests don't work when the same input produces different outputs. Manual QA doesn't scale when you need to test thousands of edge cases. Prompt engineering in production is expensive and slow.
 
-Traditional testing with hand-coded scenarios can't scale to unlimited user creativity. Rhesis addresses these challenges through collaborative test management that generates comprehensive automated coverage.
+## How Rhesis Works
 
-**Make testing a peer to development**
+1. **Define requirements**: Write what your LLM or agentic app should and shouldn't do in plain English (e.g., "never provide medical diagnoses", "always cite sources"). Non-technical team members can do this through the UI.
+2. **Generate test scenarios**: Rhesis uses AI to create hundreds of test inputs designed to break your rules - adversarial prompts, edge cases, jailbreak attempts. Supports both single-turn questions and multi-turn conversations.
+3. **Run tests**: Execute tests against your application through the UI, or programmatically via SDK (from your IDE) or API.
+4. **Evaluate results**: LLM-based evaluation scores whether outputs violate your requirements. Review results in the UI with your team, add comments, assign tasks to fix issues.
 
-You've transformed your product with Gen AI, now transform how you test it. Testing deserves the same sophistication as your development tooling.
+You get a test suite that covers edge cases you wouldn't have thought of, runs automatically, and shows exactly where your LLM fails.
 
-**Your whole team should define what matters**
+## What Makes This Different
 
-Your legal, marketing, and domain experts know what can actually go wrong. Rhesis makes testing everyone's responsibility.
+**Single-turn and multi-turn testing**: Test both simple Q&A and complex conversations. Penelope (our multi-turn agent) simulates realistic user conversations with multiple back-and-forth exchanges to catch issues that only appear in extended interactions. Works with chatbots, RAG systems, and agentic applications.
 
-**Know what you're shipping**
+**Built for teams, not just engineers**: UI for non-technical stakeholders to define requirements and review results. SDK for engineers to work from their IDE and integrate into CI/CD. Comments, tasks, and review workflows so legal, compliance, and domain experts can collaborate without writing code.
 
-The best AI teams understand their system's capabilities before release. Get complete visibility into how your Gen AI performs across thousands of real-world scenarios.
+### **Rhesis vs…**
 
-## ✨ Key Features
+- **Manual testing**  
+  Generates hundreds of test cases automatically instead of writing them by hand.
 
-- **Collaborative Test Management**: Your entire team contributes requirements, legal, compliance, marketing, domain experts, all without writing code
-- **Automated Test Generation**: Automatically generate thousands of test scenarios from team expertise, requirements and existing knowledge sources
-- **Comprehensive Coverage**: Scale from dozens of manual tests to thousands of automated scenarios that match your AI's complexity
-- **Edge Case Discovery**: Find potential failures before your users do with sophisticated scenario generation
-- **Compliance Validation**: Ensure Gen AI systems meet regulatory and ethical standards with team-defined requirements
-- **Performance Analytics**: Track quality metrics over time
+- **Traditional test frameworks**  
+  Built for non-deterministic LLM behavior, not deterministic code.
 
-## 🌐 Open Source & Community-Driven
+- **LLM observability tools**  
+  Focuses on **pre-production** validation, not just production monitoring.
 
-Rhesis is built by Gen AI developers who experienced inadequate testing tools firsthand. The core platform and SDK remain MIT-licensed forever, with a clear commitment: core functionality never moves to paid tiers. All commercial code lives in dedicated `ee/` folders.
+- **Red-teaming services**  
+  Continuous and self-service, not a one-time audit.
 
-Join our community calls to discuss roadmap, features, and contributions. Connect via [Discord](https://discord.rhesis.ai) for announcements.
+## Features
 
-## 📑 Repository Structure
+- **Single-turn and multi-turn testing**: Test simple Q&A responses and complex multi-turn conversations (Penelope agent simulates realistic user interactions)
+- **Support for LLM and agentic applications**: Works with chatbots, RAG systems, and agentic applications with tool use and multi-step reasoning
+- **AI test generation**: Describe requirements in plain language, get hundreds of test scenarios including adversarial cases
+- **LLM-based evaluation**: Automated scoring of whether outputs meet your requirements
+- **Comprehensive metrics library**: Pre-built evaluation metrics including implementations from popular frameworks (RAGAS, DeepEval, etc.) so you don't have to implement them yourself
+- **Built for cross-functional teams**:
+  - UI for non-technical users (legal, compliance, marketing) to define requirements and review results
+  - SDK/API for engineers to work from their IDE and integrate into CI/CD pipelines
+  - Collaborative features: comments, tasks, review workflows
+- **Pre-built test sets**: Common scenarios for chatbots, RAG systems, agentic applications, content generation, etc.
 
-This monorepo contains the complete Rhesis ecosystem:
+## Open Source
 
-```
-rhesis/
-├── apps/
-│   ├── backend/       # FastAPI backend service
-│   ├── frontend/      # React frontend application
-│   ├── worker/        # Celery worker for background tasks
-│   ├── chatbot/       # Conversational testing interface
-│   └── polyphemus/    # Uncensored LLM for comprehensive test generation
-├── sdk/               # Python SDK for Rhesis
-├── infrastructure/    # Infrastructure as code
-├── scripts/           # Utility scripts
-└── docs/              # Documentation
-```
+MIT licensed with no plans to relicense core features. Commercial features (if we build them) will live in `ee/` folders.
 
-## 🚀 Quick Start
+We built this because existing LLM testing tools didn't meet our needs. If you have the same problem, contributions are welcome.
 
-### Option 1: Use the cloud platform (fastest)
+## Quick Start
 
-Get started in minutes at [app.rhesis.ai](https://app.rhesis.ai):
+### Option 1: Use the hosted version (fastest)
 
-1. Create a free account
-2. Start generating test scenarios collaboratively
-3. Invite your team to define requirements together
+[app.rhesis.ai](https://app.rhesis.ai) - Free tier available, no setup required
 
 ### Option 2: Use the SDK
 
@@ -138,61 +131,95 @@ test_set = synthesizer.generate(num_tests=10)
 pprint(test_set.tests)
 ```
 
-### Option 3: Run locally with Docker
+### Option 3: Run locally with Docker (zero configuration)
 
-Clone and run the full platform locally. First you need to set up the config file.
-Copy the `.env.example` file to `.env.docker` and fill in the values.
-Then run the following command to start the platform:
+Get the full platform running locally in under 5 minutes with zero configuration:
 
 ```bash
+# Clone the repository
 git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
-docker-compose --env-file .env.docker up
+
+# Start all services with one command
+./rh start
 ```
 
-Visit `http://localhost:3000` to access your local instance.
+That's it! The `./rh start` command automatically:
+- Checks if Docker is running
+- Generates a secure database encryption key
+- Creates `.env.docker.local` with all required configuration
+- Enables local authentication bypass (auto-login)
+- Starts all services (backend, frontend, database, worker)
+- Creates the database and runs migrations
+- Creates the default admin user (`Local Admin`)
+- Loads example test data
 
-**Detailed setup instructions:** See [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
+**Access the platform:**
+- Frontend: `http://localhost:3000` (auto-login enabled)
+- Backend API: `http://localhost:8080/docs`
+- Worker Health: `http://localhost:8081/health/basic`
+
+**Optional: Enable test generation**
+
+To enable AI-powered test generation, add your API key:
+
+1. Get your API key from [app.rhesis.ai](https://app.rhesis.ai)
+2. Edit `.env.docker.local` and add: `RHESIS_API_KEY=your-actual-key`
+3. Restart: `./rh restart`
+
+**Managing services:**
+```bash
+./rh logs          # View logs from all services
+./rh stop          # Stop all services
+./rh restart       # Restart all services
+./rh delete        # Delete everything (fresh start)
+```
+
+> **Note:** This is a simplified setup for local testing only. No Auth0 setup required, auto-login enabled. For production deployments, see the [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
 
 
-## 👥 Contributing
+## Contributing
 
-Rhesis thrives thanks to our community. Here's how you can contribute:
+Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-### Ways to Contribute
+**Ways to contribute:**
+- Fix bugs or add features
+- Contribute test sets for common failure modes
+- Improve documentation
+- Help others in Discord or GitHub discussions
 
-- **Code**: Fix bugs, implement features, improve performance
-- **Test Sets**: Contribute test cases for common AI failure modes
-- **Documentation**: Enhance guides, tutorials, and API references
-- **Community Support**: Help others in Discord or GitHub discussions
-- **Feedback**: Report bugs, request features, share your experience
+## License
 
-### Contributing Workflow
+Community Edition: MIT License - see [LICENSE](LICENSE) file for details. Free forever.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes with tests
-4. Commit with clear messages
-5. Push and open a pull request
+Enterprise Edition: Enterprise features in ee/ folders are planned for 2026 and not yet available. Contact hello@rhesis.ai for early access information.
 
-We review PRs regularly and maintain a welcoming environment through our code of conduct.
+## Support
 
-**Detailed guidelines:** [CONTRIBUTING.md](CONTRIBUTING.md)
-**Release process:** [RELEASING.md](RELEASING.md)
+- [Documentation](https://docs.rhesis.ai)
+- [Discord](https://discord.rhesis.ai)
+- [GitHub Issues](https://github.com/rhesis-ai/rhesis/issues)
 
-## 📝 License
+## Security & Privacy
 
-**Community Edition**: MIT License - see [LICENSE](LICENSE) file for details.
+We take data security and privacy seriously. For further details, please refer to our [Privacy Policy](https://rhesis.ai/privacy-policy).
 
-**Enterprise Edition**: Enterprise features located in `ee/` folders are subject to separate commercial licenses. Contact hello@rhesis.ai for enterprise licensing information.
+### Telemetry
 
-## 🆘 Support
+Rhesis automatically collects basic usage statistics from both cloud platform users and self-hosted instances.
 
-- **Documentation**: [docs.rhesis.ai](https://docs.rhesis.ai)
-- **Discord Community**: [discord.rhesis.ai](https://discord.rhesis.ai)
-- **GitHub Discussions**: [Community discussions](https://github.com/rhesis-ai/rhesis/discussions)
-- **Email**: hello@rhesis.ai
-- **Issues**: [Report bugs or request features](https://github.com/rhesis-ai/rhesis/issues)
+This information enables us to:
+
+1. Understand how Rhesis is used and enhance the most relevant features.
+2. Monitor overall usage for internal purposes and external reporting.
+
+No collected data is shared with third parties, nor does it include any sensitive information. For a detailed description of the data collected and the associated privacy safeguards, please see the [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
+
+**Opt-out:**
+
+For self-hosted deployments, telemetry can be disabled by setting the environment variable `OTEL_RHESIS_TELEMETRY_ENABLED=false`.
+
+For cloud deployments, telemetry is always enabled as part of the Terms & Conditions agreement.
 
 ---
 

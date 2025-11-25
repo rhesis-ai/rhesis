@@ -1,0 +1,358 @@
+# Rhesis Changelog
+
+All notable changes to the Rhesis project are documented in this file.
+
+This is the aggregated changelog for the entire Rhesis repository. For detailed component-specific changes, please refer to:
+- [SDK Changelog](https://github.com/rhesis-ai/rhesis/blob/main/sdk/CHANGELOG.md)
+- [Backend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/backend/CHANGELOG.md)
+- [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
+- [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
+
+## [0.4.2] - 2025-11-13
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.2**
+- **Frontend 0.4.2**
+- **SDK 0.4.1**
+
+### Summary
+
+This release makes it easier than ever to get started with Rhesis through zero-configuration Docker Compose setup. Spin up the entire platform with a single command! The release also introduces multi-turn test support with conversational metrics, enhanced MCP integration with Notion, and improved local development experience.
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/_iAw-I35xSc"
+    title="Release 0.4.2 Overview"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Backend Highlights
+- Added support for multi-turn tests with configuration, execution, and conversational metrics
+- Improved local development setup with zero-configuration Docker Compose
+- Introduced generic MCP integration endpoints and user model configuration
+- Added scenarios, tags, and comments infrastructure for sources
+- Enhanced command-line interface for easier platform management
+
+### Frontend Highlights
+- Implemented multi-turn test support with configuration UI and goal display
+- Enhanced test set management with test type display and filtering
+- Improved local development with Docker Compose and auto-login feature
+- Integrated conversational metrics for multi-turn test evaluation
+
+### SDK Highlights
+- Added Langchain integration and Penelope language model support
+- Introduced Conversational Metrics with Goal Achievement Judge and DeepEval integration
+- Enhanced MCP Agent with autonomous ReAct loop and improved error handling
+- Added structured output support for tool calling via Pydantic schemas
+- Improved VertexAI provider reliability
+
+## [0.4.1] - 2025-10-30
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.1**
+- **Frontend 0.4.1**
+- **SDK 0.4.0**
+
+### Summary
+
+This release introduces comprehensive OpenTelemetry telemetry, enhanced test generation with iteration context, and improved source tracking. The platform now uses "Sources" terminology throughout, replacing "Documents" for consistency. Key improvements include soft deletion with cascade-aware restoration, API key authentication with rate limiting, and enhanced metrics integration with Ragas and DeepEval.
+
+<img src="/changelog/v0.4.1/Release 0.4.1.gif" alt="Release 0.4.1 Overview" style={{ width: '100%', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }} />
+
+### Backend Highlights
+- Added comprehensive OpenTelemetry telemetry system for monitoring and analytics
+- Enhanced test generation with iteration context support and source ID tracking
+- Integrated SDK metrics with simplified evaluation and database migration
+- Implemented cascade-aware restoration for soft-deleted entities
+- Added API key authentication with user-based rate limiting
+
+### Frontend Highlights
+- Replaced "Documents" terminology with "Sources" throughout the application
+- Enhanced test generation UI with improved backend support and source context display
+- Implemented OpenTelemetry for enhanced monitoring
+- Added support for additional file formats (.pptx, .xlsx, .html, .htm, .zip)
+- Improved test results display with error status icons and execution time for failed runs
+
+### SDK Highlights
+- Added Cohere and Vertex AI LLM providers with Ollama integration
+- Enhanced AI-based test generation with iteration context support
+- Improved metrics integration with Ragas and DeepEval (updated to v3.6.7)
+- Added support for both plain and OpenAI-wrapped JSON schemas
+- Refactored metrics for improved organization and maintainability
+
+## [0.4.0] - 2025-10-16
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.0**
+- **Frontend 0.4.0**
+- **SDK 0.3.1**
+
+### Summary
+
+This release focuses on user-defined LLM providers, enhanced source handling, and soft delete functionality. The Knowledge section receives significant improvements with dynamic source types and hybrid storage. User settings management is centralized, and the recycle bin provides comprehensive soft-deleted item recovery.
+
+### Backend Highlights
+- Added support for user-defined LLM providers and model configuration
+- Implemented soft delete functionality with recycle bin management
+- Enhanced source handling with dynamic source types and hybrid cloud/local storage
+- Added user settings API endpoints for managing default models
+- Implemented encryption for sensitive data in database fields
+
+### Frontend Highlights
+- Enhanced Knowledge section with source upload, preview, and OData filtering
+- Redesigned Test Runs detail page with modern dashboard interface
+- Improved Models management with edit modal and connection testing
+- Added advanced filtering for test results
+- Standardized UI consistency using theme values
+
+### SDK Highlights
+- Added support for user-defined LLM provider generation and execution
+- Enhanced DocumentExtractor with BytesIO support
+- Added `model` parameter support to synthesizer factory
+- Updated ParaphrasingSynthesizer for improved LLM selection
+
+## [0.3.0] - 2025-10-02
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.3.0**
+- **Frontend 0.3.0**
+- **SDK 0.3.0**
+
+### Summary
+
+This release introduces persistent storage for documents, robust organization-level data isolation, and comprehensive task management with email notifications. The frontend receives a complete rebranding with the new Rhesis AI visual identity.
+
+### Backend Highlights
+- Added persistent storage for documents with new `StorageService`
+- Implemented robust organization-level data isolation and access control
+- Enhanced comment and task management with email notifications
+- Introduced new endpoint for generating test configurations
+- Fixed critical cross-tenant data access vulnerabilities
+
+### Frontend Highlights
+- **Complete rebranding**: New Rhesis AI brand identity with updated color palette and logos
+- Implemented comprehensive frontend testing infrastructure
+- Enhanced task management with editable titles and improved UI consistency
+- Improved UI/UX across dashboards, metrics pages, and data grids
+- Added pre-commit hooks for code quality
+
+### SDK Highlights
+- Added functionality to push and pull metrics (categorical and numeric)
+- Introduced configuration options for metrics with enum support
+- Refactored metric classes for improved structure and reusability
+- Added metrics endpoint to SDK client
+
+## [0.2.4] - 2025-09-18
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.4**
+- **Frontend 0.2.4**
+- **SDK 0.2.4**
+
+### Summary
+
+This release introduces comprehensive task management functionality and integrates DocumentSynthesizer for automated document-based test generation. Enhanced metadata tracking and email notifications improve collaboration workflows.
+
+### Backend Highlights
+- Added task management with statuses, priorities, assignments, and email notifications
+- Integrated DocumentSynthesizer for automated document-based test generation
+- Enhanced test set attributes with document sources and metadata tracking
+- Improved database session handling and route refactoring
+
+### Frontend Highlights
+- Added "Source Documents" section to test detail and Test Set Details pages
+- Test sets now display document name and description
+- Project updates work without requiring page reload
+- Added send button to comment text box
+
+### SDK Highlights
+- Rewritten benchmarking framework with improved model handling
+- Introduced `Document` dataclass and `DocumentSynthesizer` for text extraction
+- Added new LLM providers including Ollama
+- Refactored metrics and moved them from backend to SDK
+
+## [0.2.3] - 2025-09-04
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.3**
+- **Frontend 0.2.3**
+- **SDK 0.2.3**
+
+### Summary
+
+This release adds collaboration features with comments support, introduces test run statistics, and enhances LLM service integration with schema support.
+
+### Backend Highlights
+- Added test run stats endpoint with performance improvements
+- Implemented comment support with CRUD operations and emoji reactions
+- Introduced LLM service integration with schema support
+- Improved environment variable handling for deployment flexibility
+
+### Frontend Highlights
+- Added comments feature for collaboration on tests, test sets, and test runs
+- Improved metrics creation and editing workflow with visual feedback
+- Enhanced test run details with dynamic charts
+- Fixed tooltip visibility issues and improved datagrid performance
+
+### SDK Highlights
+- Renamed and reorganized LLM provider components for clarity
+- Added support for JSON schemas in LLM requests for structured responses
+- Introduced API key handling for LLM providers
+- Updated linting process to use `uvx`
+
+## [0.2.2] - 2025-08-22
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.2**
+- **Frontend 0.2.2**
+- **SDK 0.2.2**
+
+### Summary
+
+This release adds document content extraction, enhances Docker configuration, and improves security with Redis authentication. Support for additional document formats (.docx, .pptx, .xlsx) is introduced.
+
+### Backend Highlights
+- Added document content extraction endpoint
+- Added document support to test set generation endpoint
+- Implemented Redis authentication for enhanced security
+- Improved Docker configuration and startup scripts
+- Added unit tests for backend components
+
+### Frontend Highlights
+- Improved document upload experience with automatic metadata generation
+- Enhanced project creation and management
+- Refactored form validation and UI elements
+- Updated Docker configuration for production mode
+
+### SDK Highlights
+- Migrated document extraction from docling to markitdown
+- Added support for docx, pptx, and xlsx formats
+- Improved code style with automated linting and formatting
+- Removed support for .url and .youtube file extensions
+
+## [0.2.1] - 2025-08-08
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.1**
+- **Frontend 0.2.1**
+- **SDK 0.2.1**
+- **Polyphemus 0.1.0**
+
+### Summary
+
+This release introduces Test Results functionality and document upload capabilities. Polyphemus, the LLM inference and benchmarking service, makes its initial release.
+
+### Backend Highlights
+- Added support for filtering test sets related to runs
+- Added document upload functionality via `/documents/upload` endpoint
+- Enhanced test generation with optional documents parameter
+- Added test result statistics support and "last login" functionality
+
+### Frontend Highlights
+- Introduced Test Results functionality for viewing and analyzing outcomes
+- Added interfaces for handling test results statistics
+- Fixed infinite loading issues for test sets
+
+### SDK Highlights
+- Added `get_field_names_from_schema` method to `BaseEntity` class
+- Updated default base URL for API endpoint
+- Improved documentation
+
+### Polyphemus Highlights
+- Initial release of LLM inference and benchmarking service
+- FastAPI-based REST API with Dolphin 3.0 Llama 3.1 8B model support
+- Modular benchmarking suite and OWASP-based security test sets
+
+## [0.2.0] - 2025-07-25
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.0**
+- **Frontend 0.2.0**
+- **SDK 0.2.0**
+
+### Summary
+
+This release enhances team collaboration with improved invitation security, implements email notifications for test completion, and introduces sequential test execution with Redis-based task orchestration.
+
+### Backend Highlights
+- Enhanced team invitation with improved security, validation, and rate limiting
+- Implemented email-based notification system for test execution results
+- Improved test execution framework with sequential execution and Redis orchestration
+- Fixed issues related to OData filtering, JWT expiration, and score calculation
+
+### Frontend Highlights
+- Added version information display
+- Introduced new team invitation flow with enhanced security and validation
+- Improved session management with server logout upon expiration
+- Numerous bug fixes and UI improvements across components
+
+### SDK Highlights
+- Added support for `.txt` files to DocumentExtractor
+- Introduced `documents` parameter to PromptSynthesizer
+- Added functionality for custom behaviors informed by prompts
+
+## [0.1.0] - 2025-05-15
+
+### Platform Release
+
+First release of the Rhesis main repository, including all components. Note that the SDK was previously developed separately and is now at version 0.1.8 internally, but is included in this repository-wide v0.1.0 release.
+
+### Backend
+- Core API for test management
+- Database models and schemas with SQLAlchemy
+- Authentication system with JWT and Auth0
+- CRUD operations for main entities
+- API documentation with Swagger/OpenAPI
+- PostgreSQL integration with row-level security
+- Error handling and logging
+
+### Frontend
+- Next.js 15 with App Router
+- Material UI v6 component library
+- Authentication with NextAuth.js
+- Protected routes and middleware
+- Dashboard and test management interface
+- Test visualization and monitoring
+- Dark/light theme support
+- Responsive design
+
+### SDK
+- Test set management and generation capabilities
+- Prompt synthesizers for test case generation
+- Paraphrasing capabilities
+- LLM service integration
+- CLI scaffolding
+- Documentation with Sphinx
+
+### Infrastructure
+- Docker containerization for all services
+- CI/CD pipeline setup
+- Development environment configuration
+- Repository structure for monorepo management
+
+### Note
+- The SDK was previously developed and released (up to v0.1.8) in a separate repository
+- After this initial release, each component follows its own versioning lifecycle
+- Component-specific tags use the format: `<component>-vX.Y.Z`

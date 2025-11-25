@@ -16,8 +16,8 @@ import {
 } from '@opentelemetry/semantic-conventions';
 
 let telemetryEnabled = false;
-let provider: WebTracerProvider | null = null;
-let tracer: any = null;
+const provider: WebTracerProvider | null = null;
+const tracer: any = null;
 
 /**
  * Hash a string for privacy using SHA-256 (matches backend implementation).
@@ -55,51 +55,11 @@ async function hashString(str: string): Promise<string> {
   }
 }
 
-/**
- * Initialize OpenTelemetry for the frontend.
- *
- * This should be called once when the app starts.
- */
 export function initTelemetry() {
-  const otlpEndpoint = process.env.NEXT_PUBLIC_OTEL_ENDPOINT;
-
-  if (!otlpEndpoint) {
-    console.log('Telemetry disabled: NEXT_PUBLIC_OTEL_ENDPOINT not set');
-    return;
-  }
-
-  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
-  const appVersion = process.env.APP_VERSION || 'unknown';
-
-  // Create resource
-  const resource = resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: 'rhesis-frontend',
-    [ATTR_SERVICE_VERSION]: appVersion,
-    'deployment.type': deploymentType,
-    'service.namespace': 'rhesis',
-  });
-
-  // Create OTLP exporter
-  const exporter = new OTLPTraceExporter({
-    url: `${otlpEndpoint}/v1/traces`,
-    headers: {},
-    // 5 second timeout - don't block app if telemetry is slow
-    timeoutMillis: 5000,
-  });
-
-  // Create provider with batch processor
-  provider = new WebTracerProvider({
-    resource,
-    spanProcessors: [new BatchSpanProcessor(exporter)],
-  });
-
-  // Register provider
-  provider.register();
-
-  // Get tracer
-  tracer = provider.getTracer('rhesis-frontend', appVersion);
-
-  console.log('Telemetry initialized:', { otlpEndpoint, deploymentType });
+  // Client-side telemetry is intentionally disabled
+  console.log(
+    'Frontend telemetry is disabled (client-side tracking not configured)'
+  );
 }
 
 /**
@@ -149,8 +109,7 @@ export async function trackPageView(
     span.setAttribute('organization.id', hashedOrgId);
   }
 
-  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
-  span.setAttribute('deployment.type', deploymentType);
+  span.setAttribute('deployment.type', 'unknown');
 
   span.end();
 }
@@ -192,8 +151,7 @@ export async function trackEvent(
     span.setAttribute('organization.id', hashedOrgId);
   }
 
-  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
-  span.setAttribute('deployment.type', deploymentType);
+  span.setAttribute('deployment.type', 'unknown');
 
   span.end();
 }
@@ -237,8 +195,7 @@ export async function trackFeatureUsage(
     span.setAttribute('organization.id', hashedOrgId);
   }
 
-  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
-  span.setAttribute('deployment.type', deploymentType);
+  span.setAttribute('deployment.type', 'unknown');
 
   span.end();
 }
@@ -265,8 +222,7 @@ export async function trackUserLogin(userId: string, organizationId?: string) {
     span.setAttribute('organization.id', hashedOrgId);
   }
 
-  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
-  span.setAttribute('deployment.type', deploymentType);
+  span.setAttribute('deployment.type', 'unknown');
 
   span.end();
 }

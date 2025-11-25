@@ -27,20 +27,227 @@ show_help() {
     echo -e "${PURPLE}════════════════════════════════════════${NC}"
     echo ""
     echo -e "${YELLOW}Usage:${NC}"
-    echo -e "  ${GREEN}./rh backend start${NC}   - Start the backend server"
-    echo -e "  ${GREEN}./rh frontend start${NC}  - Start the frontend server"
+    echo -e "  ${GREEN}./rh start${NC}           - Start all services with Docker (zero-config)"
+    echo -e "  ${GREEN}./rh stop${NC}            - Stop all Docker services"
+    echo -e "  ${GREEN}./rh restart${NC}         - Restart all Docker services"
+    echo -e "  ${GREEN}./rh logs${NC}            - View logs from all services"
+    echo -e "  ${GREEN}./rh delete${NC}          - Delete all services, images, volumes, and data"
+    echo -e "  ${GREEN}./rh backend start${NC}   - Start the backend server (local)"
+    echo -e "  ${GREEN}./rh frontend start${NC}  - Start the frontend server (local)"
     echo -e "  ${GREEN}./rh frontend test${NC}   - Run frontend tests"
-    echo -e "  ${GREEN}./rh docs start${NC}      - Start the documentation server"
-    echo -e "  ${GREEN}./rh worker start${NC}    - Start the Celery worker"
+    echo -e "  ${GREEN}./rh docs start${NC}      - Start the documentation server (local)"
+    echo -e "  ${GREEN}./rh worker start${NC}    - Start the Celery worker (local)"
+    echo -e "  ${GREEN}./rh polyphemus start${NC} - Start the Polyphemus service (local)"
     echo -e "  ${GREEN}./rh help${NC}            - Show this help message"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
-    echo -e "  ${BLUE}./rh backend start${NC}"
-    echo -e "  ${BLUE}./rh frontend start${NC}"
-    echo -e "  ${BLUE}./rh frontend test${NC}"
-    echo -e "  ${BLUE}./rh docs start${NC}"
-    echo -e "  ${BLUE}./rh worker start${NC}"
+    echo -e "  ${BLUE}./rh start${NC}               # Start all services with Docker"
+    echo -e "  ${BLUE}./rh stop${NC}                # Stop all Docker services"
+    echo -e "  ${BLUE}./rh delete${NC}              # Delete everything (services, images, volumes, data)"
+    echo -e "  ${BLUE}./rh logs backend${NC}        # View backend logs"
+    echo -e "  ${BLUE}./rh backend start${NC}       # Start backend locally (without Docker)"
+    echo -e "  ${BLUE}./rh frontend start${NC}      # Start frontend locally (without Docker)"
+    echo -e "  ${BLUE}./rh frontend test${NC}       # Run frontend tests"
+    echo -e "  ${BLUE}./rh polyphemus start${NC}    # Start Polyphemus locally (without Docker)"
     echo ""
+}
+
+# Function to start all services with Docker Compose
+start_all() {
+    echo -e "${GREEN}🚀 Starting all Rhesis services with Docker...${NC}"
+    echo -e "${BLUE}ℹ️  Using zero-configuration local setup${NC}"
+    echo ""
+
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+
+    # Check if Docker is running
+    if ! docker info > /dev/null 2>&1; then
+        echo -e "${RED}❌ Error: Docker is not running${NC}"
+        echo -e "${YELLOW}💡 Please start Docker Desktop and try again${NC}"
+        exit 1
+    fi
+
+    # Check if .env.docker.local exists and has DB_ENCRYPTION_KEY
+    if [ ! -f ".env.docker.local" ] || ! grep -q "^DB_ENCRYPTION_KEY=.\+" .env.docker.local 2>/dev/null; then
+        echo -e "${YELLOW}🔑 Generating DB_ENCRYPTION_KEY...${NC}"
+
+        # Generate encryption key using Docker to avoid installing cryptography globally
+        # Use Python 3.10-slim image (same as backend) with cryptography pre-installed
+        ENCRYPTION_KEY=$(docker run --rm python:3.10.17-slim sh -c "pip install --quiet --no-cache-dir cryptography > /dev/null 2>&1 && python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'" 2>/dev/null)
+
+        if [ $? -ne 0 ] || [ -z "$ENCRYPTION_KEY" ]; then
+            echo -e "${RED}❌ Error: Failed to generate encryption key using Docker${NC}"
+            echo -e "${YELLOW}💡 Make sure Docker is running and can pull images${NC}"
+            exit 1
+        fi
+
+        # Create or update .env.docker.local
+        if [ ! -f ".env.docker.local" ]; then
+            # Create new file
+            echo "# Auto-generated local environment configuration" > .env.docker.local
+            echo "" >> .env.docker.local
+            echo "# Database Encryption" >> .env.docker.local
+            echo "DB_ENCRYPTION_KEY=$ENCRYPTION_KEY" >> .env.docker.local
+            echo "" >> .env.docker.local
+            echo "# Local Authentication Bypass" >> .env.docker.local
+            echo "QUICK_START=true" >> .env.docker.local
+            echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
+            echo -e "${GREEN}✅ Created .env.docker.local with local configuration${NC}"
+        else
+            # Update existing file
+            if grep -q "^DB_ENCRYPTION_KEY=" .env.docker.local 2>/dev/null; then
+                # Replace existing line
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    sed -i '' "s|^DB_ENCRYPTION_KEY=.*|DB_ENCRYPTION_KEY=$ENCRYPTION_KEY|" .env.docker.local
+                else
+                    sed -i "s|^DB_ENCRYPTION_KEY=.*|DB_ENCRYPTION_KEY=$ENCRYPTION_KEY|" .env.docker.local
+                fi
+            else
+                # Add new line
+                echo "" >> .env.docker.local
+                echo "DB_ENCRYPTION_KEY=$ENCRYPTION_KEY" >> .env.docker.local
+            fi
+
+            # Add QUICK_START if missing
+            if ! grep -q "^QUICK_START=" .env.docker.local 2>/dev/null; then
+                echo "QUICK_START=true" >> .env.docker.local
+            fi
+
+            # Add NEXT_PUBLIC_QUICK_START if missing
+            if ! grep -q "^NEXT_PUBLIC_QUICK_START=" .env.docker.local 2>/dev/null; then
+                echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
+            fi
+
+            echo -e "${GREEN}✅ Local configuration updated in .env.docker.local${NC}"
+        fi
+    fi
+
+    echo ""
+    echo -e "${YELLOW}📦 Starting services ...${NC}"
+    docker compose --env-file .env.docker.local up -d postgres redis backend worker frontend
+
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}✅ All services started successfully!${NC}"
+        echo ""
+        echo -e "${CYAN}🌐 Access the platform:${NC}"
+        echo -e "   Frontend:  ${WHITE}http://localhost:3000${NC} (auto-login enabled)"
+        echo -e "   Backend:   ${WHITE}http://localhost:8080/docs${NC}"
+        echo -e "   Worker:    ${WHITE}http://localhost:8081/health/basic${NC}"
+        echo ""
+        echo -e "${YELLOW}💡 Useful commands:${NC}"
+        echo -e "   View logs:    ${GREEN}./rh logs${NC}"
+        echo -e "   Stop all:     ${GREEN}./rh stop${NC}"
+        echo -e "   Restart all:  ${GREEN}./rh restart${NC}"
+        echo ""
+    else
+        echo -e "${RED}❌ Error: Failed to start services${NC}"
+        exit 1
+    fi
+}
+
+# Function to stop all services
+stop_all() {
+    echo -e "${YELLOW}🛑 Stopping all Rhesis services...${NC}"
+
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+
+    docker compose down
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ All services stopped${NC}"
+    else
+        echo -e "${RED}❌ Error: Failed to stop services${NC}"
+        exit 1
+    fi
+}
+
+# Function to restart all services
+restart_all() {
+    echo -e "${YELLOW}🔄 Restarting all Rhesis services...${NC}"
+
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+
+    docker compose --env-file .env.docker.local restart
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ All services restarted${NC}"
+    else
+        echo -e "${RED}❌ Error: Failed to restart services${NC}"
+        exit 1
+    fi
+}
+
+# Function to view logs
+view_logs() {
+    echo -e "${BLUE}📋 Viewing logs...${NC}"
+
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+
+    if [ -z "$1" ]; then
+        # No service specified, show all logs
+        docker compose logs -f
+    else
+        # Show logs for specific service
+        docker compose logs -f "$1"
+    fi
+}
+
+# Function to delete all services, images, volumes, and data
+delete_all() {
+    echo -e "${RED}⚠️  WARNING: This will delete ALL Docker resources for Rhesis!${NC}"
+    echo -e "${YELLOW}This includes:${NC}"
+    echo -e "  - All running containers"
+    echo -e "  - All Docker images"
+    echo -e "  - All volumes (DATABASE DATA WILL BE LOST!)"
+    echo -e "  - All networks"
+    echo -e "  - .env.docker.local"
+    echo ""
+    echo -e "${RED}This action CANNOT be undone!${NC}"
+    echo ""
+    read -p "$(echo -e ${YELLOW}Are you sure you want to continue? Type \'yes\' to confirm: ${NC})" -r
+    echo ""
+
+    if [[ ! $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
+        echo -e "${GREEN}✅ Deletion cancelled${NC}"
+        exit 0
+    fi
+
+    echo -e "${YELLOW}🗑️  Deleting all Rhesis Docker resources...${NC}"
+
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+
+    # Stop and remove all services, volumes, and images
+    docker compose down -v --rmi all
+
+    rm -f .env.docker.local
+
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}✅ All Rhesis Docker resources deleted successfully!${NC}"
+        echo ""
+        echo -e "${CYAN}💡 To start fresh:${NC}"
+        echo -e "   ${GREEN}./rh start${NC}"
+        echo ""
+    else
+        echo -e "${RED}❌ Error: Failed to delete all resources${NC}"
+        exit 1
+    fi
 }
 
 # Function to start backend
@@ -91,10 +298,61 @@ start_docs() {
     fi
 }
 
+# Function to start polyphemus
+start_polyphemus() {
+    echo -e "${GREEN}🔮 Starting Rhesis Polyphemus...${NC}"
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+
+    # Check if virtual environment exists
+    if [ ! -d ".venv" ]; then
+        echo -e "${YELLOW}📦 Creating virtual environment...${NC}"
+        uv venv || {
+            echo -e "${RED}❌ Error: Failed to create virtual environment${NC}"
+            exit 1
+        }
+    fi
+
+    # Activate virtual environment
+    source .venv/bin/activate || {
+        echo -e "${RED}❌ Error: Failed to activate virtual environment${NC}"
+        exit 1
+    }
+
+    # Install dependencies if needed
+    if ! python -c "import rhesis.polyphemus" 2>/dev/null; then
+        echo -e "${YELLOW}📦 Installing Polyphemus dependencies...${NC}"
+        uv pip install -e apps/polyphemus || {
+            echo -e "${RED}❌ Error: Failed to install Polyphemus${NC}"
+            exit 1
+        }
+    fi
+
+    # Check if SDK is installed
+    if ! python -c "import rhesis-sdk[huggingface]" 2>/dev/null; then
+        echo -e "${YELLOW}📦 Installing SDK...${NC}"
+        uv pip install -e sdk || {
+            echo -e "${RED}❌ Error: Failed to install SDK${NC}"
+            exit 1
+        }
+    fi
+
+    echo -e "${GREEN}🚀 Starting Polyphemus service...${NC}"
+    echo -e "${BLUE}🌐 Service will be available at: http://localhost:8080${NC}"
+    echo -e "${BLUE}📚 API docs will be available at: http://localhost:8080/docs${NC}"
+    echo -e "${YELLOW}💡 Press Ctrl+C to stop the service${NC}"
+    echo ""
+
+    # Run uvicorn
+    exec uvicorn rhesis.polyphemus.main:app --host 0.0.0.0 --port 8080 --reload
+}
+
 # Function to start worker
 start_worker() {
     echo -e "${GREEN}⚙️  Starting Rhesis Worker...${NC}"
-    
+
     # Kill any existing celery workers first
     echo -e "${YELLOW}🔍 Checking for existing Celery workers...${NC}"
     if pgrep -f celery > /dev/null; then
@@ -105,7 +363,7 @@ start_worker() {
     else
         echo -e "${BLUE}ℹ️  No existing workers found${NC}"
     fi
-    
+
     # Clear Python cache
     echo -e "${YELLOW}🧹 Clearing Python cache...${NC}"
     cd "$SCRIPT_DIR" || {
@@ -115,7 +373,7 @@ start_worker() {
     find apps/backend -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null
     find apps/backend -type f -name "*.pyc" -delete 2>/dev/null
     echo -e "${GREEN}✅ Cache cleared${NC}"
-    
+
     cd "$SCRIPT_DIR/apps/backend" || {
         echo -e "${RED}❌ Error: Backend directory not found${NC}"
         exit 1
@@ -126,10 +384,10 @@ start_worker() {
     echo -e "${BLUE}📝 Logs will be written to: ${LOG_FILE}${NC}"
     echo -e "${YELLOW}💡 Press Ctrl+C to stop the worker${NC}"
     echo ""
-    
+
     # Set up trap to handle Ctrl+C gracefully
     trap "echo -e '\n${YELLOW}🛑 Shutting down worker...${NC}'; exit" INT TERM
-    
+
     # Run in foreground - using uv run handles the virtual environment automatically
     # Using --logfile parameter to write logs directly
     # Using --pool=solo to avoid forking issues on macOS with ML libraries (DeepEval/PyTorch)
@@ -165,6 +423,21 @@ test_frontend() {
 
 # Parse command line arguments
 case "$1" in
+    "start")
+        start_all
+        ;;
+    "stop")
+        stop_all
+        ;;
+    "restart")
+        restart_all
+        ;;
+    "logs")
+        view_logs "$2"
+        ;;
+    "delete")
+        delete_all
+        ;;
     "backend")
         case "$2" in
             "start")
@@ -212,6 +485,18 @@ case "$1" in
             *)
                 echo -e "${RED}❌ Unknown worker command: $2${NC}"
                 echo -e "${YELLOW}Use: ./rh worker start${NC}"
+                exit 1
+                ;;
+        esac
+        ;;
+    "polyphemus")
+        case "$2" in
+            "start")
+                start_polyphemus
+                ;;
+            *)
+                echo -e "${RED}❌ Unknown polyphemus command: $2${NC}"
+                echo -e "${YELLOW}Use: ./rh polyphemus start${NC}"
                 exit 1
                 ;;
         esac

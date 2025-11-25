@@ -22,6 +22,7 @@ import Link from 'next/link';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
+import { getTestResultStatus } from '@/utils/testResultStatus';
 
 interface TestRunHeaderProps {
   testRun: TestRunDetail;
@@ -152,23 +153,21 @@ export default function TestRunHeader({
     let testsWithTurnData = 0;
 
     testResults.forEach(result => {
-      // For multi-turn tests, check goal_evaluation
-      if (isMultiTurn && result.test_output?.goal_evaluation) {
-        const allCriteriaMet =
-          result.test_output.goal_evaluation.all_criteria_met;
-        const hasExecutionError =
-          result.test_output.status === 'error' ||
-          result.test_output.status === 'failure';
+      // Use unified status determination for both single-turn and multi-turn tests
+      // This checks test_metrics.metrics[].is_successful which is set by backend
+      // for both single-turn (SDK metrics) and multi-turn (Penelope metrics)
+      const status = getTestResultStatus(result);
 
-        if (hasExecutionError) {
-          executionErrors++;
-        } else if (allCriteriaMet) {
-          passed++;
-        } else {
-          failed++;
-        }
+      if (status === 'Error') {
+        executionErrors++;
+      } else if (status === 'Pass') {
+        passed++;
+      } else if (status === 'Fail') {
+        failed++;
+      }
 
-        // Track turn depth
+      // For multi-turn tests, track turn depth
+      if (isMultiTurn && result.test_output) {
         const turns =
           result.test_output.turns_used ||
           result.test_output.stats?.total_turns;
@@ -176,26 +175,6 @@ export default function TestRunHeader({
           totalTurns += turns;
           testsWithTurnData++;
         }
-        return;
-      }
-
-      // For single-turn tests, check metrics
-      const metrics = result.test_metrics?.metrics;
-
-      // No metrics or empty metrics = execution error
-      if (!metrics || Object.keys(metrics).length === 0) {
-        executionErrors++;
-        return;
-      }
-
-      // Check if all metrics passed
-      const allPassed = Object.values(metrics).every(
-        metric => metric.is_successful
-      );
-      if (allPassed) {
-        passed++;
-      } else {
-        failed++;
       }
     });
 
@@ -288,7 +267,13 @@ export default function TestRunHeader({
     <Box sx={{ mb: 4 }}>
       <Grid container spacing={3}>
         {/* Pass Rate Card */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <SummaryCard
             title="Pass Rate"
             value={`${stats.passRate}%`}
@@ -313,7 +298,13 @@ export default function TestRunHeader({
         </Grid>
 
         {/* Tests Executed Card */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <SummaryCard
             title="Tests Executed"
             value={stats.total}
@@ -330,7 +321,13 @@ export default function TestRunHeader({
         </Grid>
 
         {/* Duration Card */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <SummaryCard
             title="Duration"
             value={stats.duration}
@@ -345,7 +342,13 @@ export default function TestRunHeader({
         </Grid>
 
         {/* Status Card */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <Card
             sx={{
               height: '100%',
@@ -443,7 +446,7 @@ export default function TestRunHeader({
 
               {testRun.test_configuration?.endpoint?.id ? (
                 <Link
-                  href={`/endpoints/${testRun.test_configuration.endpoint.id}`}
+                  href={`/projects/endpoints/${testRun.test_configuration.endpoint.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ textDecoration: 'none' }}

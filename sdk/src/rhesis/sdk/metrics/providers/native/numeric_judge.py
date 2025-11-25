@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
 from rhesis.sdk.metrics.providers.native.configs import NumericJudgeConfig
@@ -39,6 +39,7 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
         name: Optional[str] = None,
         description: Optional[str] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
+        metric_scope: Optional[List[Union[str, MetricScope]]] = None,
         model: Optional[Union[str, BaseLLM]] = None,
         **kwargs,
     ):
@@ -81,6 +82,7 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
             name=name,
             description=description,
             metric_type=metric_type,
+            metric_scope=metric_scope,
             score_type=SCORE_TYPE,
             class_name=self.__class__.__name__,
         )
@@ -214,16 +216,3 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
         filtered_config = {k: v for k, v in config.items() if k in valid_fields}
 
         return cls.from_config(NumericJudgeConfig(**filtered_config))
-
-
-if __name__ == "__main__":
-
-    class TestSchema(BaseModel):
-        score: float
-        reason: str
-
-    output = {
-        "score": 0.5,
-        "reason": "This is a test reason",
-    }
-    response = TestSchema(**output)

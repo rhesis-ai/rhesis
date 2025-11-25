@@ -12,6 +12,8 @@ on:
       - 'apps/frontend/**'
       - '.github/workflows/frontend.yml'
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
   test:
@@ -23,7 +25,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: apps/frontend/package-lock.json
 
@@ -35,13 +37,15 @@ jobs:
       - name: Run tests
         run: |
           cd apps/frontend
-          npm test -- --passWithNoTests --ci --coverage --watchAll=false
+          npm test -- --passWithNoTests --ci --watchAll=false
 
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
-        with:
-          file: apps/frontend/coverage/lcov.info
-          directory: apps/frontend/
-          token: ${{secrets.CODECOV_TOKEN}}
-          flags: frontend
-          name: frontend-coverage
+      # Coverage collection disabled due to test-exclude compatibility issues
+      # with inflight override in package.json
+      # - name: Upload coverage reports
+      #   uses: codecov/codecov-action@v3
+      #   with:
+      #     file: apps/frontend/coverage/lcov.info
+      #     directory: apps/frontend/
+      #     token: ${{secrets.CODECOV_TOKEN}}
+      #     flags: frontend
+      #     name: frontend-coverage

@@ -1,7 +1,6 @@
 import uuid
-from dataclasses import asdict
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
@@ -12,16 +11,13 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.decorators import check_resource_permission
 from rhesis.backend.app.auth.permissions import ResourceAction
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.constants import TestType
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.documents import Document
-from rhesis.backend.app.schemas.services import SourceData
-from rhesis.backend.app.services.generation import process_sources_to_documents
+from rhesis.backend.app.schemas import services as services_schemas
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
     create_test_set_associations,
@@ -46,7 +42,7 @@ TestSetDetailSchema = create_detailed_schema(schemas.TestSet, models.TestSet)
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
 router = APIRouter(
-    prefix="/test_sets", tags=["test_sets"], responses={404: {"description": "Not found"}}
+    prefix="/test_sets", tags=["test_sets"], responses={404: {"description": "Not found the page"}}
 )
 
 
@@ -55,38 +51,9 @@ class StatsMode(str, Enum):
     RELATED_ENTITY = "related_entity"
 
 
-# Schemas for test set generation
-class GenerationSample(BaseModel):
-    text: str
-    behavior: str
-    topic: str
-    rating: Optional[int] = None
-    feedback: Optional[str] = ""
-
-
-class TestSetGenerationConfig(BaseModel):
-    project_name: Optional[str] = None
-    behaviors: List[str] = []
-    purposes: List[str] = []
-    test_type: str = "single_turn"
-    response_generation: str = "prompt_only"
-    test_coverage: str = "standard"
-    tags: List[str] = []
-    description: str = ""
-
-
-class TestSetGenerationRequest(BaseModel):
-    config: TestSetGenerationConfig
-    samples: List[GenerationSample] = []
-    synthesizer_type: str = "prompt"
-    num_tests: Optional[int] = None
-    batch_size: int = 20
-    documents: Optional[List[Document]] = None
-    sources: Optional[List[SourceData]] = None
-    name: Optional[str] = None
-
-
 class TestSetGenerationResponse(BaseModel):
+    """Response for test set generation task."""
+
     task_id: str
     message: str
     estimated_tests: int
@@ -113,159 +80,21 @@ def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str
     return db_test_set
 
 
-def build_generation_prompt(
-    config: TestSetGenerationConfig, samples: List[GenerationSample]
-) -> str:
-    """
-    Build a comprehensive prompt for test generation including sample ratings and feedback.
-
-    Args:
-        config: The generation configuration
-        samples: List of samples with ratings and feedback
-
-    Returns:
-        A formatted prompt string for the synthesizer
-    """
-    # Case-insensitive comparison using TestType enum
-    test_type_enum = TestType.from_string(config.test_type)
-    if test_type_enum == TestType.SINGLE_TURN:
-        test_type_string = "Single interaction tests"
-    elif test_type_enum == TestType.MULTI_TURN:
-        test_type_string = "Multi-turn conversation tests"
-    else:
-        # Fallback for unknown test types
-        test_type_string = f"{config.test_type} tests"
-
-    if config.response_generation == "prompt_only":
-        output_format_string = "Generate only user inputs"
-    else:
-        output_format_string = "Generate both user inputs and expected responses"
-    prompt_parts = [
-        "Generate comprehensive tests based on the following configuration:",
-        "",
-        "PROJECT CONTEXT:",
-        f"- Project: {config.project_name or 'General'}",
-        f"- Test Behaviors: {', '.join(config.behaviors)}",
-        f"- Test Purposes: {', '.join(config.purposes)}",
-        f"- Key Topics: {', '.join(config.tags)}",
-        f"- Test Type: {test_type_string}",
-        f"- Output Format: {output_format_string}",
-        "",
-        "SPECIFIC REQUIREMENTS:",
-        f"{config.description}",
-        "",
-    ]
-
-    if samples:
-        prompt_parts.extend(
-            [
-                "SAMPLE EVALUATION FEEDBACK:",
-                "The following samples were generated and rated by the user. "
-                "Use this feedback to improve the quality of new tests:",
-                "",
-            ]
-        )
-
-        for i, sample in enumerate(samples, 1):
-            rating_text = f"{sample.rating}/5 stars" if sample.rating is not None else "Not rated"
-            prompt_parts.extend(
-                [
-                    f"Sample {i}:",
-                    f'  Text: "{sample.text}"',
-                    f"  Behavior: {sample.behavior}",
-                    f"  Topic: {sample.topic}",
-                    f"  User Rating: {rating_text}",
-                ]
-            )
-
-            if sample.feedback and sample.feedback.strip():
-                prompt_parts.append(f'  User Feedback: "{sample.feedback}"')
-
-            prompt_parts.append("")
-
-        # Add guidance based on ratings
-        rated_samples = [s for s in samples if s.rating is not None]
-        if rated_samples:
-            avg_rating = sum(s.rating for s in rated_samples) / len(rated_samples)
-            prompt_parts.extend(
-                [
-                    "QUALITY GUIDANCE:",
-                    f"- Average sample rating: {avg_rating:.1f}/5.0",
-                ]
-            )
-
-            if avg_rating < 3.0:
-                prompt_parts.append(
-                    "- Focus on significant improvements based on the feedback provided"
-                )
-            elif avg_rating < 4.0:
-                prompt_parts.append(
-                    "- Make moderate improvements based on the feedback "
-                    "while maintaining good aspects"
-                )
-            else:
-                prompt_parts.append(
-                    "- Maintain the high quality demonstrated in the samples while adding variety"
-                )
-
-            prompt_parts.append("")
-
-    prompt_parts.extend(
-        [
-            "GENERATION INSTRUCTIONS:",
-            "Generate tests that:",
-            "1. Follow the same format and structure as the samples",
-            "2. Address the specific behaviors and purposes listed",
-            "3. Incorporate the feedback provided for similar quality improvements",
-            "4. Cover the key topics mentioned in the configuration",
-            "5. Maintain variety while staying focused on the requirements",
-        ]
-    )
-
-    return "\n".join(prompt_parts)
-
-
-def determine_test_count(config: TestSetGenerationConfig, requested_count: Optional[int]) -> int:
-    """
-    Determine the number of tests to generate based on coverage level and user request.
-
-    Args:
-        config: The generation configuration
-        requested_count: User-requested test count (if any)
-
-    Returns:
-        Number of tests to generate
-    """
-    if requested_count is not None and requested_count > 0:
-        return requested_count
-
-    # Default counts based on coverage level
-    coverage_mapping = {
-        "focused": 100,
-        "standard": 1000,
-        "comprehensive": 5000,
-    }
-
-    return coverage_mapping.get(config.test_coverage, 1000)
-
-
 @router.post("/generate", response_model=TestSetGenerationResponse)
 async def generate_test_set(
-    request: TestSetGenerationRequest,
+    request: services_schemas.GenerateTestsRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Generate a test set using AI synthesizers with user configuration and sample feedback.
+    Generate test set using ConfigSynthesizer.
 
-    This endpoint creates a comprehensive prompt from the user's configuration and sample
-    ratings, then launches a Celery task to generate the full test set.
+    - Small requests (num_tests ≤ 10): Could run synchronously (currently all async)
+    - Large requests (num_tests > 10): Run as background task
 
     Args:
-        request: The generation request containing config, samples, and parameters
-            - sources contains SourceData with id
-            (name, description, content will be fetched from DB)
+        request: Unified generation request with config, num_tests, sources
         db: Database session
         current_user: Current authenticated user
 
@@ -273,52 +102,19 @@ async def generate_test_set(
         Task information including task ID and estimated test count
     """
     try:
-        # Validate request
+        # Validate config
         if not request.config.behaviors:
             raise HTTPException(status_code=400, detail="At least one behavior must be specified")
 
-        if not request.config.description.strip():
-            raise HTTPException(status_code=400, detail="Description is required")
-
-        # Prepare documents from sources if provided
-        # Fetch full source data from database if only IDs are provided
-        documents_to_use = []
-        source_ids_to_documents = {}  # Map document name to source_id
-        source_ids_list = []  # List of source_ids in the same order as documents
-        if request.documents:
-            documents_to_use = request.documents
-        elif request.sources:
-            organization_id, user_id = tenant_context
-            documents_to_use, source_ids_list, source_ids_to_documents = (
-                process_sources_to_documents(
-                    sources=request.sources,
-                    db=db,
-                    organization_id=organization_id,
-                    user_id=user_id,
-                )
-            )
-
-        # Build the generation prompt from config and samples
-        generation_prompt = build_generation_prompt(request.config, request.samples)
-
-        # Determine test count
-        test_count = determine_test_count(request.config, request.num_tests)
-
-        # Launch the generation task
-        # Note: The task will fetch the user's configured model itself
-        # using get_user_generation_model. This avoids trying to serialize
-        # BaseLLM objects which are not JSON serializable
+        # Launch background task with explicit parameters
         task_result = task_launcher(
             generate_and_save_test_set,
-            request.synthesizer_type,  # First positional argument
             current_user=current_user,
-            num_tests=test_count,
+            config=request.config.model_dump(),
+            num_tests=request.num_tests,
             batch_size=request.batch_size,
-            prompt=generation_prompt,
-            documents=[asdict(doc) for doc in documents_to_use] if documents_to_use else None,
-            source_ids=source_ids_list,  # Pass actual source_ids list
-            source_ids_to_documents=source_ids_to_documents,  # Pass mapping for debugging
-            name=request.name,  # Pass optional test set name
+            sources=[s.model_dump() for s in request.sources] if request.sources else None,
+            name=request.name,
         )
 
         logger.info(
@@ -327,17 +123,15 @@ async def generate_test_set(
                 "task_id": task_result.id,
                 "user_id": current_user.id,
                 "organization_id": current_user.organization_id,
-                "synthesizer_type": request.synthesizer_type,
-                "test_count": test_count,
-                "sample_count": len(request.samples),
+                "num_tests": request.num_tests,
             },
         )
 
         return TestSetGenerationResponse(
             task_id=task_result.id,
-            message="Test set generation started. "
-            f"You will be notified when {test_count} tests are ready.",
-            estimated_tests=test_count,
+            message=f"Test set generation started. "
+            f"You will be notified when {request.num_tests} tests are ready.",
+            estimated_tests=request.num_tests,
         )
 
     except HTTPException:
@@ -400,11 +194,20 @@ async def create_test_set_bulk(
     - expected_response is an optional field to specify the expected model response
     """
     try:
+        # Extract test_set_type from request if provided
+        test_set_type = None
+        if test_set_data.test_set_type:
+            from rhesis.backend.app.constants import TestType
+
+            # Convert string to TestType enum using from_string helper
+            test_set_type = TestType.from_string(test_set_data.test_set_type)
+
         test_set = bulk_create_test_set(
             db=db,
             test_set_data=test_set_data,
             organization_id=str(current_user.organization_id),
             user_id=str(current_user.id),
+            test_set_type=test_set_type,
         )
         return test_set
     except Exception as e:

@@ -37,6 +37,9 @@ const nextConfig = {
   // These are the key additions to fix your caching issues
   generateEtags: !isDev, // Disable ETags in development
 
+  // Standalone mode for minimizing container size
+  output: 'standalone',
+
   // Compiler optimizations
   compiler: {
     // Remove console.log in production only
@@ -175,14 +178,8 @@ const nextConfig = {
       // Reduce worker threads to prevent memory issues
       config.parallelism = 2;
     } else {
-      // Production: more aggressive caching
-      config.cache = {
-        type: 'filesystem',
-        buildDependencies: {
-          config: [__filename],
-        },
-        version: '1.0.0',
-      };
+      // Production: disable caching
+      config.cache = false;
     }
 
     // Client-side optimizations

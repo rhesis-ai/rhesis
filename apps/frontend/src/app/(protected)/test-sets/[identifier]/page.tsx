@@ -100,7 +100,7 @@ export default async function TestSetPage({ params }: { params: any }) {
 
         <Grid container spacing={3}>
           {/* Main Content Column */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
               <TestSetDetailsSection
                 testSet={serializedTestSet}

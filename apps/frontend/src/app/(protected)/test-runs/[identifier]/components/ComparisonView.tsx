@@ -67,6 +67,8 @@ interface ComparisonViewProps {
     metrics: Array<{ name: string; description?: string }>;
   }>;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
+  project?: { icon?: string; useCase?: string; name?: string };
+  projectName?: string;
 }
 
 interface ComparisonTest {
@@ -84,6 +86,8 @@ export default function ComparisonView({
   prompts,
   behaviors,
   testSetType,
+  project,
+  projectName,
 }: ComparisonViewProps) {
   const theme = useTheme();
   const [selectedBaselineId, setSelectedBaselineId] = useState<string>(
@@ -193,7 +197,7 @@ export default function ComparisonView({
             test.current.test_output?.test_configuration?.goal?.toLowerCase() ||
             '';
           const evaluationContent =
-            test.current.test_output?.goal_evaluation?.reasoning?.toLowerCase() ||
+            test.current.test_output?.goal_evaluation?.reason?.toLowerCase() ||
             '';
           return (
             goalContent.includes(query) || evaluationContent.includes(query)
@@ -418,7 +422,6 @@ export default function ComparisonView({
           </Box>
         </Box>
       )}
-
       {/* Statistics */}
       {baselineTestResults && (
         <Paper
@@ -507,12 +510,16 @@ export default function ComparisonView({
           </Box>
         </Paper>
       )}
-
       {/* Comparison Headers - Moved Here */}
       {baselineTestResults && (
         <Grid container spacing={3} sx={{ mb: 3 }}>
           {/* Baseline Run */}
-          <Grid item xs={12} md={6}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 6,
+            }}
+          >
             <Card sx={{ height: '100%' }}>
               <CardContent sx={{ p: 3 }}>
                 <Typography
@@ -584,7 +591,12 @@ export default function ComparisonView({
           </Grid>
 
           {/* Current Run */}
-          <Grid item xs={12} md={6}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 6,
+            }}
+          >
             <Card
               sx={{
                 bgcolor: theme.palette.background.light2,
@@ -643,7 +655,6 @@ export default function ComparisonView({
           </Grid>
         </Grid>
       )}
-
       {/* Test-by-Test Comparison */}
       {baselineTestResults && (
         <Card>
@@ -706,12 +717,12 @@ export default function ComparisonView({
                   ? 'Overall Evaluation'
                   : 'Response';
                 const baselineResponse = isMultiTurn
-                  ? test.baseline?.test_output?.goal_evaluation?.reasoning ||
+                  ? test.baseline?.test_output?.goal_evaluation?.reason ||
                     'No evaluation available'
                   : test.baseline?.test_output?.output ||
                     'No response available';
                 const currentResponse = isMultiTurn
-                  ? test.current.test_output?.goal_evaluation?.reasoning ||
+                  ? test.current.test_output?.goal_evaluation?.reason ||
                     'No evaluation available'
                   : test.current.test_output?.output || 'No response available';
 
@@ -766,9 +777,6 @@ export default function ComparisonView({
                       <Grid container spacing={0}>
                         {/* Baseline Response/Evaluation */}
                         <Grid
-                          item
-                          xs={12}
-                          md={6}
                           sx={{
                             p: 2,
                             borderRight: { md: 1 },
@@ -778,6 +786,10 @@ export default function ComparisonView({
                               : isRegressed
                                 ? `${theme.palette.background.default}`
                                 : 'transparent',
+                          }}
+                          size={{
+                            xs: 12,
+                            md: 6,
                           }}
                         >
                           {/* Header with Status Inline */}
@@ -837,9 +849,6 @@ export default function ComparisonView({
 
                         {/* Current Response/Evaluation */}
                         <Grid
-                          item
-                          xs={12}
-                          md={6}
                           sx={{
                             p: 2,
                             bgcolor: isImproved
@@ -851,6 +860,10 @@ export default function ComparisonView({
                                   ? alpha(theme.palette.error.main, 0.08)
                                   : theme.palette.background.light3
                                 : 'transparent',
+                          }}
+                          size={{
+                            xs: 12,
+                            md: 6,
                           }}
                         >
                           {/* Header with Status Inline */}
@@ -922,7 +935,6 @@ export default function ComparisonView({
           </CardContent>
         </Card>
       )}
-
       {/* Detailed Comparison Dialog */}
       {/* For multi-turn tests, show side-by-side conversations. For single-turn, show detailed metrics. */}
       <Dialog
@@ -979,12 +991,13 @@ export default function ComparisonView({
                 >
                   {/* Baseline Conversation Column */}
                   <Grid
-                    item
-                    xs={12}
-                    md={6}
                     sx={{
                       borderRight: { md: 1 },
                       borderColor: 'divider',
+                    }}
+                    size={{
+                      xs: 12,
+                      md: 6,
                     }}
                   >
                     <Box
@@ -1046,6 +1059,14 @@ export default function ComparisonView({
                             goalEvaluation={
                               selectedTest.baseline.test_output.goal_evaluation
                             }
+                            project={project}
+                            projectName={projectName}
+                            hasExistingReview={
+                              !!selectedTest.baseline.last_review
+                            }
+                            reviewMatchesAutomated={
+                              selectedTest.baseline.matches_review === true
+                            }
                             maxHeight="100%"
                           />
                         </Box>
@@ -1066,9 +1087,13 @@ export default function ComparisonView({
                       )}
                     </Box>
                   </Grid>
-
                   {/* Current Conversation Column */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6,
+                    }}
+                  >
                     <Box
                       sx={{
                         height: '100%',
@@ -1140,6 +1165,14 @@ export default function ComparisonView({
                             goalEvaluation={
                               selectedTest.current.test_output.goal_evaluation
                             }
+                            project={project}
+                            projectName={projectName}
+                            hasExistingReview={
+                              !!selectedTest.current.last_review
+                            }
+                            reviewMatchesAutomated={
+                              selectedTest.current.matches_review === true
+                            }
                             maxHeight="100%"
                           />
                         </Box>
@@ -1170,12 +1203,13 @@ export default function ComparisonView({
                 >
                   {/* Baseline Column */}
                   <Grid
-                    item
-                    xs={12}
-                    md={6}
                     sx={{
                       borderRight: { md: 1 },
                       borderColor: 'divider',
+                    }}
+                    size={{
+                      xs: 12,
+                      md: 6,
                     }}
                   >
                     <Box
@@ -1481,9 +1515,13 @@ export default function ComparisonView({
                       )}
                     </Box>
                   </Grid>
-
                   {/* Current Column */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6,
+                    }}
+                  >
                     <Box
                       sx={{
                         p: 3,

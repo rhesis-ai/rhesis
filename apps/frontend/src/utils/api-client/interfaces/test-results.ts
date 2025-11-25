@@ -42,7 +42,7 @@ export interface CriterionEvaluation {
 export interface GoalEvaluation {
   all_criteria_met: boolean;
   confidence: number;
-  reasoning: string;
+  reason: string;
   evidence: string[];
   criteria_evaluations: CriterionEvaluation[];
   turn_count?: number;
@@ -267,7 +267,7 @@ export interface TestResult extends TestResultBase {
   created_at: string;
   updated_at: string;
   last_review?: Review;
-  matches_review: boolean;
+  matches_review?: boolean;
 }
 
 export interface TestResultDetail extends TestResult {

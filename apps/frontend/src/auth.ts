@@ -11,7 +11,7 @@ import {
   SESSION_DURATION_MS,
   SESSION_DURATION_SECONDS,
 } from './constants/auth';
-import { getClientApiBaseUrl } from './utils/url-resolver';
+import { getServerBackendUrl } from './utils/url-resolver';
 
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error(
@@ -19,7 +19,7 @@ if (!process.env.NEXTAUTH_SECRET) {
   );
 }
 
-const BACKEND_URL = getClientApiBaseUrl();
+const BACKEND_URL = getServerBackendUrl();
 
 export const authConfig: NextAuthConfig = {
   trustHost: true,

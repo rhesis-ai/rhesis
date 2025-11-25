@@ -57,10 +57,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    environment: ${{ github.event.inputs.environment || 'dev' }}
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
 
     env:
-      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       SERVICE: worker
 
     outputs:
@@ -143,10 +143,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    environment: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
+    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
 
     env:
-      ENVIRONMENT: ${{ needs.build.outputs.environment || github.event.inputs.environment || 'dev' }}
+      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment || 'dev' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -349,13 +349,14 @@ jobs:
 
           # Set environment-specific replica counts
           if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
-            sed -i 's/replicas: 4/replicas: 16/g' deployment.yaml
-            echo "  ✅ Production: Deploying with 16 initial replicas (32 total workers with concurrency=2)"
+            sed -i 's/replicas: 4/replicas: 2/g' deployment.yaml
+            echo "  ✅ Production: Deploying with 2 initial replicas (4 total workers with concurrency=2)"
           elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
-            sed -i 's/replicas: 4/replicas: 8/g' deployment.yaml
-            echo "  ✅ Staging: Deploying with 8 initial replicas (16 total workers with concurrency=2)"
+            sed -i 's/replicas: 4/replicas: 1/g' deployment.yaml
+            echo "  ✅ Staging: Deploying with 1 initial replica (2 total workers with concurrency=2)"
           else
-            echo "  ✅ Development: Deploying with 4 initial replicas (8 total workers with concurrency=2)"
+            sed -i 's/replicas: 4/replicas: 1/g' deployment.yaml
+            echo "  ✅ Development: Deploying with 1 initial replica (2 total workers with concurrency=2)"
           fi
 
           echo "🧹 Clean deployment preparation completed"
@@ -366,20 +367,20 @@ jobs:
           # Configure HPA based on environment with optimized concurrency=2
           echo "🌍 Configuring for ${{ env.ENV_VALUE }} environment (concurrency=2 optimized)..."
           if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
-            MIN_REPLICAS="16"
-            MAX_REPLICAS="32"
+            MIN_REPLICAS="2"
+            MAX_REPLICAS="4"
             NAMESPACE_NAME="rhesis-worker"
-            echo "  - Production: Min 16, Max 32 replicas (32-64 total workers)"
+            echo "  - Production: Min 2, Max 4 replicas (4-8 total workers)"
           elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
-            MIN_REPLICAS="8"
-            MAX_REPLICAS="16"
+            MIN_REPLICAS="1"
+            MAX_REPLICAS="2"
             NAMESPACE_NAME="rhesis-worker-${{ env.ENV_VALUE }}"
-            echo "  - Staging: Min 8, Max 16 replicas (16-32 total workers)"
+            echo "  - Staging: Min 1, Max 2 replicas (2-4 total workers)"
           else
-            MIN_REPLICAS="4"
-            MAX_REPLICAS="8"
+            MIN_REPLICAS="1"
+            MAX_REPLICAS="2"
             NAMESPACE_NAME="rhesis-worker-${{ env.ENV_VALUE }}"
-            echo "  - Development: Min 4, Max 8 replicas (8-16 total workers)"
+            echo "  - Development: Min 1, Max 2 replicas (2-4 total workers)"
           fi
 
           # Generate HPA with environment-specific values
@@ -500,11 +501,11 @@ jobs:
           echo "  ✅ Resource optimization: Applied (4Gi/6Gi memory, 250m CPU)"
           echo "  ✅ Concurrency: Optimized 2 workers per pod (minimal memory usage)"
           if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
-            echo "  ✅ Autoscaling: Enabled with HPA (16-32 pods, 32-64 total workers)"
+            echo "  ✅ Autoscaling: Enabled with HPA (2-4 pods, 4-8 total workers)"
           elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
-            echo "  ✅ Autoscaling: Enabled with HPA (8-16 pods, 16-32 total workers)"
+            echo "  ✅ Autoscaling: Enabled with HPA (1-2 pods, 2-4 total workers)"
           else
-            echo "  ✅ Autoscaling: Enabled with HPA (4-8 pods, 8-16 total workers)"
+            echo "  ✅ Autoscaling: Enabled with HPA (1-2 pods, 2-4 total workers)"
           fi
           echo "  ✅ Cleanup: Old pods removed"
 

@@ -7,6 +7,7 @@ from rhesis.penelope.context import (
     TestContext,
     TestResult,
     TestState,
+    ToolExecution,
     Turn,
 )
 from rhesis.penelope.schemas import (
@@ -65,37 +66,42 @@ def test_test_state_initialization(sample_test_context):
 
 
 def test_test_state_add_turn(sample_test_state):
-    """Test adding a turn to TestState."""
+    """Test adding a turn to TestState using add_execution."""
+    # Use a target interaction tool to complete a turn
     assistant_msg = AssistantMessage(
         content="Test reasoning",
         tool_calls=[
             MessageToolCall(
                 id="call_1",
                 type="function",
-                function=FunctionCall(name="test_tool", arguments='{"param": "value"}'),
+                function=FunctionCall(
+                    name="send_message_to_target", arguments='{"param": "value"}'
+                ),
             )
         ],
     )
 
     tool_msg = ToolMessage(
         tool_call_id="call_1",
-        name="test_tool",
+        name="send_message_to_target",
         content='{"success": true, "output": {"result": "test"}}',
     )
 
-    sample_test_state.add_turn(
+    completed_turn = sample_test_state.add_execution(
         reasoning="Test reasoning",
         assistant_message=assistant_msg,
         tool_message=tool_msg,
     )
 
+    # Verify turn was completed
+    assert completed_turn is not None
     assert sample_test_state.current_turn == 1
     assert len(sample_test_state.turns) == 1
 
     turn = sample_test_state.turns[0]
     assert turn.turn_number == 1
-    assert turn.reasoning == "Test reasoning"
-    assert turn.tool_name == "test_tool"
+    assert turn.target_interaction.reasoning == "Test reasoning"
+    assert turn.target_interaction.tool_name == "send_message_to_target"
 
 
 def test_test_state_add_finding(sample_test_state):
@@ -117,14 +123,14 @@ def test_test_state_get_conversation_messages(sample_test_state):
             MessageToolCall(
                 id="call_1",
                 type="function",
-                function=FunctionCall(name="test_tool", arguments="{}"),
+                function=FunctionCall(name="send_message_to_target", arguments='{"message": "Hello"}'),
             )
         ],
     )
 
-    tool_msg = ToolMessage(tool_call_id="call_1", name="test_tool", content='{"success": true}')
+    tool_msg = ToolMessage(tool_call_id="call_1", name="send_message_to_target", content='{"success": true}')
 
-    sample_test_state.add_turn(
+    sample_test_state.add_execution(
         reasoning="Test reasoning",
         assistant_message=assistant_msg,
         tool_message=tool_msg,
@@ -162,29 +168,36 @@ def test_turn_properties():
             MessageToolCall(
                 id="call_1",
                 type="function",
-                function=FunctionCall(name="test_tool", arguments='{"param": "value"}'),
+                function=FunctionCall(name="send_message_to_target", arguments='{"param": "value"}'),
             )
         ],
     )
 
     tool_msg = ToolMessage(
         tool_call_id="call_1",
-        name="test_tool",
+        name="send_message_to_target",
         content='{"success": true, "output": {"result": "test"}}',
+    )
+
+    # Create a ToolExecution for the target interaction
+    target_execution = ToolExecution(
+        tool_name="send_message_to_target",
+        reasoning="Test reasoning",
+        assistant_message=assistant_msg,
+        tool_message=tool_msg,
     )
 
     turn = Turn(
         turn_number=1,
-        assistant_message=assistant_msg,
-        tool_message=tool_msg,
-        reasoning="Test reasoning",
+        executions=[target_execution],
+        target_interaction=target_execution,
     )
 
     # Test property accessors
-    assert turn.tool_name == "test_tool"
-    assert turn.tool_arguments == {"param": "value"}
+    assert turn.target_interaction.tool_name == "send_message_to_target"
+    assert turn.target_interaction.get_tool_call_arguments() == {"param": "value"}
 
-    tool_result = turn.tool_result
+    tool_result = turn.target_interaction.tool_result
     assert tool_result["success"] is True
     assert tool_result["output"]["result"] == "test"
 
@@ -193,38 +206,56 @@ def test_turn_properties_with_no_tool_calls():
     """Test Turn properties when no tool_calls are present."""
     assistant_msg = AssistantMessage(content="Test reasoning", tool_calls=None)
 
-    tool_msg = ToolMessage(tool_call_id="call_1", name="test_tool", content='{"success": true}')
+    tool_msg = ToolMessage(tool_call_id="call_1", name="send_message_to_target", content='{"success": true}')
+
+    # Create a ToolExecution for the target interaction
+    target_execution = ToolExecution(
+        tool_name="send_message_to_target",
+        reasoning="Test reasoning",
+        assistant_message=assistant_msg,
+        tool_message=tool_msg,
+    )
 
     turn = Turn(
         turn_number=1,
-        assistant_message=assistant_msg,
-        tool_message=tool_msg,
-        reasoning="Test reasoning",
+        executions=[target_execution],
+        target_interaction=target_execution,
     )
 
     # Should handle missing tool_calls gracefully
-    assert turn.tool_name == "unknown"
-    assert turn.tool_arguments == {}
+    assert turn.target_interaction.tool_name == "send_message_to_target"
+    assert turn.target_interaction.get_tool_call_arguments() == {}
 
 
 def test_test_result_creation():
     """Test TestResult initialization."""
-    turn = Turn(
-        turn_number=1,
-        assistant_message=AssistantMessage(
+    assistant_msg = AssistantMessage(
             content="Test",
             tool_calls=[
                 MessageToolCall(
                     id="call_1",
                     type="function",
-                    function=FunctionCall(name="test_tool", arguments="{}"),
+                function=FunctionCall(name="send_message_to_target", arguments="{}"),
                 )
             ],
-        ),
-        tool_message=ToolMessage(
-            tool_call_id="call_1", name="test_tool", content='{"success": true}'
-        ),
+    )
+    
+    tool_msg = ToolMessage(
+        tool_call_id="call_1", name="send_message_to_target", content='{"success": true}'
+    )
+    
+    # Create a ToolExecution for the target interaction
+    target_execution = ToolExecution(
+        tool_name="send_message_to_target",
         reasoning="Test",
+        assistant_message=assistant_msg,
+        tool_message=tool_msg,
+    )
+    
+    turn = Turn(
+        turn_number=1,
+        executions=[target_execution],
+        target_interaction=target_execution,
     )
 
     result = TestResult(
@@ -309,7 +340,7 @@ def test_test_context_full_initialization():
 
 
 def test_generate_metrics_with_no_metrics():
-    """Test _generate_metrics returns fallback when no metrics available."""
+    """Test _generate_metrics returns empty dict when no metrics available."""
     test_context = TestContext(
         target_id="test",
         target_type="test",
@@ -321,11 +352,9 @@ def test_generate_metrics_with_no_metrics():
     # No metrics in state
     metrics = state._generate_metrics(goal_achieved=True)
 
-    # Should return fallback
-    assert "Goal Achievement" in metrics
-    assert metrics["Goal Achievement"]["is_successful"] is True
-    assert metrics["Goal Achievement"]["score"] == 0.5
-    assert "No detailed evaluation available" in metrics["Goal Achievement"]["reason"]
+    # Should return empty dict - no fallbacks
+    assert metrics == {}
+    assert len(metrics) == 0
 
 
 def test_generate_metrics_with_single_metric():
@@ -353,10 +382,11 @@ def test_generate_metrics_with_single_metric():
 
     metrics = state._generate_metrics(goal_achieved=True)
 
-    # Verify metric was included
+    # Verify metric was included with flattened structure
     assert "Test Metric" in metrics  # snake_case to Title Case
     assert metrics["Test Metric"]["score"] == 0.85
-    assert metrics["Test Metric"]["details"]["is_successful"] is True
+    assert metrics["Test Metric"]["is_successful"] is True  # Flattened from details
+    assert metrics["Test Metric"]["reason"] == "Goal achieved"  # Flattened from details
 
 
 def test_generate_metrics_with_multiple_metrics():
@@ -372,9 +402,7 @@ def test_generate_metrics_with_multiple_metrics():
     state = TestState(context=test_context)
 
     # Add multiple metric results
-    metric1 = MetricResult(
-        score=0.9, details={"name": "goal_achievement", "is_successful": True}
-    )
+    metric1 = MetricResult(score=0.9, details={"name": "goal_achievement", "is_successful": True})
     metric2 = MetricResult(score=0.75, details={"name": "turn_relevancy"})
     metric3 = MetricResult(score=0.85, details={"name": "custom_metric"})
 
@@ -480,11 +508,11 @@ def test_generate_metrics_dynamic_naming():
     # Verify Title Case conversion
     assert "My Custom Metric" in metrics
     assert "Another Test" in metrics
-    assert "Unnamed Metric" in metrics  # Fallback for missing name
+    assert "Penelope Goal Evaluation" in metrics  # Fallback for missing name
 
 
 def test_generate_metrics_serialization():
-    """Test _generate_metrics properly serializes MetricResult to dict."""
+    """Test _generate_metrics flattens MetricResult details to top level."""
     from rhesis.sdk.metrics.base import MetricResult
 
     test_context = TestContext(
@@ -509,10 +537,13 @@ def test_generate_metrics_serialization():
 
     metrics = state._generate_metrics(goal_achieved=True)
 
-    # Verify proper serialization
+    # Verify flattened structure - all details fields are at top level
     complex_metric = metrics["Complex Metric"]
     assert complex_metric["score"] == 0.95
-    assert complex_metric["details"]["is_successful"] is True
-    assert complex_metric["details"]["reason"] == "All checks passed"
-    assert complex_metric["details"]["metadata"]["key1"] == "value1"
-    assert complex_metric["details"]["metadata"]["key2"] == [1, 2, 3]
+    assert complex_metric["is_successful"] is True  # Flattened from details
+    assert complex_metric["reason"] == "All checks passed"  # Flattened from details
+    assert complex_metric["metadata"]["key1"] == "value1"  # Nested object preserved
+    assert complex_metric["metadata"]["key2"] == [1, 2, 3]
+    assert complex_metric["name"] == "complex_metric"  # Also flattened
+    # No nested 'details' key
+    assert "details" not in complex_metric or complex_metric["score"] == 0.95

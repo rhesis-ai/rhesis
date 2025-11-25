@@ -29,6 +29,7 @@ import GroupAddIcon from '@mui/icons-material/GroupAddOutlined';
 import ControlCameraIcon from '@mui/icons-material/ControlCameraOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMoreOutlined';
 import TuneIcon from '@mui/icons-material/TuneOutlined';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunchOutlined';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -39,6 +40,75 @@ export default function LandingPage() {
   const [backendSessionValid, setBackendSessionValid] = useState<
     boolean | null
   >(null);
+  const [autoLoggingIn, setAutoLoggingIn] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isQuickStartMode, setIsQuickStartMode] = useState(false);
+
+  // Set mounted state after client-side hydration
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Check Quick Start mode after mount (client-side only)
+  // SECURITY: Defer computation until after client-side mount to ensure hostname validation
+  // During SSR, window is undefined and hostname checks are skipped, which could allow
+  // Quick Start mode in cloud deployments if NEXT_PUBLIC_QUICK_START is misconfigured.
+  useEffect(() => {
+    if (!mounted) return;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { isQuickStartEnabled } = require('@/utils/quick_start');
+    setIsQuickStartMode(isQuickStartEnabled());
+  }, [mounted]);
+
+  // Auto-login for Quick Start mode
+  useEffect(() => {
+    if (!mounted) return;
+    // Use robust multi-factor detection to determine if Quick Start mode is enabled
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { isQuickStartEnabled } = require('@/utils/quick_start');
+    const quickStartEnabled = isQuickStartEnabled();
+
+    // Only auto-login if:
+    // 1. Quick Start mode is enabled
+    // 2. User is not authenticated
+    // 3. Not already in the process of logging in
+    // 4. No session expiration flag
+    if (quickStartEnabled && status === 'unauthenticated' && !autoLoggingIn) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isSessionExpired = urlParams.get('session_expired') === 'true';
+      const isForcedLogout = urlParams.get('force_logout') === 'true';
+
+      // Don't auto-login if user was forcefully logged out
+      if (!isSessionExpired && !isForcedLogout) {
+        setAutoLoggingIn(true);
+
+        // Call the local-login endpoint
+        fetch(`${getClientApiBaseUrl()}/auth/local-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+          .then(async response => {
+            if (response.ok) {
+              const data = await response.json();
+              // Sign in with NextAuth using the session token
+              const { signIn } = await import('next-auth/react');
+              await signIn('credentials', {
+                session_token: data.session_token,
+                redirect: true,
+                callbackUrl: '/dashboard',
+              });
+            } else {
+              console.error('Local auto-login failed');
+              setAutoLoggingIn(false);
+            }
+          })
+          .catch(error => {
+            console.error('Local auto-login error:', error);
+            setAutoLoggingIn(false);
+          });
+      }
+    }
+  }, [mounted, status, autoLoggingIn]);
 
   useEffect(() => {
     // Check if user was redirected due to session expiration or forced logout
@@ -106,8 +176,27 @@ export default function LandingPage() {
     }
   }, [session, status, router, sessionExpired, backendSessionValid]);
 
-  if (status === 'loading') {
-    return null;
+  // Show loading state while NextAuth is loading or while auto-login is in progress
+  if (status === 'loading' || autoLoggingIn) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        <CircularProgress />
+        {autoLoggingIn && (
+          <Typography variant="body2" color="text.secondary">
+            Logging in...
+          </Typography>
+        )}
+      </Box>
+    );
   }
 
   if (
@@ -120,15 +209,16 @@ export default function LandingPage() {
       <Grid container component="main" sx={{ height: '100vh' }}>
         {/* Left side - Background and content */}
         <Grid
-          item
-          xs={false}
-          sm={4}
-          md={7}
           sx={{
             backgroundColor: 'primary.dark',
             position: 'relative',
             display: 'flex',
             flexDirection: 'column',
+          }}
+          size={{
+            xs: false,
+            sm: 4,
+            md: 7,
           }}
         >
           <AppBar
@@ -251,9 +341,17 @@ export default function LandingPage() {
             </Box>
           </Box>
         </Grid>
-
         {/* Right side - Authentication message */}
-        <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
+        <Grid
+          component={Paper}
+          elevation={6}
+          square
+          size={{
+            xs: 12,
+            sm: 8,
+            md: 5,
+          }}
+        >
           <Box
             sx={{
               display: 'flex',
@@ -292,13 +390,38 @@ export default function LandingPage() {
                     : 'rgba(255, 255, 255, 0.9)',
               }}
             >
-              <Typography variant="h5" gutterBottom>
-                Welcome back, {session.user?.name || 'User'}!
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                You&apos;re already logged in. Redirecting you to the
-                dashboard...
-              </Typography>
+              {isQuickStartMode ? (
+                <>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 1,
+                      mb: 1,
+                    }}
+                  >
+                    <RocketLaunchIcon
+                      sx={{ fontSize: 28, color: 'primary.main' }}
+                    />
+                    <Typography variant="h5">QUICK START MODE</Typography>
+                  </Box>
+                  <Typography variant="body1" gutterBottom>
+                    Starting with zero configuration. Redirecting to
+                    dashboard...
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <Typography variant="h5" gutterBottom>
+                    Welcome back, {session.user?.name || 'User'}!
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    You&apos;re already logged in. Redirecting you to the
+                    dashboard...
+                  </Typography>
+                </>
+              )}
               <CircularProgress sx={{ mt: 2 }} />
             </Box>
           </Box>
@@ -311,15 +434,16 @@ export default function LandingPage() {
     <Grid container component="main" sx={{ height: '100vh' }}>
       {/* Left side - Background and content */}
       <Grid
-        item
-        xs={false}
-        sm={4}
-        md={7}
         sx={{
           backgroundColor: 'primary.dark',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
+        }}
+        size={{
+          xs: false,
+          sm: 4,
+          md: 7,
         }}
       >
         <AppBar
@@ -440,9 +564,17 @@ export default function LandingPage() {
           </Box>
         </Box>
       </Grid>
-
       {/* Right side - Login form */}
-      <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
+      <Grid
+        component={Paper}
+        elevation={6}
+        square
+        size={{
+          xs: 12,
+          sm: 8,
+          md: 5,
+        }}
+      >
         <Box
           sx={{
             display: 'flex',
