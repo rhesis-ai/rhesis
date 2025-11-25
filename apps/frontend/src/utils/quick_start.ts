@@ -26,6 +26,35 @@
  * ```
  */
 export function isQuickStartEnabled(hostname?: string): boolean {
+  // SECURITY: Check hostname FIRST to prevent Quick Start mode in cloud deployments
+  // This is a fail-secure check that runs before checking environment variables
+  const checkHostname =
+    hostname || (typeof window !== 'undefined' ? window.location.hostname : '');
+  if (checkHostname) {
+    const hostnameLower = checkHostname.toLowerCase();
+
+    // Check for Rhesis cloud domains (any domain containing rhesis.ai)
+    if (hostnameLower.includes('rhesis.ai')) {
+      console.debug(
+        `QUICK START MODE disabled: Cloud hostname detected (${checkHostname})`
+      );
+      return false;
+    }
+
+    // Google Cloud Run domains
+    const cloudRunDomains = ['.run.app', '.cloudrun.dev', '.appspot.com'];
+
+    // Check for Cloud Run domains
+    for (const cloudDomain of cloudRunDomains) {
+      if (hostnameLower.includes(cloudDomain)) {
+        console.debug(
+          `QUICK START MODE disabled: Cloud Run domain detected (${checkHostname})`
+        );
+        return false;
+      }
+    }
+  }
+
   // 1. Check QUICK_START environment variable (default: false for safety)
   // In Next.js, check both NEXT_PUBLIC_QUICK_START (build-time) and QUICK_START (runtime)
   const quickStartEnv =
@@ -40,33 +69,18 @@ export function isQuickStartEnabled(hostname?: string): boolean {
     "QUICK START MODE environment variable set to 'true', validating deployment signals..."
   );
 
-  // 2. HOSTNAME/DOMAIN CHECKS - Fail if cloud domain detected
-  const checkHostname =
-    hostname || (typeof window !== 'undefined' ? window.location.hostname : '');
-  if (checkHostname) {
-    const hostnameLower = checkHostname.toLowerCase();
-
-    // Check for Rhesis cloud domains (any domain containing rhesis.ai)
-    if (hostnameLower.includes('rhesis.ai')) {
-      console.warn(
-        ` QUICK START MODE disabled: Cloud hostname detected (${checkHostname})`
-      );
-      return false;
-    }
-
-    // Google Cloud Run domains
-    const cloudRunDomains = ['.run.app', '.cloudrun.dev', '.appspot.com'];
-
-    // Check for Cloud Run domains
-    for (const cloudDomain of cloudRunDomains) {
-      if (hostnameLower.includes(cloudDomain)) {
-        console.warn(
-          ` QUICK START MODE disabled: Cloud Run domain detected (${checkHostname})`
-        );
-        return false;
-      }
-    }
+  // 2. Check FRONTEND_ENV - should be 'local' for Quick Start mode
+  const frontendEnv = process.env.FRONTEND_ENV?.toLowerCase();
+  if (frontendEnv !== 'local') {
+    console.warn(
+      ` QUICK START MODE disabled: FRONTEND_ENV is '${process.env.FRONTEND_ENV}', not 'local'`
+    );
+    return false;
   }
+
+  console.debug(
+    " QUICK START MODE: FRONTEND_ENV confirmed as 'local', validating deployment signals..."
+  );
 
   // All checks passed - QUICK START MODE is enabled
   console.info(
