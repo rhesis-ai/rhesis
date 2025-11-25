@@ -335,7 +335,12 @@ jobs:
               --no-cpu-throttling \
               --set-env-vars="$(cat <<EOF
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
-          TRANSFORMERS_CACHE=/app/model_cache
+          TRANSFORMERS_CACHE=/app/model_cache,
+          SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
+          SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
+          SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
+          SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
+          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}
           EOF
           )"
 
@@ -363,7 +368,12 @@ jobs:
               --no-cpu-throttling \
               --set-env-vars="$(cat <<EOF
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
-          TRANSFORMERS_CACHE=/app/model_cache
+          TRANSFORMERS_CACHE=/app/model_cache,
+          SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
+          SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
+          SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
+          SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
+          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}
           EOF
           )"
 
