@@ -112,7 +112,7 @@ testpaths = [
     "../tests/sdk",
 
 ]
-addopts = " --ignore=../tests/sdk/entities"
+# addopts = " --ignore=../tests/sdk/entities"
 
 pythonpath = [
     "src",

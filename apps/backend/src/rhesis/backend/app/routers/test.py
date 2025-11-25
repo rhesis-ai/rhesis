@@ -388,7 +388,7 @@ def execute_test_endpoint(
         # The schema's model_post_init handles validation of required fields
 
         # Convert request to dict for service
-        request_data = request.model_dump()
+        request_data = request.model_dump(mode="json")
 
         # Execute test in-place
         from rhesis.backend.app.services.test_execution import execute_test_in_place
