@@ -30,7 +30,7 @@ def test_single_turn_requires_prompt(mocker):
 
     # Mock crud.get_test to return our mock test
     mocker.patch(
-        "rhesis.backend.tasks.execution.executors.shared.crud.get_test", return_value=mock_test
+        "rhesis.backend.tasks.execution.executors.data.crud.get_test", return_value=mock_test
     )
 
     # This should raise ValueError for missing prompt
@@ -53,7 +53,7 @@ def test_multi_turn_requires_goal(mocker):
 
     # Mock crud.get_test to return our mock test
     mocker.patch(
-        "rhesis.backend.tasks.execution.executors.shared.crud.get_test", return_value=mock_test
+        "rhesis.backend.tasks.execution.executors.data.crud.get_test", return_value=mock_test
     )
 
     # This should raise ValueError for missing goal
@@ -81,7 +81,7 @@ def test_single_turn_with_prompt_succeeds(mocker):
 
     # Mock crud.get_test to return our mock test
     mocker.patch(
-        "rhesis.backend.tasks.execution.executors.shared.crud.get_test", return_value=mock_test
+        "rhesis.backend.tasks.execution.executors.data.crud.get_test", return_value=mock_test
     )
 
     # This should succeed
@@ -107,7 +107,7 @@ def test_multi_turn_with_goal_succeeds(mocker):
 
     # Mock crud.get_test to return our mock test
     mocker.patch(
-        "rhesis.backend.tasks.execution.executors.shared.crud.get_test", return_value=mock_test
+        "rhesis.backend.tasks.execution.executors.data.crud.get_test", return_value=mock_test
     )
 
     # This should succeed
@@ -134,7 +134,7 @@ def test_multi_turn_with_empty_goal_fails(mocker):
 
     # Mock crud.get_test to return our mock test
     mocker.patch(
-        "rhesis.backend.tasks.execution.executors.shared.crud.get_test", return_value=mock_test
+        "rhesis.backend.tasks.execution.executors.data.crud.get_test", return_value=mock_test
     )
 
     # This should raise ValueError for empty goal
