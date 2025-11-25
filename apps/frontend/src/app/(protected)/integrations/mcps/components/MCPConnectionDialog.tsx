@@ -333,13 +333,7 @@ export function MCPConnectionDialog({
             type="submit"
             variant="contained"
             disabled={
-              !name ||
-              (!isEditMode && requiresToken && !authToken) ||
-              (isEditMode &&
-                requiresToken &&
-                authToken === '************' &&
-                !description) ||
-              loading
+              !name || (!isEditMode && requiresToken && !authToken) || loading
             }
             size="large"
             sx={{

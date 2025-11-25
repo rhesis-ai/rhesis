@@ -41,7 +41,7 @@ export class ToolsClient extends BaseApiClient {
 
   async updateTool(id: string, tool: ToolUpdate): Promise<Tool> {
     return this.fetch<Tool>(`${API_ENDPOINTS.tools}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(tool),
     });
   }

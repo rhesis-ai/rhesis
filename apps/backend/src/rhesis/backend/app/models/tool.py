@@ -37,4 +37,4 @@ class Tool(Base, OrganizationAndUserMixin):
     user = relationship("User", foreign_keys="[Tool.user_id]", back_populates="tools")
     organization = relationship(
         "Organization", foreign_keys="[Tool.organization_id]", back_populates="tools"
-        )
+    )
