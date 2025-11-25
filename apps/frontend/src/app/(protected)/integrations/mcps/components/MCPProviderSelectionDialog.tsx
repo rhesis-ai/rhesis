@@ -91,7 +91,10 @@ export function MCPProviderSelectionDialog({
               provider.type_value
             );
             const isCustom = provider.type_value === 'custom';
-            const isEnabled = isSupported || isCustom;
+            // Only enable Notion and custom providers
+            const isEnabled =
+              provider.type_value === 'notion' ||
+              provider.type_value === 'custom';
 
             const providerInfo: MCPProviderInfo = {
               id: provider.type_value,
@@ -142,7 +145,7 @@ export function MCPProviderSelectionDialog({
                           }}
                         />
                       )}
-                      {!isSupported && !isCustom && (
+                      {!isEnabled && !isCustom && (
                         <Chip
                           label="Coming Soon"
                           size="small"
