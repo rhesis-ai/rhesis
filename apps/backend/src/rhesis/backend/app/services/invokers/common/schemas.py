@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RequestDetails(BaseModel):
@@ -48,13 +48,10 @@ class ErrorResponse(BaseModel):
     # Additional context (for extensibility)
     context: Optional[Dict[str, Any]] = Field(None, description="Additional error context")
 
-    class Config:
-        """Pydantic configuration."""
-
-        extra = "allow"  # Allow additional fields for backward compatibility
-        json_encoders = {
-            # Custom encoders if needed
-        }
+    model_config = ConfigDict(
+        extra="allow",  # Allow additional fields for backward compatibility
+        # json_encoders can be replaced with custom serializers if needed
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -77,7 +74,6 @@ class SuccessResponse(BaseModel):
     # Performance fields
     duration_ms: Optional[float] = Field(None, description="Operation duration in milliseconds")
 
-    class Config:
-        """Pydantic configuration."""
-
-        extra = "allow"  # Allow additional fields for flexibility
+    model_config = ConfigDict(
+        extra="allow"  # Allow additional fields for flexibility
+    )
