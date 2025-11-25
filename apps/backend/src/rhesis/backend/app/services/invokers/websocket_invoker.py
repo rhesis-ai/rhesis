@@ -101,8 +101,8 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             logger.info(f"Input data keys: {list(input_data.keys())}")
             logger.debug(f"Full input data: {json.dumps(input_data, indent=2, default=str)}")
 
-            # Run the async WebSocket communication in a sync context
-            result = asyncio.run(self._async_invoke(db, endpoint, input_data))
+            # Run the async WebSocket communication
+            result = await self._async_invoke(db, endpoint, input_data)
 
             duration = time.time() - start_time
             logger.info(f"=== WebSocket invocation completed in {duration:.2f}s ===")
