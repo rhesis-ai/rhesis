@@ -17,7 +17,6 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import UploadIcon from '@mui/icons-material/Upload';
-import CloudIcon from '@mui/icons-material/Cloud';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DragAndDropUpload from '@/components/common/DragAndDropUpload';
@@ -213,31 +212,7 @@ export default function UploadSourceDialog({
                 maxSize={FILE_SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
                 disabled={uploading}
               />
-
-              {/* Import from Notion Button */}
-              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<CloudIcon />}
-                  disabled
-                  fullWidth
-                  sx={{
-                    justifyContent: 'space-between',
-                    textTransform: 'none',
-                  }}
-                >
-                  <span>Import from Notion</span>
-                  <Chip
-                    label="Coming Soon"
-                    size="small"
-                    sx={{
-                      height: '20px',
-                      fontSize: theme => theme.typography.caption.fontSize,
-                      backgroundColor: 'rgba(0, 0, 0, 0.08)',
-                    }}
-                  />
-                </Button>
-              </Box>
+              {/* Removed Import from Notion section */}
             </Box>
 
             {/* Title Field */}

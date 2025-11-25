@@ -176,14 +176,14 @@ async function getNavigationItems(
         },
         {
           kind: 'page',
-          segment: 'applications',
-          title: 'Applications',
+          segment: 'apis',
+          title: 'APIs',
           icon: <GridViewIcon />,
         },
         {
           kind: 'page',
-          segment: 'tools',
-          title: 'Tools',
+          segment: 'mcps',
+          title: 'MCPs',
           icon: <TerminalIcon />,
         },
       ],
