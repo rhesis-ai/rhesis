@@ -44,19 +44,14 @@ def upgrade() -> None:
 def downgrade() -> None:
     """
     Revert the changes:
-    1. Set endpoints back to NULL where they were set to 'Active'
+    1. Endpoint status changes are NOT reverted (see note below)
     2. Set context_required back to TRUE for the specified metrics
     """
     # Note: We cannot reliably revert endpoints to NULL as we don't know
-    # which ones were NULL before. This is effectively a one-way migration for endpoints.
-    # However, we can attempt to revert based on the 'Active' status name.
-    op.execute("""
-        UPDATE endpoint 
-        SET status_id = NULL
-        FROM status s
-        WHERE endpoint.status_id = s.id
-        AND s.name = 'Active'
-    """)
+    # which ones were NULL before the upgrade versus which were already Active.
+    # Reverting all Active endpoints to NULL would corrupt pre-existing Active statuses.
+    # This is effectively a one-way migration for endpoint status changes.
+    # The endpoint status changes are intentionally NOT reverted during downgrade.
 
     # Revert metrics context_required to TRUE
     op.execute("""

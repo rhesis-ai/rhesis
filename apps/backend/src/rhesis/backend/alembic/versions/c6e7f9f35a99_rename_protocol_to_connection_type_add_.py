@@ -29,8 +29,14 @@ def upgrade() -> None:
     # Rename protocol column to connection_type
     op.alter_column("endpoint", "protocol", new_column_name="connection_type")
 
+    # Make url column nullable for SDK endpoints (which don't have URLs)
+    op.alter_column("endpoint", "url", existing_type=sa.String(), nullable=True)
+
 
 def downgrade() -> None:
+    # Make url column non-nullable again
+    op.alter_column("endpoint", "url", existing_type=sa.String(), nullable=False)
+
     # Rename connection_type back to protocol
     op.alter_column("endpoint", "connection_type", new_column_name="protocol")
 
