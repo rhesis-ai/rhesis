@@ -25,6 +25,25 @@ import {
 import { UUID } from 'crypto';
 import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
 
+/**
+ * Get the credential key name for a given provider
+ */
+function getCredentialKey(providerType: string | undefined): string {
+  switch (providerType) {
+    case 'notion':
+      return 'NOTION_TOKEN';
+    case 'github':
+      return 'GITHUB_PERSONAL_ACCESS_TOKEN';
+    case 'atlassian':
+      // Atlassian doesn't require credentials in the template, but we'll use a generic key
+      return 'ATLASSIAN_TOKEN';
+    case 'custom':
+      return 'TOKEN';
+    default:
+      return 'TOKEN';
+  }
+}
+
 interface MCPConnectionDialogProps {
   open: boolean;
   provider: TypeLookup | null;
@@ -55,14 +74,24 @@ export function MCPConnectionDialog({
 
   const isEditMode = mode === 'edit';
 
+  // Check if provider requires authentication token
+  const providerType =
+    provider?.type_value || tool?.tool_provider_type?.type_value;
+  const requiresToken = providerType !== 'atlassian';
+
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
+      const currentProviderType =
+        provider?.type_value || tool?.tool_provider_type?.type_value;
+      const currentRequiresToken = currentProviderType !== 'atlassian';
+
       if (isEditMode && tool) {
         // Edit mode: populate with existing tool data
         setName(tool.name || '');
         setDescription(tool.description || '');
-        setAuthToken('************'); // Show placeholder for existing token
+        // Only show placeholder if provider requires token
+        setAuthToken(currentRequiresToken ? '************' : '');
         setError(null);
         setShowAuthToken(false);
         setLoading(false);
@@ -91,9 +120,20 @@ export function MCPConnectionDialog({
           description: description || undefined,
         };
 
-        // Only include auth token if it was changed (not the placeholder)
-        if (authToken && authToken.trim() && authToken !== '************') {
-          updates.auth_token = authToken.trim();
+        // Only include credentials if token was changed (not the placeholder) and provider requires token
+        if (
+          requiresToken &&
+          authToken &&
+          authToken.trim() &&
+          authToken !== '************'
+        ) {
+          // Get provider type from provider or fall back to tool's provider type
+          const providerType =
+            provider?.type_value || tool.tool_provider_type?.type_value;
+          const credentialKey = getCredentialKey(providerType);
+          updates.credentials = {
+            [credentialKey]: authToken.trim(),
+          };
         }
 
         await onUpdate(tool.id, updates);
@@ -107,7 +147,7 @@ export function MCPConnectionDialog({
       }
     } else {
       // Create mode: validate required fields
-      if (!provider || !name || !authToken) {
+      if (!provider || !name || (requiresToken && !authToken)) {
         setError('Please fill in all required fields.');
         return;
       }
@@ -122,12 +162,19 @@ export function MCPConnectionDialog({
             return;
           }
 
+          // For Atlassian, credentials can be empty since it doesn't require a token
+          const credentials = requiresToken
+            ? {
+                [getCredentialKey(provider.type_value)]: authToken.trim(),
+              }
+            : {};
+
           const toolData: ToolCreate = {
             name,
             description: description || undefined,
             tool_type_id: mcpToolType.id, // MCP tool type ID
             tool_provider_type_id: provider.id, // Provider type ID
-            auth_token: authToken.trim(),
+            credentials,
           };
 
           await onConnect(provider.type_value, toolData);
@@ -214,59 +261,65 @@ export function MCPConnectionDialog({
               helperText="Optional description for this MCP connection"
             />
 
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 1 }}
-            >
-              Authentication
-            </Typography>
+            {requiresToken && (
+              <>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 1 }}
+                >
+                  Authentication
+                </Typography>
 
-            <TextField
-              label="Auth Token"
-              fullWidth
-              required={!isEditMode}
-              type={showAuthToken ? 'text' : 'password'}
-              value={authToken}
-              onChange={e => setAuthToken(e.target.value)}
-              onFocus={e => {
-                // Clear placeholder when user clicks on field in edit mode
-                if (isEditMode && authToken === '************') {
-                  setAuthToken('');
-                }
-              }}
-              onBlur={e => {
-                // Restore placeholder if field is empty in edit mode
-                if (isEditMode && !e.target.value) {
-                  setAuthToken('************');
-                }
-              }}
-              helperText={
-                isEditMode
-                  ? authToken !== '************' && authToken !== ''
-                    ? 'New auth token will replace the current one'
-                    : 'Click to update the auth token'
-                  : 'Your authentication token for this MCP provider'
-              }
-              InputProps={{
-                endAdornment:
-                  authToken && authToken !== '************' ? (
-                    <IconButton
-                      size="small"
-                      onClick={() => setShowAuthToken(!showAuthToken)}
-                      edge="end"
-                      aria-label={
-                        showAuthToken ? 'Hide auth token' : 'Show auth token'
-                      }
-                    >
-                      {showAuthToken ? (
-                        <VisibilityOffIcon fontSize="small" />
-                      ) : (
-                        <VisibilityIcon fontSize="small" />
-                      )}
-                    </IconButton>
-                  ) : null,
-              }}
-            />
+                <TextField
+                  label="Auth Token"
+                  fullWidth
+                  required={!isEditMode}
+                  type={showAuthToken ? 'text' : 'password'}
+                  value={authToken}
+                  onChange={e => setAuthToken(e.target.value)}
+                  onFocus={e => {
+                    // Clear placeholder when user clicks on field in edit mode
+                    if (isEditMode && authToken === '************') {
+                      setAuthToken('');
+                    }
+                  }}
+                  onBlur={e => {
+                    // Restore placeholder if field is empty in edit mode
+                    if (isEditMode && !e.target.value) {
+                      setAuthToken('************');
+                    }
+                  }}
+                  helperText={
+                    isEditMode
+                      ? authToken !== '************' && authToken !== ''
+                        ? 'New auth token will replace the current one'
+                        : 'Click to update the auth token'
+                      : 'Your authentication token for this MCP provider'
+                  }
+                  InputProps={{
+                    endAdornment:
+                      authToken && authToken !== '************' ? (
+                        <IconButton
+                          size="small"
+                          onClick={() => setShowAuthToken(!showAuthToken)}
+                          edge="end"
+                          aria-label={
+                            showAuthToken
+                              ? 'Hide auth token'
+                              : 'Show auth token'
+                          }
+                        >
+                          {showAuthToken ? (
+                            <VisibilityOffIcon fontSize="small" />
+                          ) : (
+                            <VisibilityIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      ) : null,
+                  }}
+                />
+              </>
+            )}
           </Stack>
         </DialogContent>
 
@@ -281,8 +334,11 @@ export function MCPConnectionDialog({
             variant="contained"
             disabled={
               !name ||
-              (!isEditMode && !authToken) ||
-              (isEditMode && authToken === '************' && !description) ||
+              (!isEditMode && requiresToken && !authToken) ||
+              (isEditMode &&
+                requiresToken &&
+                authToken === '************' &&
+                !description) ||
               loading
             }
             size="large"

@@ -2,10 +2,9 @@ import React from 'react';
 import {
   SiNotion,
   SiGithub,
-  SiGoogledrive,
+  SiAtlassian,
 } from '@icons-pack/react-simple-icons';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import StorageIcon from '@mui/icons-material/Storage';
 
 /**
  * MCP Provider Configuration
@@ -16,14 +15,19 @@ import StorageIcon from '@mui/icons-material/Storage';
  */
 
 // MCP providers currently supported
-export const SUPPORTED_MCP_PROVIDERS = ['notion', 'github', 'gdrive', 'google'];
+// These must match the ToolProviderType values defined in the backend
+export const SUPPORTED_MCP_PROVIDERS = [
+  'notion',
+  'github',
+  'atlassian',
+  'custom',
+];
 
 // Provider icon mapping
 export const MCP_PROVIDER_ICONS: Record<string, React.ReactNode> = {
   notion: <SiNotion className="h-8 w-8" />,
   github: <SiGithub className="h-8 w-8" />,
-  gdrive: <SiGoogledrive className="h-8 w-8" />,
-  google: <StorageIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  atlassian: <SiAtlassian className="h-8 w-8" />,
   custom: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
 };
 

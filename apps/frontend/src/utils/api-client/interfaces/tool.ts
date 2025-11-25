@@ -45,7 +45,7 @@ export interface ToolCreate {
   tool_type_id: UUID;
   tool_provider_type_id: UUID;
   status_id?: UUID;
-  auth_token: string;
+  credentials: Record<string, any>;
   tool_metadata?: Record<string, any>;
   organization_id?: UUID;
   user_id?: UUID;
@@ -57,7 +57,7 @@ export interface ToolUpdate {
   tool_type_id?: UUID;
   tool_provider_type_id?: UUID;
   status_id?: UUID;
-  auth_token?: string;
+  credentials?: Record<string, any>;
   tool_metadata?: Record<string, any>;
   organization_id?: UUID;
   user_id?: UUID;
