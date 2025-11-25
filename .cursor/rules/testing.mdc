@@ -1,18 +1,29 @@
 ---
-description: Testing infrastructure
-alwaysApply: false
+alwaysApply: true
 ---
 # Testing Rules
 
+## SDK Tests
 
-1. The tests are stored in <project_root>/tests/ directory
-2. For SDK tests use make in <project_root>/sdk directory:
-For unit test:
+1. The tests are stored in <project_root>/tests/sdk directory
+2. Unit tests can be run using:
 ```bash
+cd sdk
 make test
 ```
-
-For integration test:
+3. SDK integration tests can be run using
 ```bash
+cd sdk
 make test-slow
+```
+You can also check the logs from the backend by using:
+```bash
+docker logs rhesis-backend-test
+```
+
+4. Run single tests by using uv in the sdk directory:
+For example:
+```bash
+cd sdk
+uv run pytest tests/sdk/integration/test_entities.py::test_endpoint
 ```
