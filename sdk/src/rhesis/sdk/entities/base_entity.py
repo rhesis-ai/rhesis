@@ -54,6 +54,12 @@ class BaseEntity(BaseModel):
 
     endpoint: ClassVar[Endpoints]
 
+    def __str__(self) -> str:
+        """Return a string representation of the entity."""
+        string = self.model_dump_json(indent=2)
+        print(type(string))
+        return string
+
     @classmethod
     def _delete(cls, id: str) -> bool:
         """Delete the entity from the database."""
