@@ -792,7 +792,6 @@ export default function MetricsDirectoryTab({
           </Box>
         </Stack>
       </Box>
-
       {/* Metrics Stack */}
       <Box sx={{ p: 3, flex: 1, overflow: 'auto' }}>
         <Box
@@ -942,7 +941,6 @@ export default function MetricsDirectoryTab({
           })}
         </Box>
       </Box>
-
       {/* Dialogs */}
       <DeleteModal
         open={deleteMetricDialogOpen}
@@ -952,7 +950,6 @@ export default function MetricsDirectoryTab({
         itemType="metric"
         itemName={metricToDeleteCompletely?.name}
       />
-
       <AssignMetricDialog
         open={assignDialogOpen}
         onClose={() => {
@@ -964,7 +961,6 @@ export default function MetricsDirectoryTab({
         isLoading={isLoading}
         error={error}
       />
-
       <MetricTypeDialog
         open={createMetricOpen}
         onClose={() => setCreateMetricOpen(false)}

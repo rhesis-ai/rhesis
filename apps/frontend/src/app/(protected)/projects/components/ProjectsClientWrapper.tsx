@@ -68,11 +68,14 @@ export default function ProjectsClientWrapper({
 }: ProjectsClientWrapperProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects || []);
   const notifications = useNotifications();
-  const { markStepComplete, progress, isComplete } = useOnboarding();
+  const { markStepComplete, progress, isComplete, activeTour } =
+    useOnboarding();
 
-  // Check if create project button should be disabled
-  const isProjectButtonDisabled =
-    !progress.projectCreated && !progress.dismissed && !isComplete;
+  // Check if user is currently on the project tour
+  const isOnProjectTour = activeTour === 'project';
+
+  // Disable button ONLY when user is actively on a tour OTHER than project
+  const isProjectButtonDisabled = activeTour !== null && !isOnProjectTour;
 
   // Enable tour for this page
   useOnboardingTour('project');
@@ -128,18 +131,24 @@ export default function ProjectsClientWrapper({
           Create Project
         </Button>
       </Box>
-
       {/* Projects grid */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {Array.isArray(projects) &&
           projects.map(project => (
-            <Grid item key={project.id} xs={12} md={6} lg={4}>
+            <Grid
+              key={project.id}
+              size={{
+                xs: 12,
+                md: 6,
+                lg: 4,
+              }}
+            >
               <ProjectCard project={project} />
             </Grid>
           ))}
 
         {(!Array.isArray(projects) || projects.length === 0) && (
-          <Grid item xs={12}>
+          <Grid size={12}>
             <EmptyStateMessage
               title="No projects found"
               description="Create your first project to start building and testing your AI applications. Projects help you organize your work and collaborate with your team."

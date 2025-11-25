@@ -61,6 +61,7 @@ import {
 } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 // Map of icon names to components for easy lookup
 const ICON_MAP: Record<string, React.ComponentType> = {
@@ -177,6 +178,7 @@ export default function EndpointForm() {
   const [showAuthToken, setShowAuthToken] = useState(false);
   const { data: session } = useSession();
   const notifications = useNotifications();
+  const { markStepComplete } = useOnboarding();
 
   // Determine editor theme based on MUI theme
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
@@ -337,6 +339,9 @@ export default function EndpointForm() {
       const endpointData = transformedData as unknown as Omit<Endpoint, 'id'>;
       await createEndpoint(endpointData);
 
+      // Mark onboarding step as complete
+      markStepComplete('endpointSetup');
+
       // Show success notification
       notifications.show('Endpoint created successfully!', {
         severity: 'success',
@@ -394,12 +399,17 @@ export default function EndpointForm() {
         <TabPanel value={currentTab} index={0}>
           <Grid container spacing={3}>
             {/* General Information */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 General Information
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 6,
+                  }}
+                >
                   <TextField
                     fullWidth
                     required
@@ -410,7 +420,12 @@ export default function EndpointForm() {
                     helperText="A unique name to identify this endpoint"
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 6,
+                  }}
+                >
                   <TextField
                     fullWidth
                     label="Description"
@@ -424,12 +439,17 @@ export default function EndpointForm() {
               </Grid>
             </Grid>
             {/* Request Configuration */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Request Configuration
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 6,
+                  }}
+                >
                   <TextField
                     fullWidth
                     label="URL"
@@ -442,7 +462,12 @@ export default function EndpointForm() {
                     placeholder="https://api.example.com"
                   />
                 </Grid>
-                <Grid item xs={12} md={3}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 3,
+                  }}
+                >
                   <FormControl fullWidth>
                     <InputLabel>Protocol</InputLabel>
                     <Select
@@ -460,7 +485,12 @@ export default function EndpointForm() {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} md={3}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 3,
+                  }}
+                >
                   <FormControl fullWidth>
                     <InputLabel>Method</InputLabel>
                     <Select
@@ -481,12 +511,12 @@ export default function EndpointForm() {
             </Grid>
 
             {/* Project Selection */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Project
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   {(projects?.length || 0) === 0 && !loadingProjects ? (
                     <Alert
                       severity="warning"
@@ -576,12 +606,12 @@ export default function EndpointForm() {
             </Grid>
 
             {/* Environment & Configuration */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Environment
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <ToggleButtonGroup
                     value={formData.environment}
                     exclusive
@@ -629,7 +659,7 @@ export default function EndpointForm() {
         <TabPanel value={currentTab} index={1}>
           <Grid container spacing={2}>
             {/* Authentication Token Section */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Authorization (Optional)
               </Typography>
@@ -672,7 +702,7 @@ export default function EndpointForm() {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Request Headers (Optional)
               </Typography>
@@ -712,7 +742,7 @@ export default function EndpointForm() {
                 />
               </Box>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Request Body Template defines the structure of your request with
                 placeholders for dynamic values.
@@ -764,7 +794,7 @@ export default function EndpointForm() {
         {/* Response Settings Tab */}
         <TabPanel value={currentTab} index={2}>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Response Mappings define how to extract values from the API
                 response using JSONPath syntax.
@@ -807,7 +837,7 @@ export default function EndpointForm() {
         {/* Test Connection Tab */}
         <TabPanel value={currentTab} index={3}>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Test your endpoint configuration with sample data
               </Typography>
@@ -843,7 +873,7 @@ export default function EndpointForm() {
               </Box>
             </Grid>
 
-            <Grid item xs={12} sx={{ mt: 2 }}>
+            <Grid sx={{ mt: 2 }} size={12}>
               <LoadingButton
                 variant="contained"
                 color="primary"
@@ -889,7 +919,7 @@ export default function EndpointForm() {
             </Grid>
 
             {testResponse && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
                   Response
                 </Typography>
@@ -921,7 +951,6 @@ export default function EndpointForm() {
           </Grid>
         </TabPanel>
       </Card>
-
       {error && (
         <Box sx={{ mt: 2 }}>
           <Alert severity="error">{error}</Alert>

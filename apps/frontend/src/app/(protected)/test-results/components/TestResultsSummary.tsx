@@ -164,7 +164,13 @@ export default function TestResultsSummary({
         spacing={theme.customSpacing.section.medium}
         sx={{ mb: theme.customSpacing.section.medium }}
       >
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <Card
             elevation={theme.elevation.standard}
             sx={{ height: '100%', minHeight: 120 }}
@@ -199,7 +205,13 @@ export default function TestResultsSummary({
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <Card
             elevation={theme.elevation.standard}
             sx={{ height: '100%', minHeight: 120 }}
@@ -234,7 +246,13 @@ export default function TestResultsSummary({
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <Card
             elevation={theme.elevation.standard}
             sx={{ height: '100%', minHeight: 120 }}
@@ -273,7 +291,13 @@ export default function TestResultsSummary({
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <Card
             elevation={theme.elevation.standard}
             sx={{ height: '100%', minHeight: 120 }}
@@ -308,7 +332,6 @@ export default function TestResultsSummary({
           </Card>
         </Grid>
       </Grid>
-
       {/* Recent Test Runs */}
       {recentTestRuns.length > 0 && (
         <Paper
@@ -369,7 +392,12 @@ export default function TestResultsSummary({
                   </Typography>
                 </Box>
                 <Grid container spacing={theme.customSpacing.container.small}>
-                  <Grid item xs={6} sm={3}>
+                  <Grid
+                    size={{
+                      xs: 6,
+                      sm: 3,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Total Tests
                     </Typography>
@@ -377,7 +405,12 @@ export default function TestResultsSummary({
                       {run.total_tests || 0}
                     </Typography>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid
+                    size={{
+                      xs: 6,
+                      sm: 3,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Passed
                     </Typography>
@@ -389,7 +422,12 @@ export default function TestResultsSummary({
                       {run.overall?.passed || 0}
                     </Typography>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid
+                    size={{
+                      xs: 6,
+                      sm: 3,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Failed
                     </Typography>
@@ -401,7 +439,12 @@ export default function TestResultsSummary({
                       {run.overall?.failed || 0}
                     </Typography>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid
+                    size={{
+                      xs: 6,
+                      sm: 3,
+                    }}
+                  >
                     <Typography variant="caption" color="text.secondary">
                       Pass Rate
                     </Typography>
