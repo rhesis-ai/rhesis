@@ -232,7 +232,7 @@ services:
         DEFAULT_MODEL: ${DEFAULT_MODEL:-huggingface/distilgpt2}
     container_name: rhesis-polyphemus
     environment:
-      <<: [*common-environment]
+      <<: [*common-environment, *common-database]
       DEFAULT_MODEL: ${DEFAULT_MODEL:-huggingface/distilgpt2}
       TRANSFORMERS_CACHE: /app/model_cache
       LOG_LEVEL: ${LOG_LEVEL:-INFO}

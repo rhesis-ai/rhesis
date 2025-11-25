@@ -5,9 +5,12 @@ Provides /generate endpoint that accepts messages format.
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from rhesis.polyphemus.auth import require_api_key
 from rhesis.polyphemus.schemas import GenerateRequest
 from rhesis.polyphemus.services import generate_text
+
+from rhesis.backend.app.models.user import User
 
 logger = logging.getLogger("rhesis-polyphemus")
 
@@ -15,9 +18,11 @@ router = APIRouter()
 
 
 @router.post("/generate")
-async def generate(request: GenerateRequest):
+async def generate(request: GenerateRequest, current_user: User = Depends(require_api_key)):
     """
     Generate text using Rhesis API format.
+
+    Requires API key authentication via Bearer token.
 
     Accepts:
         {
@@ -33,6 +38,7 @@ async def generate(request: GenerateRequest):
         Rhesis API response format
     """
     try:
+        logger.info(f"Generation request from user: {current_user.email}")
         return await generate_text(request)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

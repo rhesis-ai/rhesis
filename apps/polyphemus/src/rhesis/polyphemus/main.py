@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from rhesis.polyphemus.models import LazyModelLoader
 from rhesis.polyphemus.routers.services import router as services_router
-from rhesis.polyphemus.utils import ProcessTimeMiddleware
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -43,9 +42,6 @@ app = FastAPI(
     description="Dolphin 3.0 Llama 3.1 8B Inference API",
     lifespan=lifespan,
 )
-
-# Add middleware
-app.add_middleware(ProcessTimeMiddleware)
 
 
 # Health check endpoints

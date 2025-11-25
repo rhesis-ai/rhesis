@@ -24,6 +24,10 @@ WORKDIR /app
 # Build context is repo root, SDK is at sdk/
 COPY sdk /app/sdk/
 
+# Copy backend directory (required dependency for rhesis-backend)
+COPY apps/backend /app/apps/backend/
+
+COPY penelope /app/penelope/
 # Copy polyphemus source code and pyproject.toml
 # Build context is repo root, so paths are relative to that
 COPY apps/polyphemus /app/apps/polyphemus/

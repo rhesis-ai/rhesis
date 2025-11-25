@@ -330,8 +330,17 @@ start_polyphemus() {
         }
     fi
 
+    # Check if backend is installed (needed for polyphemus authentication)
+    if ! python -c "import rhesis.backend" 2>/dev/null; then
+        echo -e "${YELLOW}📦 Installing Backend dependencies...${NC}"
+        uv pip install -e apps/backend || {
+            echo -e "${RED}❌ Error: Failed to install Backend${NC}"
+            exit 1
+        }
+    fi
+
     # Check if SDK is installed
-    if ! python -c "import rhesis-sdk[huggingface]" 2>/dev/null; then
+    if ! python -c "import rhesis.sdk" 2>/dev/null; then
         echo -e "${YELLOW}📦 Installing SDK...${NC}"
         uv pip install -e sdk || {
             echo -e "${RED}❌ Error: Failed to install SDK${NC}"
@@ -346,7 +355,7 @@ start_polyphemus() {
     echo ""
 
     # Run uvicorn
-    exec uvicorn rhesis.polyphemus.main:app --host 0.0.0.0 --port 8080 --reload
+    exec uvicorn rhesis.polyphemus.main:app --host 0.0.0.0 --port 8082 --reload
 }
 
 # Function to start worker
