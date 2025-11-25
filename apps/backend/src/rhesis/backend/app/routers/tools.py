@@ -37,7 +37,19 @@ def create_tool(
 
     The credentials (JSON dict) will be encrypted in the database.
     Examples: {"NOTION_TOKEN": "ntn_abc..."} or {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_abc..."}
-    If you want to use a custom provider, you need to provide the full JSON config in tool_metadata.
+
+    For custom providers (provider_type="custom"), you must provide the MCP server configuration
+    in tool_metadata with credential placeholders. Placeholders MUST use the `| tojson` filter
+    to safely escape special characters.
+
+    Example tool_metadata for custom provider:
+    {
+        "command": "npx",
+        "args": ["-y", "@custom/mcp-server"],
+        "env": {
+            "API_TOKEN": "{{API_TOKEN | tojson}}"
+        }
+    }
     """
     organization_id, user_id = tenant_context
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)

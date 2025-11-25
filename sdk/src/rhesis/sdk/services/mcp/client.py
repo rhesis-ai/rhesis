@@ -273,7 +273,7 @@ class MCPClientManager:
                 "command": "npx",
                 "args": ["-y", "@notionhq/notion-mcp-server"],
                 "env": {
-                    "NOTION_TOKEN": "{{NOTION_TOKEN}}"
+                    "NOTION_TOKEN": "{{NOTION_TOKEN | tojson}}"
                 }
             }
             credentials = {"NOTION_TOKEN": "ntn_abc123..."}
