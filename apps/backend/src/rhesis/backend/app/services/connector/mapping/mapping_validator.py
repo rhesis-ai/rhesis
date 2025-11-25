@@ -135,7 +135,7 @@ class MappingValidator:
                             "success": False,
                             "error": f"SDK function error: {error_msg}",
                             "test_input": test_input,
-                            "test_output": test_result.dict(),
+                            "test_output": test_result.model_dump(),
                         }
 
             # Timeout reached - mark as cancelled immediately to prevent race condition
