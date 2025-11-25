@@ -1,8 +1,8 @@
 """Pydantic schemas for MCP Agent structured outputs."""
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ToolCall(BaseModel):
@@ -11,9 +11,25 @@ class ToolCall(BaseModel):
     model_config = {"extra": "forbid"}
 
     tool_name: str = Field(description="Name of the MCP tool to call")
-    arguments: Dict[str, Any] = Field(
-        default_factory=dict, description="Arguments for the tool as a JSON object"
+    arguments: str = Field(
+        default="{}",
+        description="Arguments for the tool as a JSON string. "
+        'Example: \'{"page_id": "123", "query": "search term"}\'',
     )
+
+    @field_validator("arguments", mode="after")
+    @classmethod
+    def parse_arguments_to_dict(cls, v):
+        """Parse JSON string to dictionary for internal use."""
+        if isinstance(v, str):
+            import json
+
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                # If it's not valid JSON, return empty dict
+                return {}
+        return v if v is not None else {}
 
 
 class AgentAction(BaseModel):
@@ -39,7 +55,9 @@ class ToolResult(BaseModel):
     tool_name: str = Field(description="Name of the tool that was executed")
     success: bool = Field(description="Whether the tool execution succeeded")
     content: str = Field(default="", description="Content returned by the tool")
-    error: Optional[str] = Field(default=None, description="Error message if execution failed")
+    error: Optional[str] = Field(
+        default=None, description="Error message produced by the agent code, if execution failed"
+    )
 
 
 class ExecutionStep(BaseModel):
@@ -68,4 +86,6 @@ class AgentResult(BaseModel):
         description="Whether the agent stopped due to hitting max iterations"
     )
     success: bool = Field(default=True, description="Whether the agent completed successfully")
-    error: Optional[str] = Field(default=None, description="Error message if execution failed")
+    error: Optional[str] = Field(
+        default=None, description="Error message produced by the agent code, if execution failed"
+    )

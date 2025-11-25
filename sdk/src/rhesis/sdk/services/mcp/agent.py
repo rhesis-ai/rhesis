@@ -54,7 +54,6 @@ Remember: You must explicitly use action="finish" when done."""
         system_prompt: Optional[str] = None,
         max_iterations: int = 10,
         verbose: bool = False,
-        stop_on_error: bool = True,
     ):
         """
         Initialize the MCP agent.
@@ -66,7 +65,6 @@ Remember: You must explicitly use action="finish" when done."""
             system_prompt: Custom system prompt to define agent behavior (optional)
             max_iterations: Maximum reasoning loops before stopping (default: 10)
             verbose: Print detailed execution logs to stdout (default: False)
-            stop_on_error: Halt execution on first tool failure (default: True)
         """
         if not mcp_client:
             raise ValueError("mcp_client is required")
@@ -77,7 +75,6 @@ Remember: You must explicitly use action="finish" when done."""
         self.system_prompt = system_prompt or self.DEFAULT_SYSTEM_PROMPT
         self.max_iterations = max_iterations
         self.verbose = verbose
-        self.stop_on_error = stop_on_error
         self.executor = ToolExecutor(mcp_client)
 
     def _set_model(self, model: Optional[Union[str, BaseLLM]]) -> BaseLLM:
@@ -344,9 +341,6 @@ Remember: You must explicitly use action="finish" when done."""
                     print(f"      ✓ {result.tool_name}: {len(result.content)} chars")
                 else:
                     print(f"      ✗ {result.tool_name}: {result.error}")
-
-            if not result.success and self.stop_on_error:
-                raise RuntimeError(f"Tool '{result.tool_name}' failed: {result.error}")
 
         return tool_results
 
