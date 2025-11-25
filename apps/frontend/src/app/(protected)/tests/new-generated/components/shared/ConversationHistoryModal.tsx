@@ -27,6 +27,9 @@ interface ConversationHistoryModalProps {
   behavior?: string;
   topic?: string;
   category?: string;
+  endpointName?: string;
+  projectName?: string;
+  projectIcon?: string;
 }
 
 /**
@@ -41,6 +44,9 @@ export default function ConversationHistoryModal({
   behavior,
   topic,
   category,
+  endpointName,
+  projectName,
+  projectIcon,
 }: ConversationHistoryModalProps) {
   const [expandedDetails, setExpandedDetails] = React.useState(false);
 
@@ -66,24 +72,28 @@ export default function ConversationHistoryModal({
         }}
       >
         <Box>
-          <Typography variant="h6">Conversation History</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Multi-turn test simulation result
-          </Typography>
+          <Typography variant="h6">Simulation Results</Typography>
         </Box>
         <IconButton edge="end" onClick={onClose} size="small">
           <CloseIcon />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
+      <DialogContent
+        sx={{
+          p: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          bgcolor: 'background.default',
+        }}
+      >
         {/* Test Configuration Section */}
         <Box
           sx={{
-            p: 2,
+            p: 3,
             borderBottom: 1,
             borderColor: 'divider',
-            bgcolor: 'background.light2',
+            bgcolor: 'background.paper',
           }}
         >
           {/* Metadata Chips */}
@@ -97,7 +107,14 @@ export default function ConversationHistoryModal({
                   variant="outlined"
                 />
               )}
-              {topic && <Chip label={topic} size="small" variant="outlined" />}
+              {topic && (
+                <Chip
+                  label={topic}
+                  size="small"
+                  color="success"
+                  variant="outlined"
+                />
+              )}
               {category && (
                 <Chip
                   label={category}
@@ -218,6 +235,10 @@ export default function ConversationHistoryModal({
           <ConversationHistory
             conversationSummary={conversationSummary}
             maxHeight="100%"
+            project={
+              projectIcon ? { icon: projectIcon, name: projectName } : undefined
+            }
+            projectName={endpointName || projectName}
           />
         </Box>
       </DialogContent>
