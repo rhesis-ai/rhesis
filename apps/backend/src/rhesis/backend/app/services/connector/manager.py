@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
 from fastapi import WebSocket
@@ -41,7 +42,8 @@ class ConnectionManager:
         self._test_results: Dict[str, Dict[str, Any]] = {}
 
         # Track cancelled/timed-out test runs to prevent storing late results
-        self._cancelled_tests: set = set()
+        # Use OrderedDict to preserve insertion order for proper LRU cleanup
+        self._cancelled_tests: OrderedDict = OrderedDict()
 
         # Track background tasks to prevent silent failures
         self._background_tasks: set = set()
@@ -316,7 +318,7 @@ class ConnectionManager:
             test_run_id: Test run identifier to clean up
         """
         # Mark as cancelled to prevent late results from being stored
-        self._cancelled_tests.add(test_run_id)
+        self._cancelled_tests[test_run_id] = True
 
         # Remove any existing result
         if test_run_id in self._test_results:
@@ -334,18 +336,18 @@ class ConnectionManager:
         """
         Clean up old cancelled test entries to prevent unbounded memory growth.
 
-        Keeps only the most recent 5000 entries. This is a simple LRU-style
-        cleanup that should be sufficient for most use cases.
+        Keeps only the most recent 5000 entries. This is called when the dict
+        grows beyond 10000 entries to trim it back down to a reasonable size.
         """
-        if len(self._cancelled_tests) > 5000:
-            # Convert to list, keep last 5000, convert back to set
-            # Note: set order is insertion order in Python 3.7+
-            cancelled_list = list(self._cancelled_tests)
-            self._cancelled_tests = set(cancelled_list[-5000:])
-            logger.info(
-                f"Cleaned up old cancelled tests. "
-                f"Removed {len(cancelled_list) - 5000} entries, kept 5000"
-            )
+        # Keep only the last 5000 entries (most recent)
+        # OrderedDict preserves insertion order, so [-5000:] gets the newest entries
+        cancelled_items = list(self._cancelled_tests.items())
+        removed_count = len(cancelled_items) - 5000
+        self._cancelled_tests = OrderedDict(cancelled_items[-5000:])
+        logger.info(
+            f"Cleaned up old cancelled tests. "
+            f"Removed {removed_count} entries, kept 5000"
+        )
 
     def get_connection_status(self, project_id: str, environment: str) -> ConnectionStatus:
         """
