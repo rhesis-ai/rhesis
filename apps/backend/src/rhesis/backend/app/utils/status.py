@@ -6,16 +6,21 @@ from rhesis.backend.app.models.status import Status
 
 
 def get_or_create_status(
-    session: Session, status_name: str, entity_type: str, organization_id: str = None
+    session: Session,
+    status_name: str,
+    entity_type: str,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[Status]:
     """
-    Get or create a Status object from the database based on its name, entity type, and organization.
+    Get or create a Status object from the database.
 
     Args:
         session: SQLAlchemy database session
         status_name: Name of the status to look up
         entity_type: Type of entity this status applies to (e.g., "Test", "Task")
         organization_id: Organization ID for filtering (SECURITY CRITICAL)
+        user_id: User ID for creating new status entries (required if organization_id is provided)
 
     Returns:
         The Status object if found or created, None otherwise
@@ -39,9 +44,8 @@ def get_or_create_status(
         entity_type_data = {"type_name": "EntityType", "type_value": entity_type}
         if organization_id:
             entity_type_data["organization_id"] = UUID(organization_id)
-            entity_type_data["user_id"] = UUID(
-                organization_id
-            )  # Use org_id as placeholder for user_id
+            if user_id:
+                entity_type_data["user_id"] = UUID(user_id)
 
         entity_type_lookup = TypeLookup(**entity_type_data)
         session.add(entity_type_lookup)
@@ -61,7 +65,8 @@ def get_or_create_status(
         status_data = {"name": status_name, "entity_type_id": entity_type_lookup.id}
         if organization_id:
             status_data["organization_id"] = UUID(organization_id)
-            status_data["user_id"] = UUID(organization_id)  # Use org_id as placeholder for user_id
+            if user_id:
+                status_data["user_id"] = UUID(user_id)
 
         status = Status(**status_data)
         session.add(status)

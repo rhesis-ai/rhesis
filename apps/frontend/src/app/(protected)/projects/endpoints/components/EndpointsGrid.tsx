@@ -26,6 +26,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useSearchParams } from 'next/navigation';
+import { getStatusColor } from '@/utils/status-colors';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import CloudIcon from '@mui/icons-material/Cloud';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -300,8 +301,8 @@ export default function EndpointGrid({
       flex: 1,
     },
     {
-      field: 'protocol',
-      headerName: 'Protocol',
+      field: 'connection_type',
+      headerName: 'Connection Type',
       flex: 0.7,
       renderCell: params => (
         <Chip label={params.value} size="small" variant="outlined" />
@@ -314,6 +315,35 @@ export default function EndpointGrid({
       renderCell: params => (
         <Chip label={params.value} size="small" variant="outlined" />
       ),
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      flex: 0.7,
+      renderCell: params => {
+        const endpoint = params.row as Endpoint;
+        const status = endpoint.status;
+
+        if (!status) {
+          return (
+            <Chip
+              label="Unknown"
+              size="small"
+              variant="outlined"
+              color="default"
+            />
+          );
+        }
+
+        return (
+          <Chip
+            label={status.name}
+            size="small"
+            variant="outlined"
+            color={getStatusColor(status.name)}
+          />
+        );
+      },
     },
   ];
 

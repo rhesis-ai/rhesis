@@ -17,9 +17,9 @@ Faker.seed(12345)
 @dataclass
 class MetricConfigFactory:
     """Factory for generating metric configuration dictionaries (not DB models)."""
-    
+
     @classmethod
-    def numeric_config(cls,  **overrides) -> Dict[str, Any]:
+    def numeric_config(cls, **overrides) -> Dict[str, Any]:
         """Generate numeric metric configuration."""
         config = {
             "name": "Numeric Quality Metric",
@@ -35,11 +35,11 @@ class MetricConfigFactory:
                 "max_score": 10,
                 "threshold": 7,
                 "threshold_operator": ">=",
-            }
+            },
         }
         config.update(overrides)
         return config
-    
+
     @classmethod
     def categorical_config(cls, **overrides) -> Dict[str, Any]:
         """Generate categorical metric configuration."""
@@ -54,11 +54,11 @@ class MetricConfigFactory:
                 "reasoning": "Sentiment analysis for response quality",
                 "score_type": "categorical",
                 "reference_score": "positive",
-            }
+            },
         }
         config.update(overrides)
         return config
-    
+
     @classmethod
     def binary_config(cls, **overrides) -> Dict[str, Any]:
         """
@@ -77,11 +77,11 @@ class MetricConfigFactory:
                 "score_type": "categorical",
                 "categories": ["Pass", "Fail"],
                 "passing_categories": ["Pass"],
-            }
+            },
         }
         config.update(overrides)
         return config
-    
+
     @classmethod
     def with_model(cls, model_id: str, **overrides) -> Dict[str, Any]:
         """Generate metric configuration with custom model."""
@@ -89,41 +89,41 @@ class MetricConfigFactory:
         config["model_id"] = model_id
         config.update(overrides)
         return config
-    
+
     @classmethod
     def batch_configs(cls, count: int, variation: bool = True) -> List[Dict[str, Any]]:
         """Generate batch of metric configurations."""
         configs = []
         # Note: binary_config now returns categorical for backward compatibility
         types = [cls.numeric_config, cls.categorical_config, cls.binary_config]
-        
+
         for i in range(count):
             if variation:
                 config_func = types[i % len(types)]
                 config = config_func()
-                config["name"] = f"{config['name']} {i+1}"
+                config["name"] = f"{config['name']} {i + 1}"
             else:
                 config = cls.numeric_config()
-                config["name"] = f"Metric {i+1}"
+                config["name"] = f"Metric {i + 1}"
             configs.append(config)
-        
+
         return configs
 
 
 @dataclass
 class RhesisMetricConfigFactory:
     """Factory specifically for Rhesis native metrics."""
-    
+
     @classmethod
     def prompt_metric_numeric(cls, **overrides) -> Dict[str, Any]:
         """Create RhesisPromptMetric with numeric score_type."""
         return MetricConfigFactory.numeric_config(**overrides)
-    
+
     @classmethod
     def prompt_metric_categorical(cls, **overrides) -> Dict[str, Any]:
         """Create RhesisPromptMetric with categorical score_type."""
         return MetricConfigFactory.categorical_config(**overrides)
-    
+
     @classmethod
     def prompt_metric_binary(cls, **overrides) -> Dict[str, Any]:
         """
@@ -131,7 +131,7 @@ class RhesisMetricConfigFactory:
         Binary metrics have been migrated to categorical.
         """
         return MetricConfigFactory.binary_config(**overrides)
-    
+
     @classmethod
     def with_all_optional_params(cls) -> Dict[str, Any]:
         """Create metric config with all optional parameters."""
@@ -153,14 +153,14 @@ class RhesisMetricConfigFactory:
                 "context_required": True,
                 "evaluation_examples": "Example 1: High quality response\nExample 2: Low quality response",
                 "explanation": "Detailed explanation of scoring criteria",
-            }
+            },
         }
 
 
-@dataclass  
+@dataclass
 class RagasMetricConfigFactory:
     """Factory for Ragas framework metrics."""
-    
+
     @classmethod
     def answer_relevancy(cls, threshold: float = 0.7, **overrides) -> Dict[str, Any]:
         """Create RagasAnswerRelevancy metric configuration."""
@@ -171,11 +171,11 @@ class RagasMetricConfigFactory:
             "description": "Ragas answer relevancy metric",
             "parameters": {
                 "threshold": threshold,
-            }
+            },
         }
         config.update(overrides)
         return config
-    
+
     @classmethod
     def contextual_precision(cls, threshold: float = 0.7, **overrides) -> Dict[str, Any]:
         """Create RagasContextualPrecision metric configuration."""
@@ -186,7 +186,7 @@ class RagasMetricConfigFactory:
             "description": "Ragas contextual precision metric",
             "parameters": {
                 "threshold": threshold,
-            }
+            },
         }
         config.update(overrides)
         return config
@@ -195,7 +195,7 @@ class RagasMetricConfigFactory:
 @dataclass
 class DeepEvalMetricConfigFactory:
     """Factory for DeepEval framework metrics (currently commented out in backend)."""
-    
+
     @classmethod
     def contextual_relevancy(cls, threshold: float = 0.7, **overrides) -> Dict[str, Any]:
         """Create DeepEvalContextualRelevancy metric configuration."""
@@ -206,8 +206,7 @@ class DeepEvalMetricConfigFactory:
             "description": "DeepEval contextual relevancy metric",
             "parameters": {
                 "threshold": threshold,
-            }
+            },
         }
         config.update(overrides)
         return config
-

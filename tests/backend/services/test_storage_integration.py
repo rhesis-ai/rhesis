@@ -62,9 +62,7 @@ class StorageIntegrationTestMixin(StorageIntegrationTestMixin):
 
 @pytest.mark.integration
 @pytest.mark.service
-class TestStorageServiceIntegration(
-    StorageIntegrationTestMixin, BaseStorageIntegrationTests
-):
+class TestStorageServiceIntegration(StorageIntegrationTestMixin, BaseStorageIntegrationTests):
     """Integration tests for StorageService with real file operations."""
 
     @pytest.mark.asyncio
@@ -143,9 +141,7 @@ class TestStorageServiceIntegration(
             assert storage_service.file_exists(file_path) is False
 
     @pytest.mark.asyncio
-    async def test_file_path_isolation_between_organizations(
-        self, local_storage_service
-    ):
+    async def test_file_path_isolation_between_organizations(self, local_storage_service):
         """Test that file paths are properly isolated between organizations."""
         storage_service = local_storage_service
 
@@ -238,15 +234,11 @@ class TestStorageServiceIntegration(
 
 @pytest.mark.integration
 @pytest.mark.service
-class TestDocumentHandlerIntegration(
-    StorageIntegrationTestMixin, BaseStorageIntegrationTests
-):
+class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageIntegrationTests):
     """Integration tests for DocumentHandler with real storage operations."""
 
     @pytest.mark.asyncio
-    async def test_complete_document_workflow(
-        self, document_handler_with_local_storage
-    ):
+    async def test_complete_document_workflow(self, document_handler_with_local_storage):
         """Test complete document save/retrieve/delete workflow."""
         handler = document_handler_with_local_storage
 
@@ -377,9 +369,7 @@ class TestDocumentHandlerIntegration(
             )
 
     @pytest.mark.asyncio
-    async def test_concurrent_document_operations(
-        self, document_handler_with_local_storage
-    ):
+    async def test_concurrent_document_operations(self, document_handler_with_local_storage):
         """Test concurrent document operations."""
         handler = document_handler_with_local_storage
 
@@ -424,9 +414,7 @@ class TestStorageServiceEnvironmentConfigurations(
     """Test StorageService with different environment configurations."""
 
     @patch("rhesis.backend.app.services.storage_service.fsspec.filesystem")
-    def test_environment_specific_bucket_names(
-        self, mock_fsspec, environment_configurations
-    ):
+    def test_environment_specific_bucket_names(self, mock_fsspec, environment_configurations):
         """Test that different environments generate correct bucket names."""
         mock_fs = MagicMock()
         mock_fsspec.return_value = mock_fs

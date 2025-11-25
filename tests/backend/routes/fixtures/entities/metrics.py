@@ -32,7 +32,7 @@ def sample_metric(authenticated_client: TestClient) -> Dict[str, Any]:
         "name": fake.word().title() + " " + fake.word().title(),
         "description": fake.text(max_nb_chars=150),
         "evaluation_prompt": fake.sentence(nb_words=8),
-        "score_type": score_type
+        "score_type": score_type,
     }
 
     # Add required fields for categorical metrics

@@ -1,6 +1,8 @@
 """Error response handling for endpoint invokers."""
 
-from typing import Dict
+from typing import Dict, Optional
+
+from .schemas import ErrorResponse, RequestDetails
 
 
 class ErrorResponseBuilder:
@@ -11,11 +13,11 @@ class ErrorResponseBuilder:
         error_type: str,
         output_message: str,
         message: str,
-        request_details: Dict = None,
+        request_details: Optional[Dict] = None,
         **kwargs,
-    ) -> Dict:
+    ) -> ErrorResponse:
         """
-        Create standardized error response.
+        Create standardized error response using Pydantic schema.
 
         Args:
             error_type: Type of error (e.g., 'network_error', 'http_error')
@@ -25,37 +27,52 @@ class ErrorResponseBuilder:
             **kwargs: Additional fields to include in response
 
         Returns:
-            Standardized error response dictionary
+            Typed ErrorResponse object
         """
-        error_response = {
-            "output": output_message,
-            "error": True,
-            "error_type": error_type,
-            "message": message,
-        }
+        # Convert request_details dict to RequestDetails schema if provided
+        request_schema = None
         if request_details:
-            error_response["request"] = request_details
-        error_response.update(kwargs)
-        return error_response
+            # Handle case where request_details is already a RequestDetails object
+            if isinstance(request_details, RequestDetails):
+                request_schema = request_details
+            else:
+                request_schema = RequestDetails(**request_details)
+
+        # Create the error response with validation
+        return ErrorResponse(
+            output=output_message,
+            error_type=error_type,
+            message=message,
+            request=request_schema,
+            **kwargs,
+        )
 
     @staticmethod
-    def safe_request_details(local_vars: Dict, protocol: str = "unknown") -> Dict:
+    def safe_request_details(local_vars: Dict, connection_type: str = "unknown") -> RequestDetails:
         """
-        Safely create request details from local variables.
+        Safely create request details from local variables using Pydantic schema.
 
         Args:
             local_vars: Local variables dict (typically from locals())
-            protocol: Protocol type (REST, WebSocket, etc.)
+            connection_type: Connection type (REST, WebSocket, SDK, etc.)
 
         Returns:
-            Sanitized request details dictionary
+            Typed RequestDetails object
         """
         from .headers import HeaderManager
 
-        return {
-            "protocol": protocol,
-            "method": local_vars.get("method", "UNKNOWN"),
-            "url": local_vars.get("url", local_vars.get("uri", "UNKNOWN")),
-            "headers": HeaderManager.sanitize_headers(local_vars.get("headers", {})),
-            "body": local_vars.get("request_body", local_vars.get("message_data")),
-        }
+        # Convert project_id to string if it's a UUID object
+        project_id = local_vars.get("project_id")
+        if project_id is not None:
+            project_id = str(project_id)
+
+        return RequestDetails(
+            connection_type=connection_type,
+            method=local_vars.get("method", "UNKNOWN"),
+            url=local_vars.get("url", local_vars.get("uri", "UNKNOWN")),
+            headers=HeaderManager.sanitize_headers(local_vars.get("headers", {})),
+            body=local_vars.get("request_body", local_vars.get("message_data")),
+            project_id=project_id,
+            environment=local_vars.get("environment"),
+            function_name=local_vars.get("function_name"),
+        )

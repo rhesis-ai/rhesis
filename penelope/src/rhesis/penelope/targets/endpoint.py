@@ -221,13 +221,13 @@ class EndpointTarget(Target):
         name = self.endpoint.fields.get("name", self.endpoint_id)
         url = self.endpoint.fields.get("url", "N/A")
         description = self.endpoint.fields.get("description", "")
-        protocol = self.endpoint.fields.get("protocol", "REST")
+        connection_type = self.endpoint.fields.get("connection_type", "REST")
 
         doc = f"""
 Target Type: Rhesis Endpoint
 Name: {name}
 Endpoint ID: {self.endpoint_id}
-Protocol: {protocol}
+Connection Type: {connection_type}
 URL: {url}
 """
 

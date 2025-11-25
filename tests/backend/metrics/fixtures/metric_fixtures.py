@@ -61,18 +61,14 @@ def mock_llm_response() -> Dict[str, Any]:
     return {
         "score": 8,
         "reason": "Response demonstrates good quality with clear explanation",
-        "verdict": "pass"
+        "verdict": "pass",
     }
 
 
 @pytest.fixture
 def mock_llm_categorical_response() -> Dict[str, Any]:
     """Mock LLM response for categorical metric."""
-    return {
-        "score": "positive",
-        "reason": "Response has a positive sentiment",
-        "verdict": "pass"
-    }
+    return {"score": "positive", "reason": "Response has a positive sentiment", "verdict": "pass"}
 
 
 @pytest.fixture
@@ -82,25 +78,21 @@ def mock_llm_binary_response() -> Dict[str, Any]:
     Binary metrics have been migrated to categorical.
     This now returns a categorical response.
     """
-    return {
-        "score": "Pass",
-        "reason": "Response meets the criteria",
-        "verdict": "pass"
-    }
+    return {"score": "Pass", "reason": "Response meets the criteria", "verdict": "pass"}
 
 
 @pytest.fixture
 def test_model(test_db, test_org_id, authenticated_user_id):
     """Create a test Model for metrics testing."""
     from rhesis.backend.app import models
-    
+
     model = models.Model(
         name="Test Model for Metrics",
         model_name="gpt-4",
         endpoint="https://api.openai.com/v1/chat/completions",
         key="test-key-123",
         organization_id=test_org_id,
-        user_id=authenticated_user_id
+        user_id=authenticated_user_id,
     )
     test_db.add(model)
     test_db.commit()
@@ -113,25 +105,25 @@ def test_metric_numeric(test_db, test_org_id, authenticated_user_id):
     """Create a numeric Metric DB model for testing."""
     from rhesis.backend.app import models
     from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
-    
+
     # Get or create backend type
     backend_type = get_or_create_type_lookup(
         test_db,
         type_name="backend_type",
         type_value="rhesis",
         organization_id=test_org_id,
-        user_id=authenticated_user_id
+        user_id=authenticated_user_id,
     )
-    
+
     # Get or create metric type
     metric_type = get_or_create_type_lookup(
         test_db,
         type_name="metric_type",
         type_value="custom-prompt",
         organization_id=test_org_id,
-        user_id=authenticated_user_id
+        user_id=authenticated_user_id,
     )
-    
+
     metric = models.Metric(
         name="Test Numeric Metric",
         description="Test metric for baseline tests",
@@ -147,7 +139,7 @@ def test_metric_numeric(test_db, test_org_id, authenticated_user_id):
         backend_type_id=backend_type.id,
         metric_type_id=metric_type.id,
         organization_id=test_org_id,
-        user_id=authenticated_user_id
+        user_id=authenticated_user_id,
     )
     test_db.add(metric)
     test_db.commit()
@@ -160,25 +152,25 @@ def test_metric_categorical(test_db, test_org_id, authenticated_user_id):
     """Create a categorical Metric DB model for testing."""
     from rhesis.backend.app import models
     from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
-    
+
     # Get or create backend type
     backend_type = get_or_create_type_lookup(
         test_db,
         type_name="backend_type",
         type_value="rhesis",
         organization_id=test_org_id,
-        user_id=authenticated_user_id
+        user_id=authenticated_user_id,
     )
-    
+
     # Get or create metric type
     metric_type = get_or_create_type_lookup(
         test_db,
         type_name="metric_type",
         type_value="custom-prompt",
         organization_id=test_org_id,
-        user_id=authenticated_user_id
+        user_id=authenticated_user_id,
     )
-    
+
     metric = models.Metric(
         name="Test Categorical Metric",
         description="Test categorical metric",
@@ -191,7 +183,7 @@ def test_metric_categorical(test_db, test_org_id, authenticated_user_id):
         backend_type_id=backend_type.id,
         metric_type_id=metric_type.id,
         organization_id=test_org_id,
-        user_id=authenticated_user_id
+        user_id=authenticated_user_id,
     )
     test_db.add(metric)
     test_db.commit()
@@ -200,23 +192,24 @@ def test_metric_categorical(test_db, test_org_id, authenticated_user_id):
 
 
 @pytest.fixture
-def test_behavior_with_metrics(test_db, test_org_id, authenticated_user_id, test_metric_numeric, test_metric_categorical):
+def test_behavior_with_metrics(
+    test_db, test_org_id, authenticated_user_id, test_metric_numeric, test_metric_categorical
+):
     """Create a behavior with associated metrics for testing."""
     from rhesis.backend.app import models
-    
+
     behavior = models.Behavior(
         name="Test Behavior with Metrics",
         description="Behavior for baseline metrics tests",
         organization_id=test_org_id,
-        user_id=authenticated_user_id
+        user_id=authenticated_user_id,
     )
     test_db.add(behavior)
     test_db.flush()
-    
+
     # Associate metrics with behavior
     behavior.metrics = [test_metric_numeric, test_metric_categorical]
-    
+
     test_db.commit()
     test_db.refresh(behavior)
     return behavior
-

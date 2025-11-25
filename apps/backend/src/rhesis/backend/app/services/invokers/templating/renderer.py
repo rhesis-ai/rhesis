@@ -69,7 +69,10 @@ class TemplateRenderer:
                     if rendered_value.strip() == "__OMIT_FIELD__":
                         keys_to_remove.append(key)
                     else:
-                        result[key] = self._filter_omit_markers(rendered_value)
+                        # Try to intelligently handle the rendered value
+                        result[key] = self._parse_rendered_value(
+                            rendered_value, render_context, value
+                        )
 
             # Remove keys that had omit markers
             for key in keys_to_remove:
@@ -78,6 +81,51 @@ class TemplateRenderer:
 
             return result
         return template_data
+
+    def _parse_rendered_value(
+        self, rendered_value: str, render_context: Dict[str, Any], original_template: str
+    ) -> Any:
+        """
+        Parse rendered value intelligently to preserve types.
+
+        If the template is a simple variable reference like "{{ field_name }}" and
+        the field value is a complex type (dict, list), preserve it as-is instead
+        of converting to string.
+
+        Args:
+            rendered_value: The Jinja2-rendered string value
+            render_context: The context used for rendering
+            original_template: The original template string
+
+        Returns:
+            Parsed value (could be dict, list, string, etc.)
+        """
+        import re
+
+        # Check if template is a simple variable reference: {{ var_name }}
+        simple_var_pattern = r"^\{\{\s*(\w+)\s*\}\}$"
+        match = re.match(simple_var_pattern, original_template)
+
+        if match:
+            var_name = match.group(1)
+            if var_name in render_context:
+                value = render_context[var_name]
+
+                # Check if value is a Pydantic model - convert to dict for serialization
+                if hasattr(value, "model_dump"):
+                    logger.debug(
+                        f"Converting Pydantic model {type(value).__name__} to dict "
+                        f"for template {{ {var_name} }}"
+                    )
+                    return value.model_dump(exclude_none=True)
+
+                # If the value is a complex type, return it directly
+                if isinstance(value, (dict, list)):
+                    logger.debug(f"Preserving {type(value).__name__} for template {{ {var_name} }}")
+                    return value
+
+        # For non-simple templates or string values, filter and return
+        return self._filter_omit_markers(rendered_value)
 
     def _filter_omit_markers(self, rendered_str: str) -> str:
         """

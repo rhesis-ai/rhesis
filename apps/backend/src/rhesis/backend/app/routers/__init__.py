@@ -3,6 +3,7 @@ from .auth import router as auth_router
 from .behavior import router as behavior_router
 from .category import router as category_router
 from .comment import router as comment_router
+from .connector import router as connector_router
 from .demographic import router as demographic_router
 from .dimension import router as dimension_router
 from .endpoint import router as endpoint_router
@@ -47,6 +48,7 @@ __all__ = [
     "category",
     "behavior",
     "comment",
+    "connector",
     "response_pattern",
     "test_set",
     "test_configuration",
@@ -84,6 +86,7 @@ routers = sorted(
         category_router,
         behavior_router,
         comment_router,
+        connector_router,
         response_pattern_router,
         test_set_router,
         test_configuration_router,

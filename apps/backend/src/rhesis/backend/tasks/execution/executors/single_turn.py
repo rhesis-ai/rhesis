@@ -27,7 +27,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
     Metrics are evaluated by the worker using the MetricEvaluator.
     """
 
-    def execute(
+    async def execute(
         self,
         db: Session,
         test_config_id: str,
@@ -84,7 +84,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
 
             # Run core execution (shared with in-place service)
             runner = SingleTurnRunner()
-            execution_time, processed_result, metrics_results = runner.run(
+            execution_time, processed_result, metrics_results = await runner.run(
                 db=db,
                 test=test,
                 endpoint_id=endpoint_id,

@@ -16,7 +16,7 @@ def mock_endpoint():
         "name": "Test Endpoint",
         "url": "https://test.example.com/chat",
         "description": "Test endpoint description",
-        "protocol": "REST",
+        "connection_type": "REST",
     }
     endpoint.invoke.return_value = {
         "output": "Test response",

@@ -33,7 +33,7 @@ def test_type_lookup(test_db: Session, test_organization) -> TypeLookup:
         type_value="ENDPOINT",
         description="Entity type for endpoints",
         organization_id=test_organization.id,
-        user_id=None  # Can be None for system types
+        user_id=None,  # Can be None for system types
     )
     test_db.add(type_lookup)
     test_db.flush()  # Make sure the object gets an ID
@@ -63,7 +63,7 @@ def db_status(test_db: Session, test_organization, test_type_lookup, db_user) ->
         description="Active status for testing",
         entity_type_id=test_type_lookup.id,  # Use General entity type like production
         organization_id=test_organization.id,
-        user_id=db_user.id
+        user_id=db_user.id,
     )
     test_db.add(status)
     test_db.commit()  # Commit the transaction to make it visible to other transactions
@@ -90,7 +90,7 @@ def db_inactive_status(test_db: Session, test_organization, test_type_lookup, db
         description="Inactive status for testing",
         entity_type_id=test_type_lookup.id,  # Use General entity type like production
         organization_id=test_organization.id,
-        user_id=db_user.id
+        user_id=db_user.id,
     )
     test_db.add(status)
     test_db.commit()  # Commit the transaction to make it visible to other transactions
@@ -117,7 +117,7 @@ def db_draft_status(test_db: Session, test_organization, test_type_lookup, db_us
         description="Draft status for testing",
         entity_type_id=test_type_lookup.id,  # Use General entity type like production
         organization_id=test_organization.id,
-        user_id=db_user.id
+        user_id=db_user.id,
     )
     test_db.add(status)
     test_db.commit()  # Commit the transaction to make it visible to other transactions
@@ -147,7 +147,7 @@ def db_project_status(test_db: Session, test_organization, test_type_lookup, db_
         description="Active status for project testing",
         entity_type_id=test_type_lookup.id,  # Use General entity type like production
         organization_id=test_organization.id,
-        user_id=db_user.id
+        user_id=db_user.id,
     )
     test_db.add(status)
     test_db.commit()  # Commit the transaction to make it visible to other transactions

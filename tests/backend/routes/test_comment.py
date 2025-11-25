@@ -97,6 +97,7 @@ class TestCommentStandardRoutes(CommentTestMixin, BaseEntityRouteTests):
 
 # === COMMENT-SPECIFIC TESTS (Enhanced with Factories) ===
 
+
 @pytest.mark.integration
 class TestCommentEntityRelationships(CommentTestMixin, BaseEntityTests):
     """Enhanced comment-entity relationship tests using factories"""
@@ -108,10 +109,7 @@ class TestCommentEntityRelationships(CommentTestMixin, BaseEntityTests):
         behavior_id = behavior["id"]
 
         # Create comment for the behavior
-        comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior_id,
-            entity_type="Behavior"
-        )
+        comment_data = CommentDataFactory.sample_data(entity_id=behavior_id, entity_type="Behavior")
         comment = comment_factory.create(comment_data)
 
         assert comment["entity_id"] == behavior_id
@@ -128,21 +126,17 @@ class TestCommentEntityRelationships(CommentTestMixin, BaseEntityTests):
 
         # Create multiple comments for the behavior
         comment_data_1 = CommentDataFactory.sample_data(
-            entity_id=behavior_id,
-            entity_type="Behavior"
+            entity_id=behavior_id, entity_type="Behavior"
         )
         comment_data_2 = CommentDataFactory.sample_data(
-            entity_id=behavior_id,
-            entity_type="Behavior"
+            entity_id=behavior_id, entity_type="Behavior"
         )
 
         comment1 = comment_factory.create(comment_data_1)
         comment2 = comment_factory.create(comment_data_2)
 
         # Get comments by entity
-        response = comment_factory.client.get(
-            self.endpoints.by_entity("Behavior", behavior_id)
-        )
+        response = comment_factory.client.get(self.endpoints.by_entity("Behavior", behavior_id))
 
         assert response.status_code == status.HTTP_200_OK
         comments = response.json()
@@ -165,9 +159,7 @@ class TestCommentEntityRelationships(CommentTestMixin, BaseEntityTests):
         behavior_id = behavior["id"]
 
         # Get comments by entity (should be empty)
-        response = comment_factory.client.get(
-            self.endpoints.by_entity("Behavior", behavior_id)
-        )
+        response = comment_factory.client.get(self.endpoints.by_entity("Behavior", behavior_id))
 
         assert response.status_code == status.HTTP_200_OK
         comments = response.json()
@@ -197,17 +189,14 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
         # Create behavior and comment
         behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"],
-            entity_type="Behavior"
+            entity_id=behavior["id"], entity_type="Behavior"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
 
         # Add emoji reaction
         emoji = "🚀"
-        response = comment_factory.client.post(
-            self.endpoints.add_emoji_reaction(comment_id, emoji)
-        )
+        response = comment_factory.client.post(self.endpoints.add_emoji_reaction(comment_id, emoji))
 
         assert response.status_code == status.HTTP_200_OK
         updated_comment = response.json()
@@ -228,8 +217,7 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
         # Create behavior and comment
         behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"],
-            entity_type="Behavior"
+            entity_id=behavior["id"], entity_type="Behavior"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
@@ -258,8 +246,7 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
         # Create behavior and comment
         behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"],
-            entity_type="Behavior"
+            entity_id=behavior["id"], entity_type="Behavior"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
@@ -289,8 +276,7 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
         # Create behavior and comment
         behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"],
-            entity_type="Behavior"
+            entity_id=behavior["id"], entity_type="Behavior"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
@@ -298,9 +284,7 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
         emoji = "🚀"
 
         # Add emoji reaction
-        response = comment_factory.client.post(
-            self.endpoints.add_emoji_reaction(comment_id, emoji)
-        )
+        response = comment_factory.client.post(self.endpoints.add_emoji_reaction(comment_id, emoji))
         assert response.status_code == status.HTTP_200_OK
 
         # Remove emoji reaction
@@ -346,8 +330,7 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
         # Create behavior and comment
         behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"],
-            entity_type="Behavior"
+            entity_id=behavior["id"], entity_type="Behavior"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
@@ -357,10 +340,8 @@ class TestCommentEmojiReactions(CommentTestMixin, BaseEntityTests):
 
         for emoji in emojis:
             # URL encode the emoji for the API call
-            encoded_emoji = quote(emoji, safe='')
-            response = comment_factory.client.post(
-                f"/comments/{comment_id}/emoji/{encoded_emoji}"
-            )
+            encoded_emoji = quote(emoji, safe="")
+            response = comment_factory.client.post(f"/comments/{comment_id}/emoji/{encoded_emoji}")
             assert response.status_code == status.HTTP_200_OK
 
             updated_comment = response.json()
@@ -444,7 +425,10 @@ class TestCommentValidationAndEdgeCases(CommentTestMixin, BaseEntityTests):
         comment_data["entity_type"] = "InvalidEntityType"
 
         response = comment_factory.client.post(comment_factory.endpoints.create, json=comment_data)
-        assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY]
+        assert response.status_code in [
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+        ]
 
     def test_create_comment_with_nonexistent_entity_id(self, comment_factory):
         """💬 Test creating comment for non-existent entity"""
@@ -462,8 +446,7 @@ class TestCommentValidationAndEdgeCases(CommentTestMixin, BaseEntityTests):
         # Create behavior and comment
         behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"],
-            entity_type="Behavior"
+            entity_id=behavior["id"], entity_type="Behavior"
         )
         comment = comment_factory.create(comment_data)
 
@@ -479,8 +462,7 @@ class TestCommentValidationAndEdgeCases(CommentTestMixin, BaseEntityTests):
         # Create behavior and comment
         behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"],
-            entity_type="Behavior"
+            entity_id=behavior["id"], entity_type="Behavior"
         )
         comment = comment_factory.create(comment_data)
 
@@ -505,7 +487,7 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
         comment_data_batch = CommentDataFactory.batch_data(
             count=10,
             variation=False,  # Use consistent data to avoid random entity types
-            entity_type="Behavior"
+            entity_type="Behavior",
         )
 
         comments = []
@@ -529,7 +511,7 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
         comment_data_batch = CommentDataFactory.batch_data(
             count=comment_count,
             variation=False,  # Don't vary entity types - use consistent data
-            entity_type="Behavior"
+            entity_type="Behavior",
         )
 
         for comment_data in comment_data_batch:
@@ -539,8 +521,7 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
 
         # Test pagination
         response = comment_factory.client.get(
-            self.endpoints.by_entity("Behavior", behavior["id"]),
-            params={"limit": 10, "skip": 0}
+            self.endpoints.by_entity("Behavior", behavior["id"]), params={"limit": 10, "skip": 0}
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -549,8 +530,7 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
 
         # Get second page
         response = comment_factory.client.get(
-            self.endpoints.by_entity("Behavior", behavior["id"]),
-            params={"limit": 10, "skip": 10}
+            self.endpoints.by_entity("Behavior", behavior["id"]), params={"limit": 10, "skip": 10}
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -567,8 +547,7 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
         # Create behavior and comment
         behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
         comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior["id"],
-            entity_type="Behavior"
+            entity_id=behavior["id"], entity_type="Behavior"
         )
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
@@ -591,17 +570,16 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
         for emoji in emojis:
             assert emoji in final_comment["emojis"]
 
-    def test_delete_comment_clears_task_references(self, comment_factory, behavior_factory, authenticated_client):
+    def test_delete_comment_clears_task_references(
+        self, comment_factory, behavior_factory, authenticated_client
+    ):
         """🗑️ Test that deleting a comment clears comment_id from associated tasks"""
         # Create a behavior entity
         behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
         behavior_id = behavior["id"]
 
         # Create a comment for the behavior
-        comment_data = CommentDataFactory.sample_data(
-            entity_id=behavior_id,
-            entity_type="Behavior"
-        )
+        comment_data = CommentDataFactory.sample_data(entity_id=behavior_id, entity_type="Behavior")
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
 
@@ -619,10 +597,7 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
             "status_id": default_status_id,
             "entity_id": behavior_id,
             "entity_type": "Behavior",
-            "task_metadata": {
-                "comment_id": comment_id,
-                "some_other_field": "should remain"
-            }
+            "task_metadata": {"comment_id": comment_id, "some_other_field": "should remain"},
         }
 
         task_response = authenticated_client.post("/tasks/", json=task_data)
@@ -635,9 +610,7 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
         assert task["task_metadata"]["some_other_field"] == "should remain"
 
         # Delete the comment
-        delete_response = comment_factory.client.delete(
-            self.endpoints.remove(comment_id)
-        )
+        delete_response = comment_factory.client.delete(self.endpoints.remove(comment_id))
         assert delete_response.status_code == status.HTTP_200_OK
 
         # Retrieve the task and verify comment_id is cleared from task_metadata

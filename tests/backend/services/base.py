@@ -153,8 +153,6 @@ class StorageIntegrationTestMixin:
     def create_multiple_file_data(self, count: int = 3) -> list[Dict[str, Any]]:
         """Create multiple file data for batch testing."""
         return [
-            self.create_test_file_data(
-                filename=f"file_{i}.txt", size_bytes=1024 * (i + 1)
-            )
+            self.create_test_file_data(filename=f"file_{i}.txt", size_bytes=1024 * (i + 1))
             for i in range(count)
         ]

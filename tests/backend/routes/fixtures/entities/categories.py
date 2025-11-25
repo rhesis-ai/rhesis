@@ -24,7 +24,7 @@ def sample_category(authenticated_client: TestClient) -> Dict[str, Any]:
     """
     category_data = {
         "name": fake.word().title() + " Test Category",
-        "description": fake.text(max_nb_chars=100)
+        "description": fake.text(max_nb_chars=100),
     }
 
     response = authenticated_client.post(APIEndpoints.CATEGORIES.create, json=category_data)
@@ -45,8 +45,8 @@ def parent_category(authenticated_client: TestClient) -> Dict[str, Any]:
         Dict containing the created parent category data including its ID
     """
     parent_data = {
-        "name": fake.sentence(nb_words=2).rstrip('.') + " Parent Category",
-        "description": fake.text(max_nb_chars=100)
+        "name": fake.sentence(nb_words=2).rstrip(".") + " Parent Category",
+        "description": fake.text(max_nb_chars=100),
     }
 
     response = authenticated_client.post(APIEndpoints.CATEGORIES.create, json=parent_data)

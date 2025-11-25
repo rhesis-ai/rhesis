@@ -26,7 +26,7 @@ from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
 # ============================================================================
 
 
-def execute_test(
+async def execute_test(
     db: Session,
     test_config_id: str,
     test_run_id: str,
@@ -91,7 +91,7 @@ def execute_test(
         executor = create_executor(test)
 
         # Delegate execution to the executor
-        result = executor.execute(
+        result = await executor.execute(
             db=db,
             test_config_id=test_config_id,
             test_run_id=test_run_id,

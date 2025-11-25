@@ -159,7 +159,7 @@ class TestErrorResponseBuilder:
         """Test creating error response with request details."""
         builder = ErrorResponseBuilder()
         request_details = {
-            "protocol": "REST",
+            "connection_type": "REST",
             "method": "POST",
             "url": "https://api.example.com",
         }
@@ -199,7 +199,7 @@ class TestErrorResponseBuilder:
 
         result = builder.safe_request_details(local_vars, "REST")
 
-        assert result["protocol"] == "REST"
+        assert result["connection_type"] == "REST"
         assert result["method"] == "POST"
         assert result["url"] == "https://api.example.com/chat"
         assert result["headers"]["Authorization"] == "***REDACTED***"
@@ -215,7 +215,7 @@ class TestErrorResponseBuilder:
 
         result = builder.safe_request_details(local_vars, "WebSocket")
 
-        assert result["protocol"] == "WebSocket"
+        assert result["connection_type"] == "WebSocket"
         assert result["url"] == "wss://ws.example.com/chat"
 
     def test_safe_request_details_with_message_data(self):
@@ -236,7 +236,7 @@ class TestErrorResponseBuilder:
 
         result = builder.safe_request_details(local_vars)
 
-        assert result["protocol"] == "unknown"
+        assert result["connection_type"] == "unknown"
         assert result["method"] == "UNKNOWN"
         assert result["url"] == "UNKNOWN"
         assert result["headers"] == {}

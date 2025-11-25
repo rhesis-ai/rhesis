@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, WebSocket, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -302,4 +302,57 @@ async def require_current_user_or_token_without_context(
     )
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    return user
+
+
+async def authenticate_websocket(websocket: WebSocket) -> User:
+    """
+    Authenticate WebSocket connection using Bearer token.
+
+    Thin wrapper around get_authenticated_user_with_context that extracts
+    credentials from WebSocket headers. Requires organization context.
+    Does not accept the connection - that's the endpoint's responsibility.
+
+    Args:
+        websocket: The WebSocket connection to authenticate
+
+    Returns:
+        User: Authenticated user with organization_id
+
+    Raises:
+        HTTPException: If authentication fails or user lacks organization
+    """
+    # Extract and validate Authorization header
+    auth_header = websocket.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid authorization header",
+        )
+
+    # Create credentials object
+    token_value = auth_header.replace("Bearer ", "")
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token_value)
+
+    # Create minimal mock request (websockets don't have full Request object)
+    class MockRequest:
+        def __init__(self):
+            self.session = {}
+            self.state = type("obj", (object,), {})()
+
+    mock_request = MockRequest()
+
+    # Use existing authentication logic (supports both rh- tokens and JWT)
+    user = await get_authenticated_user_with_context(
+        request=mock_request,
+        credentials=credentials,
+        secret_key=get_secret_key(),
+        without_context=False,  # Require organization
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed"
+        )
+
     return user

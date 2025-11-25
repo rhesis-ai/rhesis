@@ -388,6 +388,10 @@ start_worker() {
     # Set up trap to handle Ctrl+C gracefully
     trap "echo -e '\n${YELLOW}🛑 Shutting down worker...${NC}'; exit" INT TERM
 
+    # Set CELERY_WORKER_NAME environment variable
+    export CELERY_WORKER_NAME="worker@$(hostname)"
+    echo -e "${GREEN}✅ CELERY_WORKER_NAME set to: ${CELERY_WORKER_NAME}${NC}"
+
     # Run in foreground - using uv run handles the virtual environment automatically
     # Using --logfile parameter to write logs directly
     # Using --pool=solo to avoid forking issues on macOS with ML libraries (DeepEval/PyTorch)
