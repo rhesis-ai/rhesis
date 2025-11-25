@@ -169,9 +169,6 @@ export default function TestSetsGrid({
       field: 'name',
       headerName: 'Name',
       flex: 1.5,
-      renderCell: params => (
-        <Typography sx={{ fontWeight: 'medium' }}>{params.value}</Typography>
-      ),
     },
     {
       field: 'behaviors',
@@ -484,6 +481,13 @@ export default function TestSetsGrid({
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
+        initialState={{
+          columns: {
+            columnVisibilityModel: {
+              sources: false,
+            },
+          },
+        }}
       />
 
       {(sessionToken || session?.session_token) && (
