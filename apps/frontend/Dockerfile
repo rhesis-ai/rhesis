@@ -78,6 +78,7 @@ FROM base AS runner
 
 # Redefine ARG for this stage
 ARG FRONTEND_ENV=production
+ARG NEXT_PUBLIC_QUICK_START=false
 
 # Add runtime dependencies
 RUN apk add --no-cache curl
