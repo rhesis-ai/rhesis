@@ -23,7 +23,8 @@ class TestRestEndpointInvoker:
         assert "POST" in invoker.request_handlers
         assert "GET" in invoker.request_handlers
 
-    def test_invoke_success_with_simple_endpoint(
+    @pytest.mark.asyncio
+    async def test_invoke_success_with_simple_endpoint(
         self, mock_db, sample_endpoint_rest, sample_input_data
     ):
         """Test successful invocation of REST endpoint."""
@@ -37,12 +38,13 @@ class TestRestEndpointInvoker:
         }
 
         with patch("requests.post", return_value=mock_response):
-            result = invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+            result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
         assert result["output"] == "Paris is the capital of France."
         assert result["tokens"] == 42
 
-    def test_invoke_with_conversation_tracking(
+    @pytest.mark.asyncio
+    async def test_invoke_with_conversation_tracking(
         self, mock_db, sample_endpoint_conversation, sample_input_data
     ):
         """Test invocation with conversation tracking."""
@@ -57,13 +59,14 @@ class TestRestEndpointInvoker:
         }
 
         with patch("requests.post", return_value=mock_response):
-            result = invoker.invoke(mock_db, sample_endpoint_conversation, sample_input_data)
+            result = await invoker.invoke(mock_db, sample_endpoint_conversation, sample_input_data)
 
         assert result["output"] == "Hello!"
         assert result["conversation_id"] == "conv-123"
         assert result["context"] == ["greeting"]  # Context is normalized to a list
 
-    def test_invoke_forwards_conversation_id(self, mock_db, sample_endpoint_conversation):
+    @pytest.mark.asyncio
+    async def test_invoke_forwards_conversation_id(self, mock_db, sample_endpoint_conversation):
         """Test that conversation_id is forwarded in subsequent requests."""
         invoker = RestEndpointInvoker()
         input_data = {"input": "Follow-up question", "conversation_id": "conv-456"}
@@ -76,7 +79,7 @@ class TestRestEndpointInvoker:
         }
 
         with patch("requests.post", return_value=mock_response) as mock_post:
-            result = invoker.invoke(mock_db, sample_endpoint_conversation, input_data)
+            result = await invoker.invoke(mock_db, sample_endpoint_conversation, input_data)
 
             # Verify conversation_id was included in request body
             call_args = mock_post.call_args
@@ -85,7 +88,8 @@ class TestRestEndpointInvoker:
 
         assert result["conversation_id"] == "conv-789"
 
-    def test_invoke_with_http_error(self, mock_db, sample_endpoint_rest, sample_input_data):
+    @pytest.mark.asyncio
+    async def test_invoke_with_http_error(self, mock_db, sample_endpoint_rest, sample_input_data):
         """Test handling of HTTP error responses."""
         invoker = RestEndpointInvoker()
 
@@ -96,13 +100,18 @@ class TestRestEndpointInvoker:
         mock_response.headers = {}
 
         with patch("requests.post", return_value=mock_response):
-            result = invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+            result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+
+        # Convert ErrorResponse to dict for testing
+        if hasattr(result, 'to_dict'):
+            result = result.to_dict()
 
         assert result["error"] is True
         assert result["error_type"] == "http_error"
         assert "404" in result["message"]
 
-    def test_invoke_with_network_error(self, mock_db, sample_endpoint_rest, sample_input_data):
+    @pytest.mark.asyncio
+    async def test_invoke_with_network_error(self, mock_db, sample_endpoint_rest, sample_input_data):
         """Test handling of network errors."""
         invoker = RestEndpointInvoker()
 
@@ -111,13 +120,18 @@ class TestRestEndpointInvoker:
         with patch(
             "requests.post", side_effect=requests.exceptions.ConnectionError("Connection refused")
         ):
-            result = invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+            result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+
+        # Convert ErrorResponse to dict for testing
+        if hasattr(result, 'to_dict'):
+            result = result.to_dict()
 
         assert result["error"] is True
         assert result["error_type"] == "network_error"
         assert "Connection refused" in result["message"]
 
-    def test_invoke_with_json_parsing_error(self, mock_db, sample_endpoint_rest, sample_input_data):
+    @pytest.mark.asyncio
+    async def test_invoke_with_json_parsing_error(self, mock_db, sample_endpoint_rest, sample_input_data):
         """Test handling of invalid JSON response."""
         invoker = RestEndpointInvoker()
 
@@ -128,12 +142,17 @@ class TestRestEndpointInvoker:
         mock_response.headers = {}
 
         with patch("requests.post", return_value=mock_response):
-            result = invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+            result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+
+        # Convert ErrorResponse to dict for testing
+        if hasattr(result, 'to_dict'):
+            result = result.to_dict()
 
         assert result["error"] is True
         assert result["error_type"] == "json_parsing_error"
 
-    def test_invoke_with_get_method(self, mock_db, sample_endpoint_rest, sample_input_data):
+    @pytest.mark.asyncio
+    async def test_invoke_with_get_method(self, mock_db, sample_endpoint_rest, sample_input_data):
         """Test invocation with GET method."""
         invoker = RestEndpointInvoker()
         sample_endpoint_rest.method = "GET"
@@ -143,12 +162,13 @@ class TestRestEndpointInvoker:
         mock_response.json.return_value = {"response": {"text": "Success"}}
 
         with patch("requests.get", return_value=mock_response) as mock_get:
-            invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+            await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
             # Verify GET was called
             assert mock_get.called
 
-    def test_invoke_with_put_method(self, mock_db, sample_endpoint_rest, sample_input_data):
+    @pytest.mark.asyncio
+    async def test_invoke_with_put_method(self, mock_db, sample_endpoint_rest, sample_input_data):
         """Test invocation with PUT method."""
         invoker = RestEndpointInvoker()
         sample_endpoint_rest.method = "PUT"
@@ -158,11 +178,12 @@ class TestRestEndpointInvoker:
         mock_response.json.return_value = {"response": {"text": "Updated"}}
 
         with patch("requests.put", return_value=mock_response) as mock_put:
-            invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+            await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
             assert mock_put.called
 
-    def test_invoke_with_delete_method(self, mock_db, sample_endpoint_rest, sample_input_data):
+    @pytest.mark.asyncio
+    async def test_invoke_with_delete_method(self, mock_db, sample_endpoint_rest, sample_input_data):
         """Test invocation with DELETE method."""
         invoker = RestEndpointInvoker()
         sample_endpoint_rest.method = "DELETE"
@@ -172,17 +193,18 @@ class TestRestEndpointInvoker:
         mock_response.json.return_value = {"response": {"text": "Deleted"}}
 
         with patch("requests.delete", return_value=mock_response) as mock_delete:
-            invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+            await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
             assert mock_delete.called
 
-    def test_invoke_with_unsupported_method(self, mock_db, sample_endpoint_rest, sample_input_data):
+    @pytest.mark.asyncio
+    async def test_invoke_with_unsupported_method(self, mock_db, sample_endpoint_rest, sample_input_data):
         """Test invocation with unsupported HTTP method."""
         invoker = RestEndpointInvoker()
         sample_endpoint_rest.method = "PATCH"
 
         with pytest.raises(HTTPException) as exc_info:
-            invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+            await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
         assert exc_info.value.status_code == 400
         assert "Unsupported HTTP method" in str(exc_info.value.detail)
@@ -207,7 +229,8 @@ class TestRestEndpointInvoker:
         assert headers["X-Organization-ID"] == "org-123"
         assert headers["X-User-ID"] == "user-456"
 
-    def test_invoke_preserves_unmapped_error_fields(
+    @pytest.mark.asyncio
+    async def test_invoke_preserves_unmapped_error_fields(
         self, mock_db, sample_endpoint_rest, sample_input_data
     ):
         """Test that important unmapped fields are preserved in response."""
@@ -223,7 +246,7 @@ class TestRestEndpointInvoker:
         }
 
         with patch("requests.post", return_value=mock_response):
-            result = invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+            result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
         # Unmapped but important fields should be preserved
         assert result["error"] == "Warning message"
