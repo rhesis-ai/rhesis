@@ -6,9 +6,9 @@ Provides /generate endpoint that accepts messages format.
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from rhesis.polyphemus.auth import require_api_key
 from rhesis.polyphemus.schemas import GenerateRequest
 from rhesis.polyphemus.services import generate_text
+from rhesis.polyphemus.services.auth import require_api_key
 
 from rhesis.backend.app.models.user import User
 
