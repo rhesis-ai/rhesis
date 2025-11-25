@@ -102,16 +102,22 @@ class TestRestEndpointInvoker:
         with patch("requests.post", return_value=mock_response):
             result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
-        # Convert ErrorResponse to dict for testing
-        if hasattr(result, 'to_dict'):
+        # Convert ErrorResponse to dict for testing (Pydantic v1/v2 compatible)
+        if hasattr(result, "to_dict"):
             result = result.to_dict()
+        elif hasattr(result, "model_dump"):
+            result = result.model_dump(exclude_none=True)
+        elif hasattr(result, "dict"):
+            result = result.dict(exclude_none=True)
 
         assert result["error"] is True
         assert result["error_type"] == "http_error"
         assert "404" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_invoke_with_network_error(self, mock_db, sample_endpoint_rest, sample_input_data):
+    async def test_invoke_with_network_error(
+        self, mock_db, sample_endpoint_rest, sample_input_data
+    ):
         """Test handling of network errors."""
         invoker = RestEndpointInvoker()
 
@@ -122,16 +128,22 @@ class TestRestEndpointInvoker:
         ):
             result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
-        # Convert ErrorResponse to dict for testing
-        if hasattr(result, 'to_dict'):
+        # Convert ErrorResponse to dict for testing (Pydantic v1/v2 compatible)
+        if hasattr(result, "to_dict"):
             result = result.to_dict()
+        elif hasattr(result, "model_dump"):
+            result = result.model_dump(exclude_none=True)
+        elif hasattr(result, "dict"):
+            result = result.dict(exclude_none=True)
 
         assert result["error"] is True
         assert result["error_type"] == "network_error"
         assert "Connection refused" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_invoke_with_json_parsing_error(self, mock_db, sample_endpoint_rest, sample_input_data):
+    async def test_invoke_with_json_parsing_error(
+        self, mock_db, sample_endpoint_rest, sample_input_data
+    ):
         """Test handling of invalid JSON response."""
         invoker = RestEndpointInvoker()
 
@@ -144,9 +156,13 @@ class TestRestEndpointInvoker:
         with patch("requests.post", return_value=mock_response):
             result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
-        # Convert ErrorResponse to dict for testing
-        if hasattr(result, 'to_dict'):
+        # Convert ErrorResponse to dict for testing (Pydantic v1/v2 compatible)
+        if hasattr(result, "to_dict"):
             result = result.to_dict()
+        elif hasattr(result, "model_dump"):
+            result = result.model_dump(exclude_none=True)
+        elif hasattr(result, "dict"):
+            result = result.dict(exclude_none=True)
 
         assert result["error"] is True
         assert result["error_type"] == "json_parsing_error"
@@ -183,7 +199,9 @@ class TestRestEndpointInvoker:
             assert mock_put.called
 
     @pytest.mark.asyncio
-    async def test_invoke_with_delete_method(self, mock_db, sample_endpoint_rest, sample_input_data):
+    async def test_invoke_with_delete_method(
+        self, mock_db, sample_endpoint_rest, sample_input_data
+    ):
         """Test invocation with DELETE method."""
         invoker = RestEndpointInvoker()
         sample_endpoint_rest.method = "DELETE"
@@ -198,7 +216,9 @@ class TestRestEndpointInvoker:
             assert mock_delete.called
 
     @pytest.mark.asyncio
-    async def test_invoke_with_unsupported_method(self, mock_db, sample_endpoint_rest, sample_input_data):
+    async def test_invoke_with_unsupported_method(
+        self, mock_db, sample_endpoint_rest, sample_input_data
+    ):
         """Test invocation with unsupported HTTP method."""
         invoker = RestEndpointInvoker()
         sample_endpoint_rest.method = "PATCH"
