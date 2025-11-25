@@ -135,7 +135,7 @@ async def generate_tests(
     test_set = await loop.run_in_executor(None, generate_func)
 
     # Return raw list of tests - router will wrap in response structure
-    return test_set.to_dict()
+    return test_set.to_dict()["tests"]
 
 
 async def generate_multiturn_tests(

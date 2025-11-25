@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import List
 
@@ -15,6 +16,7 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
+logger = logging.getLogger(__name__)
 # Create the detailed schema with metrics support and nested relationships
 BehaviorWithMetricsSchema = create_detailed_schema(
     schemas.Behavior,
@@ -172,6 +174,7 @@ def read_behavior_metrics(
         )
         return metrics
     except ValueError as e:
+        logger.error(f"Error getting behavior metrics: {e}")
         raise HTTPException(status_code=404, detail=str(e))
 
 
