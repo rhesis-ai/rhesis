@@ -164,8 +164,6 @@ async def lifespan(app: FastAPI):
         initialize_local_environment(db)
 
     # Initialize Redis for SDK RPC (optional, doesn't fail startup)
-    import asyncio
-
     from rhesis.backend.app.services.connector.manager import connection_manager
     from rhesis.backend.app.services.connector.redis_client import redis_manager
 
@@ -173,7 +171,7 @@ async def lifespan(app: FastAPI):
 
     # Only start RPC listener if Redis is available
     if redis_manager.is_available:
-        asyncio.create_task(connection_manager._listen_for_rpc_requests())
+        connection_manager._track_background_task(connection_manager._listen_for_rpc_requests())
         logger.info(
             "🚀 SDK RPC SYSTEM INITIALIZED - Workers can now invoke SDK functions via Redis bridge"
         )

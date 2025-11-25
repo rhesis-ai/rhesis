@@ -58,6 +58,9 @@ class MappingValidator:
             "tool_calls": [],
         }
 
+        # Initialize test_run_id to None to avoid NameError in exception handler
+        test_run_id = None
+
         try:
             # Render template to function kwargs
             function_kwargs = self.template_renderer.render(request_mapping, test_input)
@@ -102,6 +105,9 @@ class MappingValidator:
                 if result:
                     logger.info(f"Received result for {function_name} after {elapsed:.1f}s")
 
+                    # Clean up result after retrieval
+                    connection_manager.cleanup_test_result(test_run_id)
+
                     # Parse result with schema
                     try:
                         test_result = TestResultMessage(**result)
@@ -132,9 +138,10 @@ class MappingValidator:
                             "test_output": test_result.dict(),
                         }
 
-            # Timeout reached - clean up test result to prevent memory leak
-            logger.warning(f"Validation test for {function_name} timed out after {timeout}s")
+            # Timeout reached - mark as cancelled immediately to prevent race condition
+            # where late results arrive after timeout detection but before cleanup
             connection_manager.cleanup_test_result(test_run_id)
+            logger.warning(f"Validation test for {function_name} timed out after {timeout}s")
             return {
                 "success": False,
                 "error": f"Validation test timed out after {timeout} seconds",
@@ -142,9 +149,11 @@ class MappingValidator:
             }
 
         except Exception as e:
+            # Mark as cancelled immediately to prevent race condition with late results
+            # Only cleanup if test_run_id was assigned (exception occurred after test started)
+            if test_run_id is not None:
+                connection_manager.cleanup_test_result(test_run_id)
             logger.error(f"Validation error for {function_name}: {e}", exc_info=True)
-            # Clean up test result on error to prevent memory leak
-            connection_manager.cleanup_test_result(test_run_id)
             return {
                 "success": False,
                 "error": str(e),

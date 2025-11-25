@@ -40,6 +40,9 @@ class ConnectionManager:
         # Store completed test results: {test_run_id: result_dict}
         self._test_results: Dict[str, Dict[str, Any]] = {}
 
+        # Track cancelled/timed-out test runs to prevent storing late results
+        self._cancelled_tests: set = set()
+
         # Track background tasks to prevent silent failures
         self._background_tasks: set = set()
 
@@ -237,15 +240,17 @@ class ConnectionManager:
             elapsed = asyncio.get_event_loop().time() - start_time
 
             if elapsed > timeout:
-                logger.error(f"Timeout waiting for SDK result: {test_run_id}")
-                # Clean up to prevent memory leak
+                # Mark as cancelled immediately to prevent race condition with late results
                 self.cleanup_test_result(test_run_id)
+                logger.error(f"Timeout waiting for SDK result: {test_run_id}")
                 return {"error": "timeout"}
 
             # Check if result is available
             result = self.get_test_result(test_run_id)
             if result:
                 logger.debug(f"Received SDK result for {test_run_id}")
+                # Clean up after successful retrieval
+                self.cleanup_test_result(test_run_id)
                 return result
 
             # Wait before next poll
@@ -259,6 +264,11 @@ class ConnectionManager:
             test_run_id: Test run identifier
             result: Test result data
         """
+        # Check if test run was cancelled/timed out - don't store late results
+        if test_run_id in self._cancelled_tests:
+            logger.warning(f"Ignoring late result for cancelled test run: {test_run_id}")
+            return
+
         logger.debug(f"Storing test result: {test_run_id}")
 
         # Store result in memory for backend process
@@ -282,7 +292,10 @@ class ConnectionManager:
 
     def get_test_result(self, test_run_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get test result if available.
+        Get test result if available (non-destructive).
+
+        Note: This method does not delete the result. Callers must explicitly
+        call cleanup_test_result() when done to prevent memory leaks.
 
         Args:
             test_run_id: Test run identifier
@@ -290,24 +303,49 @@ class ConnectionManager:
         Returns:
             Test result dict if available, None otherwise
         """
-        result = self._test_results.get(test_run_id)
-        if result:
-            # Clean up after retrieval
-            del self._test_results[test_run_id]
-        return result
+        return self._test_results.get(test_run_id)
 
     def cleanup_test_result(self, test_run_id: str) -> None:
         """
-        Remove a test result from memory to prevent memory leaks.
+        Remove a test result from memory and mark as cancelled to prevent memory leaks.
 
-        This should be called when a test times out or is no longer needed.
+        This should be called when a test times out, errors, or is no longer needed.
+        Marking as cancelled prevents late-arriving results from being stored.
 
         Args:
             test_run_id: Test run identifier to clean up
         """
+        # Mark as cancelled to prevent late results from being stored
+        self._cancelled_tests.add(test_run_id)
+
+        # Remove any existing result
         if test_run_id in self._test_results:
             del self._test_results[test_run_id]
-            logger.debug(f"Cleaned up orphaned test result: {test_run_id}")
+            logger.debug(f"Cleaned up test result: {test_run_id}")
+        else:
+            logger.debug(f"Marked test run as cancelled: {test_run_id}")
+
+        # Perform periodic cleanup if the cancelled set grows too large
+        # This prevents unbounded memory growth from the cancelled tests set
+        if len(self._cancelled_tests) > 10000:
+            self._cleanup_old_cancelled_tests()
+
+    def _cleanup_old_cancelled_tests(self) -> None:
+        """
+        Clean up old cancelled test entries to prevent unbounded memory growth.
+
+        Keeps only the most recent 5000 entries. This is a simple LRU-style
+        cleanup that should be sufficient for most use cases.
+        """
+        if len(self._cancelled_tests) > 5000:
+            # Convert to list, keep last 5000, convert back to set
+            # Note: set order is insertion order in Python 3.7+
+            cancelled_list = list(self._cancelled_tests)
+            self._cancelled_tests = set(cancelled_list[-5000:])
+            logger.info(
+                f"Cleaned up old cancelled tests. "
+                f"Removed {len(cancelled_list) - 5000} entries, kept 5000"
+            )
 
     def get_connection_status(self, project_id: str, environment: str) -> ConnectionStatus:
         """
