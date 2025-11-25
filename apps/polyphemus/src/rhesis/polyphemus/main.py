@@ -3,9 +3,13 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 from rhesis.polyphemus.models import LazyModelLoader
 from rhesis.polyphemus.routers.services import router as services_router
 from rhesis.polyphemus.utils.middleware import ProcessTimeMiddleware
+from rhesis.polyphemus.utils.rate_limit import limiter
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -40,9 +44,13 @@ async def lifespan(app: FastAPI):
 # Initialize FastAPI app
 app = FastAPI(
     title="Rhesis Polyphemus",
-    description="Dolphin 3.0 Llama 3.1 8B Inference API",
+    description="Polyphemus is a service that provides a REST API for the Rhesis platform.",
     lifespan=lifespan,
 )
+
+# Add rate limiter to app state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add middleware
 app.add_middleware(ProcessTimeMiddleware)

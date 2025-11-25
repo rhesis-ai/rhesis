@@ -7,7 +7,7 @@ Reuses authentication utilities from rhesis.backend for consistency.
 import logging
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from rhesis.backend.app.auth.token_validation import validate_token
@@ -21,6 +21,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def require_api_key(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ) -> User:
     """
@@ -29,7 +30,10 @@ async def require_api_key(
     Accepts Bearer tokens in the format: rh-* (Rhesis API tokens).
     Uses backend utilities from rhesis.backend.app for consistent token validation.
 
+    Sets user_id in request state for rate limiting identification.
+
     Args:
+        request: FastAPI Request object
         credentials: HTTP Authorization credentials from the request header
 
     Returns:
@@ -79,6 +83,9 @@ async def require_api_key(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="User account is inactive",
                 )
+
+            # Set user_id in request state for rate limiting
+            request.state.user_id = str(user.id)
 
             logger.info(f"API key authenticated successfully for user: {user.email}")
             return user
