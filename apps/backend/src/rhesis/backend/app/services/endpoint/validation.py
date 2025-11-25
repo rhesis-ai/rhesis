@@ -109,7 +109,7 @@ async def validate_and_update_status_async(
     """
     # Import here to avoid circular import
     from rhesis.backend.app.services.connector.mapping import MappingValidator
-    
+
     validator = MappingValidator()
 
     logger.info(f"[{function_name}] Starting async validation...")

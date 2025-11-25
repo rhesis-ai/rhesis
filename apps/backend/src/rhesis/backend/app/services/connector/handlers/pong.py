@@ -19,19 +19,12 @@ class PongHandler(BaseHandler):
             environment: Environment name
         """
         self._log_handler_start(
-            "PongHandler", 
-            "pong", 
-            project_id=project_id, 
-            environment=environment
+            "PongHandler", "pong", project_id=project_id, environment=environment
         )
-        
+
         logger.debug(f"Received pong from {project_id}:{environment}")
-        
-        self._log_handler_success(
-            "PongHandler",
-            project_id=project_id,
-            environment=environment
-        )
+
+        self._log_handler_success("PongHandler", project_id=project_id, environment=environment)
 
 
 # Global pong handler instance

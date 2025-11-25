@@ -122,27 +122,27 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
                 # Use try-finally to ensure RPC client is always closed
                 try:
-                    # Check connection via RPC client
-                    if not await rpc_client.is_connected(str(project_id), environment):
-                        return self._create_error_response(
-                            error_type="sdk_not_connected",
-                            output_message=f"SDK not connected: {project_id} in {environment}",
-                            message="SDK client is not currently connected",
-                            request_details=self._safe_request_details(locals(), "SDK"),
-                        )
-
-                    # Send request via RPC
-                    result = await rpc_client.send_and_await_result(
-                        project_id=str(project_id),
-                        environment=environment,
-                        test_run_id=test_run_id,
-                        function_name=function_name,
-                        inputs=function_kwargs,
-                        timeout=30.0,
+                # Check connection via RPC client
+                if not await rpc_client.is_connected(str(project_id), environment):
+                    return self._create_error_response(
+                        error_type="sdk_not_connected",
+                        output_message=f"SDK not connected: {project_id} in {environment}",
+                        message="SDK client is not currently connected",
+                        request_details=self._safe_request_details(locals(), "SDK"),
                     )
+
+                # Send request via RPC
+                result = await rpc_client.send_and_await_result(
+                    project_id=str(project_id),
+                    environment=environment,
+                    test_run_id=test_run_id,
+                    function_name=function_name,
+                    inputs=function_kwargs,
+                    timeout=30.0,
+                )
                 finally:
                     # Always clean up RPC client, even on early returns
-                    await rpc_client.close()
+                await rpc_client.close()
 
             else:
                 # Direct access for backend context (no Redis needed)

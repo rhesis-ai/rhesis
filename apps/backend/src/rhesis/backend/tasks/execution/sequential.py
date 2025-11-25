@@ -40,17 +40,20 @@ def execute_tests_sequentially(
         try:
             # Execute the test asynchronously
             import asyncio
-            result = asyncio.run(execute_test(
-                db=session,
-                test_config_id=str(test_config.id),
-                test_run_id=str(test_run.id),
-                test_id=str(test.id),
-                endpoint_id=str(test_config.endpoint_id),
-                organization_id=str(test_config.organization_id)
-                if test_config.organization_id
-                else None,
-                user_id=str(test_config.user_id) if test_config.user_id else None,
-            ))
+
+            result = asyncio.run(
+                execute_test(
+                    db=session,
+                    test_config_id=str(test_config.id),
+                    test_run_id=str(test_run.id),
+                    test_id=str(test.id),
+                    endpoint_id=str(test_config.endpoint_id),
+                    organization_id=str(test_config.organization_id)
+                    if test_config.organization_id
+                    else None,
+                    user_id=str(test_config.user_id) if test_config.user_id else None,
+                )
+            )
             results.append(result)
 
             # Store the test result in the database (updates test run progress)
