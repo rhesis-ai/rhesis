@@ -31,6 +31,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { MCPItem } from '@/utils/api-client/services-client';
 import { Tool } from '@/utils/api-client/interfaces/tool';
+import { UUID } from 'crypto';
 
 interface MCPImportDialogProps {
   open: boolean;
@@ -54,7 +55,37 @@ export default function MCPImportDialog({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toolSourceTypeId, setToolSourceTypeId] = useState<UUID | undefined>(
+    undefined
+  );
   const notifications = useNotifications();
+
+  // Fetch Tool SourceType ID when component mounts or tool changes
+  React.useEffect(() => {
+    const fetchToolSourceType = async () => {
+      if (!sessionToken) return;
+
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const typeLookupClient = clientFactory.getTypeLookupClient();
+
+        // Fetch Tool SourceType using filter
+        const toolSourceTypes = await typeLookupClient.getTypeLookups({
+          $filter: "type_name eq 'SourceType' and type_value eq 'Tool'",
+          limit: 1,
+        });
+
+        if (toolSourceTypes.length > 0) {
+          setToolSourceTypeId(toolSourceTypes[0].id as UUID);
+        }
+      } catch (err) {
+        console.error('Failed to fetch Tool SourceType:', err);
+        // Don't set error state here - we'll handle it during import
+      }
+    };
+
+    fetchToolSourceType();
+  }, [sessionToken]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -153,12 +184,13 @@ export default function MCPImportDialog({
           result.content,
           undefined, // No description
           {
-            source_type: tool.tool_provider_type?.type_value || 'MCP',
+            provider: tool.tool_provider_type?.type_value || 'mcp',
             mcp_tool_id: tool.id,
             mcp_id: item.id,
             url: item.url,
             imported_at: new Date().toISOString(),
-          }
+          },
+          toolSourceTypeId
         );
       });
 
