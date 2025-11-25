@@ -1,8 +1,11 @@
 """MCP (Model Context Protocol) client for connecting to external data sources."""
 
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# Jinja is used for template rendering
+import jinja2
 from mcp import ClientSession, StdioServerParameters  # type: ignore[import-untyped]
 from mcp.client.stdio import stdio_client  # type: ignore[import-untyped]
 
@@ -167,19 +170,26 @@ class MCPClientManager:
     Loads server configurations from mcp.json and creates MCPClient instances.
     """
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, config_dict: Optional[Dict] = None):
         """
-        Initialize client manager with config file path.
+        Initialize client manager with config file path or config dict.
 
         Args:
             config_path: Path to mcp.json config file.
                         Defaults to ~/.cursor/mcp.json if not provided
+            config_dict: Direct configuration dictionary (for database tools)
         """
         self.config_path = config_path
+        self.config_dict = config_dict
         self.clients: Dict[str, MCPClient] = {}
 
     def _load_config(self) -> Dict[str, Any]:
-        """Load MCP configuration from file."""
+        """Load MCP configuration from file or use provided config dict."""
+        # If config_dict is provided, use it directly
+        if self.config_dict:
+            return self.config_dict
+
+        # Otherwise load from file
         from pathlib import Path
 
         if self.config_path:
@@ -241,3 +251,86 @@ class MCPClientManager:
         """Disconnect from all MCP clients."""
         for client in self.clients.values():
             await client.disconnect()
+
+    @classmethod
+    def from_tool_config(cls, tool_name: str, tool_config: Dict, credentials: Dict[str, str]):
+        """
+        Create MCPClientManager from database tool configuration.
+
+        The user provides the complete tool_metadata JSON with credential placeholders.
+        This method substitutes the placeholders with the actual credential values.
+
+        Args:
+            tool_name: Name for the MCP server (e.g., "notionApi")
+            tool_config: Tool metadata dict with credential placeholders like {{NOTION_TOKEN}}
+            credentials: Dictionary of credential key-value pairs
+
+        Returns:
+            MCPClientManager instance configured with the tool
+
+        Example:
+            tool_config = {
+                "command": "npx",
+                "args": ["-y", "@notionhq/notion-mcp-server"],
+                "env": {
+                    "NOTION_TOKEN": "{{NOTION_TOKEN | tojson}}"
+                }
+            }
+            credentials = {"NOTION_TOKEN": "ntn_abc123..."}
+            manager = MCPClientManager.from_tool_config("notionApi", tool_config, credentials)
+        """
+        # Use Jinja to safely render the placeholders without breaking JSON
+        env = jinja2.Environment(autoescape=False)
+        template = env.from_string(json.dumps(tool_config))
+        rendered = template.render(**credentials)
+        processed_config = json.loads(rendered)
+
+        # Wrap in mcpServers format expected by create_client
+        config_dict = {"mcpServers": {tool_name: processed_config}}
+
+        return cls(config_dict=config_dict)
+
+    @classmethod
+    def from_provider(cls, provider: str, credentials: Dict[str, str]):
+        """
+        Create MCPClientManager from a provider name.
+
+        Automatically loads the right MCP config for that provider,
+        renders it with the provided credentials, and creates a manager.
+
+        Args:
+            provider: Provider name (e.g., "notion", "github", "gdrive")
+            credentials: Dictionary of credential key-value pairs
+
+        Returns:
+            MCPClientManager instance ready to use
+
+        Example:
+            credentials = {"NOTION_TOKEN": "ntn_abc123..."}
+            manager = MCPClientManager.from_provider("notion", credentials)
+        """
+        # -----------------------------
+        # Load and render Jinja template
+        # -----------------------------
+        templates_dir = Path(__file__).parent / "provider_templates"
+        template_file = templates_dir / f"{provider}.json.j2"
+
+        if not template_file.exists():
+            # Provide a helpful error listing available providers
+            available = [p.stem.split(".")[0] for p in templates_dir.glob("*.json.j2")]
+            raise ValueError(f"MCP provider '{provider}' not supported. Available: {available}")
+
+        env = jinja2.Environment(autoescape=False)
+        template = env.from_string(template_file.read_text())
+
+        # Render with proper JSON-escaping via the built-in `tojson` filter
+        rendered = template.render(**credentials)
+
+        # Parse rendered JSON into dict
+        config = json.loads(rendered)
+
+        # Build manager configuration
+        tool_name = f"{provider}Api"
+        config_dict = {"mcpServers": {tool_name: config}}
+
+        return cls(config_dict=config_dict)

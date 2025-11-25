@@ -518,6 +518,7 @@ async def generate_test_config(
 async def search_mcp_server(
     request: SearchMCPRequest,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -547,7 +548,10 @@ async def search_mcp_server(
         }
     """
     try:
-        return await search_mcp(request.query, request.server_name, db, current_user)
+        organization_id, user_id = tenant_context
+        return await search_mcp(
+            request.query, request.tool_id, db, current_user, organization_id, user_id
+        )
     except Exception as e:
         logger.error(f"Failed to search MCP server: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -559,6 +563,7 @@ async def search_mcp_server(
 async def extract_mcp_item(
     request: ExtractMCPRequest,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -585,7 +590,10 @@ async def extract_mcp_item(
         }
     """
     try:
-        content = await extract_mcp(request.id, request.server_name, db, current_user)
+        organization_id, user_id = tenant_context
+        content = await extract_mcp(
+            request.id, request.tool_id, db, current_user, organization_id, user_id
+        )
         return {"content": content}
     except Exception as e:
         logger.error(f"Failed to extract MCP item: {str(e)}", exc_info=True)
@@ -599,6 +607,7 @@ async def extract_mcp_item(
 async def query_mcp_server(
     request: QueryMCPRequest,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -630,11 +639,14 @@ async def query_mcp_server(
         }
     """
     try:
+        organization_id, user_id = tenant_context
         result = await query_mcp(
             query=request.query,
-            server_name=request.server_name,
+            tool_id=request.tool_id,
             db=db,
             user=current_user,
+            organization_id=organization_id,
+            user_id=user_id,
             system_prompt=request.system_prompt,
             max_iterations=request.max_iterations,
         )

@@ -235,21 +235,21 @@ class SearchMCPRequest(BaseModel):
     """Request to search MCP server."""
 
     query: str
-    server_name: str
+    tool_id: str
 
 
 class ExtractMCPRequest(BaseModel):
     """Request to extract MCP item content."""
 
     id: str
-    server_name: str
+    tool_id: str
 
 
 class QueryMCPRequest(BaseModel):
     """General-purpose request to query MCP server with custom task."""
 
     query: str
-    server_name: str
+    tool_id: str
     system_prompt: Optional[str] = None
     max_iterations: Optional[int] = 10
 

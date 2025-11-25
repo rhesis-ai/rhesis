@@ -111,6 +111,7 @@ from .test_set import (
     TestSetUpdate,
 )
 from .token import Token, TokenBase, TokenCreate, TokenUpdate
+from .tool import Tool, ToolBase, ToolCreate, ToolUpdate
 from .topic import Topic, TopicBase, TopicCreate, TopicUpdate
 from .type_lookup import TypeLookup, TypeLookupBase, TypeLookupCreate, TypeLookupUpdate
 from .use_case import UseCase, UseCaseBase, UseCaseCreate, UseCaseUpdate
@@ -228,6 +229,10 @@ __all__ = [
     "TokenBase",
     "TokenCreate",
     "TokenUpdate",
+    "Tool",
+    "ToolBase",
+    "ToolCreate",
+    "ToolUpdate",
     "Organization",
     "OrganizationBase",
     "OrganizationCreate",
