@@ -1,0 +1,18 @@
+---
+description: Testing infrastructure
+alwaysApply: false
+---
+# Testing Rules
+
+
+1. The tests are stored in <project_root>/tests/ directory
+2. For SDK tests use make in <project_root>/sdk directory:
+For unit test:
+```bash
+make test
+```
+
+For integration test:
+```bash
+make test-slow
+```
