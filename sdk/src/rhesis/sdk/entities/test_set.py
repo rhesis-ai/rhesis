@@ -9,6 +9,7 @@ from rhesis.sdk.entities import BaseEntity, Endpoint
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import handle_http_errors
 from rhesis.sdk.entities.test import Test
+from rhesis.sdk.enums import TestType
 from rhesis.sdk.models.base import BaseLLM
 
 ENDPOINT = Endpoints.TEST_SETS
@@ -32,6 +33,7 @@ class TestSet(BaseEntity):
     name: str
     description: str
     short_description: str
+    test_set_type: Optional[TestType] = None
     metadata: Optional[dict] = None
 
     @handle_http_errors
