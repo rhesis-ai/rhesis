@@ -9,7 +9,7 @@ This module tests the core test execution logic including:
 - Result processing and storage
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from sqlalchemy.orm import Session
@@ -241,11 +241,11 @@ class TestBackendEndpointTargetConversationContext:
 
         # Mock endpoint service response with session_id
         mock_endpoint_service = Mock()
-        mock_endpoint_service.invoke_endpoint.return_value = {
+        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={
             "output": "Test response",
             "session_id": "test-session-123",
             "metadata": {"test": "data"},
-        }
+        })
 
         # Create valid UUIDs for testing
         endpoint_id = str(uuid4())
@@ -293,10 +293,10 @@ class TestBackendEndpointTargetConversationContext:
 
         # Mock endpoint service
         mock_endpoint_service = Mock()
-        mock_endpoint_service.invoke_endpoint.return_value = {
+        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={
             "output": "Follow-up response",
             "session_id": "test-session-123",
-        }
+        })
 
         # Create valid UUIDs for testing
         endpoint_id = str(uuid4())
@@ -345,11 +345,11 @@ class TestBackendEndpointTargetConversationContext:
 
         # Mock endpoint service response with thread_id instead of session_id
         mock_endpoint_service = Mock()
-        mock_endpoint_service.invoke_endpoint.return_value = {
+        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={
             "output": "Response with thread_id",
             "thread_id": "thread-456",
             "metadata": {},
-        }
+        })
 
         # Create valid UUID for testing
         endpoint_id = str(uuid4())

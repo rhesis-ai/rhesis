@@ -50,18 +50,13 @@ class SDKRpcClient:
             True if SDK client is connected, False otherwise
         """
         if not self._redis:
-            logger.warning("RPC client Redis connection not initialized")
+            logger.warning("🔴 RPC client Redis connection not initialized")
             return False
 
         try:
             key = f"ws:connection:{project_id}:{environment}"
             exists = await self._redis.exists(key)
-            connected = exists > 0
-            logger.info(
-                f"SDK connection check: project={project_id}, env={environment}, "
-                f"connected={connected}, redis_key={key}"
-            )
-            return connected
+            return exists > 0
         except Exception as e:
             logger.error(f"Error checking SDK connection status: {e}")
             return False
@@ -94,6 +89,7 @@ class SDKRpcClient:
             - {"error": "send_failed", "details": str}
         """
         if not self._redis:
+            logger.error("❌ Redis not initialized for RPC call")
             return {"error": "send_failed", "details": "Redis not initialized"}
 
         # Subscribe to response channel first
@@ -114,10 +110,7 @@ class SDKRpcClient:
             }
 
             await self._redis.publish("ws:rpc:requests", json.dumps(request))
-            logger.info(
-                f"Published RPC request: {test_run_id} (function: {function_name}, "
-                f"project: {project_id}, env: {environment})"
-            )
+            logger.debug(f"Published RPC request: {test_run_id}")
 
             # Wait for response with timeout
             async def _wait_for_response():
@@ -125,13 +118,13 @@ class SDKRpcClient:
                 async for message in pubsub.listen():
                     if message["type"] == "message":
                         result = json.loads(message["data"])
-                        logger.debug(f"Received RPC response for {test_run_id}")
                         await pubsub.unsubscribe(response_channel)
                         return result
 
             try:
                 # Use wait_for for Python 3.10 compatibility
                 result = await asyncio.wait_for(_wait_for_response(), timeout=timeout)
+                logger.debug(f"Received RPC response: {test_run_id}")
                 return result
             except asyncio.TimeoutError:
                 logger.error(f"RPC request timed out after {timeout}s: {test_run_id}")

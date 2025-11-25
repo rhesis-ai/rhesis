@@ -1,6 +1,7 @@
 """Core endpoint service with basic operations."""
 
 import json
+import logging
 import os
 from typing import Any, Dict
 
@@ -12,6 +13,8 @@ from rhesis.backend.app.services.invokers import create_invoker
 
 # Import sdk_sync at module level to avoid circular imports
 from . import sdk_sync
+
+logger = logging.getLogger(__name__)
 
 
 class EndpointService:
@@ -59,6 +62,7 @@ class EndpointService:
         """
         # Fetch endpoint configuration with organization filtering (SECURITY CRITICAL)
         endpoint = self._get_endpoint(db, endpoint_id, organization_id)
+        logger.debug(f"Invoking endpoint {endpoint.name} ({endpoint.connection_type})")
 
         try:
             # Create appropriate invoker based on connection_type
@@ -73,10 +77,14 @@ class EndpointService:
                 enriched_input_data["user_id"] = user_id
 
             # Invoke the endpoint
-            return await invoker.invoke(db, endpoint, enriched_input_data)
+            result = await invoker.invoke(db, endpoint, enriched_input_data)
+            logger.debug(f"Endpoint invocation completed: {endpoint.name}")
+            return result
         except ValueError as e:
+            logger.error(f"ValueError invoking endpoint: {e}")
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
+            logger.error(f"Exception invoking endpoint: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
     def _get_endpoint(self, db: Session, endpoint_id: str, organization_id: str = None) -> Endpoint:
