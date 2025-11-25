@@ -3,12 +3,21 @@ name = "polyphemus"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-    # Core ML dependencies
-    "tqdm>=4.65.0",
     # FastAPI and server dependencies
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.23.0",
     "gunicorn>=21.0.0",
+
+    # Prompt templating and progress bars
+    "jinja2>=3.1.6",
+    "tqdm>=4.67.1",
+
+    # Data analysis and plotting
+    "pandas>=2.2.2",
+    "matplotlib>=3.10.0",
+    "numpy>=2.2.0",
+    "seaborn>=0.13.0",
+
     # SDK dependency (required for HuggingFaceLLM)
     "rhesis-sdk[huggingface]",
 ]

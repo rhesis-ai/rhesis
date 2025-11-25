@@ -57,12 +57,13 @@ Documentation = "https://rhesis-sdk.readthedocs.io"
 huggingface = [
     "torch>=2.8.0",
     "transformers>=4.56.0",
+    "accelerate>=1.2.0",
 ]
 
 all = [
-
     "torch>=2.8.0",
     "transformers>=4.56.0",
+    "accelerate>=1.2.0",
 ]
 
 [dependency-groups]

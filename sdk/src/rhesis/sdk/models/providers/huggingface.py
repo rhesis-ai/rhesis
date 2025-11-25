@@ -40,7 +40,13 @@ class HuggingFaceLLM(BaseLLM):
     """
 
     def __init__(
-        self, model_name: str, auto_loading: bool = True, default_kwargs: Optional[dict] = None
+        self,
+        model_name: str,
+        auto_loading: bool = True,
+        generate_kwargs: Optional[dict] = None,
+        gpu_only: bool = False,
+        load_kwargs: Optional[dict] = None,
+        custom_results_dir: Optional[str] = None,
     ):
         """
         Initialize the model with the given name and location.
@@ -48,12 +54,19 @@ class HuggingFaceLLM(BaseLLM):
             model_name: The location to pull the model from
             auto_loading: Whether to automatically load the model on initialization.
              If turned off, manual loading is needed. Allows lazy loading.
+            generate_kwargs: Default kwargs to pass to generate()
+            gpu_only: If True, restrict model to GPU only (no CPU/disk offloading).
+             Will raise an error if model doesn't fit in available GPU memory.
+            load_kwargs: Additional kwargs to pass to AutoModelForCausalLM.from_pretrained()
         """
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
 
         self.model_name = model_name
-        self.default_kwargs = default_kwargs
+        self.generate_kwargs = generate_kwargs
+        self.gpu_only = gpu_only
+        self.load_kwargs = load_kwargs or {}
+        self.custom_results_dir = custom_results_dir
 
         self.model = None
         self.tokenizer = None
@@ -79,22 +92,60 @@ class HuggingFaceLLM(BaseLLM):
         -------
         self
             Returns self for method chaining
+
+        Raises
+        ------
+        RuntimeError
+            If gpu_only=True but CUDA is not available or model doesn't fit on GPU
         """
         if self.model is not None:
             print(MODEL_RELOAD_WARNING.format(self.model_name))
         if self.tokenizer is not None:
             print(WARNING_TOKENIZER_ALREADY_LOADED_RELOAD.format(self.model_name))
 
+        # Configure device_map based on gpu_only flag
+        if self.gpu_only:
+            if not torch.cuda.is_available():
+                raise RuntimeError(
+                    "gpu_only=True but CUDA is not available. Cannot load model without GPU."
+                )
+            # Use "auto" to support multi-GPU distribution
+            # The validation below will ensure no CPU/disk offloading occurs
+            device_map = "auto"
+            print("Loading model with gpu_only=True (device_map='auto', multi-GPU enabled)")
+        else:
+            device_map = "auto"
+
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
+            device_map=device_map,
+            **self.load_kwargs,
         )
-
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name,
         )
+
+        # Get the device for input tensors
+        # When using device_map="auto", the model may be split across devices
+        # We need to send inputs to the device of the first layer
+        if hasattr(self.model, "hf_device_map"):
+            # Model is split across devices - get the device of the first module
+            first_device = next(iter(self.model.hf_device_map.values()))
+            self.device = torch.device(first_device)
+
+            # If gpu_only, verify no layers were offloaded to CPU/disk
+            if self.gpu_only:
+                offloaded_devices = set(self.model.hf_device_map.values())
+                non_gpu_devices = [d for d in offloaded_devices if str(d) == "cpu"]
+                if non_gpu_devices:
+                    raise RuntimeError(
+                        f"gpu_only=True but model has layers offloaded to: {non_gpu_devices}. "
+                        f"The model is too large for available GPU memory."
+                    )
+        else:
+            # Model is on a single device
+            self.device = self.model.device
 
         return self
 
@@ -185,8 +236,8 @@ class HuggingFaceLLM(BaseLLM):
             raise RuntimeError(HUGGINGFACE_MODEL_NOT_LOADED)
 
         # format arguments
-        if self.default_kwargs:
-            kwargs = {**self.default_kwargs, **kwargs}
+        if self.generate_kwargs:
+            kwargs = {**self.generate_kwargs, **kwargs}
 
         # If schema is provided, augment the prompt to request JSON output
         if schema:
@@ -212,10 +263,13 @@ class HuggingFaceLLM(BaseLLM):
             )
             inputs = self.tokenizer.apply_chat_template(
                 messages, add_generation_prompt=True, return_dict=True, return_tensors="pt"
-            ).to(self.device)
+            )
         else:
             messages = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
-            inputs = self.tokenizer(messages, return_tensors="pt").to(self.device)
+            inputs = self.tokenizer(messages, return_tensors="pt")
+
+        # Move inputs to the model's device
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
         # Capture essential metrics
         input_tokens = inputs["input_ids"].shape[1]
