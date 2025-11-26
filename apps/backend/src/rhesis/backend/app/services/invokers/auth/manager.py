@@ -38,6 +38,9 @@ class AuthenticationManager:
             return endpoint.auth_token
         elif endpoint.auth_type == EndpointAuthType.CLIENT_CREDENTIALS.value:
             return AuthenticationManager.get_client_credentials_token(db, endpoint)
+        elif endpoint.auth_type is None and endpoint.auth_token:
+            # If no auth_type is set but auth_token exists, assume bearer token
+            return endpoint.auth_token
 
         return None
 

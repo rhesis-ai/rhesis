@@ -95,7 +95,7 @@ class EndpointBase(Base):
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
 
-    auth_type: Optional[EndpointAuthType] = None
+    auth_type: Optional[EndpointAuthType] = EndpointAuthType.BEARER_TOKEN
     auth_token: Optional[str] = None
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
