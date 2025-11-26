@@ -289,15 +289,7 @@ export default function SourcesGrid({
         renderCell: params => {
           const source = params.row as Source;
           if (!source.description) {
-            return (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                fontStyle="italic"
-              >
-                No description
-              </Typography>
-            );
+            return null;
           }
           return (
             <Typography
@@ -323,7 +315,19 @@ export default function SourcesGrid({
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
 
-          // Check if this is a Tool source type (MCP/API imports)
+          // Check if source_type exists in metadata (MCP imports like Notion, Slack, etc.)
+          if (metadata.source_type) {
+            return (
+              <Chip
+                label={metadata.source_type}
+                size="small"
+                variant="outlined"
+                className={styles.fileTypeChip}
+              />
+            );
+          }
+
+          // Check if this is a Tool source type (API imports with provider)
           if (source.source_type?.type_value === 'Tool' && metadata.provider) {
             // Capitalize the provider name (e.g., "notion" -> "Notion")
             const providerName =
@@ -341,6 +345,11 @@ export default function SourcesGrid({
 
           // Fall back to file extension for document sources
           const fileExtension = getFileExtension(metadata.original_filename);
+
+          // Return null if file extension is unknown
+          if (fileExtension === 'unknown') {
+            return null;
+          }
 
           return (
             <Chip
@@ -455,7 +464,14 @@ export default function SourcesGrid({
           }
 
           return (
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 0.5,
+                flexWrap: 'nowrap',
+                overflow: 'hidden',
+              }}
+            >
               {source.tags.slice(0, 2).map((tag, index) => (
                 <Chip
                   key={tag.id}

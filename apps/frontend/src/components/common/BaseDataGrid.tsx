@@ -163,6 +163,7 @@ const StyledDataGrid = styled(DataGrid)({
   '& .MuiDataGrid-cell': {
     display: 'flex',
     alignItems: 'center', // This ensures vertical centering of all cell content
+    overflow: 'hidden',
   },
   border: 'none',
 });

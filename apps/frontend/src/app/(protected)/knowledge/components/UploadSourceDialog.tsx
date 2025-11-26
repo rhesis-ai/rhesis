@@ -181,9 +181,6 @@ export default function UploadSourceDialog({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
             {/* Info Box */}
             <Alert severity="info" sx={{ mb: 1 }}>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                Upload knowledge sources to use as context for test generation
-              </Typography>
               <Typography variant="body2" color="text.secondary">
                 Supported formats:{' '}
                 <Typography

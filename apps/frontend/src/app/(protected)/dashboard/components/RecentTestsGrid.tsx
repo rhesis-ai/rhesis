@@ -91,7 +91,14 @@ export default function RecentTestsGrid({
         }
 
         return (
-          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 0.5,
+              flexWrap: 'nowrap',
+              overflow: 'hidden',
+            }}
+          >
             {test.tags
               .filter((tag: Tag) => tag && tag.id && tag.name)
               .slice(0, 2)
