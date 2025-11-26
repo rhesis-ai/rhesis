@@ -52,33 +52,18 @@ export function MCPProviderSelectionDialog({
     );
   }
 
-  // Sort providers: supported first, then custom, then unsupported (all alphabetically)
+  // Custom order: Notion first, then custom, then Atlassian and GitHub (coming soon)
+  const providerOrder: Record<string, number> = {
+    notion: 1,
+    custom: 2,
+    atlassian: 3,
+    github: 4,
+  };
+
   const sortedProviders = [...providers].sort((a, b) => {
-    const aSupported = SUPPORTED_MCP_PROVIDERS.includes(a.type_value);
-    const bSupported = SUPPORTED_MCP_PROVIDERS.includes(b.type_value);
-    const aCustom = a.type_value === 'custom';
-    const bCustom = b.type_value === 'custom';
-
-    // Determine tier for each provider
-    // Tier 1: Supported
-    // Tier 2: Custom (Advanced)
-    // Tier 3: Not supported (coming soon)
-    const getTier = (isSupported: boolean, isCustom: boolean) => {
-      if (isSupported) return 1;
-      if (isCustom) return 2;
-      return 3;
-    };
-
-    const aTier = getTier(aSupported, aCustom);
-    const bTier = getTier(bSupported, bCustom);
-
-    // If tiers differ, sort by tier
-    if (aTier !== bTier) {
-      return aTier - bTier;
-    }
-
-    // Within same tier, sort alphabetically
-    return a.type_value.localeCompare(b.type_value);
+    const aOrder = providerOrder[a.type_value] ?? 999;
+    const bOrder = providerOrder[b.type_value] ?? 999;
+    return aOrder - bOrder;
   });
 
   return (
@@ -96,10 +81,37 @@ export function MCPProviderSelectionDialog({
               provider.type_value === 'notion' ||
               provider.type_value === 'custom';
 
+            // Customize provider names and descriptions
+            let providerName = provider.description || provider.type_value;
+            let providerDescription = provider.description || '';
+
+            // Clean up provider names
+            if (provider.type_value === 'notion') {
+              providerName = providerName
+                .replace(/\s*integration$/i, '')
+                .trim();
+            } else if (provider.type_value === 'custom') {
+              providerName = providerName
+                .replace(/\s*with manual configuration$/i, '')
+                .trim();
+            } else if (provider.type_value === 'atlassian') {
+              providerName = providerName
+                .replace(/\s*for jira and confluence$/i, '')
+                .trim();
+              providerDescription = providerDescription
+                .replace(/\s*for jira and confluence$/i, '')
+                .trim();
+            } else if (provider.type_value === 'github') {
+              providerName = providerName.replace(/\s*repository$/i, '').trim();
+              providerDescription = providerDescription
+                .replace(/\s*repository$/i, '')
+                .trim();
+            }
+
             const providerInfo: MCPProviderInfo = {
               id: provider.type_value,
-              name: provider.description || provider.type_value,
-              description: provider.description || '',
+              name: providerName,
+              description: providerDescription,
               icon: MCP_PROVIDER_ICONS[provider.type_value] || (
                 <SmartToyIcon
                   sx={{ fontSize: theme => theme.iconSizes.large }}
