@@ -191,57 +191,55 @@ export default function MCPSPage() {
   };
 
   return (
-    <PageContainer title="MCP" breadcrumbs={[{ title: 'MCP', path: '/mcps' }]}>
-      <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
-        <Box sx={{ mb: 3 }}>
-          <Typography color="text.secondary">
-            Connect to Model Context Protocol (MCP) providers to import
-            knowledge sources and enhance your evaluation workflows.
-          </Typography>
-          {error && (
-            <Alert
-              severity="error"
-              sx={{ mt: 2 }}
-              onClose={() => setError(null)}
-            >
-              {error}
-            </Alert>
-          )}
-        </Box>
-
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: 'repeat(2, 1fr)',
-                md: 'repeat(3, 1fr)',
-              },
-              gap: 3,
-              width: '100%',
-              px: 0,
-            }}
+    <PageContainer title="MCP" breadcrumbs={[{ title: 'MCP', path: '/mcp' }]}>
+      <Box sx={{ mb: 3 }}>
+        <Typography color="text.secondary">
+          Connect to Model Context Protocol (MCP) providers to import
+          knowledge sources and enhance your evaluation workflows.
+        </Typography>
+        {error && (
+          <Alert
+            severity="error"
+            sx={{ mt: 2 }}
+            onClose={() => setError(null)}
           >
-            {/* Connected MCP Cards */}
-            {tools.map(tool => (
-              <ConnectedToolCard
-                key={tool.id}
-                tool={tool}
-                onEdit={handleEditClick}
-                onDelete={handleDeleteClick}
-              />
-            ))}
-
-            {/* Add MCP Card */}
-            <AddToolCard onClick={handleAddMCP} />
-          </Box>
+            {error}
+          </Alert>
         )}
       </Box>
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, 1fr)',
+              md: 'repeat(3, 1fr)',
+            },
+            gap: 3,
+            width: '100%',
+            px: 0,
+          }}
+        >
+          {/* Connected MCP Cards */}
+          {tools.map(tool => (
+            <ConnectedToolCard
+              key={tool.id}
+              tool={tool}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteClick}
+            />
+          ))}
+
+          {/* Add MCP Card */}
+          <AddToolCard onClick={handleAddMCP} />
+        </Box>
+      )}
 
       <MCPProviderSelectionDialog
         open={providerSelectionOpen}

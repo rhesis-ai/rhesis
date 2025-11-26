@@ -210,7 +210,7 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'mcps',
+      segment: 'mcp',
       title: 'MCP',
       icon: <TerminalIcon />,
       requireSuperuser: true,
