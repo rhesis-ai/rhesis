@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Box } from '@mui/material';
+import { Account } from '@toolpad/core/Account';
 import ThemeToggle from '../common/ThemeToggle';
 import AppVersion from '../common/AppVersion';
 import { shouldShowGitInfo } from '@/utils/git-utils';
@@ -26,6 +27,7 @@ export default function ToolbarActions() {
         />
       )}
       <ThemeToggle />
+      <Account />
     </Box>
   );
 }
