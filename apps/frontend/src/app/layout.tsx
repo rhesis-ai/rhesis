@@ -203,7 +203,7 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'integrations/models',
+      segment: 'models',
       title: 'Models',
       icon: <SmartToyIcon />,
       requireSuperuser: true,
