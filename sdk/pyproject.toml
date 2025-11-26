@@ -82,7 +82,7 @@ dev = [
     "sphinx-rtd-theme>=3.0.2",
     "myst-parser>=4.0.0",
     "ruff>=0.11.6",
-    "pyright>=1.1.406",
+    "pyright>=1.1.407",
     "psycopg2-binary==2.9.9", # to match the version in the backend
     "pytest-cov>=7.0.0",
 ]
