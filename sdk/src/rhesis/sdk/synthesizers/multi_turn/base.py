@@ -17,6 +17,7 @@ class GenerationConfig(BaseModel):
     behaviors: Optional[list[str]] = None
     categories: Optional[list[str]] = None
     topics: Optional[list[str]] = None
+    additional_context: Optional[str] = None
 
 
 class Test(BaseModel):
