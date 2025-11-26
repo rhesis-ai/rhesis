@@ -342,6 +342,11 @@ export default function SourcesGrid({
           // Fall back to file extension for document sources
           const fileExtension = getFileExtension(metadata.original_filename);
 
+          // Return null if file extension is unknown
+          if (fileExtension === 'unknown') {
+            return null;
+          }
+
           return (
             <Chip
               label={fileExtension.toUpperCase()}
@@ -455,7 +460,14 @@ export default function SourcesGrid({
           }
 
           return (
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 0.5,
+                flexWrap: 'nowrap',
+                overflow: 'hidden',
+              }}
+            >
               {source.tags.slice(0, 2).map((tag, index) => (
                 <Chip
                   key={tag.id}
