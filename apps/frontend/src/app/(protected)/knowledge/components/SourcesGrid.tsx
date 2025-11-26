@@ -289,15 +289,7 @@ export default function SourcesGrid({
         renderCell: params => {
           const source = params.row as Source;
           if (!source.description) {
-            return (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                fontStyle="italic"
-              >
-                No description
-              </Typography>
-            );
+            return null;
           }
           return (
             <Typography

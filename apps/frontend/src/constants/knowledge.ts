@@ -25,7 +25,7 @@ export const FILE_TYPE_CONSTANTS = {
 
 // Utility functions
 export const formatFileSize = (bytes?: number): string => {
-  if (!bytes) return 'Unknown';
+  if (!bytes) return '';
 
   const sizes = FILE_TYPE_CONSTANTS.SIZE_UNITS;
   const i = Math.floor(
