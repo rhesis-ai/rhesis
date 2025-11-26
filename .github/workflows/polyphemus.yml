@@ -323,6 +323,8 @@ jobs:
             echo "🚀 Deploying preview revision with commit SHA: $IMAGE_TAG"
             echo "Image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
 
+            echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
+
             gcloud beta run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
               --project=${{ env.PROJECT_ID }} \
@@ -341,14 +343,19 @@ jobs:
               --no-traffic \
               --revision-suffix=${{ env.COMMIT_SHA }} \
               --no-cpu-throttling \
+              --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
           TRANSFORMERS_CACHE=/app/model_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
+          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
+          SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
           SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
           SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
           SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
-          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}
+          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }},
+          DB_ENCRYPTION_KEY=${{ secrets.DB_ENCRYPTION_KEY }},
+          LOG_LEVEL=${{ secrets.LOG_LEVEL }}
           EOF
           )"
 
@@ -357,6 +364,7 @@ jobs:
             # Regular deployment with latest tag
             echo "🚀 Deploying regular revision"
             echo "Image: ${{ env.IMAGE_NAME }}:latest"
+            echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
 
             gcloud beta run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:latest \
@@ -374,14 +382,19 @@ jobs:
               --port=8080 \
               --concurrency=1 \
               --no-cpu-throttling \
+              --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
           TRANSFORMERS_CACHE=/app/model_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
+          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
+          SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
           SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
           SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
           SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
-          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}
+          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }},
+          DB_ENCRYPTION_KEY=${{ secrets.DB_ENCRYPTION_KEY }},
+          LOG_LEVEL=${{ secrets.LOG_LEVEL }}
           EOF
           )"
 
