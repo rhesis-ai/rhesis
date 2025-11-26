@@ -199,13 +199,34 @@ async def generate_text(request: GenerateRequest) -> Dict:
     top_k = request.top_k
 
     # Get model instance based on request (lazy initialization on first access)
-    # If model name is invalid, fall back to default
-    model_name = request.model
+    # Note: get_polyphemus_instance has internal fallback logic that masks failures
+    # We need to check if the returned model actually matches what was requested
+    requested_model_name = request.model
     try:
-        llm = await get_polyphemus_instance(model_name=model_name)
+        llm = await get_polyphemus_instance(model_name=requested_model_name)
+
+        # Check if get_polyphemus_instance fell back internally to default
+        # by comparing the returned model's name with what was requested
+        returned_model_name = getattr(llm, "_model_name", getattr(llm, "model_name", None))
+
+        # If a non-default model was requested but a different model was returned,
+        # a fallback occurred. Only set actual_model_name if models match.
+        if requested_model_name and returned_model_name != requested_model_name:
+            # Fallback to default happened internally
+            logger.info(
+                f"Model fallback detected: requested '{requested_model_name}' "
+                f"but received '{returned_model_name}' (likely default)"
+            )
+            actual_model_name = None
+        else:
+            # Either no model was requested (use default) or requested model loaded
+            actual_model_name = requested_model_name
     except Exception as model_error:
-        logger.warning(f"Failed to load model '{model_name}', using default: {str(model_error)}")
+        logger.warning(
+            f"Failed to load model '{requested_model_name}', using default: {str(model_error)}"
+        )
         llm = await get_polyphemus_instance(model_name=None)
+        actual_model_name = None  # Indicate fallback to default
 
     logger.info(
         f"Generating with prompt: {prompt[:100]}..., "
@@ -293,8 +314,16 @@ async def generate_text(request: GenerateRequest) -> Dict:
         # Convert to string if it's not already
         response = str(response).strip()
 
-    # Get model name from instance
-    model_name = getattr(llm, "model_name", "polyphemus")
+    # Use the actual model name we tracked earlier
+    # If user provided a model and it was used, return that; otherwise return default
+    if actual_model_name:
+        response_model_name = actual_model_name
+    else:
+        # Fallback to default was used
+        response_model_name = DEFAULT_MODEL
+
+    # Log which model was actually used
+    logger.info(f"Response using model: {response_model_name}")
 
     # Calculate token counts (simple word-based approximation)
     prompt_tokens = len(prompt.split()) if prompt else 0
@@ -305,7 +334,7 @@ async def generate_text(request: GenerateRequest) -> Dict:
         "choices": [
             {"message": {"role": "assistant", "content": response}, "finish_reason": "stop"}
         ],
-        "model": model_name,
+        "model": response_model_name,
         "usage": {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
