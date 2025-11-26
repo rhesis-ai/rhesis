@@ -93,7 +93,7 @@ export default function ProtectedLayout({
             },
             '& .MuiDivider-root': {
               marginTop: '24px',
-              marginBottom: '16px',
+              marginBottom: '24px',
             },
             '& .MuiList-root': {
               paddingTop: '2px',
