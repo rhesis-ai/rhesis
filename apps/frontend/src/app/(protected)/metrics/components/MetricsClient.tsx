@@ -2,11 +2,7 @@
 
 import * as React from 'react';
 import Box from '@mui/material/Box';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
-import ChecklistIcon from '@mui/icons-material/Checklist';
-import ViewQuiltIcon from '@mui/icons-material/ViewQuilt';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
@@ -16,41 +12,9 @@ import type {
   Behavior as ApiBehavior,
   BehaviorWithMetrics,
 } from '@/utils/api-client/interfaces/behavior';
-import type { TypeLookup as MetricType } from '@/utils/api-client/interfaces/type-lookup';
 import type { UUID } from 'crypto';
 
-import SelectedMetricsTab from './SelectedMetricsTab';
 import MetricsDirectoryTab from './MetricsDirectoryTab';
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function CustomTabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`metrics-tabpanel-${index}`}
-      aria-labelledby={`metrics-tab-${index}`}
-      {...other}
-      style={{ height: '100%' }}
-    >
-      {value === index && <Box sx={{ height: '100%' }}>{children}</Box>}
-    </div>
-  );
-}
-
-function a11yProps(index: number) {
-  return {
-    id: `metrics-tab-${index}`,
-    'aria-controls': `metrics-tabpanel-${index}`,
-  };
-}
 
 interface FilterState {
   search: string;
@@ -58,6 +22,7 @@ interface FilterState {
   type: string[];
   scoreType: string[];
   metricScope: string[];
+  behavior: string[];
 }
 
 const initialFilterState: FilterState = {
@@ -66,6 +31,7 @@ const initialFilterState: FilterState = {
   type: [],
   scoreType: [],
   metricScope: [],
+  behavior: [],
 };
 
 interface FilterOptions {
@@ -73,6 +39,7 @@ interface FilterOptions {
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
   metricScope: { value: string; label: string }[];
+  behavior: { id: string; name: string }[];
 }
 
 const initialFilterOptions: FilterOptions = {
@@ -86,6 +53,7 @@ const initialFilterOptions: FilterOptions = {
     { value: 'Single-Turn', label: 'Single-Turn' },
     { value: 'Multi-Turn', label: 'Multi-Turn' },
   ],
+  behavior: [],
 };
 
 interface BehaviorMetrics {
@@ -105,20 +73,10 @@ export default function MetricsClientComponent({
   sessionToken,
   organizationId,
 }: MetricsClientProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const notifications = useNotifications();
 
-  // Initialize tab value from URL parameter
-  const initialTab = React.useMemo(() => {
-    const tab = searchParams.get('tab');
-    if (tab === 'selected') return 1;
-    return 0; // Default to Metrics Directory
-  }, [searchParams]);
-
-  const [value, setValue] = React.useState(initialTab);
-
-  // Check if we're in assign mode (coming from "Add New Behavior")
+  // Check if we're in assign mode (coming from behaviors page)
   const assignMode = searchParams.get('assignMode') === 'true';
 
   // Data state
@@ -128,11 +86,8 @@ export default function MetricsClientComponent({
   >([]);
   const [metrics, setMetrics] = React.useState<MetricDetail[]>([]);
 
-  // Separate loading states for each tab
-  const [isLoadingSelectedMetrics, setIsLoadingSelectedMetrics] =
-    React.useState(true);
-  const [isLoadingMetricsDirectory, setIsLoadingMetricsDirectory] =
-    React.useState(true);
+  // Loading states
+  const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   // Filter state
@@ -169,8 +124,7 @@ export default function MetricsClientComponent({
       hasFetchedRef.current = true;
 
       try {
-        setIsLoadingSelectedMetrics(true);
-        setIsLoadingMetricsDirectory(true);
+        setIsLoading(true);
         setError(null);
 
         const behaviorClient = new BehaviorClient(sessionToken);
@@ -255,10 +209,17 @@ export default function MetricsClientComponent({
         const backendTypes = Array.from(uniqueBackendTypes.values());
         const metricTypes = Array.from(uniqueMetricTypes.values());
 
+        // Create behavior filter options
+        const behaviorOptions = behaviorsWithMetricsData.map(behavior => ({
+          id: behavior.id,
+          name: behavior.name,
+        }));
+
         setFilterOptions(prev => ({
           ...prev,
           backend: backendTypes,
           type: metricTypes,
+          behavior: behaviorOptions,
         }));
       } catch (err) {
         const errorMessage =
@@ -269,28 +230,12 @@ export default function MetricsClientComponent({
           autoHideDuration: 4000,
         });
       } finally {
-        setIsLoadingSelectedMetrics(false);
-        setIsLoadingMetricsDirectory(false);
+        setIsLoading(false);
       }
     };
 
     fetchData();
   }, [sessionToken, refreshKey, notifications]);
-
-  // Debug log for useEffect triggers
-  React.useEffect(() => {}, [sessionToken, refreshKey]);
-
-  const handleChange = (event: React.SyntheticEvent, newValue: number) => {
-    setValue(newValue);
-    // Update URL to reflect tab change
-    const params = new URLSearchParams(searchParams.toString());
-    if (newValue === 1) {
-      params.set('tab', 'selected');
-    } else {
-      params.delete('tab');
-    }
-    router.replace(`/metrics?${params.toString()}`, { scroll: false });
-  };
 
   // Refresh data function - trigger re-render by updating a key
   const handleRefresh = React.useCallback(() => {
@@ -305,67 +250,22 @@ export default function MetricsClientComponent({
           minHeight: '100%',
         }}
       >
-        <Box
-          sx={{
-            borderBottom: 1,
-            borderColor: 'divider',
-            mb: 2,
-            bgcolor: 'background.paper',
-          }}
-        >
-          <Tabs value={value} onChange={handleChange} aria-label="metrics tabs">
-            <Tab
-              icon={<ViewQuiltIcon />}
-              iconPosition="start"
-              label="Metrics Directory"
-              {...a11yProps(0)}
-            />
-            <Tab
-              icon={<ChecklistIcon />}
-              iconPosition="start"
-              label="Selected Metrics"
-              {...a11yProps(1)}
-            />
-          </Tabs>
-        </Box>
-
-        <Box sx={{ flex: 1, overflow: 'auto' }}>
-          <CustomTabPanel value={value} index={0}>
-            <MetricsDirectoryTab
-              sessionToken={sessionToken}
-              organizationId={organizationId}
-              behaviors={behaviors}
-              metrics={metrics}
-              filters={filters}
-              filterOptions={filterOptions}
-              isLoading={isLoadingMetricsDirectory}
-              error={error}
-              onRefresh={handleRefresh}
-              setFilters={setFilters}
-              setMetrics={setMetrics}
-              setBehaviorMetrics={setBehaviorMetrics}
-              setBehaviorsWithMetrics={setBehaviorsWithMetrics}
-              onTabChange={() => setValue(1)} // Function to switch to Selected Metrics tab
-              assignMode={assignMode}
-            />
-          </CustomTabPanel>
-
-          <CustomTabPanel value={value} index={1}>
-            <SelectedMetricsTab
-              sessionToken={sessionToken}
-              organizationId={organizationId}
-              behaviorsWithMetrics={behaviorsWithMetrics}
-              behaviorMetrics={behaviorMetrics}
-              isLoading={isLoadingSelectedMetrics}
-              error={error}
-              onRefresh={handleRefresh}
-              setBehaviors={setBehaviors}
-              setBehaviorsWithMetrics={setBehaviorsWithMetrics}
-              setBehaviorMetrics={setBehaviorMetrics}
-              onTabChange={() => setValue(0)} // Switch to Metrics Directory tab
-            />
-          </CustomTabPanel>
-        </Box>
+        <MetricsDirectoryTab
+          sessionToken={sessionToken}
+          organizationId={organizationId}
+          behaviors={behaviors}
+          metrics={metrics}
+          filters={filters}
+          filterOptions={filterOptions}
+          isLoading={isLoading}
+          error={error}
+          onRefresh={handleRefresh}
+          setFilters={setFilters}
+          setMetrics={setMetrics}
+          setBehaviorMetrics={setBehaviorMetrics}
+          setBehaviorsWithMetrics={setBehaviorsWithMetrics}
+          assignMode={assignMode}
+        />
       </Box>
     </ErrorBoundary>
   );
