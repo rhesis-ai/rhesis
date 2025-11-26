@@ -1,12 +1,6 @@
 import React from 'react';
 import { useTheme } from '@mui/material/styles';
-import {
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  Chip,
-} from '@mui/material';
+import { Card, CardContent, Typography, Box, Chip } from '@mui/material';
 
 export interface ChipData {
   key: string;
@@ -160,7 +154,9 @@ export default function EntityCard({
                 {section.chips.map(chip => (
                   <Chip
                     key={chip.key}
-                    icon={chip.icon}
+                    {...(chip.icon && {
+                      icon: chip.icon as React.ReactElement,
+                    })}
                     label={chip.label}
                     size="small"
                     variant={chip.variant || 'outlined'}
@@ -184,4 +180,3 @@ export default function EntityCard({
     </Card>
   );
 }
-
