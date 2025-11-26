@@ -82,9 +82,91 @@ class TestTemplateRenderer:
 
         result = renderer.render(template, input_data)
 
-        # Only top-level string values are rendered in dict templates
-        assert result["user"] == {"name": "{{ username }}", "role": "{{ role }}"}
+        # Now nested structures are properly rendered
+        assert result["user"] == {"name": "alice", "role": "admin"}
         assert result["query"] == "search"
+
+    def test_render_nested_arrays(self):
+        """Test rendering with nested arrays containing template variables."""
+        renderer = TemplateRenderer()
+        template = {
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "{{ input }}"},
+            ],
+            "model": "{{ model_name }}",
+        }
+        input_data = {"input": "Hello world", "model_name": "gpt-4"}
+
+        result = renderer.render(template, input_data)
+
+        assert result["messages"][0] == {"role": "system", "content": "You are a helpful assistant."}
+        assert result["messages"][1] == {"role": "user", "content": "Hello world"}
+        assert result["model"] == "gpt-4"
+
+    def test_render_deeply_nested_structure(self):
+        """Test rendering with deeply nested structures."""
+        renderer = TemplateRenderer()
+        template = {
+            "config": {
+                "api": {
+                    "endpoints": [
+                        {"url": "{{ base_url }}/users", "method": "GET"},
+                        {"url": "{{ base_url }}/posts", "method": "POST"},
+                    ]
+                },
+                "auth": {"token": "{{ auth_token }}"},
+            }
+        }
+        input_data = {"base_url": "https://api.example.com", "auth_token": "secret123"}
+
+        result = renderer.render(template, input_data)
+
+        assert result["config"]["api"]["endpoints"][0]["url"] == "https://api.example.com/users"
+        assert result["config"]["api"]["endpoints"][1]["url"] == "https://api.example.com/posts"
+        assert result["config"]["auth"]["token"] == "secret123"
+
+    def test_render_mixed_types_in_nested_structure(self):
+        """Test rendering with mixed data types in nested structures."""
+        renderer = TemplateRenderer()
+        template = {
+            "settings": {
+                "enabled": True,
+                "count": 42,
+                "name": "{{ setting_name }}",
+                "values": [1, "{{ dynamic_value }}", 3],
+            }
+        }
+        input_data = {"setting_name": "my_setting", "dynamic_value": "dynamic"}
+
+        result = renderer.render(template, input_data)
+
+        assert result["settings"]["enabled"] is True
+        assert result["settings"]["count"] == 42
+        assert result["settings"]["name"] == "my_setting"
+        assert result["settings"]["values"] == [1, "dynamic", 3]
+
+    def test_render_user_example_request_mapping(self):
+        """Test rendering with the user's specific request mapping example."""
+        renderer = TemplateRenderer()
+        template = {
+            "model": "cortecs/Llama-3.3-70B-Instruct-FP8-Dynamic",
+            "messages": [
+                {"role": "system", "content": "Du bist ein hilfreicher Assistent."},
+                {"role": "user", "content": "{{ input }}"},
+            ],
+            "max_completion_tokens": 400,
+            "temperature": 0.2,
+        }
+        input_data = {"input": "Wie geht es dir?"}
+
+        result = renderer.render(template, input_data)
+
+        assert result["model"] == "cortecs/Llama-3.3-70B-Instruct-FP8-Dynamic"
+        assert result["messages"][0] == {"role": "system", "content": "Du bist ein hilfreicher Assistent."}
+        assert result["messages"][1] == {"role": "user", "content": "Wie geht es dir?"}
+        assert result["max_completion_tokens"] == 400
+        assert result["temperature"] == 0.2
 
     def test_render_non_json_string_returns_string(self):
         """Test that non-JSON strings are returned as-is."""

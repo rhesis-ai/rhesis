@@ -45,6 +45,19 @@ class TemplateRenderer:
                     render_context[field] = "__OMIT_FIELD__"
                     logger.debug(f"Set {field} to omit marker - will be filtered from request")
 
+        return self._render_recursive(template_data, render_context)
+
+    def _render_recursive(self, template_data: Any, render_context: Dict[str, Any]) -> Any:
+        """
+        Recursively render template data, handling nested structures.
+
+        Args:
+            template_data: Template data to render (string, dict, list, or other)
+            render_context: Data to use in template rendering
+
+        Returns:
+            Rendered template data with same structure as input
+        """
         if isinstance(template_data, str):
             template = Template(template_data)
             rendered = template.render(**render_context)
@@ -57,10 +70,10 @@ class TemplateRenderer:
             except json.JSONDecodeError:
                 return rendered
         elif isinstance(template_data, dict):
-            result = template_data.copy()
+            result = {}
             keys_to_remove = []
 
-            for key, value in result.items():
+            for key, value in template_data.items():
                 if isinstance(value, str):
                     template = Template(value)
                     rendered_value = template.render(**render_context)
@@ -73,14 +86,25 @@ class TemplateRenderer:
                         result[key] = self._parse_rendered_value(
                             rendered_value, render_context, value
                         )
+                else:
+                    # Recursively render non-string values (nested dicts, lists, etc.)
+                    result[key] = self._render_recursive(value, render_context)
 
             # Remove keys that had omit markers
             for key in keys_to_remove:
-                del result[key]
-                logger.debug(f"Omitted field '{key}' from template result")
+                if key in result:
+                    del result[key]
+                    logger.debug(f"Omitted field '{key}' from template result")
 
             return result
-        return template_data
+        elif isinstance(template_data, list):
+            result = []
+            for item in template_data:
+                result.append(self._render_recursive(item, render_context))
+            return result
+        else:
+            # For other types (int, float, bool, None, etc.), return as-is
+            return template_data
 
     def _parse_rendered_value(
         self, rendered_value: str, render_context: Dict[str, Any], original_template: str
