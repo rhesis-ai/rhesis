@@ -34,39 +34,50 @@ interface OnboardingProviderProps {
 
 export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const { data: session } = useSession();
+  // Initialize with localStorage data immediately to avoid flash
   const [progress, setProgress] =
-    useState<OnboardingProgress>(getDefaultProgress());
+    useState<OnboardingProgress>(() => {
+      // Load synchronously during initialization to prevent flash
+      if (typeof window !== 'undefined') {
+        return loadProgress();
+      }
+      return getDefaultProgress();
+    });
   const [activeTour, setActiveTour] = useState<string | null>(null);
   const [driverInstance, setDriverInstance] = useState<Driver | null>(null);
   const activeTourRef = useRef<string | null>(null);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dbLoadedRef = useRef(false);
 
-  // Load progress from localStorage first, then sync with database
+  // Sync with database when session is available
   useEffect(() => {
     const loadInitialProgress = async () => {
-      // 1. Load from localStorage immediately for fast UI
-      const localProgress = loadProgress();
-      setProgress(localProgress);
-
-      // 2. Load from database if user is authenticated
+      // Load from database if user is authenticated
       if (session?.session_token && !dbLoadedRef.current) {
         try {
           const dbProgress = await loadProgressFromDatabase(
             session.session_token
           );
 
-          // 3. Merge local and remote progress (once complete = always complete)
-          const mergedProgress = mergeProgress(localProgress, dbProgress);
+          // Get current progress (already loaded from localStorage in initial state)
+          setProgress(currentProgress => {
+            // Merge local and remote progress (once complete = always complete)
+            const mergedProgress = mergeProgress(currentProgress, dbProgress);
 
-          // 4. Update state and localStorage with merged progress
-          setProgress(mergedProgress);
-          saveProgress(mergedProgress);
+            // Update localStorage with merged progress
+            saveProgress(mergedProgress);
 
-          // 5. Sync merged progress back to DB if there were any changes
-          if (JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress)) {
-            await syncProgressToDatabase(session.session_token, mergedProgress);
-          }
+            // Sync merged progress back to DB if there were any changes
+            if (JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress)) {
+              syncProgressToDatabase(session.session_token, mergedProgress).catch(
+                error => {
+                  console.error('Error syncing progress to database:', error);
+                }
+              );
+            }
+
+            return mergedProgress;
+          });
 
           dbLoadedRef.current = true;
         } catch (error) {
