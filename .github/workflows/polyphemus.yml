@@ -121,8 +121,8 @@ jobs:
       - name: Set environment variables
         id: set_env
         run: |
-          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+            echo "POLYPHEMUS_REGION=${{ secrets.POLYPHEMUS_REGION || secrets.TF_VAR_POLYPHEMUS_REGION || 'us-central1' }}" >> $GITHUB_ENV
 
           # Get commit SHA (short version for URLs)
           COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
@@ -235,8 +235,8 @@ jobs:
       - name: Set environment variables
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          REGION="${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}"
-          echo "REGION=$REGION" >> $GITHUB_ENV
+          POLYPHEMUS_REGION="${{ secrets.POLYPHEMUS_REGION || secrets.TF_VAR_POLYPHEMUS_REGION || 'us-central1' }}"
+          echo "POLYPHEMUS_REGION=$POLYPHEMUS_REGION" >> $GITHUB_ENV
           
           # Get commit SHA (short version) - use build output if available, otherwise compute from github.sha
           if [ -n "${{ needs.build.outputs.commit_sha }}" ]; then
@@ -323,12 +323,12 @@ jobs:
             echo "🚀 Deploying preview revision with commit SHA: $IMAGE_TAG"
             echo "Image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
 
-            echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
+            echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
 
             gcloud beta run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
               --project=${{ env.PROJECT_ID }} \
-              --region=${{ env.REGION }} \
+              --region=${{ env.POLYPHEMUS_REGION }} \
               --platform=managed \
               --allow-unauthenticated \
               --gpu=1 \
@@ -343,7 +343,7 @@ jobs:
               --no-traffic \
               --revision-suffix=${{ env.COMMIT_SHA }} \
               --no-cpu-throttling \
-              --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
+              --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
           TRANSFORMERS_CACHE=/app/model_cache,
@@ -364,12 +364,12 @@ jobs:
             # Regular deployment with latest tag
             echo "🚀 Deploying regular revision"
             echo "Image: ${{ env.IMAGE_NAME }}:latest"
-            echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
+            echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
 
             gcloud beta run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:latest \
               --project=${{ env.PROJECT_ID }} \
-              --region=${{ env.REGION }} \
+              --region=${{ env.POLYPHEMUS_REGION }} \
               --platform=managed \
               --allow-unauthenticated \
               --gpu=1 \
@@ -382,7 +382,7 @@ jobs:
               --port=8080 \
               --concurrency=1 \
               --no-cpu-throttling \
-              --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
+              --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
           TRANSFORMERS_CACHE=/app/model_cache,
@@ -405,7 +405,7 @@ jobs:
             gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
               --to-latest \
               --project=${{ env.PROJECT_ID }} \
-              --region=${{ env.REGION }}
+              --region=${{ env.POLYPHEMUS_REGION }}
 
             echo "✅ Traffic successfully routed to new revision"
           fi
@@ -419,7 +419,7 @@ jobs:
           echo "🔍 Getting latest revision for service: ${{ env.SERVICE_NAME }}"
           LATEST_REVISION=$(gcloud run revisions list \
             --service=${{ env.SERVICE_NAME }} \
-            --region=${{ env.REGION }} \
+            --region=${{ env.POLYPHEMUS_REGION }} \
             --project=${{ env.PROJECT_ID }} \
             --format="value(metadata.name)" \
             --limit=1)
@@ -430,7 +430,7 @@ jobs:
           if [ -z "$LATEST_REVISION" ]; then
             echo "❌ Error: No latest revision found!"
             echo "🔍 Available revisions:"
-            gcloud run revisions list --service=${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} --limit=5
+            gcloud run revisions list --service=${{ env.SERVICE_NAME }} --region=${{ env.POLYPHEMUS_REGION }} --project=${{ env.PROJECT_ID }} --limit=5
             exit 1
           fi
 
@@ -447,13 +447,13 @@ jobs:
             --to-revisions="$LATEST_REVISION=0" \
             --set-tags "$TAG_NAME=$LATEST_REVISION" \
             --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }}
+            --region=${{ env.POLYPHEMUS_REGION }}
 
           # Get the actual commit-specific URL from Cloud Run
           echo "Fetching tagged URL from Cloud Run..."
           PREVIEW_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }} \
+            --region=${{ env.POLYPHEMUS_REGION }} \
             --format="json" | jq -r --arg tag "$TAG_NAME" '.status.traffic[] | select(.tag == $tag) | .url' 2>/dev/null || echo "")
 
           if [ -z "$PREVIEW_URL" ] || [ "$PREVIEW_URL" = "null" ]; then
@@ -461,7 +461,7 @@ jobs:
             sleep 5
             PREVIEW_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
               --project=${{ env.PROJECT_ID }} \
-              --region=${{ env.REGION }} \
+              --region=${{ env.POLYPHEMUS_REGION }} \
               --format="json" | jq -r --arg tag "$TAG_NAME" '.status.traffic[] | select(.tag == $tag) | .url')
           fi
 
@@ -485,7 +485,7 @@ jobs:
             # For regular deployments, get the standard service URL from Cloud Run
             DEPLOYED_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
               --project=${{ env.PROJECT_ID }} \
-              --region=${{ env.REGION }} \
+              --region=${{ env.POLYPHEMUS_REGION }} \
               --format="value(status.url)")
             echo "📍 Using standard service URL: $DEPLOYED_URL"
           fi
