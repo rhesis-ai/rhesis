@@ -26,7 +26,7 @@ class Test(BaseEntity):
     topic: Optional[str] = None
     behavior: Optional[str] = None
     prompt: Optional[Prompt] = None
-    metadata: Optional[dict] = {}
+    metadata: dict = {}
     id: Optional[str] = None
     test_configuration: Optional[TestConfiguration] = None
     test_type: Optional[TestType] = None

@@ -34,7 +34,7 @@ class TestSet(BaseEntity):
     description: str
     short_description: str
     test_set_type: Optional[TestType] = None
-    metadata: Optional[dict] = {}
+    metadata: dict = {}
 
     @handle_http_errors
     def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:
