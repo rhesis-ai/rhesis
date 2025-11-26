@@ -73,11 +73,10 @@ export default function SelectionModal({
       onClose={onClose}
       maxWidth={maxWidth}
       fullWidth
+      scroll="paper"
       PaperProps={{
         sx: {
           borderRadius: theme => theme.shape.borderRadius,
-          height: '85vh',
-          maxHeight: '85vh',
         },
       }}
     >
@@ -112,11 +111,12 @@ export default function SelectionModal({
           pt: 3,
           px: 3,
           pb: 3,
-          overflow: fillHeight ? 'hidden' : 'auto',
-          ...(fillHeight && {
-            display: 'flex',
-            flexDirection: 'column',
-          }),
+          overflow: 'visible',
+          ...(fillHeight &&
+            {
+              // display: 'flex',
+              // flexDirection: 'column',
+            }),
         }}
       >
         {/* Primary Action Cards */}
@@ -124,12 +124,12 @@ export default function SelectionModal({
           container
           spacing={3}
           sx={{
-            mb: additionalContent ? 6 : 0,
             mt: 0,
-            ...(fillHeight && {
-              flex: 1,
-              alignContent: 'center',
-            }),
+            mb: additionalContent ? 6 : 0,
+            ...(fillHeight &&
+              {
+                // flex: 1,
+              }),
           }}
         >
           {cards.map(card => (

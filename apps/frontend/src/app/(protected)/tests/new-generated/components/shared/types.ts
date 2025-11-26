@@ -4,6 +4,7 @@
 
 import { ProcessedDocument } from '@/utils/api-client/interfaces/documents';
 import { Project } from '@/utils/api-client/interfaces/project';
+import { ConversationTurn } from '@/utils/api-client/interfaces/test-results';
 
 // Re-export imported types
 export type { ProcessedDocument };
@@ -86,6 +87,10 @@ export interface MultiTurnTestSample {
   isLoadingResponse?: boolean;
   responseError?: string;
   context?: Array<{ name: string; description?: string; content?: string }>; // Sources used
+  // Conversation-related fields for multi-turn execution
+  conversation?: ConversationTurn[];
+  conversationError?: string;
+  isLoadingConversation?: boolean;
 }
 
 /**
