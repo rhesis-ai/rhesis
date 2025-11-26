@@ -59,6 +59,7 @@ export default function SelectBehaviorsDialog({
       setError(null);
       const behaviorClient = new BehaviorClient(sessionToken);
       const behaviorsList = await behaviorClient.getBehaviorsWithMetrics({
+        skip: 0,
         limit: 100,
         sort_by: 'name',
         sort_order: 'asc',

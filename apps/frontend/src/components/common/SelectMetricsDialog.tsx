@@ -59,6 +59,7 @@ export default function SelectMetricsDialog({
       setError(null);
       const metricsClient = new MetricsClient(sessionToken);
       const response = await metricsClient.getMetrics({
+        skip: 0,
         limit: 100,
         sort_by: 'name',
         sort_order: 'asc',
