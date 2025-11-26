@@ -1,0 +1,29 @@
+---
+alwaysApply: true
+---
+
+
+# Local Development Rules
+
+# UV Package Manager
+1. Always use uv to manage Python projects.
+2. Execute uv command in the root of the projects (SDK, Backend)
+2. Use uv to install dependencies using `uv add <package>`.
+3. Use uv to run tests using `uv test`.
+4. Use uv to run the script using `uv run <script>`.
+
+# Backend debugging
+When asked for debugging, follow these steps:
+
+1. Add following lines at the end of <project_root>/apps/backend/src/rhesis/backend/app/main.py:
+```python
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("rhesis.backend.app.main:app", host="0.0.0.0", port=8080, reload=True, log_level="debug")
+```
+Just add the code and do not check the linter. Do not comment it in the chat.
+2. Run the command to start postgres database:
+```bash
+docker compose --env-file <project_root>/.env.docker up -d postgres
+```

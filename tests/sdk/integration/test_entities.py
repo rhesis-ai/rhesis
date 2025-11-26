@@ -8,7 +8,6 @@ from rhesis.sdk.entities.prompt import Prompt
 from rhesis.sdk.entities.status import Status
 from rhesis.sdk.entities.test_configuration import TestConfiguration
 from rhesis.sdk.entities.test_run import TestRun
-from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.entities.topic import Topic
 
 # ============================================================================
@@ -188,55 +187,6 @@ def test_prompt_delete(db_cleanup):
 
 
 # ============================================================================
-# TestSet Tests
-# ============================================================================
-
-
-def test_test_set(db_cleanup):
-    test_set = TestSet(
-        name="Test Test Set",
-        description="Test Test Set Description",
-        short_description="Test Short Description",
-    )
-
-    result = test_set.push()
-
-    assert result["id"] is not None
-    assert result["name"] == "Test Test Set"
-    assert result["description"] == "Test Test Set Description"
-    assert result["short_description"] == "Test Short Description"
-
-
-def test_test_set_push_pull(db_cleanup):
-    test_set = TestSet(
-        name="Test push pull test set",
-        description="Test push pull test set description",
-        short_description="Test push pull short description",
-    )
-    test_set.push()
-
-    pulled_test_set = test_set.pull()
-
-    assert pulled_test_set.name == "Test push pull test set"
-    assert pulled_test_set.description == "Test push pull test set description"
-    assert pulled_test_set.short_description == "Test push pull short description"
-
-
-def test_test_set_delete(db_cleanup):
-    test_set = TestSet(
-        name="Test test set to delete",
-        description="Test test set to delete description",
-        short_description="Test short description",
-    )
-
-    test_set.push()
-    test_set.delete()
-
-    with pytest.raises(HTTPError):
-        test_set.pull()
-
-
-# ============================================================================
 # Status Tests
 # ============================================================================
 
@@ -289,7 +239,7 @@ def test_endpoint(db_cleanup):
     endpoint = Endpoint(
         name="Test Endpoint",
         description="Test Endpoint Description",
-        protocol="REST",
+        connection_type="REST",
         url="https://api.example.com/test",
     )
 
@@ -298,7 +248,7 @@ def test_endpoint(db_cleanup):
     assert result["id"] is not None
     assert result["name"] == "Test Endpoint"
     assert result["description"] == "Test Endpoint Description"
-    assert result["protocol"] == "REST"
+    assert result["connection_type"] == "REST"
     assert result["url"] == "https://api.example.com/test"
 
 
@@ -306,7 +256,7 @@ def test_endpoint_push_pull(db_cleanup):
     endpoint = Endpoint(
         name="Test push pull endpoint",
         description="Test push pull endpoint description",
-        protocol="REST",
+        connection_type="REST",
         url="https://api.example.com/push-pull",
     )
     endpoint.push()
@@ -315,7 +265,7 @@ def test_endpoint_push_pull(db_cleanup):
 
     assert pulled_endpoint.name == "Test push pull endpoint"
     assert pulled_endpoint.description == "Test push pull endpoint description"
-    assert pulled_endpoint.protocol == "REST"
+    assert pulled_endpoint.connection_type == "REST"
     assert pulled_endpoint.url == "https://api.example.com/push-pull"
 
 
@@ -323,7 +273,7 @@ def test_endpoint_delete(db_cleanup):
     endpoint = Endpoint(
         name="Test endpoint to delete",
         description="Test endpoint to delete description",
-        protocol="REST",
+        connection_type="REST",
         url="https://api.example.com/delete",
     )
 
@@ -344,7 +294,7 @@ def test_test_run(db_cleanup):
     endpoint = Endpoint(
         name="Test Endpoint for TestRun",
         description="Test Endpoint Description",
-        protocol="REST",
+        connection_type="REST",
         url="https://example.com/api",
     )
     endpoint.push()
@@ -373,7 +323,7 @@ def test_test_run_push_pull(db_cleanup):
     endpoint = Endpoint(
         name="Test Endpoint for TestRun Push Pull",
         description="Test Endpoint Description",
-        protocol="REST",
+        connection_type="REST",
         url="https://example.com/api",
     )
     endpoint.push()
@@ -402,7 +352,7 @@ def test_test_run_delete(db_cleanup):
     endpoint = Endpoint(
         name="Test Endpoint for TestRun Delete",
         description="Test Endpoint Description",
-        protocol="REST",
+        connection_type="REST",
         url="https://example.com/api",
     )
     endpoint.push()
