@@ -109,12 +109,6 @@ typeCheckingMode = "standard"
 include = [ "src/rhesis/sdk/metrics", ]
 
 [tool.pytest.ini_options]
-testpaths = [
-    "../tests/sdk",
-
-]
-# addopts = " --ignore=../tests/sdk/entities"
-
 pythonpath = [
     "src",
 ]
