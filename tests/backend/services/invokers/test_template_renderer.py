@@ -100,7 +100,10 @@ class TestTemplateRenderer:
 
         result = renderer.render(template, input_data)
 
-        assert result["messages"][0] == {"role": "system", "content": "You are a helpful assistant."}
+        assert result["messages"][0] == {
+            "role": "system",
+            "content": "You are a helpful assistant.",
+        }
         assert result["messages"][1] == {"role": "user", "content": "Hello world"}
         assert result["model"] == "gpt-4"
 
@@ -163,7 +166,10 @@ class TestTemplateRenderer:
         result = renderer.render(template, input_data)
 
         assert result["model"] == "cortecs/Llama-3.3-70B-Instruct-FP8-Dynamic"
-        assert result["messages"][0] == {"role": "system", "content": "Du bist ein hilfreicher Assistent."}
+        assert result["messages"][0] == {
+            "role": "system",
+            "content": "Du bist ein hilfreicher Assistent.",
+        }
         assert result["messages"][1] == {"role": "user", "content": "Wie geht es dir?"}
         assert result["max_completion_tokens"] == 400
         assert result["temperature"] == 0.2

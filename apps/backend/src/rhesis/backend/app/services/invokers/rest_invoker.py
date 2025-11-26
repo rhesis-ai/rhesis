@@ -239,7 +239,8 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             headers["Content-Type"] = "application/json"
 
         # Add auth_token if auth is configured (legacy auth_token placeholder support)
-        if endpoint.auth_type:
+        # If no auth_type is set but auth_token exists, assume bearer token
+        if endpoint.auth_type or endpoint.auth_token:
             auth_token = self._get_valid_token(db, endpoint)
 
             # Replace {{ auth_token }} placeholders in header values
