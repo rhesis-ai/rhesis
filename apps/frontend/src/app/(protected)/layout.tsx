@@ -83,6 +83,27 @@ export default function ProtectedLayout({
             '& .MuiCollapse-root .MuiListItemButton-root': {
               paddingLeft: '28px',
             },
+            // Make "Star Rhesis" button flashy and inviting
+            '& .MuiListItemButton-root:has(.star-rhesis-icon)': {
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: '#fff !important',
+              borderRadius: '8px',
+              margin: '4px 8px',
+              padding: '8px 12px !important',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+              },
+              '& .MuiListItemIcon-root': {
+                color: '#fff !important',
+              },
+              '& .MuiListItemText-root .MuiTypography-root': {
+                fontWeight: 600,
+                color: '#fff !important',
+              },
+            },
           },
           // Make header more compact
           '& .MuiToolbar-root': {

@@ -228,9 +228,9 @@ async function getNavigationItems(
     // External Links
     {
       kind: 'link',
-      title: 'Star Rhesis',
+      title: '⭐ Star Rhesis',
       href: 'https://github.com/rhesis-ai/rhesis',
-      icon: <GitHubIcon />,
+      icon: <GitHubIcon className="star-rhesis-icon" />,
       external: true,
     },
     {
