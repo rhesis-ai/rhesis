@@ -3,19 +3,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
-  Button,
   Typography,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  DialogContentText,
   TextField,
   IconButton,
   Alert,
 } from '@mui/material';
 import { GridPaginationModel } from '@mui/x-data-grid';
-import AddIcon from '@mui/icons-material/Add';
 import TokensGrid from './TokensGrid';
 import CreateTokenModal from './CreateTokenModal';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -149,16 +146,6 @@ export default function TokensPageClient({
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleOpenCreateModal}
-        >
-          Create API Token
-        </Button>
-      </Box>
-
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
