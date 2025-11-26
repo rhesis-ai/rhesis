@@ -223,30 +223,6 @@ services:
       retries: 3
       start_period: 60s
 
-  # Polyphemus LLM Service
-  polyphemus:
-    build:
-      context: .
-      dockerfile: apps/polyphemus/Dockerfile
-      args:
-        DEFAULT_MODEL: ${DEFAULT_MODEL:-huggingface/distilgpt2}
-    container_name: rhesis-polyphemus
-    environment:
-      <<: [*common-environment, *common-database]
-      DEFAULT_MODEL: ${DEFAULT_MODEL:-huggingface/distilgpt2}
-      TRANSFORMERS_CACHE: /app/model_cache
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    ports:
-      - "8082:8080"
-    networks:
-      - rhesis-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
 volumes:
   postgres_data:
     driver: local

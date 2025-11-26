@@ -1,48 +1,37 @@
-# Use standard Python base image 
-FROM mirror.gcr.io/library/python:3.10.17-slim
+# Hint: Build this image with an expanded build context
+# `docker build -t rhesis-polyphemus -f apps/polyphemus/Dockerfile .`
+#
+# IMPORTANT: This Dockerfile uses a two-stage build to minimize image size
+# and optimize layer caching. The builder stage installs dependencies and
+# pre-downloads ML models, while the runtime stage creates a minimal image.
+#
+# For critical deployments, use --no-cache to force a complete rebuild:
+# `docker build --no-cache -t rhesis-polyphemus -f apps/polyphemus/Dockerfile .`
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    DEBIAN_FRONTEND=noninteractive \
-    PYTHONPATH=/app:/app/src
+# ============================================================================
+# STAGE 1: Builder - Install dependencies and pre-download models
+# ============================================================================
+FROM mirror.gcr.io/library/python:3.10.17-slim AS builder
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Install OS-level dependencies
+WORKDIR /app
+
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for modern dependency management
-RUN pip install --no-cache-dir uv
+# Copy only the dependency files for polyphemus
+COPY apps/polyphemus/pyproject.toml apps/polyphemus/uv.lock ./
 
-# Set working directory
-WORKDIR /app
-
-# Copy SDK directory first (required dependency for rhesis.sdk imports)
-# Build context is repo root, SDK is at sdk/
-COPY sdk /app/sdk/
-
-# Copy backend directory (required dependency for rhesis-backend)
-COPY apps/backend /app/apps/backend/
-
-COPY penelope /app/penelope/
-# Copy polyphemus source code and pyproject.toml
-# Build context is repo root, so paths are relative to that
-COPY apps/polyphemus /app/apps/polyphemus/
-
-# Set up the source structure to match the package layout
-# Create a proper namespace package (no __init__.py in rhesis to allow namespace sharing)
-RUN mkdir -p /app/src/rhesis && \
-    cp -r /app/apps/polyphemus/src/rhesis/polyphemus /app/src/rhesis/ && \
-    cp -r /app/sdk/src/rhesis/sdk /app/src/rhesis/
-
-# Create virtual environment first (matching rh script: uv venv)
-RUN uv venv
-
-# Add the virtual environment to the PATH
-ENV PATH="/app/.venv/bin:$PATH"
+# Copy ONLY the minimal Python package structure needed for dependency resolution
+# We only need __init__.py files for the package to be recognized
+RUN mkdir -p /app/src/rhesis/polyphemus
+# Create namespace package __init__.py (polyphemus uses namespace packages like backend/SDK/Penelope)
+COPY apps/polyphemus/src/rhesis/__init__.py /app/src/rhesis/__init__.py
+COPY apps/polyphemus/src/rhesis/polyphemus/__init__.py /app/src/rhesis/polyphemus/__init__.py
 
 # Compile bytecode to improve performance
 ENV UV_COMPILE_BYTECODE=1
@@ -51,11 +40,22 @@ ENV UV_NO_MANAGED_PYTHON=1
 # Skip the installation of the dev dependencies
 ENV UV_NO_DEV=1
 
-# Install SDK first in editable mode with huggingface extras (matching rh script: uv pip install -e sdk)
-RUN uv pip install -e /app/sdk[huggingface]
+# Copy the SDK, Penelope, and backend directories
+COPY sdk /app/sdk/
+COPY penelope /app/penelope/
+COPY apps/backend /app/apps/backend/
 
-# Install polyphemus in editable mode (matching rh script: uv pip install -e apps/polyphemus)
-RUN cd /app && uv pip install -e apps/polyphemus
+# Fix paths in pyproject.toml to point to the correct locations in Docker
+RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../backend"|path = "/app/apps/backend"|g' /app/pyproject.toml
+
+# Install dependencies using uv sync
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync
+
+# Now copy ALL source code - this layer will invalidate when any source changes
+COPY apps/polyphemus/src /app/src
 
 # For caching models (optional - can be overridden at runtime)
 ENV TRANSFORMERS_CACHE="/app/model_cache"
@@ -71,15 +71,48 @@ ENV DEFAULT_MODEL=${DEFAULT_MODEL}
 # Examples: "huggingface/distilgpt2" -> "distilgpt2", "huggingface/meta-llama/Llama-2-7b-chat-hf" -> "meta-llama/Llama-2-7b-chat-hf"
 RUN /app/.venv/bin/python -c "import os; os.environ['TRANSFORMERS_CACHE'] = '/app/model_cache'; from transformers import AutoModelForCausalLM, AutoTokenizer; full_name = '${DEFAULT_MODEL}'; model_name = full_name.split('/', 1)[1] if '/' in full_name else full_name; print('Pre-downloading default model:', model_name); AutoModelForCausalLM.from_pretrained(model_name, cache_dir='/app/model_cache'); AutoTokenizer.from_pretrained(model_name, cache_dir='/app/model_cache'); print('Model pre-downloaded successfully')" || echo "Warning: Model pre-download failed, will download on first request"
 
-# Create non-root user
+# ============================================================================
+# STAGE 2: Runtime - Create minimal runtime image
+# ============================================================================
+FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
+
+WORKDIR /app
+
+# Install only runtime dependencies (no build tools)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user first
 RUN adduser --disabled-password --gecos '' appuser && \
-    chown -R appuser:appuser /app
+    mkdir -p /app && \
+    chown appuser:appuser /app
+
+# Copy the virtual environment from builder
+COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
+
+# Copy source code and dependencies with proper ownership
+COPY --from=builder --chown=appuser:appuser /app/src /app/src
+COPY --from=builder --chown=appuser:appuser /app/sdk /app/sdk
+COPY --from=builder --chown=appuser:appuser /app/penelope /app/penelope
+COPY --from=builder --chown=appuser:appuser /app/apps/backend /app/apps/backend
+
+# Copy pre-downloaded model cache
+COPY --from=builder --chown=appuser:appuser /app/model_cache /app/model_cache
+
+# Switch to the non-root user
+USER appuser
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app:/app/src \
+    PATH="/app/.venv/bin:$PATH" \
+    TRANSFORMERS_CACHE="/app/model_cache"
 
 # Expose the port the app will run on
 EXPOSE 8080
-
-# Switch to non-root user
-USER appuser
 
 # Start the FastAPI app using Gunicorn with optimized settings
 # Module path is rhesis.polyphemus.main:app (package structure is rhesis.polyphemus)
