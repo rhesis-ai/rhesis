@@ -29,7 +29,68 @@ export default function ProtectedLayout({
   // Hide both navigation and AppBar when organization_id is missing
   const layoutStyles: SxProps = {
     ...(hasOrganization
-      ? {}
+      ? {
+          // Make sidebar more compact - reduce padding/margins only
+          '& .MuiDrawer-root': {
+            '& .MuiListItemButton-root': {
+              paddingTop: '4px',
+              paddingBottom: '4px',
+              paddingLeft: '12px',
+              paddingRight: '12px',
+              minHeight: '36px',
+              maxHeight: '42px',
+            },
+            '& .MuiListItemIcon-root': {
+              minWidth: '32px',
+              '& svg': {
+                width: '20px',
+                height: '20px',
+                fontSize: '16px',
+              },
+            },
+            '& .MuiListItemText-root': {
+              margin: 0,
+              '& .MuiTypography-root': {
+                fontSize: '14px',
+                lineHeight: '1.2',
+              },
+            },
+            '& .MuiListSubheader-root': {
+              paddingTop: '24px',
+              paddingBottom: '8px',
+              lineHeight: '1.5',
+              height: 'auto',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              display: 'block',
+            },
+            // When drawer is mini/collapsed, ensure headers are truncated properly
+            '&.MuiDrawer-docked .MuiListSubheader-root': {
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            },
+            '& .MuiDivider-root': {
+              marginTop: '24px',
+              marginBottom: '16px',
+            },
+            '& .MuiList-root': {
+              paddingTop: '2px',
+              paddingBottom: '2px',
+            },
+            '& .MuiCollapse-root .MuiListItemButton-root': {
+              paddingLeft: '28px',
+            },
+          },
+          // Make header more compact
+          '& .MuiToolbar-root': {
+            minHeight: '56px',
+            paddingTop: '8px',
+            paddingBottom: '8px',
+          },
+        }
       : {
           //'& header': { display: 'none' },
           '& nav': { display: 'none' },
