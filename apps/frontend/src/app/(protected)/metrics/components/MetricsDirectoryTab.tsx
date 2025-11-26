@@ -35,6 +35,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import SearchAndFilterBar from '@/components/common/SearchAndFilterBar';
+import SelectBehaviorsDialog from '@/components/common/SelectBehaviorsDialog';
 import MetricCard from './MetricCard';
 import MetricTypeDialog from './MetricTypeDialog';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
@@ -73,77 +74,7 @@ interface BehaviorMetrics {
   };
 }
 
-interface AssignMetricDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onAssign: (behaviorId: string) => void;
-  behaviors: ApiBehavior[];
-  isLoading: boolean;
-  error: string | null;
-}
-
-function AssignMetricDialog({
-  open,
-  onClose,
-  onAssign,
-  behaviors,
-  isLoading,
-  error,
-}: AssignMetricDialogProps) {
-  return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Add to Behavior</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Select a behavior to add this metric to:
-        </DialogContentText>
-        {isLoading ? (
-          <Box sx={{ textAlign: 'center', py: 2 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 1,
-              }}
-            >
-              <CircularProgress size={20} />
-              <Typography>Loading behaviors...</Typography>
-            </Box>
-          </Box>
-        ) : error ? (
-          <Box sx={{ textAlign: 'center', py: 2 }}>
-            <Typography color="error">{error}</Typography>
-          </Box>
-        ) : behaviors.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 2 }}>
-            <Typography color="text.secondary">
-              No behaviors available
-            </Typography>
-          </Box>
-        ) : (
-          <Stack spacing={2} sx={{ mt: 2 }}>
-            {[...behaviors]
-              .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-              .map(behavior => (
-                <Button
-                  key={behavior.id}
-                  variant="outlined"
-                  onClick={() => onAssign(behavior.id)}
-                  fullWidth
-                >
-                  {behavior.name || 'Unnamed Behavior'}
-                </Button>
-              ))}
-          </Stack>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
+// Using SelectBehaviorsDialog component instead of inline dialog
 
 interface MetricsDirectoryTabProps {
   sessionToken: string;
@@ -507,9 +438,9 @@ export default function MetricsDirectoryTab({
     }
   };
 
-  const handleAssignMetric = (behaviorId: string) => {
+  const handleAssignMetric = (behaviorId: UUID) => {
     if (selectedMetric) {
-      handleAssignMetricToBehavior(behaviorId, selectedMetric.id);
+      handleAssignMetricToBehavior(behaviorId as string, selectedMetric.id);
     }
     setAssignDialogOpen(false);
     setSelectedMetric(null);
@@ -1018,16 +949,19 @@ export default function MetricsDirectoryTab({
         itemType="metric"
         itemName={metricToDeleteCompletely?.name}
       />
-      <AssignMetricDialog
+      <SelectBehaviorsDialog
         open={assignDialogOpen}
         onClose={() => {
           setAssignDialogOpen(false);
           setSelectedMetric(null);
         }}
-        onAssign={handleAssignMetric}
-        behaviors={behaviors.filter(b => b.name && b.name.trim() !== '')}
-        isLoading={isLoading}
-        error={error}
+        onSelect={handleAssignMetric}
+        sessionToken={sessionToken}
+        excludeBehaviorIds={
+          (selectedMetric?.behaviors || [])
+            .filter(b => typeof b !== 'string' && b.id)
+            .map(b => (typeof b !== 'string' ? b.id : (b as unknown as UUID)))
+        }
       />
       <MetricTypeDialog
         open={createMetricOpen}

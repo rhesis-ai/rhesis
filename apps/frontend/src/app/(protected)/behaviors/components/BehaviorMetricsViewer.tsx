@@ -5,10 +5,8 @@ import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
-import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
 import CircularProgress from '@mui/material/CircularProgress';
-import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
@@ -51,11 +49,6 @@ export default function BehaviorMetricsViewer({
 
   const [isRemoving, setIsRemoving] = React.useState<string | null>(null);
 
-  const handleAddMetrics = () => {
-    router.push('/metrics?assignMode=true');
-    onClose();
-  };
-
   const handleMetricDetail = (metricId: string) => {
     router.push(`/metrics/${metricId}`);
   };
@@ -95,10 +88,35 @@ export default function BehaviorMetricsViewer({
       anchor="right"
       open={open}
       onClose={onClose}
-      sx={{
-        '& .MuiDrawer-paper': {
+      variant="temporary"
+      ModalProps={{
+        keepMounted: true,
+        slotProps: {
+          backdrop: {
+            sx: {
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            },
+          },
+        },
+      }}
+      slotProps={{
+        backdrop: {
+          sx: {
+            zIndex: theme => theme.zIndex.drawer - 1,
+          },
+        },
+      }}
+      PaperProps={{
+        sx: {
           width: { xs: '100%', sm: '80%', md: '60%' },
           maxWidth: '900px',
+          zIndex: theme => theme.zIndex.drawer + 1,
+        },
+      }}
+      sx={{
+        zIndex: theme => theme.zIndex.drawer + 1,
+        '& .MuiDrawer-paper': {
+          boxSizing: 'border-box',
         },
       }}
     >
@@ -108,7 +126,8 @@ export default function BehaviorMetricsViewer({
           <Box
             sx={{
               p: 3,
-              borderBottom: `1px solid ${theme.palette.divider}`,
+              borderBottom: 1,
+              borderColor: 'divider',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
@@ -226,40 +245,12 @@ export default function BehaviorMetricsViewer({
                   borderRadius: theme.shape.borderRadius / 2,
                 }}
               >
-                <Typography variant="body1" color="text.secondary" gutterBottom>
+                <Typography variant="body1" color="text.secondary">
                   No metrics assigned to this behavior yet.
                 </Typography>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={handleAddMetrics}
-                  sx={{ mt: 2 }}
-                >
-                  Add Metrics
-                </Button>
               </Box>
             )}
           </Box>
-
-          {/* Footer */}
-          {metrics.length > 0 && (
-            <Box
-              sx={{
-                p: 2,
-                borderTop: `1px solid ${theme.palette.divider}`,
-                display: 'flex',
-                justifyContent: 'flex-end',
-              }}
-            >
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleAddMetrics}
-              >
-                Add More Metrics
-              </Button>
-            </Box>
-          )}
         </Box>
       )}
     </Drawer>
