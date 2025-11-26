@@ -58,7 +58,7 @@ class TestData(BaseModel):
     owner_id: Optional[UUID4] = None
     status: Optional[str] = None
     priority: Optional[int] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = {}
 
     @field_validator("assignee_id", "owner_id")
     @classmethod
