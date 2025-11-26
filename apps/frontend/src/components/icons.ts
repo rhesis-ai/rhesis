@@ -51,6 +51,11 @@ export { default as CloseIcon } from '@mui/icons-material/CloseOutlined';
 export { default as InfoIcon } from '@mui/icons-material/InfoOutlined';
 export { default as SettingsIcon } from '@mui/icons-material/SettingsOutlined';
 export { default as AssignmentIcon } from '@mui/icons-material/AssignmentOutlined';
+export { default as BoltIcon } from '@mui/icons-material/BoltOutlined';
+export { default as StarIcon } from '@mui/icons-material/StarOutlined';
+export { default as GitHubIcon } from '@mui/icons-material/GitHub';
+export { default as HttpIcon } from '@mui/icons-material/HttpOutlined';
+export { default as FeedbackIcon } from '@mui/icons-material/FeedbackOutlined';
 
 // Common UI icons
 export { default as PersonIcon } from '@mui/icons-material/PersonOutlined';

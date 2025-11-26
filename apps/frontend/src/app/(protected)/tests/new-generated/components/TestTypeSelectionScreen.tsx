@@ -99,7 +99,7 @@ export default function TestTypeSelectionScreen({
     <SelectionModal
       open={open}
       onClose={onClose}
-      title="Choose Test Type"
+      title="Choose Test Type for Generation"
       subtitle="Select the type of tests you want to generate for your project"
       cards={cards}
       maxWidth="lg"

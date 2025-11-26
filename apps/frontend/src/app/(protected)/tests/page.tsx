@@ -58,6 +58,18 @@ export default function TestsPage() {
 
   // No auto-close logic needed - tour handles modal closing
 
+  // Check for openGeneration query parameter
+  React.useEffect(() => {
+    const openGeneration = searchParams?.get('openGeneration');
+    if (openGeneration === 'true' && !showTestTypeModal) {
+      setShowTestTypeModal(true);
+      // Remove the query parameter from URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('openGeneration');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+  }, [searchParams, showTestTypeModal]);
+
   // Fetch test count to check if user has created tests
   React.useEffect(() => {
     const fetchTestCount = async () => {

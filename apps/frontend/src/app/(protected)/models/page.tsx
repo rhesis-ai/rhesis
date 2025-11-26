@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Alert, CircularProgress } from '@mui/material';
+import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
@@ -169,57 +170,55 @@ export default function ModelsPage() {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h4" sx={{ mb: 1 }}>
-            Models
-          </Typography>
-          <Typography color="text.secondary">
-            Connect to leading AI model providers to power your evaluation and
-            testing workflows.
-          </Typography>
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
-            </Alert>
-          )}
-        </Box>
-
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: 'repeat(2, 1fr)',
-                md: 'repeat(3, 1fr)',
-              },
-              gap: 3,
-              width: '100%',
-              px: 0,
-            }}
-          >
-            {/* Connected Model Cards */}
-            {connectedModels.map(model => (
-              <ConnectedModelCard
-                key={model.id}
-                model={model}
-                userSettings={userSettings}
-                onEdit={handleEditClick}
-                onDelete={handleDeleteClick}
-              />
-            ))}
-
-            {/* Add Model Card */}
-            <AddModelCard onClick={handleAddLLM} />
-          </Box>
+    <PageContainer
+      title="Models"
+      breadcrumbs={[{ title: 'Models', path: '/models' }]}
+    >
+      <Box sx={{ mb: 3 }}>
+        <Typography color="text.secondary">
+          Connect to leading AI model providers to power your evaluation and
+          testing workflows.
+        </Typography>
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
         )}
       </Box>
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, 1fr)',
+              md: 'repeat(3, 1fr)',
+            },
+            gap: 3,
+            width: '100%',
+            px: 0,
+          }}
+        >
+          {/* Connected Model Cards */}
+          {connectedModels.map(model => (
+            <ConnectedModelCard
+              key={model.id}
+              model={model}
+              userSettings={userSettings}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteClick}
+            />
+          ))}
+
+          {/* Add Model Card */}
+          <AddModelCard onClick={handleAddLLM} />
+        </Box>
+      )}
 
       <ProviderSelectionDialog
         open={providerSelectionOpen}
@@ -258,6 +257,6 @@ export default function ModelsPage() {
         itemName={modelToDelete?.name}
         title="Delete Model Connection"
       />
-    </Box>
+    </PageContainer>
   );
 }

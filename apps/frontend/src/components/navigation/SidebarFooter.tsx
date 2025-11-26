@@ -23,19 +23,19 @@ export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
       {mini ? (
         <Box
           sx={{
-            padding: 1,
+            padding: 0.5,
             borderTop: '1px solid',
             borderColor: 'divider',
           }}
         >
-          <Tooltip title="Provide Feedback" placement="right">
+          <Tooltip title="Feedback" placement="right">
             <Button
               onClick={handleOpenFeedbackModal}
               sx={{
-                minWidth: '48px',
-                minHeight: '48px',
-                width: '48px',
-                height: '48px',
+                minWidth: '36px',
+                minHeight: '36px',
+                width: '36px',
+                height: '36px',
                 borderRadius: theme => theme.shape.borderRadius * 1.5,
                 color: 'text.secondary',
                 '&:hover': {
@@ -44,31 +44,36 @@ export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
                 },
               }}
             >
-              <FeedbackIcon sx={{ width: '20px', height: '20px' }} />
+              <FeedbackIcon sx={{ width: '16px', height: '16px' }} />
             </Button>
           </Tooltip>
         </Box>
       ) : (
         <Box
           sx={{
-            padding: 2,
+            padding: 1,
             borderTop: '1px solid',
             borderColor: 'divider',
           }}
         >
           <Button
             onClick={handleOpenFeedbackModal}
-            startIcon={<FeedbackIcon />}
+            startIcon={<FeedbackIcon sx={{ width: '16px', height: '16px' }} />}
             sx={{
               width: '100%',
               justifyContent: 'flex-start',
               color: 'text.secondary',
               textTransform: 'none',
               borderRadius: theme => theme.shape.borderRadius,
-              padding: theme => theme.spacing(1, 1.5),
+              padding: theme => theme.spacing(0.5, 1),
+              minHeight: '36px',
+              maxHeight: '42px',
               '&:hover': {
                 backgroundColor: 'action.hover',
                 color: 'primary.main',
+              },
+              '& .MuiButton-startIcon': {
+                marginRight: theme => theme.spacing(1.5),
               },
             }}
           >
@@ -81,7 +86,7 @@ export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
                 whiteSpace: 'nowrap',
               }}
             >
-              <Typography variant="body2">Provide Feedback</Typography>
+              <Typography variant="body2">Feedback</Typography>
               <Typography
                 variant="caption"
                 color="text.disabled"

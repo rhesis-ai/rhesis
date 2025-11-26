@@ -56,6 +56,25 @@ export default function TokensGrid({
     setRefreshModalOpen(true);
   };
 
+  // Custom toolbar with right-aligned button
+  const customToolbar = (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'flex-end',
+        width: '100%',
+      }}
+    >
+      <Button
+        variant="contained"
+        startIcon={<AddIcon />}
+        onClick={onCreateToken}
+      >
+        Create API Token
+      </Button>
+    </Box>
+  );
+
   const columns = [
     {
       field: 'name',
@@ -227,6 +246,7 @@ export default function TokensGrid({
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
             disablePaperWrapper={true}
+            customToolbarContent={customToolbar}
           />
         </Box>
       </Paper>

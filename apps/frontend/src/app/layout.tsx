@@ -22,6 +22,13 @@ import {
   AssignmentIcon,
   SettingsIcon,
   MenuBookIcon,
+  BoltIcon,
+  PsychologyIcon,
+  HttpIcon,
+  GitHubIcon,
+  DescriptionIcon,
+  CodeIcon,
+  FeedbackIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -69,6 +76,7 @@ async function getNavigationItems(
   }
 
   return [
+    // Organization Section
     {
       kind: 'page',
       segment: 'organizations',
@@ -99,6 +107,18 @@ async function getNavigationItems(
         },
       ],
     },
+    // Dashboard
+    {
+      kind: 'page',
+      segment: 'dashboard',
+      title: 'Dashboard',
+      icon: <DashboardIcon />,
+    },
+    // Requirements Section
+    {
+      kind: 'header',
+      title: 'Requirements',
+    },
     {
       kind: 'page',
       segment: 'projects',
@@ -112,13 +132,28 @@ async function getNavigationItems(
       icon: <MenuBookIcon />,
     },
     {
-      kind: 'divider',
+      kind: 'page',
+      segment: 'behaviors',
+      title: 'Behaviors',
+      icon: <PsychologyIcon />,
     },
     {
       kind: 'page',
-      segment: 'dashboard',
-      title: 'Dashboard',
-      icon: <DashboardIcon />,
+      segment: 'metrics',
+      title: 'Metrics',
+      icon: <AutoGraphIcon />,
+      requireSuperuser: true,
+    },
+    // Testing Section
+    {
+      kind: 'header',
+      title: 'Testing',
+    },
+    {
+      kind: 'page',
+      segment: 'generation',
+      title: 'Generation',
+      icon: <BoltIcon />,
     },
     {
       kind: 'page',
@@ -132,6 +167,17 @@ async function getNavigationItems(
       title: 'Test Sets',
       icon: <CategoryIcon />,
     },
+    // Results Section
+    {
+      kind: 'header',
+      title: 'Results',
+    },
+    {
+      kind: 'page',
+      segment: 'test-results',
+      title: 'Overview',
+      icon: <AssessmentIcon />,
+    },
     {
       kind: 'page',
       segment: 'test-runs',
@@ -140,59 +186,66 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'test-results',
-      title: 'Test Results',
-      icon: <AssessmentIcon />,
-    },
-    {
-      kind: 'page',
       segment: 'tasks',
       title: 'Tasks',
       icon: <AssignmentIcon />,
     },
-    {
-      kind: 'page',
-      segment: 'metrics',
-      title: 'Metrics',
-      icon: <AutoGraphIcon />,
-      requireSuperuser: true,
-    },
+    // Development Section
     {
       kind: 'header',
-      title: 'Settings',
+      title: 'Development',
     },
     {
       kind: 'page',
-      segment: 'integrations',
-      title: 'Integrations',
-      icon: <IntegrationInstructionsIcon />,
+      segment: 'projects/endpoints',
+      title: 'Endpoints',
+      icon: <ApiIcon />,
+    },
+    {
+      kind: 'page',
+      segment: 'models',
+      title: 'Models',
+      icon: <SmartToyIcon />,
       requireSuperuser: true,
-      children: [
-        {
-          kind: 'page',
-          segment: 'models',
-          title: 'Models',
-          icon: <SmartToyIcon />,
-        },
-        {
-          kind: 'page',
-          segment: 'apis',
-          title: 'APIs',
-          icon: <GridViewIcon />,
-        },
-        {
-          kind: 'page',
-          segment: 'mcps',
-          title: 'MCPs',
-          icon: <TerminalIcon />,
-        },
-      ],
+    },
+    {
+      kind: 'page',
+      segment: 'mcp',
+      title: 'MCP',
+      icon: <TerminalIcon />,
+      requireSuperuser: true,
     },
     {
       kind: 'page',
       segment: 'tokens',
       title: 'API Tokens',
       icon: <VpnKeyIcon />,
+    },
+    // Divider before external links
+    {
+      kind: 'divider',
+    },
+    // External Links
+    {
+      kind: 'link',
+      title: '⭐ Star Rhesis',
+      href: 'https://github.com/rhesis-ai/rhesis',
+      icon: <GitHubIcon className="star-rhesis-icon" />,
+      external: true,
+    },
+    {
+      kind: 'link',
+      title: 'Documentation',
+      href: 'https://docs.rhesis.ai',
+      icon: <DescriptionIcon />,
+      external: true,
+    },
+    {
+      kind: 'link',
+      title: 'SDK Reference',
+      href: 'https://rtd.rhesis.ai',
+      icon: <CodeIcon />,
+      external: true,
     },
   ] as NavigationItem[];
 }
