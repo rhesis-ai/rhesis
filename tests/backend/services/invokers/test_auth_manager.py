@@ -49,13 +49,24 @@ class TestAuthenticationManager:
         assert sample_endpoint_oauth.last_token == "new-access-token"
 
     def test_get_valid_token_no_auth(self, mock_db, sample_endpoint_rest):
-        """Test getting token when no auth type configured."""
+        """Test getting token when no auth type and no auth token configured."""
         manager = AuthenticationManager()
         sample_endpoint_rest.auth_type = None
+        sample_endpoint_rest.auth_token = None  # Also clear auth_token
 
         token = manager.get_valid_token(mock_db, sample_endpoint_rest)
 
         assert token is None
+
+    def test_get_valid_token_no_auth_type_but_has_token(self, mock_db, sample_endpoint_rest):
+        """Test getting token when no auth_type but auth_token exists (fallback to bearer)."""
+        manager = AuthenticationManager()
+        sample_endpoint_rest.auth_type = None
+        # Keep auth_token from fixture
+
+        token = manager.get_valid_token(mock_db, sample_endpoint_rest)
+
+        assert token == "test-bearer-token"
 
     def test_get_client_credentials_token_success(self, mock_db, sample_endpoint_oauth):
         """Test successful OAuth client credentials flow."""
@@ -173,6 +184,7 @@ class TestAuthenticationManager:
         with patch("requests.post", return_value=mock_response):
             token = manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
+        assert token == "fresh-token"
         assert sample_endpoint_oauth.last_token == "fresh-token"
         assert sample_endpoint_oauth.last_token_expires_at > datetime.utcnow()
         # Check expiry is approximately 1800 seconds in the future
