@@ -11,12 +11,12 @@ alwaysApply: true
 cd sdk
 make test
 ```
-3. SDK integration tests can be run using
+3. SDK integration tests run the backend which SDK is connected to.
 ```bash
 cd sdk
-make test-slow
+make test-integration
 ```
-You can also check the logs from the backend by using:
+Backend logs can be checked by using:
 ```bash
 docker logs rhesis-backend-test
 ```

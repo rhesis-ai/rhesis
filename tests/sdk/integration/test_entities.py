@@ -239,7 +239,7 @@ def test_endpoint(db_cleanup):
     endpoint = Endpoint(
         name="Test Endpoint",
         description="Test Endpoint Description",
-        protocol="REST",
+        connection_type="REST",
         url="https://api.example.com/test",
     )
 
@@ -248,7 +248,7 @@ def test_endpoint(db_cleanup):
     assert result["id"] is not None
     assert result["name"] == "Test Endpoint"
     assert result["description"] == "Test Endpoint Description"
-    assert result["protocol"] == "REST"
+    assert result["connection_type"] == "REST"
     assert result["url"] == "https://api.example.com/test"
 
 
@@ -256,7 +256,7 @@ def test_endpoint_push_pull(db_cleanup):
     endpoint = Endpoint(
         name="Test push pull endpoint",
         description="Test push pull endpoint description",
-        protocol="REST",
+        connection_type="REST",
         url="https://api.example.com/push-pull",
     )
     endpoint.push()
@@ -265,7 +265,7 @@ def test_endpoint_push_pull(db_cleanup):
 
     assert pulled_endpoint.name == "Test push pull endpoint"
     assert pulled_endpoint.description == "Test push pull endpoint description"
-    assert pulled_endpoint.protocol == "REST"
+    assert pulled_endpoint.connection_type == "REST"
     assert pulled_endpoint.url == "https://api.example.com/push-pull"
 
 
@@ -273,7 +273,7 @@ def test_endpoint_delete(db_cleanup):
     endpoint = Endpoint(
         name="Test endpoint to delete",
         description="Test endpoint to delete description",
-        protocol="REST",
+        connection_type="REST",
         url="https://api.example.com/delete",
     )
 
@@ -294,7 +294,7 @@ def test_test_run(db_cleanup):
     endpoint = Endpoint(
         name="Test Endpoint for TestRun",
         description="Test Endpoint Description",
-        protocol="REST",
+        connection_type="REST",
         url="https://example.com/api",
     )
     endpoint.push()
@@ -323,7 +323,7 @@ def test_test_run_push_pull(db_cleanup):
     endpoint = Endpoint(
         name="Test Endpoint for TestRun Push Pull",
         description="Test Endpoint Description",
-        protocol="REST",
+        connection_type="REST",
         url="https://example.com/api",
     )
     endpoint.push()
@@ -352,7 +352,7 @@ def test_test_run_delete(db_cleanup):
     endpoint = Endpoint(
         name="Test Endpoint for TestRun Delete",
         description="Test Endpoint Description",
-        protocol="REST",
+        connection_type="REST",
         url="https://example.com/api",
     )
     endpoint.push()
