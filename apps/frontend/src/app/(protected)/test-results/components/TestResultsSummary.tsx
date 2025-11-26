@@ -18,7 +18,6 @@ import {
   Cancel as CancelIcon,
   Warning as WarningIcon,
   Assessment as AssessmentIcon,
-  Schedule as ScheduleIcon,
   Analytics as AnalyticsIcon,
 } from '@mui/icons-material';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
@@ -143,7 +142,7 @@ export default function TestResultsSummary({
   // Get display properties for pass rate
   const passRateDisplay = getPassRateDisplay(overallPassRate);
 
-  // Get the 5 most recent test runs
+  // Get all test runs within the date range
   const recentTestRuns =
     test_run_summary && test_run_summary.length > 0
       ? test_run_summary
@@ -153,7 +152,6 @@ export default function TestResultsSummary({
               new Date(b.created_at!).getTime() -
               new Date(a.created_at!).getTime()
           )
-          .slice(0, 5) // Take the 5 most recent
       : [];
 
   return (
@@ -315,16 +313,16 @@ export default function TestResultsSummary({
                 alignItems="center"
                 gap={theme.customSpacing.container.small}
               >
-                <ScheduleIcon
-                  color="primary"
+                <CancelIcon
+                  color="error"
                   sx={{ fontSize: theme.iconSizes.large }}
                 />
                 <Box>
-                  <Typography variant="body1" fontWeight="bold">
-                    {metadata.period || `Last ${filters.months || 6} months`}
+                  <Typography variant="h4" fontWeight="bold" color="error.main">
+                    {totalFailed}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Reporting Period
+                    Total Failed Tests
                   </Typography>
                 </Box>
               </Box>
@@ -342,7 +340,7 @@ export default function TestResultsSummary({
           }}
         >
           <Typography variant="h6" gutterBottom>
-            Latest Test Runs ({recentTestRuns.length})
+            Test Runs ({recentTestRuns.length})
           </Typography>
           <Box
             sx={{
