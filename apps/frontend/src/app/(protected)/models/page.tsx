@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Alert, CircularProgress } from '@mui/material';
+import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
@@ -169,12 +170,12 @@ export default function ModelsPage() {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <PageContainer
+      title="Models"
+      breadcrumbs={[{ title: 'Models', path: '/models' }]}
+    >
       <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
         <Box sx={{ mb: 3 }}>
-          <Typography variant="h4" sx={{ mb: 1 }}>
-            Models
-          </Typography>
           <Typography color="text.secondary">
             Connect to leading AI model providers to power your evaluation and
             testing workflows.
@@ -258,6 +259,6 @@ export default function ModelsPage() {
         itemName={modelToDelete?.name}
         title="Delete Model Connection"
       />
-    </Box>
+    </PageContainer>
   );
 }

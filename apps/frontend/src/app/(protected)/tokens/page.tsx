@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { Box } from '@mui/material';
+import { PageContainer } from '@toolpad/core/PageContainer';
 import { auth } from '@/auth';
 import TokensPageClient from './components/TokensPageClient';
 
@@ -14,8 +14,11 @@ export default async function TokensPage() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <PageContainer
+      title="API Tokens"
+      breadcrumbs={[{ title: 'API Tokens', path: '/tokens' }]}
+    >
       <TokensPageClient sessionToken={session.session_token} />
-    </Box>
+    </PageContainer>
   );
 }

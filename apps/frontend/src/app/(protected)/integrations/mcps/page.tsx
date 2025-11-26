@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Alert, CircularProgress } from '@mui/material';
+import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -190,12 +191,9 @@ export default function MCPSPage() {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <PageContainer title="MCP" breadcrumbs={[{ title: 'MCP', path: '/integrations/mcps' }]}>
       <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
         <Box sx={{ mb: 3 }}>
-          <Typography variant="h4" sx={{ mb: 1 }}>
-            MCPs
-          </Typography>
           <Typography color="text.secondary">
             Connect to Model Context Protocol (MCP) providers to import
             knowledge sources and enhance your evaluation workflows.
@@ -281,6 +279,6 @@ export default function MCPSPage() {
         itemName={toolToDelete?.name}
         title="Delete MCP Connection"
       />
-    </Box>
+    </PageContainer>
   );
 }
