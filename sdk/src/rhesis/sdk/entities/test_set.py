@@ -85,7 +85,7 @@ class TestSet(BaseEntity):
         """
         # Ensure tests are loaded
         if self.tests is None:
-            self.get_tests()
+            raise ValueError("Test set must have at least one test before setting properties")
 
         # Get unique categories and topics
         categories = set()
@@ -115,9 +115,9 @@ class TestSet(BaseEntity):
         response = model.generate(formatted_prompt, schema=TestSetProperties)
         # Update test set attributes
         if isinstance(response, dict):
-            self.name = response.get("name")
-            self.description = response.get("description")
-            self.short_description = response.get("short_description")
+            self.name = response["name"]
+            self.description = response["description"]
+            self.short_description = response["short_description"]
             self.categories = sorted(list(categories))
             self.topics = sorted(list(topics))
             self.test_count = len(self.tests) if self.tests is not None else 0
