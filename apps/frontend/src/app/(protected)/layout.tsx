@@ -5,7 +5,8 @@ import { DashboardLayout } from '@toolpad/core/DashboardLayout';
 import { DashboardSidebarPageItem } from '@toolpad/core/DashboardLayout';
 import AuthErrorBoundary from './error-boundary';
 import { useSession } from 'next-auth/react';
-import { SxProps } from '@mui/system';
+import { SxProps, Theme } from '@mui/system';
+import { alpha } from '@mui/material/styles';
 import SidebarFooter from '@/components/navigation/SidebarFooter';
 import ToolbarActions from '@/components/layout/ToolbarActions';
 
@@ -32,12 +33,7 @@ export default function ProtectedLayout({
     (item: any, options: { mini: boolean }) => {
       // Check if this is an external link (has metadata from NavigationProvider)
       if (item.__isExternalLink && item.__href) {
-        return (
-          <DashboardSidebarPageItem
-            item={item}
-            href={item.__href}
-          />
-        );
+        return <DashboardSidebarPageItem item={item} href={item.__href} />;
       }
       // Default rendering for regular page items
       return <DashboardSidebarPageItem item={item} />;
@@ -46,37 +42,37 @@ export default function ProtectedLayout({
   );
 
   // Hide both navigation and AppBar when organization_id is missing
-  const layoutStyles: SxProps = {
+  const layoutStyles: SxProps<Theme> = {
     ...(hasOrganization
       ? {
           // Make sidebar more compact - reduce padding/margins only
           '& .MuiDrawer-root': {
             '& .MuiListItemButton-root': {
-              paddingTop: '4px',
-              paddingBottom: '4px',
-              paddingLeft: '12px',
-              paddingRight: '12px',
+              paddingTop: (theme: Theme) => theme.spacing(0.25),
+              paddingBottom: (theme: Theme) => theme.spacing(0.25),
+              paddingLeft: (theme: Theme) => theme.spacing(1.5),
+              paddingRight: (theme: Theme) => theme.spacing(1.5),
               minHeight: '36px',
               maxHeight: '42px',
             },
             '& .MuiListItemIcon-root': {
               minWidth: '32px',
               '& svg': {
-                width: '20px',
-                height: '20px',
-                fontSize: '16px',
+                width: '18px',
+                height: '18px',
               },
             },
             '& .MuiListItemText-root': {
               margin: 0,
               '& .MuiTypography-root': {
-                fontSize: '14px',
+                fontSize: (theme: Theme) =>
+                  (theme.typography as any)?.body2?.fontSize || '0.875rem',
                 lineHeight: '1.2',
               },
             },
             '& .MuiListSubheader-root': {
-              paddingTop: '24px',
-              paddingBottom: '8px',
+              paddingTop: (theme: Theme) => theme.spacing(3),
+              paddingBottom: (theme: Theme) => theme.spacing(1),
               lineHeight: '1.5',
               height: 'auto',
               overflow: 'hidden',
@@ -92,33 +88,46 @@ export default function ProtectedLayout({
               whiteSpace: 'nowrap',
             },
             '& .MuiDivider-root': {
-              marginTop: '24px',
-              marginBottom: '24px',
+              marginTop: (theme: Theme) => theme.spacing(3),
+              marginBottom: (theme: Theme) => theme.spacing(3),
             },
             '& .MuiList-root': {
-              paddingTop: '2px',
-              paddingBottom: '2px',
+              paddingTop: (theme: Theme) => theme.spacing(0.25),
+              paddingBottom: (theme: Theme) => theme.spacing(0.25),
             },
             '& .MuiCollapse-root .MuiListItemButton-root': {
-              paddingLeft: '28px',
+              paddingLeft: (theme: Theme) => theme.spacing(3.5),
             },
             // Make "Star Rhesis" button flashy and inviting - orange outline style
             '& .MuiListItemButton-root:has(.star-rhesis-icon)': {
               background: 'transparent',
-              border: '2px solid #FD6E12',
-              borderRadius: '8px',
-              margin: '4px 8px',
-              padding: '6px 10px !important',
+              border: (theme: Theme) =>
+                `2px solid ${theme.palette.secondary.main}`,
+              borderRadius: (theme: Theme) => theme.shape.borderRadius,
+              margin: (theme: Theme) => theme.spacing(0.5, 1),
+              padding: (theme: Theme) =>
+                `${theme.spacing(0.75, 1.25)} !important`,
               transition: 'all 0.3s ease',
-              boxShadow: '0 2px 2px rgba(26, 11, 2, 0.15)',
+              boxShadow: (theme: Theme) =>
+                theme.palette.mode === 'light'
+                  ? `0 2px 12px ${alpha(theme.palette.secondary.main, 0.15)}, 0 1px 4px ${alpha(theme.palette.secondary.main, 0.1)}`
+                  : `0 4px 16px ${alpha(theme.palette.secondary.main, 0.4)}, 0 2px 8px ${alpha(theme.palette.secondary.main, 0.2)}`,
               '&:hover': {
-                background: 'rgba(253, 110, 18, 0.1)',
-                borderColor: '#FD6E12',
+                background: (theme: Theme) =>
+                  alpha(
+                    theme.palette.secondary.main,
+                    theme.palette.mode === 'light' ? 0.1 : 0.15
+                  ),
+                borderColor: (theme: Theme) => theme.palette.secondary.main,
                 transform: 'translateY(-2px)',
-                boxShadow: '0 4px 6px rgba(253, 110, 18, 0.3)',
+                boxShadow: (theme: Theme) =>
+                  theme.palette.mode === 'light'
+                    ? `0 4px 16px ${alpha(theme.palette.secondary.main, 0.25)}, 0 2px 6px ${alpha(theme.palette.secondary.main, 0.15)}`
+                    : `0 6px 20px ${alpha(theme.palette.secondary.main, 0.45)}, 0 3px 10px ${alpha(theme.palette.secondary.main, 0.25)}`,
               },
               '& .MuiListItemIcon-root': {
-                color: '#FD6E12 !important',
+                color: (theme: Theme) =>
+                  `${theme.palette.secondary.main} !important`,
               },
               '& .MuiListItemText-root .MuiTypography-root': {
                 fontWeight: 600,
@@ -128,8 +137,8 @@ export default function ProtectedLayout({
           // Make header more compact
           '& .MuiToolbar-root': {
             minHeight: '56px',
-            paddingTop: '8px',
-            paddingBottom: '8px',
+            paddingTop: (theme: Theme) => theme.spacing(1),
+            paddingBottom: (theme: Theme) => theme.spacing(1),
           },
         }
       : {
