@@ -323,6 +323,23 @@ export default function SourcesGrid({
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
 
+          // Check if this is a Tool source type (MCP/API imports)
+          if (source.source_type?.type_value === 'Tool' && metadata.provider) {
+            // Capitalize the provider name (e.g., "notion" -> "Notion")
+            const providerName =
+              metadata.provider.charAt(0).toUpperCase() +
+              metadata.provider.slice(1);
+            return (
+              <Chip
+                label={providerName}
+                size="small"
+                variant="outlined"
+                className={styles.fileTypeChip}
+              />
+            );
+          }
+
+          // Fall back to file extension for document sources
           const fileExtension = getFileExtension(metadata.original_filename);
 
           return (

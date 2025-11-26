@@ -193,6 +193,23 @@ export default function SourcePreviewClientWrapper({
   );
   const displayTitle = truncateFilename(source.title);
 
+  // Determine the type to display
+  const getDisplayType = (): string => {
+    // Check if this is a Tool source type (MCP/API imports)
+    if (
+      source.source_type?.type_value === 'Tool' &&
+      source.source_metadata?.provider
+    ) {
+      // Capitalize the provider name (e.g., "notion" -> "Notion")
+      return (
+        source.source_metadata.provider.charAt(0).toUpperCase() +
+        source.source_metadata.provider.slice(1)
+      );
+    }
+    // Fall back to file extension for document sources
+    return fileExtension.toUpperCase();
+  };
+
   return (
     <PageContainer
       title={displayTitle}
@@ -412,7 +429,7 @@ export default function SourcePreviewClientWrapper({
               Type:
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {fileExtension.toUpperCase()}
+              {getDisplayType()}
             </Typography>
           </Box>
           <Box>

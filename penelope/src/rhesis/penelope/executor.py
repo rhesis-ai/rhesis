@@ -225,17 +225,11 @@ class TurnExecutor:
             else:
                 prompt = user_prompt
 
-            # Debug logging for LLM input
+            # Debug logging for LLM input (without prompt content)
             logger.info("=== EXECUTOR: Sending to LLM ===")
             logger.info(f"Model: {self.model.get_model_name()}")
             logger.info(f"User prompt length: {len(prompt)} chars")
             logger.info(f"System prompt length: {len(system_prompt)} chars")
-            logger.info("System prompt preview (first 300 chars):")
-            logger.info(system_prompt[:300])
-            logger.info("System prompt preview (last 300 chars):")
-            logger.info(system_prompt[-300:])
-            logger.info("User prompt:")
-            logger.info(prompt)
             logger.info("=== END EXECUTOR DEBUG ===")
 
             response = self.model.generate(

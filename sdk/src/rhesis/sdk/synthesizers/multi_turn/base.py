@@ -4,6 +4,7 @@ from typing import List, Optional, Union
 from jinja2 import Environment, FileSystemLoader, Template
 from pydantic import BaseModel
 
+from rhesis.sdk.entities.test import TestConfiguration
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
 from rhesis.sdk.models import get_model
@@ -16,13 +17,7 @@ class GenerationConfig(BaseModel):
     behaviors: Optional[list[str]] = None
     categories: Optional[list[str]] = None
     topics: Optional[list[str]] = None
-
-
-class TestConfiguration(BaseModel):
-    goal: str
-    instructions: str = ""  # Optional - how Penelope should conduct the test
-    restrictions: str = ""  # Optional - forbidden behaviors for the target
-    scenario: str = ""  # Optional - contextual framing for the test
+    additional_context: Optional[str] = None
 
 
 class Test(BaseModel):
@@ -94,7 +89,7 @@ class MultiTurnSynthesizer:
         )
 
         # Set test_set_type for multi-turn tests
-        test_set.test_set_type = TestType.MULTI_TURN.value
+        test_set.test_set_type = TestType.MULTI_TURN
 
         # Add "(Multi-Turn)" suffix to the name
         if test_set.name:

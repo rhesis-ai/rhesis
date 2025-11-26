@@ -32,7 +32,7 @@ class Endpoint(BaseEntity):
     endpoint: ClassVar[Endpoints] = ENDPOINT
     name: str
     description: Optional[str] = None
-    protocol: str
+    connection_type: str
     url: str
     id: Optional[str] = None
 

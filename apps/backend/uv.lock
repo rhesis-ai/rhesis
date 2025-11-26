@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -4462,6 +4462,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "accelerate", marker = "extra == 'all'", specifier = ">=1.2.0" },
+    { name = "accelerate", marker = "extra == 'huggingface'", specifier = ">=1.2.0" },
     { name = "deepeval", specifier = "==3.7.0" },
     { name = "deepteam", specifier = ">=0.2.5" },
     { name = "jinja2", specifier = ">=3.1.6" },

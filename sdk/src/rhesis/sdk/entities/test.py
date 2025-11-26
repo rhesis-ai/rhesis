@@ -1,12 +1,22 @@
 from typing import Any, Dict, Optional
 
+from pydantic import BaseModel
+
 from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 from rhesis.sdk.entities.endpoint import Endpoint
 from rhesis.sdk.entities.prompt import Prompt
+from rhesis.sdk.enums import TestType
 
 ENDPOINT = Endpoints.TESTS
+
+
+class TestConfiguration(BaseModel):
+    goal: str
+    instructions: str = ""  # Optional - how Penelope should conduct the test
+    restrictions: str = ""  # Optional - forbidden behaviors for the target
+    scenario: str = ""  # Optional - contextual framing for the test
 
 
 class Test(BaseEntity):
@@ -16,8 +26,10 @@ class Test(BaseEntity):
     topic: Optional[str] = None
     behavior: Optional[str] = None
     prompt: Optional[Prompt] = None
-    metadata: Optional[dict] = None
+    metadata: dict = {}
     id: Optional[str] = None
+    test_configuration: Optional[TestConfiguration] = None
+    test_type: Optional[TestType] = None
 
     @handle_http_errors
     def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:

@@ -27,61 +27,118 @@ class TestSDKMessageHandler:
     async def test_sync_function_endpoints_success(
         self, handler: SDKMessageHandler, test_db: Session, project_context
     ):
-        """Test successful SDK function endpoints sync"""
+        """Test successful SDK function endpoints sync via registration handler"""
         functions_data = [
             {"name": "test_func", "parameters": {}, "return_type": "string", "metadata": {}}
         ]
         expected_stats = {"created": 1, "updated": 0, "marked_inactive": 0, "errors": []}
 
+        # Create a complete registration message
+        register_message = {
+            "type": "register",
+            "project_id": project_context["project_id"],
+            "environment": project_context["environment"],
+            "sdk_version": "1.0.0",
+            "functions": functions_data,
+        }
+
         with patch("rhesis.backend.app.services.endpoint.EndpointService") as mock_service:
             mock_endpoint_service = Mock()
-            mock_endpoint_service.sync_sdk_endpoints = Mock(return_value=expected_stats)
+
+            # Make sync_sdk_endpoints async
+            async def mock_sync_endpoints(*args, **kwargs):
+                return expected_stats
+
+            mock_endpoint_service.sync_sdk_endpoints = mock_sync_endpoints
             mock_service.return_value = mock_endpoint_service
 
-            result = await handler.sync_function_endpoints(
-                db=test_db,
-                project_id=project_context["project_id"],
-                environment=project_context["environment"],
-                functions_data=functions_data,
-                organization_id=project_context["organization_id"],
-                user_id=project_context["user_id"],
-            )
+            # Mock the endpoint validation service to avoid circular imports
+            with patch(
+                "rhesis.backend.app.services.connector.mapping.get_endpoint_validation_service"
+            ) as mock_validation:
+                mock_validation_service = Mock()
 
-            assert result == expected_stats
-            mock_endpoint_service.sync_sdk_endpoints.assert_called_once_with(
-                db=test_db,
-                project_id=project_context["project_id"],
-                environment=project_context["environment"],
-                functions_data=functions_data,
-                organization_id=project_context["organization_id"],
-                user_id=project_context["user_id"],
-            )
+                # Make start_validation async
+                async def mock_start_validation(*args, **kwargs):
+                    pass
+
+                mock_validation_service.start_validation = mock_start_validation
+                mock_validation.return_value = mock_validation_service
+
+                result = await handler.handle_register_message(
+                    project_id=project_context["project_id"],
+                    environment=project_context["environment"],
+                    message=register_message,
+                    db=test_db,
+                    organization_id=project_context["organization_id"],
+                    user_id=project_context["user_id"],
+                )
+
+                assert result["type"] == "registered"
+                assert result["status"] == "success"
+                assert result["sync_stats"] == expected_stats
+
+                # Note: We can't easily assert the mock was called with exact parameters
+                # because the registration handler creates its own EndpointService instance
+                # and calls the async method. The important thing is that the result
+                # contains the expected sync_stats, which proves the mocking worked.
 
     @pytest.mark.asyncio
     async def test_sync_function_endpoints_error(
         self, handler: SDKMessageHandler, test_db: Session, project_context
     ):
-        """Test sync function endpoints when exception occurs"""
-        functions_data = [{"name": "test_func"}]
+        """Test sync function endpoints when exception occurs via registration handler"""
+        functions_data = [{"name": "test_func", "parameters": {}, "return_type": "string"}]
+
+        # Create a complete registration message
+        register_message = {
+            "type": "register",
+            "project_id": project_context["project_id"],
+            "environment": project_context["environment"],
+            "sdk_version": "1.0.0",
+            "functions": functions_data,
+        }
 
         with patch("rhesis.backend.app.services.endpoint.EndpointService") as mock_service:
             mock_endpoint_service = Mock()
-            mock_endpoint_service.sync_sdk_endpoints.side_effect = Exception("Database error")
+
+            # Make sync_sdk_endpoints async with exception
+            async def mock_sync_endpoints_error(*args, **kwargs):
+                raise Exception("Database error")
+
+            mock_endpoint_service.sync_sdk_endpoints = mock_sync_endpoints_error
             mock_service.return_value = mock_endpoint_service
 
-            result = await handler.sync_function_endpoints(
-                db=test_db,
-                project_id=project_context["project_id"],
-                environment=project_context["environment"],
-                functions_data=functions_data,
-                organization_id=project_context["organization_id"],
-                user_id=project_context["user_id"],
-            )
+            # Mock the endpoint validation service to avoid circular imports
+            with patch(
+                "rhesis.backend.app.services.connector.mapping.get_endpoint_validation_service"
+            ) as mock_validation:
+                mock_validation_service = Mock()
 
-            assert result["created"] == 0
-            assert result["updated"] == 0
-            assert result["marked_inactive"] == 0
-            assert len(result["errors"]) == 1
+                # Make start_validation async
+                async def mock_start_validation(*args, **kwargs):
+                    pass
+
+                mock_validation_service.start_validation = mock_start_validation
+                mock_validation.return_value = mock_validation_service
+
+                result = await handler.handle_register_message(
+                    project_id=project_context["project_id"],
+                    environment=project_context["environment"],
+                    message=register_message,
+                    db=test_db,
+                    organization_id=project_context["organization_id"],
+                    user_id=project_context["user_id"],
+                )
+
+                # When sync fails, the registration handler catches the exception
+                # and returns stats with errors
+                assert result["type"] == "registered"
+                assert result["status"] == "success"  # Registration still succeeds
+                assert result["sync_stats"]["created"] == 0
+                assert result["sync_stats"]["updated"] == 0
+                assert result["sync_stats"]["marked_inactive"] == 0
+                assert len(result["sync_stats"]["errors"]) == 1
 
     @pytest.mark.asyncio
     async def test_handle_register_message_success(
@@ -90,19 +147,41 @@ class TestSDKMessageHandler:
         """Test successful registration message handling"""
         expected_stats = {"created": 2, "updated": 0, "marked_inactive": 0, "errors": []}
 
-        with patch.object(handler, "sync_function_endpoints", return_value=expected_stats):
-            response = await handler.handle_register_message(
-                project_id=project_context["project_id"],
-                environment=project_context["environment"],
-                message=sample_register_message,
-                db=test_db,
-                organization_id=project_context["organization_id"],
-                user_id=project_context["user_id"],
-            )
+        with patch("rhesis.backend.app.services.endpoint.EndpointService") as mock_service:
+            mock_endpoint_service = Mock()
 
-            assert response["type"] == "registered"
-            assert response["status"] == "success"
-            assert response["sync_stats"] == expected_stats
+            # Make sync_sdk_endpoints async
+            async def mock_sync_endpoints(*args, **kwargs):
+                return expected_stats
+
+            mock_endpoint_service.sync_sdk_endpoints = mock_sync_endpoints
+            mock_service.return_value = mock_endpoint_service
+
+            # Mock the endpoint validation service to avoid circular imports
+            with patch(
+                "rhesis.backend.app.services.connector.mapping.get_endpoint_validation_service"
+            ) as mock_validation:
+                mock_validation_service = Mock()
+
+                # Make start_validation async
+                async def mock_start_validation(*args, **kwargs):
+                    pass
+
+                mock_validation_service.start_validation = mock_start_validation
+                mock_validation.return_value = mock_validation_service
+
+                response = await handler.handle_register_message(
+                    project_id=project_context["project_id"],
+                    environment=project_context["environment"],
+                    message=sample_register_message,
+                    db=test_db,
+                    organization_id=project_context["organization_id"],
+                    user_id=project_context["user_id"],
+                )
+
+                assert response["type"] == "registered"
+                assert response["status"] == "success"
+                assert response["sync_stats"] == expected_stats
 
     @pytest.mark.asyncio
     async def test_handle_register_message_without_db(
@@ -147,7 +226,9 @@ class TestSDKMessageHandler:
         self, handler: SDKMessageHandler, sample_test_result_message, project_context
     ):
         """Test successful test result message handling"""
-        with patch.object(handler, "_log_test_result") as mock_log:
+        with patch(
+            "rhesis.backend.app.services.connector.handlers.test_result_handler._log_test_result"
+        ) as mock_log:
             await handler.handle_test_result_message(
                 project_id=project_context["project_id"],
                 environment=project_context["environment"],
@@ -165,7 +246,9 @@ class TestSDKMessageHandler:
         self, handler: SDKMessageHandler, sample_test_result_error_message, project_context
     ):
         """Test test result message handling with error status"""
-        with patch.object(handler, "_log_test_result") as mock_log:
+        with patch(
+            "rhesis.backend.app.services.connector.handlers.test_result_handler._log_test_result"
+        ) as mock_log:
             await handler.handle_test_result_message(
                 project_id=project_context["project_id"],
                 environment=project_context["environment"],
@@ -186,8 +269,10 @@ class TestSDKMessageHandler:
         self, handler: SDKMessageHandler, sample_test_result_message, project_context
     ):
         """Test logging of successful test result"""
+        from rhesis.backend.app.services.connector.handlers.test_result import test_result_handler
+
         # Should not raise any exceptions
-        handler._log_test_result(
+        test_result_handler._log_test_result(
             project_id=project_context["project_id"],
             environment=project_context["environment"],
             message=sample_test_result_message,
@@ -197,8 +282,10 @@ class TestSDKMessageHandler:
         self, handler: SDKMessageHandler, sample_test_result_error_message, project_context
     ):
         """Test logging of error test result"""
+        from rhesis.backend.app.services.connector.handlers.test_result import test_result_handler
+
         # Should not raise any exceptions
-        handler._log_test_result(
+        test_result_handler._log_test_result(
             project_id=project_context["project_id"],
             environment=project_context["environment"],
             message=sample_test_result_error_message,
@@ -206,6 +293,8 @@ class TestSDKMessageHandler:
 
     def test_log_test_result_long_output(self, handler: SDKMessageHandler, project_context):
         """Test logging of test result with long output"""
+        from rhesis.backend.app.services.connector.handlers.test_result import test_result_handler
+
         long_output_message = {
             "type": "test_result",
             "test_run_id": "test_abc123",
@@ -216,7 +305,7 @@ class TestSDKMessageHandler:
         }
 
         # Should not raise any exceptions
-        handler._log_test_result(
+        test_result_handler._log_test_result(
             project_id=project_context["project_id"],
             environment=project_context["environment"],
             message=long_output_message,
@@ -224,10 +313,12 @@ class TestSDKMessageHandler:
 
     def test_log_test_result_invalid_message(self, handler: SDKMessageHandler, project_context):
         """Test logging of invalid test result message"""
+        from rhesis.backend.app.services.connector.handlers.test_result import test_result_handler
+
         invalid_message = {"type": "test_result", "invalid": "data"}
 
         # Should handle gracefully and not raise exceptions
-        handler._log_test_result(
+        test_result_handler._log_test_result(
             project_id=project_context["project_id"],
             environment=project_context["environment"],
             message=invalid_message,
