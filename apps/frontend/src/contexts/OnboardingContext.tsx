@@ -67,7 +67,10 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
             saveProgress(mergedProgress);
 
             // Sync merged progress back to DB if there were any changes
-            if (JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress)) {
+            if (
+              JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress) &&
+              session.session_token
+            ) {
               syncProgressToDatabase(
                 session.session_token,
                 mergedProgress
