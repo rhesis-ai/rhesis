@@ -121,8 +121,8 @@ jobs:
       - name: Set environment variables
         id: set_env
         run: |
-            echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-            echo "POLYPHEMUS_REGION=${{ secrets.POLYPHEMUS_REGION || secrets.TF_VAR_POLYPHEMUS_REGION || 'us-central1' }}" >> $GITHUB_ENV
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "POLYPHEMUS_REGION=${{ secrets.POLYPHEMUS_REGION || secrets.TF_VAR_POLYPHEMUS_REGION || 'us-central1' }}" >> $GITHUB_ENV
 
           # Get commit SHA (short version for URLs)
           COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
