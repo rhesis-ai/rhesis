@@ -22,6 +22,7 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 
 interface TestResultsFiltersProps {
   onFiltersChange: (filters: Partial<TestResultsStatsOptions>) => void;
+  onSearchChange: (value: string) => void;
   initialFilters?: Partial<TestResultsStatsOptions>;
   sessionToken: string;
 }
@@ -35,6 +36,7 @@ const TIME_RANGES = [
 
 export default function TestResultsFilters({
   onFiltersChange,
+  onSearchChange,
   initialFilters = {},
   sessionToken,
 }: TestResultsFiltersProps) {
@@ -94,6 +96,7 @@ export default function TestResultsFilters({
 
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
+    onSearchChange(value);
   };
 
   const clearFilters = () => {
