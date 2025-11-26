@@ -65,16 +65,14 @@ export default function SelectMetricsDialog({
       });
 
       // Filter out excluded metrics
-      const availableMetrics = response.items.filter(
+      const availableMetrics = response.data.filter(
         metric => !excludeMetricIds.includes(metric.id)
       );
 
       setMetrics(availableMetrics);
       setFilteredMetrics(availableMetrics);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to fetch metrics'
-      );
+      setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +88,7 @@ export default function SelectMetricsDialog({
     const query = searchQuery.toLowerCase();
     const filtered = metrics.filter(
       metric =>
-        metric.name.toLowerCase().includes(query) ||
+        metric.name?.toLowerCase().includes(query) ||
         metric.description?.toLowerCase().includes(query) ||
         metric.backend_type?.type_value?.toLowerCase().includes(query) ||
         metric.metric_type?.type_value?.toLowerCase().includes(query)
@@ -264,4 +262,3 @@ export default function SelectMetricsDialog({
     </Dialog>
   );
 }
-

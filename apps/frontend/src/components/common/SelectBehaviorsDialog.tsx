@@ -90,7 +90,7 @@ export default function SelectBehaviorsDialog({
     const query = searchQuery.toLowerCase();
     const filtered = behaviors.filter(
       behavior =>
-        behavior.name.toLowerCase().includes(query) ||
+        behavior.name?.toLowerCase().includes(query) ||
         behavior.description?.toLowerCase().includes(query)
     );
 
@@ -246,4 +246,3 @@ export default function SelectBehaviorsDialog({
     </Dialog>
   );
 }
-
