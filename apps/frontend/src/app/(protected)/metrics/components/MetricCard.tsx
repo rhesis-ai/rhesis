@@ -182,7 +182,7 @@ export default function MetricCard({
 
   // Second section: metric properties
   const metricPropertyChips = [];
-  
+
   if (backend || capitalizedBackend !== 'Unknown') {
     metricPropertyChips.push({
       key: 'backend',
@@ -190,7 +190,7 @@ export default function MetricCard({
       label: capitalizedBackend,
     });
   }
-  
+
   if (scoreType || capitalizedScoreType !== 'Unknown') {
     metricPropertyChips.push({
       key: 'scoreType',
@@ -198,7 +198,7 @@ export default function MetricCard({
       label: capitalizedScoreType,
     });
   }
-  
+
   if (metricScope && metricScope.length > 0) {
     metricScope.forEach((scope, index) => {
       metricPropertyChips.push({

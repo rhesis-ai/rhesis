@@ -112,4 +112,3 @@ const BehaviorDrawer = ({
 };
 
 export default BehaviorDrawer;
-

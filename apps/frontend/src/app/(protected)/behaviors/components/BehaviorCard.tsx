@@ -99,15 +99,14 @@ export default function BehaviorCard({
         <Tooltip title="View metrics">
           <IconButton
             size="small"
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation();
               onViewMetrics();
             }}
             sx={{
               padding: theme.spacing(0.25),
               '& .MuiSvgIcon-root': {
-                fontSize:
-                  theme?.typography?.helperText?.fontSize || '0.75rem',
+                fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
                 color: 'currentColor',
               },
             }}
@@ -119,15 +118,14 @@ export default function BehaviorCard({
       <Tooltip title="Edit behavior">
         <IconButton
           size="small"
-          onClick={(e) => {
+          onClick={e => {
             e.stopPropagation();
             onEdit();
           }}
           sx={{
             padding: theme.spacing(0.25),
             '& .MuiSvgIcon-root': {
-              fontSize:
-                theme?.typography?.helperText?.fontSize || '0.75rem',
+              fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
               color: 'currentColor',
             },
           }}
@@ -143,8 +141,7 @@ export default function BehaviorCard({
             sx={{
               padding: theme.spacing(0.25),
               '& .MuiSvgIcon-root': {
-                fontSize:
-                  theme?.typography?.helperText?.fontSize || '0.75rem',
+                fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
                 color: 'currentColor',
               },
             }}
@@ -182,4 +179,3 @@ export default function BehaviorCard({
     </>
   );
 }
-
