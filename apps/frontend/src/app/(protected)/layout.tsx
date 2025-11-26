@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { DashboardLayout } from '@toolpad/core/DashboardLayout';
+import { DashboardSidebarPageItem } from '@toolpad/core/DashboardLayout';
 import AuthErrorBoundary from './error-boundary';
 import { useSession } from 'next-auth/react';
 import { SxProps } from '@mui/system';
@@ -25,6 +26,24 @@ export default function ProtectedLayout({
   const { data: session } = useSession();
   const user = session?.user as ExtendedUser | undefined;
   const hasOrganization = !!user?.organization_id;
+
+  // Custom renderer for page items to handle external links
+  const renderPageItem = React.useCallback(
+    (item: any, options: { mini: boolean }) => {
+      // Check if this is an external link (has metadata from NavigationProvider)
+      if (item.__isExternalLink && item.__href) {
+        return (
+          <DashboardSidebarPageItem
+            item={item}
+            href={item.__href}
+          />
+        );
+      }
+      // Default rendering for regular page items
+      return <DashboardSidebarPageItem item={item} />;
+    },
+    []
+  );
 
   // Hide both navigation and AppBar when organization_id is missing
   const layoutStyles: SxProps = {
@@ -83,25 +102,26 @@ export default function ProtectedLayout({
             '& .MuiCollapse-root .MuiListItemButton-root': {
               paddingLeft: '28px',
             },
-            // Make "Star Rhesis" button flashy and inviting
+            // Make "Star Rhesis" button flashy and inviting - orange outline style
             '& .MuiListItemButton-root:has(.star-rhesis-icon)': {
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: '#fff !important',
+              background: 'transparent',
+              border: '2px solid #FD6E12',
               borderRadius: '8px',
               margin: '4px 8px',
-              padding: '8px 12px !important',
+              padding: '6px 10px !important',
               transition: 'all 0.3s ease',
+              boxShadow: '0 2px 2px rgba(26, 11, 2, 0.15)',
               '&:hover': {
-                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                background: 'rgba(253, 110, 18, 0.1)',
+                borderColor: '#FD6E12',
                 transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                boxShadow: '0 4px 6px rgba(253, 110, 18, 0.3)',
               },
               '& .MuiListItemIcon-root': {
-                color: '#fff !important',
+                color: '#FD6E12 !important',
               },
               '& .MuiListItemText-root .MuiTypography-root': {
                 fontWeight: 600,
-                color: '#fff !important',
               },
             },
           },
@@ -136,6 +156,7 @@ export default function ProtectedLayout({
           sidebarFooter: SidebarFooter,
           toolbarActions: ToolbarActions,
         }}
+        renderPageItem={renderPageItem}
       >
         {children}
       </DashboardLayout>
