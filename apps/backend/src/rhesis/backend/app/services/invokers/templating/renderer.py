@@ -35,6 +35,19 @@ class TemplateRenderer:
                 input_data["session_id"] = str(uuid.uuid4())
                 logger.info(f"Auto-generated session_id: {input_data['session_id']}")
 
+        return self._render_recursive(template_data, input_data)
+
+    def _render_recursive(self, template_data: Any, input_data: Dict[str, Any]) -> Any:
+        """
+        Recursively render template data, handling nested structures.
+
+        Args:
+            template_data: Template data to render (string, dict, list, or other)
+            input_data: Data to use in template rendering
+
+        Returns:
+            Rendered template data with same structure as input
+        """
         if isinstance(template_data, str):
             template = Template(template_data)
             rendered = template.render(**input_data)
@@ -43,10 +56,15 @@ class TemplateRenderer:
             except json.JSONDecodeError:
                 return rendered
         elif isinstance(template_data, dict):
-            result = template_data.copy()
-            for key, value in result.items():
-                if isinstance(value, str):
-                    template = Template(value)
-                    result[key] = template.render(**input_data)
+            result = {}
+            for key, value in template_data.items():
+                result[key] = self._render_recursive(value, input_data)
             return result
-        return template_data
+        elif isinstance(template_data, list):
+            result = []
+            for item in template_data:
+                result.append(self._render_recursive(item, input_data))
+            return result
+        else:
+            # For other types (int, float, bool, None, etc.), return as-is
+            return template_data
