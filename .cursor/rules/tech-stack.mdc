@@ -1,0 +1,20 @@
+---
+alwaysApply: true
+---
+
+# Rhesis technology stack and dependencies
+
+
+## Core technology stack
+
+### Backend 
+- **Language**: Python 3.10+
+- **Package Manager**: uv with pyproject.toml
+- **Validation**: Pydantic 2.x
+- **Testing**: pytest
+
+### Python SDK
+- **Language**: Python 3.10+
+- **Package Manager**: uv with pyproject.toml
+- **Validation**: Pydantic 2.x
+- **Testing**: pytest

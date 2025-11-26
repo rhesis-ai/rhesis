@@ -8,6 +8,7 @@ ENDPOINT = Endpoints.TEST_RUNS
 
 
 class TestRun(BaseEntity):
+    __test__ = False
     endpoint: ClassVar[Endpoints] = ENDPOINT
     test_configuration_id: Optional[str] = None
     name: Optional[str] = None

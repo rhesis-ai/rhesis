@@ -9,6 +9,7 @@ from rhesis.sdk.entities import BaseEntity, Endpoint
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import handle_http_errors
 from rhesis.sdk.entities.test import Test
+from rhesis.sdk.enums import TestType
 from rhesis.sdk.models.base import BaseLLM
 
 ENDPOINT = Endpoints.TEST_SETS
@@ -32,7 +33,8 @@ class TestSet(BaseEntity):
     name: str
     description: str
     short_description: str
-    metadata: Optional[dict] = None
+    test_set_type: Optional[TestType] = None
+    metadata: dict = {}
 
     @handle_http_errors
     def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:
@@ -83,7 +85,7 @@ class TestSet(BaseEntity):
         """
         # Ensure tests are loaded
         if self.tests is None:
-            self.get_tests()
+            raise ValueError("Test set must have at least one test before setting properties")
 
         # Get unique categories and topics
         categories = set()
@@ -113,14 +115,65 @@ class TestSet(BaseEntity):
         response = model.generate(formatted_prompt, schema=TestSetProperties)
         # Update test set attributes
         if isinstance(response, dict):
-            self.name = response.get("name")
-            self.description = response.get("description")
-            self.short_description = response.get("short_description")
+            self.name = response["name"]
+            self.description = response["description"]
+            self.short_description = response["short_description"]
             self.categories = sorted(list(categories))
             self.topics = sorted(list(topics))
             self.test_count = len(self.tests) if self.tests is not None else 0
         else:
             raise ValueError("LLM response was not in the expected format")
+
+    @classmethod
+    def _create(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a test set using the bulk endpoint.
+
+        Args:
+            data: Dictionary containing test set data including tests
+
+        Returns:
+            Dict containing the created test set data from the API
+
+        Raises:
+            ValueError: If tests are not provided
+        """
+        if not data.get("tests"):
+            raise ValueError("Test set must have at least one test before creating")
+
+        client = Client()
+        response = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.POST,
+            url_params="bulk",
+            data=data,
+        )
+        return response
+
+    def push(self) -> Optional[Dict[str, Any]]:
+        """Save the test set to the database.
+
+        Uses the bulk endpoint to create test set with tests.
+
+        Returns:
+            Dict containing the response from the API, or None if error occurred.
+
+        Example:
+            >>> test_set = TestSet(
+            ...     name="My Test Set",
+            ...     description="Test set description",
+            ...     short_description="Short desc",
+            ...     tests=[test1, test2, test3]
+            ... )
+            >>> result = test_set.push()
+            >>> print(f"Created test set with ID: {test_set.id}")
+        """
+        data = self.model_dump()
+
+        response = self._create(data)
+        if response and "id" in response:
+            self.id = response["id"]
+
+        return response
 
 
 class TestSets(BaseCollection):
