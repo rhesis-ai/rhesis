@@ -108,7 +108,6 @@ const generateSamplesForTestType = async (
       topics: activeTopics,
       additional_context: JSON.stringify({
         project_context: projectName || 'General',
-        specific_requirements: description,
         test_type: 'Single interaction tests',
         output_format: 'Generate only user inputs',
       }),
@@ -535,7 +534,6 @@ export default function TestGenerationFlow({
             topics: activeTopics,
             additional_context: JSON.stringify({
               project_context: project?.name || 'General',
-              specific_requirements: description,
               test_type: 'Single interaction tests',
               output_format: 'Generate only user inputs',
               rated_samples: [ratedSample],
