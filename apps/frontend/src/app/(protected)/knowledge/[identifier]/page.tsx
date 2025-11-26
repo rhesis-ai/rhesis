@@ -10,7 +10,7 @@ import CommentsWrapper from '@/components/comments/CommentsWrapper';
 
 interface SourcePreviewPageProps {
   params: Promise<{
-    id: string;
+    identifier: string;
   }>;
 }
 
@@ -42,28 +42,17 @@ export default async function SourcePreviewPage({
 
     // Fetch source details with content field
     const source = await sourcesClient.getSourceWithContent(
-      resolvedParams.id as `${string}-${string}-${string}-${string}-${string}`
+      resolvedParams.identifier as `${string}-${string}-${string}-${string}-${string}`
     );
 
     return (
-      <Box>
-        <SourcePreviewClientWrapper
-          source={source}
-          sessionToken={session.session_token}
-        />
-
-        {/* Comments Section */}
-        <Paper sx={{ p: 3 }}>
-          <CommentsWrapper
-            entityType="Source"
-            entityId={source.id}
-            sessionToken={session.session_token}
-            currentUserId={session.user?.id || ''}
-            currentUserName={session.user?.name || ''}
-            currentUserPicture={session.user?.picture || undefined}
-          />
-        </Paper>
-      </Box>
+      <SourcePreviewClientWrapper
+        source={source}
+        sessionToken={session.session_token}
+        currentUserId={session.user?.id || ''}
+        currentUserName={session.user?.name || ''}
+        currentUserPicture={session.user?.picture || undefined}
+      />
     );
   } catch (error) {
     // If source not found, return 404

@@ -24,7 +24,8 @@ export default function ChatPreview({ messages }: ChatPreviewProps) {
         flexDirection: 'column',
         gap: 1.5,
         p: 2,
-        bgcolor: 'grey.50',
+        bgcolor: theme =>
+          theme.palette.mode === 'dark' ? 'background.default' : 'grey.50',
         borderRadius: theme => theme.shape.borderRadius,
         minHeight: '400px',
       }}
@@ -46,7 +47,9 @@ export default function ChatPreview({ messages }: ChatPreviewProps) {
                 py: 1,
                 maxWidth: '80%',
                 bgcolor:
-                  message.role === 'user' ? 'primary.main' : 'background.paper',
+                  message.role === 'user'
+                    ? 'primary.main'
+                    : 'background.light3',
                 color:
                   message.role === 'user'
                     ? 'primary.contrastText'

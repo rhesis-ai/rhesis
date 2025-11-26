@@ -77,6 +77,7 @@ export default function SelectionModal({
       PaperProps={{
         sx: {
           borderRadius: theme => theme.shape.borderRadius,
+          bgcolor: 'background.paper',
         },
       }}
     >
@@ -141,6 +142,11 @@ export default function SelectionModal({
                   cursor: 'pointer',
                   display: 'flex',
                   flexDirection: 'column',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    bgcolor: 'background.light3',
+                    transform: 'translateY(-2px)',
+                  },
                 }}
                 onClick={card.onClick}
               >
@@ -196,12 +202,7 @@ export default function SelectionModal({
                     variant={card.buttonVariant}
                     size="large"
                     fullWidth
-                    color={
-                      card.buttonColor ||
-                      (card.buttonVariant === 'contained'
-                        ? 'warning'
-                        : 'secondary')
-                    }
+                    color={card.buttonColor || 'secondary'}
                   >
                     {card.buttonLabel}
                   </Button>
