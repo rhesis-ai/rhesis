@@ -11,15 +11,15 @@ export default function ThemeAwareLogo() {
   const logoSrc =
     mode === 'dark'
       ? '/logos/rhesis-logo-platypus-dark-white.png'
-      : '/logos/rhesis-logo-platypus.png';
+      : '/logos/rhesis-logo-website-white-font.png';
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
       <Image
         src={logoSrc}
         alt="Rhesis AI Logo"
-        width={150}
-        height={50}
+        width={130}
+        height={35}
         style={{ width: 'auto' }}
         priority
       />
