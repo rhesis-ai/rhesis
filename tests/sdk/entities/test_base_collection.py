@@ -11,6 +11,7 @@ os.environ["RHESIS_BASE_URL"] = "http://test:8000"
 
 
 class TestEndpoint(Enum):
+    __test__ = False
     TEST = "test"
 
 

@@ -4,20 +4,21 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 from pydantic import BaseModel
+
 from rhesis.sdk.models.providers.native import (
     DEFAULT_MODEL_NAME,
     RhesisLLM,
 )
 
 
-class TestCapital(BaseModel):
+class Capital(BaseModel):
     name_of_capital: str
     population: int
 
 
-class TestContinent(BaseModel):
+class Continent(BaseModel):
     name_of_continent: str
-    capitals: list[TestCapital]
+    capitals: list[Capital]
 
 
 class TestRhesisLLM:
@@ -41,9 +42,7 @@ class TestRhesisLLM:
         with patch("rhesis.sdk.models.providers.native.Client") as mock_client_class:
             mock_client = Mock()
             mock_client.api_key = "test_api_key"
-            mock_client.get_url.return_value = (
-                "https://test.example.com/services/generate/content"
-            )
+            mock_client.get_url.return_value = "https://test.example.com/services/generate/content"
             mock_client_class.return_value = mock_client
             yield mock_client_class
 
@@ -122,9 +121,7 @@ class TestRhesisLLM:
         """Test completion creation with HTTP error."""
         # Mock HTTP error
         mock_response = Mock()
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
-            "404 Not Found"
-        )
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Not Found")
         mock_post.return_value = mock_response
 
         service.load_model()
@@ -146,7 +143,7 @@ class TestRhesisLLM:
 
         service.load_model()
 
-        result = service.generate(prompt="Test prompt", schema=TestContinent)
+        result = service.generate(prompt="Test prompt", schema=Continent)
 
         assert result == mock_response.json.return_value
 
@@ -154,7 +151,7 @@ class TestRhesisLLM:
         call_args = mock_post.call_args
         schema_data = call_args[1]["json"]["schema"]
         assert schema_data["type"] == "json_schema"
-        assert schema_data["json_schema"]["name"] == "TestContinent"
+        assert schema_data["json_schema"]["name"] == "Continent"
         assert "properties" in schema_data["json_schema"]["schema"]
 
     @patch("requests.post")
@@ -169,7 +166,7 @@ class TestRhesisLLM:
 
         service.load_model()
 
-        result = service.generate(prompt="Test prompt", schema=TestContinent)
+        result = service.generate(prompt="Test prompt", schema=Continent)
 
         assert result == {"error": "An error occurred while processing the request."}
 
