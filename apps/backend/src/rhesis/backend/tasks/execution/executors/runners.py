@@ -106,7 +106,7 @@ class SingleTurnRunner(BaseRunner):
         if evaluate_metrics:
             metrics = get_test_metrics(test, db, organization_id, user_id)
             metric_configs = prepare_metric_configs(metrics, test_id, scope=MetricScope.SINGLE_TURN)
-            logger.debug(f"[SingleTurnRunner] Prepared {len(metric_configs)} metrics")
+            logger.debug(f"Prepared {len(metric_configs)} metrics for test {test_id}")
 
         # Execute endpoint
         endpoint_service = get_endpoint_service()
@@ -120,7 +120,6 @@ class SingleTurnRunner(BaseRunner):
 
         # Calculate execution time
         execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-        logger.debug(f"[SingleTurnRunner] Completed in {execution_time:.2f}ms")
 
         # Process result (converts ErrorResponse to dict if needed)
         processed_result = process_endpoint_result(result)

@@ -63,7 +63,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
             ValueError: If test or prompt is not found
             Exception: If endpoint invocation or metric evaluation fails
         """
-        logger.info(f"[SingleTurnExecutor] Starting execution for test {test_id}")
+        logger.debug(f"Executing single-turn test: {test_id}")
 
         try:
             # Check for existing result to avoid duplicates
@@ -71,15 +71,12 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 db, test_config_id, test_run_id, test_id, organization_id, user_id
             )
             if existing_result:
-                logger.info(f"[SingleTurnExecutor] Found existing result for test {test_id}")
+                logger.debug(f"Found existing result for test {test_id}")
                 return existing_result
 
             # Retrieve test data
             test, prompt_content, expected_response = get_test_and_prompt(
                 db, test_id, organization_id
-            )
-            logger.debug(
-                f"[SingleTurnExecutor] Retrieved test data - prompt length: {len(prompt_content)}"
             )
 
             # Run core execution (shared with in-place service)
@@ -111,20 +108,16 @@ class SingleTurnTestExecutor(BaseTestExecutor):
             )
 
             # Return execution summary
-            result_summary = {
+            logger.debug(f"Test execution completed: {test_id}")
+            return {
                 "test_id": test_id,
                 "execution_time": execution_time,
                 "metrics": metrics_results,
             }
 
-            logger.info(
-                f"[SingleTurnExecutor] Test execution completed successfully for test {test_id}"
-            )
-            return result_summary
-
         except Exception as e:
             logger.error(
-                f"[SingleTurnExecutor] Test execution failed for test {test_id}: {str(e)}",
+                f"Test execution failed for {test_id}: {str(e)}",
                 exc_info=True,
             )
             raise

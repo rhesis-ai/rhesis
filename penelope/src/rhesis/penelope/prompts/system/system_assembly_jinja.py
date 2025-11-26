@@ -63,12 +63,12 @@ def get_system_prompt_jinja(
         ... )
     """
     logger.info("=== SYSTEM PROMPT ASSEMBLY DEBUG ===")
-    logger.info(f"Instructions: {instructions[:200]}...")
-    logger.info(f"Goal: {goal}")
-    logger.info(f"Scenario: {scenario[:200] if scenario else 'None'}...")
-    logger.info(f"Restrictions: {restrictions[:100] if restrictions else 'None'}...")
-    logger.info(f"Context: {context}")
-    logger.info(f"Available tools: {available_tools[:100] if available_tools else 'None'}...")
+    logger.info(f"Instructions length: {len(instructions)} chars")
+    logger.info(f"Goal length: {len(goal)} chars")
+    logger.info(f"Scenario length: {len(scenario) if scenario else 0} chars")
+    logger.info(f"Restrictions length: {len(restrictions) if restrictions else 0} chars")
+    logger.info(f"Context length: {len(context) if context else 0} chars")
+    logger.info(f"Available tools length: {len(available_tools) if available_tools else 0} chars")
 
     # Render the template
     rendered_prompt = SYSTEM_PROMPT_TEMPLATE.render(
@@ -83,10 +83,6 @@ def get_system_prompt_jinja(
 
     logger.info("=== RENDERED PROMPT PREVIEW ===")
     logger.info(f"Rendered prompt length: {len(rendered_prompt)} characters")
-    logger.info("First 500 chars of rendered prompt:")
-    logger.info(rendered_prompt[:500])
-    logger.info("Last 500 chars of rendered prompt:")
-    logger.info(rendered_prompt[-500:])
     logger.info("=== END SYSTEM PROMPT DEBUG ===")
 
     return rendered_prompt

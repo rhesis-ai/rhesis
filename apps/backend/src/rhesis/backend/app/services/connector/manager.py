@@ -107,11 +107,9 @@ class ConnectionManager:
                     3600,  # 1 hour TTL
                     "active",
                 )
-                logger.info(
-                    f"✅ SDK connection registered in Redis: {key} (redis_key={redis_key}, TTL=1h)"
-                )
+                logger.debug(f"Stored connection in Redis: {key}")
             except Exception as e:
-                logger.error(f"❌ Failed to store connection in Redis for {key}: {e}")
+                logger.error(f"Failed to store connection in Redis for {key}: {e}")
 
     def disconnect(self, project_id: str, environment: str) -> None:
         """
@@ -271,7 +269,10 @@ class ConnectionManager:
             logger.warning(f"Ignoring late result for cancelled test run: {test_run_id}")
             return
 
-        logger.debug(f"Storing test result: {test_run_id}")
+        logger.debug(
+            f"Received test result from SDK: {test_run_id} "
+            f"(status: {result.get('status', 'unknown')})"
+        )
 
         # Store result in memory for backend process
         self._test_results[test_run_id] = result
@@ -287,10 +288,12 @@ class ConnectionManager:
     async def _publish_rpc_response(self, test_run_id: str, result: Dict[str, Any]) -> None:
         """Publish RPC response to Redis (async helper)."""
         try:
-            await redis_manager.client.publish(f"ws:rpc:response:{test_run_id}", json.dumps(result))
-            logger.debug(f"Published RPC response to Redis: {test_run_id}")
+            channel = f"ws:rpc:response:{test_run_id}"
+            json_payload = json.dumps(result)
+            await redis_manager.client.publish(channel, json_payload)
+            logger.debug(f"Published RPC response: {test_run_id}")
         except Exception as e:
-            logger.warning(f"Failed to publish RPC response: {e}")
+            logger.error(f"Failed to publish RPC response: {e}", exc_info=True)
 
     def get_test_result(self, test_run_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -543,26 +546,51 @@ class ConnectionManager:
         function_name = request.get("function_name")
         inputs = request.get("inputs", {})
 
-        logger.info(
-            f"Handling RPC request {request_id}: {function_name} "
-            f"(project: {project_id}, env: {environment})"
+        logger.debug(
+            f"Received RPC request {request_id}: {function_name} ({project_id}:{environment})"
         )
 
         # Look up WebSocket connection
         key = self.get_connection_key(project_id, environment)
 
         if key not in self._connections:
-            logger.error(f"No connection for RPC request: {key}")
-            # Publish error response
+            # In multi-worker setup, check if connection exists in Redis
+            # If it does, another worker has it - silently ignore (that worker will handle it)
+            # If it doesn't, then truly no connection exists - publish error
+            redis_has_connection = False
             if redis_manager.is_available:
                 try:
-                    error_response = {"error": "send_failed", "details": f"No connection for {key}"}
-                    await redis_manager.client.publish(
-                        f"ws:rpc:response:{request_id}", json.dumps(error_response)
-                    )
+                    redis_key = f"ws:connection:{key}"
+                    redis_has_connection = await redis_manager.client.exists(redis_key) > 0
                 except Exception as e:
-                    logger.error(f"Failed to publish error response: {e}")
-            return
+                    logger.warning(f"Could not check Redis for connection: {e}")
+
+            if redis_has_connection:
+                # Connection exists in Redis, meaning another worker has it
+                # Silently return - that worker will handle the request
+                logger.debug(
+                    f"Connection {key} not in this worker but exists in Redis - "
+                    f"another worker will handle it"
+                )
+                return
+            else:
+                # Connection truly doesn't exist anywhere
+                logger.error(
+                    f"No WebSocket connection found for {key} (checked both local worker and Redis)"
+                )
+                # Publish error response
+                if redis_manager.is_available:
+                    try:
+                        error_response = {
+                            "error": "send_failed",
+                            "details": f"No connection for {key}",
+                        }
+                        await redis_manager.client.publish(
+                            f"ws:rpc:response:{request_id}", json.dumps(error_response)
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to publish error response: {e}")
+                return
 
         # Forward to SDK via WebSocket
         websocket = self._connections[key]
@@ -574,7 +602,7 @@ class ConnectionManager:
             await websocket.send_json(message.model_dump())
             logger.debug(f"Forwarded RPC request to WebSocket: {request_id}")
         except Exception as e:
-            logger.error(f"Error forwarding RPC request to WebSocket: {e}")
+            logger.error(f"Error forwarding RPC request: {e}", exc_info=True)
             # Publish error response
             if redis_manager.is_available:
                 try:
