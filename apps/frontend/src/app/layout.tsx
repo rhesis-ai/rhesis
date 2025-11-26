@@ -150,10 +150,10 @@ async function getNavigationItems(
       title: 'Testing',
     },
     {
-      kind: 'action',
+      kind: 'page',
+      segment: 'generation',
       title: 'Generation',
       icon: <BoltIcon />,
-      action: 'open-test-generation',
     },
     {
       kind: 'page',

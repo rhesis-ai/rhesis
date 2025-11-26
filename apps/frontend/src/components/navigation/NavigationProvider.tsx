@@ -33,7 +33,7 @@ function decodeBase64(str: string): string {
   return '';
 }
 
-// Transform navigation items to handle links and actions
+// Transform navigation items to handle links
 function transformNavigationItems(items: NavigationItem[]): any[] {
   return items.map(item => {
     if (item.kind === 'link') {
@@ -47,18 +47,6 @@ function transformNavigationItems(items: NavigationItem[]): any[] {
         __isLink: true,
         __linkHref: item.href,
         __linkExternal: item.external,
-      };
-    }
-    if (item.kind === 'action') {
-      // Transform action to a page item with special segment
-      return {
-        kind: 'page',
-        segment: `__action__${item.action}`,
-        title: item.title,
-        icon: item.icon,
-        requireSuperuser: item.requireSuperuser,
-        __isAction: true,
-        __actionId: item.action,
       };
     }
     if (item.kind === 'page' && item.children) {
@@ -119,21 +107,6 @@ export function NavigationProvider({
           router.back();
         }
       } else {
-        router.back();
-      }
-    } else if (pathname.startsWith('/__action__')) {
-      // Extract the action ID
-      const actionId = pathname.replace('/__action__', '');
-      const navItem = navigation.find(
-        item => item.kind === 'action' && item.action === actionId
-      );
-      if (navItem && navItem.kind === 'action') {
-        // Handle the action
-        if (navItem.action === 'open-test-generation') {
-          router.push('/tests?openGeneration=true');
-        }
-      } else {
-        // Navigate back if action not found
         router.back();
       }
     }
