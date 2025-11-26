@@ -152,8 +152,7 @@ class TestSet(BaseEntity):
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the test set to the database.
 
-        For creation (no ID): Uses the bulk endpoint to create test set with tests.
-        For updates (has ID): Uses the standard update endpoint.
+        Uses the bulk endpoint to create test set with tests.
 
         Returns:
             Dict containing the response from the API, or None if error occurred.
