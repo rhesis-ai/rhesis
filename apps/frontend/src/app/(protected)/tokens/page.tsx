@@ -21,8 +21,8 @@ export default async function TokensPage() {
     >
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
-          Create API tokens to authenticate with the Rhesis SDK and programmatically
-          manage your testing workflows from your code.
+          Create API tokens to authenticate with the Rhesis SDK and
+          programmatically manage your testing workflows from your code.
         </Typography>
       </Box>
       <TokensPageClient sessionToken={session.session_token} />

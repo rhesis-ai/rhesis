@@ -194,15 +194,11 @@ export default function MCPSPage() {
     <PageContainer title="MCP" breadcrumbs={[{ title: 'MCP', path: '/mcp' }]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
-          Connect to Model Context Protocol (MCP) providers to import
-          knowledge sources and enhance your evaluation workflows.
+          Connect to Model Context Protocol (MCP) providers to import knowledge
+          sources and enhance your evaluation workflows.
         </Typography>
         {error && (
-          <Alert
-            severity="error"
-            sx={{ mt: 2 }}
-            onClose={() => setError(null)}
-          >
+          <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
