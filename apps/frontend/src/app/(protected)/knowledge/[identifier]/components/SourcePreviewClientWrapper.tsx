@@ -228,7 +228,7 @@ export default function SourcePreviewClientWrapper({
           sx={{
             p: theme.spacing(3),
             position: 'relative',
-            borderRadius: 1,
+            borderRadius: theme.spacing(1),
             bgcolor: theme.palette.background.paper,
             boxShadow: theme.shadows[1],
           }}
@@ -292,7 +292,7 @@ export default function SourcePreviewClientWrapper({
                   gap: theme.spacing(3),
                   p: theme.spacing(2),
                   bgcolor: theme.palette.action.hover,
-                  borderRadius: 0.5,
+                  borderRadius: theme.spacing(0.5),
                   mb: theme.spacing(3),
                   border: `1px solid ${theme.palette.divider}`,
                 }}
@@ -420,7 +420,7 @@ export default function SourcePreviewClientWrapper({
         <Paper
           sx={{
             p: theme.spacing(3),
-            borderRadius: 1,
+            borderRadius: theme.spacing(1),
             bgcolor: theme.palette.background.paper,
             boxShadow: theme.shadows[1],
           }}
@@ -486,7 +486,7 @@ export default function SourcePreviewClientWrapper({
                   gap: theme.spacing(3),
                   p: theme.spacing(2),
                   bgcolor: theme.palette.action.hover,
-                  borderRadius: 0.5,
+                  borderRadius: theme.spacing(0.5),
                   mb: theme.spacing(3),
                   border: `1px solid ${theme.palette.divider}`,
                 }}
@@ -645,7 +645,7 @@ export default function SourcePreviewClientWrapper({
           <Paper
             sx={{
               p: theme.spacing(3),
-              borderRadius: 1,
+              borderRadius: theme.spacing(1),
               bgcolor: theme.palette.background.paper,
               boxShadow: theme.shadows[1],
             }}
@@ -703,7 +703,7 @@ export default function SourcePreviewClientWrapper({
               <Box
                 sx={{
                   bgcolor: theme.palette.action.hover,
-                  borderRadius: 0.5,
+                  borderRadius: theme.spacing(0.5),
                   maxHeight: 400,
                   overflow: 'auto',
                   mt: theme.spacing(2),
@@ -733,7 +733,7 @@ export default function SourcePreviewClientWrapper({
         <Paper
           sx={{
             p: theme.spacing(3),
-            borderRadius: 1,
+            borderRadius: theme.spacing(1),
             bgcolor: theme.palette.background.paper,
             boxShadow: theme.shadows[1],
           }}
