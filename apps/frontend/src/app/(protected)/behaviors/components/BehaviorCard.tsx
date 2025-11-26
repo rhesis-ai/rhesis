@@ -6,12 +6,15 @@ import Tooltip from '@mui/material/Tooltip';
 import EditIcon from '@mui/icons-material/Edit';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 import { PsychologyIcon, AutoGraphIcon } from '@/components/icons';
 import { useTheme } from '@mui/material/styles';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
+import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
 
@@ -34,6 +37,7 @@ export default function BehaviorCard({
   const notifications = useNotifications();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [metricsDialogOpen, setMetricsDialogOpen] = React.useState(false);
 
   const handleDeleteClick = (event: React.MouseEvent<HTMLElement>) => {
     event.stopPropagation();
@@ -67,6 +71,30 @@ export default function BehaviorCard({
     setDeleteDialogOpen(false);
   };
 
+  const handleAddMetricClick = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+    setMetricsDialogOpen(true);
+  };
+
+  const handleAddMetric = async (metricId: UUID) => {
+    try {
+      const metricsClient = new MetricsClient(sessionToken);
+      await metricsClient.addBehaviorToMetric(metricId, behavior.id as UUID);
+
+      notifications.show('Metric added to behavior successfully', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
+
+      onRefresh();
+    } catch (err) {
+      notifications.show('Failed to add metric to behavior', {
+        severity: 'error',
+        autoHideDuration: 4000,
+      });
+    }
+  };
+
   const metricsCount = behavior.metrics?.length || 0;
   const canDelete = metricsCount === 0;
 
@@ -95,6 +123,21 @@ export default function BehaviorCard({
   // Top right actions
   const topRightActions = (
     <>
+      <Tooltip title="Add metric">
+        <IconButton
+          size="small"
+          onClick={handleAddMetricClick}
+          sx={{
+            padding: theme.spacing(0.25),
+            '& .MuiSvgIcon-root': {
+              fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
+              color: 'currentColor',
+            },
+          }}
+        >
+          <AddIcon fontSize="inherit" />
+        </IconButton>
+      </Tooltip>
       {metricsCount > 0 && (
         <Tooltip title="View metrics">
           <IconButton
@@ -153,6 +196,8 @@ export default function BehaviorCard({
     </>
   );
 
+  const excludeMetricIds = behavior.metrics?.map(m => m.id as UUID) || [];
+
   return (
     <>
       <EntityCard
@@ -166,6 +211,14 @@ export default function BehaviorCard({
             : 'No metrics assigned'
         }
         chipSections={chipSections}
+      />
+
+      <SelectMetricsDialog
+        open={metricsDialogOpen}
+        onClose={() => setMetricsDialogOpen(false)}
+        onSelect={handleAddMetric}
+        sessionToken={sessionToken}
+        excludeMetricIds={excludeMetricIds}
       />
 
       <DeleteModal
