@@ -350,8 +350,8 @@ start_polyphemus() {
     }
 
     echo -e "${GREEN}🚀 Starting Polyphemus service...${NC}"
-    echo -e "${BLUE}🌐 Service will be available at: http://localhost:8080${NC}"
-    echo -e "${BLUE}📚 API docs will be available at: http://localhost:8080/docs${NC}"
+    echo -e "${BLUE}🌐 Service will be available at: http://localhost:8082${NC}"
+    echo -e "${BLUE}📚 API docs will be available at: http://localhost:8082/docs${NC}"
     echo -e "${YELLOW}💡 Press Ctrl+C to stop the service${NC}"
     echo ""
 
