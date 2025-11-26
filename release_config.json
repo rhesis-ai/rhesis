@@ -1,4 +1,7 @@
 {
   "platform": "minor",
-  "backend": "patch"
+  "backend": "minor",
+  "frontend": "minor",
+  "sdk": "minor",
+  "polyphemus": "minor"
 }
