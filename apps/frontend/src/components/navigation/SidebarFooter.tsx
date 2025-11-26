@@ -73,7 +73,7 @@ export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
                 color: 'primary.main',
               },
               '& .MuiButton-startIcon': {
-                marginRight: '12px',
+                marginRight: theme => theme.spacing(1.5),
               },
             }}
           >
@@ -86,9 +86,7 @@ export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
                 whiteSpace: 'nowrap',
               }}
             >
-              <Typography variant="body2" sx={{ fontSize: '14px' }}>
-                Feedback
-              </Typography>
+              <Typography variant="body2">Feedback</Typography>
               <Typography
                 variant="caption"
                 color="text.disabled"
@@ -96,7 +94,6 @@ export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
                   opacity: 0.6,
                   marginLeft: 1,
                   flexShrink: 0,
-                  fontSize: '11px',
                 }}
               >
                 v{process.env.APP_VERSION || '0.0.0'}
