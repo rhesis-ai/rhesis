@@ -72,6 +72,12 @@ export default function EndpointsPage() {
 
   return (
     <PageContainer title="Endpoints" breadcrumbs={[{ title: 'Endpoints' }]}>
+      <Box sx={{ mb: 3 }}>
+        <Typography color="text.secondary">
+          Connect the Rhesis platform to your application under test via
+          endpoints to enable comprehensive testing and evaluation workflows.
+        </Typography>
+      </Box>
       <EndpointsGrid
         endpoints={endpoints}
         loading={loading}

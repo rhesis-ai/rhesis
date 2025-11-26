@@ -21,10 +21,29 @@ export interface NavigationDividerItem {
   kind: 'divider';
 }
 
+export interface NavigationLinkItem {
+  kind: 'link';
+  title: string;
+  href: string;
+  icon?: React.ReactNode;
+  external?: boolean;
+  requireSuperuser?: boolean;
+}
+
+export interface NavigationActionItem {
+  kind: 'action';
+  title: string;
+  icon?: React.ReactNode;
+  action: string; // Action identifier to handle in the UI
+  requireSuperuser?: boolean;
+}
+
 export type NavigationItem =
   | NavigationPageItem
   | NavigationHeaderItem
-  | NavigationDividerItem;
+  | NavigationDividerItem
+  | NavigationLinkItem
+  | NavigationActionItem;
 
 export interface BrandingProps {
   title: string;
