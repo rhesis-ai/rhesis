@@ -315,7 +315,19 @@ export default function SourcesGrid({
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
 
-          // Check if this is a Tool source type (MCP/API imports)
+          // Check if source_type exists in metadata (MCP imports like Notion, Slack, etc.)
+          if (metadata.source_type) {
+            return (
+              <Chip
+                label={metadata.source_type}
+                size="small"
+                variant="outlined"
+                className={styles.fileTypeChip}
+              />
+            );
+          }
+
+          // Check if this is a Tool source type (API imports with provider)
           if (source.source_type?.type_value === 'Tool' && metadata.provider) {
             // Capitalize the provider name (e.g., "notion" -> "Notion")
             const providerName =
