@@ -6,7 +6,7 @@ synchronously without worker infrastructure or database persistence.
 """
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -83,7 +83,8 @@ def create_test_with_id_request_data(test_id: str, **overrides):
 class TestExecuteTestInPlace:
     """Test execute_test_in_place function with various scenarios."""
 
-    def test_execute_existing_single_turn_test(
+    @pytest.mark.asyncio
+    async def test_execute_existing_single_turn_test(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -166,14 +167,14 @@ class TestExecuteTestInPlace:
             # Mock the runner instance
             mock_runner = MagicMock()
             mock_runner_class.return_value = mock_runner
-            mock_runner.run.return_value = (
+            mock_runner.run = AsyncMock(return_value=(
                 1.23,  # execution_time
                 {"response": "Test response"},  # processed_result
                 {"accuracy": {"score": 0.95, "is_successful": True}},  # metrics_results
-            )
+            ))
 
             # Execute the test
-            result = test_execution.execute_test_in_place(
+            result = await test_execution.execute_test_in_place(
                 db=test_db,
                 request_data=request_data,
                 endpoint_id=str(db_endpoint.id),
@@ -197,7 +198,8 @@ class TestExecuteTestInPlace:
         assert "status" in result
         assert result["status"] == ResultStatus.PASS.value
 
-    def test_execute_inline_single_turn_test(
+    @pytest.mark.asyncio
+    async def test_execute_inline_single_turn_test(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -235,14 +237,14 @@ class TestExecuteTestInPlace:
             # Mock the runner instance
             mock_runner = MagicMock()
             mock_runner_class.return_value = mock_runner
-            mock_runner.run.return_value = (
+            mock_runner.run = AsyncMock(return_value=(
                 0.87,  # execution_time
                 {"response": "Inline test response"},  # processed_result
                 {"accuracy": {"score": 0.88, "is_successful": True}},  # metrics_results
-            )
+            ))
 
             # Execute the inline test
-            result = test_execution.execute_test_in_place(
+            result = await test_execution.execute_test_in_place(
                 db=test_db,
                 request_data=request_data,
                 endpoint_id=str(db_endpoint.id),
@@ -264,7 +266,8 @@ class TestExecuteTestInPlace:
         assert "status" in result
         assert result["status"] == ResultStatus.PASS.value
 
-    def test_execute_inline_multi_turn_test(
+    @pytest.mark.asyncio
+    async def test_execute_inline_multi_turn_test(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -302,14 +305,14 @@ class TestExecuteTestInPlace:
             # Mock the runner instance
             mock_runner = MagicMock()
             mock_runner_class.return_value = mock_runner
-            mock_runner.run.return_value = (
+            mock_runner.run = AsyncMock(return_value=(
                 2.45,  # execution_time
                 {"trace": "Multi-turn conversation trace"},  # penelope_trace
                 {"goal_achievement": {"score": 0.92, "is_successful": True}},  # metrics_results
-            )
+            ))
 
             # Execute the multi-turn test
-            result = test_execution.execute_test_in_place(
+            result = await test_execution.execute_test_in_place(
                 db=test_db,
                 request_data=request_data,
                 endpoint_id=str(db_endpoint.id),
@@ -332,7 +335,8 @@ class TestExecuteTestInPlace:
         assert result["status"] == ResultStatus.PASS.value
         assert "test_configuration" in result
 
-    def test_execute_test_without_metrics(
+    @pytest.mark.asyncio
+    async def test_execute_test_without_metrics(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -370,14 +374,14 @@ class TestExecuteTestInPlace:
             # Mock the runner instance
             mock_runner = MagicMock()
             mock_runner_class.return_value = mock_runner
-            mock_runner.run.return_value = (
+            mock_runner.run = AsyncMock(return_value=(
                 0.55,  # execution_time
                 {"response": "Test response"},  # processed_result
                 None,  # No metrics
-            )
+            ))
 
             # Execute without metrics
-            result = test_execution.execute_test_in_place(
+            result = await test_execution.execute_test_in_place(
                 db=test_db,
                 request_data=request_data,
                 endpoint_id=str(db_endpoint.id),
@@ -397,7 +401,8 @@ class TestExecuteTestInPlace:
         assert "status" in result
         assert result["status"] == ResultStatus.ERROR.value  # Default when no metrics
 
-    def test_execute_test_not_found(
+    @pytest.mark.asyncio
+    async def test_execute_test_not_found(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -420,7 +425,7 @@ class TestExecuteTestInPlace:
 
             # Should raise ValueError for non-existent test
             with pytest.raises(ValueError, match="Test not found"):
-                test_execution.execute_test_in_place(
+                await test_execution.execute_test_in_place(
                     db=test_db,
                     request_data=request_data,
                     endpoint_id=str(db_endpoint.id),
@@ -429,7 +434,8 @@ class TestExecuteTestInPlace:
                     evaluate_metrics=True,
                 )
 
-    def test_execute_test_behavior_not_found_inline(
+    @pytest.mark.asyncio
+    async def test_execute_test_behavior_not_found_inline(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -457,14 +463,14 @@ class TestExecuteTestInPlace:
             # Mock the runner instance
             mock_runner = MagicMock()
             mock_runner_class.return_value = mock_runner
-            mock_runner.run.return_value = (
+            mock_runner.run = AsyncMock(return_value=(
                 0.75,  # execution_time
                 {"response": "Test response"},  # processed_result
                 {},  # Empty metrics since behavior not found
-            )
+            ))
 
             # Execute - should not raise error, but log warning
-            result = test_execution.execute_test_in_place(
+            result = await test_execution.execute_test_in_place(
                 db=test_db,
                 request_data=request_data,
                 endpoint_id=str(db_endpoint.id),
@@ -478,7 +484,8 @@ class TestExecuteTestInPlace:
         assert "test_id" in result
         assert "execution_time" in result
 
-    def test_execute_test_failed_metrics(
+    @pytest.mark.asyncio
+    async def test_execute_test_failed_metrics(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -516,14 +523,14 @@ class TestExecuteTestInPlace:
             # Mock the runner instance
             mock_runner = MagicMock()
             mock_runner_class.return_value = mock_runner
-            mock_runner.run.return_value = (
+            mock_runner.run = AsyncMock(return_value=(
                 1.0,  # execution_time
                 {"response": "Test response"},  # processed_result
                 {"accuracy": {"score": 0.3, "is_successful": False}},  # Failed metrics
-            )
+            ))
 
             # Execute the test
-            result = test_execution.execute_test_in_place(
+            result = await test_execution.execute_test_in_place(
                 db=test_db,
                 request_data=request_data,
                 endpoint_id=str(db_endpoint.id),
@@ -676,7 +683,8 @@ class TestCreateInplaceTest:
 class TestExecutionHelpers:
     """Test helper functions for single-turn and multi-turn execution."""
 
-    def test_single_turn_execution_helper(
+    @pytest.mark.asyncio
+    async def test_single_turn_execution_helper(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -726,14 +734,14 @@ class TestExecutionHelpers:
         ) as mock_runner_class:
             mock_runner = MagicMock()
             mock_runner_class.return_value = mock_runner
-            mock_runner.run.return_value = (
+            mock_runner.run = AsyncMock(return_value=(
                 1.5,  # execution_time
                 {"response": "Test response"},  # processed_result
                 {"accuracy": {"score": 0.9, "is_successful": True}},  # metrics_results
-            )
+            ))
 
             # Execute single-turn
-            result = test_execution._execute_single_turn_in_place(
+            result = await test_execution._execute_single_turn_in_place(
                 db=test_db,
                 test=test,
                 prompt_content="Test prompt",
@@ -754,7 +762,8 @@ class TestExecutionHelpers:
         assert result["test_metrics"] is not None
         assert result["status"] == ResultStatus.PASS.value
 
-    def test_multi_turn_execution_helper(
+    @pytest.mark.asyncio
+    async def test_multi_turn_execution_helper(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -793,14 +802,14 @@ class TestExecutionHelpers:
         ) as mock_runner_class:
             mock_runner = MagicMock()
             mock_runner_class.return_value = mock_runner
-            mock_runner.run.return_value = (
+            mock_runner.run = AsyncMock(return_value=(
                 3.2,  # execution_time
                 {"trace": "Multi-turn trace"},  # penelope_trace
                 {"goal_achievement": {"score": 0.95, "is_successful": True}},  # metrics_results
-            )
+            ))
 
             # Execute multi-turn
-            result = test_execution._execute_multi_turn_in_place(
+            result = await test_execution._execute_multi_turn_in_place(
                 db=test_db,
                 test=test,
                 endpoint_id=str(db_endpoint.id),
@@ -826,7 +835,8 @@ class TestExecutionHelpers:
 class TestEdgeCases:
     """Test edge cases and error handling."""
 
-    def test_execute_with_special_characters_in_prompt(
+    @pytest.mark.asyncio
+    async def test_execute_with_special_characters_in_prompt(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -868,13 +878,13 @@ class TestEdgeCases:
 
             mock_runner = MagicMock()
             mock_runner_class.return_value = mock_runner
-            mock_runner.run.return_value = (
+            mock_runner.run = AsyncMock(return_value=(
                 0.9,
                 {"response": "Special char response"},
                 {"accuracy": {"score": 0.85, "is_successful": True}},
-            )
+            ))
 
-            result = test_execution.execute_test_in_place(
+            result = await test_execution.execute_test_in_place(
                 db=test_db,
                 request_data=request_data,
                 endpoint_id=str(db_endpoint.id),
@@ -887,7 +897,8 @@ class TestEdgeCases:
         assert result is not None
         assert result["status"] == ResultStatus.PASS.value
 
-    def test_execute_with_empty_prompt(
+    @pytest.mark.asyncio
+    async def test_execute_with_empty_prompt(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -925,9 +936,9 @@ class TestEdgeCases:
 
             mock_runner = MagicMock()
             mock_runner_class.return_value = mock_runner
-            mock_runner.run.return_value = (0.5, {"response": "Empty prompt response"}, {})
+            mock_runner.run = AsyncMock(return_value=(0.5, {"response": "Empty prompt response"}, {}))
 
-            result = test_execution.execute_test_in_place(
+            result = await test_execution.execute_test_in_place(
                 db=test_db,
                 request_data=request_data,
                 endpoint_id=str(db_endpoint.id),
@@ -940,7 +951,8 @@ class TestEdgeCases:
         assert result is not None
         assert "test_id" in result
 
-    def test_execute_with_complex_test_configuration(
+    @pytest.mark.asyncio
+    async def test_execute_with_complex_test_configuration(
         self,
         test_db: Session,
         authenticated_user_id,
@@ -988,13 +1000,13 @@ class TestEdgeCases:
 
             mock_runner = MagicMock()
             mock_runner_class.return_value = mock_runner
-            mock_runner.run.return_value = (
+            mock_runner.run = AsyncMock(return_value=(
                 5.5,
                 {"trace": "Complex multi-turn trace"},
                 {"goal_achievement": {"score": 0.88, "passed": True}},
-            )
+            ))
 
-            result = test_execution.execute_test_in_place(
+            result = await test_execution.execute_test_in_place(
                 db=test_db,
                 request_data=request_data,
                 endpoint_id=str(db_endpoint.id),

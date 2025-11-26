@@ -111,8 +111,10 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 try:
                     rpc_client = SDKRpcClient()
                     await rpc_client.initialize()
+                    logger.info("✅ RPC client initialized successfully")
                 except RuntimeError as e:
                     # Redis not available - fail with clear message
+                    logger.error(f"❌ Failed to initialize RPC client: {e}")
                     return self._create_error_response(
                         error_type="sdk_rpc_unavailable",
                         output_message="Cannot invoke SDK from worker: Redis not configured",
@@ -123,7 +125,10 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 # Use try-finally to ensure RPC client is always closed
                 try:
                     # Check connection via RPC client
-                    if not await rpc_client.is_connected(str(project_id), environment):
+                    is_connected = await rpc_client.is_connected(str(project_id), environment)
+
+                    if not is_connected:
+                        logger.warning(f"SDK not connected: {project_id}:{environment}")
                         return self._create_error_response(
                             error_type="sdk_not_connected",
                             output_message=f"SDK not connected: {project_id} in {environment}",
