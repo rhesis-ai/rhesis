@@ -223,7 +223,7 @@ export default function BehaviorMetricsViewer({
                   p: 4,
                   textAlign: 'center',
                   border: theme => `2px dashed ${theme.palette.divider}`,
-                  borderRadius: 2,
+                  borderRadius: theme.shape.borderRadius / 2,
                 }}
               >
                 <Typography variant="body1" color="text.secondary" gutterBottom>
@@ -265,4 +265,3 @@ export default function BehaviorMetricsViewer({
     </Drawer>
   );
 }
-
