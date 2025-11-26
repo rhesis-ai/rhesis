@@ -207,9 +207,11 @@ export default function MetricsDirectoryTab({
   const [metricToDeleteCompletely, setMetricToDeleteCompletely] =
     React.useState<{ id: string; name: string } | null>(null);
   const [isDeletingMetric, setIsDeletingMetric] = React.useState(false);
-  
+
   // Advanced filters popover state
-  const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(null);
+  const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(
+    null
+  );
 
   // Filter handlers
   const handleFilterChange = (
@@ -305,9 +307,7 @@ export default function MetricsDirectoryTab({
             if (typeof metric.behaviors![0] === 'string') {
               return (metric.behaviors as string[]).includes(behaviorId);
             } else {
-              return metric.behaviors!.some(
-                (b: any) => b.id === behaviorId
-              );
+              return metric.behaviors!.some((b: any) => b.id === behaviorId);
             }
           }));
 
@@ -593,21 +593,19 @@ export default function MetricsDirectoryTab({
   }
 
   return (
-    <Box
-      sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-    >
+    <Box sx={{ width: '100%' }}>
       {/* Explanation */}
-      <Box sx={{ px: 3, pt: 2, pb: 2 }}>
+      <Box sx={{ mb: 2 }}>
         <Typography variant="body1" color="text.secondary">
-        Metrics are quantifiable measurements that evaluate behaviors and determine if requirements are met.
-          </Typography>
+          Metrics are quantifiable measurements that evaluate behaviors and
+          determine if requirements are met.
+        </Typography>
       </Box>
 
       {/* Search and Filters */}
-      <Box sx={{ px: 3 }}>
-        <SearchAndFilterBar
+      <SearchAndFilterBar
         searchValue={filters.search}
-        onSearchChange={(value) => handleFilterChange('search', value)}
+        onSearchChange={value => handleFilterChange('search', value)}
         onReset={hasActiveFilters() ? handleResetFilters : undefined}
         hasActiveFilters={hasActiveFilters()}
         onAddNew={() => setCreateMetricOpen(true)}
@@ -624,7 +622,9 @@ export default function MetricsDirectoryTab({
             All
           </Button>
           {filterOptions.backend.map(option => {
-            const isSelected = filters.backend.includes(option.type_value.toLowerCase());
+            const isSelected = filters.backend.includes(
+              option.type_value.toLowerCase()
+            );
             return (
               <Button
                 key={option.type_value}
@@ -645,7 +645,7 @@ export default function MetricsDirectoryTab({
         </ButtonGroup>
 
         {/* More Filters Toggle */}
-        <Badge 
+        <Badge
           badgeContent={activeAdvancedFilterCount}
           color="primary"
           invisible={activeAdvancedFilterCount === 0}
@@ -659,209 +659,221 @@ export default function MetricsDirectoryTab({
             Filters
           </Button>
         </Badge>
-        </SearchAndFilterBar>
+      </SearchAndFilterBar>
 
-        {/* Advanced Filters Popover */}
-        <Popover
-          open={open}
-          anchorEl={anchorEl}
-          onClose={handleFilterClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'left',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'left',
-          }}
-          PaperProps={{
-            sx: {
-              p: 0,
-              width: 400,
-              maxHeight: 600,
-            },
+      {/* Advanced Filters Popover */}
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={handleFilterClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'left',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'left',
+        }}
+        PaperProps={{
+          sx: {
+            p: 0,
+            width: 400,
+            maxHeight: 600,
+          },
+        }}
+      >
+        {/* Header */}
+        <Box
+          sx={{
+            p: 2,
+            borderBottom: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
           }}
         >
-          {/* Header */}
-          <Box
-            sx={{
-              p: 2,
-              borderBottom: 1,
-              borderColor: 'divider',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <Typography variant="subtitle1" fontWeight={600}>
-              Advanced Filters
-            </Typography>
-            {activeAdvancedFilterCount > 0 && (
-              <Button
-                size="small"
-                startIcon={<ClearAllIcon />}
-                onClick={handleClearAllAdvancedFilters}
-                color="secondary"
+          <Typography variant="subtitle1" fontWeight={600}>
+            Advanced Filters
+          </Typography>
+          {activeAdvancedFilterCount > 0 && (
+            <Button
+              size="small"
+              startIcon={<ClearAllIcon />}
+              onClick={handleClearAllAdvancedFilters}
+              color="secondary"
+            >
+              Clear All
+            </Button>
+          )}
+        </Box>
+
+        {/* Content */}
+        <Box sx={{ p: 2.5, maxHeight: 520, overflow: 'auto' }}>
+          <Stack spacing={3}>
+            {/* Score Type */}
+            <Box>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
               >
-                Clear All
-              </Button>
-            )}
-          </Box>
-
-          {/* Content */}
-          <Box sx={{ p: 2.5, maxHeight: 520, overflow: 'auto' }}>
-            <Stack spacing={3}>
-              {/* Score Type */}
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <FunctionsIcon fontSize="small" color="action" />
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    Score Type
-                  </Typography>
-                </Box>
-                <FormGroup>
-                  {filterOptions.scoreType.map(option => (
-                    <FormControlLabel
-                      key={option.value}
-                      control={
-                        <Checkbox
-                          checked={filters.scoreType.includes(option.value)}
-                          onChange={(e) => {
-                            const newScoreType = e.target.checked
-                              ? [...filters.scoreType, option.value]
-                              : filters.scoreType.filter(s => s !== option.value);
-                            handleFilterChange('scoreType', newScoreType);
-                          }}
-                          size="small"
-                        />
-                      }
-                      label={option.label}
-                    />
-                  ))}
-                </FormGroup>
+                <FunctionsIcon fontSize="small" color="action" />
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Score Type
+                </Typography>
               </Box>
+              <FormGroup>
+                {filterOptions.scoreType.map(option => (
+                  <FormControlLabel
+                    key={option.value}
+                    control={
+                      <Checkbox
+                        checked={filters.scoreType.includes(option.value)}
+                        onChange={e => {
+                          const newScoreType = e.target.checked
+                            ? [...filters.scoreType, option.value]
+                            : filters.scoreType.filter(s => s !== option.value);
+                          handleFilterChange('scoreType', newScoreType);
+                        }}
+                        size="small"
+                      />
+                    }
+                    label={option.label}
+                  />
+                ))}
+              </FormGroup>
+            </Box>
 
-              <Divider />
+            <Divider />
 
-              {/* Metric Type */}
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <TuneIcon fontSize="small" color="action" />
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    Metric Type
-                  </Typography>
-                </Box>
-                <FormGroup>
-                  {filterOptions.type.map(option => (
-                    <FormControlLabel
-                      key={option.type_value}
-                      control={
-                        <Checkbox
-                          checked={filters.type.includes(option.type_value)}
-                          onChange={(e) => {
-                            const newType = e.target.checked
-                              ? [...filters.type, option.type_value]
-                              : filters.type.filter(t => t !== option.type_value);
-                            handleFilterChange('type', newType);
-                          }}
-                          size="small"
-                        />
-                      }
-                      label={option.type_value
-                        .replace(/-/g, ' ')
-                        .split(' ')
-                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                        .join(' ')}
-                    />
-                  ))}
-                </FormGroup>
+            {/* Metric Type */}
+            <Box>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
+              >
+                <TuneIcon fontSize="small" color="action" />
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Metric Type
+                </Typography>
               </Box>
+              <FormGroup>
+                {filterOptions.type.map(option => (
+                  <FormControlLabel
+                    key={option.type_value}
+                    control={
+                      <Checkbox
+                        checked={filters.type.includes(option.type_value)}
+                        onChange={e => {
+                          const newType = e.target.checked
+                            ? [...filters.type, option.type_value]
+                            : filters.type.filter(t => t !== option.type_value);
+                          handleFilterChange('type', newType);
+                        }}
+                        size="small"
+                      />
+                    }
+                    label={option.type_value
+                      .replace(/-/g, ' ')
+                      .split(' ')
+                      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                      .join(' ')}
+                  />
+                ))}
+              </FormGroup>
+            </Box>
 
-              <Divider />
+            <Divider />
 
-              {/* Metric Scope */}
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <CategoryIcon fontSize="small" color="action" />
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    Metric Scope
-                  </Typography>
-                </Box>
-                <FormGroup>
-                  {filterOptions.metricScope.map(option => (
-                    <FormControlLabel
-                      key={option.value}
-                      control={
-                        <Checkbox
-                          checked={filters.metricScope.includes(option.value)}
-                          onChange={(e) => {
-                            const newScope = e.target.checked
-                              ? [...filters.metricScope, option.value]
-                              : filters.metricScope.filter(s => s !== option.value);
-                            handleFilterChange('metricScope', newScope);
-                          }}
-                          size="small"
-                        />
-                      }
-                      label={option.label}
-                    />
-                  ))}
-                </FormGroup>
+            {/* Metric Scope */}
+            <Box>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
+              >
+                <CategoryIcon fontSize="small" color="action" />
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Metric Scope
+                </Typography>
               </Box>
+              <FormGroup>
+                {filterOptions.metricScope.map(option => (
+                  <FormControlLabel
+                    key={option.value}
+                    control={
+                      <Checkbox
+                        checked={filters.metricScope.includes(option.value)}
+                        onChange={e => {
+                          const newScope = e.target.checked
+                            ? [...filters.metricScope, option.value]
+                            : filters.metricScope.filter(
+                                s => s !== option.value
+                              );
+                          handleFilterChange('metricScope', newScope);
+                        }}
+                        size="small"
+                      />
+                    }
+                    label={option.label}
+                  />
+                ))}
+              </FormGroup>
+            </Box>
 
-              {filterOptions.behavior.length > 0 && (
-                <>
-                  <Divider />
+            {filterOptions.behavior.length > 0 && (
+              <>
+                <Divider />
 
-                  {/* Behaviors */}
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                      <AccountTreeIcon fontSize="small" color="action" />
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Behaviors
-                      </Typography>
-                    </Box>
-                    <FormGroup>
-                      {filterOptions.behavior.map(option => (
-                        <FormControlLabel
-                          key={option.id}
-                          control={
-                            <Checkbox
-                              checked={filters.behavior.includes(option.id)}
-                              onChange={(e) => {
-                                const newBehavior = e.target.checked
-                                  ? [...filters.behavior, option.id]
-                                  : filters.behavior.filter(b => b !== option.id);
-                                handleFilterChange('behavior', newBehavior);
-                              }}
-                              size="small"
-                            />
-                          }
-                          label={option.name}
-                        />
-                      ))}
-                    </FormGroup>
+                {/* Behaviors */}
+                <Box>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      mb: 1.5,
+                    }}
+                  >
+                    <AccountTreeIcon fontSize="small" color="action" />
+                    <Typography variant="subtitle2" fontWeight={600}>
+                      Behaviors
+                    </Typography>
                   </Box>
-                </>
-              )}
-            </Stack>
-          </Box>
-        </Popover>
-      </Box>
-      
-      {/* Metrics Stack */}
+                  <FormGroup>
+                    {filterOptions.behavior.map(option => (
+                      <FormControlLabel
+                        key={option.id}
+                        control={
+                          <Checkbox
+                            checked={filters.behavior.includes(option.id)}
+                            onChange={e => {
+                              const newBehavior = e.target.checked
+                                ? [...filters.behavior, option.id]
+                                : filters.behavior.filter(b => b !== option.id);
+                              handleFilterChange('behavior', newBehavior);
+                            }}
+                            size="small"
+                          />
+                        }
+                        label={option.name}
+                      />
+                    ))}
+                  </FormGroup>
+                </Box>
+              </>
+            )}
+          </Stack>
+        </Box>
+      </Popover>
+
+      {/* Metrics grid */}
       <Box
         sx={{
-          p: 3,
-          flex: 1,
-          overflow: 'auto',
           display: 'grid',
           gridTemplateColumns: {
             xs: '1fr',
-            sm: 'repeat(2, 1fr)',
-            md: 'repeat(3, 1fr)',
+            md: 'repeat(2, 1fr)',
+            lg: 'repeat(3, 1fr)',
           },
           gap: 3,
+          mb: 4,
         }}
       >
         {filteredMetrics.map(metric => {
@@ -918,8 +930,7 @@ export default function MetricsDirectoryTab({
                 }}
               >
                 {/* Only show detail button for rhesis and custom metrics */}
-                {(metric.backend_type?.type_value?.toLowerCase() ===
-                  'rhesis' ||
+                {(metric.backend_type?.type_value?.toLowerCase() === 'rhesis' ||
                   metric.backend_type?.type_value?.toLowerCase() ===
                     'custom') && (
                   <IconButton
@@ -932,8 +943,7 @@ export default function MetricsDirectoryTab({
                       padding: theme.spacing(0.25),
                       '& .MuiSvgIcon-root': {
                         fontSize:
-                          theme?.typography?.helperText?.fontSize ||
-                          '0.75rem',
+                          theme?.typography?.helperText?.fontSize || '0.75rem',
                       },
                     }}
                   >

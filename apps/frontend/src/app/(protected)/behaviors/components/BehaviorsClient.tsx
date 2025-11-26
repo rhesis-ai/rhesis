@@ -1,12 +1,18 @@
 'use client';
 
 import * as React from 'react';
+import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
+import ButtonGroup from '@mui/material/ButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
+import ListIcon from '@mui/icons-material/List';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ClearIcon from '@mui/icons-material/Clear';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
@@ -26,6 +32,7 @@ export default function BehaviorsClient({
   organizationId,
 }: BehaviorsClientProps) {
   const notifications = useNotifications();
+  const theme = useTheme();
 
   // Data state
   const [behaviors, setBehaviors] = React.useState<BehaviorWithMetrics[]>([]);
@@ -50,6 +57,11 @@ export default function BehaviorsClient({
 
   // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
+
+  // Filter state
+  const [metricCountFilter, setMetricCountFilter] = React.useState<
+    'all' | 'has_metrics' | 'no_metrics'
+  >('all');
 
   // Refresh key for manual refresh
   const [refreshKey, setRefreshKey] = React.useState(0);
@@ -106,11 +118,7 @@ export default function BehaviorsClient({
     setDrawerOpen(true);
   };
 
-  const handleEditBehavior = (
-    id: UUID,
-    name: string,
-    description: string
-  ) => {
+  const handleEditBehavior = (id: UUID, name: string, description: string) => {
     setEditingBehavior({ id, name, description });
     setIsNewBehavior(false);
     setDrawerOpen(true);
@@ -132,8 +140,9 @@ export default function BehaviorsClient({
         });
 
         // Fetch the created behavior with metrics
-        const createdWithMetrics =
-          await behaviorClient.getBehaviorWithMetrics(created.id);
+        const createdWithMetrics = await behaviorClient.getBehaviorWithMetrics(
+          created.id
+        );
 
         setBehaviors(prev => [...prev, createdWithMetrics]);
 
@@ -237,31 +246,51 @@ export default function BehaviorsClient({
     }
   };
 
-  // Filter behaviors based on search
+  // Filter behaviors based on search and metric count
   const filteredBehaviors = React.useMemo(() => {
-    if (!searchQuery.trim()) {
-      return behaviors;
+    let filtered = behaviors;
+
+    // Apply metric count filter
+    if (metricCountFilter !== 'all') {
+      filtered = filtered.filter(behavior => {
+        const hasMetrics = behavior.metrics && behavior.metrics.length > 0;
+        if (metricCountFilter === 'has_metrics') {
+          return hasMetrics;
+        } else if (metricCountFilter === 'no_metrics') {
+          return !hasMetrics;
+        }
+        return true;
+      });
     }
 
-    const query = searchQuery.toLowerCase();
-    return behaviors.filter(behavior => {
-      const nameMatch = behavior.name.toLowerCase().includes(query);
-      const descriptionMatch = behavior.description
-        ?.toLowerCase()
-        .includes(query);
-      const metricMatch = behavior.metrics?.some(
-        metric =>
-          metric.name?.toLowerCase().includes(query) ||
-          metric.description?.toLowerCase().includes(query)
-      );
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(behavior => {
+        const nameMatch = behavior.name.toLowerCase().includes(query);
+        const descriptionMatch = behavior.description
+          ?.toLowerCase()
+          .includes(query);
+        const metricMatch = behavior.metrics?.some(
+          metric =>
+            metric.name?.toLowerCase().includes(query) ||
+            metric.description?.toLowerCase().includes(query)
+        );
 
-      return nameMatch || descriptionMatch || metricMatch;
-    });
-  }, [behaviors, searchQuery]);
+        return nameMatch || descriptionMatch || metricMatch;
+      });
+    }
 
-  const handleResetSearch = () => {
+    return filtered;
+  }, [behaviors, searchQuery, metricCountFilter]);
+
+  const handleResetFilters = () => {
     setSearchQuery('');
+    setMetricCountFilter('all');
   };
+
+  const hasActiveFilters =
+    searchQuery.trim() !== '' || metricCountFilter !== 'all';
 
   if (isLoading) {
     return (
@@ -295,7 +324,8 @@ export default function BehaviorsClient({
       {/* Header with explanation */}
       <Box sx={{ mb: 2 }}>
         <Typography variant="body1" color="text.secondary">
-        Behaviors are atomic expectations for your application, measured through one or more metrics to determine if requirements are met.
+          Behaviors are atomic expectations for your application, measured
+          through one or more metrics to determine if requirements are met.
         </Typography>
       </Box>
 
@@ -303,12 +333,68 @@ export default function BehaviorsClient({
       <SearchAndFilterBar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        onReset={searchQuery ? handleResetSearch : undefined}
-        hasActiveFilters={!!searchQuery}
         onAddNew={handleAddNewBehavior}
         addNewLabel="New Behavior"
         searchPlaceholder="Search behaviors..."
-      />
+      >
+        {/* Metric Count Filter */}
+        <ButtonGroup size="small" variant="outlined">
+          <Button
+            onClick={() => setMetricCountFilter('all')}
+            variant={metricCountFilter === 'all' ? 'contained' : 'outlined'}
+            startIcon={<ListIcon fontSize="small" />}
+          >
+            All
+          </Button>
+          <Button
+            onClick={() => setMetricCountFilter('has_metrics')}
+            variant={
+              metricCountFilter === 'has_metrics' ? 'contained' : 'outlined'
+            }
+            startIcon={<CheckCircleIcon fontSize="small" />}
+            sx={{
+              ...(metricCountFilter === 'has_metrics' && {
+                backgroundColor: theme.palette.success.main,
+                '&:hover': {
+                  backgroundColor: theme.palette.success.dark,
+                },
+              }),
+            }}
+          >
+            Has Metrics
+          </Button>
+          <Button
+            onClick={() => setMetricCountFilter('no_metrics')}
+            variant={
+              metricCountFilter === 'no_metrics' ? 'contained' : 'outlined'
+            }
+            startIcon={<ErrorOutlineIcon fontSize="small" />}
+            sx={{
+              ...(metricCountFilter === 'no_metrics' && {
+                backgroundColor: theme.palette.warning.main,
+                '&:hover': {
+                  backgroundColor: theme.palette.warning.dark,
+                },
+              }),
+            }}
+          >
+            No Metrics
+          </Button>
+        </ButtonGroup>
+
+        {/* Reset Button - inline with filters */}
+        {hasActiveFilters && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<ClearIcon />}
+            onClick={handleResetFilters}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Reset
+          </Button>
+        )}
+      </SearchAndFilterBar>
 
       {/* Behaviors grid */}
       {filteredBehaviors.length > 0 ? (
@@ -412,4 +498,3 @@ export default function BehaviorsClient({
     </Box>
   );
 }
-

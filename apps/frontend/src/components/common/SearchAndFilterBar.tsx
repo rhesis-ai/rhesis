@@ -74,7 +74,18 @@ export default function SearchAndFilterBar({
             }}
             sx={{ minWidth: { xs: '100%', sm: 250 } }}
           />
-          {children && <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>{children}</Box>}
+          {children && (
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 2,
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
+              {children}
+            </Box>
+          )}
         </Box>
 
         {/* Right side: Action buttons */}
@@ -114,4 +125,3 @@ export default function SearchAndFilterBar({
     </Box>
   );
 }
-
