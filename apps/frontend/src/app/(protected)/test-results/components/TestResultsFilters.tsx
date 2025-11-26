@@ -189,7 +189,10 @@ export default function TestResultsFilters({
             </ToggleButtonGroup>
 
             {/* Test Set Filter */}
-            <FormControl sx={{ minWidth: { xs: '100%', sm: 300, lg: 500 } }} size="small">
+            <FormControl
+              sx={{ minWidth: { xs: '100%', sm: 300, lg: 500 } }}
+              size="small"
+            >
               <InputLabel>Test Set</InputLabel>
               <Select
                 value={filters.test_set_ids?.[0] || ''}
