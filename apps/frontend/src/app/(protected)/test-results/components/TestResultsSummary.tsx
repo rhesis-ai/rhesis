@@ -30,6 +30,7 @@ import {
 interface TestResultsSummaryProps {
   sessionToken: string;
   filters: Partial<TestResultsStatsOptions>;
+  searchValue?: string;
 }
 
 // Helper function to get pass rate display properties based on percentage
@@ -61,6 +62,7 @@ function getPassRateDisplay(passRate: number) {
 export default function TestResultsSummary({
   sessionToken,
   filters,
+  searchValue = '',
 }: TestResultsSummaryProps) {
   const theme = useTheme();
   const [data, setData] = useState<TestResultsStats | null>(null);
@@ -153,6 +155,17 @@ export default function TestResultsSummary({
               new Date(a.created_at!).getTime()
           )
       : [];
+
+  // Filter test runs based on search value
+  const filteredTestRuns = recentTestRuns.filter(run => {
+    if (!searchValue) return true;
+    const searchLower = searchValue.toLowerCase();
+    const runName = (run.name || '').toLowerCase();
+    const runDate = run.created_at
+      ? new Date(run.created_at).toLocaleString().toLowerCase()
+      : '';
+    return runName.includes(searchLower) || runDate.includes(searchLower);
+  });
 
   return (
     <Box>
@@ -340,120 +353,130 @@ export default function TestResultsSummary({
           }}
         >
           <Typography variant="h6" gutterBottom>
-            Test Runs ({recentTestRuns.length})
+            Test Runs ({filteredTestRuns.length}
+            {searchValue && recentTestRuns.length !== filteredTestRuns.length
+              ? ` of ${recentTestRuns.length}`
+              : ''}
+            )
           </Typography>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: theme.customSpacing.section.small,
-            }}
-          >
-            {recentTestRuns.map((run, index) => (
-              <Box
-                key={run.id || index}
-                sx={{
-                  p: theme.customSpacing.container.small,
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: theme => theme.shape.borderRadius * 0.25,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover': {
-                    backgroundColor: 'action.hover',
-                    borderColor: 'primary.main',
-                    transform: 'translateY(-1px)',
-                    boxShadow: theme.shadows[2],
-                  },
-                }}
-                onClick={() => {
-                  if (run.id) {
-                    window.open(`/test-runs/${run.id}`, '_blank');
-                  }
-                }}
-              >
+          {filteredTestRuns.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+              No test runs match your search.
+            </Typography>
+          ) : (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: theme.customSpacing.section.small,
+              }}
+            >
+              {filteredTestRuns.map((run, index) => (
                 <Box
-                  display="flex"
-                  alignItems="center"
-                  gap={theme.customSpacing.container.small}
-                  mb={1}
+                  key={run.id || index}
+                  sx={{
+                    p: theme.customSpacing.container.small,
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: theme => theme.shape.borderRadius * 0.25,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                      borderColor: 'primary.main',
+                      transform: 'translateY(-1px)',
+                      boxShadow: theme.shadows[2],
+                    },
+                  }}
+                  onClick={() => {
+                    if (run.id) {
+                      window.open(`/test-runs/${run.id}`, '_blank');
+                    }
+                  }}
                 >
-                  <Chip
-                    label={run.name || `Run ${index + 1}`}
-                    variant="outlined"
-                    size="small"
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    {run.created_at
-                      ? new Date(run.created_at).toLocaleString()
-                      : 'N/A'}
-                  </Typography>
+                  <Box
+                    display="flex"
+                    alignItems="center"
+                    gap={theme.customSpacing.container.small}
+                    mb={1}
+                  >
+                    <Chip
+                      label={run.name || `Run ${index + 1}`}
+                      variant="outlined"
+                      size="small"
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      {run.created_at
+                        ? new Date(run.created_at).toLocaleString()
+                        : 'N/A'}
+                    </Typography>
+                  </Box>
+                  <Grid container spacing={theme.customSpacing.container.small}>
+                    <Grid
+                      size={{
+                        xs: 6,
+                        sm: 3,
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary">
+                        Total Tests
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {run.total_tests || 0}
+                      </Typography>
+                    </Grid>
+                    <Grid
+                      size={{
+                        xs: 6,
+                        sm: 3,
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary">
+                        Passed
+                      </Typography>
+                      <Typography
+                        variant="body1"
+                        fontWeight="medium"
+                        color="success.main"
+                      >
+                        {run.overall?.passed || 0}
+                      </Typography>
+                    </Grid>
+                    <Grid
+                      size={{
+                        xs: 6,
+                        sm: 3,
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary">
+                        Failed
+                      </Typography>
+                      <Typography
+                        variant="body1"
+                        fontWeight="medium"
+                        color="error.main"
+                      >
+                        {run.overall?.failed || 0}
+                      </Typography>
+                    </Grid>
+                    <Grid
+                      size={{
+                        xs: 6,
+                        sm: 3,
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary">
+                        Pass Rate
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {run.overall?.pass_rate?.toFixed(1) || '0.0'}%
+                      </Typography>
+                    </Grid>
+                  </Grid>
                 </Box>
-                <Grid container spacing={theme.customSpacing.container.small}>
-                  <Grid
-                    size={{
-                      xs: 6,
-                      sm: 3,
-                    }}
-                  >
-                    <Typography variant="caption" color="text.secondary">
-                      Total Tests
-                    </Typography>
-                    <Typography variant="body1" fontWeight="medium">
-                      {run.total_tests || 0}
-                    </Typography>
-                  </Grid>
-                  <Grid
-                    size={{
-                      xs: 6,
-                      sm: 3,
-                    }}
-                  >
-                    <Typography variant="caption" color="text.secondary">
-                      Passed
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      fontWeight="medium"
-                      color="success.main"
-                    >
-                      {run.overall?.passed || 0}
-                    </Typography>
-                  </Grid>
-                  <Grid
-                    size={{
-                      xs: 6,
-                      sm: 3,
-                    }}
-                  >
-                    <Typography variant="caption" color="text.secondary">
-                      Failed
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      fontWeight="medium"
-                      color="error.main"
-                    >
-                      {run.overall?.failed || 0}
-                    </Typography>
-                  </Grid>
-                  <Grid
-                    size={{
-                      xs: 6,
-                      sm: 3,
-                    }}
-                  >
-                    <Typography variant="caption" color="text.secondary">
-                      Pass Rate
-                    </Typography>
-                    <Typography variant="body1" fontWeight="medium">
-                      {run.overall?.pass_rate?.toFixed(1) || '0.0'}%
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </Box>
-            ))}
-          </Box>
+              ))}
+            </Box>
+          )}
         </Paper>
       )}
     </Box>
