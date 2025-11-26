@@ -51,8 +51,9 @@ RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../backend"|path = "/app/apps/backend"|g' /app/pyproject.toml
 
 # Install dependencies using uv sync
+# Use cache mount for faster builds and install only production dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync
+    uv sync --no-dev --no-editable
 
 # Now copy ALL source code - this layer will invalidate when any source changes
 COPY apps/polyphemus/src /app/src
@@ -90,6 +91,8 @@ RUN adduser --disabled-password --gecos '' appuser && \
     chown appuser:appuser /app
 
 # Copy the virtual environment from builder
+# Note: This is a large copy operation (several GB with ML dependencies)
+# GitHub Actions may appear to hang here, but it's working
 COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 
 # Copy source code and dependencies with proper ownership

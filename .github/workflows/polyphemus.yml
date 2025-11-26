@@ -155,19 +155,38 @@ jobs:
         run: |
           gcloud auth configure-docker
 
-      - name: Build Container
+      - name: Free up disk space
         run: |
-          # Build without cache to ensure all dependencies are up-to-date
+          echo "Available disk space before cleanup:"
+          df -h
+          # Remove unnecessary software to free up disk space on GitHub Actions runner
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          echo "Available disk space after cleanup:"
+          df -h
+
+      - name: Build Container
+        timeout-minutes: 60
+        run: |
+          # Use cache to speed up builds - only rebuild layers that changed
           # Build context is repo root to access SDK and pyproject.toml (like backend)
           # Pre-download default model during build to avoid runtime downloads in Cloud Run
           DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }}"
+          
+          # Enable BuildKit for better build performance and progress output
+          export DOCKER_BUILDKIT=1
+          export BUILDKIT_PROGRESS=plain
+          
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, tag with commit SHA
-            docker build --no-cache --pull --build-arg DEFAULT_MODEL="$DEFAULT_MODEL" -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/polyphemus/Dockerfile .
+            docker build --progress=plain --pull --build-arg DEFAULT_MODEL="$DEFAULT_MODEL" -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/polyphemus/Dockerfile .
             echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
           else
             # For regular deployments, use latest tag
-            docker build --no-cache --pull --build-arg DEFAULT_MODEL="$DEFAULT_MODEL" -t ${{ env.IMAGE_NAME }}:latest -f apps/polyphemus/Dockerfile .
+            docker build --progress=plain --pull --build-arg DEFAULT_MODEL="$DEFAULT_MODEL" -t ${{ env.IMAGE_NAME }}:latest -f apps/polyphemus/Dockerfile .
             echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
           fi
 
