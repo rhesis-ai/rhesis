@@ -9,9 +9,14 @@ import { Source } from '@/utils/api-client/interfaces/source';
 interface SourceTagsProps {
   sessionToken: string;
   source: Source;
+  disableEdition?: boolean;
 }
 
-export default function SourceTags({ sessionToken, source }: SourceTagsProps) {
+export default function SourceTags({
+  sessionToken,
+  source,
+  disableEdition = false,
+}: SourceTagsProps) {
   const [tagNames, setTagNames] = useState<string[]>([]);
 
   // Initialize and update tag names when source changes
@@ -26,15 +31,9 @@ export default function SourceTags({ sessionToken, source }: SourceTagsProps) {
       <BaseTag
         value={tagNames}
         onChange={setTagNames}
-        label="Tags"
-        placeholder="Add tags (press Enter or comma to add)"
-        helperText="These tags help categorize and find this source"
+        placeholder="Add tags..."
         chipColor="primary"
-        addOnBlur
-        delimiters={[',', 'Enter']}
-        size="small"
-        margin="normal"
-        fullWidth
+        disableEdition={disableEdition}
         sessionToken={sessionToken}
         entityType={EntityType.SOURCE}
         entity={source}
