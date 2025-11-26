@@ -449,11 +449,6 @@
         },
         {
             "type_name": "SourceType",
-            "type_value": "API",
-            "description": "API documentation or response"
-        },
-        {
-            "type_name": "SourceType",
             "type_value": "Database",
             "description": "Database schema or data source"
         },
@@ -466,6 +461,11 @@
             "type_name": "SourceType",
             "type_value": "Manual",
             "description": "Manual or user-provided content"
+        },
+        {
+            "type_name": "SourceType",
+            "type_value": "Tool",
+            "description": "Source imported from tool integration (MCP or API)"
         },
         {
             "type_name": "TestSetType",
