@@ -65,7 +65,7 @@ export default function TestResultsCharts({
         sx={{
           borderBottom: 1,
           borderColor: 'divider',
-          mb: theme.customSpacing.section.small,
+          mb: 2,
         }}
       >
         <Tab label="Overview" {...a11yProps(0)} />
