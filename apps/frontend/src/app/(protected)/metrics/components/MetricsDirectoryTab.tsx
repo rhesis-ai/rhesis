@@ -957,11 +957,9 @@ export default function MetricsDirectoryTab({
         }}
         onSelect={handleAssignMetric}
         sessionToken={sessionToken}
-        excludeBehaviorIds={
-          (selectedMetric?.behaviors || [])
-            .filter(b => typeof b !== 'string' && b.id)
-            .map(b => (typeof b !== 'string' ? b.id : (b as unknown as UUID)))
-        }
+        excludeBehaviorIds={(selectedMetric?.behaviors || [])
+          .filter(b => typeof b !== 'string' && b.id)
+          .map(b => (typeof b !== 'string' ? b.id : (b as unknown as UUID)))}
       />
       <MetricTypeDialog
         open={createMetricOpen}

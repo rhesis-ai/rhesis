@@ -35,14 +35,13 @@ interface OnboardingProviderProps {
 export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const { data: session } = useSession();
   // Initialize with localStorage data immediately to avoid flash
-  const [progress, setProgress] =
-    useState<OnboardingProgress>(() => {
-      // Load synchronously during initialization to prevent flash
-      if (typeof window !== 'undefined') {
-        return loadProgress();
-      }
-      return getDefaultProgress();
-    });
+  const [progress, setProgress] = useState<OnboardingProgress>(() => {
+    // Load synchronously during initialization to prevent flash
+    if (typeof window !== 'undefined') {
+      return loadProgress();
+    }
+    return getDefaultProgress();
+  });
   const [activeTour, setActiveTour] = useState<string | null>(null);
   const [driverInstance, setDriverInstance] = useState<Driver | null>(null);
   const activeTourRef = useRef<string | null>(null);
@@ -69,11 +68,12 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
             // Sync merged progress back to DB if there were any changes
             if (JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress)) {
-              syncProgressToDatabase(session.session_token, mergedProgress).catch(
-                error => {
-                  console.error('Error syncing progress to database:', error);
-                }
-              );
+              syncProgressToDatabase(
+                session.session_token,
+                mergedProgress
+              ).catch(error => {
+                console.error('Error syncing progress to database:', error);
+              });
             }
 
             return mergedProgress;
