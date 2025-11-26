@@ -605,7 +605,11 @@ export default function SourcePreviewClientWrapper({
                     <Avatar
                       src={source.user?.picture}
                       alt={source.user?.name || source.user?.email || 'Unknown'}
-                      sx={{ width: 24, height: 24, fontSize: '0.875rem' }}
+                      sx={{
+                        width: 24,
+                        height: 24,
+                        fontSize: theme => theme.typography.caption.fontSize,
+                      }}
                     >
                       {(source.user?.name || source.user?.email || 'U')
                         .charAt(0)
@@ -711,7 +715,7 @@ export default function SourcePreviewClientWrapper({
                     m: 0,
                     p: 2,
                     fontFamily: 'Monaco, Menlo, Ubuntu Mono, monospace',
-                    fontSize: '14px',
+                    fontSize: theme => theme.typography.body2.fontSize,
                     lineHeight: 1.6,
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
