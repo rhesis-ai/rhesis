@@ -360,6 +360,9 @@ export default function TestDetailOverviewTab({
         )}
       </Box>
 
+      {/* Divider */}
+      <Divider sx={{ mb: 3 }} />
+
       {/* Goal Section */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="subtitle2" fontWeight={600} gutterBottom>

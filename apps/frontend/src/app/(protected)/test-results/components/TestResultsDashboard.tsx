@@ -15,7 +15,7 @@ export default function TestResultsDashboard({
 }: TestResultsDashboardProps) {
   const theme = useTheme();
   const [filters, setFilters] = useState<Partial<TestResultsStatsOptions>>({
-    months: 6,
+    months: 1,
   });
 
   const handleFiltersChange = useCallback(
@@ -30,7 +30,7 @@ export default function TestResultsDashboard({
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.customSpacing.section.medium,
+        gap: 3,
       }}
     >
       {/* Filters */}
