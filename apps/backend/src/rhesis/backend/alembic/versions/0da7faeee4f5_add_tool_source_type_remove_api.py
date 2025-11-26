@@ -12,7 +12,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 
 # revision identifiers, used by Alembic.
 revision: str = "0da7faeee4f5"
-down_revision: Union[str, None] = "ea202c1df0ec"
+down_revision: Union[str, None] = "ee42160dfacf"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
