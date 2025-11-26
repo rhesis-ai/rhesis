@@ -321,32 +321,42 @@ start_polyphemus() {
         exit 1
     }
 
-    # Install dependencies if needed
-    if ! python -c "import rhesis.polyphemus" 2>/dev/null; then
-        echo -e "${YELLOW}📦 Installing Polyphemus dependencies...${NC}"
-        uv pip install -e apps/polyphemus || {
-            echo -e "${RED}❌ Error: Failed to install Polyphemus${NC}"
-            exit 1
-        }
-    fi
+    # Install SDK first with huggingface extras (required by polyphemus)
+    echo -e "${YELLOW}📦 Installing SDK with HuggingFace support...${NC}"
+    uv pip install -e "sdk[huggingface]" || {
+        echo -e "${RED}❌ Error: Failed to install SDK${NC}"
+        exit 1
+    }
 
-    # Check if SDK is installed
-    if ! python -c "import rhesis-sdk[huggingface]" 2>/dev/null; then
-        echo -e "${YELLOW}📦 Installing SDK...${NC}"
-        uv pip install -e sdk || {
-            echo -e "${RED}❌ Error: Failed to install SDK${NC}"
-            exit 1
-        }
-    fi
+    # Install Penelope
+    echo -e "${YELLOW}📦 Installing Penelope...${NC}"
+    uv pip install -e penelope || {
+        echo -e "${RED}❌ Error: Failed to install Penelope${NC}"
+        exit 1
+    }
+
+    # Install Backend
+    echo -e "${YELLOW}📦 Installing Backend...${NC}"
+    uv pip install -e apps/backend || {
+        echo -e "${RED}❌ Error: Failed to install Backend${NC}"
+        exit 1
+    }
+
+    # Install Polyphemus (all dependencies now resolved)
+    echo -e "${YELLOW}📦 Installing Polyphemus...${NC}"
+    uv pip install -e apps/polyphemus || {
+        echo -e "${RED}❌ Error: Failed to install Polyphemus${NC}"
+        exit 1
+    }
 
     echo -e "${GREEN}🚀 Starting Polyphemus service...${NC}"
-    echo -e "${BLUE}🌐 Service will be available at: http://localhost:8080${NC}"
-    echo -e "${BLUE}📚 API docs will be available at: http://localhost:8080/docs${NC}"
+    echo -e "${BLUE}🌐 Service will be available at: http://localhost:8082${NC}"
+    echo -e "${BLUE}📚 API docs will be available at: http://localhost:8082/docs${NC}"
     echo -e "${YELLOW}💡 Press Ctrl+C to stop the service${NC}"
     echo ""
 
     # Run uvicorn
-    exec uvicorn rhesis.polyphemus.main:app --host 0.0.0.0 --port 8080 --reload
+    exec uvicorn rhesis.polyphemus.main:app --host 0.0.0.0 --port 8082 --reload
 }
 
 # Function to start worker

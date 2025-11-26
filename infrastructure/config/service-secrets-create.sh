@@ -118,6 +118,8 @@ function show_usage() {
   echo "  NEXT_PUBLIC_AUTH0_CLIENT_ID   Auth0 client ID for frontend"
   echo "  NEXT_PUBLIC_AUTH0_DOMAIN      Auth0 domain for frontend"
   echo "  DATABASE_URL                  Database URL for frontend"
+  echo "  POLYPHEMUS_REGION             GCP region for Polyphemus Cloud Run deployment"
+  echo "  DEFAULT_MODEL                 Default model for Polyphemus"
   echo ""
   echo -e "${BLUE}Example:${NC}"
   echo "  $0 --repo myuser/myrepo"
@@ -305,6 +307,10 @@ SERVICE_VARS=(
   "NEXT_PUBLIC_AUTH0_CLIENT_ID"
   "NEXT_PUBLIC_AUTH0_DOMAIN"
   "DATABASE_URL"
+
+  # Polyphemus service variables
+  "POLYPHEMUS_REGION"
+  "DEFAULT_MODEL"
 )
 
 # Set environment-specific secrets

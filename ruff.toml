@@ -17,6 +17,8 @@ select = [
 known-first-party = [
     "rhesis.sdk",
     "rhesis.backend",
+    "rhesis.penelope",
+    "rhesis.polyphemus",
 ]
 
 [format]
