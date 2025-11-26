@@ -84,15 +84,11 @@ const BehaviorDrawer = ({
           />
         </Stack>
 
-        {/* Danger Zone Section */}
+        {/* Delete Section */}
         {!isNew && onDelete && (
-          <Stack spacing={2}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Danger Zone
-            </Typography>
+          <Stack spacing={1.5}>
             <Typography variant="body2" color="text.secondary">
-              Deleting a behavior is permanent. This behavior can only be
-              deleted if it has no assigned metrics.
+              Delete this behavior (only available if no metrics are assigned)
             </Typography>
             <Button
               variant="outlined"

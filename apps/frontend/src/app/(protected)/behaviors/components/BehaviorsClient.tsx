@@ -78,8 +78,10 @@ export default function BehaviorsClient({
         return;
       }
 
-      // Check if session token changed
+      // Only skip if this is the initial load and we've already fetched with this token
+      // Always refetch when refreshKey changes
       if (
+        refreshKey === 0 &&
         lastSessionTokenRef.current !== null &&
         lastSessionTokenRef.current === sessionToken &&
         hasFetchedRef.current
