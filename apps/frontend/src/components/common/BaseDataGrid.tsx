@@ -43,6 +43,7 @@ import {
   useGridApiRef,
   GridFilterModel,
   GridSortModel,
+  GridInitialState,
 } from '@mui/x-data-grid';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -136,6 +137,8 @@ interface BaseDataGridProps {
   enableQuickFilter?: boolean;
   // Styling props
   disablePaperWrapper?: boolean;
+  // Initial state props
+  initialState?: GridInitialState;
 }
 
 // Create a styled version of DataGrid with bold headers
@@ -203,6 +206,7 @@ export default function BaseDataGrid({
   pageSizeOptions = [10, 25, 50],
   enableQuickFilter = false,
   disablePaperWrapper = false,
+  initialState,
 }: BaseDataGridProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -691,6 +695,7 @@ export default function BaseDataGrid({
           }
           disableMultipleRowSelection={disableMultipleRowSelection}
           {...(density && { density })}
+          {...(initialState && { initialState })}
           {...(serverSideFiltering && {
             filterMode: 'server',
             filterModel,
@@ -755,6 +760,7 @@ export default function BaseDataGrid({
             }
             disableMultipleRowSelection={disableMultipleRowSelection}
             {...(density && { density })}
+            {...(initialState && { initialState })}
             {...(serverSideFiltering && {
               filterMode: 'server',
               filterModel,

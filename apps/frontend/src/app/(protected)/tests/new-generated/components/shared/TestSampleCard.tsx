@@ -21,9 +21,11 @@ import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
 import SendIcon from '@mui/icons-material/Send';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import CircularProgress from '@mui/material/CircularProgress';
 import { AnyTestSample } from './types';
 import ContextPreview from './ContextPreview';
+import ConversationHistoryModal from './ConversationHistoryModal';
 
 interface TestSampleCardProps {
   sample: AnyTestSample;
@@ -31,6 +33,10 @@ interface TestSampleCardProps {
   onFeedbackChange: (sampleId: string, feedback: string) => void;
   onRegenerate?: (sampleId: string, feedback: string) => void;
   isRegenerating?: boolean;
+  actionButton?: React.ReactNode;
+  endpointName?: string;
+  projectName?: string;
+  projectIcon?: string;
 }
 
 /**
@@ -43,12 +49,17 @@ export default function TestSampleCard({
   onFeedbackChange,
   onRegenerate,
   isRegenerating = false,
+  actionButton,
+  endpointName,
+  projectName,
+  projectIcon,
 }: TestSampleCardProps) {
   const [showFeedback, setShowFeedback] = useState(
     sample.rating === 1 || Boolean(sample.feedback)
   );
   const [localFeedback, setLocalFeedback] = useState(sample.feedback);
   const [expandedDetails, setExpandedDetails] = useState(false);
+  const [showConversationModal, setShowConversationModal] = useState(false);
 
   const handleThumbsUp = () => {
     // Toggle: if already rated 5, set to 0 (unrated), otherwise set to 5
@@ -133,7 +144,12 @@ export default function TestSampleCard({
                 color="primary"
                 variant="outlined"
               />
-              <Chip label={sample.topic} size="small" variant="outlined" />
+              <Chip
+                label={sample.topic}
+                size="small"
+                color="success"
+                variant="outlined"
+              />
               {sample.testType === 'multi_turn' && (
                 <Chip
                   label={sample.category}
@@ -312,48 +328,59 @@ export default function TestSampleCard({
               </Paper>
             </Box>
 
-            {/* Response (Right-aligned) - if present or loading */}
-            {(sample.response ||
-              sample.isLoadingResponse ||
-              sample.responseError) && (
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    maxWidth: '80%',
-                    border: 1,
-                    borderColor: sample.responseError
-                      ? 'error.main'
-                      : 'divider',
-                    borderRadius: theme => theme.shape.borderRadius,
-                    px: 1.5,
-                    py: 1,
-                    bgcolor: sample.responseError
-                      ? 'error.lighter'
-                      : 'background.paper',
-                  }}
-                >
-                  {sample.isLoadingResponse ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CircularProgress size={16} />
-                      <Typography variant="body2" color="text.secondary">
-                        Loading response...
+            {/* Single-turn response preview */}
+            {sample.testType === 'single_turn' &&
+              /* Single-turn response (Right-aligned) - if present or loading */
+              (sample.response ||
+                sample.isLoadingResponse ||
+                sample.responseError) && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      maxWidth: '80%',
+                      border: 1,
+                      borderColor: sample.responseError
+                        ? 'error.main'
+                        : 'divider',
+                      borderRadius: theme => theme.shape.borderRadius,
+                      px: 1.5,
+                      py: 1,
+                      bgcolor: sample.responseError
+                        ? 'error.lighter'
+                        : 'background.paper',
+                    }}
+                  >
+                    {sample.isLoadingResponse ? (
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        <CircularProgress size={16} />
+                        <Typography variant="body2" color="text.secondary">
+                          Loading response...
+                        </Typography>
+                      </Box>
+                    ) : sample.responseError ? (
+                      <Typography variant="body2" color="error.main">
+                        Error: {sample.responseError}
                       </Typography>
-                    </Box>
-                  ) : sample.responseError ? (
-                    <Typography variant="body2" color="error.main">
-                      Error: {sample.responseError}
-                    </Typography>
-                  ) : (
-                    <Typography variant="body2">{sample.response}</Typography>
-                  )}
-                </Paper>
-              </Box>
-            )}
+                    ) : (
+                      <Typography variant="body2">{sample.response}</Typography>
+                    )}
+                  </Paper>
+                </Box>
+              )}
           </Box>
 
           {/* Rating Buttons - Right Side */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'row',
+              gap: 0.5,
+              alignItems: 'flex-start',
+            }}
+          >
             <IconButton
               size="small"
               onClick={handleThumbsUp}
@@ -419,7 +446,89 @@ export default function TestSampleCard({
             </Box>
           </Fade>
         )}
+
+        {/* Action Button - for multi-turn, show either simulate or view response button */}
+        {sample.testType === 'multi_turn' &&
+          (actionButton ||
+            sample.conversation ||
+            sample.isLoadingConversation ||
+            sample.conversationError) && (
+            <Box
+              sx={{
+                mt: 2,
+                pt: 2,
+                borderTop: 1,
+                borderColor: 'divider',
+                display: 'flex',
+                justifyContent: 'flex-end',
+              }}
+            >
+              {sample.isLoadingConversation ? (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    px: 2,
+                    py: 1,
+                  }}
+                >
+                  <CircularProgress size={16} />
+                  <Typography variant="body2" color="text.secondary">
+                    Simulating conversation...
+                  </Typography>
+                </Box>
+              ) : sample.conversationError ? (
+                <Typography variant="body2" color="error.main">
+                  Error: {sample.conversationError}
+                </Typography>
+              ) : sample.conversation && sample.conversation.length > 0 ? (
+                <Button
+                  variant="outlined"
+                  startIcon={<VisibilityIcon />}
+                  onClick={() => setShowConversationModal(true)}
+                  size="small"
+                >
+                  View Response ({sample.conversation.length} turns)
+                </Button>
+              ) : (
+                actionButton
+              )}
+            </Box>
+          )}
+
+        {/* Action Button - for single-turn, just show the action button if provided */}
+        {sample.testType === 'single_turn' && actionButton && (
+          <Box
+            sx={{
+              mt: 2,
+              pt: 2,
+              borderTop: 1,
+              borderColor: 'divider',
+              display: 'flex',
+              justifyContent: 'flex-end',
+            }}
+          >
+            {actionButton}
+          </Box>
+        )}
       </CardContent>
+
+      {/* Conversation History Modal for Multi-Turn Tests */}
+      {sample.testType === 'multi_turn' && sample.conversation && (
+        <ConversationHistoryModal
+          open={showConversationModal}
+          onClose={() => setShowConversationModal(false)}
+          conversationSummary={sample.conversation}
+          testConfiguration={sample.prompt}
+          behavior={sample.behavior}
+          topic={sample.topic}
+          category={sample.category}
+          endpointName={endpointName}
+          projectName={projectName}
+          projectIcon={projectIcon}
+        />
+      )}
     </Card>
   );
 }

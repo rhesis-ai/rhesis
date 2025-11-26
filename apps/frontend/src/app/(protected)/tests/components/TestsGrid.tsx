@@ -555,6 +555,13 @@ export default function TestsTable({
         onFilterModelChange={handleFilterModelChange}
         showToolbar={true}
         disablePaperWrapper={true}
+        initialState={{
+          columns: {
+            columnVisibilityModel: {
+              'test_metadata.sources': false,
+            },
+          },
+        }}
       />
 
       {sessionToken && (
