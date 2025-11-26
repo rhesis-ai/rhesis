@@ -54,19 +54,22 @@ export class SourcesClient extends BaseApiClient {
    * @param content - Text content of the source
    * @param description - Optional description
    * @param metadata - Optional metadata (e.g., MCP server info, URL)
+   * @param source_type_id - Optional source type ID
    * @returns Created source
    */
   async createSourceFromContent(
     title: string,
     content: string,
     description?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
+    source_type_id?: UUID
   ): Promise<Source> {
     const sourceData: SourceCreate = {
       title,
       content,
       description,
       source_metadata: metadata,
+      source_type_id,
     };
 
     return this.createSource(sourceData);

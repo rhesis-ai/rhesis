@@ -830,8 +830,9 @@ def get_source(
 
     Note: Content field is deferred and will not be loaded unless explicitly requested.
     Use get_source_with_content() to load the content field.
+    Relationships (source_type, status, user) are loaded for display.
     """
-    return get_item(db, models.Source, source_id, organization_id, user_id)
+    return get_item_detail(db, models.Source, source_id, organization_id, user_id)
 
 
 def get_source_with_content(
@@ -870,8 +871,9 @@ def get_sources(
 
     Note: Content field is deferred and will not be loaded.
     Use get_source_with_content() for individual sources that need content.
+    Relationships (source_type, status, user) are loaded for display.
     """
-    return get_items(
+    return get_items_detail(
         db,
         models.Source,
         skip,

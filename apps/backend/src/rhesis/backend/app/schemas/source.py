@@ -15,10 +15,10 @@ from rhesis.backend.app.schemas.user import User
 class SourceType(str, Enum):
     DOCUMENT = "Document"
     WEBSITE = "Website"
-    API = "API"
     DATABASE = "Database"
     CODE = "Code"
     MANUAL = "Manual"
+    TOOL = "Tool"
 
     @classmethod
     def get_value(cls, source_type):
