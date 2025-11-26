@@ -17,6 +17,7 @@ export default function TestResultsDashboard({
   const [filters, setFilters] = useState<Partial<TestResultsStatsOptions>>({
     months: 1,
   });
+  const [searchValue, setSearchValue] = useState('');
 
   const handleFiltersChange = useCallback(
     (newFilters: Partial<TestResultsStatsOptions>) => {
@@ -24,6 +25,10 @@ export default function TestResultsDashboard({
     },
     []
   );
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchValue(value);
+  }, []);
 
   return (
     <Box
@@ -36,12 +41,17 @@ export default function TestResultsDashboard({
       {/* Filters */}
       <TestResultsFilters
         onFiltersChange={handleFiltersChange}
+        onSearchChange={handleSearchChange}
         initialFilters={filters}
         sessionToken={sessionToken}
       />
 
       {/* Charts - Each chart makes its own API call in parallel */}
-      <TestResultsCharts sessionToken={sessionToken} filters={filters} />
+      <TestResultsCharts
+        sessionToken={sessionToken}
+        filters={filters}
+        searchValue={searchValue}
+      />
     </Box>
   );
 }
