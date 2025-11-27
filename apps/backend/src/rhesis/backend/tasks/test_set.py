@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional, Union
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, TestType
+from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
@@ -15,7 +15,7 @@ from rhesis.backend.worker import app
 
 # Import SDK components for test generation
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.synthesizers import ConfigSynthesizer
+from rhesis.sdk.synthesizers import ConfigSynthesizer, MultiTurnSynthesizer
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -153,7 +153,7 @@ def _save_test_set_to_database(
             test_set_data=test_set_data,
             organization_id=org_id,
             user_id=user_id,
-            test_set_type=TestType.SINGLE_TURN,  # ConfigSynthesizer generates single-turn tests
+            test_set_type=test_set.test_set_type,  # ConfigSynthesizer generates single-turn tests
         )
 
         # Note: We don't set the SDK test_set.id because:
@@ -247,6 +247,7 @@ def generate_and_save_test_set(
     batch_size: int = 20,
     sources: Optional[List[dict]] = None,
     name: Optional[str] = None,
+    test_type: Optional[str] = "single_turn",
 ):
     """
     Generate and save test set using ConfigSynthesizer.
@@ -302,12 +303,18 @@ def generate_and_save_test_set(
         self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
 
         # Create synthesizer with full config
-        synthesizer = ConfigSynthesizer(
-            config=generation_config,  # ✅ Full config including all fields
-            batch_size=batch_size,
-            model=model,
-            sources=source_specifications if source_specifications else None,
-        )
+        if test_type == "single_turn":
+            synthesizer = ConfigSynthesizer(
+                config=generation_config,  # ✅ Full config including all fields
+                batch_size=batch_size,
+                model=model,
+                sources=source_specifications if source_specifications else None,
+            )
+        elif test_type == "multi_turn":
+            synthesizer = MultiTurnSynthesizer(
+                config=generation_config,
+                model=model,
+            )
 
         test_set = synthesizer.generate(num_tests=num_tests)
 
