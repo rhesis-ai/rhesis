@@ -1,20 +1,5 @@
 from typing import List, Optional, Union
 
-from deepeval.metrics import (  # type: ignore
-    AnswerRelevancyMetric,
-    BiasMetric,
-    ContextualPrecisionMetric,
-    ContextualRecallMetric,
-    ContextualRelevancyMetric,
-    FaithfulnessMetric,
-    MisuseMetric,
-    NonAdviceMetric,
-    PIILeakageMetric,
-    RoleViolationMetric,
-    ToxicityMetric,
-)
-from deepteam.metrics import IllegalMetric, SafetyMetric  # type: ignore
-
 from rhesis.sdk.metrics.base import MetricResult, MetricType
 from rhesis.sdk.metrics.providers.deepeval.metric_base import DeepEvalMetricBase
 from rhesis.sdk.metrics.utils import retry_evaluation
@@ -33,6 +18,8 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        from deepeval.metrics import AnswerRelevancyMetric  # type: ignore
+
         self._metric = AnswerRelevancyMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
@@ -62,6 +49,8 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(name="Faithfulness", metric_type=self.metric_type, model=model)
+        from deepeval.metrics import FaithfulnessMetric  # type: ignore
+
         self._metric = FaithfulnessMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
@@ -96,6 +85,8 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        from deepeval.metrics import ContextualRelevancyMetric  # type: ignore
+
         self._metric = ContextualRelevancyMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
@@ -129,6 +120,8 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        from deepeval.metrics import ContextualPrecisionMetric  # type: ignore
+
         self._metric = ContextualPrecisionMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
@@ -164,6 +157,8 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        from deepeval.metrics import ContextualRecallMetric  # type: ignore
+
         self._metric = ContextualRecallMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
@@ -199,6 +194,8 @@ class DeepEvalBias(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        from deepeval.metrics import BiasMetric  # type: ignore
+
         self._metric = BiasMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
@@ -232,6 +229,8 @@ class DeepEvalToxicity(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        from deepeval.metrics import ToxicityMetric  # type: ignore
+
         self._metric = ToxicityMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
@@ -270,6 +269,8 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        from deepeval.metrics import NonAdviceMetric  # type: ignore
+
         # Default to common advice types if not provided
         if advice_types is None:
             advice_types = ["legal", "medical", "financial"]
@@ -313,6 +314,8 @@ class DeepEvalMisuse(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        from deepeval.metrics import MisuseMetric  # type: ignore
+
         self._metric = MisuseMetric(domain=domain, threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
@@ -346,6 +349,8 @@ class DeepEvalPIILeakage(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        from deepeval.metrics import PIILeakageMetric  # type: ignore
+
         self._metric = PIILeakageMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
@@ -384,6 +389,8 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
             metric_type=self.metric_type,
             model=model,
         )
+        from deepeval.metrics import RoleViolationMetric  # type: ignore
+
         # Default to a generic helpful assistant role if not provided
         if role is None:
             role = "helpful assistant"
@@ -422,6 +429,8 @@ class DeepTeamIllegal(DeepEvalMetricBase):
         model: Optional[Union[BaseLLM, str]] = None,
     ):
         super().__init__(name="Illegal", metric_type=self.metric_type, model=model)
+        from deepteam.metrics import IllegalMetric  # type: ignore
+
         # Use a sensible default if no category is provided
         category = illegal_category or "general"
         self._metric = IllegalMetric(illegal_category=category, model=self._deepeval_model)
@@ -456,6 +465,8 @@ class DeepTeamSafety(DeepEvalMetricBase):
         model: Optional[Union[BaseLLM, str]] = None,
     ):
         super().__init__(name="Safety", metric_type=self.metric_type, model=model)
+        from deepteam.metrics import SafetyMetric  # type: ignore
+
         # Use a sensible default if no category is provided
         category = safety_category or "general"
         self._metric = SafetyMetric(safety_category=category, model=self._deepeval_model)

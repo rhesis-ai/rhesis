@@ -12,12 +12,6 @@ This module provides:
 from rhesis.sdk.metrics import (
     BaseMetric,
     CategoricalJudge,
-    # DeepEval metrics
-    DeepEvalAnswerRelevancy,
-    DeepEvalContextualPrecision,
-    DeepEvalContextualRecall,
-    DeepEvalContextualRelevancy,
-    DeepEvalFaithfulness,
     MetricConfig,
     MetricFactory,
     MetricResult,
@@ -68,3 +62,21 @@ __all__ = [
     "DeepEvalContextualRecall",
     "DeepEvalContextualRelevancy",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy load deepeval metric classes to avoid eager imports."""
+    # DeepEval metrics
+    deepeval_metrics = [
+        "DeepEvalAnswerRelevancy",
+        "DeepEvalFaithfulness",
+        "DeepEvalContextualPrecision",
+        "DeepEvalContextualRecall",
+        "DeepEvalContextualRelevancy",
+    ]
+    
+    if name in deepeval_metrics:
+        from rhesis.sdk.metrics import __getattr__ as sdk_getattr
+        return sdk_getattr(name)
+    
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
