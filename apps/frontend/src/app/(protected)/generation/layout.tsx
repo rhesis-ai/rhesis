@@ -1,10 +1,10 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Tests',
+  title: 'Generation',
 };
 
-export default function TestsLayout({
+export default function GenerationLayout({
   children,
 }: {
   children: React.ReactNode;
