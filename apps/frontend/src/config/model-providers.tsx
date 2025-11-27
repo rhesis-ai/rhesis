@@ -30,6 +30,7 @@ export const SUPPORTED_PROVIDERS = [
   'anthropic',
   'groq',
   'mistral',
+  'openrouter',
   'replicate',
   'perplexity',
   'together_ai',
@@ -62,6 +63,9 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   mistral: <MistralIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   ollama: <SiOllama className="h-8 w-8" />,
   openai: <SiOpenai className="h-8 w-8" />,
+  openrouter: (
+    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
+  ),
   perplexity: (
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
   ),
