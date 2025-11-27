@@ -1,4 +1,3 @@
-import json
 import uuid
 from enum import Enum
 from typing import Optional
@@ -107,11 +106,7 @@ async def generate_test_set(
         if not request.config.behaviors:
             raise HTTPException(status_code=400, detail="At least one behavior must be specified")
 
-        try:
-            additional_context = json.loads(request.config.additional_context)
-            test_type = additional_context.get("test_type", "single_turn")
-        except Exception:
-            test_type = "single_turn"
+        test_type = request.test_type
 
         # Launch background task with explicit parameters
         task_result = task_launcher(
