@@ -39,15 +39,15 @@ def create_tool(
     Examples: {"NOTION_TOKEN": "ntn_abc..."} or {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_abc..."}
 
     For custom providers (provider_type="custom"), you must provide the MCP server configuration
-    in tool_metadata with credential placeholders. Placeholders MUST use simple format like
-    {{ TOKEN }} (not {{ TOKEN | tojson }}) because the JSON must be valid before Jinja2 rendering.
+    in tool_metadata with credential placeholders. Placeholders MUST use the `| tojson` filter
+    to safely escape special characters.
 
     Example tool_metadata for custom provider:
     {
         "command": "bunx",
         "args": ["--bun", "@custom/mcp-server"],
         "env": {
-            "NOTION_TOKEN": "{{ NOTION_TOKEN }}"
+            "API_TOKEN": "{{API_TOKEN | tojson}}"
         }
     }
     """
@@ -118,9 +118,6 @@ def update_tool(
     Update a tool.
 
     Only provide credentials if you want to update them (they will be re-encrypted).
-
-    For custom providers, tool_metadata placeholders must use simple format like
-    {{ TOKEN }} (not {{ TOKEN | tojson }}) because the JSON must be valid before Jinja2 rendering.
     """
     organization_id, user_id = tenant_context
     db_tool = crud.update_tool(

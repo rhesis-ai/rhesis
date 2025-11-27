@@ -268,16 +268,12 @@ class MCPClientManager:
         Returns:
             MCPClientManager instance configured with the tool
 
-        Note:
-            Placeholders must use simple format like {{ TOKEN }} (not {{ TOKEN | tojson }})
-            because the tool_config must be valid JSON before Jinja2 rendering.
-
         Example:
             tool_config = {
                 "command": "bunx",
                 "args": ["--bun", "@notionhq/notion-mcp-server"],
                 "env": {
-                    "NOTION_TOKEN": "{{ NOTION_TOKEN }}"
+                    "NOTION_TOKEN": "{{NOTION_TOKEN | tojson}}"
                 }
             }
             credentials = {"NOTION_TOKEN": "ntn_abc123..."}
