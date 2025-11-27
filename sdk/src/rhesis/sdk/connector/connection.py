@@ -44,6 +44,41 @@ def classify_websocket_error(exception: Exception) -> tuple[bool, str]:
     """
     error_str = str(exception)
 
+    # Check for WebSocket close code and reason (e.g., code 1008 = Policy Violation)
+    # websockets library provides ConnectionClosed with code and reason attributes
+    if hasattr(exception, "rcvd") and exception.rcvd:
+        close_code = exception.rcvd.code
+        close_reason = exception.rcvd.reason
+
+        # Code 1008: Policy Violation (used for validation errors like invalid project_id)
+        if close_code == 1008:
+            message = (
+                f"Connection rejected: {close_reason}"
+                if close_reason
+                else "Connection rejected by server due to policy violation"
+            )
+            return False, message
+
+        # Code 1002: Protocol Error
+        if close_code == 1002:
+            message = (
+                f"Protocol error: {close_reason}" if close_reason else "WebSocket protocol error"
+            )
+            return False, message
+
+        # Code 1003: Unsupported Data
+        if close_code == 1003:
+            message = (
+                f"Unsupported data: {close_reason}" if close_reason else "Unsupported data format"
+            )
+            return False, message
+
+        # Use close reason if available for other codes
+        if close_reason:
+            # Codes 1000-1003, 1007-1011 are permanent failures
+            if close_code in [1000, 1001, 1002, 1003, 1007, 1008, 1009, 1010, 1011]:
+                return False, f"Connection closed (code {close_code}): {close_reason}"
+
     # Extract HTTP status code if present
     http_status_match = re.search(r"HTTP (\d{3})", error_str)
     if http_status_match:
@@ -58,7 +93,8 @@ def classify_websocket_error(exception: Exception) -> tuple[bool, str]:
                 )
             else:  # 403
                 message = (
-                    "Authorization failed: Invalid API key, project ID, or user not associated with organization.\n"
+                    "Authorization failed: Invalid API key, project ID, "
+                    "or user not associated with organization.\n"
                     "Please check:\n"
                     "  - RHESIS_API_KEY is correct\n"
                     "  - RHESIS_PROJECT_ID is set\n"
@@ -158,7 +194,8 @@ class WebSocketConnection:
             context_msg = f" ({context})" if context else ""
             logger.info(
                 f"Connection state: {old_state.value} -> {new_state.value}{context_msg} "
-                f"[url={self.url}, ping_interval={self.ping_interval}s, ping_timeout={self.ping_timeout}s]"
+                f"[url={self.url}, ping_interval={self.ping_interval}s, "
+                f"ping_timeout={self.ping_timeout}s]"
             )
         self.state = new_state
 
