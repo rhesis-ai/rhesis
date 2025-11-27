@@ -78,7 +78,7 @@ const ICON_MAP: Record<string, React.ComponentType> = {
   AccountTree: AccountTreeIcon,
 };
 
-const ENVIRONMENTS = ['production', 'staging', 'development'];
+const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
 
 // Get appropriate icon based on project type or use case
 const getProjectIcon = (project: Project) => {

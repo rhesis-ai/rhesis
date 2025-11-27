@@ -69,7 +69,7 @@ import Tooltip from '@mui/material/Tooltip';
 
 // Constants for select fields
 const CONNECTION_TYPES = ['REST', 'WEBSOCKET', 'GRPC', 'SDK'];
-const ENVIRONMENTS = ['production', 'staging', 'development'];
+const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
 
 // Map of icon names to components for easy lookup

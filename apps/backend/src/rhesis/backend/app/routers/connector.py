@@ -54,13 +54,58 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close(code=1008, reason="Missing project_id")
         return
 
+    # Normalize environment to lowercase for consistent key generation
+    environment = environment.lower()
+    logger.info(f"WebSocket connection attempt: {project_id}:{environment}")
+
+    # Validate environment against allowed values
+    from rhesis.backend.app.models.enums import EndpointEnvironment
+
+    try:
+        EndpointEnvironment(environment)
+        logger.debug(f"Environment '{environment}' validated successfully")
+    except ValueError:
+        valid_envs = ", ".join([e.value for e in EndpointEnvironment])
+        error_msg = f"Invalid environment: '{environment}'. Valid environments: {valid_envs}"
+        logger.error(error_msg)
+        await websocket.close(code=1008, reason=error_msg)
+        return
+
+    # Validate project_id format (UUID)
+    from uuid import UUID
+
+    from rhesis.backend.app import crud
+
+    try:
+        project_uuid = UUID(project_id)
+        logger.debug(f"Project ID format valid: {project_id}")
+    except ValueError:
+        error_msg = f"Invalid project_id format: '{project_id}'. Must be a valid UUID."
+        logger.error(error_msg)
+        await websocket.close(code=1008, reason=error_msg)
+        return
+
+    # Get tenant context for project validation
+    organization_id = str(user.organization_id)
+    user_id = str(user.id)
+
+    # Validate project exists and belongs to user's organization
+    with get_db_with_tenant_variables(organization_id, user_id) as db:
+        project = crud.get_project(db, project_uuid, organization_id, user_id)
+        if not project:
+            error_msg = (
+                f"Project not found or not accessible: '{project_id}'. "
+                f"Verify the project exists and belongs to your organization."
+            )
+            logger.error(error_msg)
+            await websocket.close(code=1008, reason=error_msg)
+            return
+
+        logger.info(f"Project validation successful: {project.name} ({project_id})")
+
     # Accept connection after all validation passes
     await websocket.accept()
     logger.info(f"WebSocket accepted: {project_id}:{environment}")
-
-    # Get tenant context
-    organization_id = str(user.organization_id)
-    user_id = str(user.id)
 
     try:
         # Register connection
