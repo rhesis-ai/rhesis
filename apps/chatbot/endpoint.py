@@ -6,7 +6,7 @@ from typing import Generator, List
 
 from dotenv import load_dotenv
 
-from rhesis.sdk import RhesisClient, collaborate
+from rhesis.sdk import RhesisClient
 from rhesis.sdk.models.factory import get_model
 
 # Configure logging
@@ -245,9 +245,6 @@ def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
     return ResponseGenerator(use_case)
 
 
-@collaborate(
-    name="stream_assistant_response", description="Stream assistant responses for insurance queries"
-)
 def get_assistant_response(
     prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
 ) -> str:
