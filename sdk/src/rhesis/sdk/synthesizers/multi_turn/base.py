@@ -84,6 +84,10 @@ class MultiTurnSynthesizer:
     def generate(self, num_tests: int = 5) -> TestSet:
         num_batches = num_tests // self.batch_size
 
+        if num_batches == 0:
+            num_batches = 1
+            self.batch_size = num_tests
+
         all_tests = []
         for _ in range(num_batches):
             all_tests.extend(self._generate_batch())
