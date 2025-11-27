@@ -98,6 +98,7 @@ export default function SwaggerEndpointForm() {
   const projectIdFromUrl = params?.identifier || '';
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [swaggerUrl, setSwaggerUrl] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
@@ -196,6 +197,7 @@ export default function SwaggerEndpointForm() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await createEndpoint(formData as unknown as Omit<Endpoint, 'id'>);
 
@@ -210,6 +212,8 @@ export default function SwaggerEndpointForm() {
       router.push('/endpoints');
     } catch (error) {
       setError((error as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -227,18 +231,20 @@ export default function SwaggerEndpointForm() {
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
-              onClick={() => router.push('/endpoints')}
+              onClick={() => router.push('/projects/endpoints')}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button
+            <LoadingButton
               type="submit"
               variant="contained"
               color="primary"
+              loading={isSubmitting}
               disabled={projects.length === 0 && !loadingProjects}
             >
               Create Endpoint
-            </Button>
+            </LoadingButton>
           </Box>
         </Box>
 
