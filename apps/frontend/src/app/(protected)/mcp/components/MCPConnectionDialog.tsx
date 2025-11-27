@@ -12,10 +12,15 @@ import {
   CircularProgress,
   Alert,
   Stack,
+  Collapse,
 } from '@mui/material';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import dynamic from 'next/dynamic';
+import { useTheme } from '@mui/material/styles';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import {
   Tool,
@@ -24,6 +29,32 @@ import {
 } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
 import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
+
+// Lazy load Monaco Editor
+const Editor = dynamic(() => import('@monaco-editor/react'), {
+  ssr: false,
+  loading: () => (
+    <Box
+      sx={{
+        height: '300px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: theme => theme.shape.borderRadius,
+        backgroundColor: 'background.default',
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <CircularProgress size={20} />
+        <Typography variant="body2" color="text.secondary">
+          Loading editor...
+        </Typography>
+      </Box>
+    </Box>
+  ),
+});
 
 /**
  * Get the credential key name for a given provider
@@ -65,12 +96,16 @@ export function MCPConnectionDialog({
   onConnect,
   onUpdate,
 }: MCPConnectionDialogProps) {
+  const theme = useTheme();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [authToken, setAuthToken] = useState('');
+  const [toolMetadata, setToolMetadata] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAuthToken, setShowAuthToken] = useState(false);
+  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   const isEditMode = mode === 'edit';
 
@@ -78,6 +113,25 @@ export function MCPConnectionDialog({
   const providerType =
     provider?.type_value || tool?.tool_provider_type?.type_value;
   const requiresToken = providerType !== 'atlassian';
+  const isCustomProvider = providerType === 'custom';
+
+  // Determine editor theme based on MUI theme
+  const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
+
+  // Theme-aware editor wrapper style (function to be reactive to jsonError)
+  const getEditorWrapperStyle = () => ({
+    border: 1,
+    borderColor: jsonError ? 'error.main' : 'divider',
+    borderRadius: theme.shape.borderRadius,
+    '&:hover': {
+      borderColor: jsonError ? 'error.main' : 'text.primary',
+    },
+    '&:focus-within': {
+      borderWidth: 2,
+      borderColor: jsonError ? 'error.main' : 'primary.main',
+      margin: '-1px',
+    },
+  });
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -92,23 +146,73 @@ export function MCPConnectionDialog({
         setDescription(tool.description || '');
         // Only show placeholder if provider requires token
         setAuthToken(currentRequiresToken ? '************' : '');
+        setToolMetadata(
+          tool.tool_metadata ? JSON.stringify(tool.tool_metadata, null, 2) : ''
+        );
         setError(null);
+        setJsonError(null);
         setShowAuthToken(false);
         setLoading(false);
+        setShowAdvancedConfig(!!tool.tool_metadata);
       } else if (provider) {
         // Create mode: reset to defaults
         setName('');
         setDescription('');
         setAuthToken('');
+        setToolMetadata('');
         setError(null);
+        setJsonError(null);
         setShowAuthToken(false);
         setLoading(false);
+        setShowAdvancedConfig(isCustomProvider);
       }
     }
-  }, [open, provider, tool, isEditMode]);
+  }, [open, provider, tool, isEditMode, isCustomProvider]);
+
+  const validateToolMetadata = (
+    jsonString: string
+  ): Record<string, any> | null => {
+    if (!jsonString.trim()) {
+      return null; // Empty is valid (optional field)
+    }
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+        setJsonError('Tool metadata must be a JSON object');
+        return null;
+      }
+      setJsonError(null);
+      return parsed;
+    } catch (err) {
+      setJsonError(
+        err instanceof Error
+          ? `Invalid JSON: ${err.message}`
+          : 'Invalid JSON format'
+      );
+      return null;
+    }
+  };
+
+  const handleToolMetadataChange = (value: string | undefined) => {
+    setToolMetadata(value || '');
+    if (value && value.trim()) {
+      validateToolMetadata(value);
+    } else {
+      setJsonError(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate tool_metadata for custom providers
+    if (isCustomProvider && toolMetadata.trim()) {
+      const validatedMetadata = validateToolMetadata(toolMetadata);
+      if (validatedMetadata === null && toolMetadata.trim()) {
+        setError('Please fix the JSON configuration errors before submitting.');
+        return;
+      }
+    }
 
     if (isEditMode && tool && onUpdate) {
       // Edit mode: update existing tool
@@ -136,6 +240,19 @@ export function MCPConnectionDialog({
           };
         }
 
+        // Include tool_metadata if it was provided
+        if (toolMetadata.trim()) {
+          const validatedMetadata = validateToolMetadata(toolMetadata);
+          if (validatedMetadata !== null) {
+            updates.tool_metadata = validatedMetadata;
+          }
+        } else if (isCustomProvider) {
+          // For custom providers, tool_metadata is required
+          setError('Tool metadata is required for custom providers.');
+          setLoading(false);
+          return;
+        }
+
         await onUpdate(tool.id, updates);
         // Don't reset loading state - let dialog close with "Updating..." text
         onClose();
@@ -149,6 +266,12 @@ export function MCPConnectionDialog({
       // Create mode: validate required fields
       if (!provider || !name || (requiresToken && !authToken)) {
         setError('Please fill in all required fields.');
+        return;
+      }
+
+      // For custom providers, tool_metadata is required
+      if (isCustomProvider && !toolMetadata.trim()) {
+        setError('Tool metadata is required for custom providers.');
         return;
       }
 
@@ -169,12 +292,27 @@ export function MCPConnectionDialog({
               }
             : {};
 
+          // Parse and validate tool_metadata for custom providers
+          let parsedMetadata: Record<string, any> | undefined = undefined;
+          if (isCustomProvider && toolMetadata.trim()) {
+            const validatedMetadata = validateToolMetadata(toolMetadata);
+            if (validatedMetadata === null) {
+              setError(
+                'Please fix the JSON configuration errors before submitting.'
+              );
+              setLoading(false);
+              return;
+            }
+            parsedMetadata = validatedMetadata;
+          }
+
           const toolData: ToolCreate = {
             name,
             description: description || undefined,
             tool_type_id: mcpToolType.id, // MCP tool type ID
             tool_provider_type_id: provider.id, // Provider type ID
             credentials,
+            tool_metadata: parsedMetadata,
           };
 
           await onConnect(provider.type_value, toolData);
@@ -320,6 +458,117 @@ export function MCPConnectionDialog({
                 />
               </>
             )}
+
+            {isCustomProvider && (
+              <>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mt: 2,
+                    mb: 1,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 600, color: 'primary.main' }}
+                  >
+                    MCP Server Configuration
+                  </Typography>
+                  <IconButton size="small">
+                    {showAdvancedConfig ? (
+                      <ExpandLessIcon />
+                    ) : (
+                      <ExpandMoreIcon />
+                    )}
+                  </IconButton>
+                </Box>
+
+                <Collapse in={showAdvancedConfig}>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 2 }}
+                    >
+                      Configure your custom MCP server. Use credential
+                      placeholders with <code>{'{{'}</code> and{' '}
+                      <code>{'}}'}</code> format.
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 2 }}
+                    >
+                      Example:
+                    </Typography>
+                    <Box
+                      component="pre"
+                      sx={{
+                        p: 2,
+                        bgcolor: 'background.default',
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: theme => theme.shape.borderRadius,
+                        fontSize: theme => theme.typography.body2.fontSize,
+                        overflow: 'auto',
+                        mb: 2,
+                      }}
+                    >
+                      {`{
+  "command": "bunx",
+  "args": ["--bun", "@notionhq/notion-mcp-server"],
+  "env": {
+    "NOTION_TOKEN": "{{ TOKEN }}"
+  }
+}`}
+                    </Box>
+                    {jsonError && (
+                      <Alert severity="error" sx={{ mb: 2 }}>
+                        {jsonError}
+                      </Alert>
+                    )}
+                    <Box sx={getEditorWrapperStyle()}>
+                      <Editor
+                        key={`tool-metadata-${editorTheme}`}
+                        height="300px"
+                        defaultLanguage="json"
+                        theme={editorTheme}
+                        value={toolMetadata}
+                        onChange={handleToolMetadataChange}
+                        options={{
+                          minimap: { enabled: false },
+                          lineNumbers: 'on',
+                          folding: true,
+                          scrollBeyondLastLine: false,
+                          automaticLayout: true,
+                          formatOnPaste: true,
+                          formatOnType: true,
+                          padding: { top: 8, bottom: 8 },
+                          scrollbar: {
+                            vertical: 'visible',
+                            horizontal: 'visible',
+                          },
+                          fontSize: 14,
+                        }}
+                      />
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mt: 1, display: 'block' }}
+                    >
+                      Required for custom providers. Define the MCP server
+                      command, arguments, and environment variables with
+                      credential placeholders.
+                    </Typography>
+                  </Box>
+                </Collapse>
+              </>
+            )}
           </Stack>
         </DialogContent>
 
@@ -333,7 +582,11 @@ export function MCPConnectionDialog({
             type="submit"
             variant="contained"
             disabled={
-              !name || (!isEditMode && requiresToken && !authToken) || loading
+              !name ||
+              (!isEditMode && requiresToken && !authToken) ||
+              (!isEditMode && isCustomProvider && !toolMetadata.trim()) ||
+              loading ||
+              !!jsonError
             }
             size="large"
             sx={{
