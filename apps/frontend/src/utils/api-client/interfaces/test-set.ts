@@ -284,6 +284,7 @@ export interface GenerateTestsRequest {
   batch_size?: number;
   sources?: SourceData[];
   name?: string; // Only used for bulk generation
+  test_type?: 'single_turn' | 'multi_turn'; // Type of tests to generate
 }
 
 /**
