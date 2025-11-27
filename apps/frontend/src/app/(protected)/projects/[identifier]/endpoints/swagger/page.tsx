@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import SwaggerEndpointForm from '../../../endpoints/components/SwaggerEndpointForm';
+import SwaggerEndpointForm from '@/app/(protected)/endpoints/components/SwaggerEndpointForm';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { CircularProgress, Box } from '@mui/material';
 import { useSession } from 'next-auth/react';

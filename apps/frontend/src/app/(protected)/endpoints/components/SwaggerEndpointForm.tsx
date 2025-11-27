@@ -207,7 +207,7 @@ export default function SwaggerEndpointForm() {
         severity: 'success',
       });
 
-      router.push('/projects/endpoints');
+      router.push('/endpoints');
     } catch (error) {
       setError((error as Error).message);
     }
@@ -227,7 +227,7 @@ export default function SwaggerEndpointForm() {
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
-              onClick={() => router.push('/projects/endpoints')}
+              onClick={() => router.push('/endpoints')}
             >
               Cancel
             </Button>
