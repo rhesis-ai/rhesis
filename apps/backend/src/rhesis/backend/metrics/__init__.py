@@ -74,9 +74,10 @@ def __getattr__(name: str):
         "DeepEvalContextualRecall",
         "DeepEvalContextualRelevancy",
     ]
-    
+
     if name in deepeval_metrics:
         from rhesis.sdk.metrics import __getattr__ as sdk_getattr
+
         return sdk_getattr(name)
-    
+
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
