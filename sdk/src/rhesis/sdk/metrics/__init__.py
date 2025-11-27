@@ -17,30 +17,6 @@ from rhesis.sdk.metrics.conversational import (
     UserMessage,
 )
 from rhesis.sdk.metrics.factory import MetricFactory
-from rhesis.sdk.metrics.providers.deepeval.conversational_metrics import (
-    DeepEvalConversationCompleteness,
-    DeepEvalGoalAccuracy,
-    DeepEvalKnowledgeRetention,
-    DeepEvalRoleAdherence,
-    DeepEvalToolUse,
-    DeepEvalTurnRelevancy,
-)
-from rhesis.sdk.metrics.providers.deepeval.factory import DeepEvalMetricFactory
-from rhesis.sdk.metrics.providers.deepeval.metrics import (
-    DeepEvalAnswerRelevancy,
-    DeepEvalBias,
-    DeepEvalContextualPrecision,
-    DeepEvalContextualRecall,
-    DeepEvalContextualRelevancy,
-    DeepEvalFaithfulness,
-    DeepEvalMisuse,
-    DeepEvalNonAdvice,
-    DeepEvalPIILeakage,
-    DeepEvalRoleViolation,
-    DeepEvalToxicity,
-    DeepTeamIllegal,
-    DeepTeamSafety,
-)
 from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
     CategoricalJudge,
     ConversationalJudge,
@@ -120,3 +96,37 @@ __all__ = [
     "RagasContextRelevance",
     "RagasFaithfulness",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy load deepeval metric classes to avoid eager imports."""
+    # DeepEval metrics and factory
+    deepeval_items = [
+        "DeepEvalMetricFactory",
+        "DeepEvalAnswerRelevancy",
+        "DeepEvalBias",
+        "DeepEvalContextualPrecision",
+        "DeepEvalContextualRecall",
+        "DeepEvalContextualRelevancy",
+        "DeepEvalFaithfulness",
+        "DeepEvalMisuse",
+        "DeepEvalNonAdvice",
+        "DeepEvalPIILeakage",
+        "DeepEvalRoleViolation",
+        "DeepEvalToxicity",
+        "DeepTeamSafety",
+        "DeepTeamIllegal",
+        "DeepEvalTurnRelevancy",
+        "DeepEvalRoleAdherence",
+        "DeepEvalKnowledgeRetention",
+        "DeepEvalConversationCompleteness",
+        "DeepEvalGoalAccuracy",
+        "DeepEvalToolUse",
+    ]
+
+    if name in deepeval_items:
+        from rhesis.sdk.metrics.providers import deepeval
+
+        return getattr(deepeval, name)
+
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
