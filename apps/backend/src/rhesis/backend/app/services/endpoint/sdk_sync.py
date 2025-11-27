@@ -55,9 +55,31 @@ async def sync_sdk_endpoints(
         logger.error(f"User {user_id} not found for mapping generation")
         return {"created": 0, "updated": 0, "marked_inactive": 0, "errors": ["User not found"]}
 
-    # Get project name for endpoint naming
-    project = db.query(models.Project).filter(models.Project.id == project_id).first()
-    project_name = project.name if project else project_id
+    # Get project name for endpoint naming - with organization validation for security
+    project = (
+        db.query(models.Project)
+        .filter(
+            models.Project.id == project_id,
+            models.Project.organization_id == organization_id,
+        )
+        .first()
+    )
+
+    if not project:
+        error_msg = (
+            f"Project {project_id} not found or not accessible in organization "
+            f"{organization_id}. Cannot create endpoints without valid project."
+        )
+        logger.error(error_msg)
+        return {
+            "created": 0,
+            "updated": 0,
+            "marked_inactive": 0,
+            "errors": [error_msg],
+        }
+
+    project_name = project.name
+    logger.info(f"Project validated: {project_name} ({project_id})")
 
     # Get all existing SDK endpoints for this project/environment
     existing_endpoints = (
