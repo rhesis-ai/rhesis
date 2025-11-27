@@ -1,0 +1,103 @@
+# Test Sets
+
+Organize and execute collections of tests as cohesive validation suites.
+
+## Understanding Test Sets
+
+Test Sets are collections of related tests that can be executed together. They help organize tests by feature, use case, behavior, or any other logical grouping. Test sets can include both single-turn and multi-turn tests.
+
+## Creating Test Sets
+
+Build test collections:
+
+1. Navigate to the Test Sets page
+2. Click "Create Test Set"
+3. Enter test set details:
+   - **Name**: Descriptive name for the collection
+   - **Description**: Purpose and scope of the test set
+   - **Tags**: Categorization tags (optional)
+4. Add tests to the set:
+   - Select from existing tests
+   - Generate new tests for the set
+   - Import from other test sets
+5. Save the test set
+
+## Managing Test Sets
+
+### Adding Tests
+
+Expand your test set:
+
+1. Open the test set
+2. Click "Add Tests"
+3. Select tests from the list or search
+4. Click "Add Selected"
+
+Tests can belong to multiple test sets.
+
+### Removing Tests
+
+Remove tests from the set:
+
+1. Open the test set
+2. Select test(s) to remove
+3. Click "Remove from Set"
+
+**Note**: This only removes the test from this set, not from the platform.
+
+### Test Set Configuration
+
+Configure execution settings:
+
+- **Endpoint**: Default endpoint for test execution
+- **Parallel Execution**: Run tests concurrently or sequentially
+- **Failure Handling**: Stop on first failure or continue
+- **Notification Settings**: Email alerts for test completion
+
+## Running Test Sets
+
+Execute all tests in a set:
+
+1. Open the test set
+2. Click "Run Test Set"
+3. Confirm execution settings
+4. Monitor progress on the Test Runs page
+5. Review results when complete
+
+## Test Set Results
+
+After execution, view:
+
+- Overall pass/fail summary
+- Individual test results
+- Aggregate metric scores
+- Execution time and statistics
+- Historical trends across runs
+
+## Test Set Organization
+
+### Best Practices
+
+- Group tests by feature or user journey
+- Keep test sets focused and manageable (10-50 tests)
+- Use descriptive names and tags
+- Regularly review and update test sets
+- Archive obsolete test sets
+
+### Use Cases
+
+Common test set patterns:
+
+- **Smoke Tests**: Critical functionality validation
+- **Regression Tests**: Ensure changes don't break existing features
+- **Behavior Validation**: Tests grouped by specific behaviors
+- **Release Testing**: Comprehensive validation before deployment
+- **A/B Testing**: Compare performance across configurations
+
+---
+
+<Callout type="default">
+  **Next Steps** - Execute test sets and view [Test Runs](/docs/platform/test-runs) -
+  Generate tests for sets from [Knowledge](/docs/platform/knowledge) -
+  Track execution progress in [Results Overview](/docs/platform/results-overview)
+</Callout>

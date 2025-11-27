@@ -1,0 +1,171 @@
+# MCP
+
+Connect Model Context Protocol (MCP) servers to enhance your AI testing with external tools and data sources.
+
+## Understanding MCP
+
+The Model Context Protocol (MCP) enables AI systems to connect to external tools, databases, and services. In Rhesis, MCP integration allows you to provide rich context for test generation and enhance your testing workflows with external capabilities.
+
+## What is MCP?
+
+MCP is an open protocol that standardizes how AI models interact with external systems. It provides:
+
+- **Tool Discovery**: Automatically find available tools and functions
+- **Secure Execution**: Controlled access to external resources
+- **Context Enhancement**: Provide additional context to AI models
+- **Standardized Interface**: Consistent integration pattern
+
+## Supported MCP Servers
+
+### Notion
+
+Connect your Notion workspace:
+
+- Access pages and databases
+- Pull documentation for test generation
+- Use Notion content as knowledge sources
+- Sync test results back to Notion
+
+### File System
+
+Access local or remote file systems:
+
+- Read documents and configuration files
+- Monitor directory changes
+- Use files as test input sources
+
+### Custom MCP Servers
+
+Connect any MCP-compatible server:
+
+- Internal tools and APIs
+- Custom data sources
+- Proprietary systems
+- Third-party MCP implementations
+
+## Connecting an MCP Server
+
+### Adding a Connection
+
+1. Navigate to the MCP page
+2. Click "Add MCP Server"
+3. Select server type or choose "Custom"
+4. Configure connection:
+   - **Name**: Identifier for this connection
+   - **Server URL**: Endpoint for the MCP server
+   - **Authentication**: API keys or credentials
+   - **Configuration**: Server-specific settings
+5. Test the connection
+6. Save
+
+### Notion-Specific Setup
+
+For Notion integration:
+
+1. Create a Notion integration in your workspace
+2. Copy the integration token
+3. In Rhesis, select "Notion" as MCP type
+4. Paste the integration token
+5. Select pages/databases to access
+6. Test and save
+
+## Using MCP in Testing
+
+### Test Generation
+
+Use MCP-connected sources:
+
+1. Go to Test Generation
+2. Select "MCP Source" as input
+3. Choose connected MCP server
+4. Select specific resources (e.g., Notion pages)
+5. Generate tests with enhanced context
+
+### Tool Configuration
+
+Configure tools available during test execution:
+
+1. Navigate to MCP Tools
+2. Browse available tools from connected servers
+3. Enable/disable tools as needed
+4. Configure tool permissions
+5. Set usage limits if applicable
+
+## Managing MCP Connections
+
+### Viewing Connections
+
+The MCP page displays:
+
+- Connected servers with status indicators
+- Available tools from each server
+- Usage statistics
+- Last sync time
+
+### Testing Connections
+
+Verify connectivity:
+
+1. Select an MCP connection
+2. Click "Test Connection"
+3. View results and available tools
+4. Check authentication status
+
+### Updating Connections
+
+Modify existing connections:
+
+1. Open the connection settings
+2. Update credentials or configuration
+3. Re-test the connection
+4. Save changes
+
+### Removing Connections
+
+Delete MCP servers:
+
+1. Select the connection to remove
+2. Click "Delete"
+3. Confirm deletion
+
+**Warning**: Tests using tools from this MCP server may fail after deletion.
+
+## Security Considerations
+
+### Authentication
+
+- Store credentials securely
+- Use read-only access where possible
+- Rotate tokens regularly
+- Monitor access logs
+
+### Permissions
+
+- Grant minimal necessary permissions
+- Review available tools regularly
+- Restrict sensitive operations
+- Audit tool usage
+
+### Data Privacy
+
+- Understand what data is accessed
+- Review data handling policies
+- Ensure compliance with regulations
+- Monitor data transmission
+
+## Best Practices
+
+- Name connections descriptively
+- Document connection purposes
+- Test connections regularly
+- Keep credentials secure
+- Monitor usage and performance
+- Update MCP servers when needed
+
+---
+
+<Callout type="default">
+  **Next Steps** - Use MCP sources in [Test Generation](/docs/platform/tests-generation) -
+  Configure tools with [Endpoints](/docs/platform/endpoints) -
+  Enhance [Knowledge](/docs/platform/knowledge) with MCP sources
+</Callout>
