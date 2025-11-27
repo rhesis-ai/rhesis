@@ -13,6 +13,54 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-11-27
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.0**
+- **Frontend 0.5.0**
+- **SDK 0.5.0**
+- **Polyphemus 0.2.0**
+
+### Summary of Changes
+
+**Backend v0.5.0:**
+- Added support for multi-turn conversations, including preview, generation, and testing.
+- Implemented tool configuration frontend and database persistence for onboarding progress.
+- Introduced bidirectional SDK connector with intelligent auto-mapping and in-place test execution.
+- Improved test generation and fixed various bugs related to test creation, listing, and format.
+
+
+**Frontend v0.5.0:**
+- Redesigned test results and knowledge detail pages with improved filters and UX.
+- Implemented client-side search filter for test results and improved behavior-metrics relation UI.
+- Introduced interactive onboarding tour and multi-turn conversation preview in test generation.
+- Added tool configuration frontend, tool source type, and bidirectional SDK connector.
+
+
+**SDK v0.5.0:**
+- Added bidirectional SDK connector with intelligent auto-mapping.
+- Improved multi-turn test support, including format fixes and comprehensive functionality.
+- Enhanced synthesizers and model listing for providers.
+- Introduced database functionality for MCP Tool.
+
+
+**Polyphemus v0.2.0:**
+- Added authentication and Google Cloud deployment support.
+- Implemented a new benchmarking framework with improved model handling and integration with SDK modules.
+- Introduced new metrics including cost heuristic, context retention, and refusal detection; also added summaries and reports.
+- Improved judge model memory management and optimized file access.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.4.3] - 2025-11-17
 
 ### Platform Release

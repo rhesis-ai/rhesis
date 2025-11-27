@@ -13,6 +13,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-11-27
+
+### Added
+- Added bidirectional SDK connector with intelligent auto-mapping.
+- Added comprehensive multi-turn test support.
+- Added support for Google Cloud integration (Polyphemus).
+- Added functionality to list available models for providers.
+
+### Changed
+- Improved synthesizers for enhanced performance and functionality.
+- Refactored base entity for improved code structure and maintainability.
+- Updated MCP Tool Database functionality.
+
+### Fixed
+- Fixed multi-turn test generation response format.
+- Fixed MCP Tool arguments.
+- Ensured correct `test_type` for single and multi-turn tests.
+- Resolved test failures and improved schema design.
+- Fixed Ollama provider compatibility.
+
+### Removed
+- Removed `synthesizers_v2`.
+
+
 ## [0.4.2] - 2025-11-17
 
 ### Added
