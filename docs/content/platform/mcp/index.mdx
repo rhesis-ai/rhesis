@@ -1,171 +1,133 @@
 # MCP
 
-Connect Model Context Protocol (MCP) servers to enhance your AI testing with external tools and data sources.
+Connect Model Context Protocol (MCP) servers to search and import pages as knowledge sources.
 
 ## Understanding MCP
 
-The Model Context Protocol (MCP) enables AI systems to connect to external tools, databases, and services. In Rhesis, MCP integration allows you to provide rich context for test generation and enhance your testing workflows with external capabilities.
+The Model Context Protocol (MCP) enables AI systems to connect to external tools and services. In Rhesis, you can search for pages from connected MCP servers and save them as sources in your Knowledge base.
 
-## What is MCP?
+## How MCP Works in Rhesis
 
-MCP is an open protocol that standardizes how AI models interact with external systems. It provides:
+MCP servers are used to:
 
-- **Tool Discovery**: Automatically find available tools and functions
-- **Secure Execution**: Controlled access to external resources
-- **Context Enhancement**: Provide additional context to AI models
-- **Standardized Interface**: Consistent integration pattern
+1. **Search for Pages**: Use natural language queries to find pages
+2. **Select Pages**: Choose pages from search results
+3. **Save as Sources**: Extract and save selected pages as sources in your Knowledge base
+
+Saved sources can be used in test generation and other workflows.
+
+### Future MCP Capabilities
+
+Planned features include:
+- **Task Integration**: Convert Tasks to Jira tickets
+- **Bidirectional Sync**: Sync data between Rhesis and MCP servers
+- **Workflow Automation**: Automate actions across integrated tools
+- **Enhanced Tool Usage**: Use MCP tools directly in test execution
 
 ## Supported MCP Servers
 
 ### Notion
 
-Connect your Notion workspace:
-
-- Access pages and databases
-- Pull documentation for test generation
-- Use Notion content as knowledge sources
-- Sync test results back to Notion
-
-### File System
-
-Access local or remote file systems:
-
-- Read documents and configuration files
-- Monitor directory changes
-- Use files as test input sources
+Search and import pages from your Notion workspace using natural language queries.
 
 ### Custom MCP Servers
 
-Connect any MCP-compatible server:
+Connect custom MCP-compatible servers by uploading the full JSON configuration.
 
-- Internal tools and APIs
-- Custom data sources
-- Proprietary systems
-- Third-party MCP implementations
+**Note**: Custom MCP server support may not be fully functional in all cases.
+
+### Future Providers
+
+Additional providers planned: GitHub, Atlassian (Jira and Confluence), and more.
 
 ## Connecting an MCP Server
 
 ### Adding a Connection
 
-1. Navigate to the MCP page
-2. Click "Add MCP Server"
-3. Select server type or choose "Custom"
-4. Configure connection:
-   - **Name**: Identifier for this connection
-   - **Server URL**: Endpoint for the MCP server
-   - **Authentication**: API keys or credentials
-   - **Configuration**: Server-specific settings
-5. Test the connection
-6. Save
+1. Navigate to the MCP page and click "Add MCP Server"
+2. Select server type (Notion or Custom)
+3. Configure:
+   - **Name**: Connection identifier
+   - **Description**: Optional
+   - **Authentication**: API keys or credentials (required for Notion)
+4. For custom servers, provide the full MCP server configuration as JSON in tool metadata
+5. Save
 
 ### Notion-Specific Setup
 
-For Notion integration:
+1. Create a Notion integration at [https://www.notion.so/profile/integrations](https://www.notion.so/profile/integrations)
+2. Copy the integration token (begins with `ntn_`)
+3. In Rhesis, select "Notion" as the provider type
+4. Enter a connection name and paste the token
+5. Save
 
-1. Create a Notion integration in your workspace
-2. Copy the integration token
-3. In Rhesis, select "Notion" as MCP type
-4. Paste the integration token
-5. Select pages/databases to access
-6. Test and save
+### Custom MCP Server Setup
 
-## Using MCP in Testing
+1. Select "Custom" as the provider type
+2. Enter a connection name
+3. Provide the full MCP server configuration as JSON in tool metadata
+4. Include required authentication tokens in credentials
+5. Save
 
-### Test Generation
+**Note**: Custom MCP server support may not be fully functional in all cases.
 
-Use MCP-connected sources:
+## Using MCP to Import Sources
 
-1. Go to Test Generation
-2. Select "MCP Source" as input
-3. Choose connected MCP server
-4. Select specific resources (e.g., Notion pages)
-5. Generate tests with enhanced context
+### Searching for Pages
 
-### Tool Configuration
+1. Navigate to the Knowledge page and click "Import from MCP"
+2. Select a connected MCP server (e.g., Notion)
+3. Enter a natural language search query (e.g., "pages about authentication")
+4. Click "Search" and review results
 
-Configure tools available during test execution:
+### Selecting and Importing Pages
 
-1. Navigate to MCP Tools
-2. Browse available tools from connected servers
-3. Enable/disable tools as needed
-4. Configure tool permissions
-5. Set usage limits if applicable
+1. Select pages from search results (use "Select All" for all results)
+2. Click "Import as Sources" to extract and save
+3. Pages are saved as sources in your Knowledge base for use in test generation and other workflows
 
 ## Managing MCP Connections
 
 ### Viewing Connections
 
-The MCP page displays:
-
-- Connected servers with status indicators
-- Available tools from each server
-- Usage statistics
-- Last sync time
-
-### Testing Connections
-
-Verify connectivity:
-
-1. Select an MCP connection
-2. Click "Test Connection"
-3. View results and available tools
-4. Check authentication status
+The MCP page displays all connected servers with name, provider type, description, and status.
 
 ### Updating Connections
 
-Modify existing connections:
-
-1. Open the connection settings
-2. Update credentials or configuration
-3. Re-test the connection
-4. Save changes
+1. Click a connection to edit
+2. Update name, description, or credentials (for Notion, enter a new token beginning with `ntn_`)
+3. Save changes
 
 ### Removing Connections
 
-Delete MCP servers:
+1. Select the connection and click "Delete"
+2. Confirm deletion
 
-1. Select the connection to remove
-2. Click "Delete"
-3. Confirm deletion
-
-**Warning**: Tests using tools from this MCP server may fail after deletion.
+**Warning**: Imported sources remain in your Knowledge base, but you won't be able to search for new pages from this connection.
 
 ## Security Considerations
 
 ### Authentication
 
-- Store credentials securely
+- Credentials are encrypted in the database
 - Use read-only access where possible
 - Rotate tokens regularly
-- Monitor access logs
-
-### Permissions
-
-- Grant minimal necessary permissions
-- Review available tools regularly
-- Restrict sensitive operations
-- Audit tool usage
 
 ### Data Privacy
 
-- Understand what data is accessed
-- Review data handling policies
-- Ensure compliance with regulations
-- Monitor data transmission
+- Understand what data is accessed when searching and importing
+- Imported page content is stored in your Knowledge base
 
 ## Best Practices
 
 - Name connections descriptively
-- Document connection purposes
-- Test connections regularly
-- Keep credentials secure
-- Monitor usage and performance
-- Update MCP servers when needed
+- Use specific search queries
+- Review results before importing
+- Rotate credentials regularly
 
 ---
 
 <Callout type="default">
-  **Next Steps** - Use MCP sources in [Test Generation](/docs/platform/tests-generation) -
-  Configure tools with [Endpoints](/docs/platform/endpoints) -
-  Enhance [Knowledge](/docs/platform/knowledge) with MCP sources
+  **Next Steps** - Import pages from MCP servers in [Knowledge](/docs/platform/knowledge) -
+  Use imported sources in [Test Generation](/docs/platform/tests-generation)
 </Callout>
