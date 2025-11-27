@@ -44,8 +44,8 @@ def create_tool(
 
     Example tool_metadata for custom provider:
     {
-        "command": "npx",
-        "args": ["-y", "@custom/mcp-server"],
+        "command": "bunx",
+        "args": ["--bun", "@custom/mcp-server"],
         "env": {
             "API_TOKEN": "{{API_TOKEN | tojson}}"
         }
