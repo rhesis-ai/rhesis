@@ -93,12 +93,10 @@ def classify_websocket_error(exception: Exception) -> tuple[bool, str]:
                 )
             else:  # 403
                 message = (
-                    "Authorization failed: Invalid API key, project ID, "
-                    "or user not associated with organization.\n"
+                    "Authorization failed: Invalid API key or project ID.\n"
                     "Please check:\n"
                     "  - RHESIS_API_KEY is correct\n"
-                    "  - RHESIS_PROJECT_ID is set\n"
-                    "  - Your user account is linked to an organization"
+                    "  - RHESIS_PROJECT_ID is valid and belongs to your organization"
                 )
             return False, message
 
