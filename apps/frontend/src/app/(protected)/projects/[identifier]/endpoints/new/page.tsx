@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import EndpointForm from '../../../endpoints/components/EndpointForm';
+import EndpointForm from '@/app/(protected)/endpoints/components/EndpointForm';
 import { PageContainer } from '@toolpad/core';
 import { CircularProgress, Box } from '@mui/material';
 import { useSession } from 'next-auth/react';

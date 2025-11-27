@@ -1,7 +1,7 @@
 'use client';
 
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import EndpointDetail from '../../../endpoints/components/EndpointDetail';
+import EndpointDetail from '@/app/(protected)/endpoints/components/EndpointDetail';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageContainer } from '@toolpad/core';
 import { useEffect, useState } from 'react';

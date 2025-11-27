@@ -197,7 +197,7 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'projects/endpoints',
+      segment: 'endpoints',
       title: 'Endpoints',
       icon: <ApiIcon />,
     },
