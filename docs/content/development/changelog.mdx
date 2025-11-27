@@ -8,6 +8,51 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.5.0] - 2025-11-27
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.0**
+- **Frontend 0.5.0**
+- **SDK 0.5.0**
+
+### Summary
+
+This release introduces comprehensive multi-turn test support via Penelope execution agent, bidirectional SDK connector with intelligent auto-mapping, and enhanced behavior-metrics management. MCP server integration with Notion improves context for test generation, while the new interactive onboarding system guides users through initial setup.
+
+### Backend Highlights
+- Added comprehensive multi-turn test support including creation, listing, execution, and preview generation
+- Implemented bidirectional SDK connector with intelligent auto-mapping
+- Added Tool Source Type for MCP server integration
+- Added in-place test execution without worker infrastructure
+- Enhanced synthesizers for improved test generation
+- Added database persistence for onboarding progress
+- Refactored Base Entity for improved maintainability
+- Updated MCP Tool Database for enhanced tool management
+- Added endpoint to list available models for providers
+
+### Frontend Highlights
+- Implemented interactive onboarding tour system
+- Added behaviors page with refactored metrics UI
+- Implemented multi-turn conversation preview in test generation flow
+- Added bidirectional SDK connector with intelligent auto-mapping
+- Implemented Tool Configuration Frontend
+- Redesigned test results page with improved filters and client-side search
+- Redesigned knowledge detail page for design system consistency
+- Reorganized navigation with sections and external links
+- Upgraded to Next.js 16 and MUI v7
+- Added models list for providers
+
+### SDK Highlights
+- Added bidirectional SDK connector with intelligent auto-mapping
+- Added comprehensive multi-turn test support
+- Added Google Cloud integration for Polyphemus
+- Added functionality to list available models for providers
+- Improved synthesizers functionality
+- Refactored base entity structure
+- Updated MCP Tool Database functionality
+
 ## [0.4.2] - 2025-11-13
 
 ### Platform Release
