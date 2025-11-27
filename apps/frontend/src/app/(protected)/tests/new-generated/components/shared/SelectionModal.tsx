@@ -144,7 +144,10 @@ export default function SelectionModal({
                   flexDirection: 'column',
                   transition: 'all 0.2s ease-in-out',
                   '&:hover': {
-                    bgcolor: theme => theme.palette.mode === 'dark' ? 'background.light3' : 'background.paper',
+                    bgcolor: theme =>
+                      theme.palette.mode === 'dark'
+                        ? 'background.light3'
+                        : 'background.paper',
                     transform: 'translateY(-2px)',
                   },
                 }}
