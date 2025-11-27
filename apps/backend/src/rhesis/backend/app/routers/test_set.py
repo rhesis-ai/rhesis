@@ -106,6 +106,8 @@ async def generate_test_set(
         if not request.config.behaviors:
             raise HTTPException(status_code=400, detail="At least one behavior must be specified")
 
+        test_type = request.test_type
+
         # Launch background task with explicit parameters
         task_result = task_launcher(
             generate_and_save_test_set,
@@ -115,6 +117,7 @@ async def generate_test_set(
             batch_size=request.batch_size,
             sources=[s.model_dump() for s in request.sources] if request.sources else None,
             name=request.name,
+            test_type=test_type,
         )
 
         logger.info(

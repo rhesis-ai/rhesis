@@ -7,7 +7,7 @@ export interface Endpoint {
   connection_type: 'REST' | 'WEBSOCKET' | 'GRPC' | 'SDK';
   url?: string;
   auth?: Record<string, any>;
-  environment: 'development' | 'staging' | 'production';
+  environment: 'development' | 'staging' | 'production' | 'local';
 
   // Configuration Source
   config_source: 'manual' | 'openapi' | 'llm_generated' | 'sdk';

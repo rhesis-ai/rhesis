@@ -22,7 +22,7 @@ class MappingValidator:
         function_name: str,
         request_mapping: Dict[str, str],
         response_mapping: Dict[str, str],
-        timeout: float = 5.0,
+        timeout: float = 30.0,
     ) -> Dict[str, Any]:
         """
         Send test request to validate mappings work correctly.
@@ -35,7 +35,7 @@ class MappingValidator:
             function_name: Function name to test
             request_mapping: Request template to validate
             response_mapping: Response mappings to validate
-            timeout: Timeout in seconds
+            timeout: Timeout in seconds (default: 30s for LLM endpoints)
 
         Returns:
             {

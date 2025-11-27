@@ -234,7 +234,7 @@ export default function EndpointGrid({
               ? undefined
               : projectId
                 ? `/projects/${projectId}/endpoints/new`
-                : '/projects/endpoints/new'
+                : '/endpoints/new'
           }
           variant="outlined"
           startIcon={<AddIcon />}
@@ -250,7 +250,7 @@ export default function EndpointGrid({
               ? undefined
               : projectId
                 ? `/projects/${projectId}/endpoints/swagger`
-                : '/projects/endpoints/swagger'
+                : '/endpoints/swagger'
           }
           variant="contained"
           startIcon={<UploadIcon />}
@@ -265,9 +265,30 @@ export default function EndpointGrid({
 
   const columns: GridColDef[] = [
     {
+      field: 'name',
+      headerName: 'Name',
+      flex: 1.2,
+    },
+    {
+      field: 'connection_type',
+      headerName: 'Connection Type',
+      flex: 0.7,
+      renderCell: params => (
+        <Chip label={params.value} size="small" variant="outlined" />
+      ),
+    },
+    {
+      field: 'environment',
+      headerName: 'Environment',
+      flex: 0.8,
+      renderCell: params => (
+        <Chip label={params.value} size="small" variant="outlined" />
+      ),
+    },
+    {
       field: 'project',
       headerName: 'Project',
-      flex: 1.2,
+      flex: 1,
       renderCell: params => {
         const endpoint = params.row as Endpoint;
         const project = endpoint.project_id
@@ -294,27 +315,6 @@ export default function EndpointGrid({
           </Box>
         );
       },
-    },
-    {
-      field: 'name',
-      headerName: 'Name',
-      flex: 1,
-    },
-    {
-      field: 'connection_type',
-      headerName: 'Connection Type',
-      flex: 0.7,
-      renderCell: params => (
-        <Chip label={params.value} size="small" variant="outlined" />
-      ),
-    },
-    {
-      field: 'environment',
-      headerName: 'Environment',
-      flex: 0.8,
-      renderCell: params => (
-        <Chip label={params.value} size="small" variant="outlined" />
-      ),
     },
     {
       field: 'status',
@@ -357,9 +357,7 @@ export default function EndpointGrid({
           density="comfortable"
           customToolbarContent={customToolbar}
           linkPath={
-            projectId
-              ? `/projects/${projectId}/endpoints`
-              : '/projects/endpoints'
+            projectId ? `/projects/${projectId}/endpoints` : '/endpoints'
           }
           linkField="id"
           serverSidePagination={true}

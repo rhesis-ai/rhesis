@@ -79,6 +79,7 @@ export default function ProtectedLayout({
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
               display: 'block',
+              position: 'relative',
             },
             // When drawer is mini/collapsed, ensure headers are truncated properly
             '&.MuiDrawer-docked .MuiListSubheader-root': {

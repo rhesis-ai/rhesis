@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -4175,7 +4175,7 @@ wheels = [
 
 [[package]]
 name = "polyphemus"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -5196,7 +5196,7 @@ wheels = [
 
 [[package]]
 name = "rhesis-backend"
-version = "0.4.3"
+version = "0.5.0"
 source = { editable = "../backend" }
 dependencies = [
     { name = "alembic" },
@@ -5366,7 +5366,7 @@ langgraph = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.4.2"
+version = "0.5.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "deepeval" },
@@ -5431,7 +5431,7 @@ dev = [
     { name = "pandas-stubs", specifier = ">=2.2.3.250308" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "psycopg2-binary", specifier = "==2.9.9" },
-    { name = "pyright", specifier = ">=1.1.406" },
+    { name = "pyright", specifier = ">=1.1.407" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "ruff", specifier = ">=0.11.6" },

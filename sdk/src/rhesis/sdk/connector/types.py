@@ -11,6 +11,7 @@ class ConnectionState(Enum):
     CONNECTED = "connected"
     RECONNECTING = "reconnecting"
     CLOSED = "closed"
+    FAILED = "failed"  # Permanent failure, won't retry
 
 
 class MessageType:

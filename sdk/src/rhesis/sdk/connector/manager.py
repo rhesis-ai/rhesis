@@ -37,7 +37,20 @@ class ConnectorManager:
             project_id: Project identifier
             environment: Environment name (default: "development")
             base_url: Base URL for WebSocket connection
+
+        Raises:
+            ValueError: If environment is not valid
         """
+        # Validate and normalize environment
+        valid_environments = ["production", "staging", "development", "local"]
+        environment = environment.lower()  # Normalize to lowercase
+
+        if environment not in valid_environments:
+            raise ValueError(
+                f"Invalid environment: '{environment}'. "
+                f"Valid environments: {', '.join(valid_environments)}"
+            )
+
         self.api_key = api_key
         self.project_id = project_id
         self.environment = environment
@@ -228,10 +241,19 @@ class ConnectorManager:
         if not self._connection:
             return
 
+        logger.info(
+            f"Received ping from backend [project={self.project_id}, env={self.environment}]"
+        )
+
         try:
             await self._connection.send({"type": MessageType.PONG})
+            logger.debug(
+                f"Pong sent successfully [project={self.project_id}, env={self.environment}]"
+            )
         except Exception as e:
-            logger.error(f"Error sending pong: {e}")
+            logger.error(
+                f"Error sending pong [project={self.project_id}, env={self.environment}]: {e}"
+            )
 
     def _get_websocket_url(self) -> str:
         """

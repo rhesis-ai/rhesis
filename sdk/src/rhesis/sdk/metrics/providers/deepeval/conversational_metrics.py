@@ -2,15 +2,6 @@
 
 from typing import Any, Dict, List, Optional, Union
 
-from deepeval.metrics import (
-    ConversationCompletenessMetric,
-    GoalAccuracyMetric,
-    KnowledgeRetentionMetric,
-    RoleAdherenceMetric,
-    ToolUseMetric,
-    TurnRelevancyMetric,
-)
-
 from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.deepeval.conversational_base import (
@@ -72,6 +63,8 @@ class DeepEvalTurnRelevancy(DeepEvalConversationalBase):
         )
 
         super().__init__(config=config, model=model)
+
+        from deepeval.metrics import TurnRelevancyMetric  # type: ignore
 
         # Initialize DeepEval metric
         self._metric = TurnRelevancyMetric(
@@ -135,6 +128,8 @@ class DeepEvalRoleAdherence(DeepEvalConversationalBase):
         )
 
         super().__init__(config=config, model=model)
+
+        from deepeval.metrics import RoleAdherenceMetric  # type: ignore
 
         # Initialize DeepEval metric (role is inferred from conversation)
         self._metric = RoleAdherenceMetric(
@@ -232,6 +227,8 @@ class DeepEvalKnowledgeRetention(DeepEvalConversationalBase):
 
         super().__init__(config=config, model=model)
 
+        from deepeval.metrics import KnowledgeRetentionMetric  # type: ignore
+
         # Initialize DeepEval metric
         self._metric = KnowledgeRetentionMetric(
             threshold=threshold,
@@ -292,6 +289,8 @@ class DeepEvalConversationCompleteness(DeepEvalConversationalBase):
         )
 
         super().__init__(config=config, model=model)
+
+        from deepeval.metrics import ConversationCompletenessMetric  # type: ignore
 
         # Initialize DeepEval metric
         self._metric = ConversationCompletenessMetric(
@@ -357,6 +356,8 @@ class DeepEvalGoalAccuracy(DeepEvalConversationalBase):
         )
 
         super().__init__(config=config, model=model)
+
+        from deepeval.metrics import GoalAccuracyMetric  # type: ignore
 
         # Initialize DeepEval metric
         self._metric = GoalAccuracyMetric(
@@ -429,6 +430,8 @@ class DeepEvalToolUse(DeepEvalConversationalBase):
         )
 
         super().__init__(config=config, model=model)
+
+        from deepeval.metrics import ToolUseMetric  # type: ignore
 
         # Initialize DeepEval metric
         self._metric = ToolUseMetric(
