@@ -122,106 +122,22 @@ def _save_test_set_to_database(
         raise ValueError("No tests to save. Please add tests to the test set first.")
 
     # Convert SDK Test objects/dicts to TestData format
-    from rhesis.backend.app.schemas.test_set import TestData, TestPrompt
+    from rhesis.backend.app.schemas.test_set import TestData
 
     converted_tests = []
     for test in test_set.tests:
-        # Handle both dict and Test object formats
+        # Get dict from test (handles both dict and Pydantic model)
         if isinstance(test, dict):
-            test_dict = test
+            test_dict = test.copy()
         else:
-            # Convert Test object to dict
-            if hasattr(test, "model_dump"):
-                test_dict = test.model_dump()
-            elif hasattr(test, "__dict__"):
-                test_dict = test.__dict__.copy()
-            else:
-                # Fallback: try to access attributes directly
-                test_dict = {
-                    "prompt": getattr(test, "prompt", None),
-                    "behavior": getattr(test, "behavior", None),
-                    "category": getattr(test, "category", None),
-                    "topic": getattr(test, "topic", None),
-                    "test_type": getattr(test, "test_type", None),
-                    "test_configuration": getattr(test, "test_configuration", None),
-                    "metadata": getattr(test, "metadata", {}),
-                    "assignee_id": getattr(test, "assignee_id", None),
-                    "owner_id": getattr(test, "owner_id", None),
-                    "status": getattr(test, "status", None),
-                    "priority": getattr(test, "priority", None),
-                }
+            test_dict = test.model_dump(exclude={"id", "endpoint"})
 
-        # Extract prompt data
-        prompt_data = None
-        if test_dict.get("prompt"):
-            prompt = test_dict["prompt"]
-            # Handle both dict and Prompt object formats
-            if isinstance(prompt, dict):
-                prompt_dict = prompt
-            else:
-                # Convert Prompt object to dict
-                if hasattr(prompt, "model_dump"):
-                    prompt_dict = prompt.model_dump()
-                elif hasattr(prompt, "__dict__"):
-                    prompt_dict = prompt.__dict__.copy()
-                else:
-                    # Fallback: access attributes directly
-                    prompt_dict = {
-                        "content": getattr(prompt, "content", ""),
-                        "language_code": getattr(prompt, "language_code", "en"),
-                        "expected_response": getattr(prompt, "expected_response", None),
-                        "demographic": getattr(prompt, "demographic", None),
-                        "dimension": getattr(prompt, "dimension", None),
-                    }
+        # Ensure required string fields have values (TestData requires non-None)
+        test_dict["behavior"] = test_dict.get("behavior") or ""
+        test_dict["category"] = test_dict.get("category") or ""
+        test_dict["topic"] = test_dict.get("topic") or ""
 
-            prompt_data = TestPrompt(
-                content=prompt_dict.get("content", ""),
-                language_code=prompt_dict.get("language_code", "en"),
-                expected_response=prompt_dict.get("expected_response"),
-                demographic=prompt_dict.get("demographic"),
-                dimension=prompt_dict.get("dimension"),
-            )
-
-        # Convert test_type if it's an enum
-        test_type_value = test_dict.get("test_type")
-        if test_type_value is not None:
-            # Handle TestType enum - convert to string value
-            if hasattr(test_type_value, "value"):
-                test_type_value = test_type_value.value
-            elif not isinstance(test_type_value, str):
-                test_type_value = str(test_type_value)
-
-        # Convert test_configuration if it's an object
-        test_configuration_value = test_dict.get("test_configuration")
-        if test_configuration_value is not None and not isinstance(test_configuration_value, dict):
-            # Convert TestConfiguration object to dict
-            if hasattr(test_configuration_value, "model_dump"):
-                test_configuration_value = test_configuration_value.model_dump()
-            elif hasattr(test_configuration_value, "__dict__"):
-                test_configuration_value = test_configuration_value.__dict__.copy()
-
-        # Build TestData dict
-        test_data_dict = {
-            "prompt": prompt_data,
-            "behavior": test_dict.get("behavior", ""),
-            "category": test_dict.get("category", ""),
-            "topic": test_dict.get("topic", ""),
-            "test_type": test_type_value,
-            "test_configuration": test_configuration_value,
-            "metadata": test_dict.get("metadata", {}),
-        }
-
-        # Only include optional fields if they exist
-        if test_dict.get("assignee_id"):
-            test_data_dict["assignee_id"] = test_dict["assignee_id"]
-        if test_dict.get("owner_id"):
-            test_data_dict["owner_id"] = test_dict["owner_id"]
-        if test_dict.get("status"):
-            test_data_dict["status"] = test_dict["status"]
-        if test_dict.get("priority") is not None:
-            test_data_dict["priority"] = test_dict["priority"]
-
-        converted_tests.append(TestData(**test_data_dict))
+        converted_tests.append(TestData(**test_dict))
 
     test_set_data = {
         "name": custom_name if custom_name else test_set.name,
