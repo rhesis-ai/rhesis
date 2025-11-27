@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-11-27
+
+### Added
+- Added Tool Source Type to allow specifying the origin of tools.
+- Added bidirectional SDK connector with intelligent auto-mapping for seamless integration.
+- Added in-place test execution without worker infrastructure for faster testing.
+- Added database persistence for onboarding progress.
+
+### Changed
+- Implemented multi-turn conversation preview and improved generation flow for better user experience.
+- Implemented comprehensive multi-turn test support, including creation, listing, and execution.
+- Improved synthesizers for enhanced performance and functionality.
+- Refactored Base Entity for improved code structure and maintainability.
+- Updated MCP Tool Database for enhanced data management.
+- Implemented Tool Configuration Frontend for easier tool management.
+- Updated test generation endpoint for multi-turn tests.
+- Updated Models List for Providers.
+
+### Fixed
+- Fixed template rendering issues.
+- Fixed multi-turn test generation response format.
+- Fixed migration backend tests.
+- Fixed MCP Tool arguments.
+- Fixed logging and error messages in routes/services for improved debugging.
+- Fixed Docker Compose configuration for production readiness.
+- Fixed multi-turn test creation and listing issues.
+- Fixed incorrect columns in test set download.
+- Fixed test failures and improved schema design.
+- Fixed SDK tests.
+- Fixed generate test config endpoint.
+- Fixed telemetry deployment issues.
+- Fixed: Remove Logout Button In Local.
+
+
 ## [0.4.3] - 2025-11-17
 
 ### Added
