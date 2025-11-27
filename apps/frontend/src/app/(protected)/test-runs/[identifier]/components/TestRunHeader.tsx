@@ -446,7 +446,7 @@ export default function TestRunHeader({
 
               {testRun.test_configuration?.endpoint?.id ? (
                 <Link
-                  href={`/projects/endpoints/${testRun.test_configuration.endpoint.id}`}
+                  href={`/endpoints/${testRun.test_configuration.endpoint.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ textDecoration: 'none' }}
