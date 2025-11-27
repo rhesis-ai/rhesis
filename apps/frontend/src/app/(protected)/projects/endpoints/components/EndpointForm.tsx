@@ -176,6 +176,7 @@ export default function EndpointForm() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
   const [showAuthToken, setShowAuthToken] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { data: session } = useSession();
   const notifications = useNotifications();
   const { markStepComplete } = useOnboarding();
@@ -299,6 +300,7 @@ export default function EndpointForm() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const transformedData = { ...formData } as Partial<typeof formData>;
 
@@ -349,6 +351,8 @@ export default function EndpointForm() {
       router.push('/projects/endpoints');
     } catch (error) {
       setError((error as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -367,17 +371,19 @@ export default function EndpointForm() {
             <Button
               variant="outlined"
               onClick={() => router.push('/projects/endpoints')}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button
+            <LoadingButton
               type="submit"
               variant="contained"
               color="primary"
+              loading={isSubmitting}
               disabled={(projects?.length || 0) === 0 && !loadingProjects}
             >
               Create Endpoint
-            </Button>
+            </LoadingButton>
           </Box>
         </Box>
 
