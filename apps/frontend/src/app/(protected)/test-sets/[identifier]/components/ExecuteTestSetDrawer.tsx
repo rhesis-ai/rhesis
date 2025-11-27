@@ -33,7 +33,7 @@ interface ProjectOption {
 interface EndpointOption {
   id: UUID;
   name: string;
-  environment?: 'development' | 'staging' | 'production';
+  environment?: 'development' | 'staging' | 'production' | 'local';
   project_id?: string;
 }
 

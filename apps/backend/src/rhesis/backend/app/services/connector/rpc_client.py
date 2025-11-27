@@ -54,8 +54,12 @@ class SDKRpcClient:
             return False
 
         try:
+            # Normalize environment to lowercase for consistent key lookup
+            environment = environment.lower()
             key = f"ws:connection:{project_id}:{environment}"
+            logger.debug(f"RPC client checking connection with key: {key}")
             exists = await self._redis.exists(key)
+            logger.debug(f"Connection exists: {exists > 0}")
             return exists > 0
         except Exception as e:
             logger.error(f"Error checking SDK connection status: {e}")

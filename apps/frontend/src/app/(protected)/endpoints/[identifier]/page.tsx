@@ -128,10 +128,7 @@ export default function EndpointPage({ params }: PageProps) {
           { title: projectName, path: `/projects/${endpoint.project_id}` },
           { title: endpoint.name },
         ]
-      : [
-          { title: 'Endpoints', path: '/projects/endpoints' },
-          { title: endpoint.name },
-        ];
+      : [{ title: 'Endpoints', path: '/endpoints' }, { title: endpoint.name }];
 
   return (
     <PageContainer title={endpoint.name} breadcrumbs={breadcrumbs}>

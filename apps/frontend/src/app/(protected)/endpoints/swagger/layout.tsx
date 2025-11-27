@@ -1,8 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Swagger Endpoint | Rhesis AI',
-  description: 'Add a new API endpoint using Swagger/OpenAPI specification',
+  title: 'Import Swagger Endpoint',
 };
 
 export default function SwaggerEndpointLayout({

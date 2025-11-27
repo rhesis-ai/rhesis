@@ -30,8 +30,8 @@ class MCPClient:
 
         Args:
             server_name: Friendly name for the server (e.g., "notionApi")
-            command: Command to launch the server (e.g., "npx", "python")
-            args: Command arguments (e.g., ["-y", "@notionhq/notion-mcp-server"])
+            command: Command to launch the server (e.g., "bunx", "python")
+            args: Command arguments (e.g., ["--bun", "@notionhq/notion-mcp-server"])
             env: Environment variables to pass to the server process
         """
         self.server_name = server_name
@@ -268,12 +268,16 @@ class MCPClientManager:
         Returns:
             MCPClientManager instance configured with the tool
 
+        Note:
+            Placeholders must use simple format like {{ TOKEN }} (not {{ TOKEN | tojson }})
+            because the tool_config must be valid JSON before Jinja2 rendering.
+
         Example:
             tool_config = {
-                "command": "npx",
-                "args": ["-y", "@notionhq/notion-mcp-server"],
+                "command": "bunx",
+                "args": ["--bun", "@notionhq/notion-mcp-server"],
                 "env": {
-                    "NOTION_TOKEN": "{{NOTION_TOKEN | tojson}}"
+                    "NOTION_TOKEN": "{{ NOTION_TOKEN }}"
                 }
             }
             credentials = {"NOTION_TOKEN": "ntn_abc123..."}

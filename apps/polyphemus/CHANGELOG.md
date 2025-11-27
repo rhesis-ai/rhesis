@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-11-27
+
+### Added
+- Implemented authentication for Polyphemus.
+- Added support for deploying Polyphemus in Google Cloud Run.
+- Introduced cost heuristic for Polyphemus benchmarking.
+- Implemented context retention and refusal metrics.
+- Added random sampling and dataset conversion functionalities.
+- Introduced summaries and reports generation.
+- Implemented initial metrics using LLM-as-a-Judge.
+
+### Changed
+- Refactored the entire Polyphemus benchmarking framework for improved readability and maintainability.
+- Rewrote benchmarking framework to integrate SDK modules and improved model handling.
+- Improved prompting strategies.
+- Transitioned to using classes for custom metrics.
+- Restructured the project to facilitate deployment to Google Cloud.
+
+### Fixed
+- Resolved issues in evaluation summary calculations.
+- Fixed model registration problems with testers.
+- Corrected Hugging Face model loading behavior.
+- Fixed bugs in result curation.
+- Improved judge model memory management.
+- Addressed pathing issues.
+- Resolved issues in overall score calculation from metrics.
+- Optimized file access.
+
+### Removed
+- Removed redundant path joining.
+
+
 ## [0.1.0] - 2025-01-08
 
 ### Added

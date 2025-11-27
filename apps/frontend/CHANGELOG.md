@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-11-27
+
+### Added
+
+- Implemented client-side search filter for test results.
+- Added a new behaviors page with refactored metrics UI.
+- Implemented multi-turn conversation preview in the test generation flow.
+- Added support for Tool Source Type.
+- Implemented Tool Configuration Frontend.
+- Added bidirectional SDK connector with intelligent auto-mapping.
+- Added in-place test execution without worker infrastructure.
+- Added basic multi-turn test generation support.
+- Implemented an interactive onboarding tour system.
+- Added models list for providers.
+- Added an account button.
+
+### Changed
+
+- Redesigned the test results page with improved filters and UX.
+- Redesigned the knowledge detail page for consistency with the design system.
+- Reorganized navigation with sections and external links.
+- Improved behavior-metrics relation UI.
+- Upgraded to Next.js 16 and MUI v7.
+
+### Fixed
+
+- Fixed tag wrapping and placeholder text in grids.
+- Fixed issues in the Test Generation Stepper.
+- Resolved button disable logic and step completion issues in onboarding.
+- Corrected section name in source selector message.
+- Fixed permission issues in docs and frontend docker images.
+- Aligned Test Config Frontend with Backend API.
+- Resolved test failures and improved schema design.
+- Fixed Generate Test Config Endpoint.
+- Fixed telemetry deployment issues.
+- Updated Dockerfile to include 'local' environment in build and start conditions.
+
+### Removed
+
+- Removed the logout button in local environment.
+- Removed `type-check` and linter from the frontend build process.
+- Removed `ncdu` dependency.
+
 ## [0.4.3] - 2025-11-17
 
 ### Fixed

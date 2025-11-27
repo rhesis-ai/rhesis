@@ -935,6 +935,7 @@ export default function TestGenerationFlow({
         batch_size: 20,
         sources: selectedSources,
         name: testSetName.trim() || undefined,
+        test_type: testType,
       };
 
       const response = await testSetsClient.generateTestSet(request);
@@ -966,6 +967,7 @@ export default function TestGenerationFlow({
     testSetName,
     selectedSources,
     project,
+    testType,
     router,
     show,
   ]);

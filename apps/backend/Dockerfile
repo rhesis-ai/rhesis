@@ -74,6 +74,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy Bun from official image (lighter than Node.js, required for bunx to run MCP servers)
+COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:latest /usr/local/bin/bunx /usr/local/bin/bunx
+
 # Create non-root user first
 RUN adduser --disabled-password --gecos '' rhesis-user && \
     mkdir -p /app && \
@@ -99,7 +103,7 @@ USER rhesis-user
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/usr/local/bin:/app/.venv/bin:$PATH"
 
 # Expose port
 EXPOSE 8080

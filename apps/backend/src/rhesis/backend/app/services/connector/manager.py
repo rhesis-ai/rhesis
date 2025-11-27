@@ -57,8 +57,11 @@ class ConnectionManager:
             environment: Environment name
 
         Returns:
-            Connection key string
+            Connection key string (with environment normalized to lowercase)
         """
+        # Normalize environment to lowercase for consistent key generation
+        # This ensures keys match regardless of the casing used in headers or database
+        environment = environment.lower()
         return f"{project_id}:{environment}"
 
     def _track_background_task(self, coro) -> asyncio.Task:
@@ -107,7 +110,7 @@ class ConnectionManager:
                     3600,  # 1 hour TTL
                     "active",
                 )
-                logger.debug(f"Stored connection in Redis: {key}")
+                logger.debug(f"Stored connection in Redis with key: {redis_key}")
             except Exception as e:
                 logger.error(f"Failed to store connection in Redis for {key}: {e}")
 
@@ -137,8 +140,9 @@ class ConnectionManager:
     async def _remove_connection_from_redis(self, key: str) -> None:
         """Remove connection from Redis (async helper)."""
         try:
-            await redis_manager.client.delete(f"ws:connection:{key}")
-            logger.debug(f"Removed connection from Redis: {key}")
+            redis_key = f"ws:connection:{key}"
+            await redis_manager.client.delete(redis_key)
+            logger.debug(f"Removed connection from Redis with key: {redis_key}")
         except Exception as e:
             logger.warning(f"Failed to remove connection from Redis: {e}")
 
@@ -552,6 +556,7 @@ class ConnectionManager:
 
         # Look up WebSocket connection
         key = self.get_connection_key(project_id, environment)
+        logger.debug(f"Looking up WebSocket connection with key: {key}")
 
         if key not in self._connections:
             # In multi-worker setup, check if connection exists in Redis
@@ -562,6 +567,7 @@ class ConnectionManager:
                 try:
                     redis_key = f"ws:connection:{key}"
                     redis_has_connection = await redis_manager.client.exists(redis_key) > 0
+                    logger.debug(f"Redis connection check for {redis_key}: {redis_has_connection}")
                 except Exception as e:
                     logger.warning(f"Could not check Redis for connection: {e}")
 
