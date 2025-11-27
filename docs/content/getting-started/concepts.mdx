@@ -52,7 +52,7 @@ Metrics organize into behaviors like "Accuracy", "Safety", or "Compliance". When
 
 ## Test Sets
 
-**[Test Sets](/docs/platform/test-sets-runs)** collect tests that execute together, functioning like test suites in traditional software development. Running tests one at a time doesn't scale when you have hundreds of scenarios. Test sets let you execute bulk testing with one click, create regression suites that catch breaking changes, build pre-deployment validation pipelines, and organize tests by feature or scenario.
+**[Test Sets](/docs/platform/test-sets)** collect tests that execute together, functioning like test suites in traditional software development. Running tests one at a time doesn't scale when you have hundreds of scenarios. Test sets let you execute bulk testing with one click, create regression suites that catch breaking changes, build pre-deployment validation pipelines, and organize tests by feature or scenario.
 
 When you execute a test set, you select which endpoint to target and choose parallel or sequential execution. Rhesis runs each test through the endpoint, evaluates every response with relevant metrics, and aggregates everything into a test run. Tests can belong to multiple test sets, giving you flexibility to organize the same tests different ways—by priority, by feature area, by risk level.
 
@@ -78,7 +78,7 @@ The complete workflow follows a logical progression from setup through analysis.
 
 **Configure the Basics**: Add [endpoints](/docs/platform/endpoints) that connect to your AI system. Define [metrics](/docs/platform/metrics) that evaluate quality based on your requirements. Generate or manually create [tests](/docs/platform/tests-generation) that cover your use cases.
 
-**Organize and Execute**: Add tests to [test sets](/docs/platform/test-sets-runs) that make sense for your workflow—maybe one set for smoke tests, another for comprehensive regression testing. Run test sets against endpoints, which creates [test runs](/docs/platform/test-runs) with detailed results you can analyze.
+**Organize and Execute**: Add tests to [test sets](/docs/platform/test-sets) that make sense for your workflow—maybe one set for smoke tests, another for comprehensive regression testing. Run test sets against endpoints, which creates [test runs](/docs/platform/test-runs) with detailed results you can analyze.
 
 **Analyze and Improve**: Review [test runs](/docs/platform/test-runs) for detailed debugging of failures. Check the [test results](/docs/platform/test-results) dashboard to understand quality trends. Compare runs to detect regressions before they reach production. Generate more tests or adjust metrics based on what you learn.
 

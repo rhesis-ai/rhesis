@@ -11,6 +11,7 @@ Sources are content that you add to Rhesis to provide context and domain knowled
 Rhesis currently supports:
 
 - **Document**: Uploaded files (PDF, Word, Excel, PowerPoint, text files, etc.)
+- **Tool**: Pages imported from MCP servers (e.g., Notion pages)
 
 <Callout type="info">
   **Future Support**: Additional source types including Website, API, Database,
@@ -46,7 +47,14 @@ When adding documents, Rhesis supports a wide range of file formats:
 
 ## How Sources Work
 
-### Adding and Storage
+### Adding Sources
+
+You can add sources in two ways:
+
+1. **Upload Documents**: Upload files directly from your computer
+2. **Import from MCP**: Import pages from connected MCP servers (see [MCP documentation](/docs/platform/mcp))
+
+### Storage and Processing
 
 When you add a source:
 
@@ -56,6 +64,20 @@ When you add a source:
 4. **Source Record**: A source record is created with the extracted content and metadata
 
 You can then view details, browse extracted content, download the original file, edit metadata (title, description, tags), and add comments.
+
+### Importing from MCP
+
+To import sources from MCP servers:
+
+1. Click "Import Source from MCP" on the Knowledge page
+2. Select an MCP tool (e.g., Notion connection)
+3. Enter a search query to find pages
+4. Select pages from the results
+5. Click "Import as Sources" to save them
+
+<Callout type="warning">
+  **Search Errors**: If you encounter an error when searching, try again. The search agent is non-deterministic and may occasionally fail, but retrying may resolve the issue.
+</Callout>
 
 ## Using Sources for Test Generation
 
