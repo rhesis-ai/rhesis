@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
@@ -24,6 +25,8 @@ from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepTeamIllegal,
     DeepTeamSafety,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class DeepEvalMetricFactory(BaseMetricFactory):
@@ -115,7 +118,17 @@ class DeepEvalMetricFactory(BaseMetricFactory):
         # Filter kwargs to only include supported parameters for this class
         filtered_kwargs = {k: v for k, v in combined_kwargs.items() if k in supported_params}
 
-        return self._metrics[class_name](**filtered_kwargs)
+        try:
+            return self._metrics[class_name](**filtered_kwargs)
+        except Exception as e:
+            logger.error(
+                f"Failed to create DeepEval metric '{class_name}': {e}. "
+                f"This may be due to missing deepeval configuration or dependencies. "
+                f"Ensure deepeval is properly installed and configured."
+            )
+            raise RuntimeError(
+                f"Failed to instantiate DeepEval metric '{class_name}'. Error: {e}"
+            ) from e
 
     def list_supported_metrics(self) -> List[str]:
         """List available metric class names."""
