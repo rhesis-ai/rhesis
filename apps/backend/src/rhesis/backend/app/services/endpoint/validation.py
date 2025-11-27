@@ -100,12 +100,15 @@ async def validate_and_update_status_async(
     function_name: str,
     organization_id: str,
     user_id: str,
-    timeout: float = 5.0,
+    timeout: float = 30.0,
 ) -> Dict[str, Any]:
     """
     Validate endpoint mappings asynchronously and update status.
 
     This version doesn't block and uses the simplified validation approach.
+
+    Args:
+        timeout: Timeout in seconds for validation (default: 30s for LLM endpoints)
     """
     # Import here to avoid circular import
     from rhesis.backend.app.services.connector.mapping import MappingValidator
