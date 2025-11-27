@@ -115,7 +115,7 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 
 // Enums based on your backend models
 const CONNECTION_TYPES = ['REST', 'WEBSOCKET', 'GRPC', 'SDK'];
-const ENVIRONMENTS = ['production', 'staging', 'development'];
+const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
 const METHODS = ['POST'];
 
 interface TabPanelProps {

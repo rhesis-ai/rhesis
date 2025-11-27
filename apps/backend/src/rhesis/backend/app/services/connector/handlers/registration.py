@@ -85,6 +85,19 @@ class RegistrationHandler:
                     user_id=user_id,
                 )
 
+                # Check if any errors occurred during endpoint sync
+                errors = stats.get("errors", [])
+                if errors:
+                    logger.error(f"Endpoint sync completed with errors: {errors}")
+                    logger.info("=== END HANDLE REGISTER MESSAGE (WITH ERRORS) ===")
+                    return {
+                        "type": "registered",
+                        "status": "error",
+                        "sync_stats": stats,
+                        "errors": errors,
+                        "message": f"Endpoint sync failed for {len(errors)} function(s)",
+                    }
+
                 logger.info("=== END HANDLE REGISTER MESSAGE ===")
                 return {"type": "registered", "status": "success", "sync_stats": stats}
             else:

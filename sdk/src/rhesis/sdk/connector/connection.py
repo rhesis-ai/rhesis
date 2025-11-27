@@ -145,13 +145,30 @@ class WebSocketConnection:
         self._should_reconnect = True
         self._failure_reason: Optional[str] = None
 
+    def _log_state_change(self, new_state: ConnectionState, context: str = "") -> None:
+        """
+        Log connection state changes with context.
+
+        Args:
+            new_state: The new connection state
+            context: Additional context about the state change
+        """
+        old_state = self.state
+        if old_state != new_state:
+            context_msg = f" ({context})" if context else ""
+            logger.info(
+                f"Connection state: {old_state.value} -> {new_state.value}{context_msg} "
+                f"[url={self.url}, ping_interval={self.ping_interval}s, ping_timeout={self.ping_timeout}s]"
+            )
+        self.state = new_state
+
     async def connect(self) -> None:
         """Establish WebSocket connection."""
         if self.state in (ConnectionState.CONNECTED, ConnectionState.CONNECTING):
             logger.warning("Connection already active")
             return
 
-        self.state = ConnectionState.CONNECTING
+        self._log_state_change(ConnectionState.CONNECTING, "initiating connection")
         self._should_reconnect = True
 
         # Start connection task
@@ -160,7 +177,7 @@ class WebSocketConnection:
     async def disconnect(self) -> None:
         """Close WebSocket connection gracefully."""
         self._should_reconnect = False
-        self.state = ConnectionState.CLOSED
+        self._log_state_change(ConnectionState.CLOSED, "user requested disconnect")
 
         if self.websocket:
             try:
@@ -186,11 +203,13 @@ class WebSocketConnection:
             message: Message dictionary to send
         """
         if not self.websocket or self.state != ConnectionState.CONNECTED:
-            logger.error("Cannot send message: not connected")
+            logger.error(f"Cannot send message: not connected (state={self.state.value})")
             raise RuntimeError("WebSocket not connected")
 
         try:
+            message_type = message.get("type", "unknown")
             await self.websocket.send(json.dumps(message))
+            logger.debug(f"Message sent successfully: type={message_type}")
         except Exception as e:
             logger.error(f"Error sending message: {e}")
             raise
@@ -198,6 +217,7 @@ class WebSocketConnection:
     async def _maintain_connection(self) -> None:
         """Maintain persistent connection with auto-reconnect using tenacity."""
         attempt_number = 0
+        logger.info("Starting connection maintenance loop")
 
         try:
             async for attempt in AsyncRetrying(
@@ -208,12 +228,19 @@ class WebSocketConnection:
                 with attempt:
                     attempt_number = attempt.retry_state.attempt_number
                     if attempt_number > 1:
-                        self.state = ConnectionState.RECONNECTING
-                        logger.info(f"Connection attempt {attempt_number}/{self.max_retries}")
+                        self._log_state_change(
+                            ConnectionState.RECONNECTING,
+                            f"attempt {attempt_number}/{self.max_retries}",
+                        )
 
                     try:
                         await self._attempt_single_connection()
                         # If we get here, connection was successful and closed gracefully
+                        if attempt_number > 1:
+                            logger.info(
+                                f"Successfully reconnected after {attempt_number} attempt(s)"
+                            )
+                        logger.info("Connection closed gracefully")
                         break
                     except Exception as e:
                         # Classify the error
@@ -223,7 +250,7 @@ class WebSocketConnection:
                             # Permanent error - don't retry
                             logger.error(f"Permanent connection failure:\n{error_message}")
                             logger.error("Not retrying authentication/authorization failures.")
-                            self.state = ConnectionState.FAILED
+                            self._log_state_change(ConnectionState.FAILED, "permanent error")
                             self._failure_reason = error_message
 
                             # Call failure callback if provided
@@ -251,7 +278,9 @@ class WebSocketConnection:
 
         except RetryError as e:
             # Max retries exceeded
-            self.state = ConnectionState.FAILED
+            self._log_state_change(
+                ConnectionState.FAILED, f"max retries ({self.max_retries}) exceeded"
+            )
             last_error = (
                 e.last_attempt.exception()
                 if e.last_attempt and e.last_attempt.exception()
@@ -277,11 +306,14 @@ class WebSocketConnection:
 
         finally:
             if self.state not in (ConnectionState.FAILED, ConnectionState.CLOSED):
-                self.state = ConnectionState.DISCONNECTED
-                logger.info("WebSocket connection closed")
+                self._log_state_change(
+                    ConnectionState.DISCONNECTED, "connection closed unexpectedly"
+                )
+            logger.info("Connection maintenance loop ended")
 
     async def _attempt_single_connection(self) -> None:
         """Attempt a single WebSocket connection."""
+        logger.debug(f"Attempting WebSocket connection to {self.url}")
         async with websockets.connect(
             self.url,
             additional_headers=self.headers,
@@ -289,15 +321,16 @@ class WebSocketConnection:
             ping_timeout=self.ping_timeout,
         ) as websocket:
             self.websocket = websocket
-            self.state = ConnectionState.CONNECTED
-            logger.info(f"WebSocket connected to {self.url}")
+            self._log_state_change(ConnectionState.CONNECTED, "websocket established")
 
             # Trigger on_connect callback (for registration)
             if self.on_connect:
                 asyncio.create_task(self.on_connect())
 
             # Listen for messages (blocks until connection closes)
+            logger.debug("Starting message listener loop")
             await self._listen_for_messages(websocket)
+            logger.debug("Message listener loop ended")
 
     async def _listen_for_messages(self, websocket: ClientConnection) -> None:
         """Listen for incoming messages."""
