@@ -308,7 +308,12 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
         # Log request
         logger.info(f"Request started: {request.method} {request.url}")
-        logger.debug(f"Request headers: {request.headers}")
+
+        # Sanitize headers before logging to redact sensitive information
+        from rhesis.backend.app.services.invokers.common.headers import HeaderManager
+
+        sanitized_headers = HeaderManager.sanitize_headers(dict(request.headers))
+        logger.debug(f"Request headers: {sanitized_headers}")
 
         try:
             response = await call_next(request)
