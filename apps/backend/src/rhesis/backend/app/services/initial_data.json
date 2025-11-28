@@ -378,6 +378,11 @@
             "description": "Rhesis-managed model"
         },
         {
+            "type_name": "ProviderType",
+            "type_value": "openrouter",
+            "description": "OpenRouter unified API for multiple LLM providers"
+        },
+        {
             "type_name": "MetricType",
             "type_value": "grading",
             "description": "LLM-based grading using rubrics or classification prompts"
