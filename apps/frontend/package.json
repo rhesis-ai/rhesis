@@ -54,7 +54,7 @@
     "invariant": "^2.2.4",
     "lucide-react": "^0.475.0",
     "next": "^16.0.3",
-    "next-auth": "5.0.0-beta.25",
+    "next-auth": "5.0.0-beta.30",
     "nodemailer": "^6.10.0",
     "prismjs": "^1.29.0",
     "raw-loader": "^4.0.2",
