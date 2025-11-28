@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from rhesis.sdk.services.context_generator import ContextGenerator
+from rhesis.sdk.services.chunker import SemanticChunker
 
 
 @dataclass
@@ -119,12 +119,12 @@ def prepare_context(
     context: Optional[Union[str, List[str]]], max_tokens_per_chunk: int = 1500
 ) -> Optional[List[str]]:
     """
-    Prepare context for SDK compatibility using ContextGenerator.
+    Prepare context for SDK compatibility using SemanticChunker.
 
     Handles three cases:
     1. None -> returns None
     2. List[str] -> returns as-is (already chunked)
-    3. str -> automatically chunks using SDK's ContextGenerator
+    3. str -> automatically chunks using SDK's SemanticChunker
 
     Args:
         context: Raw context (None, string, or list of strings)
@@ -141,9 +141,9 @@ def prepare_context(
         return context
 
     if isinstance(context, str):
-        # Use SDK ContextGenerator for intelligent semantic chunking
-        generator = ContextGenerator(max_context_tokens=max_tokens_per_chunk)
-        chunks = generator.generate_contexts(context)
+        # Use SDK SemanticChunker for intelligent semantic chunking
+        chunker = SemanticChunker(max_tokens_per_chunk=max_tokens_per_chunk)
+        chunks = chunker.chunk(context)
         return chunks
 
     # Fallback for unexpected types
@@ -156,7 +156,7 @@ def read_tests_json(json_path, auto_chunk_context: bool = True) -> List[Test] | 
 
     Args:
         json_path: Path to the JSON file containing tests
-        auto_chunk_context: If True, automatically chunk string context using SDK ContextGenerator
+        auto_chunk_context: If True, automatically chunk string context using SDK SemanticChunker
 
     Returns:
         List of Test objects, or None if file not found
