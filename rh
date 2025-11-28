@@ -57,6 +57,14 @@ start_all() {
     echo -e "${GREEN}🚀 Starting all Rhesis services with Docker...${NC}"
     echo -e "${BLUE}ℹ️  Using zero-configuration local setup${NC}"
     echo ""
+    echo "#####################################################################################"
+    echo ""
+    echo -e "${CYAN}📊 Telemetry Notice:${NC}"
+    echo -e "${WHITE}   Rhesis AI automatically collects anonymous usage statistics to help improve the platform.${NC}"
+    echo -e "${WHITE}   To disable telemetry, set: ${YELLOW}OTEL_RHESIS_TELEMETRY_ENABLED=false${NC}"
+    echo ""
+    echo "#####################################################################################"
+    echo ""
 
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
@@ -127,8 +135,8 @@ start_all() {
 
     echo ""
     echo -e "${YELLOW}📦 Starting services ...${NC}"
-    docker compose --env-file .env.docker.local up -d postgres redis backend worker frontend
-
+    
+docker compose --env-file .env.docker.local up --build -d postgres redis backend worker frontend
     if [ $? -eq 0 ]; then
         echo ""
         echo -e "${GREEN}✅ All services started successfully!${NC}"
