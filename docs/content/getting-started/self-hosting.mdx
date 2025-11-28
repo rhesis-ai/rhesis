@@ -479,11 +479,25 @@ The Rhesis platform consists of several interconnected services:
 
 #### Service Dependencies
 
-<CodeBlock filename="Architecture Diagram" isTerminal={true}>
-{`Frontend → Backend → PostgreSQL
-             ↓
-           Redis ← Worker`}
-</CodeBlock>
+```mermaid
+graph LR
+    Frontend["Frontend<br/><small>Port 3000<br/>Next.js</small>"]
+    Backend["Backend<br/><small>Port 8080<br/>FastAPI</small>"]
+    PostgreSQL["PostgreSQL<br/><small>Port 5432<br/>Database</small>"]
+    Redis["Redis<br/><small>Port 6379<br/>Cache & Queue</small>"]
+    Worker["Worker<br/><small>Port 8081<br/>Celery</small>"]
+    
+    Frontend --> Backend
+    Backend --> PostgreSQL
+    Backend --> Redis
+    Worker --> Redis
+    
+    style Frontend fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style Backend fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style PostgreSQL fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style Redis fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style Worker fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+```
 
 ### Automated Database Setup
 
@@ -652,11 +666,12 @@ OTEL_RHESIS_TELEMETRY_ENABLED=false`}
 
 Then restart your services:
 
-```bash
-docker-compose restart
+<CodeBlock filename="Terminal" language="bash">
+{`docker-compose restart
 # or
-./rh backend start
-```
+./rh backend start`}
+
+</CodeBlock>
 
 ### Telemetry Configuration (Optional)
 
@@ -665,12 +680,12 @@ If telemetry is enabled (default), you can optionally configure these settings:
 <CodeBlock filename=".env" language="bash">
 {`# Telemetry configuration (optional - these are the defaults)
 OTEL_DEPLOYMENT_TYPE=self-hosted
-OTEL_EXPORTER_OTLP_ENDPOINT=https://rhesis-otel-collector-dev-235yqdecwq-uc.a.run.app/
+OTEL_EXPORTER_OTLP_ENDPOINT=https://telemetry.rhesis.ai
 OTEL_SERVICE_NAME=rhesis`}
 </CodeBlock>
 
 <Callout type="default">
-**Learn More**: For technical details about the telemetry architecture, see [Telemetry System Documentation](/telemetry).
+**Learn More**: For technical details about the telemetry architecture, see [Telemetry System Documentation](https://docs.rhesis.ai/development/telemetry).
 </Callout>
 
 ## Management Commands
