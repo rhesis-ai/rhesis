@@ -156,6 +156,45 @@ class TestGetModel:
         mock_gemini_class.assert_called_once_with(model_name=DEFAULT_MODELS["gemini"], api_key=None)
         assert result == mock_instance
 
+    @patch("rhesis.sdk.models.providers.openrouter.OpenRouterLLM")
+    def test_get_model_openrouter(self, mock_openrouter_class):
+        """Test get_model with openrouter provider."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_openrouter_class.return_value = mock_instance
+
+        result = get_model("openrouter", "anthropic/claude-3.5-sonnet")
+
+        mock_openrouter_class.assert_called_once_with(
+            model_name="anthropic/claude-3.5-sonnet", api_key=None
+        )
+        assert result == mock_instance
+
+    @patch("rhesis.sdk.models.providers.openrouter.OpenRouterLLM")
+    def test_get_model_openrouter_with_default(self, mock_openrouter_class):
+        """Test get_model with openrouter provider using default model."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_openrouter_class.return_value = mock_instance
+
+        result = get_model("openrouter")
+
+        mock_openrouter_class.assert_called_once_with(
+            model_name=DEFAULT_MODELS["openrouter"], api_key=None
+        )
+        assert result == mock_instance
+
+    @patch("rhesis.sdk.models.providers.openrouter.OpenRouterLLM")
+    def test_get_model_openrouter_shorthand(self, mock_openrouter_class):
+        """Test get_model with openrouter shorthand syntax."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_openrouter_class.return_value = mock_instance
+
+        result = get_model("openrouter/meta-llama/llama-3.1-8b-instruct")
+
+        mock_openrouter_class.assert_called_once_with(
+            model_name="meta-llama/llama-3.1-8b-instruct", api_key=None
+        )
+        assert result == mock_instance
+
     @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
     def test_get_model_vertex_ai(self, mock_vertex_ai_class):
         """Test get_model with vertex_ai provider."""
@@ -297,6 +336,27 @@ class TestModelFactoryIntegration:
 
         assert all(isinstance(model, Mock) for model in models)
         assert mock_gemini_class.call_count == 4
+
+    @patch("rhesis.sdk.models.providers.openrouter.OpenRouterLLM")
+    def test_openrouter_integration(self, mock_openrouter_class):
+        """Test full integration with openrouter provider."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_openrouter_class.return_value = mock_instance
+
+        # Test all creation methods for openrouter
+        models = [
+            get_model("openrouter"),  # provider only
+            get_model("openrouter", "anthropic/claude-3.5-sonnet"),  # provider + model
+            get_model("openrouter/anthropic/claude-3.5-sonnet"),  # shorthand
+            get_model(
+                config=ModelConfig(
+                    provider="openrouter", model_name="anthropic/claude-3.5-sonnet"
+                )
+            ),  # config
+        ]
+
+        assert all(isinstance(model, Mock) for model in models)
+        assert mock_openrouter_class.call_count == 4
 
     @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
     def test_vertex_ai_integration(self, mock_vertex_ai_class):

@@ -24,6 +24,7 @@ DEFAULT_MODELS = {
     "mistral": "mistral-medium-latest",
     "ollama": "llama3.1",
     "openai": "gpt-4o",
+    "openrouter": "openai/gpt-4o-mini",
     "perplexity": "sonar-pro",
     "replicate": "llama-2-70b-chat",
     "together_ai": "togethercomputer/llama-2-70b-chat",
@@ -135,6 +136,13 @@ def _create_together_ai_llm(model_name: str, api_key: Optional[str], **kwargs) -
     return TogetherAILLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
+def _create_openrouter_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
+    """Factory function for OpenRouterLLM."""
+    from rhesis.sdk.models.providers.openrouter import OpenRouterLLM
+
+    return OpenRouterLLM(model_name=model_name, api_key=api_key, **kwargs)
+
+
 # Provider registry mapping provider names to their factory functions
 PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
     "rhesis": _create_rhesis_llm,
@@ -147,6 +155,7 @@ PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
     "mistral": _create_mistral_llm,
     "ollama": _create_ollama_llm,
     "openai": _create_openai_llm,
+    "openrouter": _create_openrouter_llm,
     "perplexity": _create_perplexity_llm,
     "replicate": _create_replicate_llm,
     "together_ai": _create_together_ai_llm,
@@ -310,6 +319,7 @@ def get_available_models(provider: str) -> list[str]:
         "mistral": _get_mistral_models,
         "ollama": _get_ollama_models,
         "openai": _get_openai_models,
+        "openrouter": _get_openrouter_models,
         "perplexity": _get_perplexity_models,
         "replicate": _get_replicate_models,
         "together_ai": _get_together_ai_models,
@@ -410,3 +420,10 @@ def _get_vertex_ai_models() -> list[str]:
     from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
 
     return VertexAILLM.get_available_models()
+
+
+def _get_openrouter_models() -> list[str]:
+    """Get available OpenRouter models."""
+    from rhesis.sdk.models.providers.openrouter import OpenRouterLLM
+
+    return OpenRouterLLM.get_available_models()
