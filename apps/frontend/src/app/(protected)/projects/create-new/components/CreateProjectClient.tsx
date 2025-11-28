@@ -109,6 +109,8 @@ export default function CreateProjectClient({
 
         // Navigate to the projects page
         router.push('/projects');
+        // invalidate cache by force
+        router.refresh();
       } catch (projectError) {
         if (projectError instanceof Error) {
           if (projectError.message.includes('Failed to fetch')) {
