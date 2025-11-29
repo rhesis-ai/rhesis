@@ -34,10 +34,10 @@ format_diff:
 	fi
 
 test:
-	uv run pytest -s ../tests/sdk --ignore=../tests/sdk/integration
+	uv run pytest -s ../tests/sdk --ignore=../tests/sdk/integration --ignore=../tests/sdk/connector
 
 test-integration:
-	uv run pytest -s ../tests/sdk
+	uv run pytest -s ../tests/sdk --ignore=../tests/sdk/connector
 
 test-coverage:
 	uv run pytest ../tests/sdk --cov=src/rhesis --cov-report=term-missing --cov-report=html

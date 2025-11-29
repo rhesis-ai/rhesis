@@ -98,14 +98,3 @@ class Behavior(BaseEntity):
 class Behaviors(BaseCollection):
     endpoint = ENDPOINT
     entity_class = Behavior
-
-
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv(override=True)
-    behavior = Behaviors.all()
-
-    # pprint(behavior[0].get_metrics())
-    behavior = Behavior(id="710a130b-3799-4f83-8258-a3d4709de9fc")
-    behavior.remove_metric("efe7ce3a-7026-4b7c-a048-7c7e61b5b977")

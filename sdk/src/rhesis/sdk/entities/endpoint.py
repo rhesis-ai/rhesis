@@ -30,10 +30,10 @@ class Endpoint(BaseEntity):
     """
 
     endpoint: ClassVar[Endpoints] = ENDPOINT
-    name: str
+    name: Optional[str] = None
     description: Optional[str] = None
-    connection_type: str
-    url: str
+    connection_type: Optional[str] = None
+    url: Optional[str] = None
     id: Optional[str] = None
 
     @handle_http_errors

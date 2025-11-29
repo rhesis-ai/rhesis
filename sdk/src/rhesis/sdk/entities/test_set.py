@@ -1,5 +1,6 @@
+import csv
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from jinja2 import Template
 from pydantic import BaseModel
@@ -8,6 +9,7 @@ from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.entities import BaseEntity, Endpoint
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import handle_http_errors
+from rhesis.sdk.entities.prompt import Prompt
 from rhesis.sdk.entities.test import Test
 from rhesis.sdk.enums import TestType
 from rhesis.sdk.models.base import BaseLLM
@@ -174,6 +176,109 @@ class TestSet(BaseEntity):
             self.id = response["id"]
 
         return response
+
+    def to_csv(self, filename: Union[str, Path]) -> None:
+        """Save the tests from this test set to a CSV file.
+
+        Exports single-turn tests with their properties including category, topic,
+        behavior, and prompt content.
+
+        Args:
+            filename: Path to the CSV file to create/overwrite.
+
+        Raises:
+            ValueError: If the test set has no tests.
+
+        Example:
+            >>> test_set = TestSet(name="My Tests", ...)
+            >>> test_set.to_csv("my_tests.csv")
+        """
+        if not self.tests:
+            raise ValueError("Test set has no tests to export")
+
+        fieldnames = [
+            "category",
+            "topic",
+            "behavior",
+            "prompt_content",
+        ]
+
+        filepath = Path(filename)
+        with open(filepath, "w", newline="", encoding="utf-8") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+
+            for test in self.tests:
+                if isinstance(test, dict):
+                    test_obj = Test(**test)
+                else:
+                    test_obj = test
+
+                row = {
+                    "category": test_obj.category or "",
+                    "topic": test_obj.topic or "",
+                    "behavior": test_obj.behavior or "",
+                    "prompt_content": test_obj.prompt.content if test_obj.prompt else "",
+                }
+                writer.writerow(row)
+
+    @classmethod
+    def from_csv(
+        cls,
+        filename: Union[str, Path],
+        name: str = "",
+        description: str = "",
+        short_description: str = "",
+    ) -> "TestSet":
+        """Load single-turn tests from a CSV file and create a new TestSet.
+
+        Creates a TestSet populated with Test objects from the CSV file.
+        The CSV should have columns matching the to_csv output format.
+
+        Args:
+            filename: Path to the CSV file to read.
+            name: Name for the test set (default: empty string).
+            description: Description for the test set (default: empty string).
+            short_description: Short description for the test set (default: empty string).
+
+        Returns:
+            A new TestSet instance populated with tests from the CSV.
+
+        Raises:
+            FileNotFoundError: If the CSV file does not exist.
+
+        Example:
+            >>> test_set = TestSet.from_csv("my_tests.csv", name="Imported Tests")
+            >>> print(f"Loaded {len(test_set.tests)} tests")
+        """
+        filepath = Path(filename)
+        tests: List[Test] = []
+
+        with open(filepath, "r", newline="", encoding="utf-8") as csvfile:
+            reader = csv.DictReader(csvfile)
+
+            for row in reader:
+                # Build prompt if content exists
+                prompt = None
+                if row.get("prompt_content"):
+                    prompt = Prompt(content=row["prompt_content"])
+
+                test = Test(
+                    category=row.get("category") or None,
+                    topic=row.get("topic") or None,
+                    behavior=row.get("behavior") or None,
+                    prompt=prompt,
+                    test_type=TestType.SINGLE_TURN,
+                )
+                tests.append(test)
+
+        return cls(
+            name=name,
+            description=description,
+            short_description=short_description,
+            tests=tests,
+            test_count=len(tests),
+        )
 
 
 class TestSets(BaseCollection):
