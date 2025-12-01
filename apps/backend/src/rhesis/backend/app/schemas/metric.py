@@ -82,12 +82,14 @@ class Metric(MetricBase):
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
     tags: Optional[List[Tag]] = []
+    # Override string fields with relationship objects for response
+    backend_type: Optional[TypeLookup] = None
+    metric_type: Optional[TypeLookup] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class MetricDetail(Metric):
-    metric_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
     assignee: Optional[UserReference] = None
     owner: Optional[UserReference] = None
