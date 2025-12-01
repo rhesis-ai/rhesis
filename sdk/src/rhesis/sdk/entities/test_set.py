@@ -169,7 +169,9 @@ class TestSet(BaseEntity):
             >>> result = test_set.push()
             >>> print(f"Created test set with ID: {test_set.id}")
         """
-        data = self.model_dump()
+        # mode="json": Ensures enums are serialized as strings instead of enum objects
+        # exclude_none=True: Excludes None values so backend uses defaults
+        data = self.model_dump(mode="json", exclude_none=True)
 
         response = self._create(data)
         if response and "id" in response:
@@ -233,7 +235,22 @@ class TestSet(BaseEntity):
         """Load single-turn tests from a CSV file and create a new TestSet.
 
         Creates a TestSet populated with Test objects from the CSV file.
-        The CSV should have columns matching the to_csv output format.
+
+        Required CSV Columns:
+            - prompt_content: The test prompt text (required for valid tests)
+            - category: Test category (required for valid tests)
+            - topic: Test topic (required for valid tests)
+            - behavior: Test behavior (required for valid tests)
+
+        Optional CSV Columns:
+            - test_type: Test type (defaults to "Single-Turn")
+            - expected_response: Expected response text
+            - Any other columns will be ignored
+
+        Empty Row Handling:
+            Rows with empty or whitespace-only values for all required fields
+            (prompt_content, category, topic, behavior) will be automatically
+            skipped during import.
 
         Args:
             filename: Path to the CSV file to read.
@@ -254,14 +271,28 @@ class TestSet(BaseEntity):
         filepath = Path(filename)
         tests: List[Test] = []
 
-        with open(filepath, "r", newline="", encoding="utf-8") as csvfile:
+        with open(filepath, "r", newline="", encoding="utf-8-sig") as csvfile:
             reader = csv.DictReader(csvfile)
 
             for row in reader:
+                # Skip empty rows - check if any required field has content
+                if not any(
+                    [
+                        row.get("prompt_content", "").strip(),
+                        row.get("category", "").strip(),
+                        row.get("topic", "").strip(),
+                        row.get("behavior", "").strip(),
+                    ]
+                ):
+                    continue  # Skip this empty row
+
                 # Build prompt if content exists
                 prompt = None
                 if row.get("prompt_content"):
-                    prompt = Prompt(content=row["prompt_content"])
+                    prompt = Prompt(
+                        content=row["prompt_content"],
+                        expected_response=row.get("expected_response"),
+                    )
 
                 test = Test(
                     category=row.get("category") or None,

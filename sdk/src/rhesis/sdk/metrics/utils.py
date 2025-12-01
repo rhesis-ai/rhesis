@@ -21,6 +21,20 @@ def sdk_config_to_backend_config(config: Dict[str, Any]) -> Dict[str, Any]:
             for scope in config["metric_scope"]
         ]
 
+    # Convert backend enum to string for backend API
+    if config.get("backend"):
+        backend = config["backend"]
+        config["backend_type"] = backend.value if hasattr(backend, "value") else str(backend)
+        # Remove the old backend field as backend expects backend_type
+        config.pop("backend", None)
+
+    # Convert metric_type enum to string for backend API
+    if config.get("metric_type"):
+        metric_type = config["metric_type"]
+        config["metric_type"] = (
+            metric_type.value if hasattr(metric_type, "value") else str(metric_type)
+        )
+
     return config
 
 
@@ -32,6 +46,30 @@ def backend_config_to_sdk_config(config: Dict[str, Any]) -> Dict[str, Any]:
         from rhesis.sdk.metrics.base import MetricScope
 
         config["metric_scope"] = [MetricScope(scope) for scope in config["metric_scope"]]
+
+    # Convert backend_type back to backend enum for SDK
+    if config.get("backend_type"):
+        from rhesis.sdk.metrics.base import Backend
+
+        backend_type = config.pop("backend_type")
+        if isinstance(backend_type, dict) and "type_value" in backend_type:
+            # Handle nested backend_type structure from API
+            config["backend"] = Backend(backend_type["type_value"])
+        else:
+            # Handle simple string backend_type
+            config["backend"] = Backend(backend_type)
+
+    # Convert metric_type strings back to enum values for SDK
+    if config.get("metric_type"):
+        from rhesis.sdk.metrics.base import MetricType
+
+        metric_type = config["metric_type"]
+        if isinstance(metric_type, dict) and "type_value" in metric_type:
+            # Handle nested metric_type structure from API
+            config["metric_type"] = MetricType(metric_type["type_value"])
+        else:
+            # Handle simple string metric_type
+            config["metric_type"] = MetricType(metric_type)
 
     return config
 
