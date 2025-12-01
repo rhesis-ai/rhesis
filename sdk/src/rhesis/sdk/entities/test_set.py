@@ -291,7 +291,7 @@ class TestSet(BaseEntity):
                 if row.get("prompt_content"):
                     prompt = Prompt(
                         content=row["prompt_content"],
-                        expected_response=row.get("expected_response")
+                        expected_response=row.get("expected_response"),
                     )
 
                 test = Test(

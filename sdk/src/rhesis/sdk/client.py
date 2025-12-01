@@ -122,6 +122,7 @@ class Client:
         url = self.get_url(endpoint.value)
         if url_params is not None:
             url = f"{url}/{url_params}"
+        print(f"Sending request to {url} with method {method.value} and data {data}")
         response = requests.request(
             method=method.value, url=url, headers=self.headers, json=data, params=params
         )

@@ -1,4 +1,5 @@
 import pytest
+
 from rhesis.sdk.metrics.base import (
     Backend,
     BaseMetric,
@@ -12,7 +13,8 @@ from rhesis.sdk.models.providers.native import RhesisLLM
 
 def test_metric_config_defaults():
     config = MetricConfig()
-    assert config.backend == Backend.RHESIS
+    assert config.backend == Backend.CUSTOM
+    assert config.metric_type == MetricType.CUSTOM_PROMPT
 
 
 def test_metric_config_with_backend():
