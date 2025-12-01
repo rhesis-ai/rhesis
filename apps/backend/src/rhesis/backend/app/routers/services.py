@@ -54,6 +54,12 @@ from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.extractor import DocumentExtractor
+from rhesis.sdk.services.mcp import (
+    MCPAuthenticationError,
+    MCPConnectionError,
+    MCPDataFormatError,
+    MCPNotFoundError,
+)
 
 router = APIRouter(
     prefix="/services",
@@ -564,10 +570,34 @@ async def search_mcp_server(
         return await search_mcp(
             request.query, request.tool_id, db, current_user, organization_id, user_id
         )
+    except (MCPAuthenticationError, MCPNotFoundError) as e:
+        logger.warning(f"MCP search error: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except MCPDataFormatError as e:
+        logger.error(f"MCP search error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=422, detail=str(e))
+    except MCPConnectionError as e:
+        logger.error(f"MCP connection error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=503, detail=str(e))
+    except ValueError as e:
+        # Tool configuration errors (tool not found, invalid credentials)
+        error_msg = str(e)
+        error_lower = error_msg.lower()
+        is_config_error = (
+            "not found" in error_lower
+            or "not an MCP integration" in error_lower
+            or "invalid credentials" in error_lower
+        )
+        if is_config_error:
+            logger.warning(f"MCP search configuration error: {error_msg}")
+            raise HTTPException(status_code=404, detail=error_msg)
+        # Other ValueErrors (e.g., invalid JSON format)
+        logger.error(f"MCP search error: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=422, detail=error_msg)
     except Exception as e:
-        logger.error(f"Failed to search MCP server: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error in search_mcp_server: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=500, detail="Failed to search MCP server. Please try again."
+            status_code=500, detail="An unexpected error occurred. Please try again."
         )
 
 
@@ -612,11 +642,35 @@ async def extract_mcp_item(
             user_id,
         )
         return {"content": content}
+    except (MCPAuthenticationError, MCPNotFoundError) as e:
+        logger.warning(f"MCP extract error: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except MCPDataFormatError as e:
+        logger.error(f"MCP extract error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=422, detail=str(e))
+    except MCPConnectionError as e:
+        logger.error(f"MCP connection error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=503, detail=str(e))
+    except ValueError as e:
+        # Tool configuration errors (tool not found, invalid credentials)
+        error_msg = str(e)
+        error_lower = error_msg.lower()
+        is_config_error = (
+            "not found" in error_lower
+            or "not an MCP integration" in error_lower
+            or "invalid credentials" in error_lower
+        )
+        if is_config_error:
+            logger.warning(f"MCP extract configuration error: {error_msg}")
+            raise HTTPException(status_code=404, detail=error_msg)
+        # Other ValueErrors (e.g., invalid format)
+        logger.error(f"MCP extract error: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=422, detail=error_msg)
     except Exception as e:
-        logger.error(f"Failed to extract MCP item: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error in extract_mcp_item: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail="Failed to extract content. Please verify the item ID and try again.",
+            detail="An unexpected error occurred. Please verify the item ID and try again.",
         )
 
 
@@ -668,10 +722,34 @@ async def query_mcp_server(
             max_iterations=request.max_iterations,
         )
         return result
+    except (MCPAuthenticationError, MCPNotFoundError) as e:
+        logger.warning(f"MCP query error: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except MCPDataFormatError as e:
+        logger.error(f"MCP query error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=422, detail=str(e))
+    except MCPConnectionError as e:
+        logger.error(f"MCP connection error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=503, detail=str(e))
+    except ValueError as e:
+        # Tool configuration errors (tool not found, invalid credentials)
+        error_msg = str(e)
+        error_lower = error_msg.lower()
+        is_config_error = (
+            "not found" in error_lower
+            or "not an MCP integration" in error_lower
+            or "invalid credentials" in error_lower
+        )
+        if is_config_error:
+            logger.warning(f"MCP query configuration error: {error_msg}")
+            raise HTTPException(status_code=404, detail=error_msg)
+        # Other ValueErrors
+        logger.error(f"MCP query error: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=422, detail=error_msg)
     except Exception as e:
-        logger.error(f"Failed to query MCP server: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error in query_mcp_server: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=500, detail="Failed to execute query on MCP server. Please try again."
+            status_code=500, detail="An unexpected error occurred. Please try again."
         )
 
 

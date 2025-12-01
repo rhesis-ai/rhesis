@@ -4,6 +4,10 @@ import logging
 from typing import Any, Dict, List
 
 from rhesis.sdk.services.mcp.client import MCPClient
+from rhesis.sdk.services.mcp.exceptions import (
+    MCPAuthenticationError,
+    MCPConnectionError,
+)
 from rhesis.sdk.services.mcp.schemas import ToolCall, ToolResult
 
 logger = logging.getLogger(__name__)
@@ -43,6 +47,10 @@ class ToolExecutor:
 
         Returns:
             ToolResult containing output content or error details
+
+        Raises:
+            MCPAuthenticationError: If authentication fails
+            MCPConnectionError: If connection fails
         """
         try:
             logger.info(f"Executing tool: {tool_call.tool_name}")
@@ -61,10 +69,29 @@ class ToolExecutor:
 
             return ToolResult(tool_name=tool_call.tool_name, success=True, content=content)
 
+        except (TimeoutError, ConnectionError, OSError) as e:
+            # Connection errors - raise immediately
+            error_msg = str(e)
+            logger.error(f"Connection error executing tool {tool_call.tool_name}: {error_msg}")
+            raise MCPConnectionError(f"Failed to connect to MCP server: {error_msg}") from e
+
+        except RuntimeError as e:
+            # Check if it's a connection-related RuntimeError
+            error_msg = str(e).lower()
+            if self._is_connection_error(error_msg):
+                logger.error(f"Connection error: {error_msg}")
+                raise MCPConnectionError(f"Connection error: {error_msg}") from e
+            # Otherwise, treat as other error (fall through)
+
         except Exception as e:
+            # Check for authentication errors in the message
+            if self._is_authentication_error(str(e)):
+                logger.error(f"Authentication error executing tool {tool_call.tool_name}: {str(e)}")
+                raise MCPAuthenticationError(f"Authentication failed: {str(e)}") from e
+
+            # All other errors - return ToolResult for agent to handle
             error_msg = str(e)
             logger.error(f"Tool {tool_call.tool_name} failed: {error_msg}")
-
             return ToolResult(
                 tool_name=tool_call.tool_name, success=False, content="", error=error_msg
             )
@@ -92,3 +119,44 @@ class ToolExecutor:
                 content_parts.append(content_item.text)
 
         return "\n\n".join(content_parts)
+
+    def _is_authentication_error(self, error_msg: str) -> bool:
+        """
+        Check if error message indicates an authentication error.
+
+        Args:
+            error_msg: Error message to check
+
+        Returns:
+            True if error is authentication-related
+        """
+        error_lower = error_msg.lower()
+        auth_keywords = [
+            "unauthorized",
+            "invalid api key",
+            "authentication",
+            "not authenticated",
+            "401",
+            "403",
+            "forbidden",
+        ]
+        return any(keyword in error_lower for keyword in auth_keywords)
+
+    def _is_connection_error(self, error_msg: str) -> bool:
+        """
+        Check if error message indicates a connection error.
+
+        Args:
+            error_msg: Error message to check
+
+        Returns:
+            True if error is connection-related
+        """
+        connection_keywords = [
+            "not connected",
+            "connection",
+            "timeout",
+            "connection refused",
+            "network",
+        ]
+        return any(keyword in error_msg for keyword in connection_keywords)
