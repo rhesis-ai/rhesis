@@ -19,8 +19,12 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
 import dynamic from 'next/dynamic';
 import { useTheme } from '@mui/material/styles';
+import { useSession } from 'next-auth/react';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import {
   Tool,
@@ -29,6 +33,7 @@ import {
 } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
 import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 // Lazy load Monaco Editor
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -97,6 +102,8 @@ export function MCPConnectionDialog({
   onUpdate,
 }: MCPConnectionDialogProps) {
   const theme = useTheme();
+  const { data: session } = useSession();
+  const notifications = useNotifications();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [authToken, setAuthToken] = useState('');
@@ -106,6 +113,14 @@ export function MCPConnectionDialog({
   const [showAuthToken, setShowAuthToken] = useState(false);
   const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    is_authenticated: string;
+    message: string;
+  } | null>(null);
+  const [testCreatedToolId, setTestCreatedToolId] = useState<string | null>(
+    null
+  );
 
   const isEditMode = mode === 'edit';
 
@@ -154,6 +169,8 @@ export function MCPConnectionDialog({
         setShowAuthToken(false);
         setLoading(false);
         setShowAdvancedConfig(!!tool.tool_metadata);
+        setTestResult(null);
+        setTestCreatedToolId(null);
       } else if (provider) {
         // Create mode: reset to defaults
         setName('');
@@ -165,6 +182,8 @@ export function MCPConnectionDialog({
         setShowAuthToken(false);
         setLoading(false);
         setShowAdvancedConfig(isCustomProvider);
+        setTestResult(null);
+        setTestCreatedToolId(null);
       }
     }
   }, [open, provider, tool, isEditMode, isCustomProvider]);
@@ -199,6 +218,125 @@ export function MCPConnectionDialog({
       validateToolMetadata(value);
     } else {
       setJsonError(null);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    if (!session?.session_token) {
+      setError('Session not available. Please try again.');
+      return;
+    }
+
+    // In create mode, we need to validate required fields first
+    if (!isEditMode) {
+      if (!provider || !name || (requiresToken && !authToken)) {
+        setError('Please fill in all required fields before testing.');
+        return;
+      }
+      if (isCustomProvider && !toolMetadata.trim()) {
+        setError('Tool metadata is required for custom providers.');
+        return;
+      }
+    }
+
+    // In edit mode, we need the tool ID
+    if (isEditMode && !tool?.id) {
+      setError('Tool ID not available. Please save the connection first.');
+      return;
+    }
+
+    setTestingConnection(true);
+    setError(null);
+    setTestResult(null);
+
+    try {
+      const apiFactory = new ApiClientFactory(session.session_token);
+      const servicesClient = apiFactory.getServicesClient();
+      let toolIdToTest: string;
+
+      if (isEditMode) {
+        // In edit mode, use existing tool ID
+        toolIdToTest = tool!.id;
+      } else {
+        // In create mode, create the tool first for testing
+        if (!mcpToolType || !provider) {
+          setError('MCP tool type or provider not found. Please try again.');
+          setTestingConnection(false);
+          return;
+        }
+
+        const toolsClient = apiFactory.getToolsClient();
+        const credentialKey = getCredentialKey(provider.type_value);
+        const credentials = requiresToken
+          ? {
+              [credentialKey]: authToken.trim(),
+            }
+          : {};
+
+        let parsedMetadata: Record<string, any> | undefined = undefined;
+        if (isCustomProvider && toolMetadata.trim()) {
+          const validatedMetadata = validateToolMetadata(toolMetadata);
+          if (validatedMetadata === null) {
+            setError(
+              'Please fix the JSON configuration errors before testing.'
+            );
+            setTestingConnection(false);
+            return;
+          }
+          parsedMetadata = validatedMetadata;
+        }
+
+        const toolData: ToolCreate = {
+          name,
+          description: description || undefined,
+          tool_type_id: mcpToolType.id,
+          tool_provider_type_id: provider.id,
+          credentials,
+          tool_metadata: parsedMetadata,
+        };
+
+        // Create tool temporarily for testing
+        const tempTool = await toolsClient.createTool(toolData);
+        toolIdToTest = tempTool.id;
+        setTestCreatedToolId(tempTool.id);
+      }
+
+      // Test the connection
+      const result = await servicesClient.testMCPConnection(toolIdToTest);
+
+      if (result.is_authenticated === 'Yes') {
+        // Test successful
+        setTestResult(result);
+        if (!isEditMode) {
+          // In create mode, the tool is already created and tested successfully
+          notifications?.show('Connection tested successfully!', {
+            severity: 'success',
+          });
+        }
+      } else {
+        // Test failed
+        setTestResult(result);
+        if (!isEditMode) {
+          // Clean up the temporary tool if test failed
+          try {
+            const toolsClient = apiFactory.getToolsClient();
+            await toolsClient.deleteTool(toolIdToTest);
+            setTestCreatedToolId(null);
+          } catch (deleteErr) {
+            // Ignore delete errors
+            console.error('Failed to delete temporary tool:', deleteErr);
+          }
+        }
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to test connection. Please try again.'
+      );
+      setTestResult(null);
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -276,6 +414,47 @@ export function MCPConnectionDialog({
       }
 
       if (onConnect) {
+        // If tool was already created during testing, use form data to notify parent
+        if (testCreatedToolId && testResult?.is_authenticated === 'Yes') {
+          // Tool already created and tested successfully
+          // Use form data to notify parent (credentials not available from API)
+          try {
+            const credentialKey = getCredentialKey(provider!.type_value);
+            const credentials = requiresToken
+              ? {
+                  [credentialKey]: authToken.trim(),
+                }
+              : {};
+
+            let parsedMetadata: Record<string, any> | undefined = undefined;
+            if (isCustomProvider && toolMetadata.trim()) {
+              const validatedMetadata = validateToolMetadata(toolMetadata);
+              if (validatedMetadata !== null) {
+                parsedMetadata = validatedMetadata;
+              }
+            }
+
+            // Try to notify parent (it will handle duplicate gracefully)
+            try {
+              await onConnect(provider!.type_value, {
+                name,
+                description: description || undefined,
+                tool_type_id: mcpToolType!.id,
+                tool_provider_type_id: provider!.id,
+                credentials,
+                tool_metadata: parsedMetadata,
+              });
+            } catch (connectErr) {
+              // Tool already exists, that's fine - it was created during testing
+              // Parent will refresh to see it
+            }
+          } catch (err) {
+            console.error('Failed to notify parent:', err);
+          }
+          onClose();
+          return;
+        }
+
         setLoading(true);
         setError(null);
         try {
@@ -456,6 +635,56 @@ export function MCPConnectionDialog({
                       ) : null,
                   }}
                 />
+                <Box sx={{ mt: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="medium"
+                    onClick={handleTestConnection}
+                    disabled={
+                      testingConnection ||
+                      loading ||
+                      !name ||
+                      (requiresToken && !authToken) ||
+                      (isCustomProvider && !toolMetadata.trim())
+                    }
+                    startIcon={
+                      testingConnection ? (
+                        <CircularProgress size={16} />
+                      ) : (
+                        <SmartToyIcon />
+                      )
+                    }
+                    sx={{ minWidth: 150 }}
+                  >
+                    {testingConnection ? 'Testing...' : 'Test Connection'}
+                  </Button>
+                  {testResult && (
+                    <Alert
+                      severity={
+                        testResult.is_authenticated === 'Yes'
+                          ? 'success'
+                          : 'error'
+                      }
+                      icon={
+                        testResult.is_authenticated === 'Yes' ? (
+                          <CheckCircleIcon />
+                        ) : (
+                          <ErrorIcon />
+                        )
+                      }
+                      sx={{ mt: 2 }}
+                    >
+                      <Typography variant="body2" fontWeight={600}>
+                        {testResult.is_authenticated === 'Yes'
+                          ? 'Connection Successful'
+                          : 'Connection Failed'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        {testResult.message}
+                      </Typography>
+                    </Alert>
+                  )}
+                </Box>
               </>
             )}
 

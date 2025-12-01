@@ -116,6 +116,15 @@ export interface MCPExtractResponse {
   content: string;
 }
 
+export interface TestMCPConnectionRequest {
+  tool_id: string;
+}
+
+export interface TestMCPConnectionResponse {
+  is_authenticated: string; // "Yes" or "No"
+  message: string;
+}
+
 export class ServicesClient extends BaseApiClient {
   async getGitHubContents(repo_url: string): Promise<string> {
     return this.fetch<string>(
@@ -278,6 +287,26 @@ export class ServicesClient extends BaseApiClient {
         },
         body: JSON.stringify({
           id,
+          tool_id: toolId,
+        }),
+      }
+    );
+  }
+
+  /**
+   * Test MCP connection authentication
+   * @param toolId - ID of the configured tool integration
+   * @returns Test result with authentication status and message
+   */
+  async testMCPConnection(toolId: string): Promise<TestMCPConnectionResponse> {
+    return this.fetch<TestMCPConnectionResponse>(
+      `${API_ENDPOINTS.services}/mcp/test-connection`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           tool_id: toolId,
         }),
       }
