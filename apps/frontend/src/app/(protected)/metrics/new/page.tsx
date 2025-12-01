@@ -247,6 +247,7 @@ export default function NewMetricPage() {
             ? parseFloat(String(formData.threshold))
             : undefined,
         explanation: formData.explanation || '',
+        metric_scope: formData.metric_scope,  // Include metric_scope
         metric_type_id: typeLookups[0].id as UUID,
         backend_type_id: backendTypes[0].id as UUID,
         model_id: formData.model_id ? (formData.model_id as UUID) : undefined,
