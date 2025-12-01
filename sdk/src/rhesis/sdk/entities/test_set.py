@@ -235,7 +235,22 @@ class TestSet(BaseEntity):
         """Load single-turn tests from a CSV file and create a new TestSet.
 
         Creates a TestSet populated with Test objects from the CSV file.
-        The CSV should have columns matching the to_csv output format.
+        
+        Required CSV Columns:
+            - prompt_content: The test prompt text (required for valid tests)
+            - category: Test category (required for valid tests)  
+            - topic: Test topic (required for valid tests)
+            - behavior: Test behavior (required for valid tests)
+        
+        Optional CSV Columns:
+            - test_type: Test type (defaults to "Single-Turn")
+            - expected_response: Expected response text
+            - Any other columns will be ignored
+        
+        Empty Row Handling:
+            Rows with empty or whitespace-only values for all required fields
+            (prompt_content, category, topic, behavior) will be automatically
+            skipped during import.
 
         Args:
             filename: Path to the CSV file to read.
