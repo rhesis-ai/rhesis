@@ -26,14 +26,20 @@ class TestGeminiLLM:
 
     def test_init_with_env_api_key(self):
         """Test initialization with environment variable API key"""
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "env_api_key"}):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "env_api_key"}, clear=True):
             llm = GeminiLLM()
             assert llm.api_key == "env_api_key"
+
+    def test_init_with_google_api_key(self):
+        """Test initialization with GOOGLE_API_KEY environment variable"""
+        with patch.dict(os.environ, {"GOOGLE_API_KEY": "google_api_key"}, clear=True):
+            llm = GeminiLLM()
+            assert llm.api_key == "google_api_key"
 
     def test_init_without_api_key_raises_error(self):
         """Test initialization without API key raises ValueError"""
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="GEMINI_API_KEY is not set"):
+            with pytest.raises(ValueError, match="GEMINI_API_KEY or GOOGLE_API_KEY is not set"):
                 GeminiLLM()
 
     def test_init_with_custom_model(self):
