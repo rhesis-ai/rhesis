@@ -2219,24 +2219,21 @@ def _preprocess_metric_data(
     from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
     from rhesis.backend.logging import logger
 
-    logger.info(f"Preprocessing metric data for metric: {getattr(metric, 'name', 'Unknown')}")
-
     try:
         # Convert to dict
         metric_dict = metric.model_dump() if hasattr(metric, "model_dump") else metric.dict()
-        logger.debug(f"Metric data keys: {list(metric_dict.keys())}")
     except Exception as e:
         logger.error(f"Failed to convert metric to dict: {e}")
         raise
 
     try:
         # Handle backend_type string -> backend_type_id (SDK approach)
+        # Only convert if string is provided AND ID is not already set
         if (
             "backend_type" in metric_dict
             and metric_dict["backend_type"]
             and not metric_dict.get("backend_type_id")
         ):
-            logger.info(f"Converting backend_type '{metric_dict['backend_type']}' to ID")
             backend_type = get_or_create_type_lookup(
                 db=db,
                 type_name="BackendType",
@@ -2246,17 +2243,18 @@ def _preprocess_metric_data(
                 commit=False,
             )
             metric_dict["backend_type_id"] = backend_type.id
-            logger.debug(f"Backend type ID: {backend_type.id}")
-            # Remove the string field
+
+        # Always remove the string field to avoid conflicts with the database model
+        if "backend_type" in metric_dict:
             del metric_dict["backend_type"]
 
         # Handle metric_type string -> metric_type_id (SDK approach)
+        # Only convert if string is provided AND ID is not already set
         if (
             "metric_type" in metric_dict
             and metric_dict["metric_type"]
             and not metric_dict.get("metric_type_id")
         ):
-            logger.info(f"Converting metric_type '{metric_dict['metric_type']}' to ID")
             metric_type = get_or_create_type_lookup(
                 db=db,
                 type_name="MetricType",
@@ -2266,8 +2264,9 @@ def _preprocess_metric_data(
                 commit=False,
             )
             metric_dict["metric_type_id"] = metric_type.id
-            logger.debug(f"Metric type ID: {metric_type.id}")
-            # Remove the string field
+
+        # Always remove the string field to avoid conflicts with the database model
+        if "metric_type" in metric_dict:
             del metric_dict["metric_type"]
 
         # Set class_name based on score_type if not provided
@@ -2275,16 +2274,11 @@ def _preprocess_metric_data(
             score_type = metric_dict.get("score_type")
             if score_type == "numeric":
                 metric_dict["class_name"] = "NumericJudge"
-                logger.info("Set class_name to NumericJudge for numeric metric")
             elif score_type == "categorical":
                 metric_dict["class_name"] = "CategoricalJudge"
-                logger.info("Set class_name to CategoricalJudge for categorical metric")
-            else:
-                logger.warning(f"Unknown score_type '{score_type}', class_name not set")
 
         # Ensure we have a status_id if not provided
         if not metric_dict.get("status_id"):
-            logger.info("Creating default status for metric")
             status = get_or_create_status(
                 db=db,
                 name="Active",  # Default status
@@ -2294,13 +2288,7 @@ def _preprocess_metric_data(
                 commit=False,
             )
             metric_dict["status_id"] = status.id
-            logger.debug(f"Status ID: {status.id}")
 
-        logger.info(
-            f"Metric preprocessing completed successfully. class_name={metric_dict.get('class_name')}, "
-            f"backend_type_id={metric_dict.get('backend_type_id')}, "
-            f"metric_type_id={metric_dict.get('metric_type_id')}"
-        )
         return metric_dict
 
     except Exception as e:
@@ -2314,15 +2302,12 @@ def create_metric(
     """Create a new metric with optimized approach - no session variables needed."""
     from rhesis.backend.logging import logger
 
-    logger.info(f"Creating metric: {getattr(metric, 'name', 'Unknown')} for org: {organization_id}")
-
     try:
         # Preprocess SDK data: convert string types to IDs
         metric_data = _preprocess_metric_data(db, metric, organization_id, user_id)
 
         # Create the metric
         result = create_item(db, models.Metric, metric_data, organization_id, user_id)
-        logger.info(f"Successfully created metric with ID: {result.id}")
         return result
 
     except Exception as e:

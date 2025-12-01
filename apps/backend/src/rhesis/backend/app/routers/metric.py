@@ -49,12 +49,6 @@ def create_metric(
 
     organization_id, user_id = tenant_context
 
-    logger.info(f"Received metric creation request: {metric.name} from user: {current_user.id}")
-    logger.debug(
-        f"Metric data: backend_type={getattr(metric, 'backend_type', None)}, "
-        f"metric_type={getattr(metric, 'metric_type', None)}"
-    )
-
     try:
         # Set the current user as the owner if not specified
         if not metric.owner_id:
@@ -63,12 +57,10 @@ def create_metric(
         result = crud.create_metric(
             db=db, metric=metric, organization_id=organization_id, user_id=user_id
         )
-
-        logger.info(f"Successfully created metric '{metric.name}' with ID: {result.id}")
         return result
 
     except Exception as e:
-        logger.error(f"Error in metric creation endpoint for '{metric.name}': {e}", exc_info=True)
+        logger.error(f"Error creating metric '{metric.name}': {e}", exc_info=True)
         raise
 
 
