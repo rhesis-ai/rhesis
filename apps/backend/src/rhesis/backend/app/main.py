@@ -17,7 +17,9 @@ from rhesis.backend.telemetry import initialize_telemetry
 
 initialize_telemetry()
 
+# ruff: noqa: E402 - Imports must come after telemetry initialization
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -256,6 +258,26 @@ async def not_found_item_exception_handler(request: Request, exc: ItemNotFoundEx
     }
 
     return JSONResponse(status_code=404, content=response_content)
+
+
+# Global exception handler for request validation errors (422)
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle FastAPI request validation errors with detailed logging."""
+    # Log the detailed validation error for debugging
+    logger.error(
+        f"Request validation error on {request.method} {request.url}: {exc}", exc_info=True
+    )
+
+    # Log each validation error detail
+    for error in exc.errors():
+        field_path = " -> ".join(str(loc) for loc in error["loc"])
+        logger.error(
+            f"Validation error: {field_path}: {error['msg']} (input: {error.get('input', 'N/A')})"
+        )
+
+    # Return the standard FastAPI validation error response
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
 # Configure CORS
