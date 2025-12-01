@@ -69,8 +69,9 @@ class DatabaseExceptionHandler:
 
         # Log the original error for debugging
         from rhesis.backend.logging import logger
+
         logger.error(f"Database error in {entity_name}: {error}", exc_info=True)
-        
+
         # Handle foreign key constraint violations
         if "foreign key constraint" in error_msg or "violates foreign key" in error_msg:
             # Merge custom field messages with defaults
@@ -99,6 +100,7 @@ class DatabaseExceptionHandler:
 
         # Log the original error for debugging
         from rhesis.backend.logging import logger
+
         logger.error(f"Unhandled database error in {entity_name}: {error}", exc_info=True)
 
         # Handle other database errors as internal server errors
