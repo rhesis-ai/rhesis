@@ -15,7 +15,7 @@ Jupyter notebooks demonstrating key Rhesis SDK features and integrations.
 ## Setup
 
 **For SDK notebooks:**
-1. Install dependencies: `pip install rhesis-sdk jupyter`
+1. Install dependencies: `pip install rhesis-sdk`
 2. Get your API key from [rhesis.ai](https://rhesis.ai)
 3. Set `RHESIS_API_KEY` in your environment or notebook
 
@@ -23,5 +23,4 @@ Jupyter notebooks demonstrating key Rhesis SDK features and integrations.
 1. Install uv: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 2. Clone the repo: `git clone https://github.com/rhesis-ai/rhesis.git`
 3. Set up environment: `cd rhesis/penelope && uv sync`
-4. Install Jupyter: `uv pip install jupyter notebook ipykernel`
-5. See individual notebooks for specific dependency requirements
+4. See individual notebooks for specific dependency requirements
