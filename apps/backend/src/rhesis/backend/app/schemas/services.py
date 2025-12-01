@@ -352,3 +352,5 @@ class RecentActivitiesResponse(BaseModel):
 
     activities: List[ActivityItem]
     total: int  # Total number of activity groups (not individual activities)
+    is_authenticated: str  # "Yes" or "No"
+    message: str

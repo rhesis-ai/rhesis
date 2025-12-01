@@ -274,8 +274,8 @@ async def test_mcp_authentication(
 
     Returns:
         Dict with:
-        - is_authenticated: bool - Determined by the LLM based on tool call results
-        - response_content: str - Message from the LLM explaining the authentication status
+        - is_authenticated: str - "Yes" or "No" determined by the LLM based on tool call results
+        - message: str - Message from the LLM explaining the authentication status
 
     Raises:
         ValueError: If authentication test fails due to connection issues
@@ -302,42 +302,4 @@ async def test_mcp_authentication(
     if not result.success:
         raise ValueError(f"Authentication test failed: {result.error}")
 
-    # Parse the final_answer text to extract authentication status and message
-    final_answer = result.final_answer.strip()
-
-    # Look for "Yes" or "No" in the response (case-insensitive)
-    is_authenticated = False
-    response_content = final_answer
-
-    # Check for "Yes" or "No" patterns
-    final_answer_lower = final_answer.lower()
-    if "authentication status:" in final_answer_lower:
-        # Parse structured format: "Authentication Status: Yes" or "Authentication Status: No"
-        lines = final_answer.split("\n")
-        for line in lines:
-            if "authentication status:" in line.lower():
-                status_part = line.split(":", 1)[1].strip().lower()
-                is_authenticated = status_part.startswith("yes")
-                break
-        # Extract message if present
-        for line in lines:
-            if "message:" in line.lower():
-                response_content = line.split(":", 1)[1].strip()
-                break
-    elif final_answer_lower.startswith("yes"):
-        is_authenticated = True
-    elif final_answer_lower.startswith("no"):
-        is_authenticated = False
-    else:
-        # Fallback: check if response contains success indicators
-        success_words = ["succeeded", "success", "authenticated", "working"]
-        failure_words = ["failed", "unauthorized", "401", "error"]
-        if any(word in final_answer_lower for word in success_words):
-            is_authenticated = True
-        elif any(word in final_answer_lower for word in failure_words):
-            is_authenticated = False
-
-    return {
-        "is_authenticated": is_authenticated,
-        "response_content": response_content,
-    }
+    return json.loads(result.final_answer)

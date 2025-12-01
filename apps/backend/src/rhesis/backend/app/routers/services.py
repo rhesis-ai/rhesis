@@ -694,8 +694,8 @@ async def test_mcp_connection(
 
     Returns:
         TestMCPConnectionResponse with:
-        - is_authenticated: bool - True if authentication is valid
-        - response_content: str - Error message or result from the test
+        - is_authenticated: str - "Yes" if authentication is valid, "No" otherwise
+        - message: str - Explanation of the authentication status
 
     Raises:
         HTTPException: 500 error if test fails due to connection issues
