@@ -169,7 +169,7 @@ class TestSet(BaseEntity):
             >>> result = test_set.push()
             >>> print(f"Created test set with ID: {test_set.id}")
         """
-        data = self.model_dump()
+        data = self.model_dump(mode="json")
 
         response = self._create(data)
         if response and "id" in response:
