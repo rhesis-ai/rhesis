@@ -2220,7 +2220,7 @@ def _preprocess_metric_data(
     from rhesis.backend.logging import logger
 
     logger.info(f"Preprocessing metric data for metric: {getattr(metric, 'name', 'Unknown')}")
-    
+
     try:
         # Convert to dict
         metric_dict = metric.model_dump() if hasattr(metric, "model_dump") else metric.dict()
@@ -2230,8 +2230,12 @@ def _preprocess_metric_data(
         raise
 
     try:
-        # Handle backend_type string -> backend_type_id
-        if "backend_type" in metric_dict and metric_dict["backend_type"]:
+        # Handle backend_type string -> backend_type_id (SDK approach)
+        if (
+            "backend_type" in metric_dict
+            and metric_dict["backend_type"]
+            and not metric_dict.get("backend_type_id")
+        ):
             logger.info(f"Converting backend_type '{metric_dict['backend_type']}' to ID")
             backend_type = get_or_create_type_lookup(
                 db=db,
@@ -2246,8 +2250,12 @@ def _preprocess_metric_data(
             # Remove the string field
             del metric_dict["backend_type"]
 
-        # Handle metric_type string -> metric_type_id
-        if "metric_type" in metric_dict and metric_dict["metric_type"]:
+        # Handle metric_type string -> metric_type_id (SDK approach)
+        if (
+            "metric_type" in metric_dict
+            and metric_dict["metric_type"]
+            and not metric_dict.get("metric_type_id")
+        ):
             logger.info(f"Converting metric_type '{metric_dict['metric_type']}' to ID")
             metric_type = get_or_create_type_lookup(
                 db=db,
@@ -2261,6 +2269,18 @@ def _preprocess_metric_data(
             logger.debug(f"Metric type ID: {metric_type.id}")
             # Remove the string field
             del metric_dict["metric_type"]
+
+        # Set class_name based on score_type if not provided
+        if not metric_dict.get("class_name"):
+            score_type = metric_dict.get("score_type")
+            if score_type == "numeric":
+                metric_dict["class_name"] = "NumericJudge"
+                logger.info("Set class_name to NumericJudge for numeric metric")
+            elif score_type == "categorical":
+                metric_dict["class_name"] = "CategoricalJudge"
+                logger.info("Set class_name to CategoricalJudge for categorical metric")
+            else:
+                logger.warning(f"Unknown score_type '{score_type}', class_name not set")
 
         # Ensure we have a status_id if not provided
         if not metric_dict.get("status_id"):
@@ -2276,9 +2296,13 @@ def _preprocess_metric_data(
             metric_dict["status_id"] = status.id
             logger.debug(f"Status ID: {status.id}")
 
-        logger.info("Metric preprocessing completed successfully")
+        logger.info(
+            f"Metric preprocessing completed successfully. class_name={metric_dict.get('class_name')}, "
+            f"backend_type_id={metric_dict.get('backend_type_id')}, "
+            f"metric_type_id={metric_dict.get('metric_type_id')}"
+        )
         return metric_dict
-        
+
     except Exception as e:
         logger.error(f"Error during metric preprocessing: {e}", exc_info=True)
         raise
@@ -2289,20 +2313,22 @@ def create_metric(
 ) -> models.Metric:
     """Create a new metric with optimized approach - no session variables needed."""
     from rhesis.backend.logging import logger
-    
+
     logger.info(f"Creating metric: {getattr(metric, 'name', 'Unknown')} for org: {organization_id}")
-    
+
     try:
         # Preprocess SDK data: convert string types to IDs
         metric_data = _preprocess_metric_data(db, metric, organization_id, user_id)
-        
+
         # Create the metric
         result = create_item(db, models.Metric, metric_data, organization_id, user_id)
         logger.info(f"Successfully created metric with ID: {result.id}")
         return result
-        
+
     except Exception as e:
-        logger.error(f"Failed to create metric '{getattr(metric, 'name', 'Unknown')}': {e}", exc_info=True)
+        logger.error(
+            f"Failed to create metric '{getattr(metric, 'name', 'Unknown')}': {e}", exc_info=True
+        )
         raise
 
 

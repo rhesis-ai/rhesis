@@ -100,7 +100,7 @@ class DatabaseExceptionHandler:
         # Log the original error for debugging
         from rhesis.backend.logging import logger
         logger.error(f"Unhandled database error in {entity_name}: {error}", exc_info=True)
-        
+
         # Handle other database errors as internal server errors
         raise HTTPException(status_code=500, detail=self.DEFAULT_INTERNAL_ERROR_MESSAGE)
 
