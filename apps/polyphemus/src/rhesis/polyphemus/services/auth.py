@@ -41,7 +41,7 @@ async def require_api_key(
 
     Raises:
         HTTPException: 401 if token is invalid, missing, or not found in database
-                      403 if user account is inactive
+                      403 if user account is inactive or not verified
     """
     if not credentials:
         logger.warning("API request received without authorization header")
@@ -82,6 +82,14 @@ async def require_api_key(
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="User account is inactive",
+                )
+
+            # Verify user account is verified
+            if not user.is_verified:
+                logger.warning(f"Attempted access with not verified user: {user.email}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="User account is not verified",
                 )
 
             # Set user_id in request state for rate limiting

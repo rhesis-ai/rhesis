@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-12-01
+
+### Added
+- Added support for OpenRouter as a provider.
+- Added Rhesis SDK examples.
+
+### Changed
+- Enhanced Penelope notebooks with configuration sections.
+
+### Fixed
+- Fixed API key issues in Penelope notebooks.
+
+
 ## [0.5.0] - 2025-11-27
 
 ### Added

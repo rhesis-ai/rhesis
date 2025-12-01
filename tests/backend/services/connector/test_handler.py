@@ -132,13 +132,15 @@ class TestSDKMessageHandler:
                 )
 
                 # When sync fails, the registration handler catches the exception
-                # and returns stats with errors
+                # and returns status "error" with stats containing errors
                 assert result["type"] == "registered"
-                assert result["status"] == "success"  # Registration still succeeds
+                assert result["status"] == "error"  # Registration fails when sync errors occur
                 assert result["sync_stats"]["created"] == 0
                 assert result["sync_stats"]["updated"] == 0
                 assert result["sync_stats"]["marked_inactive"] == 0
                 assert len(result["sync_stats"]["errors"]) == 1
+                assert "errors" in result
+                assert "message" in result
 
     @pytest.mark.asyncio
     async def test_handle_register_message_success(

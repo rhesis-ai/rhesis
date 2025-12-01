@@ -23,7 +23,7 @@ from rhesis.sdk.metrics.providers.deepeval import (
 )
 from rhesis.sdk.models.factory import get_model
 
-model = get_model("gemini")
+model = get_model("rhesis")
 
 
 def print_metric_result(metric_name: str, test_name: str, result, threshold: float):
