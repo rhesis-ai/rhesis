@@ -162,7 +162,7 @@ class GenerateContentRequest(BaseModel):
 
     prompt: str
     schema_: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         alias="schema",
         description="Optional OpenAI JSON Schema for structured output validation",
     )
