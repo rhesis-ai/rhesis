@@ -254,3 +254,90 @@ async def query_mcp(
         raise ValueError(f"Query failed: {result.error}")
 
     return result.model_dump()
+
+
+async def test_mcp_authentication(
+    tool_id: str, db: Session, user: User, organization_id: str, user_id: str = None
+) -> Dict[str, Any]:
+    """
+    Test MCP connection authentication by calling a tool that requires authentication.
+
+    Uses an AI agent to call a tool requiring authentication. The LLM determines
+    whether authentication is successful based on the tool call results.
+
+    Args:
+        tool_id: ID of the configured tool instance
+        db: Database session
+        user: Current user (for retrieving default generation model)
+        organization_id: Organization ID for loading tools from database
+        user_id: User ID for authorization check
+
+    Returns:
+        Dict with:
+        - is_authenticated: bool - Determined by the LLM based on tool call results
+        - response_content: str - Message from the LLM explaining the authentication status
+
+    Raises:
+        ValueError: If authentication test fails due to connection issues
+    """
+    model = get_user_generation_model(db, user)
+
+    # Load MCP client from database tool configuration
+    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
+
+    # Load the authentication test prompt
+    auth_prompt = jinja_env.get_template("mcp_test_auth_prompt.jinja2").render()
+    agent = MCPAgent(
+        model=model,
+        mcp_client=client,
+        system_prompt=auth_prompt,
+        max_iterations=5,  # Keep it short for authentication test
+        verbose=False,
+    )
+
+    # Run agent with query to test authentication
+    query = "Call a tool that requires authentication to verify your credentials"
+    result = await agent.run_async(query)
+
+    if not result.success:
+        raise ValueError(f"Authentication test failed: {result.error}")
+
+    # Parse the final_answer text to extract authentication status and message
+    final_answer = result.final_answer.strip()
+
+    # Look for "Yes" or "No" in the response (case-insensitive)
+    is_authenticated = False
+    response_content = final_answer
+
+    # Check for "Yes" or "No" patterns
+    final_answer_lower = final_answer.lower()
+    if "authentication status:" in final_answer_lower:
+        # Parse structured format: "Authentication Status: Yes" or "Authentication Status: No"
+        lines = final_answer.split("\n")
+        for line in lines:
+            if "authentication status:" in line.lower():
+                status_part = line.split(":", 1)[1].strip().lower()
+                is_authenticated = status_part.startswith("yes")
+                break
+        # Extract message if present
+        for line in lines:
+            if "message:" in line.lower():
+                response_content = line.split(":", 1)[1].strip()
+                break
+    elif final_answer_lower.startswith("yes"):
+        is_authenticated = True
+    elif final_answer_lower.startswith("no"):
+        is_authenticated = False
+    else:
+        # Fallback: check if response contains success indicators
+        success_words = ["succeeded", "success", "authenticated", "working"]
+        failure_words = ["failed", "unauthorized", "401", "error"]
+        if any(word in final_answer_lower for word in success_words):
+            is_authenticated = True
+        elif any(word in final_answer_lower for word in failure_words):
+            is_authenticated = False
+
+    return {
+        "is_authenticated": is_authenticated,
+        "response_content": response_content,
+    }

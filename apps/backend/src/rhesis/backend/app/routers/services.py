@@ -28,21 +28,28 @@ from rhesis.backend.app.schemas.services import (
     SearchMCPRequest,
     TestConfigRequest,
     TestConfigResponse,
+    TestMCPConnectionRequest,
+    TestMCPConnectionResponse,
     TextResponse,
 )
+from rhesis.backend.app.services.activities import RecentActivitiesService
 from rhesis.backend.app.services.gemini_client import (
     create_chat_completion,
     get_chat_response,
     get_json_response,
 )
-from rhesis.backend.app.services.activities import RecentActivitiesService
 from rhesis.backend.app.services.generation import (
     generate_multiturn_tests,
     generate_tests,
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.handlers import DocumentHandler
-from rhesis.backend.app.services.mcp_service import extract_mcp, query_mcp, search_mcp
+from rhesis.backend.app.services.mcp_service import (
+    extract_mcp,
+    query_mcp,
+    search_mcp,
+    test_mcp_authentication,
+)
 from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
@@ -456,7 +463,9 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
         logger.error(f"Failed to extract document content: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=400,
-            detail="Failed to extract document content. Please check the file format and try again.",
+            detail=(
+                "Failed to extract document content. Please check the file format and try again."
+            ),
         )
 
 
@@ -663,6 +672,57 @@ async def query_mcp_server(
         logger.error(f"Failed to query MCP server: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500, detail="Failed to execute query on MCP server. Please try again."
+        )
+
+
+@router.post("/mcp/test-connection", response_model=TestMCPConnectionResponse)
+async def test_mcp_connection(
+    request: TestMCPConnectionRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Test MCP connection authentication by calling a tool that requires authentication.
+
+    This endpoint verifies that the MCP connection is properly authenticated by
+    instructing an agent to call a tool that requires authentication. If the
+    connection is not authenticated, a 401 unauthorized error will be detected.
+
+    Args:
+        request: TestMCPConnectionRequest with tool_id
+
+    Returns:
+        TestMCPConnectionResponse with:
+        - is_authenticated: bool - True if authentication is valid
+        - response_content: str - Error message or result from the test
+
+    Raises:
+        HTTPException: 500 error if test fails due to connection issues
+
+    Example:
+        POST /mcp/test-connection
+        {
+            "tool_id": "tool-uuid-123"
+        }
+    """
+    try:
+        organization_id, user_id = tenant_context
+        result = await test_mcp_authentication(
+            tool_id=request.tool_id,
+            db=db,
+            user=current_user,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Failed to test MCP connection: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to test MCP connection. Please verify the tool configuration and try again."
+            ),
         )
 
 

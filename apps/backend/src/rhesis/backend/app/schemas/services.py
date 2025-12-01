@@ -299,6 +299,19 @@ class QueryMCPResponse(BaseModel):
     execution_history: List[ExecutionStep]
 
 
+class TestMCPConnectionRequest(BaseModel):
+    """Request to test MCP connection authentication."""
+
+    tool_id: str
+
+
+class TestMCPConnectionResponse(BaseModel):
+    """Response from MCP connection authentication test."""
+
+    is_authenticated: bool
+    response_content: str
+
+
 # Recent Activities Schemas
 class ActivityOperation(str, Enum):
     """Type of operation performed on an entity."""
