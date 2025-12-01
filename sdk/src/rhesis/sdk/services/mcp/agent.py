@@ -3,7 +3,10 @@
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+
+import jinja2
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
@@ -28,25 +31,6 @@ class MCPAgent:
     and accomplish tasks. Clients can customize behavior via system prompts.
     """
 
-    DEFAULT_SYSTEM_PROMPT = """You are an autonomous agent that can use MCP tools \
-to accomplish tasks.
-
-You operate in a ReAct loop: Reason → Act → Observe → Repeat
-
-For each iteration:
-- Reason: Think step-by-step about what information you need and how to get it
-- Act: Either call tools to gather information, or finish with your final answer
-- Observe: Examine tool results and plan next steps
-
-Guidelines:
-- Break complex tasks into simple tool calls
-- Use tool results to inform next actions
-- When you have sufficient information, use action="finish" with your final_answer
-- Be efficient: minimize unnecessary tool calls
-- You can call multiple tools in a single iteration if they don't depend on each other
-
-Remember: You must explicitly use action="finish" when done."""
-
     def __init__(
         self,
         model: Optional[Union[str, BaseLLM]] = None,
@@ -69,10 +53,19 @@ Remember: You must explicitly use action="finish" when done."""
         if not mcp_client:
             raise ValueError("mcp_client is required")
 
+        # Initialize template environment
+        templates_dir = Path(__file__).parent / "prompt_templates"
+        self._jinja_env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(str(templates_dir)),
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+
         # Convert model to BaseLLM instance if needed
         self.model = self._set_model(model)
         self.mcp_client = mcp_client
-        self.system_prompt = system_prompt or self.DEFAULT_SYSTEM_PROMPT
+        self.system_prompt = system_prompt or self._load_default_system_prompt()
         self.max_iterations = max_iterations
         self.verbose = verbose
         self.executor = ToolExecutor(mcp_client)
@@ -82,6 +75,11 @@ Remember: You must explicitly use action="finish" when done."""
         if isinstance(model, BaseLLM):
             return model
         return get_model(model)
+
+    def _load_default_system_prompt(self) -> str:
+        """Load the default system prompt from template."""
+        template = self._jinja_env.get_template("system_prompt.j2")
+        return template.render()
 
     async def run_async(self, user_query: str) -> AgentResult:
         """
@@ -383,34 +381,12 @@ Remember: You must explicitly use action="finish" when done."""
         tools_text = self._format_tools(available_tools)
         history_text = self._format_history(history)
 
-        prompt = f"""User Query: {user_query}
-
-Available MCP Tools:
-{tools_text}
-
-"""
-        if history_text:
-            prompt += f"""Execution History:
-{history_text}
-
-Based on the query, available tools, and execution history above, decide what to do next.
-
-"""
-        else:
-            prompt += """This is the first iteration. Analyze the query and decide \
-what tools to call.
-
-"""
-
-        prompt += """Your response should follow this structure:
-- reasoning: Your step-by-step thinking about what to do
-- action: Either "call_tool" (to execute tools) or "finish" (when you have the answer)
-- tool_calls: List of tools to call if action="call_tool" (can be multiple)
-- final_answer: Your complete answer if action="finish"
-
-Think carefully about what information you need and how to get it efficiently."""
-
-        return prompt
+        template = self._jinja_env.get_template("iteration_prompt.j2")
+        return template.render(
+            user_query=user_query,
+            tools_text=tools_text,
+            history_text=history_text,
+        )
 
     def _format_tools(self, tools: List[Dict[str, Any]]) -> str:
         """Format tool list into human-readable text with names, descriptions, \
