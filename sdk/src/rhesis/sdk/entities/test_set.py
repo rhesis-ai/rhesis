@@ -254,7 +254,7 @@ class TestSet(BaseEntity):
         filepath = Path(filename)
         tests: List[Test] = []
 
-        with open(filepath, "r", newline="", encoding="utf-8") as csvfile:
+        with open(filepath, "r", newline="", encoding="utf-8-sig") as csvfile:
             reader = csv.DictReader(csvfile)
 
             for row in reader:
