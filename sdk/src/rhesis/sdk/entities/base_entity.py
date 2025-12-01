@@ -1,3 +1,4 @@
+import csv
 import functools
 import logging
 from typing import Any, Callable, ClassVar, Dict, Optional, TypeVar
@@ -53,6 +54,12 @@ class BaseEntity(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     endpoint: ClassVar[Endpoints]
+
+    def __str__(self) -> str:
+        """Return a string representation of the entity."""
+        string = self.model_dump_json(indent=2)
+        print(type(string))
+        return string
 
     @classmethod
     def _delete(cls, id: str) -> bool:
@@ -152,3 +159,30 @@ class BaseEntity(BaseModel):
     def from_dict(cls, data: Dict[str, Any]) -> "BaseEntity":
         """Create an entity from a dictionary."""
         return cls(**data)
+
+    def to_csv(self, filename: str) -> None:
+        """Write the entity to a CSV file (header + data row).
+
+        Args:
+            filename: Path to write the CSV file.
+        """
+        data = self.model_dump(mode="json")
+        with open(filename, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=data.keys())
+            writer.writeheader()
+            writer.writerow(data)
+
+    @classmethod
+    def from_csv(cls, filename: str) -> "BaseEntity":
+        """Create an entity from a CSV file.
+
+        Args:
+            filename: Path to the CSV file to read.
+
+        Returns:
+            An instance of the entity populated with data from the first row.
+        """
+        with open(filename, "r", newline="") as f:
+            reader = csv.DictReader(f)
+            row = next(reader)
+        return cls(**row)
