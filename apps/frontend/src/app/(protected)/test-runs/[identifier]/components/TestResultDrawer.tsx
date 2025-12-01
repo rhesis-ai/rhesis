@@ -213,8 +213,9 @@ export default function TestResultDrawer({
 
     // Refetch the test result to get updated counts
     try {
-      const { ApiClientFactory } =
-        await import('@/utils/api-client/client-factory');
+      const { ApiClientFactory } = await import(
+        '@/utils/api-client/client-factory'
+      );
       const apiFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = apiFactory.getTestResultsClient();
       const updatedTest = await testResultsClient.getTestResult(test.id);

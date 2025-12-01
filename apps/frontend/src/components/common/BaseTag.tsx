@@ -39,10 +39,8 @@ interface TaggableEntity {
   tags?: Tag[];
 }
 
-export interface BaseTagProps extends Omit<
-  StandardTextFieldProps,
-  'onChange' | 'value'
-> {
+export interface BaseTagProps
+  extends Omit<StandardTextFieldProps, 'onChange' | 'value'> {
   /** Current tag values */
   value: string[];
   /** Callback when tags change */

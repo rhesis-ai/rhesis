@@ -2,10 +2,8 @@ import React from 'react';
 import { Button, ButtonProps } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 
-interface DeleteButtonProps extends Omit<
-  ButtonProps,
-  'variant' | 'color' | 'startIcon'
-> {
+interface DeleteButtonProps
+  extends Omit<ButtonProps, 'variant' | 'color' | 'startIcon'> {
   /**
    * The text to display on the button
    * @default "Delete"
