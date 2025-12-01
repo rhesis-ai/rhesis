@@ -169,6 +169,8 @@ class TestSet(BaseEntity):
             >>> result = test_set.push()
             >>> print(f"Created test set with ID: {test_set.id}")
         """
+        # mode="json": Ensures enums are serialized as strings instead of enum objects
+        # exclude_none=True: Excludes None values so backend uses defaults
         data = self.model_dump(mode="json", exclude_none=True)
 
         response = self._create(data)
