@@ -260,6 +260,15 @@ class TestSet(BaseEntity):
             reader = csv.DictReader(csvfile)
 
             for row in reader:
+                # Skip empty rows - check if any required field has content
+                if not any([
+                    row.get("prompt_content", "").strip(),
+                    row.get("category", "").strip(),
+                    row.get("topic", "").strip(),
+                    row.get("behavior", "").strip()
+                ]):
+                    continue  # Skip this empty row
+                
                 # Build prompt if content exists
                 prompt = None
                 if row.get("prompt_content"):
