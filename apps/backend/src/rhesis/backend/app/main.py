@@ -17,7 +17,9 @@ from rhesis.backend.telemetry import initialize_telemetry
 
 initialize_telemetry()
 
+# ruff: noqa: E402 - Imports must come after telemetry initialization
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -27,6 +29,10 @@ from starlette.middleware.sessions import SessionMiddleware
 from rhesis.backend import __version__
 from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
 from rhesis.backend.app.database import Base, engine, get_db
+from rhesis.backend.app.error_handlers import (
+    create_validation_error_response,
+    log_validation_error,
+)
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
@@ -256,6 +262,22 @@ async def not_found_item_exception_handler(request: Request, exc: ItemNotFoundEx
     }
 
     return JSONResponse(status_code=404, content=response_content)
+
+
+# Global exception handler for request validation errors (422)
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle FastAPI request validation errors with detailed logging."""
+    # Log the detailed validation error for debugging
+    logger.error(
+        f"Request validation error on {request.method} {request.url}: {exc}", exc_info=True
+    )
+
+    # Log detailed validation errors
+    log_validation_error(exc, request)
+
+    # Return clean JSON response
+    return create_validation_error_response(exc)
 
 
 # Configure CORS

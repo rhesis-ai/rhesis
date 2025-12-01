@@ -10,7 +10,8 @@ ENDPOINT = Endpoints.PROMPTS
 class Prompt(BaseEntity):
     endpoint: ClassVar[Endpoints] = ENDPOINT
     content: Optional[str] = None
-    language_code: Optional[str] = None
+    language_code: Optional[str] = "en"  # Default to "en" to match backend schema
+    expected_response: Optional[str] = None
     id: Optional[str] = None
 
 

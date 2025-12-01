@@ -45,15 +45,23 @@ def create_metric(
     - No SHOW queries during entity creation
     - Direct tenant context injection
     """
+    from rhesis.backend.logging import logger
+
     organization_id, user_id = tenant_context
 
-    # Set the current user as the owner if not specified
-    if not metric.owner_id:
-        metric.owner_id = current_user.id
+    try:
+        # Set the current user as the owner if not specified
+        if not metric.owner_id:
+            metric.owner_id = current_user.id
 
-    return crud.create_metric(
-        db=db, metric=metric, organization_id=organization_id, user_id=user_id
-    )
+        result = crud.create_metric(
+            db=db, metric=metric, organization_id=organization_id, user_id=user_id
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"Error creating metric '{metric.name}': {e}", exc_info=True)
+        raise
 
 
 @router.get("/", response_model=List[MetricDetailSchema])
