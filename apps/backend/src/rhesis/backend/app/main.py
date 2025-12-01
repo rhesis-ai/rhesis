@@ -29,6 +29,10 @@ from starlette.middleware.sessions import SessionMiddleware
 from rhesis.backend import __version__
 from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
 from rhesis.backend.app.database import Base, engine, get_db
+from rhesis.backend.app.error_handlers import (
+    create_validation_error_response,
+    log_validation_error,
+)
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
@@ -269,15 +273,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         f"Request validation error on {request.method} {request.url}: {exc}", exc_info=True
     )
 
-    # Log each validation error detail
-    for error in exc.errors():
-        field_path = " -> ".join(str(loc) for loc in error["loc"])
-        logger.error(
-            f"Validation error: {field_path}: {error['msg']} (input: {error.get('input', 'N/A')})"
-        )
+    # Log detailed validation errors
+    log_validation_error(exc, request)
 
-    # Return the standard FastAPI validation error response
-    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+    # Return clean JSON response
+    return create_validation_error_response(exc)
 
 
 # Configure CORS
