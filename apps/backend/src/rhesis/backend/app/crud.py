@@ -2215,62 +2215,95 @@ def _preprocess_metric_data(
     db: Session, metric: schemas.MetricCreate, organization_id: str, user_id: str
 ) -> Dict[str, Any]:
     """Preprocess metric data from SDK to convert string types to IDs."""
-    from rhesis.backend.app.enums import EntityType
+    from rhesis.backend.app.constants import EntityType
     from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
+    from rhesis.backend.logging import logger
 
-    # Convert to dict
-    metric_dict = metric.model_dump() if hasattr(metric, "model_dump") else metric.dict()
+    logger.info(f"Preprocessing metric data for metric: {getattr(metric, 'name', 'Unknown')}")
+    
+    try:
+        # Convert to dict
+        metric_dict = metric.model_dump() if hasattr(metric, "model_dump") else metric.dict()
+        logger.debug(f"Metric data keys: {list(metric_dict.keys())}")
+    except Exception as e:
+        logger.error(f"Failed to convert metric to dict: {e}")
+        raise
 
-    # Handle backend_type string -> backend_type_id
-    if "backend_type" in metric_dict and metric_dict["backend_type"]:
-        backend_type = get_or_create_type_lookup(
-            db=db,
-            type_name="BackendType",
-            type_value=metric_dict["backend_type"],
-            organization_id=organization_id,
-            user_id=user_id,
-            commit=False,
-        )
-        metric_dict["backend_type_id"] = backend_type.id
-        # Remove the string field
-        del metric_dict["backend_type"]
+    try:
+        # Handle backend_type string -> backend_type_id
+        if "backend_type" in metric_dict and metric_dict["backend_type"]:
+            logger.info(f"Converting backend_type '{metric_dict['backend_type']}' to ID")
+            backend_type = get_or_create_type_lookup(
+                db=db,
+                type_name="BackendType",
+                type_value=metric_dict["backend_type"],
+                organization_id=organization_id,
+                user_id=user_id,
+                commit=False,
+            )
+            metric_dict["backend_type_id"] = backend_type.id
+            logger.debug(f"Backend type ID: {backend_type.id}")
+            # Remove the string field
+            del metric_dict["backend_type"]
 
-    # Handle metric_type string -> metric_type_id
-    if "metric_type" in metric_dict and metric_dict["metric_type"]:
-        metric_type = get_or_create_type_lookup(
-            db=db,
-            type_name="MetricType",
-            type_value=metric_dict["metric_type"],
-            organization_id=organization_id,
-            user_id=user_id,
-            commit=False,
-        )
-        metric_dict["metric_type_id"] = metric_type.id
-        # Remove the string field
-        del metric_dict["metric_type"]
+        # Handle metric_type string -> metric_type_id
+        if "metric_type" in metric_dict and metric_dict["metric_type"]:
+            logger.info(f"Converting metric_type '{metric_dict['metric_type']}' to ID")
+            metric_type = get_or_create_type_lookup(
+                db=db,
+                type_name="MetricType",
+                type_value=metric_dict["metric_type"],
+                organization_id=organization_id,
+                user_id=user_id,
+                commit=False,
+            )
+            metric_dict["metric_type_id"] = metric_type.id
+            logger.debug(f"Metric type ID: {metric_type.id}")
+            # Remove the string field
+            del metric_dict["metric_type"]
 
-    # Ensure we have a status_id if not provided
-    if not metric_dict.get("status_id"):
-        status = get_or_create_status(
-            db=db,
-            name="Active",  # Default status
-            entity_type=EntityType.METRIC,
-            organization_id=organization_id,
-            user_id=user_id,
-            commit=False,
-        )
-        metric_dict["status_id"] = status.id
+        # Ensure we have a status_id if not provided
+        if not metric_dict.get("status_id"):
+            logger.info("Creating default status for metric")
+            status = get_or_create_status(
+                db=db,
+                name="Active",  # Default status
+                entity_type=EntityType.METRIC,
+                organization_id=organization_id,
+                user_id=user_id,
+                commit=False,
+            )
+            metric_dict["status_id"] = status.id
+            logger.debug(f"Status ID: {status.id}")
 
-    return metric_dict
+        logger.info("Metric preprocessing completed successfully")
+        return metric_dict
+        
+    except Exception as e:
+        logger.error(f"Error during metric preprocessing: {e}", exc_info=True)
+        raise
 
 
 def create_metric(
     db: Session, metric: schemas.MetricCreate, organization_id: str = None, user_id: str = None
 ) -> models.Metric:
     """Create a new metric with optimized approach - no session variables needed."""
-    # Preprocess SDK data: convert string types to IDs
-    metric_data = _preprocess_metric_data(db, metric, organization_id, user_id)
-    return create_item(db, models.Metric, metric_data, organization_id, user_id)
+    from rhesis.backend.logging import logger
+    
+    logger.info(f"Creating metric: {getattr(metric, 'name', 'Unknown')} for org: {organization_id}")
+    
+    try:
+        # Preprocess SDK data: convert string types to IDs
+        metric_data = _preprocess_metric_data(db, metric, organization_id, user_id)
+        
+        # Create the metric
+        result = create_item(db, models.Metric, metric_data, organization_id, user_id)
+        logger.info(f"Successfully created metric with ID: {result.id}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Failed to create metric '{getattr(metric, 'name', 'Unknown')}': {e}", exc_info=True)
+        raise
 
 
 def update_metric(

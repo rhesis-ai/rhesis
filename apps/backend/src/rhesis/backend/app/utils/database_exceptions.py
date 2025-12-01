@@ -67,6 +67,10 @@ class DatabaseExceptionHandler:
         """
         error_msg = str(error).lower()
 
+        # Log the original error for debugging
+        from rhesis.backend.logging import logger
+        logger.error(f"Database error in {entity_name}: {error}", exc_info=True)
+        
         # Handle foreign key constraint violations
         if "foreign key constraint" in error_msg or "violates foreign key" in error_msg:
             # Merge custom field messages with defaults
@@ -77,9 +81,11 @@ class DatabaseExceptionHandler:
             # Check for specific field references in the error message
             for field, message in field_messages.items():
                 if field in error_msg:
+                    logger.warning(f"Foreign key constraint violation for {field} in {entity_name}")
                     raise HTTPException(status_code=400, detail=message)
 
             # Generic foreign key error if no specific field found
+            logger.warning(f"Generic foreign key constraint violation in {entity_name}")
             raise HTTPException(status_code=400, detail=f"Invalid reference in {entity_name} data")
 
         # Handle unique constraint violations
@@ -88,8 +94,13 @@ class DatabaseExceptionHandler:
                 custom_unique_message
                 or f"{entity_name.capitalize()} with this identifier already exists"
             )
+            logger.warning(f"Unique constraint violation in {entity_name}: {message}")
             raise HTTPException(status_code=400, detail=message)
 
+        # Log the original error for debugging
+        from rhesis.backend.logging import logger
+        logger.error(f"Unhandled database error in {entity_name}: {error}", exc_info=True)
+        
         # Handle other database errors as internal server errors
         raise HTTPException(status_code=500, detail=self.DEFAULT_INTERNAL_ERROR_MESSAGE)
 
