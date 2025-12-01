@@ -47,12 +47,16 @@ class MetricBase(Base):
     threshold: Optional[float] = None
     threshold_operator: Optional[ThresholdOperator] = ThresholdOperator.GREATER_THAN_OR_EQUAL
     explanation: Optional[str] = None
+    # ID fields (used internally)
     metric_type_id: Optional[UUID4] = None
     backend_type_id: Optional[UUID4] = None
     model_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
+    # String fields (from SDK, will be converted to IDs)
+    metric_type: Optional[str] = None
+    backend_type: Optional[str] = None
     class_name: Optional[str] = None
     ground_truth_required: Optional[bool] = False
     context_required: Optional[bool] = False
