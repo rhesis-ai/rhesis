@@ -104,9 +104,9 @@ export function useGridStateStorage(
 
   // Load initial state from localStorage
   // Start with undefined, then load on client after mount
-  const [initialState, setInitialState] = useState<GridInitialState | undefined>(
-    undefined
-  );
+  const [initialState, setInitialState] = useState<
+    GridInitialState | undefined
+  >(undefined);
 
   // Load state on mount (client-side only, runs once after hydration)
   useEffect(() => {
@@ -145,7 +145,8 @@ export function useGridStateStorage(
           if (exportedState.columns?.columnVisibilityModel) {
             stateToSave.columns = {
               ...stateToSave.columns,
-              columnVisibilityModel: exportedState.columns.columnVisibilityModel,
+              columnVisibilityModel:
+                exportedState.columns.columnVisibilityModel,
             };
           }
 
@@ -242,4 +243,3 @@ export function clearGridState(storageKey?: string): void {
     console.error('Failed to clear grid state:', error);
   }
 }
-
