@@ -562,6 +562,7 @@ export default function TestsTable({
         onFilterModelChange={handleFilterModelChange}
         showToolbar={true}
         disablePaperWrapper={true}
+        persistState
         initialState={{
           columns: {
             columnVisibilityModel: {

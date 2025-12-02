@@ -48,6 +48,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import { useGridStateStorage } from '@/hooks/useGridStateStorage';
 
 interface FilterOption {
   value: string;
@@ -139,6 +140,9 @@ interface BaseDataGridProps {
   disablePaperWrapper?: boolean;
   // Initial state props
   initialState?: GridInitialState;
+  // State persistence props
+  persistState?: boolean;
+  storageKey?: string;
 }
 
 // Create a styled version of DataGrid with bold headers
@@ -208,10 +212,78 @@ export default function BaseDataGrid({
   enableQuickFilter = false,
   disablePaperWrapper = false,
   initialState,
+  persistState = false,
+  storageKey,
 }: BaseDataGridProps) {
   const theme = useTheme();
   const router = useRouter();
   const apiRef = useGridApiRef();
+
+  // Grid state persistence
+  const {
+    initialState: persistedState,
+    saveGridState,
+    isLoaded: isPersistedStateLoaded,
+  } = useGridStateStorage({
+    storageKey,
+  });
+
+  // Merge persisted state with any passed initialState
+  // IMPORTANT: Persisted state takes precedence because it represents user's explicit choices
+  // The passed initialState is only used as a fallback for values not in persisted state
+  const mergedInitialState = React.useMemo(() => {
+    if (!persistState) return initialState;
+    if (!persistedState && !initialState) return undefined;
+    if (!persistedState) return initialState;
+    if (!initialState) return persistedState;
+
+    // Deep merge: initialState as base, persistedState overrides (user's saved preferences win)
+    return {
+      ...initialState,
+      ...persistedState,
+      columns: {
+        ...initialState.columns,
+        ...persistedState.columns,
+        // Deep merge columnVisibilityModel: persisted values override initial values
+        columnVisibilityModel: {
+          ...initialState.columns?.columnVisibilityModel,
+          ...persistedState.columns?.columnVisibilityModel,
+        },
+        // Deep merge orderedFields only if persisted (user reordered columns)
+        ...(persistedState.columns?.orderedFields && {
+          orderedFields: persistedState.columns.orderedFields,
+        }),
+        // Deep merge dimensions only if persisted (user resized columns)
+        ...(persistedState.columns?.dimensions && {
+          dimensions: {
+            ...initialState.columns?.dimensions,
+            ...persistedState.columns.dimensions,
+          },
+        }),
+      },
+      sorting: {
+        ...initialState.sorting,
+        ...persistedState.sorting,
+      },
+      filter: {
+        ...initialState.filter,
+        ...persistedState.filter,
+      },
+      pagination: {
+        ...initialState.pagination,
+        ...persistedState.pagination,
+      },
+      // Density: persisted overrides initial
+      ...(persistedState.density && { density: persistedState.density }),
+    };
+  }, [persistState, persistedState, initialState]);
+
+  // Save state callback - memoized to avoid unnecessary re-subscriptions
+  const handleStateChange = useCallback(() => {
+    if (persistState && apiRef.current) {
+      saveGridState(apiRef);
+    }
+  }, [persistState, apiRef, saveGridState]);
 
   // Safe mounting implementation internal to the component
   const isMountedRef = useRef(false);
@@ -232,6 +304,53 @@ export default function BaseDataGrid({
       isMountedRef.current = false;
     };
   }, []);
+
+  // Subscribe to state change events for persistence
+  useEffect(() => {
+    if (!persistState || !isInitialized || !apiRef.current) return;
+
+    const api = apiRef.current;
+
+    // Subscribe to relevant state change events
+    const unsubscribeColumnVisibility = api.subscribeEvent(
+      'columnVisibilityModelChange',
+      handleStateChange
+    );
+    const unsubscribeColumnOrder = api.subscribeEvent(
+      'columnOrderChange',
+      handleStateChange
+    );
+    const unsubscribeColumnResize = api.subscribeEvent(
+      'columnWidthChange',
+      handleStateChange
+    );
+    const unsubscribeSortModel = api.subscribeEvent(
+      'sortModelChange',
+      handleStateChange
+    );
+    const unsubscribeFilterModel = api.subscribeEvent(
+      'filterModelChange',
+      handleStateChange
+    );
+    const unsubscribeDensity = api.subscribeEvent(
+      'densityChange',
+      handleStateChange
+    );
+    const unsubscribePagination = api.subscribeEvent(
+      'paginationModelChange',
+      handleStateChange
+    );
+
+    return () => {
+      unsubscribeColumnVisibility();
+      unsubscribeColumnOrder();
+      unsubscribeColumnResize();
+      unsubscribeSortModel();
+      unsubscribeFilterModel();
+      unsubscribeDensity();
+      unsubscribePagination();
+    };
+  }, [persistState, isInitialized, apiRef, handleStateChange]);
 
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
   const [filteredRows, setFilteredRows] = useState<any[]>(rows);
@@ -498,7 +617,11 @@ export default function BaseDataGrid({
   }
   const CustomToolbarWithFilters = CustomToolbarWithFiltersRef.current;
 
-  if (!isInitialized) {
+  // Wait for initialization and persisted state to be loaded before rendering DataGrid
+  // This ensures initialState is correctly set before the grid mounts
+  const isReady = isInitialized && (!persistState || isPersistedStateLoaded);
+
+  if (!isReady) {
     return (
       <Box
         sx={{ width: '100%', display: 'flex', justifyContent: 'center', p: 4 }}
@@ -696,7 +819,7 @@ export default function BaseDataGrid({
           }
           disableMultipleRowSelection={disableMultipleRowSelection}
           {...(density && { density })}
-          {...(initialState && { initialState })}
+          {...(mergedInitialState && { initialState: mergedInitialState })}
           {...(serverSideFiltering && {
             filterMode: 'server',
             filterModel,
@@ -761,7 +884,7 @@ export default function BaseDataGrid({
             }
             disableMultipleRowSelection={disableMultipleRowSelection}
             {...(density && { density })}
-            {...(initialState && { initialState })}
+            {...(mergedInitialState && { initialState: mergedInitialState })}
             {...(serverSideFiltering && {
               filterMode: 'server',
               filterModel,

@@ -555,6 +555,7 @@ function TestRunsTable({
         disableRowSelectionOnClick
         actionButtons={actionButtons}
         disablePaperWrapper={true}
+        persistState
       />
 
       <TestRunDrawer

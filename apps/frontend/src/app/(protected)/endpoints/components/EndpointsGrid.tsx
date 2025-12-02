@@ -370,6 +370,7 @@ export default function EndpointGrid({
           rowSelectionModel={selectedRows}
           onRowSelectionModelChange={handleRowSelectionModelChange}
           disablePaperWrapper={true}
+          persistState
         />
       </Paper>
 
