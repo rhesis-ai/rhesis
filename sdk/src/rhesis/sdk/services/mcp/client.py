@@ -30,7 +30,7 @@ class MCPClient:
 
         Args:
             server_name: Friendly name for the server (e.g., "notionApi")
-            command: Command to launch the server (e.g., "bunx", "python")
+            command: Command to launch the server (e.g., "npx", "python")
             args: Command arguments (e.g., ["--bun", "@notionhq/notion-mcp-server"])
             env: Environment variables to pass to the server process
         """
@@ -274,7 +274,7 @@ class MCPClientManager:
 
         Example:
             tool_config = {
-                "command": "bunx",
+                "command": "npx",
                 "args": ["--bun", "@notionhq/notion-mcp-server"],
                 "env": {
                     "NOTION_TOKEN": "{{ NOTION_TOKEN }}"
