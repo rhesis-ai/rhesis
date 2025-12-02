@@ -671,22 +671,6 @@ export default function ActivityTimeline({
                         />
                       )}
 
-                      {/* Time Range for Bulk Operations */}
-                      {activity.isBulk && activity.timeRange && (
-                        <Chip
-                          label={`${formatDistance(
-                            parseISO(activity.timeRange.start),
-                            parseISO(activity.timeRange.end),
-                            { addSuffix: false }
-                          )}`}
-                          size="small"
-                          variant="outlined"
-                          sx={{
-                            height: theme.spacing(2.5),
-                          }}
-                        />
-                      )}
-
                       {/* Behavior */}
                       {activity.metadata?.behavior && (
                         <Chip
