@@ -14,7 +14,6 @@ from typing import Dict, List, Optional
 
 from rhesis.polyphemus.models import LazyModelLoader
 from rhesis.polyphemus.schemas import GenerateRequest, Message
-
 from rhesis.sdk.models import BaseLLM
 
 logger = logging.getLogger("rhesis-polyphemus")
@@ -29,7 +28,7 @@ _model_lock = asyncio.Lock()
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="polyphemus-generate")
 
 # Default model identifier - can be overridden via environment variable
-DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "huggingface/distilgpt2")
+DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "huggingface/Josiefied-Qwen3-8B-abliterated-v1")
 
 
 def is_model_loaded(model_name: Optional[str] = None) -> bool:
@@ -68,7 +67,7 @@ async def get_polyphemus_instance(model_name: Optional[str] = None) -> BaseLLM:
 
     Args:
         model_name: Model identifier in format "provider/model" or just model name.
-            If None, uses default model (LazyModelLoader with huggingface/distilgpt2).
+            If None, uses default model (LazyModelLoader with huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1).
 
     Returns:
         BaseLLM: The model instance

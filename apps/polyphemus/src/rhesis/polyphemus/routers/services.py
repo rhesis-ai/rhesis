@@ -38,7 +38,7 @@ async def generate(
             ],
             "temperature": 0.7,
             "max_tokens": 512,
-            "model": "huggingface/distilgpt2"  # optional
+            "model": "huggingface/Josiefied-Qwen3-8B-abliterated-v1"  # optional
         }
 
     Returns:
