@@ -494,6 +494,7 @@ export default function ActivityTimeline({
                       transition: theme.transitions.create('background-color', {
                         duration: theme.transitions.duration.short,
                       }),
+                      width: '100%',
                       '&:hover': activity.isBulk
                         ? {}
                         : {
