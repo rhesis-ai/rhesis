@@ -331,12 +331,15 @@ class RecentActivitiesService:
         entity_ids = [act.entity_id for act in group]
         sample_entities = [act.entity_data for act in group[: self.SAMPLE_SIZE]]
 
-        # Create human-readable summary
-        operation_verb = {
-            ActivityOperation.CREATE: "created",
-            ActivityOperation.UPDATE: "updated",
-            ActivityOperation.DELETE: "deleted",
-        }.get(first.operation, str(first.operation))
+        # Create human-readable summary with entity-specific verbs
+        if first.entity_type == "TestRun" and first.operation == ActivityOperation.CREATE:
+            operation_verb = "executed"
+        else:
+            operation_verb = {
+                ActivityOperation.CREATE: "created",
+                ActivityOperation.UPDATE: "updated",
+                ActivityOperation.DELETE: "deleted",
+            }.get(first.operation, str(first.operation))
 
         user_name = "Unknown"
         if first.user:
