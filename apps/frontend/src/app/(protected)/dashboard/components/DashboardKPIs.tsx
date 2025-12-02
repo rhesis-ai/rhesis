@@ -191,7 +191,7 @@ const KPICard: React.FC<KPICardProps> = ({
             ) : null}
             <Typography
               variant="caption"
-              sx={{ fontWeight: theme.typography.fontWeightSemiBold }}
+              sx={{ fontWeight: theme.typography.fontWeightMedium }}
             >
               {trendValue}
             </Typography>
