@@ -519,7 +519,7 @@ export function MCPConnectionDialog({
                       }}
                     >
                       {`{
-  "command": "bunx",
+  "command": "npx",
   "args": ["--bun", "@notionhq/notion-mcp-server"],
   "env": {
     "NOTION_TOKEN": "{{ TOKEN }}"
