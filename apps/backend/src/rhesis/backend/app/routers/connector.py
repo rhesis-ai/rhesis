@@ -161,8 +161,9 @@ async def trigger_test(request: TriggerTestRequest):
     Raises:
         HTTPException: If project not connected or error sending request
     """
-    # Check if connected
-    if not connection_manager.is_connected(request.project_id, request.environment):
+    # Check if connected (checks local + Redis for multi-instance support)
+    is_connected = await connection_manager.is_connected(request.project_id, request.environment)
+    if not is_connected:
         raise HTTPException(
             status_code=404,
             detail=f"Project {request.project_id} ({request.environment}) not connected",

@@ -409,3 +409,23 @@ async def health_check():
 # Configure additional FastAPI logging
 fastapi_logger = logging.getLogger("fastapi")
 fastapi_logger.setLevel(logging.DEBUG)
+
+# Apply sensitive data filter to prevent logging of auth tokens and API keys
+from rhesis.backend.logging.rhesis_logger import SensitiveDataFilter
+
+sensitive_filter = SensitiveDataFilter()
+
+# Apply to websockets logger (logs WebSocket headers including Authorization)
+websockets_logger = logging.getLogger("websockets")
+websockets_logger.addFilter(sensitive_filter)
+
+# Apply to uvicorn logger (logs HTTP headers)
+uvicorn_logger = logging.getLogger("uvicorn")
+uvicorn_logger.addFilter(sensitive_filter)
+
+# Apply to uvicorn.access logger
+uvicorn_access_logger = logging.getLogger("uvicorn.access")
+uvicorn_access_logger.addFilter(sensitive_filter)
+
+# Apply to our own application logger
+fastapi_logger.addFilter(sensitive_filter)

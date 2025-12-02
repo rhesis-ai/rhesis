@@ -109,10 +109,11 @@ export default function ProtectedLayout({
               padding: (theme: Theme) =>
                 `${theme.spacing(0.75, 1.25)} !important`,
               transition: 'all 0.3s ease',
-              boxShadow: (theme: Theme) =>
+              // Use filter drop-shadow instead of box-shadow for better rounded corner following
+              filter: (theme: Theme) =>
                 theme.palette.mode === 'light'
-                  ? `0 2px 12px ${alpha(theme.palette.secondary.main, 0.15)}, 0 1px 4px ${alpha(theme.palette.secondary.main, 0.1)}`
-                  : `0 4px 16px ${alpha(theme.palette.secondary.main, 0.4)}, 0 2px 8px ${alpha(theme.palette.secondary.main, 0.2)}`,
+                  ? `drop-shadow(0 2px 8px ${alpha(theme.palette.secondary.main, 0.15)}) drop-shadow(0 1px 3px ${alpha(theme.palette.secondary.main, 0.1)})`
+                  : `drop-shadow(0 4px 12px ${alpha(theme.palette.secondary.main, 0.4)}) drop-shadow(0 2px 6px ${alpha(theme.palette.secondary.main, 0.2)})`,
               '&:hover': {
                 background: (theme: Theme) =>
                   alpha(
@@ -120,11 +121,10 @@ export default function ProtectedLayout({
                     theme.palette.mode === 'light' ? 0.1 : 0.15
                   ),
                 borderColor: (theme: Theme) => theme.palette.secondary.main,
-                transform: 'translateY(-2px)',
-                boxShadow: (theme: Theme) =>
+                filter: (theme: Theme) =>
                   theme.palette.mode === 'light'
-                    ? `0 4px 16px ${alpha(theme.palette.secondary.main, 0.25)}, 0 2px 6px ${alpha(theme.palette.secondary.main, 0.15)}`
-                    : `0 6px 20px ${alpha(theme.palette.secondary.main, 0.45)}, 0 3px 10px ${alpha(theme.palette.secondary.main, 0.25)}`,
+                    ? `drop-shadow(0 4px 12px ${alpha(theme.palette.secondary.main, 0.25)}) drop-shadow(0 2px 5px ${alpha(theme.palette.secondary.main, 0.15)})`
+                    : `drop-shadow(0 6px 16px ${alpha(theme.palette.secondary.main, 0.45)}) drop-shadow(0 3px 8px ${alpha(theme.palette.secondary.main, 0.25)})`,
               },
               '& .MuiListItemIcon-root': {
                 color: (theme: Theme) =>

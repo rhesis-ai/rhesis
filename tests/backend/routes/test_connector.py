@@ -27,7 +27,7 @@ class TestConnectorWebSocket:
             mock_mgr.connect = AsyncMock()
             mock_mgr.disconnect = Mock()
             mock_mgr.handle_message = AsyncMock(return_value={"type": "ack", "status": "ok"})
-            mock_mgr.is_connected = Mock(return_value=True)
+            mock_mgr.is_connected = AsyncMock(return_value=True)
             mock_mgr.send_test_request = AsyncMock(return_value=True)
             mock_mgr.get_connection_status = Mock()
             yield mock_mgr
@@ -67,7 +67,7 @@ class TestConnectorWebSocket:
         with pytest.raises(WebSocketDisconnect):
             with authenticated_client.websocket_connect(
                 "/connector/ws", headers={"x-rhesis-environment": "development"}
-            ) as websocket:
+            ):
                 pass
 
     def test_websocket_connection_authentication_failure(self, authenticated_client: TestClient):
@@ -93,7 +93,7 @@ class TestConnectorHTTPEndpoints:
     def test_trigger_test_success(self, authenticated_client: TestClient):
         """Test successful test trigger"""
         with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
-            mock_mgr.is_connected = Mock(return_value=True)
+            mock_mgr.is_connected = AsyncMock(return_value=True)
             mock_mgr.send_test_request = AsyncMock(return_value=True)
 
             response = authenticated_client.post(
@@ -116,7 +116,7 @@ class TestConnectorHTTPEndpoints:
     def test_trigger_test_not_connected(self, authenticated_client: TestClient):
         """Test test trigger when project not connected"""
         with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
-            mock_mgr.is_connected = Mock(return_value=False)
+            mock_mgr.is_connected = AsyncMock(return_value=False)
 
             response = authenticated_client.post(
                 "/connector/trigger",
@@ -135,7 +135,7 @@ class TestConnectorHTTPEndpoints:
     def test_trigger_test_send_failure(self, authenticated_client: TestClient):
         """Test test trigger when sending fails"""
         with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
-            mock_mgr.is_connected = Mock(return_value=True)
+            mock_mgr.is_connected = AsyncMock(return_value=True)
             mock_mgr.send_test_request = AsyncMock(return_value=False)
 
             response = authenticated_client.post(
@@ -279,7 +279,7 @@ class TestConnectorIntegration:
 
         with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
             # Initially not connected
-            mock_mgr.is_connected = Mock(return_value=False)
+            mock_mgr.is_connected = AsyncMock(return_value=False)
             mock_mgr.get_connection_status = Mock(
                 return_value=ConnectionStatus(
                     project_id=project_id,
@@ -309,7 +309,7 @@ class TestConnectorIntegration:
             assert response.status_code == status.HTTP_404_NOT_FOUND
 
             # Simulate connection
-            mock_mgr.is_connected = Mock(return_value=True)
+            mock_mgr.is_connected = AsyncMock(return_value=True)
             mock_mgr.get_connection_status = Mock(
                 return_value=ConnectionStatus(
                     project_id=project_id,
