@@ -137,9 +137,10 @@ export default function ProtectedLayout({
           },
           // Make header more compact
           '& .MuiToolbar-root': {
-            minHeight: '56px',
-            paddingTop: (theme: Theme) => theme.spacing(1),
-            paddingBottom: (theme: Theme) => theme.spacing(1),
+            minHeight: '48px !important',
+            height: '48px',
+            paddingTop: (theme: Theme) => theme.spacing(0.25),
+            paddingBottom: (theme: Theme) => theme.spacing(0.25),
           },
         }
       : {
