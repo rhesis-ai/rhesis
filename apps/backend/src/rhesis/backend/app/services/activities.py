@@ -16,12 +16,17 @@ from sqlalchemy.orm import Session, contains_eager
 from rhesis.backend.app import models
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.mixins import ActivityTrackableMixin
-from rhesis.backend.app.schemas.services import ActivityItem, ActivityOperation
+from rhesis.backend.app.schemas.services import ActivityItem, ActivityOperation, TimeRange
 from rhesis.backend.logging import logger
 
 
 class RecentActivitiesService:
     """Service for retrieving recent activities across all trackable entities."""
+
+    # Bulk operation detection settings
+    BULK_THRESHOLD = 5  # Minimum activities to consider as bulk
+    BULK_TIME_WINDOW_SECONDS = 120  # Activities within 2 minutes are considered bulk
+    SAMPLE_SIZE = 3  # Number of sample entities to include in bulk preview
 
     @staticmethod
     def discover_trackable_models() -> Dict[str, Type[Base]]:
@@ -218,11 +223,138 @@ class RecentActivitiesService:
         # Sort all activities by timestamp descending
         all_activities.sort(key=lambda x: x.timestamp, reverse=True)
 
-        # Return top N activities
-        limited_activities = all_activities[:limit]
+        # Group bulk operations
+        grouped_activities = self.group_bulk_operations(all_activities)
+
+        # Return top N activity groups
+        limited_activities = grouped_activities[:limit]
 
         logger.info(
-            f"Returning {len(limited_activities)} activities from {len(all_activities)} total"
+            f"Returning {len(limited_activities)} activity groups from {len(grouped_activities)} total groups"
         )
 
         return {"activities": limited_activities, "total": len(limited_activities)}
+
+    def group_bulk_operations(self, activities: List[ActivityItem]) -> List[ActivityItem]:
+        """
+        Group consecutive similar activities into bulk operations.
+
+        Args:
+            activities: Sorted list of activities (most recent first)
+
+        Returns:
+            List of activities with bulk operations grouped
+        """
+        if not activities:
+            return []
+
+        grouped = []
+        i = 0
+
+        while i < len(activities):
+            current = activities[i]
+
+            # Try to find similar activities to group
+            group = [current]
+            j = i + 1
+
+            # Look ahead for similar activities
+            while j < len(activities):
+                candidate = activities[j]
+
+                # Check if activities can be grouped
+                if self._can_group_activities(current, candidate):
+                    group.append(candidate)
+                    j += 1
+                else:
+                    break
+
+            # Create bulk activity if threshold met
+            if len(group) >= self.BULK_THRESHOLD:
+                bulk_activity = self._create_bulk_activity(group)
+                grouped.append(bulk_activity)
+                i = j  # Skip all grouped activities
+            else:
+                # Keep individual activities
+                grouped.append(current)
+                i += 1
+
+        logger.info(
+            f"Grouped {len(activities)} activities into {len(grouped)} groups "
+            f"(reduced by {len(activities) - len(grouped)})"
+        )
+
+        return grouped
+
+    def _can_group_activities(self, act1: ActivityItem, act2: ActivityItem) -> bool:
+        """
+        Check if two activities can be grouped together.
+
+        Activities can be grouped if they have:
+        - Same entity type
+        - Same operation
+        - Same user (or both None)
+        - Timestamps within the time window
+        """
+        # Same entity type and operation
+        if act1.entity_type != act2.entity_type or act1.operation != act2.operation:
+            return False
+
+        # Same user (compare user IDs if both exist)
+        user1_id = act1.user.get("id") if act1.user else None
+        user2_id = act2.user.get("id") if act2.user else None
+        if user1_id != user2_id:
+            return False
+
+        # Within time window
+        time_diff = abs((act1.timestamp - act2.timestamp).total_seconds())
+        if time_diff > self.BULK_TIME_WINDOW_SECONDS:
+            return False
+
+        return True
+
+    def _create_bulk_activity(self, group: List[ActivityItem]) -> ActivityItem:
+        """
+        Create a bulk activity from a group of similar activities.
+
+        Args:
+            group: List of similar activities to combine
+
+        Returns:
+            Bulk ActivityItem representing the group
+        """
+        first = group[0]
+        last = group[-1]
+
+        # Collect entity IDs and sample entities
+        entity_ids = [act.entity_id for act in group]
+        sample_entities = [act.entity_data for act in group[: self.SAMPLE_SIZE]]
+
+        # Create human-readable summary
+        operation_verb = {
+            ActivityOperation.CREATE: "created",
+            ActivityOperation.UPDATE: "updated",
+            ActivityOperation.DELETE: "deleted",
+        }.get(first.operation, str(first.operation))
+
+        user_name = "Unknown"
+        if first.user:
+            user_name = first.user.get("name") or first.user.get("email") or "Unknown"
+
+        summary = f"{len(group)} {first.entity_type}s {operation_verb} by {user_name}"
+
+        # Create bulk activity
+        return ActivityItem(
+            entity_type=first.entity_type,
+            entity_id=None,  # No single entity ID for bulk
+            operation=first.operation,
+            timestamp=first.timestamp,  # Use first (most recent) timestamp
+            user=first.user,
+            entity_data=None,  # No single entity data for bulk
+            is_bulk=True,
+            count=len(group),
+            time_range=TimeRange(start=last.timestamp, end=first.timestamp),
+            summary=summary,
+            entity_ids=entity_ids,
+            sample_entities=sample_entities,
+        )

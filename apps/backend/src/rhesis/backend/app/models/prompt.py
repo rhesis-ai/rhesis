@@ -9,7 +9,6 @@ from sqlalchemy.orm import relationship
 from .base import Base
 from .guid import GUID
 from .mixins import (
-    ActivityTrackableMixin,
     CommentsMixin,
     CountsMixin,
     OrganizationMixin,
@@ -22,7 +21,6 @@ from .use_case import prompt_use_case_association
 
 class Prompt(
     Base,
-    ActivityTrackableMixin,
     TagsMixin,
     OrganizationMixin,
     CommentsMixin,
