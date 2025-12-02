@@ -10,6 +10,7 @@ import {
   Chip,
   useTheme,
   alpha,
+  Avatar,
 } from '@mui/material';
 import Timeline from '@mui/lab/Timeline';
 import TimelineItem from '@mui/lab/TimelineItem';
@@ -66,6 +67,14 @@ interface Activity {
   isBulk?: boolean;
   count?: number;
   entityType?: string; // Add entity type for icon mapping
+  user?: {
+    id: string;
+    email: string;
+    name?: string | null;
+    given_name?: string | null;
+    family_name?: string | null;
+    picture?: string | null;
+  };
 }
 
 // Entity type to icon mapping - matches layout.tsx navigation icons
@@ -175,6 +184,7 @@ export default function ActivityTimeline({
         isBulk: true,
         count: item.count,
         entityType: item.entity_type, // Store entity type for icon mapping
+        user: item.user,
         metadata: {
           entityType: item.entity_type,
           operation: item.operation,
@@ -509,19 +519,61 @@ export default function ActivityTimeline({
                     <Box
                       sx={{
                         display: 'flex',
-                        alignItems: 'center',
+                        alignItems: 'flex-start',
                         justifyContent: 'space-between',
+                        mb: theme.spacing(0.5),
                       }}
                     >
-                      <Typography
-                        variant="caption"
+                      <Box
                         sx={{
-                          fontWeight: theme.typography.fontWeightMedium,
-                          mb: theme.spacing(0.5),
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: theme.spacing(1),
+                          flex: 1,
+                          minWidth: 0,
                         }}
                       >
-                        {activity.title}
-                      </Typography>
+                        <Avatar
+                          src={activity.user?.picture || undefined}
+                          alt={
+                            activity.user?.name ||
+                            activity.user?.email ||
+                            'User'
+                          }
+                          sx={{
+                            width: theme.spacing(3),
+                            height: theme.spacing(3),
+                            fontSize: theme.typography.caption.fontSize,
+                          }}
+                        >
+                          {(activity.user?.name || activity.user?.email || '?')
+                            .charAt(0)
+                            .toUpperCase()}
+                        </Avatar>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontWeight: theme.typography.fontWeightMedium,
+                              display: 'block',
+                            }}
+                          >
+                            {activity.title}
+                          </Typography>
+                          {activity.user && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{
+                                fontSize: '0.688rem',
+                                display: 'block',
+                              }}
+                            >
+                              {activity.user.name || activity.user.email}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
                       {activity.isBulk && activity.count && (
                         <Chip
                           label={`${activity.count}x`}
