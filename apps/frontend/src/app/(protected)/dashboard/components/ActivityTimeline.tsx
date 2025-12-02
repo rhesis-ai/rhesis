@@ -603,7 +603,7 @@ export default function ActivityTimeline({
                               variant="caption"
                               color="text.secondary"
                               sx={{
-                                fontSize: '0.688rem',
+                                fontSize: theme.typography.caption.fontSize,
                                 display: 'block',
                               }}
                             >
@@ -776,7 +776,7 @@ export default function ActivityTimeline({
                             variant="caption"
                             color="text.secondary"
                             sx={{
-                              fontSize: '0.688rem',
+                              fontSize: theme.typography.caption.fontSize,
                               fontStyle: 'italic',
                             }}
                           >
