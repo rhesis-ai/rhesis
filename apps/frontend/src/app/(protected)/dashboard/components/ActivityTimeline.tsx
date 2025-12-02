@@ -459,6 +459,9 @@ export default function ActivityTimeline({
                     paddingRight: theme.spacing(1),
                     display: 'flex',
                     alignItems: 'center',
+                    paddingTop: 0,
+                    paddingBottom: 0,
+                    margin: 0,
                   }}
                 >
                   <Typography variant="caption" color="text.secondary">
@@ -471,7 +474,15 @@ export default function ActivityTimeline({
                   </TimelineDot>
                   {!isLast && <TimelineConnector />}
                 </TimelineSeparator>
-                <TimelineContent>
+                <TimelineContent
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    paddingTop: 0,
+                    paddingBottom: 0,
+                    margin: 0,
+                  }}
+                >
                   <Box
                     sx={{
                       cursor: activity.isBulk ? 'default' : 'pointer',
