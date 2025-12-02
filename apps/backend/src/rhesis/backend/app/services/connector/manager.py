@@ -375,19 +375,39 @@ class ConnectionManager:
             functions=functions,
         )
 
-    def is_connected(self, project_id: str, environment: str) -> bool:
+    async def is_connected(self, project_id: str, environment: str) -> bool:
         """
-        Check if project is connected.
+        Check if project is connected (checks both local connections and Redis).
+
+        In multi-instance deployments, the WebSocket might be connected to a different
+        backend instance. We check Redis first to see if ANY instance has the connection,
+        then fall back to checking local connections.
 
         Args:
             project_id: Project identifier
             environment: Environment name
 
         Returns:
-            True if connected, False otherwise
+            True if connected (either locally or in another instance), False otherwise
         """
         key = self.get_connection_key(project_id, environment)
-        return key in self._connections
+
+        # First check local connections (fast path)
+        if key in self._connections:
+            return True
+
+        # Check Redis for connections on other instances (multi-instance support)
+        if redis_manager.is_available:
+            try:
+                redis_key = f"ws:connection:{key}"
+                exists = await redis_manager.client.exists(redis_key)
+                if exists > 0:
+                    logger.debug(f"Connection found in Redis (another backend instance): {key}")
+                    return True
+            except Exception as e:
+                logger.warning(f"Failed to check Redis for connection {key}: {e}")
+
+        return False
 
     async def handle_registration(
         self, project_id: str, environment: str, message: Dict[str, Any]

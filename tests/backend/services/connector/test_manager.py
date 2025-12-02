@@ -39,12 +39,13 @@ class TestConnectionManager:
         """Test WebSocket connection registration"""
         await manager.connect("project-123", "development", mock_websocket)
 
-        assert manager.is_connected("project-123", "development")
+        assert await manager.is_connected("project-123", "development")
         key = manager.get_connection_key("project-123", "development")
         assert key in manager._connections
         assert manager._connections[key] == mock_websocket
 
-    def test_disconnect(self, manager: ConnectionManager, mock_websocket):
+    @pytest.mark.asyncio
+    async def test_disconnect(self, manager: ConnectionManager, mock_websocket):
         """Test WebSocket disconnection"""
         # First connect
         key = manager.get_connection_key("project-123", "development")
@@ -54,7 +55,7 @@ class TestConnectionManager:
         # Then disconnect
         manager.disconnect("project-123", "development")
 
-        assert not manager.is_connected("project-123", "development")
+        assert not await manager.is_connected("project-123", "development")
         assert key not in manager._connections
         assert key not in manager._registries
 
@@ -167,16 +168,18 @@ class TestConnectionManager:
         assert status.connected is False
         assert len(status.functions) == 0
 
-    def test_is_connected_true(self, manager: ConnectionManager, mock_websocket):
+    @pytest.mark.asyncio
+    async def test_is_connected_true(self, manager: ConnectionManager, mock_websocket):
         """Test is_connected returns True for connected project"""
         key = manager.get_connection_key("project-123", "development")
         manager._connections[key] = mock_websocket
 
-        assert manager.is_connected("project-123", "development") is True
+        assert await manager.is_connected("project-123", "development") is True
 
-    def test_is_connected_false(self, manager: ConnectionManager):
+    @pytest.mark.asyncio
+    async def test_is_connected_false(self, manager: ConnectionManager):
         """Test is_connected returns False for non-connected project"""
-        assert manager.is_connected("nonexistent", "development") is False
+        assert await manager.is_connected("nonexistent", "development") is False
 
     @pytest.mark.asyncio
     async def test_handle_registration(self, manager: ConnectionManager, sample_register_message):
@@ -296,8 +299,8 @@ class TestConnectionManager:
         await manager.connect("project-123", "development", ws_dev)
         await manager.connect("project-123", "production", ws_prod)
 
-        assert manager.is_connected("project-123", "development")
-        assert manager.is_connected("project-123", "production")
+        assert await manager.is_connected("project-123", "development")
+        assert await manager.is_connected("project-123", "production")
 
         key_dev = manager.get_connection_key("project-123", "development")
         key_prod = manager.get_connection_key("project-123", "production")
