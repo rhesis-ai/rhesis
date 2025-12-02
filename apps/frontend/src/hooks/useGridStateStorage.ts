@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { GridInitialState, GridApiCommunity } from '@mui/x-data-grid';
+import type { GridInitialState } from '@mui/x-data-grid';
 
 const STORAGE_KEY_PREFIX = 'rhesis_grid_state_';
 
@@ -64,7 +64,7 @@ interface UseGridStateStorageReturn {
   /**
    * Save the current grid state. Call this when state changes.
    */
-  saveGridState: (apiRef: React.MutableRefObject<GridApiCommunity>) => void;
+  saveGridState: (apiRef: React.MutableRefObject<any>) => void;
   /**
    * The storage key being used
    */
@@ -125,7 +125,7 @@ export function useGridStateStorage(
    * Exports only the relevant parts of the state to keep localStorage lean.
    */
   const saveGridState = useCallback(
-    (apiRef: React.MutableRefObject<GridApiCommunity>) => {
+    (apiRef: React.MutableRefObject<any>) => {
       // Clear existing debounce timer
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
