@@ -514,9 +514,9 @@ export default function ActivityTimeline({
                       }}
                     >
                       <Typography
-                        variant="subtitle2"
+                        variant="caption"
                         sx={{
-                          fontWeight: theme.typography.fontWeightBold,
+                          fontWeight: theme.typography.fontWeightMedium,
                           mb: theme.spacing(0.5),
                         }}
                       >
@@ -536,7 +536,7 @@ export default function ActivityTimeline({
                       )}
                     </Box>
                     <Typography
-                      variant="body2"
+                      variant="caption"
                       color="text.secondary"
                       sx={{
                         overflow: 'hidden',
