@@ -582,6 +582,10 @@ export default function SourcesGrid({
           setMcpImportDialogOpen(false);
           setSelectedMCPTool(null);
         }}
+        onBack={() => {
+          setMcpImportDialogOpen(false);
+          setMcpToolSelectorOpen(true);
+        }}
         onSuccess={() => {
           fetchSources();
           setMcpImportDialogOpen(false);

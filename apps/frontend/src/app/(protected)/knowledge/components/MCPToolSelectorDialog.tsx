@@ -21,8 +21,10 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import TerminalIcon from '@mui/icons-material/Terminal';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Tool } from '@/utils/api-client/interfaces/tool';
+import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
 
 interface MCPToolSelectorDialogProps {
   open: boolean;
@@ -111,6 +113,15 @@ export default function MCPToolSelectorDialog({
     }
   };
 
+  const getToolIcon = (tool: Tool) => {
+    const providerName = tool.tool_provider_type?.type_value || 'custom';
+    const providerIcon = MCP_PROVIDER_ICONS[providerName];
+    if (providerIcon) {
+      return providerIcon;
+    }
+    return <SmartToyIcon />;
+  };
+
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
@@ -154,14 +165,16 @@ export default function MCPToolSelectorDialog({
                   {index > 0 && <Divider />}
                   <ListItem disablePadding>
                     <ListItemButton onClick={() => handleSelectTool(tool)}>
-                      <ListItemIcon>
-                        <TerminalIcon />
-                      </ListItemIcon>
+                      <ListItemIcon>{getToolIcon(tool)}</ListItemIcon>
                       <ListItemText
                         primary={tool.name}
                         secondary={
-                          tool.tool_provider_type?.type_value ||
-                          'Unknown provider'
+                          tool.tool_provider_type?.type_value
+                            ? tool.tool_provider_type.type_value
+                                .charAt(0)
+                                .toUpperCase() +
+                              tool.tool_provider_type.type_value.slice(1)
+                            : 'Unknown provider'
                         }
                         primaryTypographyProps={{ fontWeight: 500 }}
                       />
