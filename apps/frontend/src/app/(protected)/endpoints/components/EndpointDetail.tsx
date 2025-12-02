@@ -890,6 +890,12 @@ export default function EndpointDetail({
                                       'Manually configured mapping through SDK registration.',
                                     color: 'info',
                                   },
+                                  sdk_hybrid: {
+                                    label: 'SDK (Hybrid)',
+                                    tooltip:
+                                      'Hybrid mapping combining automatic detection with SDK configuration.',
+                                    color: 'info',
+                                  },
                                   manual: {
                                     label: 'Manual',
                                     tooltip:
