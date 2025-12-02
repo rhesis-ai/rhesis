@@ -11,6 +11,8 @@ jest.mock('next/navigation', () => ({
     push: jest.fn(),
     refresh: jest.fn(),
   }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
 }));
 jest.mock('../../../components/common/NotificationContext', () => ({
   useNotifications: () => ({
@@ -41,6 +43,7 @@ describe('TasksSection - Infinite Loading Fix', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
     mockApiClientFactory.mockImplementation(
       () =>
         ({
