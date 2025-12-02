@@ -26,13 +26,17 @@ import {
 } from '@/utils/api-client/interfaces/activities';
 import ScienceIcon from '@mui/icons-material/Science';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import HorizontalSplitIcon from '@mui/icons-material/HorizontalSplit';
-import UpdateIcon from '@mui/icons-material/Update';
+import CategoryIcon from '@mui/icons-material/Category';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TimelineIcon from '@mui/icons-material/Timeline';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import EditIcon from '@mui/icons-material/Edit';
+import ApiIcon from '@mui/icons-material/Api';
+import AutoGraphIcon from '@mui/icons-material/AutoGraph';
+import AppsIcon from '@mui/icons-material/Apps';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import CommentIcon from '@mui/icons-material/Comment';
+import StorageIcon from '@mui/icons-material/Storage';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
 interface ActivityTimelineProps {
@@ -61,31 +65,31 @@ interface Activity {
   metadata?: any;
   isBulk?: boolean;
   count?: number;
+  entityType?: string; // Add entity type for icon mapping
 }
 
-const getActivityIcon = (type: ActivityType) => {
-  switch (type) {
-    case 'test_created':
-      return <ScienceIcon fontSize="small" />;
-    case 'test_updated':
-      return <UpdateIcon fontSize="small" />;
-    case 'test_run':
-      return <PlayArrowIcon fontSize="small" />;
-    case 'test_set_created':
-      return <HorizontalSplitIcon fontSize="small" />;
-    case 'task_created':
-      return <AssignmentIcon fontSize="small" />;
-    case 'task_completed':
-      return <CheckCircleIcon fontSize="small" />;
-    case 'task_assigned':
-      return <PersonAddIcon fontSize="small" />;
-    case 'task_updated':
-      return <EditIcon fontSize="small" />;
-    case 'bulk_operation':
-      return <TimelineIcon fontSize="small" />;
-    default:
-      return <ScienceIcon fontSize="small" />;
+// Entity type to icon mapping - matches layout.tsx navigation icons
+const ENTITY_ICON_MAP: Record<string, React.ReactElement> = {
+  Test: <ScienceIcon fontSize="small" />,
+  TestRun: <PlayArrowIcon fontSize="small" />,
+  TestSet: <CategoryIcon fontSize="small" />,
+  Task: <AssignmentIcon fontSize="small" />,
+  Endpoint: <ApiIcon fontSize="small" />,
+  Metric: <AutoGraphIcon fontSize="small" />,
+  Project: <AppsIcon fontSize="small" />,
+  Model: <SmartToyIcon fontSize="small" />,
+  Behavior: <PsychologyIcon fontSize="small" />,
+  Source: <MenuBookIcon fontSize="small" />, // Knowledge in menu
+  Comment: <CommentIcon fontSize="small" />,
+  // Generic fallback
+  default: <StorageIcon fontSize="small" />,
+};
+
+const getActivityIcon = (entityType?: string) => {
+  if (!entityType) {
+    return ENTITY_ICON_MAP.default;
   }
+  return ENTITY_ICON_MAP[entityType] || ENTITY_ICON_MAP.default;
 };
 
 const getActivityColor = (
@@ -170,6 +174,7 @@ export default function ActivityTimeline({
         timestamp: item.timestamp,
         isBulk: true,
         count: item.count,
+        entityType: item.entity_type, // Store entity type for icon mapping
         metadata: {
           entityType: item.entity_type,
           operation: item.operation,
@@ -268,6 +273,7 @@ export default function ActivityTimeline({
       title,
       subtitle,
       timestamp: item.timestamp,
+      entityType, // Store entity type for icon mapping
       metadata,
     };
   };
@@ -437,7 +443,7 @@ export default function ActivityTimeline({
           {activities.map((activity, index) => {
             const isLast = index === activities.length - 1;
             const activityColor = getActivityColor(activity.type);
-            const activityIcon = getActivityIcon(activity.type);
+            const activityIcon = getActivityIcon(activity.entityType);
             const timeAgo = activity.timestamp
               ? formatDistanceToNow(parseISO(activity.timestamp), {
                   addSuffix: true,
