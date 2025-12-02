@@ -59,20 +59,27 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY apps/polyphemus/src /app/src
 
 # For caching models (optional - can be overridden at runtime)
+# NOTE: Model pre-download is skipped during build due to GitHub Actions disk space limitations (14GB)
+# The model will be downloaded on first startup in Cloud Run and cached in /app/model_cache
+# Cloud Run instances have persistent local storage, so the model will be cached for subsequent requests
 ENV TRANSFORMERS_CACHE="/app/model_cache"
 RUN mkdir -p /app/model_cache
 
-# Pre-download the default model during build to avoid runtime downloads in Cloud Run
-# This prevents rate limiting issues when Cloud Run instances start fresh
-# The model is baked into the image, so new instances don't need to download it
-# IMPORTANT: Use snapshot_download instead of from_pretrained to avoid loading model into memory
-# This prevents OOM errors during Docker build on GitHub Actions runners with limited RAM
+# Set default model environment variable (used at runtime)
 ARG DEFAULT_MODEL=huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1
 ENV DEFAULT_MODEL=${DEFAULT_MODEL}
-# Extract model name from provider/model format
-# Uses split("/", 1) to match SDK factory behavior for multi-slash model names
-# Examples: "huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1" -> "Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1", "huggingface/meta-llama/Llama-2-7b-chat-hf" -> "meta-llama/Llama-2-7b-chat-hf"
-RUN /app/.venv/bin/python -c "import os; os.environ['TRANSFORMERS_CACHE'] = '/app/model_cache'; from huggingface_hub import snapshot_download; full_name = '${DEFAULT_MODEL}'; model_name = full_name.split('/', 1)[1] if '/' in full_name else full_name; print('Pre-downloading default model:', model_name); snapshot_download(repo_id=model_name, cache_dir='/app/model_cache', local_files_only=False); print('Model pre-downloaded successfully')" || echo "Warning: Model pre-download failed, will download on first request"
+
+# Clean up unnecessary files to reduce disk usage before copying to runtime stage
+# Remove Python cache files, test files, and documentation to save space
+RUN find /app/.venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/.venv -type f -name "*.pyc" -delete 2>/dev/null || true && \
+    find /app/.venv -type f -name "*.pyo" -delete 2>/dev/null || true && \
+    find /app/.venv -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/.venv -type d -name "test" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/.venv -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/.venv -type d -name "doc" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/.venv -name "*.md" -type f -delete 2>/dev/null || true && \
+    echo "Cleanup completed"
 
 # ============================================================================
 # STAGE 2: Runtime - Create minimal runtime image
@@ -92,7 +99,7 @@ RUN adduser --disabled-password --gecos '' appuser && \
     mkdir -p /app && \
     chown appuser:appuser /app
 
-# Copy the virtual environment from builder
+# Copy the virtual environment from builder (after cleanup)
 # Note: This is a large copy operation (several GB with ML dependencies)
 # GitHub Actions may appear to hang here, but it's working
 COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
@@ -103,8 +110,9 @@ COPY --from=builder --chown=appuser:appuser /app/sdk /app/sdk
 COPY --from=builder --chown=appuser:appuser /app/penelope /app/penelope
 COPY --from=builder --chown=appuser:appuser /app/apps/backend /app/apps/backend
 
-# Copy pre-downloaded model cache
-COPY --from=builder --chown=appuser:appuser /app/model_cache /app/model_cache
+# Create model cache directory (model will be downloaded on first startup)
+# Cloud Run instances have persistent local storage, so the model will be cached
+RUN mkdir -p /app/model_cache && chown -R appuser:appuser /app/model_cache
 
 # Switch to the non-root user
 USER appuser
