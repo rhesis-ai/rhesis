@@ -28,7 +28,9 @@ _model_lock = asyncio.Lock()
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="polyphemus-generate")
 
 # Default model identifier - can be overridden via environment variable
-DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "huggingface/Josiefied-Qwen3-8B-abliterated-v1")
+DEFAULT_MODEL = os.environ.get(
+    "DEFAULT_MODEL", "huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1"
+)
 
 
 def is_model_loaded(model_name: Optional[str] = None) -> bool:

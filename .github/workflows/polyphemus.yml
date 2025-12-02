@@ -174,7 +174,7 @@ jobs:
           # Use cache to speed up builds - only rebuild layers that changed
           # Build context is repo root to access SDK and pyproject.toml (like backend)
           # Pre-download default model during build to avoid runtime downloads in Cloud Run
-          DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL || 'huggingface/Josiefied-Qwen3-8B-abliterated-v1' }}"
+          DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL || 'huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1' }}"
           
           # Enable BuildKit for better build performance and progress output
           export DOCKER_BUILDKIT=1
@@ -364,7 +364,7 @@ jobs:
               --no-cpu-throttling \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
-          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/Josiefied-Qwen3-8B-abliterated-v1' }},
+          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1' }},
           TRANSFORMERS_CACHE=/app/model_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
@@ -403,7 +403,7 @@ jobs:
               --no-cpu-throttling \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
-          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/Josiefied-Qwen3-8B-abliterated-v1' }},
+          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1' }},
           TRANSFORMERS_CACHE=/app/model_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},

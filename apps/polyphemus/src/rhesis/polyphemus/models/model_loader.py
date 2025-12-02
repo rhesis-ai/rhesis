@@ -13,7 +13,9 @@ from rhesis.sdk.models.factory import get_model
 logger = logging.getLogger("rhesis-polyphemus")
 
 # Default model for LazyModelLoader - can be overridden via environment variable
-DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "huggingface/Josiefied-Qwen3-8B-abliterated-v1")
+DEFAULT_MODEL = os.environ.get(
+    "DEFAULT_MODEL", "huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1"
+)
 
 
 class LazyModelLoader(BaseLLM):
@@ -25,7 +27,7 @@ class LazyModelLoader(BaseLLM):
     based on the model name/type provided.
 
     The model name can be specified in the format:
-    - "provider/model-name" (e.g., "huggingface/Josiefied-Qwen3-8B-abliterated-v1", "openai/gpt-4o")
+    - "provider/model-name" (e.g., "huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1", "openai/gpt-4o")
     - "model-name" (defaults to huggingface provider)
     """
 
@@ -35,7 +37,7 @@ class LazyModelLoader(BaseLLM):
 
         Args:
             model_name: Model identifier in format "provider/model" or just model name.
-                If None, uses default model (huggingface/Josiefied-Qwen3-8B-abliterated-v1).
+                If None, uses default model (huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1).
             auto_loading: Whether to automatically load the model on initialization.
                 If False, model loading is deferred until load_model() is called.
         """
