@@ -20,10 +20,10 @@ import TimelineDot from '@mui/lab/TimelineDot';
 import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
 import { useRouter } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestDetail } from '@/utils/api-client/interfaces/tests';
-import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
-import { TestSet } from '@/utils/api-client/interfaces/test-set';
-import { Task } from '@/utils/api-client/interfaces/task';
+import {
+  ActivityItem,
+  ActivityOperation,
+} from '@/utils/api-client/interfaces/activities';
 import ScienceIcon from '@mui/icons-material/Science';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import HorizontalSplitIcon from '@mui/icons-material/HorizontalSplit';
@@ -48,7 +48,9 @@ type ActivityType =
   | 'task_created'
   | 'task_completed'
   | 'task_assigned'
-  | 'task_updated';
+  | 'task_updated'
+  | 'bulk_operation'
+  | 'other';
 
 interface Activity {
   id: string;
@@ -57,6 +59,8 @@ interface Activity {
   subtitle?: string;
   timestamp: string;
   metadata?: any;
+  isBulk?: boolean;
+  count?: number;
 }
 
 const getActivityIcon = (type: ActivityType) => {
@@ -77,6 +81,8 @@ const getActivityIcon = (type: ActivityType) => {
       return <PersonAddIcon fontSize="small" />;
     case 'task_updated':
       return <EditIcon fontSize="small" />;
+    case 'bulk_operation':
+      return <TimelineIcon fontSize="small" />;
     default:
       return <ScienceIcon fontSize="small" />;
   }
@@ -102,9 +108,23 @@ const getActivityColor = (
       return 'warning';
     case 'task_updated':
       return 'info';
+    case 'bulk_operation':
+      return 'primary';
     default:
       return 'primary';
   }
+};
+
+// Layout constants for responsive calculation
+const LAYOUT_CONSTANTS = {
+  DASHBOARD_HEADER_HEIGHT: 8, // theme.spacing units
+  KPIS_HEIGHT: 25, // theme.spacing units
+  MARGINS: 12.5, // theme.spacing units
+  ITEM_HEIGHT: 15, // theme.spacing units per timeline item
+  DEFAULT_LIMIT: 6,
+  MIN_LIMIT: 6,
+  MAX_LIMIT: 15,
+  DEFAULT_CONTAINER_HEIGHT: 87.5, // theme.spacing units (700px equivalent)
 };
 
 export default function ActivityTimeline({
@@ -119,15 +139,138 @@ export default function ActivityTimeline({
   const [viewportHeight, setViewportHeight] = useState(0);
 
   // Calculate how many activities can fit based on viewport height
-  // Each activity item is approximately 120px tall
-  // Account for dashboard header (~64px), KPIs (~200px), margins (~100px)
   const calculateLimit = useCallback(() => {
-    if (viewportHeight === 0) return 6; // Default
-    const availableHeight = viewportHeight - 364; // Header + KPIs + margins
-    const itemHeight = 120; // Approximate height per timeline item
-    const calculatedLimit = Math.floor(availableHeight / itemHeight);
-    return Math.max(6, Math.min(calculatedLimit, 15)); // Min 6, max 15
-  }, [viewportHeight]);
+    if (viewportHeight === 0) return LAYOUT_CONSTANTS.DEFAULT_LIMIT;
+    const totalReservedHeight =
+      (LAYOUT_CONSTANTS.DASHBOARD_HEADER_HEIGHT +
+        LAYOUT_CONSTANTS.KPIS_HEIGHT +
+        LAYOUT_CONSTANTS.MARGINS) *
+      parseInt(theme.spacing(1));
+    const availableHeight = viewportHeight - totalReservedHeight;
+    const itemHeightPx =
+      LAYOUT_CONSTANTS.ITEM_HEIGHT * parseInt(theme.spacing(1));
+    const calculatedLimit = Math.floor(availableHeight / itemHeightPx);
+    return Math.max(
+      LAYOUT_CONSTANTS.MIN_LIMIT,
+      Math.min(calculatedLimit, LAYOUT_CONSTANTS.MAX_LIMIT)
+    );
+  }, [viewportHeight, theme]);
+
+  const mapActivityItemToActivity = (
+    item: ActivityItem,
+    index: number
+  ): Activity => {
+    // Handle bulk operations
+    if (item.is_bulk && item.summary) {
+      return {
+        id: `bulk_${item.entity_type}_${item.operation}_${index}`,
+        type: 'bulk_operation',
+        title: item.summary,
+        subtitle: `${item.count} items`,
+        timestamp: item.timestamp,
+        isBulk: true,
+        count: item.count,
+        metadata: {
+          entityType: item.entity_type,
+          operation: item.operation,
+          entityIds: item.entity_ids,
+          sampleEntities: item.sample_entities,
+        },
+      };
+    }
+
+    // Map individual activities based on entity type and operation
+    const entityType = item.entity_type;
+    const operation = item.operation;
+    const entityData = item.entity_data;
+
+    // Map to appropriate activity type and create title/subtitle
+    let type: ActivityType = 'other';
+    let title = '';
+    let subtitle = '';
+    let metadata: any = {};
+
+    if (entityType === 'Test') {
+      if (operation === ActivityOperation.CREATE) {
+        type = 'test_created';
+        title = 'Test Created';
+        subtitle =
+          entityData?.test_metadata?.prompt?.substring(0, 60) || 'New test';
+        metadata = {
+          testId: item.entity_id,
+          behavior: entityData?.behavior?.name,
+        };
+      } else if (operation === ActivityOperation.UPDATE) {
+        type = 'test_updated';
+        title = 'Test Updated';
+        subtitle = 'Test modified';
+        metadata = { testId: item.entity_id };
+      }
+    } else if (entityType === 'TestRun') {
+      type = 'test_run';
+      title = 'Test Run Executed';
+      subtitle = entityData?.name || 'Test run completed';
+      metadata = {
+        testRunId: item.entity_id,
+        status: entityData?.status?.name,
+      };
+    } else if (entityType === 'TestSet') {
+      type = 'test_set_created';
+      title =
+        operation === ActivityOperation.UPDATE
+          ? 'Test Set Updated'
+          : 'Test Set Created';
+      subtitle = entityData?.name || 'Test set';
+      metadata = { testSetId: item.entity_id };
+    } else if (entityType === 'Task') {
+      if (entityData?.completed_at) {
+        type = 'task_completed';
+        title = 'Task Completed';
+      } else if (operation === ActivityOperation.UPDATE) {
+        type = 'task_updated';
+        title = 'Task Updated';
+      } else {
+        type = 'task_created';
+        title = 'Task Created';
+      }
+      subtitle = entityData?.title || 'Task';
+      metadata = {
+        taskId: item.entity_id,
+        status: entityData?.status?.name,
+        assignee: entityData?.assignee?.name || entityData?.assignee?.email,
+      };
+    } else if (entityType === 'Comment') {
+      type = 'other';
+      title = 'Comment Added';
+      subtitle = entityData?.content?.substring(0, 60) || 'Comment';
+      metadata = { commentId: item.entity_id };
+    } else {
+      // Generic handling for other entity types
+      type = 'other';
+      const operationText =
+        operation === ActivityOperation.CREATE
+          ? 'Created'
+          : operation === ActivityOperation.UPDATE
+            ? 'Updated'
+            : 'Deleted';
+      title = `${entityType} ${operationText}`;
+      subtitle =
+        entityData?.name ||
+        entityData?.title ||
+        entityData?.description ||
+        entityType;
+      metadata = { entityId: item.entity_id, entityType };
+    }
+
+    return {
+      id: `${entityType}_${operation}_${item.entity_id || index}`,
+      type,
+      title,
+      subtitle,
+      timestamp: item.timestamp,
+      metadata,
+    };
+  };
 
   const fetchActivities = useCallback(async () => {
     try {
@@ -135,219 +278,21 @@ export default function ActivityTimeline({
       const clientFactory = new ApiClientFactory(sessionToken);
 
       const limit = calculateLimit();
-      // Fetch more items per source to ensure we get the most recent activities
-      // Fetch at least 5 items per source to have enough to choose from
-      const perSourceLimit = Math.max(5, Math.ceil(limit / 2));
 
-      // Fetch multiple activity sources in parallel
-      const [newTests, updatedTests, recentTestRuns, newTestSets, recentTasks] =
-        await Promise.all([
-          clientFactory.getTestsClient().getTests({
-            skip: 0,
-            limit: perSourceLimit,
-            sort_by: 'created_at',
-            sort_order: 'desc',
-          }),
-          clientFactory.getTestsClient().getTests({
-            skip: 0,
-            limit: perSourceLimit,
-            sort_by: 'updated_at',
-            sort_order: 'desc',
-          }),
-          clientFactory.getTestRunsClient().getTestRuns({
-            skip: 0,
-            limit: perSourceLimit,
-            sort_by: 'created_at',
-            sort_order: 'desc',
-          }),
-          clientFactory.getTestSetsClient().getTestSets({
-            skip: 0,
-            limit: perSourceLimit,
-            sort_by: 'created_at',
-            sort_order: 'desc',
-          }),
-          clientFactory.getTasksClient().getTasks({
-            skip: 0,
-            limit: perSourceLimit,
-            sort_by: 'created_at',
-            sort_order: 'desc',
-          }),
-        ]);
+      // Fetch recent activities using the new unified endpoint
+      const response = await clientFactory
+        .getServicesClient()
+        .getRecentActivities(limit);
 
-      // Combine and format activities
-      const allActivities: Activity[] = [];
-
-      // Add new tests
-      newTests.data.forEach((test: TestDetail) => {
-        allActivities.push({
-          id: `test_created_${test.id}`,
-          type: 'test_created',
-          title: 'Test Created',
-          subtitle:
-            test.prompt?.content?.substring(0, 60) + '...' || 'New test',
-          timestamp: test.created_at,
-          metadata: { testId: test.id, behavior: test.behavior?.name },
-        });
-      });
-
-      // Add updated tests (only if updated_at differs from created_at)
-      updatedTests.data.forEach((test: TestDetail) => {
-        if (test.updated_at && test.updated_at !== test.created_at) {
-          allActivities.push({
-            id: `test_updated_${test.id}`,
-            type: 'test_updated',
-            title: 'Test Updated',
-            subtitle:
-              test.prompt?.content?.substring(0, 60) + '...' || 'Test modified',
-            timestamp: test.updated_at,
-            metadata: { testId: test.id, behavior: test.behavior?.name },
-          });
-        }
-      });
-
-      // Add test runs
-      recentTestRuns.data.forEach((testRun: TestRunDetail) => {
-        // Use started_at from attributes if available, otherwise fall back to created_at
-        const timestamp = testRun.attributes?.started_at || testRun.created_at;
-
-        allActivities.push({
-          id: `test_run_${testRun.id}`,
-          type: 'test_run',
-          title: 'Test Run Executed',
-          subtitle:
-            testRun.test_configuration?.test_set?.name || 'Test run completed',
-          timestamp: timestamp,
-          metadata: {
-            testRunId: testRun.id,
-            status: testRun.status?.name || testRun.attributes?.task_state,
-          },
-        });
-      });
-
-      // Add new test sets
-      newTestSets.data.forEach((testSet: TestSet) => {
-        // Use created_at or updated_at; use a very old date as fallback to sort properly
-        const testSetTimestamp =
-          testSet.created_at || testSet.updated_at || '2000-01-01T00:00:00Z';
-
-        if (!testSet.created_at && !testSet.updated_at) {
-          console.warn(
-            'Test set missing timestamp (will be sorted to bottom):',
-            testSet.id,
-            testSet.name
-          );
-        }
-
-        allActivities.push({
-          id: `test_set_created_${testSet.id}`,
-          type: 'test_set_created',
-          title: 'Test Set Created',
-          subtitle: testSet.name,
-          timestamp: testSetTimestamp,
-          metadata: { testSetId: testSet.id },
-        });
-      });
-
-      // Add tasks with enhanced activity tracking
-      recentTasks.data.forEach((task: Task) => {
-        // Use created_at or updated_at; use a very old date as fallback to sort properly
-        // Tasks without timestamps will appear at the bottom
-        const taskTimestamp =
-          task.created_at || task.updated_at || '2000-01-01T00:00:00Z';
-
-        if (!task.created_at && !task.updated_at) {
-          console.warn(
-            'Task missing timestamp (will be sorted to bottom):',
-            task.id,
-            task.title
-          );
-        }
-
-        // Add task created activity
-        allActivities.push({
-          id: `task_created_${task.id}`,
-          type: 'task_created',
-          title: 'Task Created',
-          subtitle: task.title,
-          timestamp: taskTimestamp,
-          metadata: {
-            taskId: task.id,
-            status: task.status?.name,
-            assignee: task.assignee?.name || task.assignee?.email,
-            entity_type: task.entity_type,
-          },
-        });
-
-        // Add task assignment activity if assigned
-        if (
-          task.assignee &&
-          task.updated_at &&
-          task.updated_at !== task.created_at
-        ) {
-          allActivities.push({
-            id: `task_assigned_${task.id}`,
-            type: 'task_assigned',
-            title: 'Task Assigned',
-            subtitle: `${task.title} → ${task.assignee.name || task.assignee.email}`,
-            timestamp: task.updated_at,
-            metadata: {
-              taskId: task.id,
-              assignee: task.assignee.name || task.assignee.email,
-              entity_type: task.entity_type,
-              status: task.status?.name,
-            },
-          });
-        }
-
-        // Add task completed activity if completed
-        if (task.completed_at) {
-          allActivities.push({
-            id: `task_completed_${task.id}`,
-            type: 'task_completed',
-            title: 'Task Completed',
-            subtitle: task.title,
-            timestamp: task.completed_at,
-            metadata: {
-              taskId: task.id,
-              status: task.status?.name,
-              entity_type: task.entity_type,
-              assignee: task.assignee?.name || task.assignee?.email,
-            },
-          });
-        }
-
-        // Add task updated activity for status changes (if not completed)
-        if (
-          task.updated_at &&
-          task.updated_at !== task.created_at &&
-          !task.completed_at &&
-          task.status?.name !== 'Open'
-        ) {
-          allActivities.push({
-            id: `task_updated_${task.id}`,
-            type: 'task_updated',
-            title: 'Task Updated',
-            subtitle: `${task.title} → ${task.status?.name}`,
-            timestamp: task.updated_at,
-            metadata: {
-              taskId: task.id,
-              status: task.status?.name,
-              entity_type: task.entity_type,
-              assignee: task.assignee?.name || task.assignee?.email,
-            },
-          });
-        }
-      });
-
-      // Sort by timestamp (most recent first) and take calculated limit
-      allActivities.sort(
-        (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      // Map ActivityItems to Activity format for UI
+      const mappedActivities = response.activities.map(
+        mapActivityItemToActivity
       );
-      setActivities(allActivities.slice(0, limit));
 
+      setActivities(mappedActivities);
       setError(null);
     } catch (err) {
+      console.error('Error fetching activities:', err);
       setError('Unable to load activity data');
       setActivities([]);
     } finally {
@@ -370,6 +315,11 @@ export default function ActivityTimeline({
   }, [sessionToken, viewportHeight]); // Fetch when sessionToken changes or when viewport height is initially set
 
   const handleActivityClick = (activity: Activity) => {
+    // Bulk operations - don't navigate, could expand to show details in future
+    if (activity.isBulk) {
+      return;
+    }
+
     switch (activity.type) {
       case 'test_created':
       case 'test_updated':
@@ -395,19 +345,48 @@ export default function ActivityTimeline({
           router.push(`/tasks/${activity.metadata.taskId}`);
         }
         break;
+      case 'other':
+        // Generic handling - could be extended based on entityType
+        if (activity.metadata?.entityId && activity.metadata?.entityType) {
+          const entityType = activity.metadata.entityType.toLowerCase();
+          router.push(`/${entityType}s/${activity.metadata.entityId}`);
+        }
+        break;
     }
   };
 
   // Calculate dynamic container height
   const containerHeight =
-    calculateLimit() > 6
-      ? `${Math.min(calculateLimit() * 120 + 150, viewportHeight - 364)}px`
-      : '700px';
+    calculateLimit() > LAYOUT_CONSTANTS.MIN_LIMIT
+      ? theme.spacing(
+          Math.min(
+            calculateLimit() * LAYOUT_CONSTANTS.ITEM_HEIGHT + 18.75,
+            (viewportHeight -
+              (LAYOUT_CONSTANTS.DASHBOARD_HEADER_HEIGHT +
+                LAYOUT_CONSTANTS.KPIS_HEIGHT +
+                LAYOUT_CONSTANTS.MARGINS) *
+                parseInt(theme.spacing(1))) /
+              parseInt(theme.spacing(1))
+          )
+        )
+      : theme.spacing(LAYOUT_CONSTANTS.DEFAULT_CONTAINER_HEIGHT);
 
   if (loading) {
     return (
-      <Paper sx={{ p: 3, height: containerHeight, overflow: 'hidden' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+      <Paper
+        sx={{
+          p: theme.spacing(3),
+          height: containerHeight,
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            p: theme.spacing(3),
+          }}
+        >
           <CircularProgress />
         </Box>
       </Paper>
@@ -415,14 +394,27 @@ export default function ActivityTimeline({
   }
 
   return (
-    <Paper sx={{ p: 3, height: containerHeight, overflow: 'auto' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+    <Paper
+      sx={{
+        p: theme.spacing(3),
+        height: containerHeight,
+        overflow: 'auto',
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: theme.spacing(1),
+          mb: theme.spacing(3),
+        }}
+      >
         <TimelineIcon color="primary" />
         <Typography variant="h6">Recent Activity</Typography>
       </Box>
 
       {error && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
+        <Alert severity="warning" sx={{ mb: theme.spacing(2) }}>
           {error}
         </Alert>
       )}
@@ -455,7 +447,11 @@ export default function ActivityTimeline({
             return (
               <TimelineItem key={activity.id}>
                 <TimelineOppositeContent
-                  sx={{ maxWidth: '80px', paddingLeft: 0, paddingRight: 1 }}
+                  sx={{
+                    maxWidth: theme.spacing(10),
+                    paddingLeft: 0,
+                    paddingRight: theme.spacing(1),
+                  }}
                 >
                   <Typography variant="caption" color="text.secondary">
                     {timeAgo.replace(' ago', '')}
@@ -470,30 +466,59 @@ export default function ActivityTimeline({
                 <TimelineContent>
                   <Box
                     sx={{
-                      cursor: 'pointer',
-                      p: 1.5,
-                      mb: 1,
-                      borderRadius: 1,
+                      cursor: activity.isBulk ? 'default' : 'pointer',
+                      p: theme.spacing(1.5),
+                      mb: theme.spacing(1),
+                      borderRadius: theme.shape.borderRadius,
                       bgcolor: alpha(theme.palette[activityColor].main, 0.05),
-                      border: `1px solid ${alpha(theme.palette[activityColor].main, 0.1)}`,
-                      transition: 'background-color 0.2s',
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette[activityColor].main, 0.1),
-                      },
+                      border: `${theme.spacing(0.125)} solid ${alpha(theme.palette[activityColor].main, 0.1)}`,
+                      transition: theme.transitions.create('background-color', {
+                        duration: theme.transitions.duration.short,
+                      }),
+                      '&:hover': activity.isBulk
+                        ? {}
+                        : {
+                            bgcolor: alpha(
+                              theme.palette[activityColor].main,
+                              0.1
+                            ),
+                          },
                     }}
                     onClick={() => handleActivityClick(activity)}
                   >
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: 600, mb: 0.5 }}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
                     >
-                      {activity.title}
-                    </Typography>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{
+                          fontWeight: theme.typography.fontWeightBold,
+                          mb: theme.spacing(0.5),
+                        }}
+                      >
+                        {activity.title}
+                      </Typography>
+                      {activity.isBulk && activity.count && (
+                        <Chip
+                          label={`${activity.count}x`}
+                          size="small"
+                          color={activityColor}
+                          sx={{
+                            height: theme.spacing(2.75),
+                            fontSize: theme.typography.caption.fontSize,
+                            fontWeight: theme.typography.fontWeightBold,
+                          }}
+                        />
+                      )}
+                    </Box>
                     <Typography
                       variant="body2"
                       color="text.secondary"
                       sx={{
-                        fontSize: '0.813rem',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         display: '-webkit-box',
@@ -507,7 +532,10 @@ export default function ActivityTimeline({
                       <Chip
                         label={activity.metadata.behavior}
                         size="small"
-                        sx={{ mt: 0.5, height: 20, fontSize: '0.688rem' }}
+                        sx={{
+                          mt: theme.spacing(0.5),
+                          height: theme.spacing(2.5),
+                        }}
                       />
                     )}
                     {activity.metadata?.status && (
@@ -526,10 +554,9 @@ export default function ActivityTimeline({
                               : 'default'
                         }
                         sx={{
-                          mt: 0.5,
-                          height: 20,
-                          fontSize: '0.688rem',
-                          mr: 0.5,
+                          mt: theme.spacing(0.5),
+                          height: theme.spacing(2.5),
+                          mr: theme.spacing(0.5),
                         }}
                       />
                     )}
@@ -538,10 +565,9 @@ export default function ActivityTimeline({
                         label={`@${activity.metadata.assignee}`}
                         size="small"
                         sx={{
-                          mt: 0.5,
-                          mr: 0.5,
-                          height: 20,
-                          fontSize: '0.688rem',
+                          mt: theme.spacing(0.5),
+                          mr: theme.spacing(0.5),
+                          height: theme.spacing(2.5),
                           backgroundColor: theme.palette.secondary.light,
                           color: theme.palette.secondary.contrastText,
                         }}
