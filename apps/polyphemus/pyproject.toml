@@ -26,6 +26,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     # Backend dependency for authentication utilities (brings SDK and Penelope)
     "rhesis-backend",
+    # Faster download dependencies
+    "hf_transfer>=0.1.0",
 ]
 
 [project.optional-dependencies]
