@@ -19,7 +19,7 @@ function transformNavigationItems(items: NavigationItem[]): any[] {
       // Transform link to a page item with metadata for rendering
       return {
         kind: 'page',
-        segment: '', // Empty segment since external links don't need routes
+        segment: '__external__', // Non-matching segment to prevent inclusion in breadcrumbs
         title: item.title,
         icon: item.icon,
         requireSuperuser: item.requireSuperuser,
