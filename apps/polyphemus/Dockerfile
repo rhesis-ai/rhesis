@@ -88,11 +88,11 @@ ENV UV_NO_MANAGED_PYTHON=1
 # Compile bytecode to improve performance
 ENV UV_COMPILE_BYTECODE=1
 
-# Install dependencies using uv pip (faster and more efficient than pip)
+# Install dependencies using pip (uv pip requires project context, so use regular pip)
 # Use cache mount for faster builds and install into the venv
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,target=/root/.cache/pip \
     . $VIRTUAL_ENV/bin/activate && \
-    uv pip install --no-cache -r /app/requirements.txt && \
+    pip install --no-cache-dir -r /app/requirements.txt && \
     chown -R appuser:appuser /app/.venv
 
 # Copy source code and dependencies with proper ownership
