@@ -27,6 +27,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import SaveIcon from '@mui/icons-material/Save';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { MCPItem } from '@/utils/api-client/services-client';
@@ -36,6 +37,7 @@ import { UUID } from 'crypto';
 interface MCPImportDialogProps {
   open: boolean;
   onClose: () => void;
+  onBack?: () => void;
   onSuccess?: () => void;
   sessionToken: string;
   tool?: Tool | null;
@@ -44,6 +46,7 @@ interface MCPImportDialogProps {
 export default function MCPImportDialog({
   open,
   onClose,
+  onBack,
   onSuccess,
   sessionToken,
   tool,
@@ -233,6 +236,20 @@ export default function MCPImportDialog({
     }
   };
 
+  const handleBack = () => {
+    if (!searching && !importing) {
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedIds(new Set());
+      setError(null);
+      if (onBack) {
+        onBack();
+      } else {
+        onClose();
+      }
+    }
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !searching) {
       handleSearch();
@@ -256,11 +273,7 @@ export default function MCPImportDialog({
           <Box display="flex" alignItems="center" gap={1}>
             <SearchIcon />
             <Typography variant="h6">
-              Import from{' '}
-              {tool?.tool_provider_type?.type_value
-                ? tool.tool_provider_type.type_value.charAt(0).toUpperCase() +
-                  tool.tool_provider_type.type_value.slice(1)
-                : 'MCP'}
+              Import from {tool?.name || 'MCP'}
             </Typography>
           </Box>
           <IconButton onClick={handleClose} disabled={isProcessing}>
@@ -303,7 +316,6 @@ export default function MCPImportDialog({
                 startIcon={
                   searching ? <CircularProgress size={20} /> : <SearchIcon />
                 }
-                sx={{ minWidth: '120px' }}
               >
                 {searching ? 'Searching...' : 'Search'}
               </Button>
@@ -399,29 +411,33 @@ export default function MCPImportDialog({
                   ))}
                 </List>
               </Paper>
-              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                <Button
-                  variant="contained"
-                  onClick={handleImportAsSources}
-                  disabled={selectedIds.size === 0 || importing}
-                  startIcon={
-                    importing ? <CircularProgress size={20} /> : <SaveIcon />
-                  }
-                >
-                  {importing
-                    ? 'Importing...'
-                    : `Import ${selectedIds.size} as Source${selectedIds.size !== 1 ? 's' : ''}`}
-                </Button>
-              </Box>
             </Box>
           )}
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={handleClose} disabled={isProcessing}>
-          Cancel
+      <DialogActions sx={{ p: 3, pt: 1, justifyContent: 'space-between' }}>
+        <Button
+          onClick={handleBack}
+          disabled={isProcessing}
+          startIcon={<ArrowBackIcon />}
+        >
+          Back
         </Button>
+        {searchResults.length > 0 && (
+          <Button
+            variant="contained"
+            onClick={handleImportAsSources}
+            disabled={selectedIds.size === 0 || importing}
+            startIcon={
+              importing ? <CircularProgress size={20} /> : <SaveIcon />
+            }
+          >
+            {importing
+              ? 'Importing...'
+              : `Import ${selectedIds.size} as Source${selectedIds.size !== 1 ? 's' : ''}`}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );
