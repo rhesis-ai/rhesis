@@ -8,12 +8,27 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import CommentsMixin, CountsMixin, OrganizationMixin, TagsMixin, TasksMixin
+from .mixins import (
+    ActivityTrackableMixin,
+    CommentsMixin,
+    CountsMixin,
+    OrganizationMixin,
+    TagsMixin,
+    TasksMixin,
+)
 from .test_set import prompt_test_set_association
 from .use_case import prompt_use_case_association
 
 
-class Prompt(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, CountsMixin):
+class Prompt(
+    Base,
+    ActivityTrackableMixin,
+    TagsMixin,
+    OrganizationMixin,
+    CommentsMixin,
+    TasksMixin,
+    CountsMixin,
+):
     __tablename__ = "prompt"
     content = Column(Text, nullable=False)
     demographic_id = Column(

@@ -1,3 +1,5 @@
+from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, Field
@@ -295,3 +297,30 @@ class QueryMCPResponse(BaseModel):
     iterations_used: int
     max_iterations_reached: bool
     execution_history: List[ExecutionStep]
+
+
+# Recent Activities Schemas
+class ActivityOperation(str, Enum):
+    """Type of operation performed on an entity."""
+
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
+
+
+class ActivityItem(BaseModel):
+    """A single activity item representing a CRUD operation on an entity."""
+
+    entity_type: str
+    entity_id: UUID4
+    operation: ActivityOperation
+    timestamp: datetime
+    user: Optional[Any] = None  # Full User schema from schemas.user
+    entity_data: Dict[str, Any]
+
+
+class RecentActivitiesResponse(BaseModel):
+    """Response containing recent activities across all trackable entities."""
+
+    activities: List[ActivityItem]
+    total: int

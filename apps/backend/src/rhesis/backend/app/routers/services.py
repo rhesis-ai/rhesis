@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -24,6 +24,7 @@ from rhesis.backend.app.schemas.services import (
     PromptRequest,
     QueryMCPRequest,
     QueryMCPResponse,
+    RecentActivitiesResponse,
     SearchMCPRequest,
     TestConfigRequest,
     TestConfigResponse,
@@ -34,6 +35,7 @@ from rhesis.backend.app.services.gemini_client import (
     get_chat_response,
     get_json_response,
 )
+from rhesis.backend.app.services.activities import RecentActivitiesService
 from rhesis.backend.app.services.generation import (
     generate_multiturn_tests,
     generate_tests,
@@ -662,3 +664,36 @@ async def query_mcp_server(
         raise HTTPException(
             status_code=500, detail="Failed to execute query on MCP server. Please try again."
         )
+
+
+@router.get("/recent-activities", response_model=RecentActivitiesResponse)
+def get_recent_activities(
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Get recent activities across all trackable entities.
+
+    Returns a unified timeline of CREATE/UPDATE/DELETE operations
+    with complete entity details and user information for entities
+    that inherit ActivityTrackableMixin.
+
+    Args:
+        limit: Maximum number of activities to return (default 50, max 200)
+        db: Database session (injected)
+        tenant_context: Organization and user context (injected)
+        current_user: Current authenticated user (injected)
+
+    Returns:
+        RecentActivitiesResponse containing list of activities and total count
+    """
+    try:
+        organization_id, user_id = tenant_context
+        service = RecentActivitiesService()
+        result = service.get_recent_activities(db=db, organization_id=organization_id, limit=limit)
+        return result
+    except Exception as e:
+        logger.error(f"Failed to get recent activities: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve recent activities")

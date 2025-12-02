@@ -5,10 +5,25 @@ from rhesis.backend.app.utils.encryption import EncryptedString
 
 from .base import Base
 from .guid import GUID
-from .mixins import CommentsMixin, CountsMixin, OrganizationAndUserMixin, TagsMixin, TasksMixin
+from .mixins import (
+    ActivityTrackableMixin,
+    CommentsMixin,
+    CountsMixin,
+    OrganizationAndUserMixin,
+    TagsMixin,
+    TasksMixin,
+)
 
 
-class Model(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
+class Model(
+    Base,
+    ActivityTrackableMixin,
+    OrganizationAndUserMixin,
+    TagsMixin,
+    CommentsMixin,
+    TasksMixin,
+    CountsMixin,
+):
     __tablename__ = "model"
 
     # Basic information
