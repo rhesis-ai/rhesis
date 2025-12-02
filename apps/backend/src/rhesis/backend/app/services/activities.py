@@ -24,7 +24,7 @@ class RecentActivitiesService:
     """Service for retrieving recent activities across all trackable entities."""
 
     # Bulk operation detection settings
-    BULK_THRESHOLD = 5  # Minimum activities to consider as bulk
+    BULK_THRESHOLD = 2  # Minimum activities to consider as bulk
     BULK_TIME_WINDOW_SECONDS = 120  # Activities within 2 minutes are considered bulk
     SAMPLE_SIZE = 3  # Number of sample entities to include in bulk preview
 
