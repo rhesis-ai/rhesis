@@ -652,15 +652,6 @@ export default function ActivityTimeline({
                       {/* Operation Badge */}
                       {activity.operation && (
                         <Chip
-                          icon={
-                            activity.operation === 'create' ? (
-                              <AddCircleOutlineIcon />
-                            ) : activity.operation === 'update' ? (
-                              <EditIcon />
-                            ) : (
-                              <DeleteOutlineIcon />
-                            )
-                          }
                           label={
                             activity.operation.charAt(0).toUpperCase() +
                             activity.operation.slice(1)
@@ -675,6 +666,7 @@ export default function ActivityTimeline({
                           }
                           sx={{
                             height: theme.spacing(2.5),
+                            fontSize: theme.typography.caption.fontSize,
                           }}
                         />
                       )}
@@ -780,21 +772,16 @@ export default function ActivityTimeline({
                               fontStyle: 'italic',
                             }}
                           >
-                            Sample:{' '}
                             {activity.sampleEntities
                               .slice(0, 3)
                               .map(
                                 entity =>
                                   entity.name ||
                                   entity.title ||
-                                  entity.test_metadata?.prompt?.substring(
-                                    0,
-                                    30
-                                  ) ||
-                                  'Item'
+                                  entity.test_metadata?.prompt?.substring(0, 30)
                               )
+                              .filter(Boolean)
                               .join(', ')}
-                            {activity.count && activity.count > 3 && '...'}
                           </Typography>
                         </Box>
                       )}
