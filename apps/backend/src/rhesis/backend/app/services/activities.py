@@ -230,7 +230,8 @@ class RecentActivitiesService:
         limited_activities = grouped_activities[:limit]
 
         logger.info(
-            f"Returning {len(limited_activities)} activity groups from {len(grouped_activities)} total groups"
+            f"Returning {len(limited_activities)} activity groups "
+            f"from {len(grouped_activities)} total groups"
         )
 
         return {"activities": limited_activities, "total": len(limited_activities)}

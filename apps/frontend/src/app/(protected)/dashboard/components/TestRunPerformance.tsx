@@ -489,9 +489,9 @@ export default function TestRunPerformance({
                               sx={{
                                 fontWeight: theme.typography.fontWeightMedium,
                                 color:
-                                  passRate >= 80
+                                  passRate > 75
                                     ? 'success.main'
-                                    : passRate >= 60
+                                    : passRate >= 50
                                       ? 'warning.main'
                                       : 'error.main',
                               }}
@@ -503,9 +503,9 @@ export default function TestRunPerformance({
                             variant="determinate"
                             value={passRate}
                             color={
-                              passRate >= 80
+                              passRate > 75
                                 ? 'success'
-                                : passRate >= 60
+                                : passRate >= 50
                                   ? 'warning'
                                   : 'error'
                             }
