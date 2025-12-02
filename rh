@@ -57,6 +57,14 @@ start_all() {
     echo -e "${GREEN}🚀 Starting all Rhesis services with Docker...${NC}"
     echo -e "${BLUE}ℹ️  Using zero-configuration local setup${NC}"
     echo ""
+    echo "#####################################################################################"
+    echo ""
+    echo -e "${CYAN}📊 Telemetry Notice:${NC}"
+    echo -e "${WHITE}   Rhesis AI automatically collects anonymous usage statistics to help improve the platform.${NC}"
+    echo -e "${WHITE}   To disable telemetry, set: ${YELLOW}OTEL_RHESIS_TELEMETRY_ENABLED=false${NC}"
+    echo ""
+    echo "#####################################################################################"
+    echo ""
 
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
@@ -127,8 +135,8 @@ start_all() {
 
     echo ""
     echo -e "${YELLOW}📦 Starting services ...${NC}"
-    docker compose --env-file .env.docker.local up -d postgres redis backend worker frontend
-
+    
+docker compose --env-file .env.docker.local up --build -d postgres redis backend worker frontend
     if [ $? -eq 0 ]; then
         echo ""
         echo -e "${GREEN}✅ All services started successfully!${NC}"
@@ -321,32 +329,42 @@ start_polyphemus() {
         exit 1
     }
 
-    # Install dependencies if needed
-    if ! python -c "import rhesis.polyphemus" 2>/dev/null; then
-        echo -e "${YELLOW}📦 Installing Polyphemus dependencies...${NC}"
-        uv pip install -e apps/polyphemus || {
-            echo -e "${RED}❌ Error: Failed to install Polyphemus${NC}"
-            exit 1
-        }
-    fi
+    # Install SDK first with huggingface extras (required by polyphemus)
+    echo -e "${YELLOW}📦 Installing SDK with HuggingFace support...${NC}"
+    uv pip install -e "sdk[huggingface]" || {
+        echo -e "${RED}❌ Error: Failed to install SDK${NC}"
+        exit 1
+    }
 
-    # Check if SDK is installed
-    if ! python -c "import rhesis-sdk[huggingface]" 2>/dev/null; then
-        echo -e "${YELLOW}📦 Installing SDK...${NC}"
-        uv pip install -e sdk || {
-            echo -e "${RED}❌ Error: Failed to install SDK${NC}"
-            exit 1
-        }
-    fi
+    # Install Penelope
+    echo -e "${YELLOW}📦 Installing Penelope...${NC}"
+    uv pip install -e penelope || {
+        echo -e "${RED}❌ Error: Failed to install Penelope${NC}"
+        exit 1
+    }
+
+    # Install Backend
+    echo -e "${YELLOW}📦 Installing Backend...${NC}"
+    uv pip install -e apps/backend || {
+        echo -e "${RED}❌ Error: Failed to install Backend${NC}"
+        exit 1
+    }
+
+    # Install Polyphemus (all dependencies now resolved)
+    echo -e "${YELLOW}📦 Installing Polyphemus...${NC}"
+    uv pip install -e apps/polyphemus || {
+        echo -e "${RED}❌ Error: Failed to install Polyphemus${NC}"
+        exit 1
+    }
 
     echo -e "${GREEN}🚀 Starting Polyphemus service...${NC}"
-    echo -e "${BLUE}🌐 Service will be available at: http://localhost:8080${NC}"
-    echo -e "${BLUE}📚 API docs will be available at: http://localhost:8080/docs${NC}"
+    echo -e "${BLUE}🌐 Service will be available at: http://localhost:8082${NC}"
+    echo -e "${BLUE}📚 API docs will be available at: http://localhost:8082/docs${NC}"
     echo -e "${YELLOW}💡 Press Ctrl+C to stop the service${NC}"
     echo ""
 
     # Run uvicorn
-    exec uvicorn rhesis.polyphemus.main:app --host 0.0.0.0 --port 8080 --reload
+    exec uvicorn rhesis.polyphemus.main:app --host 0.0.0.0 --port 8082 --reload
 }
 
 # Function to start worker
@@ -387,6 +405,10 @@ start_worker() {
 
     # Set up trap to handle Ctrl+C gracefully
     trap "echo -e '\n${YELLOW}🛑 Shutting down worker...${NC}'; exit" INT TERM
+
+    # Set CELERY_WORKER_NAME environment variable
+    export CELERY_WORKER_NAME="worker@$(hostname)"
+    echo -e "${GREEN}✅ CELERY_WORKER_NAME set to: ${CELERY_WORKER_NAME}${NC}"
 
     # Run in foreground - using uv run handles the virtual environment automatically
     # Using --logfile parameter to write logs directly

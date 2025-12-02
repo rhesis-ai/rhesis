@@ -69,12 +69,16 @@ export interface MetricCreate {
   explanation: string;
   ground_truth_required?: boolean;
   metric_scope?: MetricScope[];
+  // ID-based fields (preferred for frontend)
   metric_type_id?: UUID;
   backend_type_id?: UUID;
   status_id?: UUID;
   assignee_id?: UUID;
   owner_id?: UUID;
   model_id?: UUID;
+  // String-based fields (for SDK compatibility)
+  metric_type?: string;
+  backend_type?: string;
 }
 
 export interface MetricUpdate {

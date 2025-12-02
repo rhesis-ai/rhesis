@@ -9,7 +9,7 @@ This module tests the core test execution logic including:
 - Result processing and storage
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from sqlalchemy.orm import Session
@@ -231,7 +231,7 @@ class TestBackendEndpointTargetConversationContext:
 
     def test_conversation_id_extraction_from_response(self):
         """Test that BackendEndpointTarget correctly extracts conversation_id from endpoint responses"""
-        from unittest.mock import Mock, patch
+        from unittest.mock import Mock
         from uuid import uuid4
 
         from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
@@ -241,11 +241,11 @@ class TestBackendEndpointTargetConversationContext:
 
         # Mock endpoint service response with session_id
         mock_endpoint_service = Mock()
-        mock_endpoint_service.invoke_endpoint.return_value = {
+        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={
             "output": "Test response",
             "session_id": "test-session-123",
             "metadata": {"test": "data"},
-        }
+        })
 
         # Create valid UUIDs for testing
         endpoint_id = str(uuid4())
@@ -266,7 +266,7 @@ class TestBackendEndpointTargetConversationContext:
             mock_endpoint.name = "test-endpoint"
             mock_endpoint.url = "https://test.com"
             mock_endpoint.description = "Test endpoint"
-            mock_endpoint.protocol = "REST"
+            mock_endpoint.connection_type = "REST"
             mock_get_endpoint.return_value = mock_endpoint
 
             target = BackendEndpointTarget(
@@ -283,7 +283,7 @@ class TestBackendEndpointTargetConversationContext:
 
     def test_conversation_id_passthrough_to_endpoint(self):
         """Test that BackendEndpointTarget passes conversation_id to endpoint service"""
-        from unittest.mock import Mock, patch
+        from unittest.mock import Mock
         from uuid import uuid4
 
         from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
@@ -293,10 +293,10 @@ class TestBackendEndpointTargetConversationContext:
 
         # Mock endpoint service
         mock_endpoint_service = Mock()
-        mock_endpoint_service.invoke_endpoint.return_value = {
+        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={
             "output": "Follow-up response",
             "session_id": "test-session-123",
-        }
+        })
 
         # Create valid UUIDs for testing
         endpoint_id = str(uuid4())
@@ -335,7 +335,7 @@ class TestBackendEndpointTargetConversationContext:
 
     def test_flexible_conversation_field_extraction(self):
         """Test that BackendEndpointTarget handles multiple conversation field names"""
-        from unittest.mock import Mock, patch
+        from unittest.mock import Mock
         from uuid import uuid4
 
         from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
@@ -345,11 +345,11 @@ class TestBackendEndpointTargetConversationContext:
 
         # Mock endpoint service response with thread_id instead of session_id
         mock_endpoint_service = Mock()
-        mock_endpoint_service.invoke_endpoint.return_value = {
+        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={
             "output": "Response with thread_id",
             "thread_id": "thread-456",
             "metadata": {},
-        }
+        })
 
         # Create valid UUID for testing
         endpoint_id = str(uuid4())

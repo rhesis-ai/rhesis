@@ -184,12 +184,23 @@ class TestWebSocketEndpointInvoker:
                 mock_db, sample_endpoint_websocket, sample_input_data
             )
 
+        # Convert ErrorResponse to dict for testing (Pydantic v1/v2 compatible)
+        if hasattr(result, "to_dict"):
+            result = result.to_dict()
+        elif hasattr(result, "model_dump"):
+            result = result.model_dump(exclude_none=True)
+        elif hasattr(result, "dict"):
+            result = result.dict(exclude_none=True)
+
         assert result["error"] is True
         assert result["error_type"] == "websocket_connection_error"
         assert "401" in result["message"]
 
-    def test_invoke_sync_wrapper(self, mock_db, sample_endpoint_websocket, sample_input_data):
-        """Test sync invoke wrapper calls async implementation."""
+    @pytest.mark.asyncio
+    async def test_invoke_calls_async_implementation(
+        self, mock_db, sample_endpoint_websocket, sample_input_data
+    ):
+        """Test that invoke method calls async implementation."""
         invoker = WebSocketEndpointInvoker()
 
         expected_result = {"output": "Success", "conversation_id": "conv-123"}
@@ -198,16 +209,27 @@ class TestWebSocketEndpointInvoker:
             return expected_result
 
         with patch.object(invoker, "_async_invoke", side_effect=mock_async_invoke):
-            result = invoker.invoke(mock_db, sample_endpoint_websocket, sample_input_data)
+            result = await invoker.invoke(mock_db, sample_endpoint_websocket, sample_input_data)
 
         assert result == expected_result
 
-    def test_invoke_handles_exception(self, mock_db, sample_endpoint_websocket, sample_input_data):
+    @pytest.mark.asyncio
+    async def test_invoke_handles_exception(
+        self, mock_db, sample_endpoint_websocket, sample_input_data
+    ):
         """Test that invoke handles exceptions gracefully."""
         invoker = WebSocketEndpointInvoker()
 
         with patch.object(invoker, "_async_invoke", side_effect=Exception("Connection failed")):
-            result = invoker.invoke(mock_db, sample_endpoint_websocket, sample_input_data)
+            result = await invoker.invoke(mock_db, sample_endpoint_websocket, sample_input_data)
+
+        # Convert ErrorResponse to dict for testing (Pydantic v1/v2 compatible)
+        if hasattr(result, "to_dict"):
+            result = result.to_dict()
+        elif hasattr(result, "model_dump"):
+            result = result.model_dump(exclude_none=True)
+        elif hasattr(result, "dict"):
+            result = result.dict(exclude_none=True)
 
         assert result["error"] is True
         assert result["error_type"] == "websocket_error"
@@ -303,7 +325,6 @@ class TestWebSocketEndpointInvoker:
             result = await invoker._async_invoke(mock_db, sample_endpoint_websocket, input_data)
 
             # Verify conversation_id was sent in the message
-            sent_message = json.loads(mock_websocket.send.call_args[0][0])
             # Note: The template will include conversation_id field
 
         assert result["conversation_id"] == "conv-new"

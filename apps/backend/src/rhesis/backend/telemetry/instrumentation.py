@@ -224,7 +224,7 @@ def initialize_telemetry():
 
         exporter = OTLPSpanExporter(
             endpoint=traces_endpoint,
-            timeout=5,  # 5 second timeout - don't block app if telemetry is slow
+            timeout=30,  # 30 second timeout - increased to handle slow SSL connections
         )
 
         # Use SimpleSpanProcessor for local development (synchronous, respects context)
@@ -235,7 +235,15 @@ def initialize_telemetry():
             processor = ConditionalSimpleSpanProcessor(exporter)
         else:
             logger.info("Using ConditionalBatchSpanProcessor for production")
-            processor = ConditionalSpanProcessor(exporter)
+            # BatchSpanProcessor is already asynchronous (runs in background thread)
+            # Configure with appropriate timeouts and queue management to prevent blocking
+            processor = ConditionalSpanProcessor(
+                exporter,
+                max_queue_size=2048,  # Max spans queued before dropping (prevents memory issues)
+                export_timeout_millis=30000,  # 30s export timeout (matches exporter timeout)
+                schedule_delay_millis=5000,  # 5s delay between batch exports
+                max_export_batch_size=512,  # Max spans per batch
+            )
 
         provider.add_span_processor(processor)
 
@@ -262,7 +270,8 @@ def is_telemetry_enabled() -> bool:
     - Opt-out by setting OTEL_RHESIS_TELEMETRY_ENABLED=false
 
     IMPORTANT FOR SELF-HOSTED ADMINISTRATORS:
-    Telemetry is enabled by default to help improve Rhesis. You can disable it anytime by setting OTEL_RHESIS_TELEMETRY_ENABLED=false.
+    Telemetry is enabled by default to help improve Rhesis.
+    You can disable it anytime by setting OTEL_RHESIS_TELEMETRY_ENABLED=false.
 
     Data Collected:
     - Login/logout events with hashed user IDs (SHA-256, irreversible, 16-char truncated)

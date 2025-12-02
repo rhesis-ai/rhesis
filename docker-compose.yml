@@ -50,10 +50,10 @@ x-rhesis-config: &rhesis-config
   DEFAULT_MODEL_NAME: ${DEFAULT_MODEL_NAME:-gemini-2.0-flash}
 
 x-telemetry-config: &telemetry-config
-  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318/}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-https://telemetry.rhesis.ai}
   OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-rhesis}
   OTEL_DEPLOYMENT_TYPE: ${OTEL_DEPLOYMENT_TYPE:-self-hosted}
-  OTEL_RHESIS_TELEMETRY_ENABLED: ${OTEL_RHESIS_TELEMETRY_ENABLED:-false}  # Self-hosted: opt-out via env var
+  OTEL_RHESIS_TELEMETRY_ENABLED: ${OTEL_RHESIS_TELEMETRY_ENABLED:-true}  # Self-hosted: opt-out via env var
 
 x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
@@ -222,6 +222,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
 volumes:
   postgres_data:
     driver: local

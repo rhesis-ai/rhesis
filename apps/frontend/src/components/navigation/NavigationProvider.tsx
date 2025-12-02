@@ -1,13 +1,43 @@
 'use client';
 
 import { NextAppProvider } from '@toolpad/core/nextjs';
-import { type NavigationContextProps } from '../../types/navigation';
+import {
+  type NavigationContextProps,
+  type NavigationItem,
+} from '../../types/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { isQuickStartEnabled } from '@/utils/quick_start';
 
 type NavigationProviderProps = NavigationContextProps & {
   children: React.ReactNode;
 };
+
+// Transform navigation items to convert links to page items with metadata
+function transformNavigationItems(items: NavigationItem[]): any[] {
+  return items.map(item => {
+    if (item.kind === 'link') {
+      // Transform link to a page item with metadata for rendering
+      return {
+        kind: 'page',
+        segment: '__external__', // Non-matching segment to prevent inclusion in breadcrumbs
+        title: item.title,
+        icon: item.icon,
+        requireSuperuser: item.requireSuperuser,
+        // Store link metadata for renderPageItem to use
+        __isExternalLink: true,
+        __href: item.href,
+        __external: item.external,
+      };
+    }
+    if (item.kind === 'page' && item.children) {
+      return {
+        ...item,
+        children: transformNavigationItems(item.children),
+      };
+    }
+    return item;
+  });
+}
 
 export function NavigationProvider({
   navigation,
@@ -20,6 +50,11 @@ export function NavigationProvider({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Transform navigation to handle link items
+  const transformedNavigation = useMemo(() => {
+    return transformNavigationItems(navigation);
+  }, [navigation]);
 
   // Use robust multi-factor detection to determine if Quick Start mode is enabled
   // Pass null authentication when Quick Start is enabled to hide account menu
@@ -49,7 +84,7 @@ export function NavigationProvider({
 
   return (
     <NextAppProvider
-      navigation={navigation}
+      navigation={transformedNavigation}
       authentication={filteredAuthentication}
       {...props}
     >

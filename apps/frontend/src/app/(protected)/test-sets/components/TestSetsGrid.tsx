@@ -169,9 +169,6 @@ export default function TestSetsGrid({
       field: 'name',
       headerName: 'Name',
       flex: 1.5,
-      renderCell: params => (
-        <Typography sx={{ fontWeight: 'medium' }}>{params.value}</Typography>
-      ),
     },
     {
       field: 'behaviors',
@@ -308,7 +305,14 @@ export default function TestSetsGrid({
         }
 
         return (
-          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 0.5,
+              flexWrap: 'nowrap',
+              overflow: 'hidden',
+            }}
+          >
             {testSet.tags
               .filter((tag: Tag) => tag && tag.id && tag.name)
               .slice(0, 2)
@@ -484,6 +488,14 @@ export default function TestSetsGrid({
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
+        persistState
+        initialState={{
+          columns: {
+            columnVisibilityModel: {
+              sources: false,
+            },
+          },
+        }}
       />
 
       {(sessionToken || session?.session_token) && (

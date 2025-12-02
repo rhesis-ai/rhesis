@@ -69,10 +69,12 @@ class ModelTestMixin:
 # Standard entity tests - gets ALL tests from base classes
 class TestModelStandardRoutes(ModelTestMixin, BaseEntityRouteTests):
     """Complete standard model route tests using base classes"""
+
     pass
 
 
 # === MODEL-SPECIFIC TESTS (Enhanced with Factories) ===
+
 
 @pytest.mark.integration
 class TestModelConnectionTesting(ModelTestMixin, BaseEntityTests):
@@ -108,7 +110,7 @@ class TestModelConnectionTesting(ModelTestMixin, BaseEntityTests):
             "https://api.openai.com/v1/chat/completions",
             "https://api.anthropic.com/v1/messages",
             "https://generativelanguage.googleapis.com/v1/models",
-            "https://api.together.xyz/inference"
+            "https://api.together.xyz/inference",
         ]
 
         for endpoint_url in endpoint_types:
@@ -124,11 +126,12 @@ class TestModelConnectionTesting(ModelTestMixin, BaseEntityTests):
             # Should handle different endpoint types gracefully
             assert response.status_code in [
                 status.HTTP_200_OK,  # Success
-                status.HTTP_500_INTERNAL_SERVER_ERROR  # Connection issues are expected in tests
+                status.HTTP_500_INTERNAL_SERVER_ERROR,  # Connection issues are expected in tests
             ]
 
 
 # === MODEL-SPECIFIC VALIDATION TESTS ===
+
 
 @pytest.mark.unit
 class TestModelValidation(ModelTestMixin, BaseEntityTests):
@@ -165,7 +168,7 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
         data["request_headers"] = {
             "Authorization": "Bearer test-token",
             "Content-Type": "application/json",
-            "User-Agent": "TestClient/1.0"
+            "User-Agent": "TestClient/1.0",
         }
 
         response = model_factory.client.post(self.endpoints.create, json=data)
@@ -182,7 +185,7 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
             "https://api.openai.com/v1/chat/completions",
             "http://localhost:8000/api/v1/generate",
             "https://api.anthropic.com/v1/messages",
-            "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent"
+            "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent",
         ]
 
         for url in valid_urls:
@@ -204,7 +207,7 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
             "claude-3-sonnet-20240229",
             "gemini-pro",
             "llama-2-70b-chat",
-            "mixtral-8x7b-instruct-v0.1"
+            "mixtral-8x7b-instruct-v0.1",
         ]
 
         for model_name in model_names:
@@ -221,6 +224,7 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
 
 # === EDGE CASE TESTS (Enhanced with Factory Data) ===
 
+
 @pytest.mark.unit
 class TestModelEdgeCases(ModelTestMixin, BaseEntityTests):
     """Enhanced model edge case tests using factory system"""
@@ -234,7 +238,7 @@ class TestModelEdgeCases(ModelTestMixin, BaseEntityTests):
         # Should handle long names gracefully
         assert response.status_code in [
             status.HTTP_200_OK,  # If long names are allowed
-            status.HTTP_422_UNPROCESSABLE_ENTITY  # If they're rejected
+            status.HTTP_422_UNPROCESSABLE_ENTITY,  # If they're rejected
         ]
 
     def test_create_model_special_characters(self, model_factory):
@@ -273,7 +277,7 @@ class TestModelEdgeCases(ModelTestMixin, BaseEntityTests):
             # If rejected, should be a validation error
             assert response.status_code in [
                 status.HTTP_400_BAD_REQUEST,
-                status.HTTP_422_UNPROCESSABLE_ENTITY
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
             ]
 
     def test_model_empty_headers(self, model_factory):
@@ -300,6 +304,7 @@ class TestModelEdgeCases(ModelTestMixin, BaseEntityTests):
 
 # === MODEL UPDATE TESTS ===
 
+
 @pytest.mark.integration
 class TestModelUpdates(ModelTestMixin, BaseEntityTests):
     """Model-specific update operation tests"""
@@ -310,14 +315,9 @@ class TestModelUpdates(ModelTestMixin, BaseEntityTests):
         model = model_factory.create(self.get_sample_data())
 
         # Update the endpoint
-        update_data = {
-            "endpoint": "https://api.newprovider.com/v2/chat"
-        }
+        update_data = {"endpoint": "https://api.newprovider.com/v2/chat"}
 
-        response = model_factory.client.put(
-            self.endpoints.put(model["id"]),
-            json=update_data
-        )
+        response = model_factory.client.put(self.endpoints.put(model["id"]), json=update_data)
 
         assert response.status_code == status.HTTP_200_OK
         updated_model = response.json()
@@ -330,18 +330,10 @@ class TestModelUpdates(ModelTestMixin, BaseEntityTests):
         model = model_factory.create(self.get_sample_data())
 
         # Update the headers
-        new_headers = {
-            "Authorization": "Bearer updated-token",
-            "X-Custom-Header": "test-value"
-        }
-        update_data = {
-            "request_headers": new_headers
-        }
+        new_headers = {"Authorization": "Bearer updated-token", "X-Custom-Header": "test-value"}
+        update_data = {"request_headers": new_headers}
 
-        response = model_factory.client.put(
-            self.endpoints.put(model["id"]),
-            json=update_data
-        )
+        response = model_factory.client.put(self.endpoints.put(model["id"]), json=update_data)
 
         assert response.status_code == status.HTTP_200_OK
         updated_model = response.json()
@@ -356,14 +348,9 @@ class TestModelUpdates(ModelTestMixin, BaseEntityTests):
 
         # Update the key
         new_key = str(uuid.uuid4())
-        update_data = {
-            "key": new_key
-        }
+        update_data = {"key": new_key}
 
-        response = model_factory.client.put(
-            self.endpoints.put(model["id"]),
-            json=update_data
-        )
+        response = model_factory.client.put(self.endpoints.put(model["id"]), json=update_data)
 
         assert response.status_code == status.HTTP_200_OK
         updated_model = response.json()
@@ -372,6 +359,7 @@ class TestModelUpdates(ModelTestMixin, BaseEntityTests):
 
 
 # === PERFORMANCE TESTS (Using Factory Batches) ===
+
 
 @pytest.mark.slow
 @pytest.mark.integration
@@ -384,8 +372,8 @@ class TestModelPerformance(ModelTestMixin, BaseEntityTests):
         batch_data = []
         for i in range(8):
             data = ModelDataFactory.sample_data()
-            data["name"] = f"Performance Test Model {i+1}"
-            data["model_name"] = f"test-model-{i+1}"
+            data["name"] = f"Performance Test Model {i + 1}"
+            data["model_name"] = f"test-model-{i + 1}"
             batch_data.append(data)
 
         # Create all models using factory batch method

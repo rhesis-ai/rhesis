@@ -15,8 +15,9 @@ export default function TestResultsDashboard({
 }: TestResultsDashboardProps) {
   const theme = useTheme();
   const [filters, setFilters] = useState<Partial<TestResultsStatsOptions>>({
-    months: 6,
+    months: 1,
   });
+  const [searchValue, setSearchValue] = useState('');
 
   const handleFiltersChange = useCallback(
     (newFilters: Partial<TestResultsStatsOptions>) => {
@@ -25,23 +26,32 @@ export default function TestResultsDashboard({
     []
   );
 
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchValue(value);
+  }, []);
+
   return (
     <Box
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.customSpacing.section.medium,
+        gap: 3,
       }}
     >
       {/* Filters */}
       <TestResultsFilters
         onFiltersChange={handleFiltersChange}
+        onSearchChange={handleSearchChange}
         initialFilters={filters}
         sessionToken={sessionToken}
       />
 
       {/* Charts - Each chart makes its own API call in parallel */}
-      <TestResultsCharts sessionToken={sessionToken} filters={filters} />
+      <TestResultsCharts
+        sessionToken={sessionToken}
+        filters={filters}
+        searchValue={searchValue}
+      />
     </Box>
   );
 }

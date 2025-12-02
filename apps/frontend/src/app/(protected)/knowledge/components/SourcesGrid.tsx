@@ -15,9 +15,13 @@ import { Box, Typography, Chip } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import UploadIcon from '@mui/icons-material/Upload';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import UploadSourceDialog from './UploadSourceDialog';
+import MCPToolSelectorDialog from './MCPToolSelectorDialog';
+import MCPImportDialog from './MCPImportDialog';
+import { Tool } from '@/utils/api-client/interfaces/tool';
 import styles from '@/styles/Knowledge.module.css';
 import { combineSourceFiltersToOData } from '@/utils/odata-filter';
 import { ChatIcon } from '@/components/icons';
@@ -63,6 +67,9 @@ export default function SourcesGrid({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [mcpToolSelectorOpen, setMcpToolSelectorOpen] = useState(false);
+  const [mcpImportDialogOpen, setMcpImportDialogOpen] = useState(false);
+  const [selectedMCPTool, setSelectedMCPTool] = useState<Tool | null>(null);
 
   // Data fetching function
   const fetchSources = useCallback(async () => {
@@ -212,6 +219,13 @@ export default function SourcesGrid({
       icon: React.ReactNode;
       variant: 'text' | 'outlined' | 'contained';
       onClick: () => void;
+      splitButton?: {
+        options: {
+          label: string;
+          onClick: () => void;
+          disabled?: boolean;
+        }[];
+      };
     }> = [
       {
         label: 'Upload Source',
@@ -219,6 +233,14 @@ export default function SourcesGrid({
         variant: 'contained' as const,
         onClick: () => {
           setUploadDialogOpen(true);
+        },
+      },
+      {
+        label: 'Import Source from MCP',
+        icon: <CloudDownloadIcon />,
+        variant: 'outlined' as const,
+        onClick: () => {
+          setMcpToolSelectorOpen(true);
         },
       },
     ];
@@ -267,15 +289,7 @@ export default function SourcesGrid({
         renderCell: params => {
           const source = params.row as Source;
           if (!source.description) {
-            return (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                fontStyle="italic"
-              >
-                No description
-              </Typography>
-            );
+            return null;
           }
           return (
             <Typography
@@ -301,7 +315,41 @@ export default function SourcesGrid({
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
 
+          // Check if source_type exists in metadata (MCP imports like Notion, Slack, etc.)
+          if (metadata.source_type) {
+            return (
+              <Chip
+                label={metadata.source_type}
+                size="small"
+                variant="outlined"
+                className={styles.fileTypeChip}
+              />
+            );
+          }
+
+          // Check if this is a Tool source type (API imports with provider)
+          if (source.source_type?.type_value === 'Tool' && metadata.provider) {
+            // Capitalize the provider name (e.g., "notion" -> "Notion")
+            const providerName =
+              metadata.provider.charAt(0).toUpperCase() +
+              metadata.provider.slice(1);
+            return (
+              <Chip
+                label={providerName}
+                size="small"
+                variant="outlined"
+                className={styles.fileTypeChip}
+              />
+            );
+          }
+
+          // Fall back to file extension for document sources
           const fileExtension = getFileExtension(metadata.original_filename);
+
+          // Return null if file extension is unknown
+          if (fileExtension === 'unknown') {
+            return null;
+          }
 
           return (
             <Chip
@@ -416,7 +464,14 @@ export default function SourcesGrid({
           }
 
           return (
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 0.5,
+                flexWrap: 'nowrap',
+                overflow: 'hidden',
+              }}
+            >
               {source.tags.slice(0, 2).map((tag, index) => (
                 <Chip
                   key={tag.id}
@@ -488,6 +543,7 @@ export default function SourcesGrid({
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
         onRowClick={handleRowClick}
+        persistState
       />
 
       <DeleteModal
@@ -508,6 +564,36 @@ export default function SourcesGrid({
           setUploadDialogOpen(false);
         }}
         sessionToken={sessionToken}
+      />
+
+      <MCPToolSelectorDialog
+        open={mcpToolSelectorOpen}
+        onClose={() => setMcpToolSelectorOpen(false)}
+        onSelectTool={tool => {
+          setSelectedMCPTool(tool);
+          setMcpToolSelectorOpen(false);
+          setMcpImportDialogOpen(true);
+        }}
+        sessionToken={sessionToken}
+      />
+
+      <MCPImportDialog
+        open={mcpImportDialogOpen}
+        onClose={() => {
+          setMcpImportDialogOpen(false);
+          setSelectedMCPTool(null);
+        }}
+        onBack={() => {
+          setMcpImportDialogOpen(false);
+          setMcpToolSelectorOpen(true);
+        }}
+        onSuccess={() => {
+          fetchSources();
+          setMcpImportDialogOpen(false);
+          setSelectedMCPTool(null);
+        }}
+        sessionToken={sessionToken}
+        tool={selectedMCPTool}
       />
     </>
   );

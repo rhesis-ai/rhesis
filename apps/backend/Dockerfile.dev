@@ -48,6 +48,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ============================================================================
 FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Copy Bun from official image (lighter than Node.js, required for bunx to run MCP servers)
+COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:latest /usr/local/bin/bunx /usr/local/bin/bunx
 
 WORKDIR /app
 
@@ -58,6 +61,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
+
 
 # Create non-root user first
 RUN adduser --disabled-password --gecos '' rhesis-user && \
@@ -84,7 +88,7 @@ USER rhesis-user
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/usr/local/bin:/app/.venv/bin:$PATH"
 
 # Expose port
 EXPOSE 8080

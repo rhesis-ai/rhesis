@@ -10,19 +10,24 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 import TestsGrid from './components/TestsGrid';
 import TestCharts from './components/TestCharts';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import LandingScreen from './new-generated/components/LandingScreen';
-import { TestTemplate } from './new-generated/components/shared/types';
-import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import TestTypeSelectionScreen from './new-generated/components/TestTypeSelectionScreen';
+import SelectTestCreationMethod from './new-generated/components/SelectTestCreationMethod';
+import {
+  TestType,
+  TestTemplate,
+} from './new-generated/components/shared/types';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = React.useState(0);
-  const [showModal, setShowModal] = React.useState(false);
   const [testCount, setTestCount] = React.useState(0);
+  const [showTestTypeModal, setShowTestTypeModal] = React.useState(false);
+  const [selectedTestType, setSelectedTestType] =
+    React.useState<TestType | null>(null);
   const [chartsLoaded, setChartsLoaded] = React.useState(false);
   const { markStepComplete, progress, activeTour, startTour, isComplete } =
     useOnboarding();
@@ -52,6 +57,18 @@ export default function TestsPage() {
   }, [tourParam, chartsLoaded, startTour]);
 
   // No auto-close logic needed - tour handles modal closing
+
+  // Check for openGeneration query parameter
+  React.useEffect(() => {
+    const openGeneration = searchParams?.get('openGeneration');
+    if (openGeneration === 'true' && !showTestTypeModal) {
+      setShowTestTypeModal(true);
+      // Remove the query parameter from URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('openGeneration');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+  }, [searchParams, showTestTypeModal]);
 
   // Fetch test count to check if user has created tests
   React.useEffect(() => {
@@ -87,13 +104,14 @@ export default function TestsPage() {
     if (activeTour === 'testCases') {
       return;
     }
-    setShowModal(true);
+    // Open test type selection modal
+    setShowTestTypeModal(true);
   }, [activeTour]);
 
   // Listen for tour event to open modal (needed because programmatic clicks on disabled buttons don't work)
   React.useEffect(() => {
     const handleTourOpenModal = () => {
-      setShowModal(true);
+      setShowTestTypeModal(true);
     };
     window.addEventListener('tour-open-test-modal', handleTourOpenModal);
     return () => {
@@ -101,25 +119,50 @@ export default function TestsPage() {
     };
   }, []);
 
-  const handleCloseModal = React.useCallback(() => {
-    setShowModal(false);
+  const handleTestTypeSelection = React.useCallback((testType: TestType) => {
+    // Store test type and move to step 2 (method selection)
+    setSelectedTestType(testType);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('testType', testType);
+    }
+    // Keep modal open, just move to step 2
+  }, []);
+
+  const handleBackToTestType = React.useCallback(() => {
+    // Go back to test type selection (step 1)
+    setSelectedTestType(null);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('testType');
+    }
+  }, []);
+
+  const handleCloseTestTypeModal = React.useCallback(() => {
+    setShowTestTypeModal(false);
+    setSelectedTestType(null);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('testType');
+    }
   }, []);
 
   const handleSelectAI = React.useCallback(() => {
-    // Keep modal open during navigation
+    // Close modal and navigate to AI generation flow
+    setShowTestTypeModal(false);
     router.push('/tests/new-generated');
   }, [router]);
 
   const handleSelectManual = React.useCallback(() => {
-    // Keep modal open during navigation
+    // Close modal and navigate to manual test creation
+    setShowTestTypeModal(false);
     router.push('/tests/new-manual');
   }, [router]);
 
   const handleSelectTemplate = React.useCallback(
     (template: TestTemplate) => {
-      // Store only template ID (icon component can't be serialized)
-      sessionStorage.setItem('selectedTemplateId', template.id);
-      // Keep modal open during navigation
+      // Store template ID, close modal, and navigate to generation flow
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('selectedTemplateId', template.id);
+      }
+      setShowTestTypeModal(false);
       router.push('/tests/new-generated');
     },
     [router]
@@ -179,14 +222,27 @@ export default function TestsPage() {
         </Paper>
       </PageContainer>
 
-      {/* Test Generation Modal */}
-      <LandingScreen
-        open={showModal}
-        onClose={handleCloseModal}
-        onSelectAI={handleSelectAI}
-        onSelectManual={handleSelectManual}
-        onSelectTemplate={handleSelectTemplate}
-      />
+      {/* Test Creation Modals - Step 1: Test Type Selection */}
+      {!selectedTestType && (
+        <TestTypeSelectionScreen
+          open={showTestTypeModal}
+          onClose={handleCloseTestTypeModal}
+          onSelectTestType={handleTestTypeSelection}
+        />
+      )}
+
+      {/* Step 2: Creation Method Selection */}
+      {selectedTestType && (
+        <SelectTestCreationMethod
+          open={showTestTypeModal}
+          onClose={handleCloseTestTypeModal}
+          onBack={handleBackToTestType}
+          onSelectAI={handleSelectAI}
+          onSelectManual={handleSelectManual}
+          onSelectTemplate={handleSelectTemplate}
+          testType={selectedTestType}
+        />
+      )}
     </>
   );
 }

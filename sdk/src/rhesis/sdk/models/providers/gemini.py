@@ -17,7 +17,7 @@ class GeminiLLM(LiteLLM):
         Args:
             model_name (str): The name of the Gemini model to use (default: "gemini-2.0-flash").
             api_key (str, optional): API key for Gemini. If not provided, will use GEMINI_API_KEY
-             from environment.
+             or GOOGLE_API_KEY from environment.
             **kwargs: Additional parameters passed to the underlying LiteLLM completion call.
 
         Usage:
@@ -31,7 +31,7 @@ class GeminiLLM(LiteLLM):
         Raises:
             ValueError: If the API key is not set.
         """
-        api_key = api_key or os.getenv("GEMINI_API_KEY")
+        api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if api_key is None:
-            raise ValueError("GEMINI_API_KEY is not set")
+            raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY is not set")
         super().__init__(self.PROVIDER + "/" + model_name, api_key=api_key)

@@ -1,0 +1,103 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# API Tokens
+
+Generate and manage API tokens for programmatic access to Rhesis.
+
+## Understanding API Tokens
+
+API Tokens provide authentication for programmatic access to Rhesis via the REST API or Python SDK. Each token has a name that identifies its purpose, an access token (the secret key shown only once during creation), an optional expiration date, a status indicating whether it's active or expired, the date it was created, and a timestamp showing when it was last used for authentication.
+
+## Creating API Tokens
+
+Generate new tokens for API access:
+
+### Process
+
+1. Click "Create API Token" button
+2. Enter token details:
+   - **Token Name** (required): Descriptive name for this token
+   - **Token Expiration**: Choose expiration option
+3. Click "Create"
+4. Copy the token from the display dialog
+
+### Expiration Options
+
+- **30 days**: Token expires after 30 days
+- **60 days**: Token expires after 60 days
+- **90 days**: Token expires after 90 days
+- **Custom date**: Pick specific expiration date (minimum 1 day in future)
+- **Never expire**: Token remains valid indefinitely
+
+### Important Notes
+
+<Callout type="warning">
+  **Store Securely**: The access token is shown only once during creation. If
+  you lose it, you must generate a new token.
+</Callout>
+
+Copy the token immediately and store it securely using environment variables or secret management systems. Never commit tokens to version control. Remember that each token is unique and cannot be recovered if lost—you'll need to generate a new one.
+
+## Managing Tokens
+
+### Viewing Tokens
+
+The tokens grid displays all your API tokens with their name, status (Active or Expired badges), creation date, expiration date, last used timestamp, and action buttons for refreshing or deleting.
+
+**[SCREENSHOT HERE: API Tokens page showing the tokens grid with columns for Name, Status (badges), Created At, Expires At, Last Used, and Actions (refresh/delete icons). Show the "Create API Token" button at the top. Include pagination controls at the bottom.]**
+
+### Refreshing Tokens
+
+Click the refresh icon on the token row, choose a new expiration period, and confirm. Copy the new token immediately—the old one is invalidated and all applications using it must be updated.
+
+### Deleting Tokens
+
+Click the delete icon on the token row and confirm. The token is permanently deleted and applications using it will immediately lose access.
+
+## Using API Tokens
+
+### With REST API
+
+Include the token in the Authorization header:
+
+<CodeBlock filename="Terminal" language="bash">
+  {`curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \\
+  https://api.rhesis.com/v1/tests`}
+</CodeBlock>
+
+### With Python SDK
+
+Initialize the SDK with your token:
+
+<CodeBlock
+  filename="client.py"
+  language="python"
+>
+{`from rhesis import RhesisClient
+
+client = RhesisClient(api_token="YOUR_TOKEN_HERE")`}
+
+</CodeBlock>
+
+See [Python SDK](/docs/development/sdk) for complete usage documentation.
+
+## Token Security
+
+**Best Practices**:
+
+- Use descriptive names indicating token purpose (e.g., "CI/CD Pipeline", "Production App")
+- Set appropriate expiration dates for temporary access
+- Rotate tokens regularly for security
+- Delete unused tokens immediately
+- Use separate tokens for different applications or environments
+- Monitor "Last Used" to identify inactive tokens
+
+**If Compromised**: Delete the compromised token immediately, generate a new one, update all applications, and review the "Last Used" timestamp for suspicious activity.
+
+---
+
+<Callout type="default">
+  **Next Steps** - Use tokens with the [Python SDK](/docs/development/sdk) -
+  Learn about [Models](/docs/platform/models) -
+  Set up [Endpoints](/docs/platform/endpoints) for your AI application
+</Callout>

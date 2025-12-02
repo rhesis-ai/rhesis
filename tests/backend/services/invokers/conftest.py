@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.app.models.enums import EndpointAuthType, EndpointProtocol
+from rhesis.backend.app.models.enums import EndpointAuthType, EndpointConnectionType
 
 
 @pytest.fixture
@@ -22,14 +22,14 @@ def sample_endpoint_rest():
     return Endpoint(
         id="test-rest-endpoint",
         name="Test REST Endpoint",
-        protocol=EndpointProtocol.REST.value,
+        connection_type=EndpointConnectionType.REST.value,
         method="POST",
         url="https://api.example.com/chat",
         auth_type=EndpointAuthType.BEARER_TOKEN.value,
         auth_token="test-bearer-token",
         request_headers={"Content-Type": "application/json"},
-        request_body_template='{"message": "{{ input }}"}',
-        response_mappings={
+        request_mapping='{"message": "{{ input }}"}',
+        response_mapping={
             "output": "$.response.text",
             "tokens": "$.usage.total_tokens",
         },
@@ -42,12 +42,12 @@ def sample_endpoint_websocket():
     return Endpoint(
         id="test-ws-endpoint",
         name="Test WebSocket Endpoint",
-        protocol=EndpointProtocol.WEBSOCKET.value,
+        connection_type=EndpointConnectionType.WEBSOCKET.value,
         url="wss://ws.example.com/chat",
         auth_type=EndpointAuthType.BEARER_TOKEN.value,
         auth_token="test-ws-token",
-        request_body_template='{"query": "{{ input }}", "auth_token": "{{ auth_token }}"}',
-        response_mappings={
+        request_mapping='{"query": "{{ input }}", "auth_token": "{{ auth_token }}"}',
+        response_mapping={
             "output": "$.message",
             "conversation_id": "$.conversation_id",
         },
@@ -60,7 +60,7 @@ def sample_endpoint_oauth():
     endpoint = Endpoint(
         id="test-oauth-endpoint",
         name="Test OAuth Endpoint",
-        protocol=EndpointProtocol.REST.value,
+        connection_type=EndpointConnectionType.REST.value,
         method="POST",
         url="https://api.example.com/endpoint",
         auth_type=EndpointAuthType.CLIENT_CREDENTIALS.value,
@@ -68,8 +68,8 @@ def sample_endpoint_oauth():
         client_id="test-client-id",
         client_secret="test-client-secret",
         audience="https://api.example.com",
-        request_body_template='{"query": "{{ input }}"}',
-        response_mappings={"output": "$.result"},
+        request_mapping='{"query": "{{ input }}"}',
+        response_mapping={"output": "$.result"},
     )
     # Set cached token
     endpoint.last_token = "cached-access-token"
@@ -83,13 +83,13 @@ def sample_endpoint_conversation():
     return Endpoint(
         id="test-conv-endpoint",
         name="Test Conversation Endpoint",
-        protocol=EndpointProtocol.REST.value,
+        connection_type=EndpointConnectionType.REST.value,
         method="POST",
         url="https://api.example.com/chat",
         auth_type=EndpointAuthType.BEARER_TOKEN.value,
         auth_token="test-token",
-        request_body_template='{"message": "{{ input }}", "conversation_id": {{ conversation_id | tojson }}}',
-        response_mappings={
+        request_mapping='{"message": "{{ input }}", "conversation_id": {{ conversation_id | tojson }}}',
+        response_mapping={
             "output": "$.message",
             "conversation_id": "$.conversation_id",
             "context": "$.context",

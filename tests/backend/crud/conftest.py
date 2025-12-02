@@ -14,7 +14,7 @@ from tests.backend.routes.fixtures.data_factories import (
     TokenDataFactory,
     MetricDataFactory,
     BehaviorDataFactory,
-    PromptDataFactory
+    PromptDataFactory,
 )
 
 # Import existing entity fixtures
@@ -25,5 +25,5 @@ from tests.backend.routes.fixtures.entities import (
     db_prompt,
     db_user,
     db_status,
-    test_organization
+    test_organization,
 )

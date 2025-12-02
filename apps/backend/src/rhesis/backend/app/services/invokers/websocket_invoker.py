@@ -1,8 +1,7 @@
-import asyncio
 import json
 import time
 import unicodedata
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from sqlalchemy.orm import Session
 from websockets.asyncio.client import connect
@@ -12,6 +11,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.logging import logger
 
 from .base import BaseEndpointInvoker
+from .common.schemas import ErrorResponse
 
 
 class WebSocketEndpointInvoker(BaseEndpointInvoker):
@@ -86,7 +86,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
         return normalized
 
-    def invoke(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def invoke(
+        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
+    ) -> Union[Dict[str, Any], ErrorResponse]:
         """Invoke the WebSocket endpoint with proper authentication."""
         start_time = time.time()
 
@@ -98,8 +100,8 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             logger.info(f"Input data keys: {list(input_data.keys())}")
             logger.debug(f"Full input data: {json.dumps(input_data, indent=2, default=str)}")
 
-            # Run the async WebSocket communication in a sync context
-            result = asyncio.run(self._async_invoke(db, endpoint, input_data))
+            # Run the async WebSocket communication
+            result = await self._async_invoke(db, endpoint, input_data)
 
             duration = time.time() - start_time
             logger.info(f"=== WebSocket invocation completed in {duration:.2f}s ===")
@@ -155,7 +157,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             logger.debug(f"Template context keys: {list(template_context.keys())}")
 
             message_data = self.template_renderer.render(
-                endpoint.request_body_template or {}, template_context
+                endpoint.request_mapping or {}, template_context
             )
 
             template_duration = time.time() - template_start_time
@@ -387,13 +389,13 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     logger.debug("Applying response mappings...")
                     mapping_start_time = time.time()
 
-                    response_mappings = endpoint.response_mappings or {}
+                    response_mapping = endpoint.response_mapping or {}
                     logger.debug(
-                        f"Response mappings: {json.dumps(response_mappings, indent=2, default=str)}"
+                        f"Response mapping: {json.dumps(response_mapping, indent=2, default=str)}"
                     )
 
                     mapped_response = self.response_mapper.map_response(
-                        final_response, response_mappings
+                        final_response, response_mapping
                     )
                     mapping_duration = time.time() - mapping_start_time
 
@@ -445,7 +447,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                         f"WebSocket connection rejected: HTTP {status_err.response.status_code}"
                     ),
                     request_details={
-                        "protocol": "WebSocket",
+                        "connection_type": "WebSocket",
                         "uri": uri,
                         "headers": additional_headers,
                         "body": message_data,
@@ -490,7 +492,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     output_message=f"WebSocket communication failed: {str(e)}",
                     message=f"WebSocket communication failed: {str(e)}",
                     request_details={
-                        "protocol": "WebSocket",
+                        "connection_type": "WebSocket",
                         "uri": uri,
                         "headers": additional_headers,
                         "body": message_data,
@@ -509,7 +511,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 output_message=f"WebSocket error: {str(e)}",
                 message=f"WebSocket error: {str(e)}",
                 request_details={
-                    "protocol": "WebSocket",
+                    "connection_type": "WebSocket",
                     "uri": uri or "unknown",
                     "headers": additional_headers or {},
                     "body": message_data,

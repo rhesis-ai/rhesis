@@ -7,11 +7,11 @@ from requests.exceptions import HTTPError
 from rhesis.sdk.client import HTTPStatus
 from rhesis.sdk.entities.base_collection import BaseCollection
 
-os.environ["RHESIS_API_KEY"] = "test_api_key"
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"
 
 
 class TestEndpoint(Enum):
+    __test__ = False
     TEST = "test"
 
 

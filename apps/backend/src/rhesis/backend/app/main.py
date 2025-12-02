@@ -17,7 +17,9 @@ from rhesis.backend.telemetry import initialize_telemetry
 
 initialize_telemetry()
 
+# ruff: noqa: E402 - Imports must come after telemetry initialization
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -27,6 +29,10 @@ from starlette.middleware.sessions import SessionMiddleware
 from rhesis.backend import __version__
 from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
 from rhesis.backend.app.database import Base, engine, get_db
+from rhesis.backend.app.error_handlers import (
+    create_validation_error_response,
+    log_validation_error,
+)
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
@@ -73,11 +79,48 @@ token_enabled_routes = [
     "/comments/",
     "/sources/",
     "/models/",
+    "/connector/",
 ]
+
+
+def is_websocket_route(route: APIRoute) -> bool:
+    """
+    Check if a route is a WebSocket endpoint.
+
+    WebSocket routes need special handling because they cannot use
+    FastAPI's dependency injection system in the same way as HTTP routes.
+    They must accept the connection first, then handle authentication manually.
+
+    Args:
+        route: The APIRoute to check
+
+    Returns:
+        True if this is a WebSocket route, False otherwise
+    """
+    import inspect
+
+    # Check if the route has a dependant with a callable
+    if not hasattr(route, "dependant") or not route.dependant:
+        return False
+
+    if not hasattr(route.dependant, "call") or not route.dependant.call:
+        return False
+
+    # Get the function signature
+    try:
+        sig = inspect.signature(route.dependant.call)
+        # WebSocket routes have a 'websocket' parameter of type WebSocket
+        return "websocket" in sig.parameters
+    except (ValueError, TypeError):
+        return False
 
 
 class AuthenticatedAPIRoute(APIRoute):
     def get_dependencies(self):
+        # WebSocket routes handle authentication manually in the endpoint
+        if is_websocket_route(self):
+            return []
+
         if self.path in public_routes:
             # No auth required
             return []
@@ -126,10 +169,29 @@ async def lifespan(app: FastAPI):
     with get_db() as db:
         initialize_local_environment(db)
 
+    # Initialize Redis for SDK RPC (optional, doesn't fail startup)
+    from rhesis.backend.app.services.connector.manager import connection_manager
+    from rhesis.backend.app.services.connector.redis_client import redis_manager
+
+    await redis_manager.initialize()  # Logs warning if fails, doesn't raise
+
+    # Only start RPC listener if Redis is available
+    if redis_manager.is_available:
+        connection_manager._track_background_task(connection_manager._listen_for_rpc_requests())
+        logger.info(
+            "🚀 SDK RPC SYSTEM INITIALIZED - Workers can now invoke SDK functions via Redis bridge"
+        )
+    else:
+        logger.warning(
+            "⚠️ Redis not available - SDK RPC from workers will not work. "
+            "Workers will not be able to invoke SDK functions."
+        )
+
     yield  # Application is running
 
-    # Shutdown: Add any cleanup code here if needed in the future
-    pass
+    # Shutdown: Clean up Redis connection
+    if redis_manager.is_available:
+        await redis_manager.close()
 
 
 app = FastAPI(
@@ -202,6 +264,22 @@ async def not_found_item_exception_handler(request: Request, exc: ItemNotFoundEx
     return JSONResponse(status_code=404, content=response_content)
 
 
+# Global exception handler for request validation errors (422)
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle FastAPI request validation errors with detailed logging."""
+    # Log the detailed validation error for debugging
+    logger.error(
+        f"Request validation error on {request.method} {request.url}: {exc}", exc_info=True
+    )
+
+    # Log detailed validation errors
+    log_validation_error(exc, request)
+
+    # Return clean JSON response
+    return create_validation_error_response(exc)
+
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -252,7 +330,12 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
         # Log request
         logger.info(f"Request started: {request.method} {request.url}")
-        logger.debug(f"Request headers: {request.headers}")
+
+        # Sanitize headers before logging to redact sensitive information
+        from rhesis.backend.app.services.invokers.common.headers import HeaderManager
+
+        sanitized_headers = HeaderManager.sanitize_headers(dict(request.headers))
+        logger.debug(f"Request headers: {sanitized_headers}")
 
         try:
             response = await call_next(request)
@@ -326,3 +409,23 @@ async def health_check():
 # Configure additional FastAPI logging
 fastapi_logger = logging.getLogger("fastapi")
 fastapi_logger.setLevel(logging.DEBUG)
+
+# Apply sensitive data filter to prevent logging of auth tokens and API keys
+from rhesis.backend.logging.rhesis_logger import SensitiveDataFilter
+
+sensitive_filter = SensitiveDataFilter()
+
+# Apply to websockets logger (logs WebSocket headers including Authorization)
+websockets_logger = logging.getLogger("websockets")
+websockets_logger.addFilter(sensitive_filter)
+
+# Apply to uvicorn logger (logs HTTP headers)
+uvicorn_logger = logging.getLogger("uvicorn")
+uvicorn_logger.addFilter(sensitive_filter)
+
+# Apply to uvicorn.access logger
+uvicorn_access_logger = logging.getLogger("uvicorn.access")
+uvicorn_access_logger.addFilter(sensitive_filter)
+
+# Apply to our own application logger
+fastapi_logger.addFilter(sensitive_filter)

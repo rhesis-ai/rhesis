@@ -3,15 +3,46 @@ import type { MetaRecord } from "nextra";
 const meta: MetaRecord = {
   index: "Overview",
   organizations: "Organizations & Team",
+  "---": {
+    type: "separator",
+    title: "Requirements",
+  },
   projects: "Projects",
-  endpoints: "Endpoints",
   knowledge: "Knowledge",
-  "tests-generation": "Tests",
-  "test-sets-runs": "Test Sets",
-  "test-runs": "Test Runs",
-  "test-results": "Test Results",
+  behaviors: "Behaviors",
   metrics: "Metrics",
-  integrations: "Integrations",
+  "---testing": {
+    type: "separator",
+    title: "Testing",
+  },
+  "tests-generation": "Generation",
+  tests: "Tests",
+  "test-sets": "Test Sets",
+  "---results": {
+    type: "separator",
+    title: "Results",
+  },
+  "results-overview": "Overview",
+  "test-runs": "Test Runs",
+  tasks: "Tasks",
+  "---development": {
+    type: "separator",
+    title: "Development",
+  },
+  endpoints: "Endpoints",
+  models: "Models",
+  mcp: "MCP",
+  "api-tokens": "API Tokens",
+  // Hidden old pages (kept for backwards compatibility with existing links)
+  integrations: {
+    display: "hidden",
+  },
+  "test-results": {
+    display: "hidden",
+  },
+  "test-sets-runs": {
+    display: "hidden",
+  },
 };
 
 export default meta;

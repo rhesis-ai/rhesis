@@ -33,3 +33,8 @@ class Tool(Base, OrganizationAndUserMixin):
         "TypeLookup", foreign_keys=[tool_provider_type_id], back_populates="tool_provider_types"
     )
     status = relationship("Status", foreign_keys=[status_id], back_populates="tools")
+
+    user = relationship("User", foreign_keys="[Tool.user_id]", back_populates="tools")
+    organization = relationship(
+        "Organization", foreign_keys="[Tool.organization_id]", back_populates="tools"
+    )

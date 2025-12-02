@@ -93,6 +93,7 @@ class GenerateTestsRequest(BaseModel):
     batch_size: int = 20
     sources: Optional[List[SourceData]] = None
     name: Optional[str] = None  # Used only for bulk generation to name the test set
+    test_type: Optional[str] = "single_turn"
 
 
 class TestPrompt(BaseModel):
@@ -161,7 +162,7 @@ class GenerateContentRequest(BaseModel):
 
     prompt: str
     schema_: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         alias="schema",
         description="Optional OpenAI JSON Schema for structured output validation",
     )

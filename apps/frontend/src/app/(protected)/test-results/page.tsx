@@ -19,6 +19,12 @@ export default async function TestResultsPage() {
         title="Test Results"
         breadcrumbs={[{ title: 'Test Results', path: '/test-results' }]}
       >
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="body1" color="text.secondary">
+            Track and analyze test performance over time. Filter by time range,
+            test set, or search for specific test runs.
+          </Typography>
+        </Box>
         <TestResultsDashboard sessionToken={session.session_token} />
       </PageContainer>
     );

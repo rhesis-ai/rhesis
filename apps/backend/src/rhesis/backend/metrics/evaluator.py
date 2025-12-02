@@ -256,7 +256,7 @@ class MetricEvaluator:
                 return {}
 
         # Prepare metrics for evaluation
-        metric_tasks = self._prepare_metrics(metric_configs, expected_output)
+        metric_tasks = self._prepare_metrics(metric_configs, expected_output, context)
 
         # Execute metrics in parallel and collect results
         results = self._execute_metrics_in_parallel(
@@ -269,7 +269,10 @@ class MetricEvaluator:
         return results
 
     def _prepare_metrics(
-        self, metrics: List[Optional[MetricConfig]], expected_output: Optional[str]
+        self,
+        metrics: List[Optional[MetricConfig]],
+        expected_output: Optional[str],
+        context: List[str] = None,
     ) -> List[Tuple[str, BaseMetric, MetricConfig, str]]:
         """
         Prepare metrics for evaluation.
@@ -277,6 +280,7 @@ class MetricEvaluator:
         Args:
             metrics: List of metric configurations (may contain None values)
             expected_output: The expected output (to check if ground truth is required)
+            context: List of context strings (to check if context is required)
 
         Returns:
             List of tuples containing (class_name, metric_instance, metric_config, backend)
@@ -286,6 +290,7 @@ class MetricEvaluator:
 
         logger.info(f"Preparing {len(valid_metrics)} metrics for evaluation")
         metric_tasks = []
+        context_available = context and len(context) > 0
 
         for metric_config in valid_metrics:
             # Handle both dict and MetricConfig objects
@@ -312,6 +317,16 @@ class MetricEvaluator:
 
                 if not backend:
                     logger.error(f"Metric configuration missing backend: {metric_config}")
+                    continue
+
+                # Check if metric requires context and skip if context is not available
+                context_required = self._get_config_value(metric_config, "context_required", False)
+                if context_required and not context_available:
+                    metric_name = self._get_config_value(metric_config, "name", class_name)
+                    logger.warning(
+                        f"Skipping metric '{metric_name}' ({class_name}): "
+                        f"requires context but no context available in SDK response"
+                    )
                     continue
 
                 # Prepare parameters for the metric
@@ -965,7 +980,8 @@ class MetricEvaluator:
                     passing_categories=self._get_config_value(metric_config, "passing_categories"),
                 )
                 logger.debug(
-                    f"Computed is_successful for '{class_name}' using score evaluator: {is_successful}"
+                    f"Computed is_successful for '{class_name}' using score evaluator: "
+                    f"{is_successful}"
                 )
 
             # Store results - structure depends on metric type

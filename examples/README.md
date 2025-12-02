@@ -1,15 +1,26 @@
-## Examples for Rhesis SDK
+# Rhesis SDK Examples
 
-This directory contains Jupyter notebooks demonstrating how to use the Rhesis SDK.
+Jupyter notebooks demonstrating key Rhesis SDK features and integrations.
 
-### How to Use
-1. Install the SDK:
-   ```bash
-   pip install rhesis-sdk
+## Notebooks
 
+- **`end-to-end.ipynb`** - Complete workflow: generate, manage, execute, and evaluate tests
+- **`config-synthesizer.ipynb`** - Structured test generation with ConfigSynthesizer
+- **`metrics.ipynb`** - Custom evaluation metrics with CategoricalJudge and NumericJudge
+- **`penelope/`** - Penelope testing framework examples (requires repo clone):
+  - `endpoint-testing.ipynb` - Test live endpoints through Rhesis platform
+  - `langchain-integration.ipynb` - Test LangChain chains and agents
+  - `langgraph-integration.ipynb` - Test LangGraph agents and workflows
 
-## Development Setup
+## Setup
 
-1. Install development dependencies:
-   ```bash
-   pip install rhesis-sdk[dev]
+**For SDK notebooks:**
+1. Install dependencies: `pip install rhesis-sdk`
+2. Get your API key from [rhesis.ai](https://rhesis.ai)
+3. Set `RHESIS_API_KEY` in your environment or notebook
+
+**For Penelope notebooks:**
+1. Install uv: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+2. Clone the repo: `git clone https://github.com/rhesis-ai/rhesis.git`
+3. Set up environment: `cd rhesis/penelope && uv sync`
+4. See individual notebooks for specific dependency requirements

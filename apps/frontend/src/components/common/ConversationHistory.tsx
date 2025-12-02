@@ -127,15 +127,15 @@ export default function ConversationHistory({
         maxHeight,
         height: maxHeight === '100%' ? '100%' : 'auto',
         overflow: 'auto',
-        p: 2,
-        bgcolor: theme.palette.background.default,
-        borderRadius: theme.shape.borderRadius,
+        p: 3,
+        bgcolor: 'transparent',
         flex: maxHeight === '100%' ? 1 : 'none',
+        width: '100%',
         '&::-webkit-scrollbar': {
           width: '8px',
         },
         '&::-webkit-scrollbar-track': {
-          background: theme.palette.background.default,
+          background: 'transparent',
           borderRadius: '4px',
         },
         '&::-webkit-scrollbar-thumb': {
@@ -160,14 +160,14 @@ export default function ConversationHistory({
           turnHasCriteria && criteriaForTurn.some(c => !c.met);
 
         return (
-          <Box key={turn.turn} sx={{ mb: 3 }}>
+          <Box key={turn.turn} sx={{ mb: 4 }}>
             {/* Turn Header */}
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
-                mb: 2,
+                mb: 2.5,
               }}
             >
               <Chip
@@ -304,8 +304,8 @@ export default function ConversationHistory({
             <Box
               sx={{
                 display: 'flex',
-                gap: 1,
-                mb: 1.5,
+                gap: 1.5,
+                mb: 2,
                 alignItems: 'flex-start',
               }}
             >
@@ -411,7 +411,7 @@ export default function ConversationHistory({
             <Box
               sx={{
                 display: 'flex',
-                gap: 1,
+                gap: 1.5,
                 justifyContent: 'flex-end',
                 alignItems: 'flex-start',
               }}
@@ -452,8 +452,8 @@ export default function ConversationHistory({
             </Box>
 
             {/* Divider between turns (except last) */}
-            {index < conversationSummary.length - 1 && (
-              <Divider sx={{ mt: 3 }} />
+            {index < actualConversationTurns.length - 1 && (
+              <Divider sx={{ mt: 4, mb: 1 }} />
             )}
           </Box>
         );

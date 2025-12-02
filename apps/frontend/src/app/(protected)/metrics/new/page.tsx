@@ -251,6 +251,7 @@ export default function NewMetricPage() {
         backend_type_id: backendTypes[0].id as UUID,
         model_id: formData.model_id ? (formData.model_id as UUID) : undefined,
         owner_id: session.user?.id as UUID,
+        metric_scope: formData.metric_scope,
       };
 
       await metricsClient.createMetric(metricRequest);

@@ -8,7 +8,7 @@ All authentication, request mapping, and response parsing is handled by the
 Rhesis backend - Penelope simply uses the SDK to invoke endpoints.
 """
 
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from rhesis.penelope.targets.base import Target, TargetResponse
 from rhesis.sdk.entities import Endpoint
@@ -32,7 +32,7 @@ class EndpointTarget(Target):
 
         >>> # Using an existing Endpoint instance
         >>> endpoint = Endpoint(id="chatbot-prod")
-        >>> endpoint.fetch()
+        >>> endpoint.pull()
         >>> target = EndpointTarget(endpoint=endpoint)
         >>> response = target.send_message("Hello!")
     """
@@ -68,11 +68,15 @@ class EndpointTarget(Target):
             # Load endpoint from SDK
             assert endpoint_id is not None  # Already validated above
             self.endpoint_id = endpoint_id
-            loaded_endpoint = Endpoint.from_id(self.endpoint_id)
-            if loaded_endpoint is None:
-                raise ValueError(f"Endpoint not found: {endpoint_id}")
-            # Cast from BaseEntity to Endpoint (from_id returns BaseEntity)
-            self.endpoint = cast(Endpoint, loaded_endpoint)
+            # Create endpoint instance and fetch data from API
+            loaded_endpoint = Endpoint(id=self.endpoint_id)
+            try:
+                loaded_endpoint.pull()  # Fetch data from the API
+                self.endpoint = loaded_endpoint
+            except Exception as e:
+                raise ValueError(
+                    f"Endpoint not found or failed to load: {endpoint_id}. Error: {str(e)}"
+                )
 
         # Validate on initialization
         is_valid, error = self.validate_configuration()
@@ -89,8 +93,8 @@ class EndpointTarget(Target):
 
     @property
     def description(self) -> str:
-        url = self.endpoint.fields.get("url", "")
-        name = self.endpoint.fields.get("name", self.endpoint_id)
+        url = self.endpoint.url or ""
+        name = self.endpoint.name or self.endpoint_id
         return f"Rhesis Endpoint: {name} ({url})"
 
     def validate_configuration(self) -> tuple[bool, Optional[str]]:
@@ -218,16 +222,16 @@ class EndpointTarget(Target):
 
     def get_tool_documentation(self) -> str:
         """Get endpoint-specific documentation."""
-        name = self.endpoint.fields.get("name", self.endpoint_id)
-        url = self.endpoint.fields.get("url", "N/A")
-        description = self.endpoint.fields.get("description", "")
-        protocol = self.endpoint.fields.get("protocol", "REST")
+        name = self.endpoint.name or self.endpoint_id
+        url = self.endpoint.url or "N/A"
+        description = self.endpoint.description or ""
+        connection_type = self.endpoint.connection_type or "REST"
 
         doc = f"""
 Target Type: Rhesis Endpoint
 Name: {name}
 Endpoint ID: {self.endpoint_id}
-Protocol: {protocol}
+Connection Type: {connection_type}
 URL: {url}
 """
 

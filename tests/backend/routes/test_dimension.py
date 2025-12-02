@@ -55,6 +55,7 @@ class DimensionTestMixin:
 # Standard entity tests - gets ALL tests from base classes
 class TestDimensionStandardRoutes(DimensionTestMixin, BaseEntityRouteTests):
     """Complete standard dimension route tests using base classes"""
+
     pass
 
 
@@ -67,7 +68,7 @@ class TestDimensionSpecificEdgeCases(DimensionTestMixin, BaseEntityTests):
         """Test creating dimension with very long name"""
         dimension_data = {
             "name": fake.text(max_nb_chars=500),  # Very long name
-            "description": fake.text(max_nb_chars=100)
+            "description": fake.text(max_nb_chars=100),
         }
 
         response = authenticated_client.post(self.endpoints.create, json=dimension_data)
@@ -76,23 +77,20 @@ class TestDimensionSpecificEdgeCases(DimensionTestMixin, BaseEntityTests):
         assert response.status_code in [
             status.HTTP_200_OK,
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            status.HTTP_400_BAD_REQUEST
+            status.HTTP_400_BAD_REQUEST,
         ]
 
     def test_create_dimension_with_special_characters(self, authenticated_client: TestClient):
         """Test creating dimension with special characters"""
         dimension_data = {
             "name": f"Dimension with émoji 🧪 & spëcial chars! {fake.random_element(elements=['@', '#', '$', '%'])}",
-            "description": fake.text(max_nb_chars=100)
+            "description": fake.text(max_nb_chars=100),
         }
 
         response = authenticated_client.post(self.endpoints.create, json=dimension_data)
 
         # Should handle special characters gracefully
-        assert response.status_code in [
-            status.HTTP_200_OK,
-            status.HTTP_422_UNPROCESSABLE_ENTITY
-        ]
+        assert response.status_code in [status.HTTP_200_OK, status.HTTP_422_UNPROCESSABLE_ENTITY]
 
         if response.status_code == status.HTTP_200_OK:
             data = response.json()
@@ -101,17 +99,14 @@ class TestDimensionSpecificEdgeCases(DimensionTestMixin, BaseEntityTests):
     def test_create_dimension_with_duplicate_name(self, authenticated_client: TestClient):
         """Test creating dimension with duplicate name (if name uniqueness is enforced)"""
         # Create first dimension
-        dimension_data = {
-            "name": "Test Duplicate Dimension",
-            "description": "First dimension"
-        }
+        dimension_data = {"name": "Test Duplicate Dimension", "description": "First dimension"}
         first_response = authenticated_client.post(self.endpoints.create, json=dimension_data)
         assert first_response.status_code == status.HTTP_200_OK
 
         # Try to create second dimension with same name
         duplicate_data = {
             "name": "Test Duplicate Dimension",
-            "description": "Second dimension with same name"
+            "description": "Second dimension with same name",
         }
         duplicate_response = authenticated_client.post(self.endpoints.create, json=duplicate_data)
 
@@ -119,7 +114,7 @@ class TestDimensionSpecificEdgeCases(DimensionTestMixin, BaseEntityTests):
         assert duplicate_response.status_code in [
             status.HTTP_200_OK,  # If duplicates are allowed
             status.HTTP_409_CONFLICT,  # If uniqueness is enforced
-            status.HTTP_400_BAD_REQUEST  # General validation error
+            status.HTTP_400_BAD_REQUEST,  # General validation error
         ]
 
     def test_list_dimensions_with_filter(self, authenticated_client: TestClient):
@@ -148,7 +143,9 @@ class TestDimensionSpecificEdgeCases(DimensionTestMixin, BaseEntityTests):
         assert isinstance(data, list)
 
         # Test sorting by created_at descending (default)
-        response = authenticated_client.get(f"{self.endpoints.list}?sort_by=created_at&sort_order=desc")
+        response = authenticated_client.get(
+            f"{self.endpoints.list}?sort_by=created_at&sort_order=desc"
+        )
         assert response.status_code == status.HTTP_200_OK
 
         # Clean up
@@ -162,9 +159,7 @@ class TestDimensionSpecificEdgeCases(DimensionTestMixin, BaseEntityTests):
         dimension_id = created_dimension["id"]
 
         # Update only description
-        partial_update = {
-            "description": "Updated description only"
-        }
+        partial_update = {"description": "Updated description only"}
 
         response = authenticated_client.put(self.endpoints.put(dimension_id), json=partial_update)
 
@@ -176,10 +171,7 @@ class TestDimensionSpecificEdgeCases(DimensionTestMixin, BaseEntityTests):
     def test_dimension_with_null_description(self, authenticated_client: TestClient):
         """Test dimension creation and update with explicit null description"""
         # Create with null description
-        dimension_data = {
-            "name": fake.catch_phrase() + " Dimension",
-            "description": None
-        }
+        dimension_data = {"name": fake.catch_phrase() + " Dimension", "description": None}
 
         response = authenticated_client.post(self.endpoints.create, json=dimension_data)
 
@@ -188,9 +180,7 @@ class TestDimensionSpecificEdgeCases(DimensionTestMixin, BaseEntityTests):
         assert data["description"] is None
 
         # Update to set description
-        update_data = {
-            "description": "Now with description"
-        }
+        update_data = {"description": "Now with description"}
 
         update_response = authenticated_client.put(self.endpoints.put(data["id"]), json=update_data)
         assert update_response.status_code == status.HTTP_200_OK
@@ -207,7 +197,7 @@ class TestDimensionRelationships(DimensionTestMixin, BaseEntityTests):
         # This test prepares dimensions for use by demographics
         dimension_data = {
             "name": "Age Group Dimension",
-            "description": "Dimension for age-based demographics"
+            "description": "Dimension for age-based demographics",
         }
 
         response = authenticated_client.post(self.endpoints.create, json=dimension_data)
@@ -239,7 +229,7 @@ class TestDimensionPerformance(DimensionTestMixin, BaseEntityTests):
         for i in range(15):
             dimension_data = {
                 "name": f"Performance Test Dimension {i}",
-                "description": f"Performance test dimension number {i}"
+                "description": f"Performance test dimension number {i}",
             }
             response = authenticated_client.post(self.endpoints.create, json=dimension_data)
             assert response.status_code == status.HTTP_200_OK
@@ -278,7 +268,7 @@ class TestDimensionPerformance(DimensionTestMixin, BaseEntityTests):
             assert response.status_code == status.HTTP_200_OK
             data = response.json()
             assert isinstance(data, list)
-            assert len(data) <= scenario['limit']
+            assert len(data) <= scenario["limit"]
 
         duration = time.time() - start_time
 
@@ -316,7 +306,9 @@ class TestDimensionHealthChecks(DimensionTestMixin, BaseEntityTests):
 
         # Update
         update_data = {"name": "Updated Health Check Dimension"}
-        update_response = authenticated_client.put(self.endpoints.put(created["id"]), json=update_data)
+        update_response = authenticated_client.put(
+            self.endpoints.put(created["id"]), json=update_data
+        )
         assert update_response.status_code == status.HTTP_200_OK
 
         # Delete

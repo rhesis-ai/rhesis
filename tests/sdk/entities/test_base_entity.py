@@ -9,15 +9,16 @@ from requests.exceptions import HTTPError
 from rhesis.sdk.client import HTTPStatus
 from rhesis.sdk.entities.base_entity import BaseEntity
 
-os.environ["RHESIS_API_KEY"] = "test_api_key"
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"
 
 
 class TestEndpoint(Enum):
+    __test__ = False
     TEST = "test"
 
 
 class TestEntity(BaseEntity):
+    __test__ = False
     endpoint: ClassVar[TestEndpoint] = TestEndpoint.TEST
 
     name: str

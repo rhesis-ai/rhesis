@@ -17,7 +17,6 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import UploadIcon from '@mui/icons-material/Upload';
-import CloudIcon from '@mui/icons-material/Cloud';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DragAndDropUpload from '@/components/common/DragAndDropUpload';
@@ -182,9 +181,6 @@ export default function UploadSourceDialog({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
             {/* Info Box */}
             <Alert severity="info" sx={{ mb: 1 }}>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                Upload knowledge sources to use as context for test generation
-              </Typography>
               <Typography variant="body2" color="text.secondary">
                 Supported formats:{' '}
                 <Typography
@@ -213,31 +209,7 @@ export default function UploadSourceDialog({
                 maxSize={FILE_SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
                 disabled={uploading}
               />
-
-              {/* Import from Notion Button */}
-              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<CloudIcon />}
-                  disabled
-                  fullWidth
-                  sx={{
-                    justifyContent: 'space-between',
-                    textTransform: 'none',
-                  }}
-                >
-                  <span>Import from Notion</span>
-                  <Chip
-                    label="Coming Soon"
-                    size="small"
-                    sx={{
-                      height: '20px',
-                      fontSize: theme => theme.typography.caption.fontSize,
-                      backgroundColor: 'rgba(0, 0, 0, 0.08)',
-                    }}
-                  />
-                </Button>
-              </Box>
+              {/* Removed Import from Notion section */}
             </Box>
 
             {/* Title Field */}

@@ -15,6 +15,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from rhesis.sdk import collaborate
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -187,7 +189,10 @@ def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Depends
 
 app = FastAPI(
     title="Rhesis Insurance Chatbot API",
-    description="Default insurance chatbot (Rosalind) for new user onboarding. Provides instant access to explore Rhesis AI capabilities.",
+    description=(
+        "Default insurance chatbot (Rosalind) for new user onboarding. "
+        "Provides instant access to explore Rhesis AI capabilities."
+    ),
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -258,6 +263,58 @@ class ChatResponse(BaseModel):
     use_case: str
 
 
+@collaborate(
+    name="chat_with_history",
+    description="Chat with the insurance assistant using conversation history",
+    input_mapping={
+        "message": "{{ input }}",
+        "session_id": "{{ session_id }}",
+        "use_case": "insurance",
+    },
+    response_mapping={
+        "output": "$.message",
+        "session_id": "$.session_id",
+        "context": "$.context",
+        "metadata": "$.use_case",
+    },
+)
+def chat_with_history(
+    message: str,
+    session_id: Optional[str] = None,
+    use_case: str = "insurance",
+    conversation_history: Optional[List[dict]] = None,
+) -> ChatResponse:
+    """
+    Process a chat message and return structured response.
+
+    Args:
+        message: User's message
+        session_id: Session identifier
+        use_case: Use case for system prompt
+        conversation_history: Previous conversation messages
+
+    Returns:
+        ChatResponse with message, session_id, context, use_case
+    """
+    # Generate context
+    context_fragments = generate_context(message, use_case=use_case)
+
+    # Get assistant response
+    response_text = "".join(
+        stream_assistant_response(
+            message, use_case=use_case, conversation_history=conversation_history
+        )
+    )
+
+    # Return Pydantic model
+    return ChatResponse(
+        message=response_text,
+        session_id=session_id or str(uuid.uuid4()),
+        context=context_fragments,
+        use_case=use_case,
+    )
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring and load balancer."""
@@ -319,27 +376,21 @@ async def chat(request: Request, chat_request: ChatRequest, auth: dict = Depends
         # Get conversation history before adding the new message
         conversation_history = sessions[session_id].messages.copy()
 
-        # Add user message to session history
+        # Call the collaborative function
+        result = chat_with_history(
+            message=chat_request.message,
+            session_id=session_id,
+            use_case=use_case,
+            conversation_history=conversation_history,
+        )
+
+        # Update session with the conversation
         sessions[session_id].messages.append({"role": "user", "content": chat_request.message})
+        sessions[session_id].messages.append({"role": "assistant", "content": result.message})
 
-        # Generate context fragments for the response with the specified use case
-        context_fragments = generate_context(chat_request.message, use_case=use_case)
-        logger.info(f"📚 Generated {len(context_fragments)} context fragments")
+        logger.info(f"✅ Response generated successfully - Length: {len(result.message)} chars")
 
-        # Get response from assistant with the specified use case and conversation history
-        response = "".join(
-            stream_assistant_response(
-                chat_request.message, use_case=use_case, conversation_history=conversation_history
-            )
-        )
-        logger.info(f"✅ Response generated successfully - Length: {len(response)} chars")
-
-        # Add assistant response to session history
-        sessions[session_id].messages.append({"role": "assistant", "content": response})
-
-        return ChatResponse(
-            message=response, session_id=session_id, context=context_fragments, use_case=use_case
-        )
+        return result
 
     except Exception as e:
         logger.error(f"❌ Error in chat endpoint: {str(e)}")

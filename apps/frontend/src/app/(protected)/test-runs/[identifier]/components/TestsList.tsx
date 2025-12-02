@@ -214,8 +214,8 @@ function TestListItem({
               <Typography
                 variant="caption"
                 sx={{
-                  color: getStatusColor(),
-                  fontWeight: 500,
+                  color: 'text.secondary',
+                  fontWeight: 400,
                 }}
               >
                 {status === 'Error'

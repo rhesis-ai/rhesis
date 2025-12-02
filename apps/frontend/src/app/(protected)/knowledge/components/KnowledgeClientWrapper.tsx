@@ -87,6 +87,12 @@ export default function KnowledgeClientWrapper({
       title="Knowledge"
       breadcrumbs={[{ title: 'Knowledge', path: '/knowledge' }]}
     >
+      <Box sx={{ mb: 3 }}>
+        <Typography color="text.secondary">
+          Upload knowledge sources to use as context for test generation and
+          evaluation workflows.
+        </Typography>
+      </Box>
       {/* Sources grid */}
       <Paper className={styles.gridContainer}>
         <Box className={styles.gridContent}>

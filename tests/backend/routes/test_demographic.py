@@ -46,15 +46,13 @@ class DemographicTestMixin:
 
     def get_minimal_data(self) -> Dict[str, Any]:
         """Return minimal demographic data for creation"""
-        return {
-            "name": fake.word().title() + " Demographic"
-        }
+        return {"name": fake.word().title() + " Demographic"}
 
     def get_update_data(self) -> Dict[str, Any]:
         """Return demographic update data"""
         return {
-            "name": fake.sentence(nb_words=2).rstrip('.') + " Demographic",
-            "description": fake.paragraph(nb_sentences=2)
+            "name": fake.sentence(nb_words=2).rstrip(".") + " Demographic",
+            "description": fake.paragraph(nb_sentences=2),
         }
 
     # Note: sample_dimension fixture is now provided by routes/fixtures.py
@@ -64,6 +62,7 @@ class DemographicTestMixin:
 # Standard entity tests - gets ALL tests from base classes
 class TestDemographicStandardRoutes(DemographicTestMixin, BaseEntityRouteTests):
     """Complete standard demographic route tests using base classes"""
+
     pass
 
 
@@ -75,12 +74,14 @@ class TestDemographicWithDimensions(DemographicTestMixin, BaseEntityTests):
 
     # sample_dimension fixture is automatically available from fixtures.py
 
-    def test_create_demographic_with_dimension(self, authenticated_client: TestClient, sample_dimension):
+    def test_create_demographic_with_dimension(
+        self, authenticated_client: TestClient, sample_dimension
+    ):
         """Test creating demographic with valid dimension relationship"""
         demographic_data = {
             "name": "Age Group 18-25",
             "description": "Young adults demographic",
-            "dimension_id": sample_dimension["id"]
+            "dimension_id": sample_dimension["id"],
         }
 
         response = authenticated_client.post(self.endpoints.create, json=demographic_data)
@@ -95,7 +96,7 @@ class TestDemographicWithDimensions(DemographicTestMixin, BaseEntityTests):
         """Test creating demographic with non-existent dimension"""
         demographic_data = {
             "name": "Invalid Dimension Demographic",
-            "dimension_id": str(uuid.uuid4())  # Non-existent dimension
+            "dimension_id": str(uuid.uuid4()),  # Non-existent dimension
         }
 
         response = authenticated_client.post(self.endpoints.create, json=demographic_data)
@@ -103,7 +104,7 @@ class TestDemographicWithDimensions(DemographicTestMixin, BaseEntityTests):
         # Should handle foreign key constraint violations gracefully
         assert response.status_code in [
             status.HTTP_400_BAD_REQUEST,
-            status.HTTP_422_UNPROCESSABLE_ENTITY
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
         ]
         if response.status_code == status.HTTP_400_BAD_REQUEST:
             assert "dimension" in response.json()["detail"].lower()
@@ -113,7 +114,7 @@ class TestDemographicWithDimensions(DemographicTestMixin, BaseEntityTests):
         demographic_data = {
             "name": "No Dimension Demographic",
             "description": "Demographic without specific dimension",
-            "dimension_id": None
+            "dimension_id": None,
         }
 
         response = authenticated_client.post(self.endpoints.create, json=demographic_data)
@@ -123,25 +124,24 @@ class TestDemographicWithDimensions(DemographicTestMixin, BaseEntityTests):
         assert data["name"] == demographic_data["name"]
         assert data["dimension_id"] is None
 
-    def test_update_demographic_dimension_relationship(self, authenticated_client: TestClient, sample_dimension):
+    def test_update_demographic_dimension_relationship(
+        self, authenticated_client: TestClient, sample_dimension
+    ):
         """Test updating demographic's dimension relationship"""
         # Create demographic without dimension
-        demographic_data = {
-            "name": "Update Dimension Test",
-            "dimension_id": None
-        }
+        demographic_data = {"name": "Update Dimension Test", "dimension_id": None}
         created = self.create_entity(authenticated_client, demographic_data)
 
         # Create another dimension using faker utilities for unique data
         new_dimension_data = generate_dimension_data()
-        new_dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=new_dimension_data)
+        new_dimension_response = authenticated_client.post(
+            APIEndpoints.DIMENSIONS.create, json=new_dimension_data
+        )
         assert new_dimension_response.status_code == status.HTTP_200_OK
         new_dimension = new_dimension_response.json()
 
         # Update demographic to associate with dimension
-        update_data = {
-            "dimension_id": new_dimension["id"]
-        }
+        update_data = {"dimension_id": new_dimension["id"]}
 
         response = authenticated_client.put(self.endpoints.put(created["id"]), json=update_data)
 
@@ -150,17 +150,13 @@ class TestDemographicWithDimensions(DemographicTestMixin, BaseEntityTests):
         assert data["dimension_id"] == new_dimension["id"]
         assert data["name"] == created["name"]  # Name should remain unchanged
 
-    def test_list_demographics_with_dimension_filter(self, authenticated_client: TestClient, sample_dimension):
+    def test_list_demographics_with_dimension_filter(
+        self, authenticated_client: TestClient, sample_dimension
+    ):
         """Test listing demographics filtered by dimension"""
         # Create demographics with and without dimensions
-        demo_with_dim = {
-            "name": "With Dimension Demo",
-            "dimension_id": sample_dimension["id"]
-        }
-        demo_without_dim = {
-            "name": "Without Dimension Demo",
-            "dimension_id": None
-        }
+        demo_with_dim = {"name": "With Dimension Demo", "dimension_id": sample_dimension["id"]}
+        demo_without_dim = {"name": "Without Dimension Demo", "dimension_id": None}
 
         self.create_entity(authenticated_client, demo_with_dim)
         self.create_entity(authenticated_client, demo_without_dim)
@@ -183,7 +179,9 @@ class TestDemographicSpecificEdgeCases(DemographicTestMixin, BaseEntityTests):
         """Test creating multiple demographics for the same dimension"""
         # Create a dimension using faker utilities for unique data
         dimension_data = generate_dimension_data()
-        dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=dimension_data)
+        dimension_response = authenticated_client.post(
+            APIEndpoints.DIMENSIONS.create, json=dimension_data
+        )
         assert dimension_response.status_code == status.HTTP_200_OK
         dimension = dimension_response.json()
 
@@ -191,9 +189,9 @@ class TestDemographicSpecificEdgeCases(DemographicTestMixin, BaseEntityTests):
         demographics = []
         for i in range(3):
             demo_data = {
-                "name": f"Age Group {i*10}-{(i+1)*10}",
+                "name": f"Age Group {i * 10}-{(i + 1) * 10}",
                 "description": f"Age demographic {i}",
-                "dimension_id": dimension["id"]
+                "dimension_id": dimension["id"],
             }
             response = authenticated_client.post(self.endpoints.create, json=demo_data)
             assert response.status_code == status.HTTP_200_OK
@@ -207,21 +205,24 @@ class TestDemographicSpecificEdgeCases(DemographicTestMixin, BaseEntityTests):
         for demo in demographics:
             authenticated_client.delete(self.endpoints.remove(demo["id"]))
 
-    def test_demographic_cascade_behavior_on_dimension_deletion(self, authenticated_client: TestClient):
+    def test_demographic_cascade_behavior_on_dimension_deletion(
+        self, authenticated_client: TestClient
+    ):
         """Test behavior when referenced dimension is deleted"""
         # Create dimension using faker utilities for unique data
         dimension_data = generate_dimension_data()
-        dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=dimension_data)
+        dimension_response = authenticated_client.post(
+            APIEndpoints.DIMENSIONS.create, json=dimension_data
+        )
         assert dimension_response.status_code == status.HTTP_200_OK
         dimension = dimension_response.json()
-        demographic_data = {
-            "name": "Cascade Test Demographic",
-            "dimension_id": dimension["id"]
-        }
+        demographic_data = {"name": "Cascade Test Demographic", "dimension_id": dimension["id"]}
         demographic = self.create_entity(authenticated_client, demographic_data)
 
         # Delete the dimension
-        dim_delete_response = authenticated_client.delete(APIEndpoints.DIMENSIONS.remove(dimension["id"]))
+        dim_delete_response = authenticated_client.delete(
+            APIEndpoints.DIMENSIONS.remove(dimension["id"])
+        )
 
         # Depending on cascade settings, this might succeed or fail
         if dim_delete_response.status_code == status.HTTP_200_OK:
@@ -230,20 +231,20 @@ class TestDemographicSpecificEdgeCases(DemographicTestMixin, BaseEntityTests):
             # Demographic might still exist with null dimension_id or be deleted
             assert demo_get_response.status_code in [
                 status.HTTP_200_OK,  # Still exists
-                status.HTTP_404_NOT_FOUND  # Cascaded deletion
+                status.HTTP_404_NOT_FOUND,  # Cascaded deletion
             ]
         else:
             # If dimension deletion failed due to foreign key constraint
             assert dim_delete_response.status_code in [
                 status.HTTP_400_BAD_REQUEST,
-                status.HTTP_409_CONFLICT
+                status.HTTP_409_CONFLICT,
             ]
 
     def test_create_demographic_with_very_long_name(self, authenticated_client: TestClient):
         """Test creating demographic with very long name"""
         demographic_data = {
             "name": fake.text(max_nb_chars=500),  # Very long name
-            "description": fake.text(max_nb_chars=100)
+            "description": fake.text(max_nb_chars=100),
         }
 
         response = authenticated_client.post(self.endpoints.create, json=demographic_data)
@@ -252,23 +253,20 @@ class TestDemographicSpecificEdgeCases(DemographicTestMixin, BaseEntityTests):
         assert response.status_code in [
             status.HTTP_200_OK,
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            status.HTTP_400_BAD_REQUEST
+            status.HTTP_400_BAD_REQUEST,
         ]
 
     def test_demographic_with_special_characters(self, authenticated_client: TestClient):
         """Test demographic with special characters and unicode"""
         demographic_data = {
             "name": f"Démographic with émoji 🧪 & spëcial chars! {fake.random_element(elements=['@', '#', '$', '%'])}",
-            "description": "Déscription with spëcial characters and unicode: 你好世界"
+            "description": "Déscription with spëcial characters and unicode: 你好世界",
         }
 
         response = authenticated_client.post(self.endpoints.create, json=demographic_data)
 
         # Should handle special characters gracefully
-        assert response.status_code in [
-            status.HTTP_200_OK,
-            status.HTTP_422_UNPROCESSABLE_ENTITY
-        ]
+        assert response.status_code in [status.HTTP_200_OK, status.HTTP_422_UNPROCESSABLE_ENTITY]
 
         if response.status_code == status.HTTP_200_OK:
             data = response.json()
@@ -280,15 +278,17 @@ class TestDemographicSpecificEdgeCases(DemographicTestMixin, BaseEntityTests):
         demographics = []
         for i in range(5):
             demo_data = {
-                "name": f"Sort Test Demographic {chr(65+i)}",  # A, B, C, D, E
-                "description": f"Description {i}"
+                "name": f"Sort Test Demographic {chr(65 + i)}",  # A, B, C, D, E
+                "description": f"Description {i}",
             }
             response = authenticated_client.post(self.endpoints.create, json=demo_data)
             assert response.status_code == status.HTTP_200_OK
             demographics.append(response.json())
 
         # Test sorting by name ascending
-        response = authenticated_client.get(f"{self.endpoints.list}?sort_by=name&sort_order=asc&limit=10")
+        response = authenticated_client.get(
+            f"{self.endpoints.list}?sort_by=name&sort_order=asc&limit=10"
+        )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert isinstance(data, list)
@@ -315,9 +315,11 @@ class TestDemographicDimensionIntegration(DemographicTestMixin, BaseEntityTests)
         # Step 1: Create a dimension
         dimension_data = {
             "name": "Age Groups",
-            "description": "Demographic dimension for age-based segmentation"
+            "description": "Demographic dimension for age-based segmentation",
         }
-        dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=dimension_data)
+        dimension_response = authenticated_client.post(
+            APIEndpoints.DIMENSIONS.create, json=dimension_data
+        )
         assert dimension_response.status_code == status.HTTP_200_OK
         dimension = dimension_response.json()
 
@@ -326,7 +328,7 @@ class TestDemographicDimensionIntegration(DemographicTestMixin, BaseEntityTests)
             {"name": "18-25", "description": "Young adults"},
             {"name": "26-35", "description": "Young professionals"},
             {"name": "36-50", "description": "Middle-aged adults"},
-            {"name": "51+", "description": "Older adults"}
+            {"name": "51+", "description": "Older adults"},
         ]
 
         created_demographics = []
@@ -334,7 +336,7 @@ class TestDemographicDimensionIntegration(DemographicTestMixin, BaseEntityTests)
             demo_data = {
                 "name": f"Age Group {group['name']}",
                 "description": group["description"],
-                "dimension_id": dimension["id"]
+                "dimension_id": dimension["id"],
             }
             response = authenticated_client.post(self.endpoints.create, json=demo_data)
             assert response.status_code == status.HTTP_200_OK
@@ -353,15 +355,19 @@ class TestDemographicDimensionIntegration(DemographicTestMixin, BaseEntityTests)
         first_demo = created_demographics[0]
         update_data = {
             "description": "Updated: " + first_demo["description"],
-            "dimension_id": dimension["id"]  # Keep same dimension
+            "dimension_id": dimension["id"],  # Keep same dimension
         }
-        update_response = authenticated_client.put(self.endpoints.put(first_demo["id"]), json=update_data)
+        update_response = authenticated_client.put(
+            self.endpoints.put(first_demo["id"]), json=update_data
+        )
         assert update_response.status_code == status.HTTP_200_OK
         assert update_response.json()["dimension_id"] == dimension["id"]
 
         # Step 5: Test removing dimension relationship
         remove_dim_data = {"dimension_id": None}
-        remove_response = authenticated_client.put(self.endpoints.put(first_demo["id"]), json=remove_dim_data)
+        remove_response = authenticated_client.put(
+            self.endpoints.put(first_demo["id"]), json=remove_dim_data
+        )
         assert remove_response.status_code == status.HTTP_200_OK
         assert remove_response.json()["dimension_id"] is None
 
@@ -374,17 +380,18 @@ class TestDemographicDimensionIntegration(DemographicTestMixin, BaseEntityTests)
         """🔗 Test demographics when dimensions are soft-deleted"""
         # Create dimension using faker utilities for unique data
         dimension_data = generate_dimension_data()
-        dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=dimension_data)
+        dimension_response = authenticated_client.post(
+            APIEndpoints.DIMENSIONS.create, json=dimension_data
+        )
         assert dimension_response.status_code == status.HTTP_200_OK
         dimension = dimension_response.json()
-        demo_data = {
-            "name": "Orphan Test Demographic",
-            "dimension_id": dimension["id"]
-        }
+        demo_data = {"name": "Orphan Test Demographic", "dimension_id": dimension["id"]}
         demographic = self.create_entity(authenticated_client, demo_data)
 
         # Test what happens when we soft-delete dimension with demographics
-        delete_response = authenticated_client.delete(APIEndpoints.DIMENSIONS.remove(dimension["id"]))
+        delete_response = authenticated_client.delete(
+            APIEndpoints.DIMENSIONS.remove(dimension["id"])
+        )
 
         # With soft delete, the dimension deletion should succeed
         assert delete_response.status_code == status.HTTP_200_OK
@@ -416,7 +423,7 @@ class TestDemographicPerformance(DemographicTestMixin, BaseEntityTests):
         for i in range(3):
             dim_data = {
                 "name": f"Performance Dimension {i}",
-                "description": f"Performance test dimension {i}"
+                "description": f"Performance test dimension {i}",
             }
             response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=dim_data)
             assert response.status_code == status.HTTP_200_OK
@@ -431,7 +438,7 @@ class TestDemographicPerformance(DemographicTestMixin, BaseEntityTests):
             demo_data = {
                 "name": f"Performance Test Demographic {i}",
                 "description": f"Performance test demographic {i}",
-                "dimension_id": dimension["id"]
+                "dimension_id": dimension["id"],
             }
             response = authenticated_client.post(self.endpoints.create, json=demo_data)
             assert response.status_code == status.HTTP_200_OK
@@ -476,7 +483,9 @@ class TestDemographicHealthChecks(DemographicTestMixin, BaseEntityTests):
 
         # Update
         update_data = {"name": "Updated Health Check Demographic"}
-        update_response = authenticated_client.put(self.endpoints.put(created["id"]), json=update_data)
+        update_response = authenticated_client.put(
+            self.endpoints.put(created["id"]), json=update_data
+        )
         assert update_response.status_code == status.HTTP_200_OK
 
         # Delete
@@ -491,15 +500,14 @@ class TestDemographicHealthChecks(DemographicTestMixin, BaseEntityTests):
         """✅ Test demographic-dimension relationship health"""
         # Create dimension using faker utilities for unique data
         dimension_data = generate_dimension_data()
-        dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=dimension_data)
+        dimension_response = authenticated_client.post(
+            APIEndpoints.DIMENSIONS.create, json=dimension_data
+        )
         assert dimension_response.status_code == status.HTTP_200_OK
         dimension = dimension_response.json()
 
         # Create demographic with dimension
-        demo_data = {
-            "name": "Relationship Health Test",
-            "dimension_id": dimension["id"]
-        }
+        demo_data = {"name": "Relationship Health Test", "dimension_id": dimension["id"]}
         demo_response = authenticated_client.post(self.endpoints.create, json=demo_data)
         assert demo_response.status_code == status.HTTP_200_OK
         demographic = demo_response.json()

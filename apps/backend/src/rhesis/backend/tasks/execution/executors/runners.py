@@ -13,6 +13,7 @@ from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.execution.constants import MetricScope
 from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
 from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
+from rhesis.backend.tasks.execution.response_extractor import normalize_context_to_list
 
 from .data import get_test_metrics
 from .metrics import prepare_metric_configs
@@ -29,7 +30,7 @@ class BaseRunner(ABC):
     """
 
     @abstractmethod
-    def run(
+    async def run(
         self,
         db: Session,
         test: Test,
@@ -68,7 +69,7 @@ class SingleTurnRunner(BaseRunner):
     in-place execution service (ephemeral results).
     """
 
-    def run(
+    async def run(
         self,
         db: Session,
         test: Test,
@@ -105,39 +106,43 @@ class SingleTurnRunner(BaseRunner):
         if evaluate_metrics:
             metrics = get_test_metrics(test, db, organization_id, user_id)
             metric_configs = prepare_metric_configs(metrics, test_id, scope=MetricScope.SINGLE_TURN)
-            logger.debug(f"[SingleTurnRunner] Prepared {len(metric_configs)} metrics")
+            logger.debug(f"Prepared {len(metric_configs)} metrics for test {test_id}")
 
         # Execute endpoint
         endpoint_service = get_endpoint_service()
-        result = endpoint_service.invoke_endpoint(
+        result = await endpoint_service.invoke_endpoint(
             db=db,
             endpoint_id=endpoint_id,
             input_data={"input": prompt_content},
             organization_id=organization_id,
+            user_id=user_id,
         )
 
         # Calculate execution time
         execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-        logger.debug(f"[SingleTurnRunner] Completed in {execution_time:.2f}ms")
 
-        # Process result
+        # Process result (converts ErrorResponse to dict if needed)
         processed_result = process_endpoint_result(result)
 
         # Evaluate metrics if requested
         metrics_results = {}
         if evaluate_metrics and metric_configs:
-            context = result.get("context", []) if result else []
+            # Extract and normalize context to List[str]
+            # SDK functions may return context as string, JSON string, list, etc.
+            raw_context = processed_result.get("context") if processed_result else None
+            context = normalize_context_to_list(raw_context)
             metrics_evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
 
             if model:
                 logger.debug(f"[SingleTurnRunner] Using model: {model}")
 
+            # Pass processed_result (dict) instead of raw result
             metrics_results = evaluate_prompt_response(
                 metrics_evaluator=metrics_evaluator,
                 prompt_content=prompt_content,
                 expected_response=expected_response,
                 context=context,
-                result=result,
+                result=processed_result,
                 metrics=metric_configs,
             )
 
@@ -152,7 +157,7 @@ class MultiTurnRunner(BaseRunner):
     in-place execution service (ephemeral results).
     """
 
-    def run(
+    async def run(
         self,
         db: Session,
         test: Test,
@@ -176,7 +181,6 @@ class MultiTurnRunner(BaseRunner):
             Tuple of (execution_time_ms, penelope_trace, metrics_results)
         """
         start_time = datetime.utcnow()
-        test_id = str(test.id)
 
         # Extract multi-turn configuration
         test_config = test.test_configuration or {}

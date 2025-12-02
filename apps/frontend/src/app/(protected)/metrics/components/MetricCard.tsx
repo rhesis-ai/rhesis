@@ -1,32 +1,20 @@
 import React from 'react';
-import { useTheme } from '@mui/material/styles';
-import {
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  Chip,
-  SvgIcon,
-} from '@mui/material';
-import {
-  AssessmentIcon,
-  PrecisionManufacturingIcon,
-  VerifiedUserIcon,
-  SearchIcon,
-  FactCheckIcon,
-  StorageIcon,
-  CodeIcon,
-  ApiIcon,
-  SmartToyIcon,
-  NumbersIcon,
-  CategoryIcon,
-  ToggleOnIcon,
-} from '@/components/icons';
+import { SvgIcon } from '@mui/material';
+import { AutoGraphIcon, PsychologyIcon } from '@/components/icons';
 import TurnedInIcon from '@mui/icons-material/TurnedIn';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import MessageIcon from '@mui/icons-material/Message';
 import HandymanIcon from '@mui/icons-material/Handyman';
 import FaceIcon from '@mui/icons-material/Face';
+import StorageIcon from '@mui/icons-material/Storage';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+import ApiIcon from '@mui/icons-material/Api';
+import CodeIcon from '@mui/icons-material/Code';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import NumbersIcon from '@mui/icons-material/Numbers';
+import CategoryIcon from '@mui/icons-material/Category';
+import ToggleOnIcon from '@mui/icons-material/ToggleOn';
+import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
 
 // Custom Rhesis AI icon component using inline SVG
 const RhesisAIIcon = ({
@@ -61,20 +49,8 @@ interface MetricCardProps {
 }
 
 const getMetricIcon = (type: string) => {
-  switch (type) {
-    case 'answer_relevancy':
-      return <AssessmentIcon />;
-    case 'faithfulness':
-      return <VerifiedUserIcon />;
-    case 'contextual_relevancy':
-      return <SearchIcon />;
-    case 'contextual_precision':
-      return <PrecisionManufacturingIcon />;
-    case 'contextual_recall':
-      return <FactCheckIcon />;
-    default:
-      return <AssessmentIcon />;
-  }
+  // Use the same icon as in the navbar for consistency
+  return <AutoGraphIcon />;
 };
 
 const getBackendIcon = (backend: string) => {
@@ -171,8 +147,6 @@ export default function MetricCard({
   usedIn,
   showUsage = false,
 }: MetricCardProps) {
-  const theme = useTheme();
-
   // Safely handle capitalization with fallbacks for empty/undefined values
   const capitalizedScoreType = scoreType
     ? scoreType.charAt(0).toUpperCase() + scoreType.slice(1).toLowerCase()
@@ -181,125 +155,77 @@ export default function MetricCard({
     ? backend.charAt(0).toUpperCase() + backend.slice(1).toLowerCase()
     : 'Unknown';
 
-  const chipStyles = {
-    '& .MuiChip-icon': {
-      color: 'text.secondary',
-      marginLeft: theme.spacing(0.5),
-    },
-  };
+  // Prepare chip sections
+  const chipSections: ChipSection[] = [];
+
+  // First section: behaviors (if showing usage)
+  if (showUsage && usedIn && usedIn.length > 0) {
+    chipSections.push({
+      chips: [
+        ...usedIn.slice(0, 3).map((behaviorName, index) => ({
+          key: `behavior-${index}`,
+          icon: <PsychologyIcon fontSize="small" />,
+          label: behaviorName,
+          maxWidth: '150px',
+        })),
+        ...(usedIn.length > 3
+          ? [
+              {
+                key: 'more-behaviors',
+                label: `+${usedIn.length - 3} more`,
+              },
+            ]
+          : []),
+      ],
+    });
+  }
+
+  // Second section: metric properties
+  const metricPropertyChips = [];
+
+  if (backend || capitalizedBackend !== 'Unknown') {
+    metricPropertyChips.push({
+      key: 'backend',
+      icon: getBackendIcon(backend || ''),
+      label: capitalizedBackend,
+    });
+  }
+
+  if (scoreType || capitalizedScoreType !== 'Unknown') {
+    metricPropertyChips.push({
+      key: 'scoreType',
+      icon: getScoreTypeIcon(scoreType || ''),
+      label: capitalizedScoreType,
+    });
+  }
+
+  if (metricScope && metricScope.length > 0) {
+    metricScope.forEach((scope, index) => {
+      metricPropertyChips.push({
+        key: `scope-${index}`,
+        icon: getMetricScopeIcon(scope),
+        label: getMetricScopeDisplay(scope),
+      });
+    });
+  }
+
+  if (metricPropertyChips.length > 0) {
+    chipSections.push({
+      chips: metricPropertyChips,
+    });
+  }
 
   return (
-    <Card
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-      }}
-    >
-      <CardContent
-        sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          pb: 2,
-          pt: 3,
-        }}
-      >
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1.5 }}>
-            <Box
-              sx={{
-                mr: 1.5,
-                color: 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-                mt: 0.25,
-              }}
-            >
-              {getMetricIcon(type || '')}
-            </Box>
-            <Typography
-              variant="subtitle1"
-              component="div"
-              sx={{
-                fontWeight: 500,
-                lineHeight: 1.2,
-                maxWidth: '30ch', // Reverted to 30ch
-                wordWrap: 'break-word',
-                overflowWrap: 'break-word',
-              }}
-            >
-              {title}
-            </Typography>
-          </Box>
-
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 'auto', minHeight: '2.5em' }}
-          >
-            {description}
-          </Typography>
-        </Box>
-
-        <Box sx={{ mt: 2 }}>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              display: 'block',
-              mb: 1,
-              minHeight: '1.5em',
-            }}
-          >
-            {showUsage && usedIn && usedIn.length > 0
-              ? `Used in: ${usedIn.join(', ')}`
-              : ''}
-          </Typography>
-          <Box
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 0.5,
-              '& .MuiChip-root': {
-                height: theme.spacing(3),
-                fontSize: theme.typography.caption.fontSize,
-                ...chipStyles,
-              },
-            }}
-          >
-            {(backend || capitalizedBackend !== 'Unknown') && (
-              <Chip
-                icon={getBackendIcon(backend || '')}
-                label={capitalizedBackend}
-                size="small"
-                variant="outlined"
-              />
-            )}
-            {(scoreType || capitalizedScoreType !== 'Unknown') && (
-              <Chip
-                icon={getScoreTypeIcon(scoreType || '')}
-                label={capitalizedScoreType}
-                size="small"
-                variant="outlined"
-              />
-            )}
-            {metricScope &&
-              metricScope.length > 0 &&
-              metricScope.map((scope, index) => (
-                <Chip
-                  key={`scope-${index}`}
-                  icon={getMetricScopeIcon(scope)}
-                  label={getMetricScopeDisplay(scope)}
-                  size="small"
-                  variant="outlined"
-                />
-              ))}
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
+    <EntityCard
+      icon={<AutoGraphIcon fontSize="medium" />}
+      title={title}
+      description={description}
+      captionText={
+        showUsage && usedIn && usedIn.length > 0
+          ? `${usedIn.length} ${usedIn.length === 1 ? 'Behavior' : 'Behaviors'}`
+          : undefined
+      }
+      chipSections={chipSections}
+    />
   );
 }

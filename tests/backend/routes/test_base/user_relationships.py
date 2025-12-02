@@ -24,7 +24,9 @@ fake = Faker()
 class BaseUserRelationshipTests(BaseEntityTests):
     """Base class for testing user relationship fields (user_id, owner_id, assignee_id)"""
 
-    def test_create_entity_with_user_fields(self, authenticated_client: TestClient, authenticated_user):
+    def test_create_entity_with_user_fields(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """Test entity creation with user relationship fields"""
         # Auto-detection debug info
         detection_info = self.get_detected_user_fields_info()
@@ -65,14 +67,17 @@ class BaseUserRelationshipTests(BaseEntityTests):
             # If this is a data validation issue (like missing required fields),
             # skip the test rather than failing - the user field detection is what we're testing
             response_text = response.text.lower()
-            if (response.status_code == 400 and
-                ("invalid" in response_text or
-                 "validation" in response_text or
-                 "foreign" in response_text or
-                 "not found" in response_text or
-                 "required" in response_text or
-                 "constraint" in response_text)):
-                pytest.skip(f"Data validation issue in {self.entity_name} (status: {response.status_code}) - user field detection worked correctly. Response: {response.text[:200]}")
+            if response.status_code == 400 and (
+                "invalid" in response_text
+                or "validation" in response_text
+                or "foreign" in response_text
+                or "not found" in response_text
+                or "required" in response_text
+                or "constraint" in response_text
+            ):
+                pytest.skip(
+                    f"Data validation issue in {self.entity_name} (status: {response.status_code}) - user field detection worked correctly. Response: {response.text[:200]}"
+                )
 
         assert response.status_code == status.HTTP_200_OK
 
@@ -114,7 +119,9 @@ class BaseUserRelationshipTests(BaseEntityTests):
         # Use the authenticated user ID (we know this exists and works with the API)
         # For testing purposes, we'll use the same user for all fields since we can't create additional users via API
         auth_user_id = str(authenticated_user.id)
-        new_user_id = auth_user_id  # user_id should always remain the authenticated user for security
+        new_user_id = (
+            auth_user_id  # user_id should always remain the authenticated user for security
+        )
         new_owner_id = auth_user_id
         new_assignee_id = auth_user_id
 
@@ -130,7 +137,9 @@ class BaseUserRelationshipTests(BaseEntityTests):
         # Update the entity
         response = authenticated_client.put(self.endpoints.put(entity_id), json=update_data)
 
-        assert response.status_code == status.HTTP_200_OK, f"Update failed with {response.status_code}: {response.text}"
+        assert response.status_code == status.HTTP_200_OK, (
+            f"Update failed with {response.status_code}: {response.text}"
+        )
 
         data = response.json()
 
@@ -142,7 +151,9 @@ class BaseUserRelationshipTests(BaseEntityTests):
         if self.assignee_id_field:
             assert data[self.assignee_id_field] == new_assignee_id
 
-    def test_update_entity_partial_user_fields(self, authenticated_client: TestClient, authenticated_user):
+    def test_update_entity_partial_user_fields(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """Test partial update of user relationship fields"""
         if not self.has_user_relationships():
             pytest.skip(f"{self.entity_name} does not have user relationship fields")
@@ -188,7 +199,9 @@ class BaseUserRelationshipTests(BaseEntityTests):
         # Should return validation error
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_update_entity_null_user_fields(self, authenticated_client: TestClient, authenticated_user):
+    def test_update_entity_null_user_fields(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
         """Test updating entity with null user fields"""
         if not self.has_user_relationships():
             pytest.skip(f"{self.entity_name} does not have user relationship fields")
@@ -196,9 +209,7 @@ class BaseUserRelationshipTests(BaseEntityTests):
         # Create entity with user fields using valid user ID
         test_user_id = str(authenticated_user.id)
         sample_data = self.get_sample_data_with_users(
-            user_id=test_user_id,
-            owner_id=test_user_id,
-            assignee_id=test_user_id
+            user_id=test_user_id, owner_id=test_user_id, assignee_id=test_user_id
         )
 
         created_entity = self.create_entity(authenticated_client, sample_data)
@@ -219,7 +230,7 @@ class BaseUserRelationshipTests(BaseEntityTests):
             assert response.status_code in [
                 status.HTTP_200_OK,
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
-                status.HTTP_400_BAD_REQUEST
+                status.HTTP_400_BAD_REQUEST,
             ]
 
     def test_entity_ownership_transfer(self, authenticated_client: TestClient, authenticated_user):

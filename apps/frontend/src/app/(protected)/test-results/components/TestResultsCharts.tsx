@@ -14,6 +14,7 @@ import TestResultsSummary from './TestResultsSummary';
 interface TestResultsChartsProps {
   sessionToken: string;
   filters: Partial<TestResultsStatsOptions>;
+  searchValue: string;
 }
 
 interface TabPanelProps {
@@ -48,6 +49,7 @@ function a11yProps(index: number) {
 export default function TestResultsCharts({
   sessionToken,
   filters,
+  searchValue,
 }: TestResultsChartsProps) {
   const theme = useTheme();
   const [value, setValue] = useState(0);
@@ -65,7 +67,7 @@ export default function TestResultsCharts({
         sx={{
           borderBottom: 1,
           borderColor: 'divider',
-          mb: theme.customSpacing.section.small,
+          mb: 2,
         }}
       >
         <Tab label="Overview" {...a11yProps(0)} />
@@ -76,7 +78,11 @@ export default function TestResultsCharts({
 
       <TabPanel value={value} index={0}>
         {/* Summary Tab - Test Run Summary and Metadata */}
-        <TestResultsSummary sessionToken={sessionToken} filters={filters} />
+        <TestResultsSummary
+          sessionToken={sessionToken}
+          filters={filters}
+          searchValue={searchValue}
+        />
       </TabPanel>
 
       <TabPanel value={value} index={1}>

@@ -33,6 +33,8 @@ F = TypeVar("F", bound=Callable[..., Any])
 class Backend(str, Enum):
     RHESIS = "rhesis"
     DEEPEVAL = "deepeval"
+    RAGAS = "ragas"
+    CUSTOM = "custom"
 
 
 class ScoreType(str, Enum):
@@ -42,10 +44,17 @@ class ScoreType(str, Enum):
 
 
 class MetricType(str, Enum):
+    # Original SDK metric types
     RAG = "rag"
     GENERATION = "generation"
     CLASSIFICATION = "classification"
     CONVERSATIONAL = "conversational"
+    # Backend API metric types
+    GRADING = "grading"
+    API_CALL = "api-call"
+    CUSTOM_CODE = "custom-code"
+    CUSTOM_PROMPT = "custom-prompt"
+    FRAMEWORK = "framework"
 
 
 class MetricScope(str, Enum):
@@ -66,11 +75,13 @@ class ThresholdOperator(str, Enum):
 class MetricConfig:
     # Backend required items
     class_name: Optional[str] = None
-    backend: Optional[Union[str, Backend]] = Backend.RHESIS
+    backend: Optional[Union[str, Backend]] = Backend.CUSTOM  # Default to custom for SDK metrics
     name: Optional[str] = None
     description: Optional[str] = None
     score_type: Optional[Union[str, ScoreType]] = None  # string or enum
-    metric_type: Optional[Union[str, MetricType]] = None  # string or enum
+    metric_type: Optional[Union[str, MetricType]] = (
+        MetricType.CUSTOM_PROMPT
+    )  # Default for SDK metrics
     metric_scope: Optional[List[Union[str, MetricScope]]] = None  # list of scopes
     requires_ground_truth: Optional[bool] = False
     requires_context: Optional[bool] = False

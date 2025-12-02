@@ -39,6 +39,8 @@ ENV UV_COMPILE_BYTECODE=1
 # the size of the image.
 ENV UV_NO_MANAGED_PYTHON=1
 
+# Use copy mode for linking dependencies (required by the cache)
+ENV UV_LINK_MODE=copy 
 # Skip the installation of the dev dependencies
 ENV UV_NO_DEV=1
 
@@ -63,6 +65,9 @@ COPY apps/backend/src /app/src
 # STAGE 2: Runtime - Create minimal runtime image
 # ============================================================================
 FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
+# Copy Bun from official image (lighter than Node.js, required for bunx to run MCP servers)
+COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:latest /usr/local/bin/bunx /usr/local/bin/bunx
 
 WORKDIR /app
 
@@ -73,6 +78,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
+
 
 # Create non-root user first
 RUN adduser --disabled-password --gecos '' rhesis-user && \
@@ -99,7 +105,7 @@ USER rhesis-user
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/usr/local/bin:/app/.venv/bin:$PATH"
 
 # Expose port
 EXPOSE 8080

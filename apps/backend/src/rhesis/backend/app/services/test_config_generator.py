@@ -15,7 +15,7 @@ from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.sdk.models.factory import get_model
 
-MAX_SAMPLE_SIZE = 10
+MAX_SAMPLE_SIZE = 6
 
 
 class TestConfigGeneratorService:

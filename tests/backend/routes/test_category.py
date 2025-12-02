@@ -55,6 +55,7 @@ class CategoryTestMixin:
 # Standard entity tests - gets ALL tests from base classes
 class TestCategoryStandardRoutes(CategoryTestMixin, BaseEntityRouteTests):
     """Complete standard category route tests using base classes"""
+
     pass
 
 
@@ -72,7 +73,7 @@ class TestCategorySpecificEdgeCases(CategoryTestMixin, BaseEntityTests):
         child_data = {
             "name": fake.word().title() + " Child Category",
             "description": fake.text(max_nb_chars=100),
-            "parent_id": parent_category["id"]
+            "parent_id": parent_category["id"],
         }
 
         response = authenticated_client.post(self.endpoints.create, json=child_data)
@@ -85,7 +86,7 @@ class TestCategorySpecificEdgeCases(CategoryTestMixin, BaseEntityTests):
         """Test creating category with non-existent parent"""
         child_data = {
             "name": fake.word().title() + " Orphaned Category",
-            "parent_id": str(uuid.uuid4())  # Non-existent parent
+            "parent_id": str(uuid.uuid4()),  # Non-existent parent
         }
 
         response = authenticated_client.post(self.endpoints.create, json=child_data)

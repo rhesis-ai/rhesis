@@ -290,7 +290,7 @@ def delete_test(
 
 
 @router.post("/execute", response_model=schemas.TestExecuteResponse)
-def execute_test_endpoint(
+async def execute_test_endpoint(
     request: schemas.TestExecuteRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -393,7 +393,7 @@ def execute_test_endpoint(
         # Execute test in-place
         from rhesis.backend.app.services.test_execution import execute_test_in_place
 
-        result = execute_test_in_place(
+        result = await execute_test_in_place(
             db=db,
             request_data=request_data,
             endpoint_id=str(request.endpoint_id),

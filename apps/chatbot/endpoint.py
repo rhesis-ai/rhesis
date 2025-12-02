@@ -6,6 +6,7 @@ from typing import Generator, List
 
 from dotenv import load_dotenv
 
+from rhesis.sdk import RhesisClient
 from rhesis.sdk.models.factory import get_model
 
 # Configure logging
@@ -16,6 +17,13 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
+
+# Initialize Rhesis Client for collaborative testing
+rhesis_client = RhesisClient(
+    api_key=os.getenv("RHESIS_API_KEY"),
+    project_id=os.getenv("RHESIS_PROJECT_ID"),
+    environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
+)
 
 # Retry configuration
 MAX_RETRIES = 3
@@ -62,9 +70,7 @@ class ResponseGenerator:
             logger.error(f"Error loading system prompt: {str(e)}")
             return "You are a helpful assistant. Please provide clear and helpful responses."
 
-    def get_assistant_response(
-        self, prompt: str, conversation_history: List[dict] = None
-    ) -> str:
+    def get_assistant_response(self, prompt: str, conversation_history: List[dict] = None) -> str:
         """Get a complete response from the assistant with optional conversation history."""
         return "".join(self.stream_assistant_response(prompt, conversation_history))
 
@@ -72,21 +78,22 @@ class ResponseGenerator:
         self, prompt: str, conversation_history: List[dict] = None
     ) -> Generator[str, None, None]:
         """Stream the assistant's response using SDK model with conversation history.
-        
+
         Args:
             prompt: The current user message
-            conversation_history: List of previous messages in format [{"role": "user/assistant", "content": "..."}]
+            conversation_history: List of previous messages in format
+                [{"role": "user/assistant", "content": "..."}]
         """
         try:
             # Build the full prompt with conversation history
             full_prompt = self.use_case_system_prompt + "\n\n"
-            
+
             # Add conversation history if provided
             if conversation_history:
                 for msg in conversation_history:
                     role = "User" if msg["role"] == "user" else "Assistant"
                     full_prompt += f"{role}: {msg['content']}\n\n"
-            
+
             # Add current prompt
             full_prompt += f"User: {prompt}\n\nAssistant:"
 
@@ -118,12 +125,15 @@ class ResponseGenerator:
     def generate_context(self, prompt: str) -> List[str]:
         """Generate context fragments for a prompt."""
         try:
-            # Create system prompt for context generation with explicit JSON format instructions
+            # Create system prompt for context generation with JSON format
             context_system_prompt = """
-                You are a helpful assistant that provides relevant context fragments for user questions.
-                For the given user query, generate 3-5 short, relevant context fragments that would be helpful for answering the question.
+                You are a helpful assistant that provides relevant context
+                fragments for user questions.
+                For the given user query, generate 3-5 short, relevant context
+                fragments that would be helpful for answering the question.
                 
-                IMPORTANT: You MUST respond with ONLY a valid JSON object that has a "fragments" key containing an array of strings.
+                IMPORTANT: You MUST respond with ONLY a valid JSON object that
+                has a "fragments" key containing an array of strings.
                 Example format:
                 {
                     "fragments": [
@@ -133,7 +143,8 @@ class ResponseGenerator:
                     ]
                 }
                 
-                Do not include any explanations, markdown formatting, or additional text outside of the JSON object.
+                Do not include any explanations, markdown formatting, or
+                additional text outside of the JSON object.
                 """
 
             # Combine system prompt with user question
@@ -234,7 +245,6 @@ def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
     return ResponseGenerator(use_case)
 
 
-# Public API functions that maintain backward compatibility
 def get_assistant_response(
     prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
 ) -> str:
@@ -247,14 +257,55 @@ def stream_assistant_response(
     prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
 ) -> Generator[str, None, None]:
     """Stream the assistant's response with optional conversation history.
-    
+
+    This function is decorated with @collaborate to enable remote testing
+    from the Rhesis platform.
+
     Args:
         prompt: The current user message
         use_case: The use case to use for the system prompt
-        conversation_history: List of previous messages in format [{"role": "user/assistant", "content": "..."}]
+        conversation_history: List of previous messages in format
+            [{"role": "user/assistant", "content": "..."}]
     """
-    response_generator = get_response_generator(use_case)
-    return response_generator.stream_assistant_response(prompt, conversation_history)
+    logger.info("=" * 80)
+    logger.info("🔵 COLLABORATIVE TEST EXECUTION STARTED")
+    logger.info(f"Prompt: {prompt}")
+    logger.info(f"Use case: {use_case}")
+    logger.info(f"Conversation history: {conversation_history}")
+    logger.info("=" * 80)
+
+    try:
+        response_generator = get_response_generator(use_case)
+        logger.info("Response generator created successfully")
+
+        result_generator = response_generator.stream_assistant_response(
+            prompt, conversation_history
+        )
+        logger.info("Starting to stream response...")
+
+        # Stream and log chunks
+        chunk_count = 0
+        for chunk in result_generator:
+            chunk_count += 1
+            if chunk_count <= 3:  # Log first 3 chunks
+                logger.info(
+                    f"Chunk {chunk_count}: {chunk[:50]}..."
+                    if len(chunk) > 50
+                    else f"Chunk {chunk_count}: {chunk}"
+                )
+            yield chunk
+
+        logger.info(f"✅ Streaming complete. Total chunks: {chunk_count}")
+        logger.info("=" * 80)
+
+    except Exception as e:
+        logger.error(f"❌ Error during collaborative test execution: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.info("=" * 80)
+        raise
 
 
 def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:

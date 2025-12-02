@@ -42,9 +42,6 @@ htmlcov/
 .mypy_cache/
 .pytype/
 
-# UV
-uv.lock
-
 # OS
 .DS_Store
 

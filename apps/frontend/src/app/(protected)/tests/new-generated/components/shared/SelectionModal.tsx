@@ -73,11 +73,11 @@ export default function SelectionModal({
       onClose={onClose}
       maxWidth={maxWidth}
       fullWidth
+      scroll="paper"
       PaperProps={{
         sx: {
           borderRadius: theme => theme.shape.borderRadius,
-          height: '85vh',
-          maxHeight: '85vh',
+          bgcolor: 'background.paper',
         },
       }}
     >
@@ -112,11 +112,12 @@ export default function SelectionModal({
           pt: 3,
           px: 3,
           pb: 3,
-          overflow: fillHeight ? 'hidden' : 'auto',
-          ...(fillHeight && {
-            display: 'flex',
-            flexDirection: 'column',
-          }),
+          overflow: 'visible',
+          ...(fillHeight &&
+            {
+              // display: 'flex',
+              // flexDirection: 'column',
+            }),
         }}
       >
         {/* Primary Action Cards */}
@@ -124,12 +125,12 @@ export default function SelectionModal({
           container
           spacing={3}
           sx={{
-            mb: additionalContent ? 6 : 0,
             mt: 0,
-            ...(fillHeight && {
-              flex: 1,
-              alignContent: 'center',
-            }),
+            mb: additionalContent ? 6 : 0,
+            ...(fillHeight &&
+              {
+                // flex: 1,
+              }),
           }}
         >
           {cards.map(card => (
@@ -141,6 +142,14 @@ export default function SelectionModal({
                   cursor: 'pointer',
                   display: 'flex',
                   flexDirection: 'column',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    bgcolor: theme =>
+                      theme.palette.mode === 'dark'
+                        ? 'background.light3'
+                        : 'background.paper',
+                    transform: 'translateY(-2px)',
+                  },
                 }}
                 onClick={card.onClick}
               >
@@ -196,12 +205,11 @@ export default function SelectionModal({
                     variant={card.buttonVariant}
                     size="large"
                     fullWidth
-                    color={
-                      card.buttonColor ||
-                      (card.buttonVariant === 'contained'
-                        ? 'warning'
-                        : 'secondary')
-                    }
+                    color={card.buttonColor || 'secondary'}
+                    disableElevation
+                    sx={{
+                      pointerEvents: 'none',
+                    }}
                   >
                     {card.buttonLabel}
                   </Button>

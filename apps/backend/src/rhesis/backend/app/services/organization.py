@@ -446,15 +446,15 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             endpoint_data = {
                 "name": item["name"],
                 "description": item.get("description"),
-                "protocol": item["protocol"],
+                "connection_type": item["connection_type"],
                 "url": url,
                 "method": item.get("method"),
                 "environment": environment,
                 "config_source": item.get("config_source", "manual"),
                 "response_format": item.get("response_format", "json"),
                 "request_headers": item.get("request_headers"),
-                "request_body_template": item.get("request_body_template"),
-                "response_mappings": item.get("response_mappings"),
+                "request_mapping": item.get("request_mapping"),
+                "response_mapping": item.get("response_mapping"),
                 "query_params": item.get("query_params"),
                 "validation_rules": item.get("validation_rules"),
             }

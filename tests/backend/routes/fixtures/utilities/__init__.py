@@ -13,5 +13,6 @@ from .identifiers import *
 
 __all__ = [
     # Identifier utilities
-    "invalid_uuid", "malformed_uuid"
+    "invalid_uuid",
+    "malformed_uuid",
 ]

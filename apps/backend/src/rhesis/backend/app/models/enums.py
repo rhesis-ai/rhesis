@@ -1,16 +1,18 @@
 from enum import Enum
 
 
-class EndpointProtocol(str, Enum):
+class EndpointConnectionType(str, Enum):
     REST = "REST"
     WEBSOCKET = "WebSocket"
     GRPC = "GRPC"
+    SDK = "SDK"
 
 
 class EndpointConfigSource(str, Enum):
     MANUAL = "manual"
     OPENAPI = "openapi"
     LLM_GENERATED = "llm_generated"
+    SDK = "sdk"
 
 
 class EndpointResponseFormat(str, Enum):

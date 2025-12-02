@@ -48,8 +48,13 @@ export default function OnboardingChecklist() {
     useOnboarding();
 
   const [expanded, setExpanded] = useState(true);
-  const [visible, setVisible] = useState(true);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Handle client-side mounting to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Auto-collapse on dashboard page (avoid hydration issues)
   useEffect(() => {
@@ -109,7 +114,6 @@ export default function OnboardingChecklist() {
 
   const handleConfirmDismiss = useCallback(() => {
     dismissOnboarding();
-    setVisible(false);
     setConfirmDialogOpen(false);
   }, [dismissOnboarding]);
 
@@ -117,8 +121,9 @@ export default function OnboardingChecklist() {
     setConfirmDialogOpen(false);
   }, []);
 
+  // Don't render until mounted (avoid hydration mismatch)
   // Don't show if dismissed or completed
-  if (progress.dismissed || isComplete || !visible) {
+  if (!mounted || progress.dismissed || isComplete) {
     return null;
   }
 

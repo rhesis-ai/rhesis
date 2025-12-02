@@ -32,7 +32,7 @@ class MultiTurnTestExecutor(BaseTestExecutor):
     - Penelope can evolve without breaking this code
     """
 
-    def execute(
+    async def execute(
         self,
         db: Session,
         test_config_id: str,
@@ -84,7 +84,7 @@ class MultiTurnTestExecutor(BaseTestExecutor):
 
             # Run core execution (shared with in-place service)
             runner = MultiTurnRunner()
-            execution_time, penelope_trace, metrics_results = runner.run(
+            execution_time, penelope_trace, metrics_results = await runner.run(
                 db=db,
                 test=test,
                 endpoint_id=endpoint_id,

@@ -1,6 +1,6 @@
 [project]
 name = "polyphemus"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.10"
 dependencies = [
     # FastAPI and server dependencies
@@ -20,6 +20,12 @@ dependencies = [
 
     # SDK dependency (required for HuggingFaceLLM)
     "rhesis-sdk[huggingface]",
+    # Database dependencies
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
+    "python-dotenv>=1.0.0",
+    # Backend dependency for authentication utilities (brings SDK and Penelope)
+    "rhesis-backend",
 ]
 
 [project.optional-dependencies]
@@ -37,3 +43,12 @@ packages = ["src/rhesis"]
 
 [tool.uv.sources.rhesis-sdk]
 path = "../../sdk"
+editable = true
+
+[tool.uv.sources.rhesis-penelope]
+path = "../../penelope"
+editable = true
+
+[tool.uv.sources.rhesis-backend]
+path = "../backend"
+editable = true

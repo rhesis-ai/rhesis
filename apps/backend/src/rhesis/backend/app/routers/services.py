@@ -307,7 +307,8 @@ async def generate_multiturn_tests_endpoint(
             config=config,
             num_tests=request.num_tests,
         )
-        return {"tests": test_cases}
+        # test_cases is a TestSet dict with a "tests" key containing the array
+        return {"tests": test_cases.get("tests", [])}
     except Exception as e:
         logger.error(f"Failed to generate multi-turn tests: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -592,7 +593,12 @@ async def extract_mcp_item(
     try:
         organization_id, user_id = tenant_context
         content = await extract_mcp(
-            request.id, request.tool_id, db, current_user, organization_id, user_id
+            request.id,
+            request.tool_id,
+            db,
+            current_user,
+            organization_id,
+            user_id,
         )
         return {"content": content}
     except Exception as e:

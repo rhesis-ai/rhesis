@@ -22,7 +22,7 @@ class BaseTestExecutor(ABC):
     """
 
     @abstractmethod
-    def execute(
+    async def execute(
         self,
         db: Session,
         test_config_id: str,

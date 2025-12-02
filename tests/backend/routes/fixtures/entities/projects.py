@@ -38,7 +38,7 @@ def db_project(test_db: Session, test_organization, db_user, db_owner_user, db_s
         user_id=db_user.id,
         owner_id=db_owner_user.id,
         organization_id=test_organization.id,
-        status_id=db_status.id
+        status_id=db_status.id,
     )
     test_db.add(project)
     test_db.flush()  # Make sure the object gets an ID
@@ -47,7 +47,9 @@ def db_project(test_db: Session, test_organization, db_user, db_owner_user, db_s
 
 
 @pytest.fixture
-def db_inactive_project(test_db: Session, test_organization, db_user, db_owner_user, db_inactive_status) -> Project:
+def db_inactive_project(
+    test_db: Session, test_organization, db_user, db_owner_user, db_inactive_status
+) -> Project:
     """
     Create an inactive project in the test database
 
@@ -69,7 +71,7 @@ def db_inactive_project(test_db: Session, test_organization, db_user, db_owner_u
         user_id=db_user.id,
         owner_id=db_owner_user.id,
         organization_id=test_organization.id,
-        status_id=db_inactive_status.id
+        status_id=db_inactive_status.id,
     )
     test_db.add(project)
     test_db.flush()  # Make sure the object gets an ID
@@ -78,7 +80,9 @@ def db_inactive_project(test_db: Session, test_organization, db_user, db_owner_u
 
 
 @pytest.fixture
-def db_draft_project(test_db: Session, test_organization, db_user, db_owner_user, db_draft_status) -> Project:
+def db_draft_project(
+    test_db: Session, test_organization, db_user, db_owner_user, db_draft_status
+) -> Project:
     """
     Create a draft project in the test database
 
@@ -100,7 +104,7 @@ def db_draft_project(test_db: Session, test_organization, db_user, db_owner_user
         user_id=db_user.id,
         owner_id=db_owner_user.id,
         organization_id=test_organization.id,
-        status_id=db_draft_status.id
+        status_id=db_draft_status.id,
     )
     test_db.add(project)
     test_db.flush()  # Make sure the object gets an ID

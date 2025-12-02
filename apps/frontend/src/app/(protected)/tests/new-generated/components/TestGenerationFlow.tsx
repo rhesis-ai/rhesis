@@ -108,7 +108,6 @@ const generateSamplesForTestType = async (
       topics: activeTopics,
       additional_context: JSON.stringify({
         project_context: projectName || 'General',
-        specific_requirements: description,
         test_type: 'Single interaction tests',
         output_format: 'Generate only user inputs',
       }),
@@ -535,7 +534,6 @@ export default function TestGenerationFlow({
             topics: activeTopics,
             additional_context: JSON.stringify({
               project_context: project?.name || 'General',
-              specific_requirements: description,
               test_type: 'Single interaction tests',
               output_format: 'Generate only user inputs',
               rated_samples: [ratedSample],
@@ -937,6 +935,7 @@ export default function TestGenerationFlow({
         batch_size: 20,
         sources: selectedSources,
         name: testSetName.trim() || undefined,
+        test_type: testType,
       };
 
       const response = await testSetsClient.generateTestSet(request);
@@ -968,6 +967,7 @@ export default function TestGenerationFlow({
     testSetName,
     selectedSources,
     project,
+    testType,
     router,
     show,
   ]);

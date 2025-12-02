@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-sdk"
-version = "0.4.2"
+version = "0.5.1"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -38,9 +38,12 @@ dependencies = [
     "pydantic>=2.0.0",
     "litellm>=1.76.0",
     "deepteam>=0.2.5",
-        "langchain-google-genai>=2.1.12",
+    "langchain-google-genai>=2.1.12",
     "ragas>=0.3.7",
     "mcp>=1.2.0",
+    "websockets>=12.0",
+    "ipython>=8.37.0",
+    "ipykernel>=7.1.0",
 ]
 
 [project.license]
@@ -81,7 +84,7 @@ dev = [
     "sphinx-rtd-theme>=3.0.2",
     "myst-parser>=4.0.0",
     "ruff>=0.11.6",
-    "pyright>=1.1.406",
+    "pyright>=1.1.407",
     "psycopg2-binary==2.9.9", # to match the version in the backend
     "pytest-cov>=7.0.0",
 ]
@@ -108,12 +111,6 @@ typeCheckingMode = "standard"
 include = [ "src/rhesis/sdk/metrics", ]
 
 [tool.pytest.ini_options]
-testpaths = [
-    "../tests/sdk",
-
-]
-# addopts = " --ignore=../tests/sdk/entities"
-
 pythonpath = [
     "src",
 ]

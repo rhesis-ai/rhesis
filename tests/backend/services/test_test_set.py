@@ -41,7 +41,7 @@ def create_endpoint_data(**overrides):
         "name": fake.catch_phrase() + " Endpoint",
         "url": fake.url() + "/api/test",
         "method": fake.random_element(elements=("GET", "POST", "PUT", "DELETE")),
-        "protocol": "REST",
+        "connection_type": "REST",
         "request_headers": {},
         "environment": fake.random_element(elements=("development", "staging", "production")),
     }

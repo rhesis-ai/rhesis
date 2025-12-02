@@ -150,16 +150,16 @@ class TestErrorResponseBuilder:
             message="Network timeout",
         )
 
-        assert result["output"] == "Connection failed"
-        assert result["error"] is True
-        assert result["error_type"] == "network_error"
-        assert result["message"] == "Network timeout"
+        assert result.output == "Connection failed"
+        assert result.error is True
+        assert result.error_type == "network_error"
+        assert result.message == "Network timeout"
 
     def test_create_error_response_with_request_details(self):
         """Test creating error response with request details."""
         builder = ErrorResponseBuilder()
         request_details = {
-            "protocol": "REST",
+            "connection_type": "REST",
             "method": "POST",
             "url": "https://api.example.com",
         }
@@ -171,7 +171,10 @@ class TestErrorResponseBuilder:
             request_details=request_details,
         )
 
-        assert result["request"] == request_details
+        # The request_details dict is converted to a RequestDetails object
+        assert result.request.connection_type == "REST"
+        assert result.request.method == "POST"
+        assert result.request.url == "https://api.example.com"
 
     def test_create_error_response_with_kwargs(self):
         """Test creating error response with additional kwargs."""
@@ -185,8 +188,8 @@ class TestErrorResponseBuilder:
             field="email",
         )
 
-        assert result["status_code"] == 400
-        assert result["field"] == "email"
+        assert result.status_code == 400
+        assert result.field == "email"
 
     def test_safe_request_details_basic(self):
         """Test creating safe request details from local vars."""
@@ -199,11 +202,11 @@ class TestErrorResponseBuilder:
 
         result = builder.safe_request_details(local_vars, "REST")
 
-        assert result["protocol"] == "REST"
-        assert result["method"] == "POST"
-        assert result["url"] == "https://api.example.com/chat"
-        assert result["headers"]["Authorization"] == "***REDACTED***"
-        assert result["headers"]["Content-Type"] == "application/json"
+        assert result.connection_type == "REST"
+        assert result.method == "POST"
+        assert result.url == "https://api.example.com/chat"
+        assert result.headers["Authorization"] == "***REDACTED***"
+        assert result.headers["Content-Type"] == "application/json"
 
     def test_safe_request_details_with_uri(self):
         """Test safe request details with uri instead of url."""
@@ -215,8 +218,8 @@ class TestErrorResponseBuilder:
 
         result = builder.safe_request_details(local_vars, "WebSocket")
 
-        assert result["protocol"] == "WebSocket"
-        assert result["url"] == "wss://ws.example.com/chat"
+        assert result.connection_type == "WebSocket"
+        assert result.url == "wss://ws.example.com/chat"
 
     def test_safe_request_details_with_message_data(self):
         """Test safe request details with message_data instead of request_body."""
@@ -227,7 +230,7 @@ class TestErrorResponseBuilder:
 
         result = builder.safe_request_details(local_vars)
 
-        assert result["body"] == {"query": "test"}
+        assert result.body == {"query": "test"}
 
     def test_safe_request_details_defaults(self):
         """Test safe request details with missing fields."""
@@ -236,8 +239,8 @@ class TestErrorResponseBuilder:
 
         result = builder.safe_request_details(local_vars)
 
-        assert result["protocol"] == "unknown"
-        assert result["method"] == "UNKNOWN"
-        assert result["url"] == "UNKNOWN"
-        assert result["headers"] == {}
-        assert result["body"] is None
+        assert result.connection_type == "unknown"
+        assert result.method == "UNKNOWN"
+        assert result.url == "UNKNOWN"
+        assert result.headers == {}
+        assert result.body is None

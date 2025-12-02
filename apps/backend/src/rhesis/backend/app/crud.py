@@ -5,7 +5,7 @@ This code implements the CRUD operations for the models in the application.
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
 from sqlalchemy import text
@@ -830,8 +830,9 @@ def get_source(
 
     Note: Content field is deferred and will not be loaded unless explicitly requested.
     Use get_source_with_content() to load the content field.
+    Relationships (source_type, status, user) are loaded for display.
     """
-    return get_item(db, models.Source, source_id, organization_id, user_id)
+    return get_item_detail(db, models.Source, source_id, organization_id, user_id)
 
 
 def get_source_with_content(
@@ -870,8 +871,9 @@ def get_sources(
 
     Note: Content field is deferred and will not be loaded.
     Use get_source_with_content() for individual sources that need content.
+    Relationships (source_type, status, user) are loaded for display.
     """
-    return get_items(
+    return get_items_detail(
         db,
         models.Source,
         skip,
@@ -2209,11 +2211,110 @@ def get_metrics(
     )
 
 
+def _preprocess_metric_data(
+    db: Session, metric: schemas.MetricCreate, organization_id: str, user_id: str
+) -> Dict[str, Any]:
+    """Preprocess metric data from SDK to convert string types to IDs."""
+    from rhesis.backend.app.constants import EntityType
+    from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
+    from rhesis.backend.logging import logger
+
+    try:
+        # Convert to dict
+        metric_dict = metric.model_dump() if hasattr(metric, "model_dump") else metric.dict()
+    except Exception as e:
+        logger.error(f"Failed to convert metric to dict: {e}")
+        raise
+
+    try:
+        # Handle backend_type string -> backend_type_id (SDK approach)
+        # Only convert if string is provided AND ID is not already set
+        if (
+            "backend_type" in metric_dict
+            and metric_dict["backend_type"]
+            and not metric_dict.get("backend_type_id")
+        ):
+            backend_type = get_or_create_type_lookup(
+                db=db,
+                type_name="BackendType",
+                type_value=metric_dict["backend_type"],
+                organization_id=organization_id,
+                user_id=user_id,
+                commit=False,
+            )
+            metric_dict["backend_type_id"] = backend_type.id
+
+        # Always remove the string field to avoid conflicts with the database model
+        if "backend_type" in metric_dict:
+            del metric_dict["backend_type"]
+
+        # Handle metric_type string -> metric_type_id (SDK approach)
+        # Only convert if string is provided AND ID is not already set
+        if (
+            "metric_type" in metric_dict
+            and metric_dict["metric_type"]
+            and not metric_dict.get("metric_type_id")
+        ):
+            metric_type = get_or_create_type_lookup(
+                db=db,
+                type_name="MetricType",
+                type_value=metric_dict["metric_type"],
+                organization_id=organization_id,
+                user_id=user_id,
+                commit=False,
+            )
+            metric_dict["metric_type_id"] = metric_type.id
+
+        # Always remove the string field to avoid conflicts with the database model
+        if "metric_type" in metric_dict:
+            del metric_dict["metric_type"]
+
+        # Set class_name based on score_type if not provided
+        if not metric_dict.get("class_name"):
+            score_type = metric_dict.get("score_type")
+            if score_type == "numeric":
+                metric_dict["class_name"] = "NumericJudge"
+            elif score_type == "categorical":
+                metric_dict["class_name"] = "CategoricalJudge"
+
+        # Ensure we have a status_id if not provided
+        if not metric_dict.get("status_id"):
+            status = get_or_create_status(
+                db=db,
+                name="Active",  # Default status
+                entity_type=EntityType.METRIC,
+                organization_id=organization_id,
+                user_id=user_id,
+                commit=False,
+            )
+            metric_dict["status_id"] = status.id
+
+        return metric_dict
+
+    except Exception as e:
+        logger.error(f"Error during metric preprocessing: {e}", exc_info=True)
+        raise
+
+
 def create_metric(
     db: Session, metric: schemas.MetricCreate, organization_id: str = None, user_id: str = None
 ) -> models.Metric:
     """Create a new metric with optimized approach - no session variables needed."""
-    return create_item(db, models.Metric, metric, organization_id, user_id)
+    from rhesis.backend.logging import logger
+
+    try:
+        # Preprocess SDK data: convert string types to IDs
+        metric_data = _preprocess_metric_data(db, metric, organization_id, user_id)
+
+        # Create the metric
+        result = create_item(db, models.Metric, metric_data, organization_id, user_id)
+        return result
+
+    except Exception as e:
+        logger.error(
+            f"Failed to create metric '{getattr(metric, 'name', 'Unknown')}': {e}", exc_info=True
+        )
+        raise
 
 
 def update_metric(
