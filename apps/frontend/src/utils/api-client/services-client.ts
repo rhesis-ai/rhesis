@@ -292,7 +292,7 @@ export class ServicesClient extends BaseApiClient {
   async getRecentActivities(
     limit: number = 50
   ): Promise<RecentActivitiesResponse> {
-    return this.request<RecentActivitiesResponse>(
+    return this.fetch<RecentActivitiesResponse>(
       `${API_ENDPOINTS.services}/recent-activities?limit=${limit}`,
       {
         method: 'GET',
