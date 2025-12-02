@@ -62,10 +62,16 @@ COPY apps/polyphemus/src /app/src
 # NOTE: Model pre-download is skipped during build due to GitHub Actions disk space limitations (14GB)
 # The model will be downloaded on first startup in Cloud Run and cached in /app/model_cache
 # Cloud Run instances have persistent local storage, so the model will be cached for subsequent requests
+#
+# IMPORTANT: The SDK's HuggingFace loader includes automatic retry logic with force_download=True
+# if the initial load fails due to safetensors or cache issues. This ensures robust model loading
+# even if cached metadata becomes corrupted or if the model files have a non-standard structure.
 ENV TRANSFORMERS_CACHE="/app/model_cache"
 RUN mkdir -p /app/model_cache
 
 # Set default model environment variable (used at runtime)
+# Format: huggingface/<org>/<model-name>
+# Example: huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1
 ARG DEFAULT_MODEL=huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1
 ENV DEFAULT_MODEL=${DEFAULT_MODEL}
 
@@ -122,7 +128,9 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app:/app/src \
     PATH="/app/.venv/bin:$PATH" \
-    TRANSFORMERS_CACHE="/app/model_cache"
+    TRANSFORMERS_CACHE="/app/model_cache" \
+    HF_HOME="/app/model_cache" \
+    HF_HUB_ENABLE_HF_TRANSFER=1
 
 # Expose the port the app will run on
 EXPOSE 8080

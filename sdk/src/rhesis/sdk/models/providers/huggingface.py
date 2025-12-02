@@ -116,15 +116,70 @@ class HuggingFaceLLM(BaseLLM):
         else:
             device_map = "auto"
 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_name,
-            device_map=device_map,
-            **self.load_kwargs,
-        )
+        # Merge default load kwargs with user-provided kwargs
+        # Default kwargs ensure robust loading across different model types
+        default_load_kwargs = {
+            "trust_remote_code": True,  # Allow models with custom code
+            "local_files_only": False,  # Allow downloading from HuggingFace
+            "resume_download": True,  # Resume partial downloads
+            "force_download": False,  # Use cache if available (set True to force re-download)
+        }
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_name,
-        )
+        # User-provided load_kwargs override defaults
+        merged_load_kwargs = {**default_load_kwargs, **self.load_kwargs}
+
+        try:
+            print(f"Loading model: {self.model_name}")
+            print(f"Load kwargs: {merged_load_kwargs}")
+
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                device_map=device_map,
+                **merged_load_kwargs,
+            )
+
+            print(f"Model loaded successfully: {self.model_name}")
+        except Exception as model_error:
+            # If loading fails with safetensors error, try with force_download=True
+            # This clears any corrupted cache and re-downloads the model
+            error_msg = str(model_error).lower()
+            if "safetensors" in error_msg or "does not appear to have files" in error_msg:
+                print(
+                    "Model loading failed with safetensors error, retrying with force_download=True..."
+                )
+                print(f"Original error: {model_error}")
+
+                # Retry with force_download to bypass cache issues
+                retry_kwargs = {**merged_load_kwargs, "force_download": True}
+                try:
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        self.model_name,
+                        device_map=device_map,
+                        **retry_kwargs,
+                    )
+                    print(f"Model loaded successfully on retry: {self.model_name}")
+                except Exception as retry_error:
+                    # If retry also fails, raise with detailed error message
+                    raise RuntimeError(
+                        f"Failed to load model '{self.model_name}' even after retry with force_download=True. "
+                        f"Original error: {model_error}. Retry error: {retry_error}. "
+                        f"Please check: 1) Model exists on HuggingFace Hub, "
+                        f"2) Network connectivity, 3) Available disk space in cache directory."
+                    )
+            else:
+                # Re-raise other errors as-is
+                raise
+
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name,
+                trust_remote_code=True,  # Allow tokenizers with custom code
+            )
+            print(f"Tokenizer loaded successfully: {self.model_name}")
+        except Exception as tokenizer_error:
+            raise RuntimeError(
+                f"Failed to load tokenizer for '{self.model_name}': {tokenizer_error}"
+            )
 
         # Get the device for input tensors
         # When using device_map="auto", the model may be split across devices
