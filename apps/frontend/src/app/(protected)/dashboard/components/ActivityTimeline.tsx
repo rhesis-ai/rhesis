@@ -480,7 +480,9 @@ export default function ActivityTimeline({
             const timeAgo = activity.timestamp
               ? formatDistanceToNow(parseISO(activity.timestamp), {
                   addSuffix: true,
-                }).replace('about ', '~')
+                })
+                  .replace('about ', '~')
+                  .replace(' ago', ' ago')
               : 'Unknown';
 
             return (
@@ -514,7 +516,7 @@ export default function ActivityTimeline({
                     color="text.secondary"
                     sx={{ lineHeight: 1, textAlign: 'right', width: '100%' }}
                   >
-                    {timeAgo.replace(' ago', '')}
+                    {timeAgo}
                   </Typography>
                 </TimelineOppositeContent>
                 <TimelineSeparator>
@@ -707,7 +709,8 @@ export default function ActivityTimeline({
                       {/* Project */}
                       {activity.metadata?.project && (
                         <Chip
-                          label={`📁 ${activity.metadata.project}`}
+                          icon={<AppsIcon fontSize="small" />}
+                          label={activity.metadata.project}
                           size="small"
                           variant="outlined"
                           sx={{
@@ -719,7 +722,8 @@ export default function ActivityTimeline({
                       {/* Test Set */}
                       {activity.metadata?.testSet && (
                         <Chip
-                          label={`📦 ${activity.metadata.testSet}`}
+                          icon={<CategoryIcon fontSize="small" />}
+                          label={activity.metadata.testSet}
                           size="small"
                           variant="outlined"
                           sx={{
