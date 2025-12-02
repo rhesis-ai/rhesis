@@ -203,6 +203,14 @@ async def generate_text(request: GenerateRequest) -> Dict:
     # Note: get_polyphemus_instance has internal fallback logic that masks failures
     # We need to check if the returned model actually matches what was requested
     requested_model_name = request.model
+
+    # Validate model name - reject placeholder/invalid values like "string"
+    # Common invalid values: "string", "", "null", "undefined", etc.
+    invalid_model_names = {"string", "", "null", "undefined", "none", "default"}
+    if requested_model_name and requested_model_name.lower() in invalid_model_names:
+        logger.warning(f"Invalid model name '{requested_model_name}' detected, using default model")
+        requested_model_name = None
+
     try:
         llm = await get_polyphemus_instance(model_name=requested_model_name)
 

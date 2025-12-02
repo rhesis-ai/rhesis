@@ -15,7 +15,7 @@ dependencies = [
     # Data analysis and plotting
     "pandas>=2.2.2",
     "matplotlib>=3.10.0",
-    "numpy>=2.2.0",
+    "numpy>=2.1.0,<2.2.0",  # Pin to 2.1.x - 2.2.0 has import bugs with test modules
     "seaborn>=0.13.0",
 
     # SDK dependency (required for HuggingFaceLLM)
