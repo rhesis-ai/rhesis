@@ -480,6 +480,7 @@ export default function DashboardKPIs({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: theme.spacing(1),
+                  position: 'relative',
                 }}
               >
                 <Tooltip
@@ -525,7 +526,14 @@ export default function DashboardKPIs({
                     },
                   }}
                 >
-                  <Box sx={{ display: 'inline-flex', cursor: 'pointer' }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                    }}
+                  >
                     <Gauge
                       value={currentMonthPassRate}
                       valueMin={0}
@@ -535,73 +543,44 @@ export default function DashboardKPIs({
                       text={() => ''}
                       sx={{
                         [`& .MuiGauge-valueArc`]: {
-                          fill: passRateDisplay.color,
+                          fill: theme.palette.primary.main,
+                        },
+                        [`& .MuiGauge-referenceArc`]: {
+                          fill: theme.palette.grey[300],
                         },
                       }}
                     />
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        gap: theme.spacing(1),
+                        mt: theme.spacing(0.5),
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: theme.typography.fontWeightMedium,
+                          color: theme.palette.primary.main,
+                        }}
+                      >
+                        {currentMonthPassed.toLocaleString()} Pass
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        /
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: theme.typography.fontWeightMedium,
+                          color: theme.palette.grey[500],
+                        }}
+                      >
+                        {currentMonthFailed.toLocaleString()} Fail
+                      </Typography>
+                    </Box>
                   </Box>
                 </Tooltip>
-
-                {/* Legend */}
-                <Box
-                  sx={{
-                    display: 'flex',
-                    gap: theme.spacing(2),
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: theme.spacing(0.5),
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: theme.spacing(1),
-                        height: theme.spacing(1),
-                        borderRadius: '50%',
-                        bgcolor: theme.palette.success.main,
-                      }}
-                    />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: theme.typography.fontWeightMedium,
-                        color: theme.palette.success.main,
-                      }}
-                    >
-                      {currentMonthPassed.toLocaleString()} Pass
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: theme.spacing(0.5),
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: theme.spacing(1),
-                        height: theme.spacing(1),
-                        borderRadius: '50%',
-                        bgcolor: theme.palette.error.main,
-                      }}
-                    />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: theme.typography.fontWeightMedium,
-                        color: theme.palette.error.main,
-                      }}
-                    >
-                      {currentMonthFailed.toLocaleString()} Fail
-                    </Typography>
-                  </Box>
-                </Box>
               </Box>
 
               {passRateTrend !== 0 && (
