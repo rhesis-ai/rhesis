@@ -488,6 +488,7 @@ export default function TestSetsGrid({
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
+        persistState
         initialState={{
           columns: {
             columnVisibilityModel: {
