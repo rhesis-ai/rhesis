@@ -21,6 +21,8 @@ import ScienceIcon from '@mui/icons-material/Science';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import HorizontalSplitIcon from '@mui/icons-material/HorizontalSplit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
+import CancelIcon from '@mui/icons-material/Cancel';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestStats } from '@/utils/api-client/interfaces/tests';
 import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';
@@ -360,6 +362,31 @@ export default function DashboardKPIs({
       ? Math.min(100, Math.round((totalTests / (totalTestSets * 10)) * 100))
       : 0;
 
+  // Helper function to get pass rate display properties based on percentage
+  const getPassRateDisplay = (passRate: number) => {
+    if (passRate >= 80) {
+      return {
+        icon: CheckCircleIcon,
+        color: theme.palette.success.main,
+        bgColor: alpha(theme.palette.success.main, 0.1),
+      };
+    } else if (passRate >= 50) {
+      return {
+        icon: WarningIcon,
+        color: theme.palette.warning.main,
+        bgColor: alpha(theme.palette.warning.main, 0.1),
+      };
+    } else {
+      return {
+        icon: CancelIcon,
+        color: theme.palette.error.main,
+        bgColor: alpha(theme.palette.error.main, 0.1),
+      };
+    }
+  };
+
+  const passRateDisplay = getPassRateDisplay(currentMonthPassRate);
+
   return (
     <Box sx={{ mb: theme.spacing(4) }}>
       <Grid container spacing={theme.spacing(3)}>
@@ -394,18 +421,18 @@ export default function DashboardKPIs({
               >
                 <Box
                   sx={{
-                    backgroundColor: alpha(theme.palette.success.main, 0.1),
+                    backgroundColor: passRateDisplay.bgColor,
                     borderRadius: theme.shape.borderRadius,
                     p: theme.spacing(1),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     mr: theme.spacing(2),
-                    color: theme.palette.success.main,
+                    color: passRateDisplay.color,
                     fontSize: theme.typography.h4.fontSize,
                   }}
                 >
-                  <CheckCircleIcon />
+                  {React.createElement(passRateDisplay.icon)}
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
@@ -508,12 +535,7 @@ export default function DashboardKPIs({
                       text={() => ''}
                       sx={{
                         [`& .MuiGauge-valueArc`]: {
-                          fill:
-                            currentMonthPassRate > 60
-                              ? theme.palette.success.main
-                              : currentMonthPassRate >= 30
-                                ? theme.palette.warning.main
-                                : theme.palette.error.main,
+                          fill: passRateDisplay.color,
                         },
                       }}
                     />
@@ -546,7 +568,10 @@ export default function DashboardKPIs({
                     />
                     <Typography
                       variant="caption"
-                      sx={{ fontWeight: theme.typography.fontWeightMedium }}
+                      sx={{
+                        fontWeight: theme.typography.fontWeightMedium,
+                        color: theme.palette.success.main,
+                      }}
                     >
                       {currentMonthPassed.toLocaleString()} Pass
                     </Typography>
@@ -568,7 +593,10 @@ export default function DashboardKPIs({
                     />
                     <Typography
                       variant="caption"
-                      sx={{ fontWeight: theme.typography.fontWeightMedium }}
+                      sx={{
+                        fontWeight: theme.typography.fontWeightMedium,
+                        color: theme.palette.error.main,
+                      }}
                     >
                       {currentMonthFailed.toLocaleString()} Fail
                     </Typography>
