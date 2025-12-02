@@ -59,9 +59,26 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     ),
                 )
 
-            # Detect if running in worker context
+            # Detect execution context and Redis availability
             is_worker = os.getenv("CELERY_WORKER_NAME") is not None
-            context_type = "WORKER (will use RPC)" if is_worker else "BACKEND (direct connection)"
+
+            # Import Redis manager to check availability
+            from rhesis.backend.app.services.connector.redis_client import redis_manager
+
+            # Determine invocation method:
+            # - Use RPC if: (1) running in worker OR (2) Redis available (multi-instance support)
+            # - Use direct connection only if: single-instance backend (Redis not available)
+            use_rpc = is_worker or redis_manager.is_available
+
+            if use_rpc:
+                context_type = (
+                    "WORKER (RPC via Redis)"
+                    if is_worker
+                    else "BACKEND (RPC via Redis for multi-instance)"
+                )
+            else:
+                context_type = "BACKEND (direct connection - single instance)"
+
             logger.info(f"SDK invocation context: {context_type}")
 
             # Prepare conversation context (includes input_data + any extra context)
@@ -96,16 +113,16 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
             logger.info(
                 f"Invoking SDK function: {function_name} "
-                f"(project: {project_id}, env: {environment}, worker: {is_worker})"
+                f"(project: {project_id}, env: {environment}, use_rpc: {use_rpc})"
             )
             logger.debug(f"Function kwargs: {function_kwargs}")
 
             # Generate unique test run ID for this invocation
             test_run_id = f"invoke_{uuid.uuid4().hex[:12]}"
 
-            # Choose invocation method based on context
-            if is_worker:
-                # Use RPC client for worker context
+            # Choose invocation method based on Redis availability
+            if use_rpc:
+                # Use RPC client for worker or multi-instance backend
                 from rhesis.backend.app.services.connector.rpc_client import SDKRpcClient
 
                 try:
@@ -117,7 +134,9 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     logger.error(f"❌ Failed to initialize RPC client: {e}")
                     return self._create_error_response(
                         error_type="sdk_rpc_unavailable",
-                        output_message="Cannot invoke SDK from worker: Redis not configured",
+                        output_message=(
+                            "Cannot invoke SDK: Redis not configured for multi-instance deployment"
+                        ),
                         message=str(e),
                         request_details=self._safe_request_details(locals(), "SDK"),
                     )
@@ -150,10 +169,13 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     await rpc_client.close()
 
             else:
-                # Direct access for backend context (no Redis needed)
-                from rhesis.backend.app.services.connector.manager import connection_manager
+                # Direct access for backend context (checks local + Redis for multi-instance)
+                from rhesis.backend.app.services.connector.manager import (
+                    connection_manager,
+                )
 
-                if not connection_manager.is_connected(str(project_id), environment):
+                is_connected = await connection_manager.is_connected(str(project_id), environment)
+                if not is_connected:
                     return self._create_error_response(
                         error_type="sdk_not_connected",
                         output_message=f"SDK not connected: {project_id} in {environment}",
