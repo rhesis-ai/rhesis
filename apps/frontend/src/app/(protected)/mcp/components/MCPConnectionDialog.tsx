@@ -647,13 +647,6 @@ export function MCPConnectionDialog({
                       (requiresToken && !authToken) ||
                       (isCustomProvider && !toolMetadata.trim())
                     }
-                    startIcon={
-                      testingConnection ? (
-                        <CircularProgress size={16} />
-                      ) : (
-                        <SmartToyIcon />
-                      )
-                    }
                     sx={{ minWidth: 150 }}
                   >
                     {testingConnection ? 'Testing...' : 'Test Connection'}
