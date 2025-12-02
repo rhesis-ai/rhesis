@@ -307,12 +307,6 @@ export function MCPConnectionDialog({
       if (result.is_authenticated === 'Yes') {
         // Test successful
         setTestResult(result);
-        if (!isEditMode) {
-          // In create mode, the tool is already created and tested successfully
-          notifications?.show('Connection tested successfully!', {
-            severity: 'success',
-          });
-        }
       } else {
         // Test failed
         setTestResult(result);
