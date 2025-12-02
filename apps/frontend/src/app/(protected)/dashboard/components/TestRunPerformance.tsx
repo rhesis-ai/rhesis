@@ -18,21 +18,31 @@ import {
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import {
-  TestResultsStats,
-  TestRunSummaryItem,
-} from '@/utils/api-client/interfaces/test-results';
-import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
+import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+
+// Extended interface to include stats
+interface TestRunWithStats extends TestRunDetail {
+  stats?: {
+    total: number;
+    passed: number;
+    failed: number;
+    pass_rate: number;
+  } | null;
+}
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import PersonIcon from '@mui/icons-material/Person';
+import { CategoryIcon } from '@/components/icons';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import Link from 'next/link';
+import { useTheme } from '@mui/material';
 
 interface TestRunPerformanceProps {
   sessionToken: string;
   onLoadComplete?: () => void;
+  limit?: number;
 }
 
 const getStatusColor = (
@@ -55,10 +65,10 @@ const getStatusIcon = (status?: string, taskState?: string) => {
   return <PlayArrowIcon fontSize="small" />;
 };
 
-const calculatePassRate = (testRun: TestRunSummaryItem): number => {
-  // Use backend-calculated pass_rate with 1 decimal precision
-  if (testRun.overall?.pass_rate != null) {
-    return Math.round(testRun.overall.pass_rate * 10) / 10;
+const calculatePassRate = (testRun: TestRunWithStats): number => {
+  // Use stats from API if available
+  if (testRun.stats?.pass_rate != null) {
+    return Math.round(testRun.stats.pass_rate * 10) / 10;
   }
   // Return -1 to indicate no data available
   return -1;
@@ -67,9 +77,11 @@ const calculatePassRate = (testRun: TestRunSummaryItem): number => {
 export default function TestRunPerformance({
   sessionToken,
   onLoadComplete,
+  limit: propLimit,
 }: TestRunPerformanceProps) {
+  const theme = useTheme();
   const router = useRouter();
-  const [testRuns, setTestRuns] = useState<TestRunSummaryItem[]>([]);
+  const [testRuns, setTestRuns] = useState<TestRunWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -89,29 +101,50 @@ export default function TestRunPerformance({
     try {
       setLoading(true);
       const apiFactory = new ApiClientFactory(sessionToken);
+      const testRunsClient = apiFactory.getTestRunsClient();
       const testResultsClient = apiFactory.getTestResultsClient();
 
-      const options: TestResultsStatsOptions = {
-        mode: 'test_runs',
-        months: 6,
-      };
+      const limit = propLimit ?? calculateLimit();
 
-      const response =
-        await testResultsClient.getComprehensiveTestResultsStats(options);
+      // Fetch test runs with proper details including test_set
+      const response = await testRunsClient.getTestRuns({
+        skip: 0,
+        limit: limit,
+        sort_by: 'created_at',
+        sort_order: 'desc',
+      });
 
-      const limit = calculateLimit();
+      // Fetch statistics for each test run
+      const testRunsWithStats = await Promise.all(
+        response.data.map(async testRun => {
+          try {
+            // Fetch test results stats for this specific test run
+            const stats =
+              await testResultsClient.getComprehensiveTestResultsStats({
+                mode: 'summary',
+                test_run_ids: [testRun.id],
+              });
 
-      // Sort by created_at (most recent first) and take calculated limit
-      const sortedRuns = (response.test_run_summary || [])
-        .filter(run => run.created_at)
-        .sort((a, b) => {
-          const dateA = new Date(a.created_at!).getTime();
-          const dateB = new Date(b.created_at!).getTime();
-          return dateB - dateA;
+            // Add stats to the test run object
+            return {
+              ...testRun,
+              stats: stats.overall_pass_rates || null,
+            };
+          } catch (error) {
+            // If stats fetch fails, return test run without stats
+            console.error(
+              `Failed to fetch stats for test run ${testRun.id}:`,
+              error
+            );
+            return {
+              ...testRun,
+              stats: null,
+            };
+          }
         })
-        .slice(0, limit);
+      );
 
-      setTestRuns(sortedRuns);
+      setTestRuns(testRunsWithStats);
       setError(null);
     } catch (err) {
       setError('Unable to load test run data');
@@ -120,7 +153,7 @@ export default function TestRunPerformance({
       setLoading(false);
       onLoadComplete?.();
     }
-  }, [sessionToken, calculateLimit]);
+  }, [sessionToken, calculateLimit, propLimit]);
 
   useEffect(() => {
     // Set viewport height once on mount
@@ -151,8 +184,20 @@ export default function TestRunPerformance({
 
   if (loading) {
     return (
-      <Paper sx={{ p: 3, height: containerHeight, overflow: 'hidden' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+      <Paper
+        sx={{
+          p: theme.spacing(3),
+          height: containerHeight,
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            p: theme.spacing(3),
+          }}
+        >
           <CircularProgress />
         </Box>
       </Paper>
@@ -160,16 +205,20 @@ export default function TestRunPerformance({
   }
 
   return (
-    <Paper sx={{ p: 3, height: containerHeight, overflow: 'auto' }}>
+    <Paper
+      sx={{ p: theme.spacing(3), height: containerHeight, overflow: 'auto' }}
+    >
       <Box
         sx={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          mb: 2.5,
+          mb: theme.spacing(2.5),
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1) }}
+        >
           <PlayArrowIcon color="primary" />
           <Typography variant="h6">Recent Test Runs</Typography>
         </Box>
@@ -179,54 +228,95 @@ export default function TestRunPerformance({
       </Box>
 
       {error && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
+        <Alert severity="warning" sx={{ mb: theme.spacing(2) }}>
           {error}
         </Alert>
       )}
 
-      <Grid container spacing={2}>
+      <Grid container spacing={theme.spacing(2)}>
         {testRuns.length === 0 ? (
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography color="text.secondary" align="center">
               No test runs found
             </Typography>
           </Grid>
         ) : (
           testRuns.map(testRun => {
-            // Test runs in summary are completed - show pass/fail based on pass rate
-            const passRate = calculatePassRate(testRun);
-            const status = passRate >= 60 ? 'Completed' : 'Failed';
-            const statusColor = passRate >= 60 ? 'success' : 'error';
-            const statusIcon =
-              passRate >= 60 ? (
-                <CheckCircleIcon fontSize="small" />
-              ) : (
-                <ErrorIcon fontSize="small" />
-              );
-            const testSetName = testRun.name || 'Unknown Test Run';
-            const startedAt = testRun.started_at
-              ? formatDistanceToNow(parseISO(testRun.started_at), {
-                  addSuffix: true,
-                }).replace('about ', '~')
-              : testRun.created_at
-                ? formatDistanceToNow(parseISO(testRun.created_at), {
-                    addSuffix: true,
-                  }).replace('about ', '~')
-                : 'N/A';
+            // Get status from the test run
+            const statusName = testRun.status?.name || 'Unknown';
+            const taskState = testRun.attributes?.task_state;
+            const statusColor = getStatusColor(statusName, taskState);
+            const statusIcon = getStatusIcon(statusName, taskState);
 
-            // Get test count for display
-            const totalTests =
-              testRun.overall?.total || testRun.total_tests || 0;
+            // Get pass rate
+            const passRate = calculatePassRate(testRun);
+
+            // Get test run name
+            const testRunName = testRun.name || 'Unnamed Test Run';
+
+            // Get test set information
+            const testSet = testRun.test_configuration?.test_set;
+            const testSetName = testSet?.name || 'Unknown Test Set';
+            const testSetId = testSet?.id;
+            const testSetType = testSet?.test_set_type?.type_value;
+
+            // Get timing information
+            const startedAt = (() => {
+              const parseDate = (dateStr: string) => {
+                try {
+                  const parsedDate = parseISO(dateStr);
+
+                  // Validate the parsed date
+                  if (isNaN(parsedDate.getTime())) {
+                    return null;
+                  }
+
+                  return formatDistanceToNow(parsedDate, {
+                    addSuffix: true,
+                  }).replace('about ', '~');
+                } catch (error) {
+                  return null;
+                }
+              };
+
+              // Try started_at from attributes first (most accurate for execution time)
+              if (
+                testRun.attributes?.started_at &&
+                typeof testRun.attributes.started_at === 'string'
+              ) {
+                const result = parseDate(testRun.attributes.started_at);
+                if (result) return result;
+              }
+
+              // Fall back to created_at
+              if (
+                testRun.created_at &&
+                typeof testRun.created_at === 'string'
+              ) {
+                const result = parseDate(testRun.created_at);
+                if (result) return result;
+              }
+
+              return 'N/A';
+            })();
+
+            // Get test count and pass/fail counts from stats
+            const totalTests = testRun.stats?.total || 0;
+            const passedTests = testRun.stats?.passed || 0;
+            const failedTests = testRun.stats?.failed || 0;
 
             return (
-              <Grid item xs={12} sm={6} md={6} key={testRun.id}>
+              <Grid size={{ xs: 12 }} key={testRun.id}>
                 <Card
                   elevation={1}
                   sx={{
                     height: '100%',
+                    minHeight: theme.spacing(21),
                     cursor: 'pointer',
-                    transition: 'box-shadow 0.2s',
-                    borderLeft: 4,
+                    transition: theme.transitions.create('box-shadow', {
+                      duration: theme.transitions.duration.short,
+                    }),
+                    borderLeft: theme.spacing(0.5),
                     borderLeftColor:
                       statusColor === 'success'
                         ? 'success.main'
@@ -236,114 +326,248 @@ export default function TestRunPerformance({
                             ? 'warning.main'
                             : 'info.main',
                     '&:hover': {
-                      boxShadow: 4,
+                      boxShadow: theme.shadows[4],
                     },
                   }}
                   onClick={() => handleCardClick(testRun.id)}
                 >
-                  <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                    {/* Status Badge */}
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        mb: 1.5,
-                      }}
-                    >
-                      <Chip
-                        icon={statusIcon}
-                        label={status}
-                        color={statusColor}
-                        size="small"
-                      />
-                      <Tooltip title={startedAt}>
+                  <CardContent
+                    sx={{
+                      p: theme.spacing(2),
+                      '&:last-child': { pb: theme.spacing(2) },
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    {/* Top Section: Header Information */}
+                    <Box>
+                      {/* Status Badge and Test Run Name */}
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                          mb: theme.spacing(1.5),
+                        }}
+                      >
                         <Box
                           sx={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 0.5,
+                            gap: theme.spacing(1),
+                            flex: 1,
+                            minWidth: 0,
                           }}
                         >
-                          <ScheduleIcon fontSize="small" color="action" />
-                          <Typography variant="caption" color="text.secondary">
-                            {startedAt}
-                          </Typography>
+                          <Chip
+                            icon={statusIcon}
+                            label={statusName}
+                            color={statusColor}
+                            size="small"
+                          />
+                          <Tooltip title={testRunName}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{
+                                fontWeight: theme.typography.fontWeightMedium,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {testRunName}
+                            </Typography>
+                          </Tooltip>
                         </Box>
-                      </Tooltip>
-                    </Box>
+                        <Tooltip title={startedAt}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: theme.spacing(0.5),
+                              flexShrink: 0,
+                            }}
+                          >
+                            <ScheduleIcon fontSize="small" color="action" />
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {startedAt}
+                            </Typography>
+                          </Box>
+                        </Tooltip>
+                      </Box>
 
-                    {/* Test Set Name */}
-                    <Tooltip title={testSetName}>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{
-                          fontWeight: 600,
-                          mb: 1,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {testSetName}
-                      </Typography>
-                    </Tooltip>
-
-                    {/* Pass Rate Progress Bar */}
-                    {passRate >= 0 && (
-                      <Box sx={{ mb: 1.5 }}>
+                      {/* Test Set Link */}
+                      {testSetId && (
                         <Box
                           sx={{
                             display: 'flex',
-                            justifyContent: 'space-between',
-                            mb: 0.5,
+                            alignItems: 'center',
+                            gap: theme.spacing(0.5),
                           }}
+                          onClick={e => e.stopPropagation()}
                         >
-                          <Typography variant="caption" color="text.secondary">
-                            Pass Rate
-                          </Typography>
-                          <Typography
-                            variant="caption"
+                          <CategoryIcon fontSize="small" color="action" />
+                          <Box
                             sx={{
-                              fontWeight: 600,
-                              color:
-                                passRate >= 80
-                                  ? 'success.main'
-                                  : passRate >= 60
-                                    ? 'warning.main'
-                                    : 'error.main',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: theme.spacing(1),
+                              minWidth: 0,
+                              flex: 1,
                             }}
                           >
-                            {passRate.toFixed(1)}%
-                          </Typography>
+                            <Link
+                              href={`/test-sets/${testSetId}`}
+                              style={{
+                                textDecoration: 'none',
+                                minWidth: 0,
+                                flex: 1,
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                color="primary"
+                                sx={{
+                                  fontWeight: theme.typography.fontWeightMedium,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  '&:hover': {
+                                    textDecoration: 'underline',
+                                  },
+                                }}
+                              >
+                                {testSetName}
+                              </Typography>
+                            </Link>
+                            {testSetType && (
+                              <Chip
+                                label={testSetType}
+                                size="small"
+                                variant="outlined"
+                                sx={{
+                                  height: theme.spacing(2.5),
+                                  fontSize: theme.typography.caption.fontSize,
+                                  fontWeight: theme.typography.fontWeightMedium,
+                                  '& .MuiChip-label': {
+                                    px: theme.spacing(0.75),
+                                  },
+                                }}
+                              />
+                            )}
+                          </Box>
                         </Box>
-                        <LinearProgress
-                          variant="determinate"
-                          value={passRate}
-                          color={
-                            passRate >= 80
-                              ? 'success'
-                              : passRate >= 60
-                                ? 'warning'
-                                : 'error'
-                          }
-                          sx={{ height: 6, borderRadius: 1 }}
-                        />
-                      </Box>
-                    )}
+                      )}
+                    </Box>
 
-                    {/* Test Count */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
+                    {/* Bottom Section: Performance Metrics */}
+                    <Box>
+                      {/* Pass Rate Progress Bar */}
+                      {passRate >= 0 && (
+                        <Box sx={{ mb: theme.spacing(1.5) }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              mb: theme.spacing(0.5),
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Pass Rate
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontWeight: theme.typography.fontWeightMedium,
+                                color:
+                                  passRate >= 80
+                                    ? 'success.main'
+                                    : passRate >= 60
+                                      ? 'warning.main'
+                                      : 'error.main',
+                              }}
+                            >
+                              {passRate.toFixed(1)}%
+                            </Typography>
+                          </Box>
+                          <LinearProgress
+                            variant="determinate"
+                            value={passRate}
+                            color={
+                              passRate >= 80
+                                ? 'success'
+                                : passRate >= 60
+                                  ? 'warning'
+                                  : 'error'
+                            }
+                            sx={{
+                              height: theme.spacing(0.75),
+                              borderRadius: theme.shape.borderRadius,
+                            }}
+                          />
+                        </Box>
+                      )}
+
+                      {/* Test Count with Pass/Fail breakdown */}
+                      <Box
                         sx={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: theme.spacing(1),
+                          flexWrap: 'wrap',
                         }}
                       >
-                        {totalTests} test{totalTests !== 1 ? 's' : ''}
-                      </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontWeight: theme.typography.fontWeightMedium }}
+                        >
+                          {totalTests} test{totalTests !== 1 ? 's' : ''}
+                        </Typography>
+                        {totalTests > 0 && (
+                          <>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              •
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: 'success.main',
+                                fontWeight: theme.typography.fontWeightMedium,
+                              }}
+                            >
+                              {passedTests} passed
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              •
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: 'error.main',
+                                fontWeight: theme.typography.fontWeightMedium,
+                              }}
+                            >
+                              {failedTests} failed
+                            </Typography>
+                          </>
+                        )}
+                      </Box>
                     </Box>
                   </CardContent>
                 </Card>

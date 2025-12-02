@@ -10,6 +10,7 @@ import {
   CircularProgress,
   useTheme,
   alpha,
+  Tooltip,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart';
@@ -60,40 +61,65 @@ const KPICard: React.FC<KPICardProps> = ({
       elevation={2}
       sx={{
         height: '100%',
+        minHeight: theme.spacing(32),
+        display: 'flex',
+        flexDirection: 'column',
         position: 'relative',
         overflow: 'visible',
-        transition: 'box-shadow 0.2s',
+        transition: theme.transitions.create('box-shadow', {
+          duration: theme.transitions.duration.short,
+        }),
         '&:hover': {
           boxShadow: theme.shadows[8],
         },
       }}
     >
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+      <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            mb: theme.spacing(2),
+          }}
+        >
           <Box
             sx={{
               backgroundColor: alpha(color, 0.1),
-              borderRadius: 2,
-              p: 1,
+              borderRadius: theme.shape.borderRadius,
+              p: theme.spacing(1),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              mr: 2,
+              mr: theme.spacing(2),
               color,
-              fontSize: 28,
+              fontSize: theme.typography.h4.fontSize,
             }}
           >
             {icon}
           </Box>
-          <Box sx={{ flex: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               variant="body2"
               color="text.secondary"
-              sx={{ fontWeight: 500 }}
+              sx={{
+                fontWeight: theme.typography.fontWeightMedium,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
             >
               {title}
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.5 }}>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: theme.typography.fontWeightBold,
+                mt: theme.spacing(0.5),
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {value}
             </Typography>
           </Box>
@@ -103,17 +129,19 @@ const KPICard: React.FC<KPICardProps> = ({
           <Typography
             variant="caption"
             color="text.secondary"
-            sx={{ display: 'block', mb: 1 }}
+            sx={{ display: 'block', mb: theme.spacing(1) }}
           >
             {subtitle}
           </Typography>
         )}
 
         {sparklineData && sparklineData.length > 0 && (
-          <Box sx={{ height: 60, mt: 1 }}>
+          <Box
+            sx={{ height: theme.spacing(7.5), mt: theme.spacing(1), flex: 1 }}
+          >
             <SparkLineChart
               data={sparklineData}
-              height={60}
+              height={Number(theme.spacing(7.5).replace('px', ''))}
               showTooltip
               showHighlight
               color={color}
@@ -123,7 +151,7 @@ const KPICard: React.FC<KPICardProps> = ({
               sx={{
                 '& .MuiAreaElement-root': {
                   fill: color,
-                  fillOpacity: 0.3,
+                  fillOpacity: theme.palette.action.selectedOpacity,
                 },
               }}
             />
@@ -135,7 +163,7 @@ const KPICard: React.FC<KPICardProps> = ({
             sx={{
               display: 'flex',
               alignItems: 'center',
-              mt: 1,
+              mt: theme.spacing(1),
               color:
                 trend === 'up'
                   ? theme.palette.success.main
@@ -145,11 +173,24 @@ const KPICard: React.FC<KPICardProps> = ({
             }}
           >
             {trend === 'up' ? (
-              <TrendingUpIcon sx={{ fontSize: 16, mr: 0.5 }} />
+              <TrendingUpIcon
+                sx={{
+                  fontSize: theme.typography.body2.fontSize,
+                  mr: theme.spacing(0.5),
+                }}
+              />
             ) : trend === 'down' ? (
-              <TrendingDownIcon sx={{ fontSize: 16, mr: 0.5 }} />
+              <TrendingDownIcon
+                sx={{
+                  fontSize: theme.typography.body2.fontSize,
+                  mr: theme.spacing(0.5),
+                }}
+              />
             ) : null}
-            <Typography variant="caption" sx={{ fontWeight: 600 }}>
+            <Typography
+              variant="caption"
+              sx={{ fontWeight: theme.typography.fontWeightSemiBold }}
+            >
               {trendValue}
             </Typography>
           </Box>
@@ -232,11 +273,14 @@ export default function DashboardKPIs({
   const totalTests = testStats?.total || 0;
   const totalTestSets = testSetStats?.total || 0;
 
-  // Get current month's pass rate (latest data from 2-month query)
-  const currentMonthPassRate =
+  // Get current month's pass rate and counts (latest data from 2-month query)
+  const currentMonthData =
     currentMonthResultsStats?.timeline?.[
       currentMonthResultsStats.timeline.length - 1
-    ]?.overall?.pass_rate || 0;
+    ]?.overall;
+  const currentMonthPassRate = currentMonthData?.pass_rate || 0;
+  const currentMonthPassed = currentMonthData?.passed || 0;
+  const currentMonthFailed = currentMonthData?.failed || 0;
 
   // Get last month's pass rate for trend calculation
   const lastMonthPassRate =
@@ -317,134 +361,262 @@ export default function DashboardKPIs({
       : 0;
 
   return (
-    <Box sx={{ mb: 4 }}>
-      <Grid container spacing={3}>
+    <Box sx={{ mb: theme.spacing(4) }}>
+      <Grid container spacing={theme.spacing(3)}>
         {/* This Month's Pass Rate */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card
             elevation={2}
             sx={{
               height: '100%',
-              transition: 'box-shadow 0.2s',
+              minHeight: theme.spacing(32),
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative',
+              overflow: 'visible',
+              transition: theme.transitions.create('box-shadow', {
+                duration: theme.transitions.duration.short,
+              }),
               '&:hover': {
                 boxShadow: theme.shadows[8],
               },
             }}
           >
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
+            <CardContent
+              sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  mb: theme.spacing(2),
+                }}
+              >
                 <Box
                   sx={{
                     backgroundColor: alpha(theme.palette.success.main, 0.1),
-                    borderRadius: 2,
-                    p: 1,
+                    borderRadius: theme.shape.borderRadius,
+                    p: theme.spacing(1),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    mr: 2,
+                    mr: theme.spacing(2),
+                    color: theme.palette.success.main,
+                    fontSize: theme.typography.h4.fontSize,
                   }}
                 >
-                  <CheckCircleIcon
-                    sx={{ color: theme.palette.success.main, fontSize: 28 }}
-                  />
+                  <CheckCircleIcon />
                 </Box>
-                <Box sx={{ flex: 1 }}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
                     variant="body2"
                     color="text.secondary"
-                    sx={{ fontWeight: 500 }}
+                    sx={{
+                      fontWeight: theme.typography.fontWeightMedium,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
                   >
                     Overall Pass Rate
+                  </Typography>
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      fontWeight: theme.typography.fontWeightBold,
+                      mt: theme.spacing(0.5),
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {currentMonthPassRate.toFixed(1)}%
                   </Typography>
                 </Box>
               </Box>
 
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mb: theme.spacing(1) }}
+              >
+                Current performance
+              </Typography>
+
               <Box
                 sx={{
+                  height: theme.spacing(7.5),
+                  mt: theme.spacing(1),
+                  flex: 1,
                   display: 'flex',
-                  justifyContent: 'center',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  height: 100,
-                  cursor: 'pointer',
-                  '&:hover': {
-                    opacity: 0.8,
-                  },
+                  justifyContent: 'center',
+                  gap: theme.spacing(1),
                 }}
-                onClick={() => router.push('/test-results')}
               >
-                <Gauge
-                  value={currentMonthPassRate}
-                  valueMin={0}
-                  valueMax={100}
-                  width={100}
-                  height={100}
-                  text={({ value }) => `${value?.toFixed(1)}%`}
-                  sx={{
-                    [`& .MuiGauge-valueArc`]: {
-                      fill:
-                        currentMonthPassRate > 60
-                          ? theme.palette.success.main
-                          : currentMonthPassRate >= 30
-                            ? theme.palette.warning.main
-                            : theme.palette.error.main,
+                <Tooltip
+                  title={
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: 'block',
+                          fontWeight: theme.typography.fontWeightMedium,
+                        }}
+                      >
+                        Pass Rate: {currentMonthPassRate.toFixed(1)}%
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: 'block',
+                          fontWeight: theme.typography.fontWeightMedium,
+                        }}
+                      >
+                        Fail Rate: {(100 - currentMonthPassRate).toFixed(1)}%
+                      </Typography>
+                    </Box>
+                  }
+                  arrow
+                  placement="top"
+                  componentsProps={{
+                    tooltip: {
+                      sx: {
+                        bgcolor: theme.palette.background.paper,
+                        color: theme.palette.text.primary,
+                        border: `1px solid ${theme.palette.divider}`,
+                        borderRadius: theme.shape.borderRadius,
+                        boxShadow: theme.shadows[2],
+                        '& .MuiTooltip-arrow': {
+                          color: theme.palette.background.paper,
+                          '&::before': {
+                            border: `1px solid ${theme.palette.divider}`,
+                          },
+                        },
+                      },
                     },
                   }}
-                />
-              </Box>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mt: 1,
-                  gap: 0.5,
-                }}
-              >
-                {passRateTrend !== 0 && (
-                  <>
-                    {passRateTrend > 0 ? (
-                      <TrendingUpIcon
-                        sx={{
-                          fontSize: 16,
-                          color: theme.palette.success.main,
-                        }}
-                      />
-                    ) : (
-                      <TrendingDownIcon
-                        sx={{
-                          fontSize: 16,
-                          color: theme.palette.error.main,
-                        }}
-                      />
-                    )}
+                >
+                  <Box sx={{ display: 'inline-flex', cursor: 'pointer' }}>
+                    <Gauge
+                      value={currentMonthPassRate}
+                      valueMin={0}
+                      valueMax={100}
+                      width={Number(theme.spacing(7.5).replace('px', ''))}
+                      height={Number(theme.spacing(7.5).replace('px', ''))}
+                      text={() => ''}
+                      sx={{
+                        [`& .MuiGauge-valueArc`]: {
+                          fill:
+                            currentMonthPassRate > 60
+                              ? theme.palette.success.main
+                              : currentMonthPassRate >= 30
+                                ? theme.palette.warning.main
+                                : theme.palette.error.main,
+                        },
+                      }}
+                    />
+                  </Box>
+                </Tooltip>
+
+                {/* Legend */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: theme.spacing(2),
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: theme.spacing(0.5),
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: theme.spacing(1),
+                        height: theme.spacing(1),
+                        borderRadius: '50%',
+                        bgcolor: theme.palette.success.main,
+                      }}
+                    />
                     <Typography
                       variant="caption"
-                      sx={{
-                        fontWeight: 600,
-                        color:
-                          passRateTrend > 0
-                            ? theme.palette.success.main
-                            : theme.palette.error.main,
-                      }}
+                      sx={{ fontWeight: theme.typography.fontWeightMedium }}
                     >
-                      {passRateTrendFormatted}
+                      {currentMonthPassed.toLocaleString()} Pass
                     </Typography>
-                  </>
-                )}
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ fontWeight: 600 }}
-                >
-                  this month
-                </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: theme.spacing(0.5),
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: theme.spacing(1),
+                        height: theme.spacing(1),
+                        borderRadius: '50%',
+                        bgcolor: theme.palette.error.main,
+                      }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{ fontWeight: theme.typography.fontWeightMedium }}
+                    >
+                      {currentMonthFailed.toLocaleString()} Fail
+                    </Typography>
+                  </Box>
+                </Box>
               </Box>
+
+              {passRateTrend !== 0 && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    mt: theme.spacing(1),
+                    color:
+                      passRateTrend > 0
+                        ? theme.palette.success.main
+                        : theme.palette.error.main,
+                  }}
+                >
+                  {passRateTrend > 0 ? (
+                    <TrendingUpIcon
+                      sx={{
+                        fontSize: theme.typography.body2.fontSize,
+                        mr: theme.spacing(0.5),
+                      }}
+                    />
+                  ) : (
+                    <TrendingDownIcon
+                      sx={{
+                        fontSize: theme.typography.body2.fontSize,
+                        mr: theme.spacing(0.5),
+                      }}
+                    />
+                  )}
+                  <Typography
+                    variant="caption"
+                    sx={{ fontWeight: theme.typography.fontWeightSemiBold }}
+                  >
+                    {passRateTrendFormatted} this month
+                  </Typography>
+                </Box>
+              )}
             </CardContent>
           </Card>
         </Grid>
 
         {/* Test Executions */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KPICard
             title="Test Executions"
             value={recentTestRuns.toLocaleString()}
@@ -477,7 +649,7 @@ export default function DashboardKPIs({
         </Grid>
 
         {/* Total Test Sets */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KPICard
             title="Test Sets"
             value={totalTestSets.toLocaleString()}
@@ -498,7 +670,7 @@ export default function DashboardKPIs({
             }
             trendValue={
               testSetTrend.length > 0
-                ? `+${testSetTrend[testSetTrend.length - 1]} this month`
+                ? `+${testSetTrend[testTrend.length - 1]} this month`
                 : undefined
             }
             subtitle="Test set collections"
@@ -506,7 +678,7 @@ export default function DashboardKPIs({
         </Grid>
 
         {/* Total Tests */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KPICard
             title="Tests"
             value={totalTests.toLocaleString()}

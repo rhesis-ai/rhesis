@@ -59,18 +59,19 @@ export default function DashboardPage() {
           onLoadComplete={() => handleComponentLoad('kpis')}
         />
 
-        {/* Main Content Grid - 2x3 Layout (each takes half the width) */}
+        {/* Main Content Grid - 2 Column Layout */}
         <Grid container spacing={3}>
-          {/* Recent Test Runs - 3x2 (6 columns = 50% width) */}
-          <Grid item xs={12} md={6}>
+          {/* Recent Test Runs - Left Column (4 test runs) */}
+          <Grid size={{ xs: 12, md: 6 }}>
             <TestRunPerformance
               sessionToken={session?.session_token || ''}
               onLoadComplete={() => handleComponentLoad('testRuns')}
+              limit={4}
             />
           </Grid>
 
-          {/* Recent Activity Timeline - 1x3 (6 columns = 50% width) */}
-          <Grid item xs={12} md={6}>
+          {/* Recent Activity Timeline - Right Column */}
+          <Grid size={{ xs: 12, md: 6 }}>
             <ActivityTimeline
               sessionToken={session?.session_token || ''}
               onLoadComplete={() => handleComponentLoad('activities')}
