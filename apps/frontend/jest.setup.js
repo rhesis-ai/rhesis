@@ -86,8 +86,8 @@ Object.defineProperty(window, 'scrollTo', {
   writable: true,
 });
 
-// Make window.location configurable for tests
-// Create a mock location object with all necessary properties and methods
+// Make window.location mockable for tests
+// Delete first, then redefine to avoid jsdom's built-in location
 delete window.location;
 window.location = {
   href: 'http://localhost:3000',
@@ -108,7 +108,7 @@ window.location = {
 
 // Mock localStorage
 const localStorageMock = {
-  getItem: jest.fn(),
+  getItem: jest.fn(() => null), // Return null by default
   setItem: jest.fn(),
   removeItem: jest.fn(),
   clear: jest.fn(),
@@ -130,7 +130,17 @@ const originalError = console.error;
 
 beforeAll(() => {
   console.warn = jest.fn();
-  console.error = jest.fn();
+  // Filter out jsdom navigation warnings which are expected in tests
+  console.error = jest.fn((message, ...args) => {
+    if (
+      typeof message === 'string' &&
+      message.includes('Not implemented: navigation')
+    ) {
+      // Suppress jsdom navigation warnings
+      return;
+    }
+    originalError(message, ...args);
+  });
 });
 
 afterAll(() => {

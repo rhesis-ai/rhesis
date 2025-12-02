@@ -543,6 +543,7 @@ export default function SourcesGrid({
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
         onRowClick={handleRowClick}
+        persistState
       />
 
       <DeleteModal
