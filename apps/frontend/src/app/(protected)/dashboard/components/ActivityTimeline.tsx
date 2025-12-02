@@ -457,6 +457,8 @@ export default function ActivityTimeline({
                     maxWidth: theme.spacing(10),
                     paddingLeft: 0,
                     paddingRight: theme.spacing(1),
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
                 >
                   <Typography variant="caption" color="text.secondary">
