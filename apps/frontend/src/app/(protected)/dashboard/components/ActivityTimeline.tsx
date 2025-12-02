@@ -38,7 +38,10 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import CommentIcon from '@mui/icons-material/Comment';
 import StorageIcon from '@mui/icons-material/Storage';
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { formatDistanceToNow, parseISO, formatDistance } from 'date-fns';
 
 interface ActivityTimelineProps {
   sessionToken: string;
@@ -67,6 +70,12 @@ interface Activity {
   isBulk?: boolean;
   count?: number;
   entityType?: string; // Add entity type for icon mapping
+  operation?: string; // CREATE, UPDATE, DELETE
+  timeRange?: {
+    start: string;
+    end: string;
+  };
+  sampleEntities?: Record<string, any>[];
   user?: {
     id: string;
     email: string;
@@ -184,7 +193,10 @@ export default function ActivityTimeline({
         isBulk: true,
         count: item.count,
         entityType: item.entity_type, // Store entity type for icon mapping
-        user: item.user,
+        operation: item.operation,
+        timeRange: item.time_range,
+        sampleEntities: item.sample_entities,
+        user: item.user || undefined,
         metadata: {
           entityType: item.entity_type,
           operation: item.operation,
@@ -214,12 +226,21 @@ export default function ActivityTimeline({
         metadata = {
           testId: item.entity_id,
           behavior: entityData?.behavior?.name,
+          category: entityData?.category,
+          topic: entityData?.topic,
+          project: entityData?.project?.name,
+          testSet: entityData?.test_set?.name,
         };
       } else if (operation === ActivityOperation.UPDATE) {
         type = 'test_updated';
         title = 'Test Updated';
         subtitle = 'Test modified';
-        metadata = { testId: item.entity_id };
+        metadata = {
+          testId: item.entity_id,
+          behavior: entityData?.behavior?.name,
+          project: entityData?.project?.name,
+          testSet: entityData?.test_set?.name,
+        };
       }
     } else if (entityType === 'TestRun') {
       type = 'test_run';
@@ -284,6 +305,8 @@ export default function ActivityTimeline({
       subtitle,
       timestamp: item.timestamp,
       entityType, // Store entity type for icon mapping
+      operation,
+      user: item.user || undefined,
       metadata,
     };
   };
@@ -461,20 +484,36 @@ export default function ActivityTimeline({
               : 'Unknown';
 
             return (
-              <TimelineItem key={activity.id}>
+              <TimelineItem
+                key={activity.id}
+                sx={{
+                  '&::before': {
+                    flex: 0,
+                    padding: 0,
+                  },
+                  minHeight: 'auto',
+                }}
+              >
                 <TimelineOppositeContent
                   sx={{
+                    width: theme.spacing(10),
+                    minWidth: theme.spacing(10),
                     maxWidth: theme.spacing(10),
                     paddingLeft: 0,
                     paddingRight: theme.spacing(1),
-                    display: 'flex',
-                    alignItems: 'center',
-                    paddingTop: 0,
+                    paddingTop: theme.spacing(2.6),
                     paddingBottom: 0,
                     margin: 0,
+                    flex: '0 0 auto',
+                    display: 'flex',
+                    alignItems: 'flex-start',
                   }}
                 >
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ lineHeight: 1, textAlign: 'right', width: '100%' }}
+                  >
                     {timeAgo.replace(' ago', '')}
                   </Typography>
                 </TimelineOppositeContent>
@@ -486,11 +525,8 @@ export default function ActivityTimeline({
                 </TimelineSeparator>
                 <TimelineContent
                   sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    paddingTop: 0,
-                    paddingBottom: 0,
-                    margin: 0,
+                    paddingTop: theme.spacing(1),
+                    paddingBottom: theme.spacing(1),
                   }}
                 >
                   <Box
@@ -596,55 +632,168 @@ export default function ActivityTimeline({
                         display: '-webkit-box',
                         WebkitLineClamp: 2,
                         WebkitBoxOrient: 'vertical',
+                        mb: theme.spacing(0.5),
                       }}
                     >
                       {activity.subtitle}
                     </Typography>
-                    {activity.metadata?.behavior && (
-                      <Chip
-                        label={activity.metadata.behavior}
-                        size="small"
-                        sx={{
-                          mt: theme.spacing(0.5),
-                          height: theme.spacing(2.5),
-                        }}
-                      />
-                    )}
-                    {activity.metadata?.status && (
-                      <Chip
-                        label={activity.metadata.status}
-                        size="small"
-                        color={
-                          activity.metadata.status
-                            .toLowerCase()
-                            .includes('completed')
-                            ? 'success'
-                            : activity.metadata.status
-                                  .toLowerCase()
-                                  .includes('failed')
-                              ? 'error'
-                              : 'default'
-                        }
-                        sx={{
-                          mt: theme.spacing(0.5),
-                          height: theme.spacing(2.5),
-                          mr: theme.spacing(0.5),
-                        }}
-                      />
-                    )}
-                    {activity.metadata?.assignee && (
-                      <Chip
-                        label={`@${activity.metadata.assignee}`}
-                        size="small"
-                        sx={{
-                          mt: theme.spacing(0.5),
-                          mr: theme.spacing(0.5),
-                          height: theme.spacing(2.5),
-                          backgroundColor: theme.palette.secondary.light,
-                          color: theme.palette.secondary.contrastText,
-                        }}
-                      />
-                    )}
+
+                    {/* Chips Row */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: theme.spacing(0.5),
+                        mt: theme.spacing(0.5),
+                      }}
+                    >
+                      {/* Operation Badge */}
+                      {activity.operation && (
+                        <Chip
+                          icon={
+                            activity.operation === 'create' ? (
+                              <AddCircleOutlineIcon />
+                            ) : activity.operation === 'update' ? (
+                              <EditIcon />
+                            ) : (
+                              <DeleteOutlineIcon />
+                            )
+                          }
+                          label={
+                            activity.operation.charAt(0).toUpperCase() +
+                            activity.operation.slice(1)
+                          }
+                          size="small"
+                          color={
+                            activity.operation === 'create'
+                              ? 'success'
+                              : activity.operation === 'update'
+                                ? 'info'
+                                : 'error'
+                          }
+                          sx={{
+                            height: theme.spacing(2.5),
+                          }}
+                        />
+                      )}
+
+                      {/* Time Range for Bulk Operations */}
+                      {activity.isBulk && activity.timeRange && (
+                        <Chip
+                          label={`${formatDistance(
+                            parseISO(activity.timeRange.start),
+                            parseISO(activity.timeRange.end),
+                            { addSuffix: false }
+                          )}`}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            height: theme.spacing(2.5),
+                          }}
+                        />
+                      )}
+
+                      {/* Behavior */}
+                      {activity.metadata?.behavior && (
+                        <Chip
+                          label={activity.metadata.behavior}
+                          size="small"
+                          sx={{
+                            height: theme.spacing(2.5),
+                          }}
+                        />
+                      )}
+
+                      {/* Project */}
+                      {activity.metadata?.project && (
+                        <Chip
+                          label={`📁 ${activity.metadata.project}`}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            height: theme.spacing(2.5),
+                          }}
+                        />
+                      )}
+
+                      {/* Test Set */}
+                      {activity.metadata?.testSet && (
+                        <Chip
+                          label={`📦 ${activity.metadata.testSet}`}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            height: theme.spacing(2.5),
+                          }}
+                        />
+                      )}
+                      {/* Task Status */}
+                      {activity.metadata?.status && (
+                        <Chip
+                          label={activity.metadata.status}
+                          size="small"
+                          color={
+                            activity.metadata.status
+                              .toLowerCase()
+                              .includes('completed')
+                              ? 'success'
+                              : activity.metadata.status
+                                    .toLowerCase()
+                                    .includes('failed')
+                                ? 'error'
+                                : 'default'
+                          }
+                          sx={{
+                            height: theme.spacing(2.5),
+                          }}
+                        />
+                      )}
+
+                      {/* Task Assignee */}
+                      {activity.metadata?.assignee && (
+                        <Chip
+                          label={`@${activity.metadata.assignee}`}
+                          size="small"
+                          sx={{
+                            height: theme.spacing(2.5),
+                            backgroundColor: theme.palette.secondary.light,
+                            color: theme.palette.secondary.contrastText,
+                          }}
+                        />
+                      )}
+                    </Box>
+
+                    {/* Sample Preview for Bulk Operations */}
+                    {activity.isBulk &&
+                      activity.sampleEntities &&
+                      activity.sampleEntities.length > 0 && (
+                        <Box sx={{ mt: theme.spacing(1) }}>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{
+                              fontSize: '0.688rem',
+                              fontStyle: 'italic',
+                            }}
+                          >
+                            Sample:{' '}
+                            {activity.sampleEntities
+                              .slice(0, 3)
+                              .map(
+                                entity =>
+                                  entity.name ||
+                                  entity.title ||
+                                  entity.test_metadata?.prompt?.substring(
+                                    0,
+                                    30
+                                  ) ||
+                                  'Item'
+                              )
+                              .join(', ')}
+                            {activity.count && activity.count > 3 && '...'}
+                          </Typography>
+                        </Box>
+                      )}
                   </Box>
                 </TimelineContent>
               </TimelineItem>
