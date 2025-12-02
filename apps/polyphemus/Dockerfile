@@ -65,12 +65,14 @@ RUN mkdir -p /app/model_cache
 # Pre-download the default model during build to avoid runtime downloads in Cloud Run
 # This prevents rate limiting issues when Cloud Run instances start fresh
 # The model is baked into the image, so new instances don't need to download it
+# IMPORTANT: Use snapshot_download instead of from_pretrained to avoid loading model into memory
+# This prevents OOM errors during Docker build on GitHub Actions runners with limited RAM
 ARG DEFAULT_MODEL=huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1
 ENV DEFAULT_MODEL=${DEFAULT_MODEL}
 # Extract model name from provider/model format
 # Uses split("/", 1) to match SDK factory behavior for multi-slash model names
 # Examples: "huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1" -> "Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1", "huggingface/meta-llama/Llama-2-7b-chat-hf" -> "meta-llama/Llama-2-7b-chat-hf"
-RUN /app/.venv/bin/python -c "import os; os.environ['TRANSFORMERS_CACHE'] = '/app/model_cache'; from transformers import AutoModelForCausalLM, AutoTokenizer; full_name = '${DEFAULT_MODEL}'; model_name = full_name.split('/', 1)[1] if '/' in full_name else full_name; print('Pre-downloading default model:', model_name); AutoModelForCausalLM.from_pretrained(model_name, cache_dir='/app/model_cache'); AutoTokenizer.from_pretrained(model_name, cache_dir='/app/model_cache'); print('Model pre-downloaded successfully')" || echo "Warning: Model pre-download failed, will download on first request"
+RUN /app/.venv/bin/python -c "import os; os.environ['TRANSFORMERS_CACHE'] = '/app/model_cache'; from huggingface_hub import snapshot_download; full_name = '${DEFAULT_MODEL}'; model_name = full_name.split('/', 1)[1] if '/' in full_name else full_name; print('Pre-downloading default model:', model_name); snapshot_download(repo_id=model_name, cache_dir='/app/model_cache', local_files_only=False); print('Model pre-downloaded successfully')" || echo "Warning: Model pre-download failed, will download on first request"
 
 # ============================================================================
 # STAGE 2: Runtime - Create minimal runtime image
