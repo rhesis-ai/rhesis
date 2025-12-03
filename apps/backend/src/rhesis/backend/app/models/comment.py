@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin
+from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin
 
 
-class Comment(Base, OrganizationAndUserMixin):
+class Comment(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
     __tablename__ = "comment"
 
     # Comment content

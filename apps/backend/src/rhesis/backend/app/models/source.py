@@ -5,10 +5,18 @@ from sqlalchemy.orm import deferred, relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import CommentsMixin, CountsMixin, OrganizationAndUserMixin, TagsMixin
+from .mixins import (
+    ActivityTrackableMixin,
+    CommentsMixin,
+    CountsMixin,
+    OrganizationAndUserMixin,
+    TagsMixin,
+)
 
 
-class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMixin):
+class Source(
+    Base, ActivityTrackableMixin, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMixin
+):
     __tablename__ = "source"
 
     # Basic information

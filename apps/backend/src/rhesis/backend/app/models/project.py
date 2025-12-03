@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import TagsMixin
+from .mixins import ActivityTrackableMixin, TagsMixin
 
 
-class Project(Base, TagsMixin):
+class Project(Base, ActivityTrackableMixin, TagsMixin):
     __tablename__ = "project"
 
     # Basic information
