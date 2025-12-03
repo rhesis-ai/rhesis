@@ -49,6 +49,7 @@ class PenelopeConfig:
     DEFAULT_CONTEXT_WINDOW_MESSAGES = 10  # Last N messages for context
     DEFAULT_MODEL_PROVIDER = "rhesis"
     DEFAULT_MODEL_NAME = "default"
+    DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER = 5  # 5x max_iterations
 
     # Default values
     _log_level: Optional[str] = None
@@ -136,6 +137,30 @@ class PenelopeConfig:
                 return cls.DEFAULT_MAX_ITERATIONS
 
         return cls.DEFAULT_MAX_ITERATIONS
+
+    @classmethod
+    def get_max_tool_executions_multiplier(cls) -> int:
+        """
+        Get multiplier for calculating max_tool_executions from max_iterations.
+
+        This multiplier is used to set a proportional limit on total tool executions
+        to prevent infinite loops. For example, with max_iterations=10 and multiplier=5,
+        the max_tool_executions would be 50.
+
+        Checks (in order):
+        1. PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER env var
+        2. Default: 5
+
+        Returns:
+            Multiplier for calculating max tool executions
+        """
+        env_value = os.getenv("PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER")
+        if env_value is not None:
+            try:
+                return int(env_value)
+            except ValueError:
+                return cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER
+        return cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER
 
     @classmethod
     def set_log_level(cls, level: str):

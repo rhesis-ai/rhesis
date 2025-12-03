@@ -49,6 +49,37 @@ class MaxIterationsCondition(StoppingCondition):
         return False, ""
 
 
+class MaxToolExecutionsCondition(StoppingCondition):
+    """Stop after maximum number of tool executions across all turns."""
+
+    def __init__(self, max_tool_executions: int):
+        self.max_tool_executions = max_tool_executions
+
+    def should_stop(self, state: TestState) -> tuple[bool, str]:
+        total_executions = len(state.all_executions)
+        if total_executions >= self.max_tool_executions:
+            # Calculate statistics for helpful error message
+            avg_tools_per_turn = total_executions / max(state.current_turn, 1)
+
+            message = (
+                f"Maximum tool executions reached "
+                f"({total_executions}/{self.max_tool_executions}).\n\n"
+                "This limit prevents infinite loops and runaway costs.\n\n"
+                "Current execution breakdown:\n"
+                f"- Turns completed: {state.current_turn}\n"
+                f"- Tool executions: {total_executions}\n"
+                f"- Average tools per turn: {avg_tools_per_turn:.1f}\n\n"
+                "To increase this limit:\n"
+                "1. Via parameter: PenelopeAgent(..., max_tool_executions=100)\n"
+                "2. Via environment: export PENELOPE_MAX_TOOL_EXECUTIONS=100\n\n"
+                "⚠️  Warning: Higher limits increase cost risk. "
+                "Ensure your agent is making progress."
+            )
+
+            return True, message
+        return False, ""
+
+
 class TimeoutCondition(StoppingCondition):
     """Stop after timeout."""
 
