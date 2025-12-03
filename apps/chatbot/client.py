@@ -266,17 +266,6 @@ class ChatResponse(BaseModel):
 @collaborate(
     name="chat_with_history",
     description="Chat with the insurance assistant using conversation history",
-    input_mapping={
-        "message": "{{ input }}",
-        "session_id": "{{ session_id }}",
-        "use_case": "insurance",
-    },
-    response_mapping={
-        "output": "$.message",
-        "session_id": "$.session_id",
-        "context": "$.context",
-        "metadata": "$.use_case",
-    },
 )
 def chat_with_history(
     message: str,
