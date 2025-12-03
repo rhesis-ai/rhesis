@@ -323,8 +323,9 @@ class TestPenelopeAgentHelperMethods:
         conditions = agent._create_stopping_conditions()
 
         # Verify all conditions are created
-        assert len(conditions) == 3  # MaxIterations, GoalAchieved, Timeout
+        assert len(conditions) == 4  # MaxToolExecutions, MaxIterations, GoalAchieved, Timeout
         condition_types = [type(c).__name__ for c in conditions]
+        assert "MaxToolExecutionsCondition" in condition_types
         assert "MaxIterationsCondition" in condition_types
         assert "GoalAchievedCondition" in condition_types
         assert "TimeoutCondition" in condition_types
@@ -335,10 +336,11 @@ class TestPenelopeAgentHelperMethods:
 
         conditions = agent._create_stopping_conditions()
 
-        # Verify only 2 conditions (no timeout)
-        assert len(conditions) == 2
+        # Verify 3 conditions (no timeout)
+        assert len(conditions) == 3  # MaxToolExecutions, MaxIterations, GoalAchieved
         condition_types = [type(c).__name__ for c in conditions]
         assert "TimeoutCondition" not in condition_types
+        assert "MaxToolExecutionsCondition" in condition_types
 
     def test_should_stop_returns_false_initially(self, mock_model, mock_target):
         """Test _should_stop returns False when no conditions met."""

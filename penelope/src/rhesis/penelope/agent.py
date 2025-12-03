@@ -30,6 +30,7 @@ from rhesis.penelope.tools.target_interaction import TargetInteractionTool
 from rhesis.penelope.utils import (
     GoalAchievedCondition,
     MaxIterationsCondition,
+    MaxToolExecutionsCondition,
     StoppingCondition,
     TimeoutCondition,
     display_test_result,
@@ -214,6 +215,7 @@ class PenelopeAgent:
         model: Optional[Union[BaseLLM, str]] = None,
         tools: Optional[List[Tool]] = None,
         max_iterations: Optional[int] = None,
+        max_tool_executions: Optional[int] = None,
         timeout_seconds: Optional[float] = None,
         enable_transparency: bool = True,
         verbose: bool = False,
@@ -230,6 +232,9 @@ class PenelopeAgent:
             tools: Optional list of custom tools (default tools used if None)
             max_iterations: Maximum number of turns before stopping. If None, uses default
                 from PenelopeConfig (default: 10)
+            max_tool_executions: Maximum number of total tool executions (analysis + target)
+                before stopping. If None, calculated as max_iterations × 5. This prevents
+                infinite loops by capping total tool calls across all turns.
             timeout_seconds: Optional timeout in seconds
             enable_transparency: Show reasoning at each step (Anthropic principle)
             verbose: Print detailed execution information
@@ -269,6 +274,13 @@ class PenelopeAgent:
                   PENELOPE_DEFAULT_MAX_ITERATIONS (default: 10)
                 - Or programmatically: PenelopeConfig.set_default_max_iterations(30)
 
+            Max Tool Executions Configuration:
+                - By default, max_tool_executions = max_iterations × multiplier
+                - Default multiplier is 5 (configurable via PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER)
+                - For 10 iterations × 5 = 50 total tool executions allowed
+                - Can be overridden directly via max_tool_executions parameter
+                - This prevents infinite loops by capping total tool calls
+
             Logging is controlled via PENELOPE_LOG_LEVEL environment variable:
             - INFO (default): Shows Penelope logs, suppresses external library debug logs
             - DEBUG: Shows all logs including LiteLLM, httpx, httpcore for troubleshooting
@@ -287,6 +299,11 @@ class PenelopeAgent:
             if max_iterations is not None
             else PenelopeConfig.get_default_max_iterations()
         )
+        # Calculate proportional limit if not specified
+        if max_tool_executions is None:
+            multiplier = PenelopeConfig.get_max_tool_executions_multiplier()
+            max_tool_executions = self.max_iterations * multiplier
+        self.max_tool_executions = max_tool_executions
         self.timeout_seconds = timeout_seconds
         self.enable_transparency = enable_transparency
         self.verbose = verbose
@@ -360,6 +377,8 @@ class PenelopeAgent:
             List of StoppingCondition instances
         """
         conditions = [
+            # Check global execution limit first (most critical for preventing infinite loops)
+            MaxToolExecutionsCondition(self.max_tool_executions),
             MaxIterationsCondition(self.max_iterations),
             GoalAchievedCondition(instructions=instructions),  # Will be updated with progress
         ]
@@ -501,6 +520,7 @@ class PenelopeAgent:
             restrictions=restrictions,
             context=context or {},
             max_turns=max_turns or self.max_iterations,
+            max_tool_executions=self.max_tool_executions,
         )
 
         # Initialize state

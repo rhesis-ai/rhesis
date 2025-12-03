@@ -37,6 +37,29 @@ print(f"Goal achieved: {result.goal_achieved}")
 print(f"Turns used: {result.turns_used}")
 ```
 
+### Infinite Loop Prevention
+
+Penelope includes built-in guardrails to prevent infinite loops and runaway costs:
+
+- **Global execution limit**: By default, limits total tool executions to `max_iterations × 5` (e.g., 10 turns × 5 = 50 executions)
+- **Workflow validation**: Blocks known bad patterns (excessive analysis tools, repetitive usage)
+- **Progress warnings**: Alerts at 60% and 80% of limits
+
+For complex tests that need more executions:
+
+```python
+agent = PenelopeAgent(
+    max_iterations=20,  # Allow more turns
+    max_tool_executions=150  # Override default (20 × 5 = 100)
+)
+```
+
+Or configure globally via environment variable:
+
+```bash
+export PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER=10  # More generous for complex tests
+```
+
 ### Testing with Restrictions
 
 Define forbidden behaviors the target must not exhibit:

@@ -5,6 +5,24 @@ All notable changes to Rhesis Penelope will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Global tool execution limit** to prevent infinite loops. By default, limits total tool executions to `max_iterations × 5` (e.g., 10 turns × 5 = 50 executions).
+- **Environment variable support** for configuring the execution multiplier via `PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER`.
+- **Progress warnings** at 60% and 80% of execution limits to help developers tune limits before hitting hard stops.
+- **Enhanced workflow validation** with same-tool repetition detection (blocks tools used 5+ times in last 6 executions).
+- **Improved error messages** with actionable guidance when limits are reached, including execution statistics and instructions to increase limits.
+
+### Changed
+- **BREAKING**: Workflow validation failures now **block execution** instead of just logging warnings. This prevents known bad patterns (excessive consecutive analysis tools, repetitive tool usage) from causing infinite loops.
+- **Increased consecutive analysis tool limit** from 3 to 5 for more flexibility in complex tests.
+- **Stopping conditions** now check global execution limit first (before max iterations) to catch runaway executions early.
+
+### Fixed
+- Infinite loop scenarios where analysis tools could execute indefinitely without incrementing turn count.
+- Cost explosion risks from unbounded tool executions.
+
 ## [0.1.0] - 2025-01-31
 
 ### Added

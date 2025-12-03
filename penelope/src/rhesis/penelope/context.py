@@ -334,6 +334,7 @@ class TestContext:
     restrictions: Optional[str] = None
     context: Dict[str, Any] = field(default_factory=dict)
     max_turns: int = 20
+    max_tool_executions: Optional[int] = None
     timeout_seconds: Optional[float] = None
 
 
