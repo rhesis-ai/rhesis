@@ -1,3 +1,5 @@
+from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, Field
@@ -295,3 +297,45 @@ class QueryMCPResponse(BaseModel):
     iterations_used: int
     max_iterations_reached: bool
     execution_history: List[ExecutionStep]
+
+
+# Recent Activities Schemas
+class ActivityOperation(str, Enum):
+    """Type of operation performed on an entity."""
+
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
+
+
+class TimeRange(BaseModel):
+    """Time range for bulk operations."""
+
+    start: datetime
+    end: datetime
+
+
+class ActivityItem(BaseModel):
+    """A single activity item or grouped bulk operation."""
+
+    entity_type: str
+    entity_id: Optional[UUID4] = None  # None for bulk operations
+    operation: ActivityOperation
+    timestamp: datetime
+    user: Optional[Any] = None  # Full User schema from schemas.user
+    entity_data: Optional[Dict[str, Any]] = None  # None for bulk operations
+
+    # Bulk operation fields
+    is_bulk: bool = False
+    count: Optional[int] = None  # Number of entities in bulk operation
+    time_range: Optional[TimeRange] = None  # Time span of bulk operation
+    summary: Optional[str] = None  # Human-readable summary
+    entity_ids: Optional[List[UUID4]] = None  # All entity IDs in bulk
+    sample_entities: Optional[List[Dict[str, Any]]] = None  # First few entities as preview
+
+
+class RecentActivitiesResponse(BaseModel):
+    """Response containing recent activities across all trackable entities."""
+
+    activities: List[ActivityItem]
+    total: int  # Total number of activity groups (not individual activities)

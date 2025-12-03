@@ -28,23 +28,12 @@ test_set.download()  # Downloads to current directory as test_set_{id}.csv`;
 
   useEffect(() => {
     setIsClient(true);
-
-    // Ensure Prism is available in the browser environment
-    if (typeof window !== 'undefined') {
-      // Need to re-require Prism here to make sure it's loaded on the client side
-      require('prismjs');
-      require('prismjs/components/prism-python');
-
-      // Force highlighting after the component is mounted
-      if (codeRef.current) {
-        Prism.highlightElement(codeRef.current);
-      }
-    }
   }, []);
 
   // Manually apply highlighting when the component is mounted
   useEffect(() => {
-    if (isClient && codeRef.current) {
+    if (isClient && codeRef.current && typeof window !== 'undefined') {
+      // Prism is already imported at the top, just highlight the element
       Prism.highlightElement(codeRef.current);
     }
   }, [isClient]);

@@ -46,7 +46,7 @@ export interface ProjectCreate extends ProjectBase {
  * Interface for project updates, all fields optional
  * Used when updating an existing project
  */
-export interface ProjectUpdate extends Partial<ProjectBase> {}
+export type ProjectUpdate = Partial<ProjectBase>;
 
 /**
  * User interface for nested objects in project responses

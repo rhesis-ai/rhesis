@@ -9,9 +9,9 @@ export interface TypeLookupBase {
   user_id?: UUID | null;
 }
 
-export interface TypeLookupCreate extends TypeLookupBase {}
+export type TypeLookupCreate = TypeLookupBase;
 
-export interface TypeLookupUpdate extends Partial<TypeLookupBase> {}
+export type TypeLookupUpdate = Partial<TypeLookupBase>;
 
 export interface TypeLookup extends TypeLookupBase {
   id: UUID;

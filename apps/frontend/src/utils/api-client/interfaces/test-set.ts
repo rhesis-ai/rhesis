@@ -331,4 +331,4 @@ export interface TestSetGenerationRequest extends GenerateTestsRequest {
 }
 
 /** @deprecated Use GenerateTestSetResponse instead */
-export interface TestSetGenerationResponse extends GenerateTestSetResponse {}
+export type TestSetGenerationResponse = GenerateTestSetResponse;
