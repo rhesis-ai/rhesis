@@ -1,7 +1,11 @@
 {% extends "base.jinja" %}
 
 {% block specific_requirements %}
-### Take into account the following context:
+
+### Context-Based Test Generation
+
+Use the following context items to inform your test generation. For each test case, consider how these context elements relate to the behavior-category-topic combinations. Craft prompts that naturally incorporate or reference these context items where relevant:
+
 {% for item in context %}
 - {{ item }}
 {% endfor %}
