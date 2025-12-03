@@ -21,7 +21,8 @@ FIRST_TURN_PROMPT = PromptTemplate(
     },
     template=(
         "Begin executing the test. Use this structured approach:\n\n"
-        "1. **Identify Test Type**: Determine if this is Reliability, Compliance, or Robustness testing\n"
+        "1. **Identify Test Type**: Determine if this is Reliability, Compliance, or Robustness "
+        "testing\n"
         "2. **Select Methodology**: Choose testing techniques appropriate for the test type\n"
         "3. **Plan First Action**: Decide on your initial testing step\n"
         "4. **Execute**: Take your first action\n\n"
