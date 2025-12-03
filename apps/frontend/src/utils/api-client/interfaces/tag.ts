@@ -26,9 +26,9 @@ export interface TagBase {
   user_id?: UUID;
 }
 
-export interface TagCreate extends TagBase {}
+export type TagCreate = TagBase;
 
-export interface TagUpdate extends Partial<TagBase> {}
+export type TagUpdate = Partial<TagBase>;
 
 export interface Tag extends TagBase {
   id: UUID;

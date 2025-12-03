@@ -13,9 +13,9 @@ export interface BehaviorBase {
   organization_id?: UUID | null;
 }
 
-export interface BehaviorCreate extends BehaviorBase {}
+export type BehaviorCreate = BehaviorBase;
 
-export interface BehaviorUpdate extends Partial<BehaviorBase> {}
+export type BehaviorUpdate = Partial<BehaviorBase>;
 
 export interface Behavior extends BehaviorBase {
   id: UUID;

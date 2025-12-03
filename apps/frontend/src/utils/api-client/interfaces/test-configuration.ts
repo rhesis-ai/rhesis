@@ -18,10 +18,9 @@ export interface TestConfigurationBase {
   attributes?: Record<string, any>;
 }
 
-export interface TestConfigurationCreate extends TestConfigurationBase {}
+export type TestConfigurationCreate = TestConfigurationBase;
 
-export interface TestConfigurationUpdate
-  extends Partial<TestConfigurationBase> {}
+export type TestConfigurationUpdate = Partial<TestConfigurationBase>;
 
 export interface TestConfiguration extends TestConfigurationBase {
   id: UUID;

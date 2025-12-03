@@ -32,6 +32,9 @@
     "out/",
     "dist/",
     "build/",
-    "coverage/"
+    "coverage/",
+    "jest.config.js",
+    "jest.setup.js",
+    "scripts/**/*.js"
   ]
 }
