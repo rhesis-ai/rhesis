@@ -52,9 +52,10 @@ export function LayoutContent({
 
   // Check Quick Start mode after mount (client-side only)
   React.useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { isQuickStartEnabled } = require('@/utils/quick_start');
-    setIsQuickStartMode(isQuickStartEnabled());
+    // Dynamic import for client-side only code
+    import('@/utils/quick_start').then(({ isQuickStartEnabled }) => {
+      setIsQuickStartMode(isQuickStartEnabled());
+    });
   }, []);
 
   // Build sx prop conditionally

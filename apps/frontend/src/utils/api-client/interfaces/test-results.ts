@@ -259,9 +259,9 @@ export interface TestResultBase {
   organization_id?: UUID;
 }
 
-export interface TestResultCreate extends TestResultBase {}
+export type TestResultCreate = TestResultBase;
 
-export interface TestResultUpdate extends Partial<TestResultBase> {}
+export type TestResultUpdate = Partial<TestResultBase>;
 
 export interface TestResult extends TestResultBase {
   id: UUID;

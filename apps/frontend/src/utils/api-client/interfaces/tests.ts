@@ -81,9 +81,9 @@ export interface TestBase {
   test_metadata?: Record<string, any>;
 }
 
-export interface TestCreate extends TestBase {}
+export type TestCreate = TestBase;
 
-export interface TestUpdate extends Partial<TestBase> {}
+export type TestUpdate = Partial<TestBase>;
 
 export interface Test extends TestBase {
   id: UUID;

@@ -55,59 +55,61 @@ export default function LandingPage() {
   // Quick Start mode in cloud deployments if NEXT_PUBLIC_QUICK_START is misconfigured.
   useEffect(() => {
     if (!mounted) return;
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { isQuickStartEnabled } = require('@/utils/quick_start');
-    setIsQuickStartMode(isQuickStartEnabled());
+    // Dynamic import for client-side only code
+    import('@/utils/quick_start').then(({ isQuickStartEnabled }) => {
+      setIsQuickStartMode(isQuickStartEnabled());
+    });
   }, [mounted]);
 
   // Auto-login for Quick Start mode
   useEffect(() => {
     if (!mounted) return;
     // Use robust multi-factor detection to determine if Quick Start mode is enabled
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { isQuickStartEnabled } = require('@/utils/quick_start');
-    const quickStartEnabled = isQuickStartEnabled();
+    // Dynamic import for client-side only code
+    import('@/utils/quick_start').then(({ isQuickStartEnabled }) => {
+      const quickStartEnabled = isQuickStartEnabled();
 
-    // Only auto-login if:
-    // 1. Quick Start mode is enabled
-    // 2. User is not authenticated
-    // 3. Not already in the process of logging in
-    // 4. No session expiration flag
-    if (quickStartEnabled && status === 'unauthenticated' && !autoLoggingIn) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const isSessionExpired = urlParams.get('session_expired') === 'true';
-      const isForcedLogout = urlParams.get('force_logout') === 'true';
+      // Only auto-login if:
+      // 1. Quick Start mode is enabled
+      // 2. User is not authenticated
+      // 3. Not already in the process of logging in
+      // 4. No session expiration flag
+      if (quickStartEnabled && status === 'unauthenticated' && !autoLoggingIn) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isSessionExpired = urlParams.get('session_expired') === 'true';
+        const isForcedLogout = urlParams.get('force_logout') === 'true';
 
-      // Don't auto-login if user was forcefully logged out
-      if (!isSessionExpired && !isForcedLogout) {
-        setAutoLoggingIn(true);
+        // Don't auto-login if user was forcefully logged out
+        if (!isSessionExpired && !isForcedLogout) {
+          setAutoLoggingIn(true);
 
-        // Call the local-login endpoint
-        fetch(`${getClientApiBaseUrl()}/auth/local-login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        })
-          .then(async response => {
-            if (response.ok) {
-              const data = await response.json();
-              // Sign in with NextAuth using the session token
-              const { signIn } = await import('next-auth/react');
-              await signIn('credentials', {
-                session_token: data.session_token,
-                redirect: true,
-                callbackUrl: '/dashboard',
-              });
-            } else {
-              console.error('Local auto-login failed');
-              setAutoLoggingIn(false);
-            }
+          // Call the local-login endpoint
+          fetch(`${getClientApiBaseUrl()}/auth/local-login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
           })
-          .catch(error => {
-            console.error('Local auto-login error:', error);
-            setAutoLoggingIn(false);
-          });
+            .then(async response => {
+              if (response.ok) {
+                const data = await response.json();
+                // Sign in with NextAuth using the session token
+                const { signIn } = await import('next-auth/react');
+                await signIn('credentials', {
+                  session_token: data.session_token,
+                  redirect: true,
+                  callbackUrl: '/dashboard',
+                });
+              } else {
+                console.error('Local auto-login failed');
+                setAutoLoggingIn(false);
+              }
+            })
+            .catch(error => {
+              console.error('Local auto-login error:', error);
+              setAutoLoggingIn(false);
+            });
+        }
       }
-    }
+    });
   }, [mounted, status, autoLoggingIn]);
 
   useEffect(() => {

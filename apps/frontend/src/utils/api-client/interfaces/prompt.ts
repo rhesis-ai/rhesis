@@ -27,9 +27,9 @@ export interface PromptBase {
 }
 
 // Create and update interfaces
-export interface PromptCreate extends PromptBase {}
+export type PromptCreate = PromptBase;
 
-export interface PromptUpdate extends Partial<PromptBase> {}
+export type PromptUpdate = Partial<PromptBase>;
 
 // Full prompt entity with id and timestamps
 export interface Prompt extends PromptBase {

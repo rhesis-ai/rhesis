@@ -1,8 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { DashboardLayout } from '@toolpad/core/DashboardLayout';
-import { DashboardSidebarPageItem } from '@toolpad/core/DashboardLayout';
+import {
+  DashboardLayout,
+  DashboardSidebarPageItem,
+} from '@toolpad/core/DashboardLayout';
 import AuthErrorBoundary from './error-boundary';
 import { useSession } from 'next-auth/react';
 import { SxProps, Theme } from '@mui/system';

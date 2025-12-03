@@ -8,9 +8,9 @@ export interface CategoryBase {
   organization_id?: UUID | null;
 }
 
-export interface CategoryCreate extends CategoryBase {}
+export type CategoryCreate = CategoryBase;
 
-export interface CategoryUpdate extends Partial<CategoryBase> {}
+export type CategoryUpdate = Partial<CategoryBase>;
 
 export interface Category extends CategoryBase {
   id: UUID;

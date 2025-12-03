@@ -11,8 +11,8 @@ import {
   DialogTitle,
   DialogContent,
   IconButton,
+  Grid,
 } from '@mui/material';
-import { Grid } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 

@@ -27,9 +27,9 @@ export interface TestRunBase {
   tags?: Tag[];
 }
 
-export interface TestRunCreate extends TestRunBase {}
+export type TestRunCreate = TestRunBase;
 
-export interface TestRunUpdate extends Partial<TestRunBase> {}
+export type TestRunUpdate = Partial<TestRunBase>;
 
 export interface TestRun extends TestRunBase {
   id: UUID;
