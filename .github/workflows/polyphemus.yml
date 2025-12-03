@@ -224,28 +224,47 @@ jobs:
           echo "✅ Build submitted with ID: $BUILD_ID"
           echo "📊 Monitor build at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
           
-          # Wait for build to complete (with timeout)
-          echo "⏳ Waiting for build to complete..."
-          if ! gcloud builds wait $BUILD_ID \
-            --project=${{ env.PROJECT_ID }}; then
-            echo "❌ Build failed or timed out"
-            echo "🔗 Check logs at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
-            exit 1
-          fi
+          # Wait for build to complete by polling status
+          echo "⏳ Waiting for build to complete (this may take 30+ minutes for large models)..."
+          MAX_WAIT_SECONDS=7200  # 2 hours timeout (matches Cloud Build timeout)
+          POLL_INTERVAL=30        # Check every 30 seconds
+          ELAPSED=0
           
-          # Check final build status
-          BUILD_STATUS=$(gcloud builds describe $BUILD_ID \
-            --project=${{ env.PROJECT_ID }} \
-            --format="value(status)")
+          while [ $ELAPSED -lt $MAX_WAIT_SECONDS ]; do
+            BUILD_STATUS=$(gcloud builds describe $BUILD_ID \
+              --project=${{ env.PROJECT_ID }} \
+              --format="value(status)" 2>/dev/null || echo "UNKNOWN")
+            
+            case "$BUILD_STATUS" in
+              SUCCESS)
+                echo "✅ Build completed successfully!"
+                echo "📦 Built and pushed image: $IMAGE_FULL_NAME"
+                exit 0
+                ;;
+              FAILURE|CANCELLED|TIMEOUT|INTERNAL_ERROR)
+                echo "❌ Build failed with status: $BUILD_STATUS"
+                echo "🔗 Check logs at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
+                exit 1
+                ;;
+              WORKING|QUEUED|PENDING)
+                # Build is still in progress
+                MINUTES=$((ELAPSED / 60))
+                echo "⏳ Build status: $BUILD_STATUS (${MINUTES}m ${ELAPSED}s elapsed)"
+                sleep $POLL_INTERVAL
+                ELAPSED=$((ELAPSED + POLL_INTERVAL))
+                ;;
+              *)
+                echo "⚠️  Unknown build status: $BUILD_STATUS"
+                sleep $POLL_INTERVAL
+                ELAPSED=$((ELAPSED + POLL_INTERVAL))
+                ;;
+            esac
+          done
           
-          if [ "$BUILD_STATUS" != "SUCCESS" ]; then
-            echo "❌ Build failed with status: $BUILD_STATUS"
-            echo "🔗 Check logs at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
-            exit 1
-          fi
-          
-          echo "✅ Build completed successfully!"
-          echo "📦 Built and pushed image: $IMAGE_FULL_NAME"
+          # If we get here, we timed out
+          echo "❌ Build timed out after ${MAX_WAIT_SECONDS}s"
+          echo "🔗 Check logs at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
+          exit 1
 
   deploy:
     # Note: When deploy_only is true, build job is skipped, but GitHub Actions treats skipped jobs
