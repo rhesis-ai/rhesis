@@ -690,7 +690,10 @@ async def test_mcp_connection(
     connection is not authenticated, a 401 unauthorized error will be detected.
 
     Args:
-        request: TestMCPConnectionRequest with tool_id
+        request: TestMCPConnectionRequest with either:
+            - tool_id: For testing existing tools
+            - provider_type_id + credentials + optional tool_metadata:
+              For testing non-existent tools
 
     Returns:
         TestMCPConnectionResponse with:
@@ -698,24 +701,51 @@ async def test_mcp_connection(
         - message: str - Explanation of the authentication status
 
     Raises:
-        HTTPException: 500 error if test fails due to connection issues
+        HTTPException: 400 error if validation fails,
+            500 error if test fails due to connection issues
 
-    Example:
+    Examples:
+        # Test existing tool
         POST /mcp/test-connection
         {
             "tool_id": "tool-uuid-123"
+        }
+
+        # Test non-existent tool (standard provider)
+        POST /mcp/test-connection
+        {
+            "provider_type_id": "provider-uuid-123",
+            "credentials": {"NOTION_TOKEN": "ntn_abc123..."}
+        }
+
+        # Test non-existent tool (custom provider)
+        POST /mcp/test-connection
+        {
+            "provider_type_id": "provider-uuid-123",
+            "credentials": {"TOKEN": "token123"},
+            "tool_metadata": {
+                "command": "bunx",
+                "args": ["--bun", "@notionhq/notion-mcp-server"],
+                "env": {"NOTION_TOKEN": "{{ TOKEN }}"}
+            }
         }
     """
     try:
         organization_id, user_id = tenant_context
         result = await test_mcp_authentication(
-            tool_id=request.tool_id,
             db=db,
             user=current_user,
             organization_id=organization_id,
+            tool_id=request.tool_id,
+            provider_type_id=request.provider_type_id,
+            credentials=request.credentials,
+            tool_metadata=request.tool_metadata,
             user_id=user_id,
         )
         return result
+    except ValueError as e:
+        logger.warning(f"Invalid request for MCP connection test: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to test MCP connection: {str(e)}", exc_info=True)
         raise HTTPException(

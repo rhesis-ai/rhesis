@@ -118,9 +118,6 @@ export function MCPConnectionDialog({
     is_authenticated: string;
     message: string;
   } | null>(null);
-  const [testCreatedToolId, setTestCreatedToolId] = useState<string | null>(
-    null
-  );
 
   const isEditMode = mode === 'edit';
 
@@ -170,7 +167,6 @@ export function MCPConnectionDialog({
         setLoading(false);
         setShowAdvancedConfig(!!tool.tool_metadata);
         setTestResult(null);
-        setTestCreatedToolId(null);
       } else if (provider) {
         // Create mode: reset to defaults
         setName('');
@@ -183,7 +179,6 @@ export function MCPConnectionDialog({
         setLoading(false);
         setShowAdvancedConfig(isCustomProvider);
         setTestResult(null);
-        setTestCreatedToolId(null);
       }
     }
   }, [open, provider, tool, isEditMode, isCustomProvider]);
@@ -252,20 +247,27 @@ export function MCPConnectionDialog({
     try {
       const apiFactory = new ApiClientFactory(session.session_token);
       const servicesClient = apiFactory.getServicesClient();
-      let toolIdToTest: string;
+
+      let testRequest: {
+        tool_id?: string;
+        provider_type_id?: string;
+        credentials?: Record<string, string>;
+        tool_metadata?: Record<string, any>;
+      };
 
       if (isEditMode) {
         // In edit mode, use existing tool ID
-        toolIdToTest = tool!.id;
+        testRequest = {
+          tool_id: tool!.id,
+        };
       } else {
-        // In create mode, create the tool first for testing
-        if (!mcpToolType || !provider) {
-          setError('MCP tool type or provider not found. Please try again.');
+        // In create mode, use direct parameters
+        if (!provider) {
+          setError('Provider not found. Please try again.');
           setTestingConnection(false);
           return;
         }
 
-        const toolsClient = apiFactory.getToolsClient();
         const credentialKey = getCredentialKey(provider.type_value);
         const credentials = requiresToken
           ? {
@@ -286,42 +288,16 @@ export function MCPConnectionDialog({
           parsedMetadata = validatedMetadata;
         }
 
-        const toolData: ToolCreate = {
-          name,
-          description: description || undefined,
-          tool_type_id: mcpToolType.id,
-          tool_provider_type_id: provider.id,
+        testRequest = {
+          provider_type_id: provider.id,
           credentials,
           tool_metadata: parsedMetadata,
         };
-
-        // Create tool temporarily for testing
-        const tempTool = await toolsClient.createTool(toolData);
-        toolIdToTest = tempTool.id;
-        setTestCreatedToolId(tempTool.id);
       }
 
       // Test the connection
-      const result = await servicesClient.testMCPConnection(toolIdToTest);
-
-      if (result.is_authenticated === 'Yes') {
-        // Test successful
-        setTestResult(result);
-      } else {
-        // Test failed
-        setTestResult(result);
-        if (!isEditMode) {
-          // Clean up the temporary tool if test failed
-          try {
-            const toolsClient = apiFactory.getToolsClient();
-            await toolsClient.deleteTool(toolIdToTest);
-            setTestCreatedToolId(null);
-          } catch (deleteErr) {
-            // Ignore delete errors
-            console.error('Failed to delete temporary tool:', deleteErr);
-          }
-        }
-      }
+      const result = await servicesClient.testMCPConnection(testRequest);
+      setTestResult(result);
     } catch (err) {
       setError(
         err instanceof Error
@@ -408,47 +384,6 @@ export function MCPConnectionDialog({
       }
 
       if (onConnect) {
-        // If tool was already created during testing, use form data to notify parent
-        if (testCreatedToolId && testResult?.is_authenticated === 'Yes') {
-          // Tool already created and tested successfully
-          // Use form data to notify parent (credentials not available from API)
-          try {
-            const credentialKey = getCredentialKey(provider!.type_value);
-            const credentials = requiresToken
-              ? {
-                  [credentialKey]: authToken.trim(),
-                }
-              : {};
-
-            let parsedMetadata: Record<string, any> | undefined = undefined;
-            if (isCustomProvider && toolMetadata.trim()) {
-              const validatedMetadata = validateToolMetadata(toolMetadata);
-              if (validatedMetadata !== null) {
-                parsedMetadata = validatedMetadata;
-              }
-            }
-
-            // Try to notify parent (it will handle duplicate gracefully)
-            try {
-              await onConnect(provider!.type_value, {
-                name,
-                description: description || undefined,
-                tool_type_id: mcpToolType!.id,
-                tool_provider_type_id: provider!.id,
-                credentials,
-                tool_metadata: parsedMetadata,
-              });
-            } catch (connectErr) {
-              // Tool already exists, that's fine - it was created during testing
-              // Parent will refresh to see it
-            }
-          } catch (err) {
-            console.error('Failed to notify parent:', err);
-          }
-          onClose();
-          return;
-        }
-
         setLoading(true);
         setError(null);
         try {
