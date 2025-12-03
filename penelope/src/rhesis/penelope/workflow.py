@@ -17,7 +17,7 @@ class WorkflowState:
 
     # Track consecutive analysis tool usage
     consecutive_analysis_tools: int = 0
-    max_consecutive_analysis: int = 3
+    max_consecutive_analysis: int = 5  # Increased from 3 to 5 for flexibility
 
     # Track tool usage patterns
     recent_tool_usage: deque = field(default_factory=lambda: deque(maxlen=10))
@@ -140,6 +140,20 @@ class WorkflowManager:
                     return (
                         False,
                         f"Detected oscillation pattern with {tool_name}. Try a different approach.",
+                    )
+
+            # NEW: Check for excessive same-tool repetition in sliding window
+            # If a tool is used 5 times in the last 6 executions, it's likely a loop
+            if len(recent_tools) >= 6:
+                last_6 = recent_tools[-6:]
+                tool_counts = {}
+                for t in last_6:
+                    tool_counts[t] = tool_counts.get(t, 0) + 1
+
+                if tool_counts.get(tool_name, 0) >= 5:
+                    return False, (
+                        f"Tool '{tool_name}' used 5 times in last 6 executions. "
+                        f"This indicates a potential loop. Try a different approach."
                     )
 
         return True, "Tool usage is valid"

@@ -196,6 +196,26 @@ class TurnExecutor:
         Returns:
             True if turn executed successfully, False if should stop
         """
+        # Check execution progress and warn if approaching limits
+        total_executions = len(state.all_executions)
+        if state.context.max_tool_executions is not None:
+            threshold_60 = int(state.context.max_tool_executions * 0.6)
+            threshold_80 = int(state.context.max_tool_executions * 0.8)
+
+            if total_executions == threshold_60:
+                logger.warning(
+                    f"Execution count at {total_executions} "
+                    f"(60% of limit {state.context.max_tool_executions}). "
+                    f"Check if agent is making progress towards the goal."
+                )
+            elif total_executions == threshold_80:
+                logger.warning(
+                    f"Execution count at {total_executions} "
+                    f"(80% of limit {state.context.max_tool_executions}). "
+                    f"Approaching maximum tool executions. "
+                    f"Consider increasing max_tool_executions if this is a complex test."
+                )
+
         # Build conversation history (native Pydantic messages)
         conversation_messages = state.get_conversation_messages()
 
@@ -351,20 +371,11 @@ class TurnExecutor:
                         tool, **action_params
                     )
                     if not is_valid:
-                        logger.warning(f"Tool usage validation failed: {validation_reason}")
-                        from rhesis.penelope.tools.base import ToolResult
-
-                        tool_result = ToolResult(
-                            success=False,
-                            output={},
-                            error=f"Workflow validation failed: {validation_reason}",
-                            metadata={
-                                "validation_failed": True,
-                                "validation_reason": validation_reason,
-                                "tool_category": getattr(tool, "tool_category", "unknown"),
-                            },
+                        logger.error(f"Workflow validation failed: {validation_reason}")
+                        state.add_finding(
+                            f"Workflow validation blocked execution: {validation_reason}"
                         )
-                        break
+                        return False  # Stop the agent loop immediately
 
                     if self.verbose:
                         logger.info(f"Executing tool: {action_name} with params: {action_params}")
