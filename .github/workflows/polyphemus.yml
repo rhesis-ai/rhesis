@@ -205,15 +205,20 @@ jobs:
             --config=/tmp/cloudbuild.yaml \
             --substitutions=_IMAGE_NAME="$IMAGE_FULL_NAME",_DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL }}" \
             --project=${{ env.PROJECT_ID }} \
+            --format="value(id)" \
             . 2>&1)
           
-          # Extract build ID from output
-          BUILD_ID=$(echo "$BUILD_OUTPUT" | grep -oP 'id: \K[^ ]+' || echo "")
+          # The --format="value(id)" flag returns just the build ID
+          BUILD_ID=$(echo "$BUILD_OUTPUT" | tr -d '[:space:]' | grep -E '^[a-f0-9-]{36}$' || echo "$BUILD_OUTPUT" | awk '/^[a-f0-9-]{36}$/ {print; exit}')
           
-          if [ -z "$BUILD_ID" ]; then
-            echo "❌ Failed to submit build or extract build ID"
+          if [ -z "$BUILD_ID" ] || [ ${#BUILD_ID} -ne 36 ]; then
+            echo "❌ Failed to extract valid build ID"
             echo "Output: $BUILD_OUTPUT"
-            exit 1
+            # Try to extract from URL format as fallback
+            BUILD_ID=$(echo "$BUILD_OUTPUT" | grep -oP 'builds/\K[a-f0-9-]{36}' | head -1)
+            if [ -z "$BUILD_ID" ]; then
+              exit 1
+            fi
           fi
           
           echo "✅ Build submitted with ID: $BUILD_ID"

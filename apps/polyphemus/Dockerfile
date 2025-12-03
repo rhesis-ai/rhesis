@@ -73,8 +73,14 @@ ENV DEFAULT_MODEL=${DEFAULT_MODEL}
 # Pre-download the model during build time
 # This uses a Python script to download the model to the cache directory
 # Use the virtual environment's Python to access installed packages
+# Note: 8B models take 10-30 minutes to download in Cloud Build
 RUN if [ -n "$DEFAULT_MODEL" ]; then \
         echo "Pre-downloading model: $DEFAULT_MODEL"; \
+        echo "This may take 10-30 minutes. Heartbeat messages will appear every 30s..."; \
+        # Start background heartbeat to show the process is alive
+        (while true; do sleep 30; echo "[$(date +%H:%M:%S)] Model download in progress..."; done) & \
+        HEARTBEAT_PID=$!; \
+        # Download the model
         PYTHONPATH=/app:/app/src:/app/sdk:/app/penelope:/app/apps/backend \
         /app/.venv/bin/python -c "import os; from rhesis.sdk.models.factory import get_model; \
 model_name = os.environ.get('DEFAULT_MODEL'); \
@@ -82,6 +88,10 @@ print(f'Loading model: {model_name}'); \
 model = get_model(model_name, auto_loading=False); \
 model.load_model(); \
 print(f'Model loaded successfully: {model_name}')"; \
+        EXIT_CODE=$?; \
+        kill $HEARTBEAT_PID 2>/dev/null || true; \
+        if [ $EXIT_CODE -ne 0 ]; then exit $EXIT_CODE; fi; \
+        echo "Model download completed"; \
     else \
         echo "WARNING: DEFAULT_MODEL not provided, model will be downloaded at runtime"; \
     fi
