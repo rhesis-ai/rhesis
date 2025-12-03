@@ -22,7 +22,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy only necessary files for the build
-COPY tsconfig.json next.config.mjs .eslintrc.json package.json package-lock.json ./
+COPY tsconfig.json next.config.mjs eslint.config.mjs package.json package-lock.json ./
 COPY public ./public
 COPY src ./src
 COPY scripts ./scripts
@@ -98,7 +98,7 @@ COPY --from=builder  /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Do NOT copy src, tsconfig.json, .eslintrc.json or any .env files to production image
+# Do NOT copy src, tsconfig.json, eslint.config.mjs or any .env files to production image
 # Install dependencies and handle environment-specific setup
 RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ] || [ "$FRONTEND_ENV" = "local" ]; then \
         echo "Production mode detected"; \
