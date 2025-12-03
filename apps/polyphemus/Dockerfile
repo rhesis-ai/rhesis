@@ -63,6 +63,7 @@ COPY apps/polyphemus/src /app/src
 # This downloads the model during image build to avoid runtime downloads
 ENV TRANSFORMERS_CACHE="/app/model_cache"
 ENV HF_HOME="/app/model_cache"
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
 RUN mkdir -p /app/model_cache
 
 # Model name MUST be provided via build argument - no default value
