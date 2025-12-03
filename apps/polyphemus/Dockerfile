@@ -72,9 +72,11 @@ ENV DEFAULT_MODEL=${DEFAULT_MODEL}
 
 # Pre-download the model during build time
 # This uses a Python script to download the model to the cache directory
+# Use the virtual environment's Python to access installed packages
 RUN if [ -n "$DEFAULT_MODEL" ]; then \
         echo "Pre-downloading model: $DEFAULT_MODEL"; \
-        python3 -c "import os; from rhesis.sdk.models.factory import get_model; \
+        PYTHONPATH=/app:/app/src:/app/sdk:/app/penelope:/app/apps/backend \
+        /app/.venv/bin/python -c "import os; from rhesis.sdk.models.factory import get_model; \
 model_name = os.environ.get('DEFAULT_MODEL'); \
 print(f'Loading model: {model_name}'); \
 model = get_model(model_name, auto_loading=False); \
@@ -125,9 +127,9 @@ COPY --from=builder --chown=appuser:appuser /app/sdk /app/sdk
 COPY --from=builder --chown=appuser:appuser /app/penelope /app/penelope
 COPY --from=builder --chown=appuser:appuser /app/apps/backend /app/apps/backend
 
-# Create model cache directory (model will be downloaded on first startup)
-# Cloud Run instances have persistent local storage, so the model will be cached
-RUN mkdir -p /app/model_cache && chown -R appuser:appuser /app/model_cache
+# Copy pre-downloaded model cache from builder stage
+# This includes the model files downloaded during build time
+COPY --from=builder --chown=appuser:appuser /app/model_cache /app/model_cache
 
 # Switch to the non-root user
 USER appuser
