@@ -1,6 +1,5 @@
 """Tests for system prompt assembly with restrictions."""
 
-import pytest
 from rhesis.penelope.prompts.system.system_assembly import get_system_prompt
 from rhesis.penelope.prompts.system.system_assembly_jinja import get_system_prompt_jinja
 
@@ -11,7 +10,7 @@ def test_get_system_prompt_basic():
         instructions="Test the chatbot",
         goal="Verify responses are accurate",
     )
-    
+
     assert "Test the chatbot" in prompt
     assert "Verify responses are accurate" in prompt
     assert "Test Instructions:" in prompt
@@ -25,7 +24,7 @@ def test_get_system_prompt_with_scenario():
         goal="Verify responses",
         scenario="You are a frustrated customer",
     )
-    
+
     assert "You are a frustrated customer" in prompt
     assert "Test Scenario:" in prompt
 
@@ -37,10 +36,10 @@ def test_get_system_prompt_with_restrictions():
         goal="Verify security boundaries",
         restrictions="Do not use profanity\nAvoid offensive content",
     )
-    
+
     assert "Do not use profanity" in prompt
     assert "Avoid offensive content" in prompt
-    assert "Test Restrictions:" in prompt
+    assert "Test Restrictions (Target System Boundaries):" in prompt
 
 
 def test_get_system_prompt_with_all_fields():
@@ -53,7 +52,7 @@ def test_get_system_prompt_with_all_fields():
         context="Testing environment: staging",
         available_tools="send_message, analyze",
     )
-    
+
     assert "Test security vulnerabilities" in prompt
     assert "Find potential security issues" in prompt
     assert "Adversarial security researcher" in prompt
@@ -71,11 +70,11 @@ def test_get_system_prompt_restrictions_positioning():
         restrictions="Test restrictions",
         context="Test context",
     )
-    
+
     goal_pos = prompt.find("Test Goal:")
-    restrictions_pos = prompt.find("Test Restrictions:")
+    restrictions_pos = prompt.find("Test Restrictions (Target System Boundaries):")
     context_pos = prompt.find("Context & Resources:")
-    
+
     assert goal_pos < restrictions_pos < context_pos
 
 
@@ -86,9 +85,9 @@ def test_get_system_prompt_empty_restrictions():
         goal="Test goal",
         restrictions="",
     )
-    
+
     # Should not include restrictions section when empty
-    assert "Test Restrictions:" not in prompt
+    assert "Test Restrictions (Target System Boundaries):" not in prompt
 
 
 def test_get_system_prompt_jinja_with_restrictions():
@@ -98,10 +97,10 @@ def test_get_system_prompt_jinja_with_restrictions():
         goal="Verify security boundaries",
         restrictions="Do not use profanity\nAvoid offensive content",
     )
-    
+
     assert "Do not use profanity" in prompt
     assert "Avoid offensive content" in prompt
-    assert "Test Restrictions:" in prompt
+    assert "Test Restrictions (Target System Boundaries):" in prompt
 
 
 def test_get_system_prompt_jinja_no_restrictions():
@@ -111,9 +110,9 @@ def test_get_system_prompt_jinja_no_restrictions():
         goal="Test goal",
         restrictions="",  # Empty string should be converted to None
     )
-    
+
     # Should not include restrictions section when empty
-    assert "Test Restrictions:" not in prompt
+    assert "Test Restrictions (Target System Boundaries):" not in prompt
 
 
 def test_get_system_prompt_jinja_with_all_fields():
@@ -126,7 +125,7 @@ def test_get_system_prompt_jinja_with_all_fields():
         context="Staging environment",
         available_tools="tools available",
     )
-    
+
     assert "Test security" in prompt
     assert "Find issues" in prompt
     assert "Security researcher" in prompt
@@ -143,13 +142,13 @@ def test_restrictions_multi_line_formatting():
     - Stay within scope
     - Report findings responsibly
     """
-    
+
     prompt = get_system_prompt(
         instructions="Test instructions",
         goal="Test goal",
         restrictions=restrictions,
     )
-    
+
     assert "Do not use profanity" in prompt
     assert "Avoid offensive content" in prompt
     assert "Stay within scope" in prompt
@@ -159,13 +158,13 @@ def test_restrictions_multi_line_formatting():
 def test_restrictions_with_special_characters():
     """Test restrictions with special characters."""
     restrictions = "Do not test: payment, admin, or user deletion features"
-    
+
     prompt = get_system_prompt(
         instructions="Test instructions",
         goal="Test goal",
         restrictions=restrictions,
     )
-    
+
     assert "Do not test: payment, admin, or user deletion features" in prompt
 
 
@@ -178,7 +177,7 @@ def test_system_prompt_consistency_python_vs_jinja():
         restrictions="Test restrictions",
         context="Test context",
     )
-    
+
     jinja_prompt = get_system_prompt_jinja(
         instructions="Test instructions",
         goal="Test goal",
@@ -186,9 +185,13 @@ def test_system_prompt_consistency_python_vs_jinja():
         restrictions="Test restrictions",
         context="Test context",
     )
-    
+
     # Both should contain the same key sections
-    for section in ["Test Instructions:", "Test Goal:", "Test Restrictions:", "Context & Resources:"]:
+    for section in [
+        "Test Instructions:",
+        "Test Goal:",
+        "Test Restrictions (Target System Boundaries):",
+        "Context & Resources:",
+    ]:
         assert section in python_prompt
         assert section in jinja_prompt
-

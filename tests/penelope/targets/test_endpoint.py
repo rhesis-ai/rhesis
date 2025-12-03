@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+
 from rhesis.penelope.targets.base import TargetResponse
 from rhesis.penelope.targets.endpoint import EndpointTarget
 
@@ -12,6 +13,10 @@ def mock_endpoint():
     """Create a mock Endpoint instance."""
     endpoint = Mock()
     endpoint.id = "endpoint-123"
+    endpoint.name = "Test Endpoint"
+    endpoint.url = "https://test.example.com/chat"
+    endpoint.description = "Test endpoint description"
+    endpoint.connection_type = "REST"
     endpoint.fields = {
         "name": "Test Endpoint",
         "url": "https://test.example.com/chat",
@@ -54,11 +59,13 @@ def test_endpoint_target_initialization_with_endpoint_id(mock_endpoint_class):
     mock_endpoint = Mock()
     mock_endpoint.id = "endpoint-123"
     mock_endpoint.fields = {"name": "Test", "url": "https://test.com"}
-    mock_endpoint_class.from_id.return_value = mock_endpoint
+    mock_endpoint.pull.return_value = None  # pull() doesn't return anything
+    mock_endpoint_class.return_value = mock_endpoint
 
     target = EndpointTarget(endpoint_id="endpoint-123")
 
-    mock_endpoint_class.from_id.assert_called_once_with("endpoint-123")
+    mock_endpoint_class.assert_called_once_with(id="endpoint-123")
+    mock_endpoint.pull.assert_called_once()
     assert target.endpoint_id == "endpoint-123"
     assert target.endpoint == mock_endpoint
 
@@ -66,9 +73,11 @@ def test_endpoint_target_initialization_with_endpoint_id(mock_endpoint_class):
 @patch("rhesis.penelope.targets.endpoint.Endpoint")
 def test_endpoint_target_initialization_with_invalid_id(mock_endpoint_class):
     """Test EndpointTarget raises error for invalid endpoint_id."""
-    mock_endpoint_class.from_id.return_value = None
+    mock_endpoint = Mock()
+    mock_endpoint.pull.side_effect = Exception("Endpoint not found")
+    mock_endpoint_class.return_value = mock_endpoint
 
-    with pytest.raises(ValueError, match="Endpoint not found"):
+    with pytest.raises(ValueError, match="Endpoint not found or failed to load"):
         EndpointTarget(endpoint_id="invalid-id")
 
 
