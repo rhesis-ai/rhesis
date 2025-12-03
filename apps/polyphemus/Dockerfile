@@ -72,23 +72,25 @@ ARG DEFAULT_MODEL
 ENV DEFAULT_MODEL=${DEFAULT_MODEL}
 
 # Pre-download the model during build time
-# This uses a Python script to download the model to the cache directory
-# Use the virtual environment's Python to access installed packages
-# Note: 8B models take 10-30 minutes to download in Cloud Build
+# This uses snapshot_download to ONLY download files without loading into memory
+# Loading into memory on CPU is VERY slow (30-60 min for 8B models)
+# Model will be loaded at runtime in Cloud Run where GPU makes it fast (2-3 min)
+# Note: 8B models take 10-15 minutes to download in Cloud Build
 RUN if [ -n "$DEFAULT_MODEL" ]; then \
         echo "Pre-downloading model: $DEFAULT_MODEL"; \
-        echo "This may take 10-30 minutes. Heartbeat messages will appear every 30s..."; \
+        echo "This may take 10-15 minutes for large models. Heartbeat messages will appear every 30s..."; \
         # Start background heartbeat to show the process is alive
         (while true; do sleep 30; echo "[$(date +%H:%M:%S)] Model download in progress..."; done) & \
         HEARTBEAT_PID=$!; \
-        # Download the model
+        # Download the model files WITHOUT loading into memory (much faster!)
         PYTHONPATH=/app:/app/src:/app/sdk:/app/penelope:/app/apps/backend \
-        /app/.venv/bin/python -c "import os; from rhesis.sdk.models.factory import get_model; \
-model_name = os.environ.get('DEFAULT_MODEL'); \
-print(f'Loading model: {model_name}'); \
-model = get_model(model_name, auto_loading=False); \
-model.load_model(); \
-print(f'Model loaded successfully: {model_name}')"; \
+        /app/.venv/bin/python -c "import os; from huggingface_hub import snapshot_download; \
+model_name = os.environ.get('DEFAULT_MODEL', '').replace('huggingface/', ''); \
+print(f'Downloading model files: {model_name}'); \
+print('Using snapshot_download (downloads files only, does not load into memory)...'); \
+cache_dir = os.environ.get('TRANSFORMERS_CACHE', '/app/model_cache'); \
+snapshot_download(repo_id=model_name, cache_dir=cache_dir, local_files_only=False, resume_download=True); \
+print(f'Model files downloaded successfully: {model_name}')"; \
         EXIT_CODE=$?; \
         kill $HEARTBEAT_PID 2>/dev/null || true; \
         if [ $EXIT_CODE -ne 0 ]; then exit $EXIT_CODE; fi; \
