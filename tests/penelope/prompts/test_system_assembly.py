@@ -40,7 +40,7 @@ def test_get_system_prompt_with_restrictions():
     
     assert "Do not use profanity" in prompt
     assert "Avoid offensive content" in prompt
-    assert "Test Restrictions:" in prompt
+    assert "Test Restrictions (Target System Boundaries):" in prompt
 
 
 def test_get_system_prompt_with_all_fields():
@@ -73,7 +73,7 @@ def test_get_system_prompt_restrictions_positioning():
     )
     
     goal_pos = prompt.find("Test Goal:")
-    restrictions_pos = prompt.find("Test Restrictions:")
+    restrictions_pos = prompt.find("Test Restrictions (Target System Boundaries):")
     context_pos = prompt.find("Context & Resources:")
     
     assert goal_pos < restrictions_pos < context_pos
@@ -88,7 +88,7 @@ def test_get_system_prompt_empty_restrictions():
     )
     
     # Should not include restrictions section when empty
-    assert "Test Restrictions:" not in prompt
+    assert "Test Restrictions (Target System Boundaries):" not in prompt
 
 
 def test_get_system_prompt_jinja_with_restrictions():
@@ -101,7 +101,7 @@ def test_get_system_prompt_jinja_with_restrictions():
     
     assert "Do not use profanity" in prompt
     assert "Avoid offensive content" in prompt
-    assert "Test Restrictions:" in prompt
+    assert "Test Restrictions (Target System Boundaries):" in prompt
 
 
 def test_get_system_prompt_jinja_no_restrictions():
@@ -113,7 +113,7 @@ def test_get_system_prompt_jinja_no_restrictions():
     )
     
     # Should not include restrictions section when empty
-    assert "Test Restrictions:" not in prompt
+    assert "Test Restrictions (Target System Boundaries):" not in prompt
 
 
 def test_get_system_prompt_jinja_with_all_fields():
@@ -188,7 +188,7 @@ def test_system_prompt_consistency_python_vs_jinja():
     )
     
     # Both should contain the same key sections
-    for section in ["Test Instructions:", "Test Goal:", "Test Restrictions:", "Context & Resources:"]:
+    for section in ["Test Instructions:", "Test Goal:", "Test Restrictions (Target System Boundaries):", "Context & Resources:"]:
         assert section in python_prompt
         assert section in jinja_prompt
 
