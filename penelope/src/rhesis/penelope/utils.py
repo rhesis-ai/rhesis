@@ -61,20 +61,20 @@ class MaxToolExecutionsCondition(StoppingCondition):
             # Calculate statistics for helpful error message
             avg_tools_per_turn = total_executions / max(state.current_turn, 1)
 
-            message = f"""Maximum tool executions reached ({total_executions}/{self.max_tool_executions}).
-
-This limit prevents infinite loops and runaway costs.
-
-Current execution breakdown:
-- Turns completed: {state.current_turn}
-- Tool executions: {total_executions}
-- Average tools per turn: {avg_tools_per_turn:.1f}
-
-To increase this limit:
-1. Via parameter: PenelopeAgent(..., max_tool_executions=100)
-2. Via environment: export PENELOPE_MAX_TOOL_EXECUTIONS=100
-
-⚠️  Warning: Higher limits increase cost risk. Ensure your agent is making progress."""
+            message = (
+                f"Maximum tool executions reached "
+                f"({total_executions}/{self.max_tool_executions}).\n\n"
+                "This limit prevents infinite loops and runaway costs.\n\n"
+                "Current execution breakdown:\n"
+                f"- Turns completed: {state.current_turn}\n"
+                f"- Tool executions: {total_executions}\n"
+                f"- Average tools per turn: {avg_tools_per_turn:.1f}\n\n"
+                "To increase this limit:\n"
+                "1. Via parameter: PenelopeAgent(..., max_tool_executions=100)\n"
+                "2. Via environment: export PENELOPE_MAX_TOOL_EXECUTIONS=100\n\n"
+                "⚠️  Warning: Higher limits increase cost risk. "
+                "Ensure your agent is making progress."
+            )
 
             return True, message
         return False, ""

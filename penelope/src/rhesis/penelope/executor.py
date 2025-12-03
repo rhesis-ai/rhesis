@@ -372,7 +372,9 @@ class TurnExecutor:
                     )
                     if not is_valid:
                         logger.error(f"Workflow validation failed: {validation_reason}")
-                        state.add_finding(f"Workflow validation blocked execution: {validation_reason}")
+                        state.add_finding(
+                            f"Workflow validation blocked execution: {validation_reason}"
+                        )
                         return False  # Stop the agent loop immediately
 
                     if self.verbose:
