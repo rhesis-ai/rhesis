@@ -132,7 +132,7 @@ const nextConfig = {
   },
 
   // Webpack optimizations
-  webpack: (config, { dev, isServer, webpack }) => {
+  webpack: (config, { dev, isServer }) => {
     // Your existing markdown rule
     config.module.rules.push({
       test: /\.md$/,

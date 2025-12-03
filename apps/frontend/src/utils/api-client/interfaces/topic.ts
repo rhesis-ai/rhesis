@@ -8,9 +8,9 @@ export interface TopicBase {
   organization_id?: UUID | null;
 }
 
-export interface TopicCreate extends TopicBase {}
+export type TopicCreate = TopicBase;
 
-export interface TopicUpdate extends Partial<TopicBase> {}
+export type TopicUpdate = Partial<TopicBase>;
 
 export interface Topic extends TopicBase {
   id: UUID;
