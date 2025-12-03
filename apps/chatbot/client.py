@@ -266,7 +266,7 @@ class ChatResponse(BaseModel):
 @collaborate(
     name="chat_with_history",
     description="Chat with the insurance assistant using conversation history",
-    output_mapping={
+    response_mapping={
         "output": "$.message",
         "session_id": "$.session_id",
         "context": "$.context",
