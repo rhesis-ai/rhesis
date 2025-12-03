@@ -180,7 +180,7 @@ export default function TestRunPerformance({
   const containerHeight =
     calculateLimit() > 6
       ? `${Math.min(calculateLimit() * 90 + 150, viewportHeight - 364)}px`
-      : '700px';
+      : theme.spacing(87.5);
 
   if (loading) {
     return (
@@ -237,7 +237,7 @@ export default function TestRunPerformance({
         {testRuns.length === 0 ? (
           <Grid size={{ xs: 12 }}>
             <Typography color="text.secondary" align="center">
-              No test runs found
+              No test runs
             </Typography>
           </Grid>
         ) : (

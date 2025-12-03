@@ -137,13 +137,36 @@ const KPICard: React.FC<KPICardProps> = ({
           </Typography>
         )}
 
-        {sparklineData && sparklineData.length > 0 && (
+        {/* Show "No test runs" message for Test Runs card when value is 0 */}
+        {title === 'Test Runs' && value === '0' ? (
+          <Box
+            sx={{
+              height: theme.spacing(7.5),
+              mt: theme.spacing(1),
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                textAlign: 'center',
+                fontStyle: 'italic',
+              }}
+            >
+              No test runs
+            </Typography>
+          </Box>
+        ) : sparklineData && sparklineData.length > 0 ? (
           <Box
             sx={{ height: theme.spacing(7.5), mt: theme.spacing(1), flex: 1 }}
           >
             <SparkLineChart
               data={sparklineData}
-              height={Number(theme.spacing(7.5).replace('px', ''))}
+              height={60}
               showTooltip
               showHighlight
               color={color}
@@ -158,7 +181,7 @@ const KPICard: React.FC<KPICardProps> = ({
               }}
             />
           </Box>
-        )}
+        ) : null}
 
         {trend && trendValue && (
           <Box
@@ -483,104 +506,117 @@ export default function DashboardKPIs({
                   position: 'relative',
                 }}
               >
-                <Tooltip
-                  title={
-                    <Box>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          display: 'block',
-                          fontWeight: theme.typography.fontWeightMedium,
-                        }}
-                      >
-                        Pass Rate: {currentMonthPassRate.toFixed(1)}%
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          display: 'block',
-                          fontWeight: theme.typography.fontWeightMedium,
-                        }}
-                      >
-                        Fail Rate: {(100 - currentMonthPassRate).toFixed(1)}%
-                      </Typography>
-                    </Box>
-                  }
-                  arrow
-                  placement="top"
-                  componentsProps={{
-                    tooltip: {
-                      sx: {
-                        bgcolor: theme.palette.background.paper,
-                        color: theme.palette.text.primary,
-                        border: `1px solid ${theme.palette.divider}`,
-                        borderRadius: theme.shape.borderRadius,
-                        boxShadow: theme.shadows[2],
-                        '& .MuiTooltip-arrow': {
-                          color: theme.palette.background.paper,
-                          '&::before': {
-                            border: `1px solid ${theme.palette.divider}`,
+                {currentMonthPassed === 0 && currentMonthFailed === 0 ? (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{
+                      textAlign: 'center',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    No test runs
+                  </Typography>
+                ) : (
+                  <Tooltip
+                    title={
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            display: 'block',
+                            fontWeight: theme.typography.fontWeightMedium,
+                          }}
+                        >
+                          Pass Rate: {currentMonthPassRate.toFixed(1)}%
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            display: 'block',
+                            fontWeight: theme.typography.fontWeightMedium,
+                          }}
+                        >
+                          Fail Rate: {(100 - currentMonthPassRate).toFixed(1)}%
+                        </Typography>
+                      </Box>
+                    }
+                    arrow
+                    placement="top"
+                    componentsProps={{
+                      tooltip: {
+                        sx: {
+                          bgcolor: theme.palette.background.paper,
+                          color: theme.palette.text.primary,
+                          border: `${theme.spacing(0.125)} solid ${theme.palette.divider}`,
+                          borderRadius: theme.shape.borderRadius,
+                          boxShadow: theme.shadows[2],
+                          '& .MuiTooltip-arrow': {
+                            color: theme.palette.background.paper,
+                            '&::before': {
+                              border: `${theme.spacing(0.125)} solid ${theme.palette.divider}`,
+                            },
                           },
                         },
                       },
-                    },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      cursor: 'pointer',
                     }}
                   >
-                    <Gauge
-                      value={currentMonthPassRate}
-                      valueMin={0}
-                      valueMax={100}
-                      width={Number(theme.spacing(7.5).replace('px', ''))}
-                      height={Number(theme.spacing(7.5).replace('px', ''))}
-                      text={() => ''}
-                      sx={{
-                        [`& .MuiGauge-valueArc`]: {
-                          fill: theme.palette.primary.main,
-                        },
-                        [`& .MuiGauge-referenceArc`]: {
-                          fill: theme.palette.grey[300],
-                        },
-                      }}
-                    />
                     <Box
                       sx={{
                         display: 'flex',
-                        gap: theme.spacing(1),
-                        mt: theme.spacing(0.5),
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        cursor: 'pointer',
                       }}
                     >
-                      <Typography
-                        variant="caption"
+                      <Gauge
+                        value={currentMonthPassRate}
+                        valueMin={0}
+                        valueMax={100}
+                        width={60}
+                        height={60}
+                        text={() => ''}
                         sx={{
-                          fontWeight: theme.typography.fontWeightMedium,
-                          color: theme.palette.primary.main,
+                          [`& .MuiGauge-valueArc`]: {
+                            fill: theme.palette.primary.main,
+                          },
+                          [`& .MuiGauge-referenceArc`]: {
+                            fill: theme.palette.grey[300],
+                          },
+                        }}
+                      />
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          gap: theme.spacing(1),
+                          mt: theme.spacing(0.5),
                         }}
                       >
-                        {currentMonthPassed.toLocaleString()} Pass
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        /
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: theme.typography.fontWeightMedium,
-                          color: theme.palette.grey[500],
-                        }}
-                      >
-                        {currentMonthFailed.toLocaleString()} Fail
-                      </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontWeight: theme.typography.fontWeightMedium,
+                            color: theme.palette.primary.main,
+                          }}
+                        >
+                          {currentMonthPassed.toLocaleString()} Pass
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          /
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontWeight: theme.typography.fontWeightMedium,
+                            color: theme.palette.grey[500],
+                          }}
+                        >
+                          {currentMonthFailed.toLocaleString()} Fail
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                </Tooltip>
+                  </Tooltip>
+                )}
               </Box>
 
               {passRateTrend !== 0 && (
@@ -622,10 +658,10 @@ export default function DashboardKPIs({
           </Card>
         </Grid>
 
-        {/* Test Executions */}
+        {/* Test Runs */}
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KPICard
-            title="Test Executions"
+            title="Test Runs"
             value={recentTestRuns.toLocaleString()}
             icon={<PlayArrowIcon />}
             color={theme.palette.info.main}
@@ -651,7 +687,7 @@ export default function DashboardKPIs({
                 ? `${executionCounts[executionCounts.length - 1] > executionCounts[executionCounts.length - 2] ? '+' : ''}${executionCounts[executionCounts.length - 1] - executionCounts[executionCounts.length - 2]} from last month`
                 : 'Last month'
             }
-            subtitle="Tests executed"
+            subtitle="Test runs executed"
           />
         </Grid>
 
