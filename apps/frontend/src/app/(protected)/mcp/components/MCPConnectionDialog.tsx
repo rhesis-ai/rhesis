@@ -553,7 +553,7 @@ export function MCPConnectionDialog({
                 </Typography>
 
                 <TextField
-                  label="Auth Token"
+                  label="TOKEN"
                   fullWidth
                   required={!isEditMode}
                   type={showAuthToken ? 'text' : 'password'}
@@ -681,9 +681,9 @@ export function MCPConnectionDialog({
                       color="text.secondary"
                       sx={{ mb: 2 }}
                     >
-                      Configure your custom MCP server. Use credential
-                      placeholders with <code>{'{{'}</code> and{' '}
-                      <code>{'}}'}</code> format.
+                      Provide your API token above, then paste your MCP server config below 
+                      using <code>{"{{ TOKEN }}"}</code> as a placeholder 
+                      wherever the token is required.
                     </Typography>
                     <Typography
                       variant="body2"
@@ -707,9 +707,9 @@ export function MCPConnectionDialog({
                     >
                       {`{
   "command": "npx",
-  "args": ["--bun", "@notionhq/notion-mcp-server"],
+  "args": ["@example/mcp-server"],
   "env": {
-    "NOTION_TOKEN": "{{ TOKEN }}"
+    "API_TOKEN": "{{ TOKEN }}"
   }
 }`}
                     </Box>

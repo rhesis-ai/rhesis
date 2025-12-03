@@ -50,19 +50,25 @@ def create_tool(
         ```
 
     2. **Custom MCP provider**
-    - You must provide the MCP server configuration JSON in `tool_metadata`.
+    - The MCP server configuration JSON should be provided in `tool_metadata`
+    - The API token should be stored in the credentials dictionary
     - The custom provider should use **npx** to run the MCP server.
-    - Any environment variables required by the MCP server should be included in the `env` object.
 
     Example `tool_metadata` for a custom provider:
     ```json
     {
         "command": "npx",
-        "args": ["@custom/mcp-server"],
+        "args": ["@example/mcp-server"],
         "env": {
-            "NOTION_TOKEN": "{{ NOTION_TOKEN }}"
+            "API_TOKEN": "{{ TOKEN }}"
         }
     }
+    ```
+
+    Where the credentials dictionary is:
+    ```json
+    {"TOKEN": "your_api_token_123"}
+    ```
     """
     organization_id, user_id = tenant_context
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
