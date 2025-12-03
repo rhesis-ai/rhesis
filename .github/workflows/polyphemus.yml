@@ -161,35 +161,51 @@ jobs:
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, tag with commit SHA
             IMAGE_TAG="${{ env.COMMIT_SHA }}"
+            IMAGE_FULL_NAME="${{ env.IMAGE_NAME }}:$IMAGE_TAG"
             echo "Building preview image with tag: $IMAGE_TAG"
-            
-            gcloud builds submit \
-              --tag=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
-              --dockerfile=apps/polyphemus/Dockerfile \
-              --machine-type=e2-highcpu-32 \
-              --disk-size=200 \
-              --build-arg=DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }} \
-              --project=${{ env.PROJECT_ID }} \
-              --timeout=7200s \
-              .
-            
-            echo "Built and pushed preview image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
           else
             # For regular deployments, use latest tag
+            IMAGE_FULL_NAME="${{ env.IMAGE_NAME }}:latest"
             echo "Building regular image with tag: latest"
-            
-            gcloud builds submit \
-              --tag=${{ env.IMAGE_NAME }}:latest \
-              --dockerfile=apps/polyphemus/Dockerfile \
-              --machine-type=e2-highcpu-32 \
-              --disk-size=200 \
-              --build-arg=DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }} \
-              --project=${{ env.PROJECT_ID }} \
-              --timeout=7200s \
-              .
-            
-            echo "Built and pushed regular image: ${{ env.IMAGE_NAME }}:latest"
           fi
+          
+          # Create inline Cloud Build configuration
+          cat > /tmp/cloudbuild.yaml << 'EOFCONFIG'
+          steps:
+            - name: 'gcr.io/cloud-builders/docker'
+              args:
+                - 'build'
+                - '-t'
+                - '${_IMAGE_NAME}'
+                - '--cache-from'
+                - '${_IMAGE_NAME}'
+                - '--build-arg'
+                - 'DEFAULT_MODEL=${_DEFAULT_MODEL}'
+                - '-f'
+                - 'apps/polyphemus/Dockerfile'
+                - '.'
+              id: 'build'
+          
+          images:
+            - '${_IMAGE_NAME}'
+          
+          options:
+            machineType: 'E2_HIGHCPU_32'
+            diskSizeGb: 200
+            env:
+              - 'DOCKER_BUILDKIT=1'
+          
+          timeout: '7200s'
+          EOFCONFIG
+          
+          # Submit build with inline config
+          gcloud builds submit \
+            --config=/tmp/cloudbuild.yaml \
+            --substitutions=_IMAGE_NAME="$IMAGE_FULL_NAME",_DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL }}" \
+            --project=${{ env.PROJECT_ID }} \
+            .
+          
+          echo "Built and pushed image: $IMAGE_FULL_NAME"
 
   deploy:
     # Note: When deploy_only is true, build job is skipped, but GitHub Actions treats skipped jobs
