@@ -116,13 +116,15 @@ class AutoMapper:
         Returns:
             Dict of standard field → Jinja2 template mappings
         """
-        # Fallback patterns for common field names
+        # Fallback patterns for common field names (using patterns from MappingPatterns)
         fallback_patterns = {
-            "output": ["response", "result", "output", "content", "text", "answer"],
-            "session_id": ["session_id", "conversation_id", "conv_id", "thread_id", "chat_id"],
-            "context": ["context", "sources", "documents", "chunks", "retrieved_docs"],
-            "metadata": ["metadata", "meta", "info", "stats"],
-            "tool_calls": ["tool_calls", "tools", "functions", "function_calls"],
+            "output": MappingPatterns.OUTPUT_EXACT
+            + MappingPatterns.OUTPUT_COMPOUND[:3],  # Use first 3 compound patterns
+            "session_id": MappingPatterns.SESSION_EXACT[:5],  # Use first 5 session patterns
+            "context": MappingPatterns.CONTEXT_EXACT + MappingPatterns.CONTEXT_COMPOUND[:3],
+            "metadata": MappingPatterns.METADATA_EXACT + MappingPatterns.METADATA_COMPOUND[:2],
+            "tool_calls": MappingPatterns.TOOL_CALLS_EXACT
+            + MappingPatterns.TOOL_CALLS_COMPOUND[:2],
         }
 
         # Build response mapping with fallback patterns
