@@ -151,55 +151,44 @@ jobs:
         run: |
           echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
 
-      - name: Configure Docker for GCR
+      - name: Build Container with Google Cloud Build
+        timeout-minutes: 120
         run: |
-          gcloud auth configure-docker
-
-      - name: Free up disk space
-        run: |
-          echo "Available disk space before cleanup:"
-          df -h
-          # Remove unnecessary software to free up disk space on GitHub Actions runner
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force
-          echo "Available disk space after cleanup:"
-          df -h
-
-      - name: Build Container
-        timeout-minutes: 60
-        run: |
-          # Use cache to speed up builds - only rebuild layers that changed
-          # Build context is repo root to access SDK and pyproject.toml (like backend)
-          # Pre-download default model during build to avoid runtime downloads in Cloud Run
-          DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL || 'huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1' }}"
-          
-          # Enable BuildKit for better build performance and progress output
-          export DOCKER_BUILDKIT=1
-          export BUILDKIT_PROGRESS=plain
+          # Use Google Cloud Build to build the Docker image
+          # This provides more disk space and compute power than GitHub runners
+          # The model will be pre-downloaded during the build process
           
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, tag with commit SHA
-            docker build --progress=plain --pull --build-arg DEFAULT_MODEL="$DEFAULT_MODEL" -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/polyphemus/Dockerfile .
-            echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
+            IMAGE_TAG="${{ env.COMMIT_SHA }}"
+            echo "Building preview image with tag: $IMAGE_TAG"
+            
+            gcloud builds submit \
+              --tag=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
+              --dockerfile=apps/polyphemus/Dockerfile \
+              --machine-type=e2-highcpu-32 \
+              --disk-size=200 \
+              --build-arg=DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }} \
+              --project=${{ env.PROJECT_ID }} \
+              --timeout=7200s \
+              .
+            
+            echo "Built and pushed preview image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
           else
             # For regular deployments, use latest tag
-            docker build --progress=plain --pull --build-arg DEFAULT_MODEL="$DEFAULT_MODEL" -t ${{ env.IMAGE_NAME }}:latest -f apps/polyphemus/Dockerfile .
-            echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
-          fi
-
-      - name: Push Container
-        run: |
-          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
-            # For preview deployments, push commit SHA tagged image
-            docker push ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}
-            echo "Pushed preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
-          else
-            # For regular deployments, push latest tagged image
-            docker push ${{ env.IMAGE_NAME }}:latest
-            echo "Pushed regular image: ${{ env.IMAGE_NAME }}:latest"
+            echo "Building regular image with tag: latest"
+            
+            gcloud builds submit \
+              --tag=${{ env.IMAGE_NAME }}:latest \
+              --dockerfile=apps/polyphemus/Dockerfile \
+              --machine-type=e2-highcpu-32 \
+              --disk-size=200 \
+              --build-arg=DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }} \
+              --project=${{ env.PROJECT_ID }} \
+              --timeout=7200s \
+              .
+            
+            echo "Built and pushed regular image: ${{ env.IMAGE_NAME }}:latest"
           fi
 
   deploy:
@@ -364,7 +353,7 @@ jobs:
               --no-cpu-throttling \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
-          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1' }},
+          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }},
           TRANSFORMERS_CACHE=/app/model_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
@@ -403,7 +392,7 @@ jobs:
               --no-cpu-throttling \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
-          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1' }},
+          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }},
           TRANSFORMERS_CACHE=/app/model_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},

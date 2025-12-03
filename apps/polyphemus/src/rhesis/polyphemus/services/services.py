@@ -27,10 +27,9 @@ _model_lock = asyncio.Lock()
 # Thread pool executor for running blocking operations
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="polyphemus-generate")
 
-# Default model identifier - can be overridden via environment variable
-DEFAULT_MODEL = os.environ.get(
-    "DEFAULT_MODEL", "huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1"
-)
+# Default model identifier - MUST be set via environment variable
+# No default value is provided to avoid exposing model names
+DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL")
 
 
 def is_model_loaded(model_name: Optional[str] = None) -> bool:
@@ -69,7 +68,7 @@ async def get_polyphemus_instance(model_name: Optional[str] = None) -> BaseLLM:
 
     Args:
         model_name: Model identifier in format "provider/model" or just model name.
-            If None, uses default model (LazyModelLoader with huggingface/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1).
+            If None, uses default model from DEFAULT_MODEL environment variable.
 
     Returns:
         BaseLLM: The model instance
