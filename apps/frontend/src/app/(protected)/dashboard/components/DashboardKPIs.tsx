@@ -137,8 +137,8 @@ const KPICard: React.FC<KPICardProps> = ({
           </Typography>
         )}
 
-        {/* Show "No test runs" message for Test Runs card when value is 0 */}
-        {title === 'Test Runs' && value === '0' ? (
+        {/* Show "No test executions" message for Test Executions card when value is 0 */}
+        {title === 'Test Executions' && value === '0' ? (
           <Box
             sx={{
               height: theme.spacing(7.5),
@@ -157,7 +157,7 @@ const KPICard: React.FC<KPICardProps> = ({
                 fontStyle: 'italic',
               }}
             >
-              No test runs
+              No test executions
             </Typography>
           </Box>
         ) : sparklineData && sparklineData.length > 0 ? (
@@ -660,10 +660,10 @@ export default function DashboardKPIs({
           </Card>
         </Grid>
 
-        {/* Test Runs */}
+        {/* Test Executions */}
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KPICard
-            title="Test Runs"
+            title="Test Executions"
             value={recentTestRuns.toLocaleString()}
             icon={<PlayArrowIcon />}
             color={theme.palette.info.main}
@@ -693,7 +693,7 @@ export default function DashboardKPIs({
                   ? `${executionCounts[executionCounts.length - 1] > executionCounts[executionCounts.length - 2] ? '+' : ''}${executionCounts[executionCounts.length - 1] - executionCounts[executionCounts.length - 2]} from last month`
                   : 'Last month'
             }
-            subtitle={recentTestRuns === 0 ? undefined : 'Test runs executed'}
+            subtitle={recentTestRuns === 0 ? undefined : 'Tests executed'}
           />
         </Grid>
 
