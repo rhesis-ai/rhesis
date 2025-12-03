@@ -198,14 +198,49 @@ jobs:
           timeout: '7200s'
           EOFCONFIG
           
-          # Submit build with inline config
-          gcloud builds submit \
+          # Submit build with inline config (async to avoid log streaming issues)
+          echo "Submitting build to Cloud Build..."
+          BUILD_OUTPUT=$(gcloud builds submit \
+            --async \
             --config=/tmp/cloudbuild.yaml \
             --substitutions=_IMAGE_NAME="$IMAGE_FULL_NAME",_DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL }}" \
             --project=${{ env.PROJECT_ID }} \
-            .
+            . 2>&1)
           
-          echo "Built and pushed image: $IMAGE_FULL_NAME"
+          # Extract build ID from output
+          BUILD_ID=$(echo "$BUILD_OUTPUT" | grep -oP 'id: \K[^ ]+' || echo "")
+          
+          if [ -z "$BUILD_ID" ]; then
+            echo "❌ Failed to submit build or extract build ID"
+            echo "Output: $BUILD_OUTPUT"
+            exit 1
+          fi
+          
+          echo "✅ Build submitted with ID: $BUILD_ID"
+          echo "📊 Monitor build at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
+          
+          # Wait for build to complete (with timeout)
+          echo "⏳ Waiting for build to complete..."
+          if ! gcloud builds wait $BUILD_ID \
+            --project=${{ env.PROJECT_ID }}; then
+            echo "❌ Build failed or timed out"
+            echo "🔗 Check logs at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
+            exit 1
+          fi
+          
+          # Check final build status
+          BUILD_STATUS=$(gcloud builds describe $BUILD_ID \
+            --project=${{ env.PROJECT_ID }} \
+            --format="value(status)")
+          
+          if [ "$BUILD_STATUS" != "SUCCESS" ]; then
+            echo "❌ Build failed with status: $BUILD_STATUS"
+            echo "🔗 Check logs at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
+            exit 1
+          fi
+          
+          echo "✅ Build completed successfully!"
+          echo "📦 Built and pushed image: $IMAGE_FULL_NAME"
 
   deploy:
     # Note: When deploy_only is true, build job is skipped, but GitHub Actions treats skipped jobs
