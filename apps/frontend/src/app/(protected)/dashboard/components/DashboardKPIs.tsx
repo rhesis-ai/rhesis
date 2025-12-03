@@ -485,13 +485,15 @@ export default function DashboardKPIs({
                 </Box>
               </Box>
 
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', mb: theme.spacing(1) }}
-              >
-                Current performance
-              </Typography>
+              {!(currentMonthPassed === 0 && currentMonthFailed === 0) && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: theme.spacing(1) }}
+                >
+                  Current performance
+                </Typography>
+              )}
 
               <Box
                 sx={{
@@ -672,22 +674,26 @@ export default function DashboardKPIs({
               executionMonthLabels.length > 0 ? executionMonthLabels : undefined
             }
             trend={
-              executionCounts.length >= 2 &&
-              executionCounts[executionCounts.length - 1] >
-                executionCounts[executionCounts.length - 2]
-                ? 'up'
+              recentTestRuns === 0
+                ? undefined
                 : executionCounts.length >= 2 &&
-                    executionCounts[executionCounts.length - 1] <
+                    executionCounts[executionCounts.length - 1] >
                       executionCounts[executionCounts.length - 2]
-                  ? 'down'
-                  : 'neutral'
+                  ? 'up'
+                  : executionCounts.length >= 2 &&
+                      executionCounts[executionCounts.length - 1] <
+                        executionCounts[executionCounts.length - 2]
+                    ? 'down'
+                    : 'neutral'
             }
             trendValue={
-              executionCounts.length >= 2
-                ? `${executionCounts[executionCounts.length - 1] > executionCounts[executionCounts.length - 2] ? '+' : ''}${executionCounts[executionCounts.length - 1] - executionCounts[executionCounts.length - 2]} from last month`
-                : 'Last month'
+              recentTestRuns === 0
+                ? undefined
+                : executionCounts.length >= 2
+                  ? `${executionCounts[executionCounts.length - 1] > executionCounts[executionCounts.length - 2] ? '+' : ''}${executionCounts[executionCounts.length - 1] - executionCounts[executionCounts.length - 2]} from last month`
+                  : 'Last month'
             }
-            subtitle="Test runs executed"
+            subtitle={recentTestRuns === 0 ? undefined : 'Test runs executed'}
           />
         </Grid>
 
