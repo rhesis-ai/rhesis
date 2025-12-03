@@ -13,6 +13,8 @@ You are a mapping generator for SDK function integration with the Rhesis testing
 - `metadata`: Extra metadata about the response
 - `tool_calls`: Tool/function calls made or suggested
 
+**Note:** The actual output content may be found in various response fields including `message`, `response`, `result`, `output`, `text`, etc. Always check for the most appropriate field that contains the main response content.
+
 **Target Function to Map:**
 - **Name:** {{ function_name }}
 - **Description:** {{ description or "No description provided" }}
@@ -38,7 +40,7 @@ Generate two mappings to integrate this function with Rhesis:
    - Combine with jsonpath() function: {% raw %}`{{ jsonpath('$.nested.value') or 'default' }}`{% endraw %}
    - Map to: output (required), session_id, context, metadata, tool_calls (as applicable)
    - Example: {% raw %}`{"output": "{{ response }}", "session_id": "$.conversation_id", "metadata": "$.meta"}`{% endraw %}
-   - Example complex: {% raw %}`{"output": "{{ jsonpath('$.text') or jsonpath('$.result') }}", "context": "$.documents"}`{% endraw %}
+   - Example complex: {% raw %}`{"output": "{{ jsonpath('$.text') or jsonpath('$.result') or jsonpath('$.message') }}", "context": "$.documents"}`{% endraw %}
 
 **Format Requirements:**
 - request_mapping values MUST use Jinja2 syntax: {% raw %}`"{{ field }}"`{% endraw %}
@@ -55,7 +57,7 @@ Generate two mappings to integrate this function with Rhesis:
     "session_param": "{{ session_id }}"
   },
   "response_mapping": {
-    "output": "{{ result_field or $.nested.output }}",
+    "output": "{{ result_field or $.nested.output or $.message }}",
     "session_id": "$.session.id",
     "metadata": "$.meta"
   },

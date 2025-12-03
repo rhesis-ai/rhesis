@@ -180,7 +180,7 @@ class MappingPatterns:
 
     # ==================== OUTPUT PATTERNS ====================
     # Response/result fields (often nested)
-    OUTPUT_EXACT = ["output", "response", "result", "answer", "reply"]
+    OUTPUT_EXACT = ["output", "response", "result", "answer", "reply", "message"]
     OUTPUT_COMPOUND = [
         "text_output",
         "text_response",
@@ -188,6 +188,9 @@ class MappingPatterns:
         "result_text",
         "answer_text",
         "reply_text",
+        "message_text",
+        "response_message",
+        "output_message",
         "generated_text",
         "completion",
         "model_output",
