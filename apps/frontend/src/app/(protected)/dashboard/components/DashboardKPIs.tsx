@@ -612,7 +612,7 @@ export default function DashboardKPIs({
                   )}
                   <Typography
                     variant="caption"
-                    sx={{ fontWeight: theme.typography.fontWeightSemiBold }}
+                    sx={{ fontWeight: theme.typography.fontWeightMedium }}
                   >
                     {passRateTrendFormatted} this month
                   </Typography>
