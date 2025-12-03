@@ -10,7 +10,6 @@ import {
   Chip,
   useTheme,
   alpha,
-  Avatar,
 } from '@mui/material';
 import Timeline from '@mui/lab/Timeline';
 import TimelineItem from '@mui/lab/TimelineItem';
@@ -42,6 +41,8 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { formatDistanceToNow, parseISO, formatDistance } from 'date-fns';
+import { UserAvatar } from '@/components/common/UserAvatar';
+import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 
 interface ActivityTimelineProps {
   sessionToken: string;
@@ -571,23 +572,11 @@ export default function ActivityTimeline({
                           minWidth: 0,
                         }}
                       >
-                        <Avatar
-                          src={activity.user?.picture || undefined}
-                          alt={
-                            activity.user?.name ||
-                            activity.user?.email ||
-                            'User'
-                          }
-                          sx={{
-                            width: theme.spacing(3),
-                            height: theme.spacing(3),
-                            fontSize: theme.typography.caption.fontSize,
-                          }}
-                        >
-                          {(activity.user?.name || activity.user?.email || '?')
-                            .charAt(0)
-                            .toUpperCase()}
-                        </Avatar>
+                        <UserAvatar
+                          userName={activity.user?.name || activity.user?.email}
+                          userPicture={activity.user?.picture || undefined}
+                          size={AVATAR_SIZES.SMALL}
+                        />
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Typography
                             variant="caption"
