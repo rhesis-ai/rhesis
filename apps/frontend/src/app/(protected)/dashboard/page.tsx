@@ -1,26 +1,34 @@
 'use client';
 
 import * as React from 'react';
-import Typography from '@mui/material/Typography';
-import { Grid } from '@mui/material';
-import Paper from '@mui/material/Paper';
-import DashboardCharts from './components/DashboardCharts';
-import LatestTestRunsGrid from './components/LatestTestRunsGrid';
-import RecentTestsGrid from './components/RecentTestsGrid';
-import RecentTestSetsGrid from './components/RecentTestSetsGrid';
-import RecentActivitiesGrid from './components/RecentActivitiesGrid';
+import Grid from '@mui/material/Grid';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import DashboardKPIs from './components/DashboardKPIs';
+import TestRunPerformance from './components/TestRunPerformance';
+import ActivityTimeline from './components/ActivityTimeline';
 import { useSession } from 'next-auth/react';
-import {
-  ScienceIcon,
-  HorizontalSplitIcon,
-  PlayArrowIcon,
-} from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function DashboardPage() {
   const { data: session } = useSession();
   const { forceSyncToDatabase } = useOnboarding();
+  const [loadingStates, setLoadingStates] = React.useState({
+    kpis: true,
+    testRuns: true,
+    activities: true,
+  });
+
+  const allLoaded =
+    !loadingStates.kpis && !loadingStates.testRuns && !loadingStates.activities;
+
+  const handleComponentLoad = React.useCallback(
+    (component: 'kpis' | 'testRuns' | 'activities') => {
+      setLoadingStates(prev => ({ ...prev, [component]: false }));
+    },
+    []
+  );
 
   // Trigger immediate sync to database when dashboard loads
   React.useEffect(() => {
@@ -31,56 +39,46 @@ export default function DashboardPage() {
 
   return (
     <PageContainer>
-      {/* Charts Section */}
-      <DashboardCharts />
+      {!allLoaded && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '60vh',
+          }}
+        >
+          <CircularProgress size={48} />
+        </Box>
+      )}
 
-      {/* DataGrids Section - 2x2 Grid */}
+      <Box sx={{ display: allLoaded ? 'block' : 'none' }}>
+        {/* Hero KPI Section */}
+        <DashboardKPIs
+          sessionToken={session?.session_token || ''}
+          onLoadComplete={() => handleComponentLoad('kpis')}
+        />
 
-      <Grid container spacing={3} sx={{ mt: 2 }}>
-        {/* Newest Tests - Top Left */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              <ScienceIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-              Newest Tests
-            </Typography>
-            <RecentTestsGrid sessionToken={session?.session_token || ''} />
-          </Paper>
+        {/* Main Content Grid - 2 Column Layout */}
+        <Grid container spacing={3}>
+          {/* Recent Test Runs - Left Column (4 test runs) */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TestRunPerformance
+              sessionToken={session?.session_token || ''}
+              onLoadComplete={() => handleComponentLoad('testRuns')}
+              limit={4}
+            />
+          </Grid>
+
+          {/* Recent Activity Timeline - Right Column */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <ActivityTimeline
+              sessionToken={session?.session_token || ''}
+              onLoadComplete={() => handleComponentLoad('activities')}
+            />
+          </Grid>
         </Grid>
-
-        {/* Updated Tests - Top Right */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              <ScienceIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-              Updated Tests
-            </Typography>
-            <RecentActivitiesGrid sessionToken={session?.session_token || ''} />
-          </Paper>
-        </Grid>
-
-        {/* Newest Test Sets - Bottom Left */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              <HorizontalSplitIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-              Newest Test Sets
-            </Typography>
-            <RecentTestSetsGrid sessionToken={session?.session_token || ''} />
-          </Paper>
-        </Grid>
-
-        {/* Recent Test Runs - Bottom Right */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              <PlayArrowIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-              Recent Test Runs
-            </Typography>
-            <LatestTestRunsGrid sessionToken={session?.session_token || ''} />
-          </Paper>
-        </Grid>
-      </Grid>
+      </Box>
     </PageContainer>
   );
 }

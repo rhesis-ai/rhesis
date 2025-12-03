@@ -28,6 +28,7 @@ interface Test {
   metadata: TestMetadata;
 }
 
+import { RecentActivitiesResponse } from './interfaces/activities';
 import { DocumentMetadata } from './interfaces/documents';
 import {
   GenerationConfig,
@@ -279,6 +280,25 @@ export class ServicesClient extends BaseApiClient {
           id,
           tool_id: toolId,
         }),
+      }
+    );
+  }
+
+  /**
+   * Get recent activities across all trackable entities
+   * @param limit - Maximum number of activities to return (default 50, max 200)
+   * @returns Promise with activities list and total count
+   */
+  async getRecentActivities(
+    limit: number = 50
+  ): Promise<RecentActivitiesResponse> {
+    return this.fetch<RecentActivitiesResponse>(
+      `${API_ENDPOINTS.services}/recent-activities?limit=${limit}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       }
     );
   }

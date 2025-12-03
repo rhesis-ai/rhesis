@@ -136,6 +136,19 @@ class UserOwnedMixin:
         return relationship("User", foreign_keys=[cls.user_id])
 
 
+class ActivityTrackableMixin:
+    """
+    Mixin to mark entities that should appear in recent activities.
+
+    Entities with this mixin will automatically be included in the
+    /services/recent-activities endpoint.
+
+    No additional fields or methods required - this is a marker mixin.
+    """
+
+    pass
+
+
 # For entities that need both
 class OrganizationAndUserMixin(OrganizationMixin, UserOwnedMixin):
     """Mixin for both organization and user ownership"""

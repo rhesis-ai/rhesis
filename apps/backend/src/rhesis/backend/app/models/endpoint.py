@@ -11,10 +11,10 @@ from .enums import (
     EndpointResponseFormat,
 )
 from .guid import GUID
-from .mixins import TagsMixin
+from .mixins import ActivityTrackableMixin, TagsMixin
 
 
-class Endpoint(Base, TagsMixin):
+class Endpoint(Base, ActivityTrackableMixin, TagsMixin):
     __tablename__ = "endpoint"
     # Core Fields
     name = Column(String, nullable=False)

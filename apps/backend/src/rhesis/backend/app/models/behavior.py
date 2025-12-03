@@ -3,10 +3,18 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import CommentsMixin, CountsMixin, OrganizationAndUserMixin, TasksMixin
+from .mixins import (
+    ActivityTrackableMixin,
+    CommentsMixin,
+    CountsMixin,
+    OrganizationAndUserMixin,
+    TasksMixin,
+)
 
 
-class Behavior(Base, OrganizationAndUserMixin, CommentsMixin, TasksMixin, CountsMixin):
+class Behavior(
+    Base, ActivityTrackableMixin, OrganizationAndUserMixin, CommentsMixin, TasksMixin, CountsMixin
+):
     __tablename__ = "behavior"
     name = Column(String, nullable=False)
     description = Column(Text)
