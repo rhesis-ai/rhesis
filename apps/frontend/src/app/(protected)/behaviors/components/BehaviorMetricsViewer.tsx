@@ -21,7 +21,7 @@ interface BehaviorMetricsViewerProps {
   onClose: () => void;
   behavior: BehaviorWithMetrics | null;
   sessionToken: string;
-  onRefresh: () => void;
+  onRefresh: (removedMetricId?: string) => void;
 }
 
 // Add type guard function
@@ -70,7 +70,7 @@ export default function BehaviorMetricsViewer({
         autoHideDuration: 4000,
       });
 
-      onRefresh();
+      onRefresh(metricId); // Pass the removed metric ID for dynamic update
     } catch (err) {
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',

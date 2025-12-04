@@ -201,21 +201,13 @@ def remove_behavior_from_metric(
 ):
     """Remove a behavior from a metric"""
     organization_id, user_id = tenant_context
-    # Check if the metric exists and user has permission
-    db_metric = crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
-    if db_metric is None:
-        raise HTTPException(status_code=404, detail="Metric not found")
-
-    if db_metric.owner_id != current_user.id and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not authorized to modify this metric")
-
     try:
         removed = crud.remove_behavior_from_metric(
             db=db, metric_id=metric_id, behavior_id=behavior_id, organization_id=organization_id
         )
         if removed:
             return {"status": "success", "message": "Behavior removed from metric"}
-        return {"status": "success", "message": "Behavior was not associated with metric"}
+        raise HTTPException(status_code=404, detail="Behavior was not associated with metric")
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
