@@ -150,121 +150,122 @@ jobs:
       - name: Set additional environment variables
         run: |
           echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
+          echo "MODEL_BUCKET=${{ secrets.MODEL_BUCKET }}" >> $GITHUB_ENV
 
-      - name: Build Container with Google Cloud Build
-        timeout-minutes: 120
+      - name: Check and Upload Model to GCS
+        timeout-minutes: 30
         run: |
-          # Use Google Cloud Build to build the Docker image
-          # This provides more disk space and compute power than GitHub runners
-          # The model will be pre-downloaded during the build process
+          # Check if MODEL_BUCKET is set
+          if [ -z "${{ secrets.MODEL_BUCKET }}" ]; then
+            echo "⚠️  MODEL_BUCKET not set, skipping GCS model upload"
+            echo "Model will be downloaded from HuggingFace at runtime (slow)"
+            exit 0
+          fi
+          
+          # Extract model identifier and create GCS path
+          MODEL_IDENTIFIER=$(echo "${{ secrets.DEFAULT_MODEL }}" | sed 's|^huggingface/||' | tr '/' '-')
+          MODEL_GCS_PATH="models/$MODEL_IDENTIFIER"
+          
+          echo "🔍 Checking if model exists in GCS..."
+          
+          # Fast check (1-5 seconds) - just metadata, no download
+          if gsutil ls "gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/**" 2>/dev/null | grep -q "safetensors"; then
+            echo "✅ Model found in GCS, skipping upload"
+            exit 0
+          fi
+          
+          echo "📥 Model not found in GCS, uploading..."
+          
+          # Create Cloud Build config for model upload
+          cat > /tmp/upload-model.yaml << 'EOFCONFIG'
+          steps:
+            - name: 'python:3.10'
+              entrypoint: 'bash'
+              args:
+                - '-c'
+                - |
+                  pip install -q huggingface_hub
+                  
+                  # Download model from HuggingFace
+                  python3 << 'EOF'
+                  import os
+                  from huggingface_hub import snapshot_download
+                  
+                  model_id = os.environ.get('_MODEL_ID', '')
+                  cache_dir = "/workspace/model_cache"
+                  
+                  snapshot_download(
+                      repo_id=model_id,
+                      cache_dir=cache_dir,
+                      local_files_only=False,
+                      resume_download=True,
+                      ignore_patterns=["*.msgpack", "*.h5", "*.ot"]
+                  )
+                  EOF
+            
+            - name: 'gcr.io/cloud-builders/gsutil'
+              args: ['-m', 'cp', '-r', '/workspace/model_cache/*', 'gs://${_BUCKET}/${_PATH}/']
+          
+          options:
+            machineType: 'E2_HIGHCPU_8'
+            diskSizeGb: 100
+            logging: CLOUD_LOGGING_ONLY
+          
+          timeout: '1800s'
+          EOFCONFIG
+          
+          # Submit build
+          MODEL_ID=$(echo "${{ secrets.DEFAULT_MODEL }}" | sed 's|^huggingface/||')
+          
+          gcloud builds submit \
+            --config=/tmp/upload-model.yaml \
+            --substitutions=_MODEL_ID="$MODEL_ID",_BUCKET="${{ secrets.MODEL_BUCKET }}",_PATH="$MODEL_GCS_PATH" \
+            --project=${{ secrets.PROJECT_ID }} \
+            --no-source
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ Model uploaded successfully"
+          else
+            echo "❌ Model upload failed"
+            exit 1
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Container Image
+        timeout-minutes: 30
+        run: |
+          # Build with GitHub runner (no model baking = fast build)
+          # Model is downloaded from GCS at Cloud Run startup instead
           
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, tag with commit SHA
             IMAGE_TAG="${{ env.COMMIT_SHA }}"
             IMAGE_FULL_NAME="${{ env.IMAGE_NAME }}:$IMAGE_TAG"
-            echo "Building preview image with tag: $IMAGE_TAG"
+            echo "🔨 Building preview image with tag: $IMAGE_TAG"
           else
             # For regular deployments, use latest tag
             IMAGE_FULL_NAME="${{ env.IMAGE_NAME }}:latest"
-            echo "Building regular image with tag: latest"
+            echo "🔨 Building regular image with tag: latest"
           fi
           
-          # Create inline Cloud Build configuration
-          cat > /tmp/cloudbuild.yaml << 'EOFCONFIG'
-          steps:
-            - name: 'gcr.io/cloud-builders/docker'
-              args:
-                - 'build'
-                - '-t'
-                - '${_IMAGE_NAME}'
-                - '--cache-from'
-                - '${_IMAGE_NAME}'
-                - '--build-arg'
-                - 'DEFAULT_MODEL=${_DEFAULT_MODEL}'
-                - '-f'
-                - 'apps/polyphemus/Dockerfile'
-                - '.'
-              id: 'build'
+          # Configure Docker to use gcloud as a credential helper
+          gcloud auth configure-docker --quiet
           
-          images:
-            - '${_IMAGE_NAME}'
+          # Build and push the Docker image
+          # Since model is no longer baked in, this is fast (5-10 min)
+          docker buildx build \
+            --platform linux/amd64 \
+            --build-arg DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL }}" \
+            --tag "$IMAGE_FULL_NAME" \
+            --file apps/polyphemus/Dockerfile \
+            --push \
+            --cache-from "$IMAGE_FULL_NAME" \
+            --cache-to type=inline \
+            .
           
-          options:
-            machineType: 'E2_HIGHCPU_32'
-            diskSizeGb: 200
-            env:
-              - 'DOCKER_BUILDKIT=1'
-          
-          timeout: '7200s'
-          EOFCONFIG
-          
-          # Submit build with inline config (async to avoid log streaming issues)
-          echo "Submitting build to Cloud Build..."
-          BUILD_OUTPUT=$(gcloud builds submit \
-            --async \
-            --config=/tmp/cloudbuild.yaml \
-            --substitutions=_IMAGE_NAME="$IMAGE_FULL_NAME",_DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL }}" \
-            --project=${{ env.PROJECT_ID }} \
-            --format="value(id)" \
-            . 2>&1)
-          
-          # The --format="value(id)" flag returns just the build ID
-          BUILD_ID=$(echo "$BUILD_OUTPUT" | tr -d '[:space:]' | grep -E '^[a-f0-9-]{36}$' || echo "$BUILD_OUTPUT" | awk '/^[a-f0-9-]{36}$/ {print; exit}')
-          
-          if [ -z "$BUILD_ID" ] || [ ${#BUILD_ID} -ne 36 ]; then
-            echo "❌ Failed to extract valid build ID"
-            echo "Output: $BUILD_OUTPUT"
-            # Try to extract from URL format as fallback
-            BUILD_ID=$(echo "$BUILD_OUTPUT" | grep -oP 'builds/\K[a-f0-9-]{36}' | head -1)
-            if [ -z "$BUILD_ID" ]; then
-              exit 1
-            fi
-          fi
-          
-          echo "✅ Build submitted with ID: $BUILD_ID"
-          echo "📊 Monitor build at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
-          
-          # Wait for build to complete by polling status
-          echo "⏳ Waiting for build to complete (this may take 30+ minutes for large models)..."
-          MAX_WAIT_SECONDS=7200  # 2 hours timeout (matches Cloud Build timeout)
-          POLL_INTERVAL=30        # Check every 30 seconds
-          ELAPSED=0
-          
-          while [ $ELAPSED -lt $MAX_WAIT_SECONDS ]; do
-            BUILD_STATUS=$(gcloud builds describe $BUILD_ID \
-              --project=${{ env.PROJECT_ID }} \
-              --format="value(status)" 2>/dev/null || echo "UNKNOWN")
-            
-            case "$BUILD_STATUS" in
-              SUCCESS)
-                echo "✅ Build completed successfully!"
-                echo "📦 Built and pushed image: $IMAGE_FULL_NAME"
-                exit 0
-                ;;
-              FAILURE|CANCELLED|TIMEOUT|INTERNAL_ERROR)
-                echo "❌ Build failed with status: $BUILD_STATUS"
-                echo "🔗 Check logs at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
-                exit 1
-                ;;
-              WORKING|QUEUED|PENDING)
-                # Build is still in progress
-                MINUTES=$((ELAPSED / 60))
-                echo "⏳ Build status: $BUILD_STATUS (${MINUTES}m ${ELAPSED}s elapsed)"
-                sleep $POLL_INTERVAL
-                ELAPSED=$((ELAPSED + POLL_INTERVAL))
-                ;;
-              *)
-                echo "⚠️  Unknown build status: $BUILD_STATUS"
-                sleep $POLL_INTERVAL
-                ELAPSED=$((ELAPSED + POLL_INTERVAL))
-                ;;
-            esac
-          done
-          
-          # If we get here, we timed out
-          echo "❌ Build timed out after ${MAX_WAIT_SECONDS}s"
-          echo "🔗 Check logs at: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ env.PROJECT_ID }}"
-          exit 1
+          echo "✅ Image built and pushed successfully: $IMAGE_FULL_NAME"
 
   deploy:
     # Note: When deploy_only is true, build job is skipped, but GitHub Actions treats skipped jobs
@@ -429,6 +430,7 @@ jobs:
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }},
+          MODEL_BUCKET=${{ secrets.MODEL_BUCKET }},
           TRANSFORMERS_CACHE=/app/model_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
@@ -468,6 +470,7 @@ jobs:
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }},
+          MODEL_BUCKET=${{ secrets.MODEL_BUCKET }},
           TRANSFORMERS_CACHE=/app/model_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},

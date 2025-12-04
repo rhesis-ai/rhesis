@@ -28,6 +28,8 @@ dependencies = [
     "rhesis-backend",
     # Faster download dependencies
     "hf_transfer>=0.1.0",
+    # GCS for model caching
+    "google-cloud-storage>=2.10.0",
 ]
 
 [project.optional-dependencies]

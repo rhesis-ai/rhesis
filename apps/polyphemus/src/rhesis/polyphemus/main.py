@@ -18,14 +18,32 @@ logger = logging.getLogger("rhesis-polyphemus")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Don't load model during startup - models load lazily on first request
-    # Creating LazyModelLoader with auto_loading=False to avoid blocking startup
-    # The actual model instances are managed by the service cache
+    # Startup: Download model from GCS if needed (faster than HuggingFace Hub)
+    logger.info("Polyphemus service starting...")
+
+    # Import here to avoid issues if google-cloud-storage is not installed
+    try:
+        from rhesis.polyphemus.utils.gcs_model_loader import ensure_model_cached
+
+        # Download model from GCS to local cache (2-5 min on cold start)
+        logger.info("Ensuring model is cached from GCS...")
+        model_cached = ensure_model_cached()
+
+        if model_cached:
+            logger.info("✅ Model successfully cached from GCS")
+        else:
+            logger.warning(
+                "⚠️  Model not cached from GCS. "
+                "Will download from HuggingFace on first request (slow)."
+            )
+    except Exception as e:
+        logger.error(f"Failed to cache model from GCS: {e}")
+        logger.warning("Will attempt to load from HuggingFace on first request")
+
+    # Create LazyModelLoader (models load on first request)
     model_loader = LazyModelLoader(auto_loading=False)
     app.state.model_loader = model_loader
-    # Note: Model loading is now handled by LazyModelLoader via service cache
-    # Models are cached and reused across requests
-    logger.info("Polyphemus service starting - models will load on first request")
+    logger.info("Polyphemus service ready - models will load on first request")
 
     yield
 

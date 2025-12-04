@@ -71,33 +71,16 @@ RUN mkdir -p /app/model_cache
 ARG DEFAULT_MODEL
 ENV DEFAULT_MODEL=${DEFAULT_MODEL}
 
-# Pre-download the model during build time
-# This uses snapshot_download to ONLY download files without loading into memory
-# Loading into memory on CPU is VERY slow (30-60 min for 8B models)
-# Model will be loaded at runtime in Cloud Run where GPU makes it fast (2-3 min)
-# Note: 8B models take 10-15 minutes to download in Cloud Build
-RUN if [ -n "$DEFAULT_MODEL" ]; then \
-        echo "Pre-downloading model: $DEFAULT_MODEL"; \
-        echo "This may take 10-15 minutes for large models. Heartbeat messages will appear every 30s..."; \
-        # Start background heartbeat to show the process is alive
-        (while true; do sleep 30; echo "[$(date +%H:%M:%S)] Model download in progress..."; done) & \
-        HEARTBEAT_PID=$!; \
-        # Download the model files WITHOUT loading into memory (much faster!)
-        PYTHONPATH=/app:/app/src:/app/sdk:/app/penelope:/app/apps/backend \
-        /app/.venv/bin/python -c "import os; from huggingface_hub import snapshot_download; \
-model_name = os.environ.get('DEFAULT_MODEL', '').replace('huggingface/', ''); \
-print(f'Downloading model files: {model_name}'); \
-print('Using snapshot_download (downloads files only, does not load into memory)...'); \
-cache_dir = os.environ.get('TRANSFORMERS_CACHE', '/app/model_cache'); \
-snapshot_download(repo_id=model_name, cache_dir=cache_dir, local_files_only=False, resume_download=True); \
-print(f'Model files downloaded successfully: {model_name}')"; \
-        EXIT_CODE=$?; \
-        kill $HEARTBEAT_PID 2>/dev/null || true; \
-        if [ $EXIT_CODE -ne 0 ]; then exit $EXIT_CODE; fi; \
-        echo "Model download completed"; \
-    else \
-        echo "WARNING: DEFAULT_MODEL not provided, model will be downloaded at runtime"; \
-    fi
+# NOTE: Model is no longer downloaded during build time
+# Instead, it will be downloaded from GCS at Cloud Run startup (2-5 minutes)
+# This makes builds much faster (5-10 min instead of 40+ min) and allows
+# building on standard GitHub runners instead of requiring Cloud Build.
+# 
+# To upload a model to GCS, run the GitHub workflow:
+#   Actions -> "[Upload] Model to GCS" -> Run workflow
+#
+# The model cache directory is created but will be populated at runtime
+RUN echo "Model will be downloaded from GCS at startup (fast internal transfer)"
 
 # Clean up unnecessary files to reduce disk usage before copying to runtime stage
 # Remove Python cache files, test files, and documentation to save space
