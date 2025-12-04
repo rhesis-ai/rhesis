@@ -181,6 +181,8 @@ jobs:
           steps:
             - name: 'python:3.10'
               entrypoint: 'bash'
+              env:
+                - 'MODEL_ID=${_MODEL_ID}'
               args:
                 - '-c'
                 - |
@@ -191,7 +193,11 @@ jobs:
                   import os
                   from huggingface_hub import snapshot_download
                   
-                  model_id = os.environ.get('_MODEL_ID', '')
+                  model_id = os.environ.get('MODEL_ID', '')
+                  if not model_id:
+                      raise ValueError("MODEL_ID environment variable not set")
+                  
+                  print(f"Downloading model: {model_id}")
                   cache_dir = "/workspace/model_cache"
                   
                   snapshot_download(
@@ -201,6 +207,7 @@ jobs:
                       resume_download=True,
                       ignore_patterns=["*.msgpack", "*.h5", "*.ot"]
                   )
+                  print(f"Model downloaded successfully to {cache_dir}")
                   EOF
             
             - name: 'gcr.io/cloud-builders/gsutil'
