@@ -40,7 +40,7 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_NO_MANAGED_PYTHON=1
 
 # Use copy mode for linking dependencies (required by the cache)
-ENV UV_LINK_MODE=copy 
+ENV UV_LINK_MODE=copy
 # Skip the installation of the dev dependencies
 ENV UV_NO_DEV=1
 
@@ -68,6 +68,8 @@ FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
 # Copy Bun from official image (lighter than Node.js, required for bunx to run MCP servers)
 COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=oven/bun:latest /usr/local/bin/bunx /usr/local/bin/bunx
+# Create npx alias to bunx for compatibility (users can write npx, Docker will use bunx)
+RUN ln -s /usr/local/bin/bunx /usr/local/bin/npx
 
 WORKDIR /app
 

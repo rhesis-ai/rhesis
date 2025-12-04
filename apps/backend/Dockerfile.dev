@@ -51,6 +51,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Copy Bun from official image (lighter than Node.js, required for bunx to run MCP servers)
 COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=oven/bun:latest /usr/local/bin/bunx /usr/local/bin/bunx
+# Create npx alias to bunx for compatibility (users can write npx, Docker will use bunx)
+RUN ln -s /usr/local/bin/bunx /usr/local/bin/npx
 
 WORKDIR /app
 
