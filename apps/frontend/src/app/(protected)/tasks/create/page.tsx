@@ -189,7 +189,7 @@ export default function CreateTaskPage() {
       };
 
       await createTask(taskData);
-      router.push('/tasks');
+      router.back();
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to create task';
@@ -466,7 +466,7 @@ export default function CreateTaskPage() {
                     >
                       <Button
                         variant="outlined"
-                        onClick={() => router.push('/tasks')}
+                        onClick={() => router.back()}
                         disabled={isSaving}
                       >
                         Cancel
