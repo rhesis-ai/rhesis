@@ -152,13 +152,13 @@ jobs:
           echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
           echo "MODEL_BUCKET=${{ secrets.MODEL_BUCKET }}" >> $GITHUB_ENV
 
-      - name: Check and Upload Model to GCS
-        timeout-minutes: 60
+      - name: Verify Model Exists in GCS
+        timeout-minutes: 2
         run: |
           # Check if MODEL_BUCKET is set
           if [ -z "${{ secrets.MODEL_BUCKET }}" ]; then
-            echo "⚠️  MODEL_BUCKET not set, skipping GCS model upload"
-            echo "Model will be downloaded from HuggingFace at runtime (slow)"
+            echo "⚠️  MODEL_BUCKET not set"
+            echo "Model will be downloaded from HuggingFace at runtime (slow, ~30 min startup)"
             exit 0
           fi
           
@@ -166,111 +166,29 @@ jobs:
           MODEL_IDENTIFIER=$(echo "${{ secrets.DEFAULT_MODEL }}" | sed 's|^huggingface/||' | tr '/' '-')
           MODEL_GCS_PATH="models/$MODEL_IDENTIFIER"
           
-          echo "🔍 Checking if model exists in GCS..."
+          echo "🔍 Verifying model exists in GCS..."
+          echo "Model: ${{ secrets.DEFAULT_MODEL }}"
+          echo "Path: gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/"
           
-          # Fast check (1-5 seconds) - just metadata, no download
-          if gsutil ls "gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/**" 2>/dev/null | grep -q "safetensors"; then
-            echo "✅ Model found in GCS, skipping upload"
-            exit 0
-          fi
-          
-          echo "📥 Model not found in GCS, uploading..."
-          
-          # Create Cloud Build config for model upload with progress logging
-          cat > /tmp/upload-model.yaml << 'EOFCONFIG'
-          steps:
-            - name: 'python:3.10'
-              entrypoint: 'bash'
-              args:
-                - '-c'
-                - |
-                  set -e
-                  echo "Installing dependencies..."
-                  pip install huggingface_hub tqdm
-                  
-                  echo "Starting model download from HuggingFace..."
-                  echo "Model: ${_MODEL_ID}"
-                  echo "This may take 15-30 minutes for large models"
-                  
-                  # Download model from HuggingFace with progress
-                  python3 << 'EOF'
-                  import os
-                  import sys
-                  from pathlib import Path
-                  from huggingface_hub import snapshot_download
-                  from tqdm import tqdm
-                  
-                  model_id = "${_MODEL_ID}"
-                  if not model_id:
-                      raise ValueError("MODEL_ID not provided")
-                  
-                  print(f"📦 Downloading model: {model_id}", flush=True)
-                  cache_dir = "/workspace/model_cache"
-                  
-                  # Download with progress tracking
-                  try:
-                      local_dir = snapshot_download(
-                          repo_id=model_id,
-                          cache_dir=cache_dir,
-                          local_files_only=False,
-                          resume_download=True,
-                          ignore_patterns=["*.msgpack", "*.h5", "*.ot"],
-                          tqdm_class=tqdm
-                      )
-                      print(f"\n✅ Model downloaded successfully!", flush=True)
-                      print(f"📂 Location: {local_dir}", flush=True)
-                      
-                      # List downloaded files
-                      print("\n📋 Downloaded files:", flush=True)
-                      cache_path = Path(cache_dir)
-                      files = list(cache_path.rglob("*"))
-                      total_size = 0
-                      file_count = 0
-                      for f in files:
-                          if f.is_file():
-                              size = f.stat().st_size
-                              total_size += size
-                              file_count += 1
-                              if file_count <= 10:  # Show first 10 files
-                                  print(f"  - {f.name} ({size / 1024 / 1024:.1f} MB)", flush=True)
-                      
-                      if file_count > 10:
-                          print(f"  ... and {file_count - 10} more files", flush=True)
-                      print(f"\n📊 Total: {file_count} files, {total_size / 1024 / 1024 / 1024:.2f} GB", flush=True)
-                      
-                  except Exception as e:
-                      print(f"❌ Download failed: {e}", file=sys.stderr, flush=True)
-                      sys.exit(1)
-                  EOF
+          # Check if model exists (fast check)
+          if gsutil ls "gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/" 2>/dev/null | grep -q "\.safetensors\|\.bin"; then
+            echo "✅ Model found in GCS!"
             
-            - name: 'gcr.io/cloud-builders/gsutil'
-              args: ['-m', 'cp', '-r', '/workspace/model_cache/*', 'gs://${_BUCKET}/${_PATH}/']
-          
-          options:
-            machineType: 'E2_HIGHCPU_8'
-            diskSizeGb: 100
-            logging: CLOUD_LOGGING_ONLY
-          
-          timeout: '3600s'
-          EOFCONFIG
-          
-          # Submit build (synchronous to see logs in real-time)
-          MODEL_ID=$(echo "${{ secrets.DEFAULT_MODEL }}" | sed 's|^huggingface/||')
-          
-          echo "🚀 Submitting Cloud Build job..."
-          echo "Model: $MODEL_ID"
-          echo "Bucket: gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/"
-          
-          gcloud builds submit \
-            --config=/tmp/upload-model.yaml \
-            --substitutions=_MODEL_ID="$MODEL_ID",_BUCKET="${{ secrets.MODEL_BUCKET }}",_PATH="$MODEL_GCS_PATH" \
-            --project=${{ secrets.PROJECT_ID }} \
-            --no-source
-          
-          if [ $? -eq 0 ]; then
-            echo "✅ Model uploaded successfully to GCS"
+            # Show some files for confirmation
+            echo ""
+            echo "📋 Model files:"
+            gsutil ls "gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/" | head -10
+            exit 0
           else
-            echo "❌ Model upload failed"
+            echo ""
+            echo "❌ Model NOT found in GCS!"
+            echo ""
+            echo "📥 Please upload the model manually to:"
+            echo "   gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/"
+            echo ""
+            echo "Upload command:"
+            echo "   gsutil -m cp -r /path/to/model/* gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/"
+            echo ""
             exit 1
           fi
 
