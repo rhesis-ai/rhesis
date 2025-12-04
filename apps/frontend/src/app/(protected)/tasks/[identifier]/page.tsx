@@ -503,6 +503,22 @@ export default function TaskDetailPage({ params }: PageProps) {
               // Always navigate to the entity, optionally with comment hash
               if (task.entity_type && task.entity_id) {
                 try {
+                  // Special handling for TestResult entities - navigate to test run page
+                  if (
+                    task.entity_type === 'TestResult' &&
+                    task.task_metadata?.test_run_id
+                  ) {
+                    const queryParams = new URLSearchParams();
+                    queryParams.append('selectedresult', task.entity_id);
+                    const queryString = queryParams.toString();
+                    const commentHash = task.task_metadata?.comment_id
+                      ? `#comment-${task.task_metadata.comment_id}`
+                      : '';
+                    const finalUrl = `/test-runs/${task.task_metadata.test_run_id}?${queryString}${commentHash}`;
+                    router.push(finalUrl);
+                    return;
+                  }
+
                   // Map entity types to correct URL paths (plural)
                   const entityUrlMap = getEntityUrlMap();
                   const entityPath =
