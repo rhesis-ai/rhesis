@@ -302,7 +302,8 @@ class QueryMCPResponse(BaseModel):
 class TestMCPConnectionRequest(BaseModel):
     """Request to test MCP connection authentication.
 
-    Either tool_id (for existing tools) OR provider_type_id + credentials (for non-existent tools) must be provided.
+    Either tool_id (for existing tools) OR provider_type_id + credentials
+    (for non-existent tools) must be provided.
     For custom providers, tool_metadata is required when using provider_type_id.
     """
 
@@ -333,8 +334,8 @@ class TestMCPConnectionRequest(BaseModel):
 class TestMCPConnectionResponse(BaseModel):
     """Response from MCP connection authentication test."""
 
-    is_authenticated: bool
-    response_content: str
+    is_authenticated: str  # "Yes" or "No"
+    message: str
 
 
 # Recent Activities Schemas
