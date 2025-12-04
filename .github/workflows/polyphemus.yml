@@ -159,8 +159,17 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Free up disk space
+        run: |
+          # Free up disk space on GitHub runner
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
+
       - name: Build and Push Container Image
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: |
           # Build with GitHub runner (no model baking = fast build)
           # Model is downloaded from GCS at Cloud Run startup instead
@@ -179,7 +188,7 @@ jobs:
           # Configure Docker to use gcloud as a credential helper
           gcloud auth configure-docker --quiet
           
-          # Build and push the Docker image
+          # Build and push the Docker image with progress output
           # Since model is no longer baked in, this is fast (5-10 min)
           docker buildx build \
             --platform linux/amd64 \
@@ -187,6 +196,7 @@ jobs:
             --tag "$IMAGE_FULL_NAME" \
             --file apps/polyphemus/Dockerfile \
             --push \
+            --progress=plain \
             --cache-from "$IMAGE_FULL_NAME" \
             --cache-to type=inline \
             .
