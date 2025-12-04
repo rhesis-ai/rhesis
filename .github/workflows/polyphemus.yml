@@ -153,7 +153,7 @@ jobs:
           echo "MODEL_BUCKET=${{ secrets.MODEL_BUCKET }}" >> $GITHUB_ENV
 
       - name: Check and Upload Model to GCS
-        timeout-minutes: 30
+        timeout-minutes: 60
         run: |
           # Check if MODEL_BUCKET is set
           if [ -z "${{ secrets.MODEL_BUCKET }}" ]; then
@@ -176,7 +176,7 @@ jobs:
           
           echo "📥 Model not found in GCS, uploading..."
           
-          # Create Cloud Build config for model upload
+          # Create Cloud Build config for model upload with progress logging
           cat > /tmp/upload-model.yaml << 'EOFCONFIG'
           steps:
             - name: 'python:3.10'
@@ -186,28 +186,63 @@ jobs:
               args:
                 - '-c'
                 - |
-                  pip install -q huggingface_hub
+                  set -e
+                  echo "Installing dependencies..."
+                  pip install huggingface_hub tqdm
                   
-                  # Download model from HuggingFace
+                  echo "Starting model download from HuggingFace..."
+                  echo "Model: $MODEL_ID"
+                  echo "This may take 15-30 minutes for large models"
+                  
+                  # Download model from HuggingFace with progress
                   python3 << 'EOF'
                   import os
+                  import sys
+                  from pathlib import Path
                   from huggingface_hub import snapshot_download
+                  from tqdm import tqdm
                   
                   model_id = os.environ.get('MODEL_ID', '')
                   if not model_id:
                       raise ValueError("MODEL_ID environment variable not set")
                   
-                  print(f"Downloading model: {model_id}")
+                  print(f"📦 Downloading model: {model_id}", flush=True)
                   cache_dir = "/workspace/model_cache"
                   
-                  snapshot_download(
-                      repo_id=model_id,
-                      cache_dir=cache_dir,
-                      local_files_only=False,
-                      resume_download=True,
-                      ignore_patterns=["*.msgpack", "*.h5", "*.ot"]
-                  )
-                  print(f"Model downloaded successfully to {cache_dir}")
+                  # Download with progress tracking
+                  try:
+                      local_dir = snapshot_download(
+                          repo_id=model_id,
+                          cache_dir=cache_dir,
+                          local_files_only=False,
+                          resume_download=True,
+                          ignore_patterns=["*.msgpack", "*.h5", "*.ot"],
+                          tqdm_class=tqdm
+                      )
+                      print(f"\n✅ Model downloaded successfully!", flush=True)
+                      print(f"📂 Location: {local_dir}", flush=True)
+                      
+                      # List downloaded files
+                      print("\n📋 Downloaded files:", flush=True)
+                      cache_path = Path(cache_dir)
+                      files = list(cache_path.rglob("*"))
+                      total_size = 0
+                      file_count = 0
+                      for f in files:
+                          if f.is_file():
+                              size = f.stat().st_size
+                              total_size += size
+                              file_count += 1
+                              if file_count <= 10:  # Show first 10 files
+                                  print(f"  - {f.name} ({size / 1024 / 1024:.1f} MB)", flush=True)
+                      
+                      if file_count > 10:
+                          print(f"  ... and {file_count - 10} more files", flush=True)
+                      print(f"\n📊 Total: {file_count} files, {total_size / 1024 / 1024 / 1024:.2f} GB", flush=True)
+                      
+                  except Exception as e:
+                      print(f"❌ Download failed: {e}", file=sys.stderr, flush=True)
+                      sys.exit(1)
                   EOF
             
             - name: 'gcr.io/cloud-builders/gsutil'
@@ -218,11 +253,15 @@ jobs:
             diskSizeGb: 100
             logging: CLOUD_LOGGING_ONLY
           
-          timeout: '1800s'
+          timeout: '3600s'
           EOFCONFIG
           
-          # Submit build
+          # Submit build (synchronous to see logs in real-time)
           MODEL_ID=$(echo "${{ secrets.DEFAULT_MODEL }}" | sed 's|^huggingface/||')
+          
+          echo "🚀 Submitting Cloud Build job..."
+          echo "Model: $MODEL_ID"
+          echo "Bucket: gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/"
           
           gcloud builds submit \
             --config=/tmp/upload-model.yaml \
@@ -231,7 +270,7 @@ jobs:
             --no-source
           
           if [ $? -eq 0 ]; then
-            echo "✅ Model uploaded successfully"
+            echo "✅ Model uploaded successfully to GCS"
           else
             echo "❌ Model upload failed"
             exit 1
