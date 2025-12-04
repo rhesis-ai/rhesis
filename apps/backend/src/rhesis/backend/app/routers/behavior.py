@@ -218,6 +218,6 @@ def remove_metric_from_behavior(
         )
         if removed:
             return {"status": "success", "message": "Metric removed from behavior"}
-        return {"status": "success", "message": "Metric was not associated with behavior"}
+        raise HTTPException(status_code=404, detail="Metric was not associated with behavior")
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

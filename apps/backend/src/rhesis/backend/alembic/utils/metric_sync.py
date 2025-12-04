@@ -205,8 +205,29 @@ def sync_metrics_to_organizations(
                             )
                             .first()
                         )
-                        if behavior and behavior not in metric.behaviors:
-                            metric.behaviors.append(behavior)
+                        if behavior:
+                            # Check if association already exists
+                            from rhesis.backend.app.models.metric import behavior_metric_association
+
+                            existing = session.execute(
+                                behavior_metric_association.select().where(
+                                    behavior_metric_association.c.behavior_id == behavior.id,
+                                    behavior_metric_association.c.metric_id == metric.id,
+                                    behavior_metric_association.c.organization_id
+                                    == uuid.UUID(organization_id),
+                                )
+                            ).first()
+
+                            # Create association with explicit organization_id and user_id
+                            if not existing:
+                                session.execute(
+                                    behavior_metric_association.insert().values(
+                                        behavior_id=behavior.id,
+                                        metric_id=metric.id,
+                                        organization_id=uuid.UUID(organization_id),
+                                        user_id=uuid.UUID(user_id),
+                                    )
+                                )
 
                     org_created += 1
 
