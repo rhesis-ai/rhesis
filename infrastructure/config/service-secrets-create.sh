@@ -120,6 +120,7 @@ function show_usage() {
   echo "  DATABASE_URL                  Database URL for frontend"
   echo "  POLYPHEMUS_REGION             GCP region for Polyphemus Cloud Run deployment"
   echo "  DEFAULT_MODEL                 Default model for Polyphemus"
+  echo "  MODEL_BUCKET                  GCS bucket for Polyphemus models"
   echo ""
   echo -e "${BLUE}Example:${NC}"
   echo "  $0 --repo myuser/myrepo"
@@ -311,6 +312,7 @@ SERVICE_VARS=(
   # Polyphemus service variables
   "POLYPHEMUS_REGION"
   "DEFAULT_MODEL"
+  "MODEL_BUCKET"
 )
 
 # Set environment-specific secrets
