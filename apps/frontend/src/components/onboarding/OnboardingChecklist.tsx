@@ -59,7 +59,8 @@ export default function OnboardingChecklist() {
 
   // Auto-collapse on dashboard page or when in an onboarding tour (avoid hydration issues)
   useEffect(() => {
-    const isInTour = searchParams.get('tour') !== null;
+    const tourParam = searchParams.get('tour');
+    const isInTour = tourParam !== null && tourParam.length > 0;
     const shouldCollapse = pathname === ONBOARDING_COLLAPSE_PATH || isInTour;
     setExpanded(!shouldCollapse);
   }, [pathname, searchParams]);
