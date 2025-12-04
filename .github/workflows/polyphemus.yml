@@ -181,8 +181,6 @@ jobs:
           steps:
             - name: 'python:3.10'
               entrypoint: 'bash'
-              env:
-                - 'MODEL_ID=${_MODEL_ID}'
               args:
                 - '-c'
                 - |
@@ -191,7 +189,7 @@ jobs:
                   pip install huggingface_hub tqdm
                   
                   echo "Starting model download from HuggingFace..."
-                  echo "Model: $MODEL_ID"
+                  echo "Model: ${_MODEL_ID}"
                   echo "This may take 15-30 minutes for large models"
                   
                   # Download model from HuggingFace with progress
@@ -202,9 +200,9 @@ jobs:
                   from huggingface_hub import snapshot_download
                   from tqdm import tqdm
                   
-                  model_id = os.environ.get('MODEL_ID', '')
+                  model_id = "${_MODEL_ID}"
                   if not model_id:
-                      raise ValueError("MODEL_ID environment variable not set")
+                      raise ValueError("MODEL_ID not provided")
                   
                   print(f"📦 Downloading model: {model_id}", flush=True)
                   cache_dir = "/workspace/model_cache"
