@@ -474,7 +474,15 @@ class TestTaskExecution:
         test_db.add(invalid_metric)
         test_db.flush()
 
-        behavior.metrics = [valid_metric, invalid_metric]
+        # Associate metrics with behavior using CRUD function to handle required fields
+        from rhesis.backend.app import crud
+
+        crud.add_behavior_to_metric(
+            test_db, valid_metric.id, behavior.id, authenticated_user_id, test_org_id
+        )
+        crud.add_behavior_to_metric(
+            test_db, invalid_metric.id, behavior.id, authenticated_user_id, test_org_id
+        )
 
         # Create test
         test = models.Test(

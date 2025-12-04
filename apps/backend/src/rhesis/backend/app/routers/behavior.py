@@ -3,6 +3,7 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import create_model
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -12,19 +13,18 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.metric import MetricDetail as MetricDetailSchema
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 logger = logging.getLogger(__name__)
-# Create the detailed schema with metrics support and nested relationships
-BehaviorWithMetricsSchema = create_detailed_schema(
-    schemas.Behavior,
-    models.Behavior,
-    include_many_to_many=True,
-    include_nested_relationships={"metrics": ["metric_type", "backend_type"]},
+
+# Create behavior schema with full metric details (includes score_type and metric_scope)
+BehaviorWithMetricsSchema = create_model(
+    "BehaviorWithMetrics",
+    __base__=schemas.Behavior,
+    metrics=(List[MetricDetailSchema], []),
 )
-MetricDetailSchema = create_detailed_schema(schemas.Metric, models.Metric)
 
 router = APIRouter(
     prefix="/behaviors",
@@ -218,6 +218,6 @@ def remove_metric_from_behavior(
         )
         if removed:
             return {"status": "success", "message": "Metric removed from behavior"}
-        return {"status": "success", "message": "Metric was not associated with behavior"}
+        raise HTTPException(status_code=404, detail="Metric was not associated with behavior")
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

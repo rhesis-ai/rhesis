@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-12-04
+
+### Added
+
+- Modernized dashboard with MUI X charts and activity timeline.
+- Added grid state persistence to localStorage.
+- Added support for OpenRouter provider.
+- Improved MCP import and tool selector dialogs.
+
+### Changed
+
+- Reduced toolbar height for a more compact header.
+- Updated Dockerfile to reference `eslint.config.mjs` instead of `.eslintrc.json`.
+- Backend execution RPC fixes and UI improvements.
+
+### Fixed
+
+- Prevented external links from appearing in breadcrumbs.
+- Fixed metric creation to support both SDK and frontend approaches with proper field handling.
+
+### Dependencies
+
+- Bumped `next-auth` dependency.
+
 ## [0.5.0] - 2025-11-27
 
 ### Added

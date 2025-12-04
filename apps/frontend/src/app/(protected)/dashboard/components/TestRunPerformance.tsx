@@ -15,6 +15,7 @@ import {
   Tooltip,
   Paper,
   Button,
+  useTheme,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -37,7 +38,6 @@ import PersonIcon from '@mui/icons-material/Person';
 import { CategoryIcon } from '@/components/icons';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import Link from 'next/link';
-import { useTheme } from '@mui/material';
 
 interface TestRunPerformanceProps {
   sessionToken: string;
