@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-12-04
+
+### Added
+- Modernized dashboard with MUI X charts and activity timeline.
+- Added support for OpenRouter provider.
+- Added "Is Verified" field to user profiles.
+
+### Changed
+- Increased exporter timeout from 10 to 30 seconds.
+- Optimized Dockerfile build and added uv link mode for faster development.
+
+### Fixed
+- Fixed connector output mapping to properly support message fields.
+- Fixed issues with backend execution RPC and improved UI.
+- Fixed metric creation to support both SDK and frontend approaches with proper field handling.
+
+
 ## [0.5.0] - 2025-11-27
 
 ### Added
