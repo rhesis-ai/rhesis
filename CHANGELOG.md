@@ -13,6 +13,43 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-12-04
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.1**
+- **Frontend 0.5.1**
+- **Polyphemus 0.2.1**
+
+### Summary of Changes
+
+**Backend v0.5.1:**
+- Modernized dashboard with MUI X charts and activity timeline.
+- Improved connector output mapping with message field support.
+- Added support for OpenRouter provider.
+- Increased exporter timeout from 10 to 30 seconds.
+
+
+**Frontend v0.5.1:**
+- Modernized dashboard with MUI X charts and activity timeline.
+- Improved MCP import and tool selector dialogs.
+- Added grid state persistence to localStorage.
+- Backend execution RPC fixes and UI improvements.
+
+
+**Polyphemus v0.2.1:**
+- Added "Is Verified" status to user profiles.
+- Users can now be marked as verified.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.5.0] - 2025-11-27
 
 ### Platform Release

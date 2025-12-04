@@ -30,7 +30,7 @@ import {
   Close as CloseIcon,
   Lightbulb as LightbulbIcon,
 } from '@mui/icons-material';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { OnboardingStep } from '@/types/onboarding';
@@ -43,6 +43,7 @@ import {
 export default function OnboardingChecklist() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const { progress, isComplete, completionPercentage, dismissOnboarding } =
     useOnboarding();
@@ -56,10 +57,13 @@ export default function OnboardingChecklist() {
     setMounted(true);
   }, []);
 
-  // Auto-collapse on dashboard page (avoid hydration issues)
+  // Auto-collapse on dashboard page or when in an onboarding tour (avoid hydration issues)
   useEffect(() => {
-    setExpanded(pathname !== ONBOARDING_COLLAPSE_PATH);
-  }, [pathname]);
+    const tourParam = searchParams.get('tour');
+    const isInTour = tourParam !== null && tourParam.length > 0;
+    const shouldCollapse = pathname === ONBOARDING_COLLAPSE_PATH || isInTour;
+    setExpanded(!shouldCollapse);
+  }, [pathname, searchParams]);
 
   // Memoize computed values for performance
   const incompletedSteps = useMemo(

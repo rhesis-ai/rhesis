@@ -196,7 +196,7 @@ def test_behavior_with_metrics(
     test_db, test_org_id, authenticated_user_id, test_metric_numeric, test_metric_categorical
 ):
     """Create a behavior with associated metrics for testing."""
-    from rhesis.backend.app import models
+    from rhesis.backend.app import crud, models
 
     behavior = models.Behavior(
         name="Test Behavior with Metrics",
@@ -207,8 +207,13 @@ def test_behavior_with_metrics(
     test_db.add(behavior)
     test_db.flush()
 
-    # Associate metrics with behavior
-    behavior.metrics = [test_metric_numeric, test_metric_categorical]
+    # Associate metrics with behavior using CRUD function to handle required fields
+    crud.add_behavior_to_metric(
+        test_db, test_metric_numeric.id, behavior.id, authenticated_user_id, test_org_id
+    )
+    crud.add_behavior_to_metric(
+        test_db, test_metric_categorical.id, behavior.id, authenticated_user_id, test_org_id
+    )
 
     test_db.commit()
     test_db.refresh(behavior)

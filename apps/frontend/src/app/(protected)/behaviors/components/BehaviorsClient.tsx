@@ -237,14 +237,38 @@ export default function BehaviorsClient({
     setViewingBehavior(null);
   };
 
-  const handleMetricsViewerRefresh = () => {
-    handleRefresh();
-    // Also update the viewing behavior with fresh data
-    if (viewingBehavior) {
-      const updatedBehavior = behaviors.find(b => b.id === viewingBehavior.id);
-      if (updatedBehavior) {
-        setViewingBehavior(updatedBehavior);
-      }
+  const handleMetricsViewerRefresh = (removedMetricId?: string) => {
+    if (removedMetricId && viewingBehavior) {
+      // Update the behaviors list dynamically by removing the metric
+      setBehaviors(prev =>
+        prev.map(behavior => {
+          if (behavior.id === viewingBehavior.id) {
+            return {
+              ...behavior,
+              metrics: behavior.metrics.filter(
+                metric => metric.id !== removedMetricId
+              ),
+            };
+          }
+          return behavior;
+        })
+      );
+
+      // Update the viewing behavior as well
+      setViewingBehavior(prev => {
+        if (prev) {
+          return {
+            ...prev,
+            metrics: prev.metrics.filter(
+              metric => metric.id !== removedMetricId
+            ),
+          };
+        }
+        return prev;
+      });
+    } else {
+      // Fallback to full refresh if no metric ID provided
+      setRefreshKey(prev => prev + 1);
     }
   };
 

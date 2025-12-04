@@ -22,8 +22,8 @@ behavior_metric_association = Table(
     Base.metadata,
     Column("behavior_id", GUID(), ForeignKey("behavior.id"), primary_key=True),
     Column("metric_id", GUID(), ForeignKey("metric.id"), primary_key=True),
-    Column("user_id", GUID(), ForeignKey("user.id")),
-    Column("organization_id", GUID(), ForeignKey("organization.id")),
+    Column("user_id", GUID(), ForeignKey("user.id"), nullable=False),
+    Column("organization_id", GUID(), ForeignKey("organization.id"), nullable=False),
 )
 
 
