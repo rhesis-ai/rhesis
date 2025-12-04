@@ -150,47 +150,11 @@ jobs:
       - name: Set additional environment variables
         run: |
           echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
-          echo "MODEL_BUCKET=${{ secrets.MODEL_BUCKET }}" >> $GITHUB_ENV
-
-      - name: Verify Model Exists in GCS
-        timeout-minutes: 2
-        run: |
-          # Check if MODEL_BUCKET is set
-          if [ -z "${{ secrets.MODEL_BUCKET }}" ]; then
-            echo "⚠️  MODEL_BUCKET not set"
-            echo "Model will be downloaded from HuggingFace at runtime (slow, ~30 min startup)"
-            exit 0
-          fi
           
-          # Extract model identifier and create GCS path
-          MODEL_IDENTIFIER=$(echo "${{ secrets.DEFAULT_MODEL }}" | sed 's|^huggingface/||' | tr '/' '-')
-          MODEL_GCS_PATH="models/$MODEL_IDENTIFIER"
-          
-          echo "🔍 Verifying model exists in GCS..."
-          echo "Model: ${{ secrets.DEFAULT_MODEL }}"
-          echo "Path: gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/"
-          
-          # Check if model exists (fast check)
-          if gsutil ls "gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/" 2>/dev/null | grep -q "\.safetensors\|\.bin"; then
-            echo "✅ Model found in GCS!"
-            
-            # Show some files for confirmation
-            echo ""
-            echo "📋 Model files:"
-            gsutil ls "gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/" | head -10
-            exit 0
-          else
-            echo ""
-            echo "❌ Model NOT found in GCS!"
-            echo ""
-            echo "📥 Please upload the model manually to:"
-            echo "   gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/"
-            echo ""
-            echo "Upload command:"
-            echo "   gsutil -m cp -r /path/to/model/* gs://${{ secrets.MODEL_BUCKET }}/$MODEL_GCS_PATH/"
-            echo ""
-            exit 1
-          fi
+          # Strip gs:// prefix from MODEL_BUCKET if present (for compatibility)
+          MODEL_BUCKET="${{ secrets.MODEL_BUCKET }}"
+          MODEL_BUCKET=$(echo "$MODEL_BUCKET" | sed 's|^gs://||')
+          echo "MODEL_BUCKET=$MODEL_BUCKET" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
