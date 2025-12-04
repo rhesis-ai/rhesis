@@ -140,12 +140,14 @@ export default function CreateTaskPage() {
     const entityId = searchParams.get('entityId');
     const commentId = searchParams.get('commentId');
     const testResultId = searchParams.get('test_result_id');
+    const testRunId = searchParams.get('test_run_id');
 
     if (entityType && entityId) {
       // Build metadata object from available params
       const metadata: Record<string, any> = {};
       if (commentId) metadata.comment_id = commentId;
       if (testResultId) metadata.test_result_id = testResultId;
+      if (testRunId) metadata.test_run_id = testRunId;
 
       setFormData(prev => ({
         ...prev,
@@ -189,7 +191,7 @@ export default function CreateTaskPage() {
       };
 
       await createTask(taskData);
-      router.push('/tasks');
+      router.back();
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to create task';
@@ -466,7 +468,7 @@ export default function CreateTaskPage() {
                     >
                       <Button
                         variant="outlined"
-                        onClick={() => router.push('/tasks')}
+                        onClick={() => router.back()}
                         disabled={isSaving}
                       >
                         Cancel
