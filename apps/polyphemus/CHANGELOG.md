@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-12-04
+
+### Added
+- Added an `is_verified` field to the User model. This field indicates whether a user's email address has been verified.
+
+
 ## [0.2.0] - 2025-11-27
 
 ### Added
