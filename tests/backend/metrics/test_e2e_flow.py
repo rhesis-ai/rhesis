@@ -91,7 +91,9 @@ class TestE2EFlow:
     @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    async def test_e2e_single_test_execution(self, mock_create_metric, mock_invoke, full_test_setup):
+    async def test_e2e_single_test_execution(
+        self, mock_create_metric, mock_invoke, full_test_setup
+    ):
         """Test complete flow: task → execution → evaluation → storage."""
         # Mock endpoint invocation
         mock_invoke.return_value = {"output": "The answer is 4", "status_code": 200}
@@ -131,7 +133,9 @@ class TestE2EFlow:
     @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    async def test_e2e_with_multiple_metrics(self, mock_create_metric, mock_invoke, full_test_setup):
+    async def test_e2e_with_multiple_metrics(
+        self, mock_create_metric, mock_invoke, full_test_setup
+    ):
         """Test execution with multiple metrics."""
         mock_invoke.return_value = {"output": "Positive response", "status_code": 200}
 
@@ -175,7 +179,9 @@ class TestE2EFlow:
     @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    async def test_e2e_handles_endpoint_error(self, mock_create_metric, mock_invoke, full_test_setup):
+    async def test_e2e_handles_endpoint_error(
+        self, mock_create_metric, mock_invoke, full_test_setup
+    ):
         """Test flow handles endpoint errors gracefully."""
         # Endpoint fails
         mock_invoke.side_effect = Exception("Endpoint unavailable")
@@ -287,7 +293,12 @@ class TestE2EFlow:
         test_db.add(behavior)
         test_db.flush()
 
-        behavior.metrics = [ragas_metric]
+        # Associate metric with behavior using CRUD function to handle required fields
+        from rhesis.backend.app import crud
+
+        crud.add_behavior_to_metric(
+            test_db, ragas_metric.id, behavior.id, authenticated_user_id, test_org_id
+        )
 
         test_config = models.TestConfiguration(
             endpoint_id=test_endpoint.id, organization_id=test_org_id, user_id=authenticated_user_id
@@ -351,7 +362,9 @@ class TestE2EFlow:
     @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    async def test_e2e_metric_results_structure(self, mock_create_metric, mock_invoke, full_test_setup):
+    async def test_e2e_metric_results_structure(
+        self, mock_create_metric, mock_invoke, full_test_setup
+    ):
         """Test that metric results are stored in correct structure."""
         mock_invoke.return_value = {"output": "Test response", "status_code": 200}
 
@@ -390,7 +403,9 @@ class TestE2EFlow:
     @pytest.mark.asyncio
     @patch("rhesis.backend.app.services.endpoint.EndpointService.invoke_endpoint")
     @patch("rhesis.sdk.metrics.MetricFactory.create")
-    async def test_e2e_result_queryable_via_api(self, mock_create_metric, mock_invoke, full_test_setup):
+    async def test_e2e_result_queryable_via_api(
+        self, mock_create_metric, mock_invoke, full_test_setup
+    ):
         """Test that stored results are queryable."""
         mock_invoke.return_value = {"output": "Response", "status_code": 200}
 
@@ -476,8 +491,12 @@ class TestE2EFlow:
         test_db.add(metric)
         test_db.flush()
 
-        # Link metric to behavior
-        behavior.metrics = [metric]
+        # Link metric to behavior using CRUD function to handle required fields
+        from rhesis.backend.app import crud
+
+        crud.add_behavior_to_metric(
+            test_db, metric.id, behavior.id, authenticated_user_id, test_org_id
+        )
 
         # Update test to use this behavior
         db_test_with_prompt.behavior_id = behavior.id
@@ -525,7 +544,7 @@ class TestE2EFlow:
             # This specific error means we hit the bug we're preventing
             elif "from_dict" in error_msg:
                 raise AssertionError(
-                    f"REGRESSION: Hit the MetricConfig.from_dict() bug that this test should prevent! "
+                    f"REGRESSION: Hit the MetricConfig.from_dict() bug! "
                     f"Error: {error_msg}"
                 )
 
