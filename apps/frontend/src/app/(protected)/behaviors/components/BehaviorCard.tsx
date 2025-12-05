@@ -102,7 +102,7 @@ export default function BehaviorCard({
   const chipSections: ChipSection[] = [
     {
       chips: [
-        ...behavior.metrics.slice(0, 3).map(metric => ({
+        ...(behavior.metrics || []).slice(0, 3).map(metric => ({
           key: metric.id,
           icon: <AutoGraphIcon fontSize="small" />,
           label: metric.name,

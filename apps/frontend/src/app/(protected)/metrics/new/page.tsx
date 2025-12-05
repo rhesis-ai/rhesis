@@ -18,6 +18,7 @@ import { useTheme } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CheckIcon from '@mui/icons-material/Check';
 import { useNotifications } from '@/components/common/NotificationContext';
 import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
@@ -28,6 +29,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   MetricCreate,
   MetricScope,
+  ThresholdOperator,
 } from '@/utils/api-client/interfaces/metric';
 import { User } from '@/utils/api-client/interfaces/user';
 import { UUID } from 'crypto';
@@ -50,9 +52,12 @@ interface MetricFormData {
   evaluation_steps: string[];
   reasoning: string;
   score_type: 'categorical' | 'numeric';
+  categories: string[];
+  passing_categories: string[];
   min_score?: number;
   max_score?: number;
   threshold?: number;
+  threshold_operator: ThresholdOperator;
   explanation: string;
   model_id: string;
   metric_scope: MetricScope[];
@@ -65,7 +70,10 @@ const initialFormData: MetricFormData = {
   evaluation_prompt: '',
   evaluation_steps: [''],
   reasoning: '',
-  score_type: 'categorical',
+  score_type: 'numeric',
+  categories: [],
+  passing_categories: [],
+  threshold_operator: '>=',
   explanation: '',
   model_id: '',
   metric_scope: ['Single-Turn'],
@@ -182,6 +190,27 @@ export default function NewMetricPage() {
       return;
     }
 
+    // Validate categorical metric fields
+    if (formData.score_type === 'categorical') {
+      if (!formData.categories || formData.categories.length < 2) {
+        notifications.show(
+          'Please add at least 2 categories for categorical metrics',
+          { severity: 'error', autoHideDuration: 4000 }
+        );
+        return;
+      }
+      if (
+        !formData.passing_categories ||
+        formData.passing_categories.length === 0
+      ) {
+        notifications.show('Please select at least one passing category', {
+          severity: 'error',
+          autoHideDuration: 4000,
+        });
+        return;
+      }
+    }
+
     setIsCreating(true);
 
     try {
@@ -234,6 +263,16 @@ export default function NewMetricPage() {
         evaluation_steps: formattedSteps.join(STEP_SEPARATOR),
         reasoning: formData.reasoning || '',
         score_type: formData.score_type,
+        // Categorical metric fields
+        categories:
+          formData.score_type === 'categorical'
+            ? formData.categories
+            : undefined,
+        passing_categories:
+          formData.score_type === 'categorical'
+            ? formData.passing_categories
+            : undefined,
+        // Numeric metric fields
         min_score:
           formData.score_type === 'numeric'
             ? parseFloat(String(formData.min_score))
@@ -245,6 +284,10 @@ export default function NewMetricPage() {
         threshold:
           formData.score_type === 'numeric'
             ? parseFloat(String(formData.threshold))
+            : undefined,
+        threshold_operator:
+          formData.score_type === 'numeric'
+            ? formData.threshold_operator
             : undefined,
         explanation: formData.explanation || '',
         metric_type_id: typeLookups[0].id as UUID,
@@ -429,20 +472,201 @@ export default function NewMetricPage() {
         <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
           Result Configuration
         </Typography>
+
+        {/* Score Type Selection */}
         <Box sx={{ mb: 3 }}>
+          <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
+            Score Type{' '}
+            <Typography component="span" sx={{ color: 'error.main' }}>
+              *
+            </Typography>
+          </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Choose how this metric will be scored:
           </Typography>
-          <FormControl fullWidth>
-            <Select<'categorical' | 'numeric'>
-              value={formData.score_type}
-              onChange={handleChange('score_type')}
-            >
-              <MenuItem value="categorical">Categorical</MenuItem>
-              <MenuItem value="numeric">Numeric</MenuItem>
-            </Select>
-          </FormControl>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {(['numeric', 'categorical'] as const).map(type => {
+              const isSelected = formData.score_type === type;
+              return (
+                <Chip
+                  key={type}
+                  label={type === 'numeric' ? 'Numeric' : 'Categorical'}
+                  clickable
+                  color={isSelected ? 'primary' : 'default'}
+                  variant={isSelected ? 'filled' : 'outlined'}
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev,
+                      score_type: type,
+                    }));
+                  }}
+                  sx={{
+                    '&:hover': {
+                      backgroundColor: isSelected
+                        ? 'primary.dark'
+                        : 'action.hover',
+                    },
+                  }}
+                />
+              );
+            })}
+          </Box>
         </Box>
+
+        {formData.score_type === 'categorical' && (
+          <>
+            {/* Categories Input */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
+                Categories{' '}
+                <Typography component="span" sx={{ color: 'error.main' }}>
+                  *
+                </Typography>
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Define the possible categorical values the LLM can return
+                (minimum 2 required)
+              </Typography>
+              <BaseTag
+                value={formData.categories || []}
+                onChange={newCategories =>
+                  setFormData(prev => ({
+                    ...prev,
+                    categories: newCategories,
+                    // Clear passing categories if they're no longer valid
+                    passing_categories: (prev.passing_categories || []).filter(
+                      pc => newCategories.includes(pc)
+                    ),
+                  }))
+                }
+                label="Categories"
+                placeholder="Add category (e.g., Excellent, Good, Poor)"
+                helperText="Press Enter or comma to add each category"
+                chipColor="primary"
+                addOnBlur
+                delimiters={[',', 'Enter']}
+                size="small"
+              />
+            </Box>
+
+            {/* Passing Categories Selection */}
+            {formData.categories?.length >= 2 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography
+                  variant="body1"
+                  sx={{ mb: 1, fontWeight: 'medium' }}
+                >
+                  Passing Categories{' '}
+                  <Typography component="span" sx={{ color: 'error.main' }}>
+                    *
+                  </Typography>
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  Select which categories indicate a successful/passing result
+                  (at least one required)
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {(formData.categories || []).map(category => {
+                    const isSelected = (
+                      formData.passing_categories || []
+                    ).includes(category);
+                    return (
+                      <Chip
+                        key={category}
+                        label={category}
+                        clickable
+                        color={isSelected ? 'success' : 'default'}
+                        variant={isSelected ? 'filled' : 'outlined'}
+                        onClick={() => {
+                          const currentPassing =
+                            formData.passing_categories || [];
+                          const newPassing = isSelected
+                            ? currentPassing.filter(c => c !== category)
+                            : [...currentPassing, category];
+                          setFormData(prev => ({
+                            ...prev,
+                            passing_categories: newPassing,
+                          }));
+                        }}
+                        icon={isSelected ? <CheckIcon /> : undefined}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: isSelected
+                              ? 'success.dark'
+                              : 'action.hover',
+                          },
+                        }}
+                      />
+                    );
+                  })}
+                </Box>
+              </Box>
+            )}
+          </>
+        )}
+
+        {formData.score_type === 'numeric' && (
+          <>
+            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+              <TextField
+                required
+                type="number"
+                label="Minimum Score"
+                value={formData.min_score || ''}
+                onChange={handleChange('min_score')}
+                fullWidth
+              />
+              <TextField
+                required
+                type="number"
+                label="Maximum Score"
+                value={formData.max_score || ''}
+                onChange={handleChange('max_score')}
+                fullWidth
+              />
+            </Box>
+
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Define the threshold condition for passing:
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  required
+                  type="number"
+                  label="Threshold Value"
+                  value={formData.threshold || ''}
+                  onChange={handleChange('threshold')}
+                  fullWidth
+                />
+                <FormControl fullWidth>
+                  <InputLabel required>Operator</InputLabel>
+                  <Select
+                    value={formData.threshold_operator}
+                    label="Operator"
+                    onChange={e =>
+                      setFormData(prev => ({
+                        ...prev,
+                        threshold_operator: e.target.value as ThresholdOperator,
+                      }))
+                    }
+                  >
+                    <MenuItem value=">=">&gt;=</MenuItem>
+                    <MenuItem value=">">&gt;</MenuItem>
+                    <MenuItem value="<=">&lt;=</MenuItem>
+                    <MenuItem value="<">&lt;</MenuItem>
+                    <MenuItem value="=">=</MenuItem>
+                    <MenuItem value="!=">!=</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            </Box>
+          </>
+        )}
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
@@ -487,40 +711,6 @@ export default function NewMetricPage() {
             })}
           </Box>
         </Box>
-
-        {formData.score_type === 'numeric' && (
-          <>
-            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-              <TextField
-                required
-                type="number"
-                label="Minimum Score"
-                value={formData.min_score || ''}
-                onChange={handleChange('min_score')}
-                fullWidth
-              />
-              <TextField
-                required
-                type="number"
-                label="Maximum Score"
-                value={formData.max_score || ''}
-                onChange={handleChange('max_score')}
-                fullWidth
-              />
-            </Box>
-
-            <TextField
-              required
-              type="number"
-              label="Threshold"
-              value={formData.threshold || ''}
-              onChange={handleChange('threshold')}
-              helperText="The minimum score required for this metric to pass"
-              fullWidth
-              sx={{ mb: 3 }}
-            />
-          </>
-        )}
 
         <TextField
           fullWidth
@@ -748,6 +938,63 @@ export default function NewMetricPage() {
           />
         </Box>
 
+        {formData.score_type === 'categorical' && (
+          <>
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontWeight: 'medium', mb: 1 }}
+              >
+                Categories
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {formData.categories && formData.categories.length > 0 ? (
+                  formData.categories.map((category, index) => (
+                    <Chip
+                      key={`category-${index}`}
+                      label={category}
+                      color="primary"
+                      variant="outlined"
+                    />
+                  ))
+                ) : (
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    No categories defined
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontWeight: 'medium', mb: 1 }}
+              >
+                Passing Categories
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {formData.passing_categories &&
+                formData.passing_categories.length > 0 ? (
+                  formData.passing_categories.map((category, index) => (
+                    <Chip
+                      key={`passing-${index}`}
+                      label={category}
+                      color="success"
+                      variant="filled"
+                    />
+                  ))
+                ) : (
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    No passing categories selected
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          </>
+        )}
+
         {formData.score_type === 'numeric' && (
           <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
             <Box>
@@ -801,7 +1048,7 @@ export default function NewMetricPage() {
                   color: 'success.main',
                 }}
               >
-                ≥ {formData.threshold}
+                {formData.threshold} {formData.threshold_operator}
               </Typography>
             </Box>
           </Box>
