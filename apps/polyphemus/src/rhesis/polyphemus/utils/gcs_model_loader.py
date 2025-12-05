@@ -59,8 +59,14 @@ def download_model_from_gcs(
     # Sanitize for GCS path (replace / with -)
     model_path = f"models/{model_name_clean.replace('/', '-')}"
 
+    # HuggingFace expects models in a specific cache structure:
+    # <cache_dir>/models--<org>--<model>/snapshots/main/
+    # Convert "NousResearch/Model" -> "models--NousResearch--Model"
+    hf_model_dir = f"models--{model_name_clean.replace('/', '--')}"
+    hf_cache_path = local_cache_path / hf_model_dir / "snapshots" / "main"
+
     logger.info(f"📥 Downloading model from GCS: gs://{model_bucket}/{model_path}/")
-    logger.info(f"📂 Destination: {local_cache_dir}")
+    logger.info(f"📂 Destination: {hf_cache_path}")
     logger.info("⏱️  This may take 2-5 minutes (fast internal GCP transfer)...")
 
     try:
@@ -68,8 +74,8 @@ def download_model_from_gcs(
         storage_client = storage.Client()
         bucket = storage_client.bucket(model_bucket)
 
-        # Create local cache directory
-        local_cache_path.mkdir(parents=True, exist_ok=True)
+        # Create HuggingFace cache directory structure
+        hf_cache_path.mkdir(parents=True, exist_ok=True)
 
         # List all blobs in the model path
         blobs = list(bucket.list_blobs(prefix=model_path))
@@ -92,7 +98,7 @@ def download_model_from_gcs(
 
             # Create local file path (remove model_path prefix)
             relative_path = blob.name.replace(f"{model_path}/", "")
-            local_file = local_cache_path / relative_path
+            local_file = hf_cache_path / relative_path
 
             # Create parent directories
             local_file.parent.mkdir(parents=True, exist_ok=True)
@@ -107,7 +113,7 @@ def download_model_from_gcs(
                 logger.info(f"Downloaded {downloaded_count}/{len(blobs)} files...")
 
         logger.info(
-            f"✅ Model downloaded successfully! ({downloaded_count} files to {local_cache_dir})"
+            f"✅ Model downloaded successfully! ({downloaded_count} files to {hf_cache_path})"
         )
         return True
 
