@@ -168,3 +168,49 @@ def test_from_config_to_config(metric):
     metric2 = CategoricalJudge.from_config(config1)
     config2 = metric2.to_config()
     assert config1 == config2
+
+
+def test_categorical_judge_requires_at_least_one_passing_category():
+    """Test that at least one passing category is required"""
+    with pytest.raises(ValueError, match="must contain at least one category"):
+        CategoricalJudgeConfig(
+            name="Test Metric",
+            evaluation_prompt="Test prompt",
+            categories=["Pass", "Fail"],
+            passing_categories=[],  # Empty list should fail
+        )
+
+
+def test_categorical_judge_accepts_single_passing_category():
+    """Test that a single passing category is valid"""
+    config = CategoricalJudgeConfig(
+        name="Test Metric",
+        evaluation_prompt="Test prompt",
+        categories=["Pass", "Fail"],
+        passing_categories=["Pass"],  # Single category should work
+    )
+    assert config.passing_categories == ["Pass"]
+
+
+def test_categorical_judge_accepts_string_passing_category():
+    """Test that a string passing category is converted to single-item list"""
+    config = CategoricalJudgeConfig(
+        name="Test Metric",
+        evaluation_prompt="Test prompt",
+        categories=["Excellent", "Good", "Poor"],
+        passing_categories="Excellent",  # String should be converted to ["Excellent"]
+    )
+    assert config.passing_categories == ["Excellent"]
+    assert isinstance(config.passing_categories, list)
+
+
+def test_categorical_judge_multiple_passing_categories():
+    """Test that multiple passing categories work correctly"""
+    config = CategoricalJudgeConfig(
+        name="Test Metric",
+        evaluation_prompt="Test prompt",
+        categories=["Excellent", "Good", "Fair", "Poor"],
+        passing_categories=["Excellent", "Good"],  # Multiple categories
+    )
+    assert config.passing_categories == ["Excellent", "Good"]
+    assert len(config.passing_categories) == 2
