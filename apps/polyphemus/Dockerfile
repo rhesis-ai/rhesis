@@ -66,26 +66,21 @@ RUN mkdir -p /app/model_cache
 
 # Clean up unnecessary files to reduce disk usage and image size
 # This is critical for GitHub Actions runners with limited disk space
+# Use conservative cleanup to avoid breaking package installations
 RUN echo "🧹 Starting cleanup to reduce image size..." && \
-    # Remove Python cache files
-    find /app/.venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove Python cache files (safe to delete)
+    find /app/.venv -type d -name "__pycache__" -prune -exec rm -rf {} \; 2>/dev/null || true && \
     find /app/.venv -type f -name "*.pyc" -delete 2>/dev/null || true && \
     find /app/.venv -type f -name "*.pyo" -delete 2>/dev/null || true && \
-    # Remove test files and directories
-    find /app/.venv -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
-    find /app/.venv -type d -name "test" -exec rm -rf {} + 2>/dev/null || true && \
-    find /app/.venv -type d -name "*_tests" -exec rm -rf {} + 2>/dev/null || true && \
-    # Remove documentation
-    find /app/.venv -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true && \
-    find /app/.venv -type d -name "doc" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove test directories (safe to delete)
+    find /app/.venv -type d -name "tests" -prune -exec rm -rf {} \; 2>/dev/null || true && \
+    find /app/.venv -type d -name "test" -prune -exec rm -rf {} \; 2>/dev/null || true && \
+    # Remove documentation directories (safe to delete)
+    find /app/.venv -type d -name "docs" -prune -exec rm -rf {} \; 2>/dev/null || true && \
     find /app/.venv -name "*.md" -type f -delete 2>/dev/null || true && \
-    find /app/.venv -name "*.txt" -type f -delete 2>/dev/null || true && \
     find /app/.venv -type f -name "*.rst" -delete 2>/dev/null || true && \
-    # Remove example files
-    find /app/.venv -type d -name "examples" -exec rm -rf {} + 2>/dev/null || true && \
-    find /app/.venv -type d -name "example" -exec rm -rf {} + 2>/dev/null || true && \
-    # Remove unnecessary locale files (keep only en_US)
-    find /app/.venv -type d -path "*/locale/*" ! -path "*/locale/en_US*" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove example directories (safe to delete)
+    find /app/.venv -type d -name "examples" -prune -exec rm -rf {} \; 2>/dev/null || true && \
     echo "✅ Cleanup completed"
 
 # ============================================================================
