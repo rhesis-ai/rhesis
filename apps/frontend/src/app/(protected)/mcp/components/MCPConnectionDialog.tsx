@@ -19,8 +19,12 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
 import dynamic from 'next/dynamic';
 import { useTheme } from '@mui/material/styles';
+import { useSession } from 'next-auth/react';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import {
   Tool,
@@ -29,6 +33,7 @@ import {
 } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
 import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 // Lazy load Monaco Editor
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -97,6 +102,8 @@ export function MCPConnectionDialog({
   onUpdate,
 }: MCPConnectionDialogProps) {
   const theme = useTheme();
+  const { data: session } = useSession();
+  const notifications = useNotifications();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [authToken, setAuthToken] = useState('');
@@ -106,6 +113,12 @@ export function MCPConnectionDialog({
   const [showAuthToken, setShowAuthToken] = useState(false);
   const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    is_authenticated: string;
+    message: string;
+  } | null>(null);
+  const [connectionTested, setConnectionTested] = useState(false);
 
   const isEditMode = mode === 'edit';
 
@@ -154,6 +167,8 @@ export function MCPConnectionDialog({
         setShowAuthToken(false);
         setLoading(false);
         setShowAdvancedConfig(!!tool.tool_metadata);
+        setTestResult(null);
+        setConnectionTested(true); // Skip test requirement in edit mode
       } else if (provider) {
         // Create mode: reset to defaults
         setName('');
@@ -165,9 +180,24 @@ export function MCPConnectionDialog({
         setShowAuthToken(false);
         setLoading(false);
         setShowAdvancedConfig(isCustomProvider);
+        setTestResult(null);
+        setConnectionTested(false);
       }
     }
   }, [open, provider, tool, isEditMode, isCustomProvider]);
+
+  // Reset connection test status when critical fields change
+  useEffect(() => {
+    if (!isEditMode) {
+      // In create mode, always reset when fields change
+      setConnectionTested(false);
+      setTestResult(null);
+    } else if (authToken && authToken !== '************') {
+      // In edit mode, reset only if auth token was actually changed
+      setConnectionTested(false);
+      setTestResult(null);
+    }
+  }, [name, authToken, toolMetadata, provider, isEditMode]);
 
   const validateToolMetadata = (
     jsonString: string
@@ -199,6 +229,108 @@ export function MCPConnectionDialog({
       validateToolMetadata(value);
     } else {
       setJsonError(null);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    if (!session?.session_token) {
+      setError('Session not available. Please try again.');
+      return;
+    }
+
+    // In create mode, we need to validate required fields first
+    if (!isEditMode) {
+      if (!provider || !name || (requiresToken && !authToken)) {
+        setError('Please fill in all required fields before testing.');
+        return;
+      }
+      if (isCustomProvider && !toolMetadata.trim()) {
+        setError('Tool metadata is required for custom providers.');
+        return;
+      }
+    }
+
+    // In edit mode, we need the tool ID
+    if (isEditMode && !tool?.id) {
+      setError('Tool ID not available. Please save the connection first.');
+      return;
+    }
+
+    setTestingConnection(true);
+    setError(null);
+    setTestResult(null);
+
+    try {
+      const apiFactory = new ApiClientFactory(session.session_token);
+      const servicesClient = apiFactory.getServicesClient();
+
+      let testRequest: {
+        tool_id?: string;
+        provider_type_id?: string;
+        credentials?: Record<string, string>;
+        tool_metadata?: Record<string, any>;
+      };
+
+      if (isEditMode) {
+        // In edit mode, use existing tool ID
+        testRequest = {
+          tool_id: tool!.id,
+        };
+      } else {
+        // In create mode, use direct parameters
+        if (!provider) {
+          setError('Provider not found. Please try again.');
+          setTestingConnection(false);
+          return;
+        }
+
+        const credentialKey = getCredentialKey(provider.type_value);
+        const credentials = requiresToken
+          ? {
+              [credentialKey]: authToken.trim(),
+            }
+          : {};
+
+        let parsedMetadata: Record<string, any> | undefined = undefined;
+        if (isCustomProvider && toolMetadata.trim()) {
+          const validatedMetadata = validateToolMetadata(toolMetadata);
+          if (validatedMetadata === null) {
+            setError(
+              'Please fix the JSON configuration errors before testing.'
+            );
+            setTestingConnection(false);
+            return;
+          }
+          parsedMetadata = validatedMetadata;
+        }
+
+        testRequest = {
+          provider_type_id: provider.id,
+          credentials,
+          tool_metadata: parsedMetadata,
+        };
+      }
+
+      // Test the connection
+      const result = await servicesClient.testMCPConnection(testRequest);
+      setTestResult(result);
+
+      // Mark as tested if successful
+      if (result.is_authenticated === 'Yes') {
+        setConnectionTested(true);
+      } else {
+        setConnectionTested(false);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to test connection. Please try again.'
+      );
+      setTestResult(null);
+      setConnectionTested(false);
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -263,7 +395,19 @@ export function MCPConnectionDialog({
         setLoading(false);
       }
     } else {
-      // Create mode: validate required fields
+      // Create mode: require connection test
+      if (!connectionTested) {
+        setError('Please test the connection before saving the tool.');
+        return;
+      }
+
+      // Validate that test was successful
+      if (!testResult || testResult.is_authenticated !== 'Yes') {
+        setError('Connection test must be successful before saving.');
+        return;
+      }
+
+      // Validate required fields
       if (!provider || !name || (requiresToken && !authToken)) {
         setError('Please fill in all required fields.');
         return;
@@ -456,6 +600,49 @@ export function MCPConnectionDialog({
                       ) : null,
                   }}
                 />
+                <Box sx={{ mt: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="medium"
+                    onClick={handleTestConnection}
+                    disabled={
+                      testingConnection ||
+                      loading ||
+                      !name ||
+                      (requiresToken && !authToken) ||
+                      (isCustomProvider && !toolMetadata.trim())
+                    }
+                    sx={{ minWidth: 150 }}
+                  >
+                    {testingConnection ? 'Testing...' : 'Test Connection'}
+                  </Button>
+                  {testResult && (
+                    <Alert
+                      severity={
+                        testResult.is_authenticated === 'Yes'
+                          ? 'success'
+                          : 'error'
+                      }
+                      icon={
+                        testResult.is_authenticated === 'Yes' ? (
+                          <CheckCircleIcon />
+                        ) : (
+                          <ErrorIcon />
+                        )
+                      }
+                      sx={{ mt: 2 }}
+                    >
+                      <Typography variant="body2" fontWeight={600}>
+                        {testResult.is_authenticated === 'Yes'
+                          ? 'Connection Successful'
+                          : 'Connection Failed'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        {testResult.message}
+                      </Typography>
+                    </Alert>
+                  )}
+                </Box>
               </>
             )}
 
@@ -572,6 +759,27 @@ export function MCPConnectionDialog({
           </Stack>
         </DialogContent>
 
+        {/* Connection Test Required Message */}
+        {!isEditMode && !connectionTested && !testResult && (
+          <Box sx={{ px: 3, pb: 1 }}>
+            <Alert severity="info">
+              Please test the connection before saving the tool configuration.
+            </Alert>
+          </Box>
+        )}
+        {isEditMode &&
+          requiresToken &&
+          authToken !== '************' &&
+          !connectionTested &&
+          !testResult && (
+            <Box sx={{ px: 3, pb: 1 }}>
+              <Alert severity="info">
+                Please test the connection with the new credentials before
+                updating.
+              </Alert>
+            </Box>
+          )}
+
         <DialogActions
           sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}
         >
@@ -585,6 +793,11 @@ export function MCPConnectionDialog({
               !name ||
               (!isEditMode && requiresToken && !authToken) ||
               (!isEditMode && isCustomProvider && !toolMetadata.trim()) ||
+              (!isEditMode && !connectionTested) ||
+              (isEditMode &&
+                requiresToken &&
+                authToken !== '************' &&
+                !connectionTested) || // Require test if token changed in edit mode
               loading ||
               !!jsonError
             }

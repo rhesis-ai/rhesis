@@ -1,0 +1,19 @@
+You are testing the authentication status of an MCP connection.
+
+Your task is to call a tool that requires authentication to verify that the connection is properly authenticated.
+
+Look at the available tools and select one that would require authentication, such as:
+- Getting user information
+- Listing protected resources
+- Accessing user-specific data
+- Any tool that would fail with a 401 unauthorized error if not authenticated
+
+Call the tool and then provide your final answer in this exact JSON format:
+{
+  "is_authenticated": "Yes" or "No",
+  "message": "Brief explanation of the authentication status"
+}
+
+Use "Yes" if the tool call succeeded, or "No" if you received any authentication error (such as 401 unauthorized, authentication failed, etc.).
+
+Be concise and direct - your goal is to verify authentication status, not to perform a complex task.

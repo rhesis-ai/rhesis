@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import UUID4, BaseModel, Field
+from pydantic import UUID4, BaseModel, Field, model_validator
 
 
 class GenerationConfig(BaseModel):
@@ -299,6 +299,45 @@ class QueryMCPResponse(BaseModel):
     execution_history: List[ExecutionStep]
 
 
+class TestMCPConnectionRequest(BaseModel):
+    """Request to test MCP connection authentication.
+
+    Either tool_id (for existing tools) OR provider_type_id + credentials
+    (for non-existent tools) must be provided.
+    For custom providers, tool_metadata is required when using provider_type_id.
+    """
+
+    tool_id: Optional[str] = None
+    provider_type_id: Optional[UUID4] = None
+    credentials: Optional[Dict[str, str]] = None
+    tool_metadata: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def validate_request(self):
+        """Ensure either tool_id OR (provider_type_id + credentials) is provided."""
+        has_tool_id = self.tool_id is not None
+        has_params = self.provider_type_id is not None and self.credentials is not None
+
+        if not has_tool_id and not has_params:
+            raise ValueError(
+                "Either 'tool_id' OR ('provider_type_id' + 'credentials') must be provided"
+            )
+
+        if has_tool_id and has_params:
+            raise ValueError(
+                "Cannot provide both 'tool_id' and parameter-based fields. Use one approach."
+            )
+
+        return self
+
+
+class TestMCPConnectionResponse(BaseModel):
+    """Response from MCP connection authentication test."""
+
+    is_authenticated: str  # "Yes" or "No"
+    message: str
+
+
 # Recent Activities Schemas
 class ActivityOperation(str, Enum):
     """Type of operation performed on an entity."""
@@ -339,3 +378,5 @@ class RecentActivitiesResponse(BaseModel):
 
     activities: List[ActivityItem]
     total: int  # Total number of activity groups (not individual activities)
+    is_authenticated: str  # "Yes" or "No"
+    message: str

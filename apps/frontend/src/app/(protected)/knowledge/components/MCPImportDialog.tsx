@@ -126,10 +126,6 @@ export default function MCPImportDialog({
           ? err.message
           : 'Failed to search. Please try again.';
       setError(errorMessage);
-      notifications.show('Search failed: ' + errorMessage, {
-        severity: 'error',
-        autoHideDuration: 6000,
-      });
     } finally {
       setSearching(false);
     }
