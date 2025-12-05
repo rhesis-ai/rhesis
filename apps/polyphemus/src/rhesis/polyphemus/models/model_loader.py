@@ -66,14 +66,26 @@ class LazyModelLoader(BaseLLM):
         if self._internal_model is None:
             logger.info(f"Loading model: {self._model_name}")
 
+            # Check if model was cached from GCS (offline mode)
+            model_cached_locally = os.environ.get("RHESIS_MODEL_CACHED_LOCALLY") == "true"
+
+            # Prepare load_kwargs for HuggingFace models
+            load_kwargs = {}
+            if model_cached_locally:
+                # Force HuggingFace to use only local files (don't check Hub)
+                load_kwargs["local_files_only"] = True
+                logger.info("Using local_files_only=True (model cached from GCS)")
+
             # Use SDK's get_model factory to create the appropriate model
             # The factory handles provider/model parsing automatically
             # Pass auto_loading=False via kwargs to defer model loading
             try:
-                self._internal_model = get_model(self._model_name, auto_loading=False)
+                self._internal_model = get_model(
+                    self._model_name, auto_loading=False, load_kwargs=load_kwargs
+                )
             except TypeError:
                 # If auto_loading is not supported, create without it and load manually
-                self._internal_model = get_model(self._model_name)
+                self._internal_model = get_model(self._model_name, load_kwargs=load_kwargs)
 
             # Load the model (for HuggingFace models, this loads model and tokenizer)
             if hasattr(self._internal_model, "load_model"):

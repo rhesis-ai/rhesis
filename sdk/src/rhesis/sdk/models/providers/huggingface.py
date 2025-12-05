@@ -122,8 +122,14 @@ class HuggingFaceLLM(BaseLLM):
             **self.load_kwargs,
         )
 
+        # Extract local_files_only from load_kwargs for tokenizer if present
+        tokenizer_kwargs = {}
+        if "local_files_only" in self.load_kwargs:
+            tokenizer_kwargs["local_files_only"] = self.load_kwargs["local_files_only"]
+
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name,
+            **tokenizer_kwargs,
         )
 
         # Get the device for input tensors
