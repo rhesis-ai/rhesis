@@ -81,6 +81,64 @@ def _get_mcp_client_by_tool_id(
     return client
 
 
+def _get_mcp_client_from_params(
+    provider_type_id: uuid.UUID,
+    credentials: Dict[str, str],
+    tool_metadata: Optional[Dict[str, Any]],
+    db: Session,
+    organization_id: str,
+    user_id: str = None,
+):
+    """
+    Get MCP client from parameters without requiring a tool in the database.
+
+    Args:
+        provider_type_id: UUID of the provider type (TypeLookup)
+        credentials: Dictionary of credential key-value pairs
+        tool_metadata: Optional tool metadata (required for custom providers)
+        db: Database session
+        organization_id: Organization ID (for authorization check)
+        user_id: User ID (for authorization check)
+
+    Returns:
+        MCPClient ready to use
+
+    Raises:
+        ValueError: If provider not found, invalid configuration, or missing required fields
+    """
+    # Fetch provider type from database
+    provider_type = crud.get_type_lookup(db, provider_type_id, organization_id, user_id)
+
+    if not provider_type:
+        raise ValueError(
+            f"Provider type '{provider_type_id}' not found. Please verify the provider_type_id."
+        )
+
+    # Get provider name for the client
+    provider = provider_type.type_value
+
+    # Check if provider uses custom provider (requires manual JSON config) or standard provider
+    if provider == "custom":
+        # Custom provider: requires tool_metadata with full JSON config
+        if not tool_metadata:
+            raise ValueError("Custom provider requires tool_metadata configuration")
+
+        manager = MCPClientManager.from_tool_config(
+            tool_name=f"{provider}Api",
+            tool_config=tool_metadata,
+            credentials=credentials,
+        )
+    else:
+        # Standard provider: SDK constructs config from YAML templates
+        manager = MCPClientManager.from_provider(
+            provider=provider,
+            credentials=credentials,
+        )
+
+    client = manager.create_client(f"{provider}Api")
+    return client
+
+
 async def search_mcp(
     query: str, tool_id: str, db: Session, user: User, organization_id: str, user_id: str = None
 ) -> List[Dict[str, str]]:
@@ -254,3 +312,72 @@ async def query_mcp(
         raise ValueError(f"Query failed: {result.error}")
 
     return result.model_dump()
+
+
+async def test_mcp_authentication(
+    db: Session,
+    user: User,
+    organization_id: str,
+    tool_id: Optional[str] = None,
+    provider_type_id: Optional[uuid.UUID] = None,
+    credentials: Optional[Dict[str, str]] = None,
+    tool_metadata: Optional[Dict[str, Any]] = None,
+    user_id: str = None,
+) -> Dict[str, Any]:
+    """
+    Test MCP connection authentication by calling a tool that requires authentication.
+
+    Uses an AI agent to call a tool requiring authentication. The LLM determines
+    whether authentication is successful based on the tool call results.
+
+    Args:
+        db: Database session
+        user: Current user (for retrieving default generation model)
+        organization_id: Organization ID for loading tools from database
+        tool_id: Optional ID of the configured tool instance (for existing tools)
+        provider_type_id: Optional UUID of the provider type (for non-existent tools)
+        credentials: Optional dictionary of credential key-value pairs (for non-existent tools)
+        tool_metadata: Optional tool metadata (for non-existent tools that use custom providers)
+        user_id: User ID for authorization check
+
+    Returns:
+        Dict with:
+        - is_authenticated: str - "Yes" or "No" determined by the LLM based on tool call results
+        - message: str - Message from the LLM explaining the authentication status
+
+    Raises:
+        ValueError: If authentication test fails due to connection issues
+    """
+    model = get_user_generation_model(db, user)
+
+    # Load MCP client from either tool_id or parameters
+    if tool_id is not None:
+        client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
+    else:
+        client = _get_mcp_client_from_params(
+            provider_type_id=provider_type_id,
+            credentials=credentials,
+            tool_metadata=tool_metadata,
+            db=db,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
+    # Load the authentication test prompt
+    auth_prompt = jinja_env.get_template("mcp_test_auth_prompt.jinja2").render()
+    agent = MCPAgent(
+        model=model,
+        mcp_client=client,
+        system_prompt=auth_prompt,
+        max_iterations=5,  # Keep it short for authentication test
+        verbose=False,
+    )
+
+    # Run agent with query to test authentication
+    query = "Call a tool that requires authentication to verify your credentials"
+    result = await agent.run_async(query)
+
+    if not result.success:
+        raise ValueError(f"Authentication test failed: {result.error}")
+
+    return json.loads(result.final_answer)
