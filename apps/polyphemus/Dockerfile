@@ -50,9 +50,8 @@ RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../backend"|path = "/app/apps/backend"|g' /app/pyproject.toml
 
 # Install dependencies using uv sync
-# Use cache mount for faster builds and install only production dependencies
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-dev --no-editable
+# Install only production dependencies (no cache mount to reduce disk usage)
+RUN uv sync --no-dev --no-editable
 
 # Now copy ALL source code - this layer will invalidate when any source changes
 COPY apps/polyphemus/src /app/src
@@ -65,20 +64,29 @@ ENV DEFAULT_MODEL=${DEFAULT_MODEL}
 # Create empty model cache directory (will be populated from GCS at runtime)
 RUN mkdir -p /app/model_cache
 
-# Clean up unnecessary files to reduce disk usage before copying to runtime stage
-# Remove Python cache files, test files, and documentation to save space
-RUN echo "Starting cleanup..." && \
-    find /app/.venv -type d -name "__pycache__" -delete 2>/dev/null || true && \
+# Clean up unnecessary files to reduce disk usage and image size
+# This is critical for GitHub Actions runners with limited disk space
+RUN echo "🧹 Starting cleanup to reduce image size..." && \
+    # Remove Python cache files
+    find /app/.venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
     find /app/.venv -type f -name "*.pyc" -delete 2>/dev/null || true && \
     find /app/.venv -type f -name "*.pyo" -delete 2>/dev/null || true && \
-    find /app/.venv -type d -name "tests" -delete 2>/dev/null || true && \
-    find /app/.venv -type d -name "test" -delete 2>/dev/null || true && \
-    find /app/.venv -type d -name "docs" -delete 2>/dev/null || true && \
-    find /app/.venv -type d -name "doc" -delete 2>/dev/null || true && \
+    # Remove test files and directories
+    find /app/.venv -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/.venv -type d -name "test" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/.venv -type d -name "*_tests" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove documentation
+    find /app/.venv -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/.venv -type d -name "doc" -exec rm -rf {} + 2>/dev/null || true && \
     find /app/.venv -name "*.md" -type f -delete 2>/dev/null || true && \
     find /app/.venv -name "*.txt" -type f -delete 2>/dev/null || true && \
     find /app/.venv -type f -name "*.rst" -delete 2>/dev/null || true && \
-    echo "Cleanup completed"
+    # Remove example files
+    find /app/.venv -type d -name "examples" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/.venv -type d -name "example" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove unnecessary locale files (keep only en_US)
+    find /app/.venv -type d -path "*/locale/*" ! -path "*/locale/en_US*" -exec rm -rf {} + 2>/dev/null || true && \
+    echo "✅ Cleanup completed"
 
 # ============================================================================
 # STAGE 2: Runtime - Create minimal runtime image
@@ -88,9 +96,12 @@ FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
 WORKDIR /app
 
 # Install only runtime dependencies (no build tools)
+# Minimal dependencies to reduce image size
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/cache/apt/archives/*
 
 # Create non-root user first
 RUN adduser --disabled-password --gecos '' appuser && \

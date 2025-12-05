@@ -156,22 +156,39 @@ jobs:
           MODEL_BUCKET=$(echo "$MODEL_BUCKET" | sed 's|^gs://||')
           echo "MODEL_BUCKET=$MODEL_BUCKET" >> $GITHUB_ENV
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Free up disk space
+      - name: Free up disk space aggressively
         run: |
-          # Free up disk space on GitHub runner
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          echo "📊 Disk space before cleanup:"
           df -h
+          
+          # Remove unnecessary software to maximize available space
+          echo "🧹 Removing unnecessary software..."
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/local/graalvm/
+          sudo rm -rf /usr/local/.ghcup/
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/node_modules
+          
+          # Clean up Docker to free space
+          docker system prune -a -f --volumes
+          
+          echo "📊 Disk space after cleanup:"
+          df -h
+
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker --quiet
 
       - name: Build and Push Container Image
         timeout-minutes: 45
         run: |
-          # Build with GitHub runner (no model baking = fast build)
+          # Build with standard Docker (lighter than Buildx for this use case)
           # Model is downloaded from GCS at Cloud Run startup instead
           
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
@@ -185,23 +202,33 @@ jobs:
             echo "🔨 Building regular image with tag: latest"
           fi
           
-          # Configure Docker to use gcloud as a credential helper
-          gcloud auth configure-docker --quiet
+          # Use standard Docker build (not Buildx) to save disk space
+          # Enable BuildKit for better performance without Buildx overhead
+          export DOCKER_BUILDKIT=1
+          export BUILDKIT_PROGRESS=plain
           
-          # Build and push the Docker image with progress output
-          # Since model is no longer baked in, this is fast (5-10 min)
-          docker buildx build \
-            --platform linux/amd64 \
+          # Build the image
+          docker build \
             --build-arg DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL }}" \
             --tag "$IMAGE_FULL_NAME" \
             --file apps/polyphemus/Dockerfile \
-            --push \
             --progress=plain \
-            --cache-from "$IMAGE_FULL_NAME" \
-            --cache-to type=inline \
             .
           
-          echo "✅ Image built and pushed successfully: $IMAGE_FULL_NAME"
+          echo "✅ Image built successfully: $IMAGE_FULL_NAME"
+          
+          # Check disk space after build
+          echo "📊 Disk space after build:"
+          df -h
+          
+          # Push the image
+          echo "📤 Pushing image to GCR..."
+          docker push "$IMAGE_FULL_NAME"
+          
+          echo "✅ Image pushed successfully: $IMAGE_FULL_NAME"
+          
+          # Clean up build artifacts to free space
+          docker image prune -f
 
   deploy:
     # Note: When deploy_only is true, build job is skipped, but GitHub Actions treats skipped jobs
