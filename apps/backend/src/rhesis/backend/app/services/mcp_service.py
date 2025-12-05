@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
+from rhesis.backend.logging import logger
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientManager
 
 # Initialize Jinja2 environment for loading prompt templates
@@ -191,10 +192,17 @@ async def search_mcp(
 
     result = await agent.run_async(query)
 
-    if not result.success:
-        raise ValueError(f"Search failed: {result.error}")
+    logger.info(f"Raw Agent output: {repr(result.final_answer)}")
 
-    return json.loads(result.final_answer)
+    # Agent now raises exceptions for errors, so if we get here, it succeeded
+    # Parse the result - if it's an empty list, that's a valid result (no items found)
+    try:
+        parsed_results = json.loads(result.final_answer)
+        if not isinstance(parsed_results, list):
+            raise ValueError("Agent returned invalid format: expected a list of items")
+        return parsed_results
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Agent returned invalid JSON: {str(e)}")
 
 
 async def extract_mcp(
@@ -246,9 +254,7 @@ async def extract_mcp(
 
     result = await agent.run_async(f"Extract content from item {id}")
 
-    if not result.success:
-        raise ValueError(f"Extraction failed: {result.error}")
-
+    # Agent now raises exceptions for errors, so if we get here, it succeeded
     return result.final_answer
 
 
@@ -308,9 +314,7 @@ async def query_mcp(
 
     result = await agent.run_async(query)
 
-    if not result.success:
-        raise ValueError(f"Query failed: {result.error}")
-
+    # Agent now raises exceptions for errors, so if we get here, it succeeded
     return result.model_dump()
 
 
