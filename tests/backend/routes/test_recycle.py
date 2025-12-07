@@ -34,10 +34,10 @@ class TestRecycleModelsEndpoint:
     def test_list_models_requires_superuser(
         self, authenticated_client: TestClient, test_db, test_org_id
     ):
-        """Test that listing models requires superuser privileges."""
-        # Regular user should get 403
+        """Test that listing models is accessible to all authenticated users."""
+        # Regular user can now access (superuser requirement removed)
         response = authenticated_client.get("/recycle/models")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_200_OK
 
     def test_list_models_success_as_superuser(
         self, superuser_client: TestClient, test_db, test_org_id
@@ -342,7 +342,7 @@ class TestRecyclePermanentDeleteEndpoint:
     def test_permanent_delete_requires_superuser(
         self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
-        """Test that permanent deletion requires superuser privileges."""
+        """Test that permanent deletion is accessible to all authenticated users."""
         # Ensure the authenticated user is NOT a superuser for this test
         from rhesis.backend.app import crud
 
@@ -357,8 +357,9 @@ class TestRecyclePermanentDeleteEndpoint:
         )
         crud_utils.delete_item(test_db, models.Behavior, behavior.id, organization_id=test_org_id)
 
+        # Regular user can now permanently delete (superuser requirement removed)
         response = authenticated_client.delete(f"/recycle/behavior/{behavior.id}?confirm=true")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_200_OK
 
     def test_permanent_delete_requires_confirmation(
         self, superuser_client: TestClient, test_db, test_org_id
@@ -584,7 +585,7 @@ class TestRecycleEmptyBinEndpoint:
     def test_empty_bin_requires_superuser(
         self, authenticated_client: TestClient, test_db, authenticated_user_id
     ):
-        """Test that emptying bin requires superuser privileges."""
+        """Test that emptying bin is accessible to all authenticated users."""
         # Ensure the authenticated user is NOT a superuser for this test
         from rhesis.backend.app import crud
 
@@ -593,8 +594,9 @@ class TestRecycleEmptyBinEndpoint:
         test_db.commit()
         test_db.refresh(user)
 
+        # Regular user can now empty bin (superuser requirement removed)
         response = authenticated_client.delete("/recycle/empty/behavior?confirm=true")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_200_OK
 
     def test_empty_bin_requires_confirmation(self, superuser_client: TestClient, test_db):
         """Test that emptying bin requires confirm=true."""
