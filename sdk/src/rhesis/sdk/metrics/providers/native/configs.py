@@ -166,6 +166,7 @@ class CategoricalJudgeConfig(BaseJudgeConfig):
         self._validate_categories()
         self._validate_passing_categories()
         self._normalize_passing_categories()
+        self._validate_passing_categories_not_empty()
         self._validate_passing_categories_subset()
         return super().__post_init__()
 
@@ -183,15 +184,20 @@ class CategoricalJudgeConfig(BaseJudgeConfig):
 
     def _validate_passing_categories(self) -> None:
         """
-        Validate that passing_categories is a string or list.
+        Validate that passing_categories is a string or list with at least one value.
 
         Raises:
             ValueError: If passing_categories is not a string or list
+            ValueError: If passing_categories is an empty list
         """
         if not isinstance(self.passing_categories, (str, list)):
             raise ValueError(
                 f"passing_categories must be a string or list, got: {type(self.passing_categories)}"
             )
+
+        # Check if it's an empty list (strings will be checked after normalization)
+        if isinstance(self.passing_categories, list) and len(self.passing_categories) == 0:
+            raise ValueError("passing_categories must contain at least one category")
 
     def _normalize_passing_categories(self) -> None:
         """
@@ -202,6 +208,22 @@ class CategoricalJudgeConfig(BaseJudgeConfig):
         """
         if isinstance(self.passing_categories, str):
             self.passing_categories = [self.passing_categories]
+
+    def _validate_passing_categories_not_empty(self) -> None:
+        """
+        Validate that passing_categories has at least one category after normalization.
+
+        This validation runs after _normalize_passing_categories to ensure that
+        even after converting strings to lists, we have at least one passing category.
+
+        Raises:
+            ValueError: If passing_categories is empty after normalization
+        """
+        if not self.passing_categories or len(self.passing_categories) == 0:
+            raise ValueError(
+                "passing_categories must contain at least one category. "
+                "At least one category must be marked as passing for the metric to be valid."
+            )
 
     def _validate_passing_categories_subset(self) -> None:
         """
