@@ -77,12 +77,13 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
     """Complete standard organization route tests using base classes"""
 
     def test_delete_entity_not_found(self, superuser_client: TestClient):
-        """Test deleting non-existent organization (requires superuser)"""
+        """Test deleting non-existent organization - endpoint removed"""
         non_existent_id = str(uuid.uuid4())
 
         response = superuser_client.delete(self.endpoints.remove(non_existent_id))
 
-        assert response.status_code == status.HTTP_404_NOT_FOUND
+        # Organization delete endpoint was removed, so method not allowed
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
     # Override user field configuration for organizations
     user_id_field = "user_id"
@@ -225,27 +226,14 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
         )
 
     def test_delete_entity_success(self, authenticated_client: TestClient):
-        """Override base delete test - organizations have RLS and superuser requirements"""
+        """Override base delete test - organization delete endpoint was removed"""
         created_entity = self.create_entity(authenticated_client)
         entity_id = created_entity[self.id_field]
 
         response = authenticated_client.delete(self.endpoints.remove(entity_id))
 
-        # Organizations require superuser permissions AND are subject to RLS
-        # The created organization will be in a different org context than the authenticated user
-        # So we expect either 403 (RLS/permissions) or 200 (if user is superuser)
-        assert response.status_code in [
-            status.HTTP_200_OK,  # If user is superuser
-            status.HTTP_403_FORBIDDEN,  # RLS or permission restriction
-        ], f"Unexpected delete status: {response.status_code} - {response.text}"
-
-        if response.status_code == status.HTTP_200_OK:
-            # If deletion succeeded, verify entity is gone
-            get_response = authenticated_client.get(self.endpoints.get(entity_id))
-            assert get_response.status_code in [
-                status.HTTP_404_NOT_FOUND,
-                status.HTTP_403_FORBIDDEN,  # RLS might prevent access to verify deletion
-            ]
+        # Organization delete endpoint was removed, so method not allowed
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
     def create_entity(self, client: TestClient, data: Dict[str, Any] = None) -> Dict[str, Any]:
         """Override create_entity to handle organization-specific requirements"""
@@ -547,27 +535,24 @@ class TestOrganizationDeletion(OrganizationTestMixin, BaseEntityTests):
     def test_delete_organization_requires_superuser(
         self, authenticated_client: TestClient, organization_with_owner, authenticated_user
     ):
-        """🔒 Test organization deletion requires superuser permissions"""
+        """🔒 Test organization deletion - endpoint was removed"""
         # Create organization
         org = organization_with_owner()
 
-        # Try to delete as regular user (should fail)
+        # Try to delete - endpoint no longer exists
         response = authenticated_client.delete(self.endpoints.remove(org["id"]))
 
-        # Should be forbidden unless user is superuser
-        assert response.status_code in [status.HTTP_403_FORBIDDEN, status.HTTP_200_OK]
-
-        if response.status_code == status.HTTP_403_FORBIDDEN:
-            assert "not authorized" in response.json()["detail"].lower()
+        # Organization delete endpoint was removed, so method not allowed
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
     def test_delete_nonexistent_organization(self, authenticated_client: TestClient):
-        """❌ Test deleting non-existent organization"""
+        """❌ Test deleting non-existent organization - endpoint removed"""
         fake_org_id = str(uuid.uuid4())
 
         response = authenticated_client.delete(self.endpoints.remove(fake_org_id))
 
-        # Should handle non-existent organization gracefully
-        assert response.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]
+        # Organization delete endpoint was removed, so method not allowed
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
 
 # === VALIDATION TESTS ===
