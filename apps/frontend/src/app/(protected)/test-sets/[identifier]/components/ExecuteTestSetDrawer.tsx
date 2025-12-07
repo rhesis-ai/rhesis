@@ -24,6 +24,10 @@ import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { UUID } from 'crypto';
+import BaseTag from '@/components/common/BaseTag';
+import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
+import { TagsClient } from '@/utils/api-client/tags-client';
+import { pollForTestRun } from '@/utils/test-run-utils';
 
 interface ProjectOption {
   id: UUID;
@@ -60,6 +64,7 @@ export default function ExecuteTestSetDrawer({
   const [selectedProject, setSelectedProject] = useState<UUID | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<UUID | null>(null);
   const [executionMode, setExecutionMode] = useState<string>('Parallel');
+  const [tags, setTags] = useState<string[]>([]);
   const notifications = useNotifications();
 
   // Fetch projects and endpoints when drawer opens
@@ -139,6 +144,7 @@ export default function ExecuteTestSetDrawer({
       // Reset selections when drawer opens
       setSelectedProject(null);
       setSelectedEndpoint(null);
+      setTags([]);
     }
   }, [sessionToken, open]);
 
@@ -175,6 +181,8 @@ export default function ExecuteTestSetDrawer({
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = apiFactory.getTestSetsClient();
+      const testConfigurationsClient = apiFactory.getTestConfigurationsClient();
+      const tagsClient = new TagsClient(sessionToken);
 
       // Prepare test configuration attributes
       const testConfigurationAttributes = {
@@ -182,11 +190,57 @@ export default function ExecuteTestSetDrawer({
       };
 
       // Execute test set against the selected endpoint with test configuration attributes
-      await testSetsClient.executeTestSet(
+      const result = await testSetsClient.executeTestSet(
         testSetId,
         selectedEndpoint,
         testConfigurationAttributes
       );
+
+      // Assign tags if any
+      if (tags.length > 0) {
+        try {
+          // Get endpoint to retrieve organization_id
+          const endpointsClient = apiFactory.getEndpointsClient();
+          const endpoint = await endpointsClient.getEndpoint(selectedEndpoint);
+
+          const organizationId = endpoint.organization_id as UUID;
+
+          // Get the test configuration ID from result and get the test run
+          if ((result as any).test_configuration_id) {
+            const testConfigurationId = (result as any).test_configuration_id;
+            const testRunsClient = apiFactory.getTestRunsClient();
+            const tagsClient = new TagsClient(sessionToken);
+
+            const testRun = await pollForTestRun(
+              testRunsClient,
+              testConfigurationId
+            );
+
+            if (testRun) {
+              // Assign each tag to the test run
+              for (const tagName of tags) {
+                const tagPayload: TagCreate = {
+                  name: tagName,
+                  ...(organizationId && { organization_id: organizationId }),
+                };
+
+                await tagsClient.assignTagToEntity(
+                  EntityType.TEST_RUN,
+                  testRun.id,
+                  tagPayload
+                );
+              }
+            } else {
+              console.warn(
+                `Test run not found for configuration ${testConfigurationId}, tags will not be assigned`
+              );
+            }
+          }
+        } catch (tagError) {
+          // Log error but don't fail the whole operation
+          console.error('Failed to assign tags to test run:', tagError);
+        }
+      }
 
       // Show success notification
       notifications.show('Test set execution started successfully!', {
@@ -359,6 +413,30 @@ export default function ExecuteTestSetDrawer({
               </MenuItem>
             </Select>
           </FormControl>
+
+          <Divider />
+
+          {/* Tags Section */}
+          <Stack spacing={1}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Test Run Tags
+            </Typography>
+            <Box sx={{ width: '100%' }}>
+              <BaseTag
+                value={tags}
+                onChange={setTags}
+                label="Tags"
+                placeholder="Add tags (press Enter or comma to add)"
+                helperText="These tags help categorize and find this test run"
+                chipColor="default"
+                addOnBlur
+                delimiters={[',', 'Enter']}
+                size="small"
+                margin="normal"
+                fullWidth
+              />
+            </Box>
+          </Stack>
         </Stack>
       )}
     </BaseDrawer>

@@ -37,6 +37,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
+import { Tag } from '@/utils/api-client/interfaces/tag';
 import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestRunFiltersToOData } from '@/utils/odata-filter';
@@ -310,6 +311,50 @@ function TestRunsTable({
               {...(icon && { icon })}
               sx={{ fontWeight: 500 }}
             />
+          );
+        },
+      },
+      {
+        field: 'tags',
+        headerName: 'Tags',
+        flex: 1.5,
+        minWidth: 140,
+        sortable: false,
+        renderCell: params => {
+          const testRun = params.row as TestRunDetail;
+          if (!testRun.tags || testRun.tags.length === 0) {
+            return null;
+          }
+
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 0.5,
+                flexWrap: 'nowrap',
+                overflow: 'hidden',
+              }}
+            >
+              {testRun.tags
+                .filter((tag: Tag) => tag && tag.id && tag.name)
+                .slice(0, 2)
+                .map((tag: Tag) => (
+                  <Chip
+                    key={tag.id}
+                    label={tag.name}
+                    size="small"
+                    variant="outlined"
+                  />
+                ))}
+              {testRun.tags.filter((tag: Tag) => tag && tag.id && tag.name)
+                .length > 2 && (
+                <Chip
+                  label={`+${testRun.tags.filter((tag: Tag) => tag && tag.id && tag.name).length - 2}`}
+                  size="small"
+                  variant="outlined"
+                />
+              )}
+            </Box>
           );
         },
       },
