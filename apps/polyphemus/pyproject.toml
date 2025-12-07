@@ -26,6 +26,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     # Backend dependency for authentication utilities (brings SDK and Penelope)
     "rhesis-backend",
+    # GCS support for model loading from cloud buckets
+    "google-cloud-storage>=2.10.0",
 ]
 
 [project.optional-dependencies]
