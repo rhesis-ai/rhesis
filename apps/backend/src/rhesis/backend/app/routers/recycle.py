@@ -85,12 +85,11 @@ def list_available_models(
     db: Session = Depends(get_tenant_db_session),
 ):
     """
-    List all available models that can be managed (admin only).
+    List all available models that can be managed.
 
     Returns:
         List of model names and their details
     """
-    require_superuser(current_user)
     model_map = get_all_models()
 
     model_info = []
@@ -208,7 +207,7 @@ def empty_recycle_bin_for_model(
     tenant_context=Depends(get_tenant_context),
 ):
     """
-    Empty the recycle bin for a specific model - permanently delete ALL soft-deleted records (admin only).
+    Empty the recycle bin for a specific model - permanently delete ALL soft-deleted records.
 
     WARNING: This action cannot be undone! All soft-deleted records will be
     permanently removed from the database.
@@ -220,8 +219,6 @@ def empty_recycle_bin_for_model(
     Returns:
         Count of permanently deleted records
     """
-    require_superuser(current_user)
-
     if not confirm:
         raise HTTPException(status_code=400, detail="Must set confirm=true to empty recycle bin")
 
@@ -292,8 +289,6 @@ def permanently_delete_record(
     Returns:
         Success message
     """
-    require_superuser(current_user)
-
     if not confirm:
         raise HTTPException(
             status_code=400, detail="Must set confirm=true to permanently delete records"

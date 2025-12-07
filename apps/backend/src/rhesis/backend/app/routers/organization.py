@@ -98,27 +98,6 @@ def read_organization(
         raise HTTPException(status_code=500, detail=f"Failed to retrieve organization: {str(e)}")
 
 
-@router.delete("/{organization_id}", response_model=schemas.Organization)
-def delete_organization(
-    organization_id: uuid.UUID,
-    db: Session = Depends(get_tenant_db_session),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    try:
-        if not current_user.is_superuser:
-            raise HTTPException(status_code=403, detail="Not authorized to delete organizations")
-        db_organization = crud.delete_organization(db, organization_id=organization_id)
-        if db_organization is None:
-            raise HTTPException(status_code=404, detail="Organization not found")
-        return db_organization
-    except HTTPException:
-        raise
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete organization: {str(e)}")
-
-
 @router.put("/{organization_id}", response_model=schemas.Organization)
 @handle_database_exceptions(
     entity_name="organization", custom_unique_message="Organization with this name already exists"
