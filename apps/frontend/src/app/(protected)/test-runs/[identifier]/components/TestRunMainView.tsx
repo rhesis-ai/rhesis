@@ -9,6 +9,7 @@ import TestDetailPanel from './TestDetailPanel';
 import TestsTableView from './TestsTableView';
 import ComparisonView from './ComparisonView';
 import TestRunHeader from './TestRunHeader';
+import TestRunTags from './TestRunTags';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -520,6 +521,11 @@ export default function TestRunMainView({
             isRerunning={isRerunning}
             canRerun={!!testRun.test_configuration_id}
           />
+
+          {/* Test Run Tags */}
+          <Box sx={{ mb: 3 }}>
+            <TestRunTags sessionToken={sessionToken} testRun={testRun} />
+          </Box>
 
           {/* Conditional Layout based on viewMode */}
           {viewMode === 'split' ? (
