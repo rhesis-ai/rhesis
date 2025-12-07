@@ -320,6 +320,17 @@ function TestRunsTable({
         flex: 1.5,
         minWidth: 140,
         sortable: false,
+        filterable: true,
+        valueGetter: (_, row) => {
+          if (!row.tags || !Array.isArray(row.tags)) {
+            return '';
+          }
+          // Return comma-separated tag names for filtering
+          return row.tags
+            .filter((tag: Tag) => tag && tag.name)
+            .map((tag: Tag) => tag.name)
+            .join(', ');
+        },
         renderCell: params => {
           const testRun = params.row as TestRunDetail;
           if (!testRun.tags || testRun.tags.length === 0) {

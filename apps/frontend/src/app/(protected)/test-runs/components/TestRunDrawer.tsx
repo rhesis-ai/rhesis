@@ -107,7 +107,10 @@ export default function TestRunDrawer({
           ]);
 
           // Ensure we always set arrays, never undefined
-          setUsers(Array.isArray(fetchedUsers?.data) ? fetchedUsers.data : []);
+          const usersArray = Array.isArray(fetchedUsers?.data)
+            ? fetchedUsers.data
+            : [];
+          setUsers(usersArray);
           setTestSets(
             Array.isArray(fetchedTestSets?.data) ? fetchedTestSets.data : []
           );
@@ -131,13 +134,13 @@ export default function TestRunDrawer({
           // Set initial values if editing
           if (testRun) {
             if (testRun.assignee_id) {
-              const currentAssignee = fetchedUsers.data.find(
+              const currentAssignee = usersArray.find(
                 u => u.id === testRun.assignee_id
               );
               setAssignee(currentAssignee || null);
             }
             if (testRun.owner_id) {
-              const currentOwner = fetchedUsers.data.find(
+              const currentOwner = usersArray.find(
                 u => u.id === testRun.owner_id
               );
               setOwner(currentOwner || null);
@@ -152,9 +155,7 @@ export default function TestRunDrawer({
           } else {
             // Set default owner as current user for new test runs
             if (currentUserId) {
-              const currentUser = fetchedUsers.data.find(
-                u => u.id === currentUserId
-              );
+              const currentUser = usersArray.find(u => u.id === currentUserId);
               setOwner(currentUser || null);
             }
             // Reset tags for new test runs

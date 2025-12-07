@@ -685,6 +685,7 @@ export function convertTestRunQuickFilterToOData(
     'test_configuration/test_set/name',
     'user/name',
     'status/name',
+    'tags/name', // Search in tag names
   ];
 
   const quickFilterExpressions = quickFilterValues
@@ -692,10 +693,14 @@ export function convertTestRunQuickFilterToOData(
       if (!value || value === '') return '';
 
       // Create a contains condition for each search field
-      const fieldConditions = searchFields.map(
-        field =>
-          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
-      );
+      const fieldConditions = searchFields.map(field => {
+        // Special handling for tags field (collection through TaggedItem)
+        if (field === 'tags/name') {
+          return `_tags_relationship/any(t: contains(tolower(t/tag/name), tolower('${escapeODataValue(value)}')))`;
+        }
+        // Regular fields
+        return `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`;
+      });
 
       // Join field conditions with OR (search in any field)
       return `(${fieldConditions.join(' or ')})`;
@@ -712,6 +717,62 @@ export function convertTestRunQuickFilterToOData(
 
   // Join multiple quick filter values with AND (all values must match)
   return `(${quickFilterExpressions.join(' and ')})`;
+}
+
+/**
+ * Converts a tags filter item to OData expression for test runs
+ * Tags are a many-to-many relationship through TaggedItem, so we need special handling
+ * The actual relationship is _tags_relationship which points to TaggedItem,
+ * and TaggedItem has a tag relationship that points to Tag
+ */
+function convertTagsFilterToOData(item: GridFilterItem): string {
+  const { operator, value } = item;
+
+  if (!operator || value === undefined || value === null || value === '') {
+    return '';
+  }
+
+  // Use the actual SQLAlchemy relationship path: _tags_relationship/tag/name
+  const tagPath = '_tags_relationship/tag/name';
+
+  // Handle different operators for tags
+  switch (operator) {
+    case 'contains':
+      // For contains, check if any tag name contains the value
+      return `_tags_relationship/any(t: contains(tolower(t/tag/name), tolower('${escapeODataValue(value)}')))`;
+
+    case 'equals':
+    case '=':
+    case 'is':
+      // For exact match, check if any tag name equals the value
+      if (typeof value === 'string') {
+        return `_tags_relationship/any(t: tolower(t/tag/name) eq tolower('${escapeODataValue(value)}'))`;
+      }
+      return `_tags_relationship/any(t: t/tag/name eq '${escapeODataValue(value)}')`;
+
+    case 'isAnyOf':
+      // For isAnyOf, check if any tag name matches any of the values
+      if (Array.isArray(value) && value.length > 0) {
+        const conditions = value
+          .map(
+            v =>
+              `_tags_relationship/any(t: tolower(t/tag/name) eq tolower('${escapeODataValue(v)}'))`
+          )
+          .join(' or ');
+        return `(${conditions})`;
+      }
+      return '';
+
+    case 'isEmpty':
+      return 'not _tags_relationship/any()';
+
+    case 'isNotEmpty':
+      return '_tags_relationship/any()';
+
+    default:
+      // Fallback to contains for unknown operators
+      return `_tags_relationship/any(t: contains(tolower(t/tag/name), tolower('${escapeODataValue(value)}')))`;
+  }
 }
 
 /**
@@ -736,9 +797,15 @@ export function combineTestRunFiltersToOData(
     }
   });
 
-  // Convert regular filters
+  // Convert regular filters with special handling for tags
   const regularFilterExpressions = regularFilters
-    .map(item => convertFilterItemToOData(item))
+    .map(item => {
+      // Special handling for tags field
+      if (item.field === 'tags') {
+        return convertTagsFilterToOData(item);
+      }
+      return convertFilterItemToOData(item);
+    })
     .filter(expr => expr !== '');
 
   // Convert quick filters
