@@ -5,7 +5,7 @@ from typing import Optional, Type
 
 try:
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 except ImportError:
     raise ImportError(
         "HuggingFace dependencies are not installed.\n"
@@ -47,6 +47,7 @@ class HuggingFaceLLM(BaseLLM):
         gpu_only: bool = False,
         load_kwargs: Optional[dict] = None,
         custom_results_dir: Optional[str] = None,
+        model_path: Optional[str] = None,
     ):
         """
         Initialize the model with the given name and location.
@@ -58,11 +59,14 @@ class HuggingFaceLLM(BaseLLM):
             gpu_only: If True, restrict model to GPU only (no CPU/disk offloading).
              Will raise an error if model doesn't fit in available GPU memory.
             load_kwargs: Additional kwargs to pass to AutoModelForCausalLM.from_pretrained()
+            model_path: Optional local path to pre-downloaded model. If provided, loads from
+             this path instead of downloading from HuggingFace Hub.
         """
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
 
         self.model_name = model_name
+        self.model_path = model_path
         self.generate_kwargs = generate_kwargs
         self.gpu_only = gpu_only
         self.load_kwargs = load_kwargs or {}
@@ -87,6 +91,9 @@ class HuggingFaceLLM(BaseLLM):
     def load_model(self):
         """
         Load the model and tokenizer from the specified location.
+
+        If model_path is provided, loads from that local path using local_files_only=True.
+        Otherwise, downloads from HuggingFace Hub.
 
         Returns
         -------
@@ -116,15 +123,41 @@ class HuggingFaceLLM(BaseLLM):
         else:
             device_map = "auto"
 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_name,
-            device_map=device_map,
-            **self.load_kwargs,
-        )
+        # Load model from local path if provided, otherwise from HuggingFace Hub
+        model_source = self.model_path if self.model_path else self.model_name
+        local_files_only = bool(self.model_path)
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_name,
-        )
+        if self.model_path:
+            print(f"Loading model from local path: {self.model_path}")
+        else:
+            print(f"Loading model from HuggingFace Hub: {self.model_name}")
+
+        # For local paths: Load without local_files_only flag
+        # Transformers will detect it's a local path and load from there
+        # Using local_files_only causes config dict/object issues
+
+        if local_files_only:
+            # Load both model and tokenizer without local_files_only flag
+            # Transformers will detect the local path automatically
+            print("Loading from local path without local_files_only flag...")
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_source,
+                device_map=device_map,
+                trust_remote_code=True,
+                **self.load_kwargs,
+            )
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_source,
+                trust_remote_code=True,
+            )
+        else:
+            # Standard loading from HuggingFace Hub
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_source,
+                device_map=device_map,
+                **self.load_kwargs,
+            )
+            self.tokenizer = AutoTokenizer.from_pretrained(model_source)
 
         # Get the device for input tensors
         # When using device_map="auto", the model may be split across devices
