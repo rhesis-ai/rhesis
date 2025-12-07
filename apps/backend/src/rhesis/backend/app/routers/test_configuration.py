@@ -143,12 +143,6 @@ def update_test_configuration(
     if db_test_configuration is None:
         raise HTTPException(status_code=404, detail="Test configuration not found")
 
-    # Check if the user has permission to update this test configuration
-    if db_test_configuration.user_id != current_user.id and not current_user.is_superuser:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to update this test configuration"
-        )
-
     return crud.update_test_configuration(
         db=db,
         test_configuration_id=test_configuration_id,
@@ -175,12 +169,6 @@ def delete_test_configuration(
     )
     if db_test_configuration is None:
         raise HTTPException(status_code=404, detail="Test configuration not found")
-
-    # Check if the user has permission to delete this test configuration
-    if db_test_configuration.user_id != current_user.id and not current_user.is_superuser:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to delete this test configuration"
-        )
 
     return crud.delete_test_configuration(
         db=db,

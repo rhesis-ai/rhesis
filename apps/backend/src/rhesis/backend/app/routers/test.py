@@ -258,10 +258,6 @@ def update_test(
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
-    # Check if the user has permission to update this test
-    if db_test.user_id != current_user.id and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not authorized to update this test")
-
     return crud.update_test(
         db=db, test_id=test_id, test=test, organization_id=organization_id, user_id=user_id
     )
@@ -279,10 +275,6 @@ def delete_test(
     db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
-
-    # Check if the user has permission to delete this test
-    if db_test.user_id != current_user.id and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this test")
 
     return crud.delete_test(
         db=db, test_id=test_id, organization_id=organization_id, user_id=user_id

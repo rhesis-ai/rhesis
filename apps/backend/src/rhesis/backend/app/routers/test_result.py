@@ -437,10 +437,6 @@ def update_test_result(
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
 
-    # Check if the user has permission to update this test result
-    if db_test_result.user_id != current_user.id and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not authorized to update this test result")
-
     # Auto-update status based on test_metrics if status_id is not explicitly provided
     if test_result.test_metrics and not test_result.status_id:
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
@@ -486,10 +482,6 @@ def delete_test_result(
     )
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
-
-    # Check if the user has permission to delete this test result
-    if db_test_result.user_id != current_user.id and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this test result")
 
     return crud.delete_test_result(
         db=db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
@@ -631,12 +623,10 @@ def update_review(
     # Find the review to update
     reviews = db_test_result.test_reviews["reviews"]
     review_to_update = None
-    review_index = None
 
-    for idx, rev in enumerate(reviews):
+    for rev in reviews:
         if rev.get("review_id") == review_id:
             review_to_update = rev
-            review_index = idx
             break
 
     if review_to_update is None:
