@@ -783,7 +783,7 @@ def get_recent_activities(
         organization_id, user_id = tenant_context
         service = RecentActivitiesService()
         result = service.get_recent_activities(db=db, organization_id=organization_id, limit=limit)
-        return result
+        return RecentActivitiesResponse(**result)
     except Exception as e:
         logger.error(f"Failed to get recent activities: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve recent activities")
