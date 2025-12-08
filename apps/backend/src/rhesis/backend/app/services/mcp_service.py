@@ -13,6 +13,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientManager
+from rhesis.sdk.services.mcp.exceptions import MCPConfigurationError
 
 # Initialize Jinja2 environment for loading prompt templates
 TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
@@ -40,16 +41,18 @@ def _get_mcp_client_by_tool_id(
         Tuple of (MCPClient, provider_name) ready to use
 
     Raises:
-        ValueError: If tool not found or not an MCP integration
+        MCPConfigurationError: If tool not found, not an MCP integration, or invalid credentials
     """
     tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
 
     if not tool:
-        raise ValueError(f"Tool '{tool_id}' not found. Please add it in /integrations/tools")
+        raise MCPConfigurationError(
+            f"Tool '{tool_id}' not found. Please add it in /integrations/tools"
+        )
 
     # Verify tool type is MCP
     if tool.tool_type.type_value != "mcp":
-        raise ValueError(f"Tool '{tool.name}' is not an MCP integration")
+        raise MCPConfigurationError(f"Tool '{tool.name}' is not an MCP integration")
 
     # Get provider name for the client
     provider = tool.tool_provider_type.type_value
@@ -58,13 +61,13 @@ def _get_mcp_client_by_tool_id(
     try:
         credentials_dict = json.loads(tool.credentials)
     except (json.JSONDecodeError, TypeError) as e:
-        raise ValueError(f"Invalid credentials format for tool '{tool_id}': {e}")
+        raise MCPConfigurationError(f"Invalid credentials format for tool '{tool_id}': {e}")
 
     # Check if tool uses custom provider (requires manual JSON config) or standard provider
     if provider == "custom":
         # Custom provider: requires tool_metadata with full JSON config
         if not tool.tool_metadata:
-            raise ValueError("Custom provider tools require tool_metadata configuration")
+            raise MCPConfigurationError("Custom provider tools require tool_metadata configuration")
 
         manager = MCPClientManager.from_tool_config(
             tool_name=f"{provider}Api",
