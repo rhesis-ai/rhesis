@@ -21,6 +21,11 @@ import { TestConfigurationCreate } from '@/utils/api-client/interfaces/test-conf
 import PersonIcon from '@mui/icons-material/Person';
 import { UUID } from 'crypto';
 import { useNotifications } from '@/components/common/NotificationContext';
+import BaseTag from '@/components/common/BaseTag';
+import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
+import { TagsClient } from '@/utils/api-client/tags-client';
+import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+import { pollForTestRun } from '@/utils/test-run-utils';
 
 interface TestRunDrawerProps {
   open: boolean;
@@ -53,6 +58,7 @@ export default function TestRunDrawer({
   const [filteredEndpoints, setFilteredEndpoints] = React.useState<Endpoint[]>(
     []
   );
+  const [tags, setTags] = React.useState<string[]>([]);
 
   const getCurrentUserId = useCallback(() => {
     try {
@@ -101,7 +107,10 @@ export default function TestRunDrawer({
           ]);
 
           // Ensure we always set arrays, never undefined
-          setUsers(Array.isArray(fetchedUsers) ? fetchedUsers : []);
+          const usersArray = Array.isArray(fetchedUsers?.data)
+            ? fetchedUsers.data
+            : [];
+          setUsers(usersArray);
           setTestSets(
             Array.isArray(fetchedTestSets?.data) ? fetchedTestSets.data : []
           );
@@ -125,26 +134,32 @@ export default function TestRunDrawer({
           // Set initial values if editing
           if (testRun) {
             if (testRun.assignee_id) {
-              const currentAssignee = fetchedUsers.data.find(
+              const currentAssignee = usersArray.find(
                 u => u.id === testRun.assignee_id
               );
               setAssignee(currentAssignee || null);
             }
             if (testRun.owner_id) {
-              const currentOwner = fetchedUsers.data.find(
+              const currentOwner = usersArray.find(
                 u => u.id === testRun.owner_id
               );
               setOwner(currentOwner || null);
+            }
+            // Set tags if available
+            if (testRun.tags && testRun.tags.length > 0) {
+              setTags(testRun.tags.map(tag => tag.name));
+            } else {
+              setTags([]);
             }
             // Add test set, project and endpoint initialization if available in testRun
           } else {
             // Set default owner as current user for new test runs
             if (currentUserId) {
-              const currentUser = fetchedUsers.data.find(
-                u => u.id === currentUserId
-              );
+              const currentUser = usersArray.find(u => u.id === currentUserId);
               setOwner(currentUser || null);
             }
+            // Reset tags for new test runs
+            setTags([]);
           }
         } catch (fetchError) {
           setError('Failed to load required data');
@@ -217,6 +232,45 @@ export default function TestRunDrawer({
         testConfiguration.id
       );
 
+      // Get the created test run and assign tags if any
+      if (tags.length > 0) {
+        try {
+          const testRunsClient = clientFactory.getTestRunsClient();
+          const testRun = await pollForTestRun(
+            testRunsClient,
+            testConfiguration.id
+          );
+
+          if (testRun) {
+            const tagsClient = new TagsClient(sessionToken);
+            const organizationId = endpoint.organization_id as UUID;
+            const userId = owner?.id as UUID;
+
+            // Assign each tag to the test run
+            for (const tagName of tags) {
+              const tagPayload: TagCreate = {
+                name: tagName,
+                ...(organizationId && { organization_id: organizationId }),
+                ...(userId && { user_id: userId }),
+              };
+
+              await tagsClient.assignTagToEntity(
+                EntityType.TEST_RUN,
+                testRun.id,
+                tagPayload
+              );
+            }
+          } else {
+            console.warn(
+              'Test run not found after polling, tags will not be assigned'
+            );
+          }
+        } catch (tagError) {
+          // Log error but don't fail the whole operation
+          console.error('Failed to assign tags to test run:', tagError);
+        }
+      }
+
       // Show success notification
       notifications.show('Test execution started successfully', {
         severity: 'success',
@@ -247,7 +301,10 @@ export default function TestRunDrawer({
     return (
       <Box component="li" key={key} {...otherProps}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar src={option.picture} sx={{ width: 24, height: 24 }}>
+          <Avatar
+            src={option.picture}
+            sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL }}
+          >
             <PersonIcon />
           </Avatar>
           {getUserDisplayName(option)}
@@ -290,7 +347,11 @@ export default function TestRunDrawer({
                     startAdornment: assignee && (
                       <Avatar
                         src={assignee.picture}
-                        sx={{ width: 24, height: 24, mr: 1 }}
+                        sx={{
+                          width: AVATAR_SIZES.SMALL,
+                          height: AVATAR_SIZES.SMALL,
+                          mr: 1,
+                        }}
                       >
                         <PersonIcon />
                       </Avatar>
@@ -317,7 +378,11 @@ export default function TestRunDrawer({
                     startAdornment: owner && (
                       <Avatar
                         src={owner.picture}
-                        sx={{ width: 24, height: 24, mr: 1 }}
+                        sx={{
+                          width: AVATAR_SIZES.SMALL,
+                          height: AVATAR_SIZES.SMALL,
+                          mr: 1,
+                        }}
                       >
                         <PersonIcon />
                       </Avatar>
@@ -374,7 +439,7 @@ export default function TestRunDrawer({
               }}
               fullWidth
               renderInput={params => (
-                <TextField {...params} label="Application" required />
+                <TextField {...params} label="Project" required />
               )}
             />
 
@@ -394,14 +459,36 @@ export default function TestRunDrawer({
                   {...params}
                   label="Endpoint"
                   required
-                  helperText={
-                    !project ? 'Select an application first' : undefined
-                  }
+                  helperText={!project ? 'Select a project first' : undefined}
                 />
               )}
             />
           </Stack>
         </Stack>
+
+        <Divider />
+
+        {/* Tags Section */}
+        <BaseTag
+          value={tags}
+          onChange={setTags}
+          label="Tags"
+          placeholder="Add tags (press Enter or comma to add)"
+          helperText="These tags help categorize and find this test run"
+          chipColor="default"
+          addOnBlur
+          delimiters={[',', 'Enter']}
+          size="medium"
+          fullWidth
+          sx={{
+            '& .MuiInputBase-root': {
+              minHeight: '56px',
+              alignItems: 'flex-start',
+              paddingTop: 1,
+              paddingBottom: 1,
+            },
+          }}
+        />
       </Stack>
     </BaseDrawer>
   );

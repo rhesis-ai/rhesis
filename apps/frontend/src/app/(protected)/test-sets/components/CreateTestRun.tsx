@@ -17,8 +17,11 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
-import { EntityType } from '@/utils/api-client/interfaces/tag';
+import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
+import BaseTag from '@/components/common/BaseTag';
+import { TagsClient } from '@/utils/api-client/tags-client';
+import { pollForTestRun } from '@/utils/test-run-utils';
 
 interface ProjectOption {
   id: UUID;
@@ -62,6 +65,7 @@ export default function CreateTestRun({
   const [selectedProject, setSelectedProject] = useState<UUID | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<UUID | null>(null);
   const [executionMode, setExecutionMode] = useState<string>('Parallel');
+  const [tags, setTags] = useState<string[]>([]);
 
   // Fetch projects and endpoints when drawer opens
   useEffect(() => {
@@ -137,6 +141,7 @@ export default function CreateTestRun({
       // Reset selections when drawer opens
       setSelectedProject(null);
       setSelectedEndpoint(null);
+      setTags([]);
     }
   }, [sessionToken, onError, selectedTestSetIds, open]);
 
@@ -176,6 +181,9 @@ export default function CreateTestRun({
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
+      const testConfigurationsClient =
+        clientFactory.getTestConfigurationsClient();
+      const tagsClient = new TagsClient(sessionToken);
 
       // Prepare test configuration attributes
       const testConfigurationAttributes = {
@@ -183,15 +191,65 @@ export default function CreateTestRun({
       };
 
       // Execute each test set individually with test configuration attributes
-      const promises = selectedTestSetIds.map(testSetId =>
-        testSetsClient.executeTestSet(
-          testSetId,
-          selectedEndpoint,
-          testConfigurationAttributes
+      const results = await Promise.all(
+        selectedTestSetIds.map(testSetId =>
+          testSetsClient.executeTestSet(
+            testSetId,
+            selectedEndpoint,
+            testConfigurationAttributes
+          )
         )
       );
 
-      await Promise.all(promises);
+      // Get the test configuration IDs from results and assign tags if any
+      if (tags.length > 0) {
+        try {
+          // Get endpoint to retrieve organization_id
+          const endpointsClient = clientFactory.getEndpointsClient();
+          const endpoint = await endpointsClient.getEndpoint(selectedEndpoint);
+
+          const organizationId = endpoint.organization_id as UUID;
+          const testRunsClient = clientFactory.getTestRunsClient();
+          const tagsClient = new TagsClient(sessionToken);
+
+          // Assign tags to each created test run
+          for (const result of results) {
+            // The result should contain test_configuration_id
+            // We need to get the test run from the test configuration
+            if ((result as any).test_configuration_id) {
+              const testConfigurationId = (result as any).test_configuration_id;
+
+              const testRun = await pollForTestRun(
+                testRunsClient,
+                testConfigurationId
+              );
+
+              if (testRun) {
+                // Assign each tag to the test run
+                for (const tagName of tags) {
+                  const tagPayload: TagCreate = {
+                    name: tagName,
+                    ...(organizationId && { organization_id: organizationId }),
+                  };
+
+                  await tagsClient.assignTagToEntity(
+                    EntityType.TEST_RUN,
+                    testRun.id,
+                    tagPayload
+                  );
+                }
+              } else {
+                console.warn(
+                  `Test run not found for configuration ${testConfigurationId}, tags will not be assigned`
+                );
+              }
+            }
+          }
+        } catch (tagError) {
+          // Log error but don't fail the whole operation
+          console.error('Failed to assign tags to test runs:', tagError);
+        }
+      }
 
       onSuccess?.();
     } catch (error) {
@@ -355,6 +413,27 @@ export default function CreateTestRun({
               </MenuItem>
             </Select>
           </FormControl>
+
+          <Divider />
+
+          {/* Tags Section */}
+          <Stack spacing={1}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Test Run Tags
+            </Typography>
+            <BaseTag
+              value={tags}
+              onChange={setTags}
+              label="Tags"
+              placeholder="Add tags (press Enter or comma to add)"
+              helperText="These tags help categorize and find this test run"
+              chipColor="default"
+              addOnBlur
+              delimiters={[',', 'Enter']}
+              size="small"
+              fullWidth
+            />
+          </Stack>
         </Stack>
       )}
     </>
