@@ -421,21 +421,19 @@ export default function CreateTestRun({
             <Typography variant="subtitle2" color="text.secondary">
               Test Run Tags
             </Typography>
-            <Box sx={{ width: '100%' }}>
-              <BaseTag
-                value={tags}
-                onChange={setTags}
-                label="Tags"
-                placeholder="Add tags (press Enter or comma to add)"
-                helperText="These tags help categorize and find this test run"
-                chipColor="default"
-                addOnBlur
-                delimiters={[',', 'Enter']}
-                size="small"
-                margin="normal"
-                fullWidth
-              />
-            </Box>
+            <BaseTag
+              value={tags}
+              onChange={setTags}
+              label="Tags"
+              placeholder="Add tags (press Enter or comma to add)"
+              helperText="These tags help categorize and find this test run"
+              chipColor="default"
+              addOnBlur
+              delimiters={[',', 'Enter']}
+              size="small"
+              margin="normal"
+              fullWidth
+            />
           </Stack>
         </Stack>
       )}
