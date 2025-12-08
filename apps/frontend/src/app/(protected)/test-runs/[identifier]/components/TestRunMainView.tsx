@@ -522,11 +522,6 @@ export default function TestRunMainView({
             canRerun={!!testRun.test_configuration_id}
           />
 
-          {/* Test Run Tags */}
-          <Box sx={{ mb: 3 }}>
-            <TestRunTags sessionToken={sessionToken} testRun={testRun} />
-          </Box>
-
           {/* Conditional Layout based on viewMode */}
           {viewMode === 'split' ? (
             <Paper
@@ -638,6 +633,11 @@ export default function TestRunMainView({
               projectName={testRun.test_configuration?.endpoint?.project?.name}
             />
           )}
+
+          {/* Test Run Tags - moved to bottom */}
+          <Box sx={{ mt: 3 }}>
+            <TestRunTags sessionToken={sessionToken} testRun={testRun} />
+          </Box>
         </>
       ) : (
         <ComparisonView
