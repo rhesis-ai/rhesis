@@ -132,18 +132,19 @@ class LazyModelLoader(BaseLLM):
 
             # Configure load_kwargs for memory optimization
             # Use 'dtype' instead of deprecated 'torch_dtype'
+            # Note: device_map is handled automatically by HuggingFace SDK, don't set it here
             import torch
 
             default_load_kwargs = {
                 "dtype": torch.float16,
-                "device_map": "auto",
             }
 
             # Allow override via environment variable for advanced configurations
             # Support both base64-encoded (LOAD_KWARGS_B64) and plain JSON (LOAD_KWARGS)
+            # Note: Do NOT include device_map (SDK handles it automatically)
             # Examples:
-            # - 8-bit: LOAD_KWARGS='{"load_in_8bit": true, "device_map": "auto"}'
-            # - 4-bit: LOAD_KWARGS='{"load_in_4bit": true, "device_map": "auto"}'
+            # - 8-bit: LOAD_KWARGS='{"load_in_8bit": true}'
+            # - 4-bit: LOAD_KWARGS='{"load_in_4bit": true}'
             load_kwargs_env = os.environ.get("LOAD_KWARGS_B64") or os.environ.get("LOAD_KWARGS")
             if load_kwargs_env:
                 import base64
