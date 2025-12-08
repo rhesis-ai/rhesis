@@ -9,10 +9,9 @@ from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.services.mcp.client import MCPClient
 from rhesis.sdk.services.mcp.exceptions import (
-    MCPAuthenticationError,
+    MCPConfigurationError,
     MCPConnectionError,
-    MCPDataFormatError,
-    MCPNotFoundError,
+    MCPValidationError,
 )
 from rhesis.sdk.services.mcp.executor import ToolExecutor
 from rhesis.sdk.services.mcp.schemas import (
@@ -138,8 +137,6 @@ Remember: You must explicitly use action="finish" when done."""
 
                     if step.action == "finish" and step.tool_results:
                         final_answer = step.tool_results[0].content
-                        # Check for semantic errors in final_answer
-                        self._check_semantic_errors(final_answer)
                         return AgentResult(
                             final_answer=final_answer,
                             execution_history=history,
@@ -152,12 +149,15 @@ Remember: You must explicitly use action="finish" when done."""
             if self.verbose:
                 print(f"\n⚠️  Max iterations ({self.max_iterations}) reached")
 
-            raise MCPDataFormatError("Max iterations reached")
+            raise MCPValidationError(
+                f"Agent did not complete task within {self.max_iterations} iterations. "
+                "Consider increasing max_iterations or simplifying the task."
+            )
 
         except (
-            MCPAuthenticationError,
-            MCPNotFoundError,
-            MCPDataFormatError,
+            MCPConnectionError,
+            MCPConfigurationError,
+            MCPValidationError,
         ):
             # Propagate MCP exceptions directly
             raise
@@ -169,7 +169,7 @@ Remember: You must explicitly use action="finish" when done."""
                 print(f"\n❌ Error: {error_msg}")
 
             # Wrap unexpected errors
-            raise MCPDataFormatError(f"Agent execution failed: {str(e)}", original_error=e)
+            raise MCPValidationError(f"Agent execution failed: {str(e)}", original_error=e)
 
         finally:
             await self.mcp_client.disconnect()
@@ -322,9 +322,13 @@ Remember: You must explicitly use action="finish" when done."""
         )
 
     async def _execute_tools(self, tool_calls: List[ToolCall]) -> List[ToolResult]:
-        """Execute multiple tool calls and return results."""
+        """
+        Execute multiple tool calls and return results.
+
+        All ToolResults (success or failure) are passed to the LLM for reasoning.
+        The LLM decides how to handle failures (retry, different approach, give up).
+        """
         tool_results: List[ToolResult] = []
-        auth_failures = []
 
         for tool_call in tool_calls:
             try:
@@ -338,10 +342,7 @@ Remember: You must explicitly use action="finish" when done."""
                         f"returned {len(result.content)} chars"
                     )
                 else:
-                    logger.error(f"[MCPAgent] Tool {result.tool_name} failed: {result.error}")
-                    # Check if this is an auth-related failure
-                    if self._is_auth_error_in_result(result):
-                        auth_failures.append(result.tool_name)
+                    logger.warning(f"[MCPAgent] Tool {result.tool_name} failed: {result.error}")
 
                 if self.verbose:
                     if result.success:
@@ -349,15 +350,9 @@ Remember: You must explicitly use action="finish" when done."""
                     else:
                         print(f"      ✗ {result.tool_name}: {result.error}")
 
-            except (MCPAuthenticationError, MCPConnectionError):
-                # Propagate clear tool-level errors immediately
+            except (MCPConnectionError, MCPConfigurationError):
+                # Infrastructure/config failures - propagate immediately
                 raise
-
-        # If multiple tools failed with auth errors, raise authentication error
-        if len(auth_failures) > 0:
-            raise MCPAuthenticationError(
-                f"Authentication failed for tools: {', '.join(auth_failures)}"
-            )
 
         return tool_results
 
@@ -442,56 +437,6 @@ and parameters."""
                     desc += f"\n  Parameters: {params}"
             descriptions.append(desc)
         return "\n".join(descriptions)
-
-    def _check_semantic_errors(self, final_answer: str) -> None:
-        """
-        Check final_answer for semantic errors and raise appropriate exceptions.
-
-        Args:
-            final_answer: The agent's final answer
-
-        Raises:
-            MCPNotFoundError: If final_answer indicates item not found
-        """
-        if not final_answer:
-            return
-
-        final_answer_lower = final_answer.lower()
-
-        # Check for "not found" indicators
-        not_found_keywords = [
-            "not found",
-            "could not find",
-            "does not exist",
-            "no results found",
-            "unable to find",
-            "couldn't find",
-        ]
-        if any(keyword in final_answer_lower for keyword in not_found_keywords):
-            raise MCPNotFoundError(f"Item not found: {final_answer}")
-
-    def _is_auth_error_in_result(self, result: ToolResult) -> bool:
-        """
-        Check if tool result indicates an authentication error.
-
-        Args:
-            result: ToolResult to check
-
-        Returns:
-            True if result indicates authentication error
-        """
-        if not result.error:
-            return False
-
-        error_lower = result.error.lower()
-        auth_keywords = [
-            "unauthorized",
-            "invalid api key",
-            "authentication",
-            "401",
-            "403",
-        ]
-        return any(keyword in error_lower for keyword in auth_keywords)
 
     def _format_history(self, history: List[ExecutionStep]) -> str:
         """Format execution history into readable text for LLM context."""
