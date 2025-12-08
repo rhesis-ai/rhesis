@@ -1,5 +1,5 @@
 {
-  "platform": "minor",
-  "backend": "minor",
-  "frontend": "minor"
+  "platform": "patch",
+  "backend": "patch",
+  "frontend": "patch"
 }
