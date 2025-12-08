@@ -80,6 +80,8 @@ export interface BaseTagProps extends Omit<
   entityType?: EntityType;
   /** Entity for tag management */
   entity?: TaggableEntity;
+  /** Custom className for chip styling */
+  chipClassName?: string;
 }
 
 // Tag validation utilities
@@ -110,6 +112,7 @@ export default function BaseTag({
   sessionToken,
   entityType,
   entity,
+  chipClassName,
   InputProps: customInputProps,
   InputLabelProps: customInputLabelProps,
   id,
@@ -410,7 +413,7 @@ export default function BaseTag({
               color={chipColor}
               variant="outlined"
               disabled={disabled}
-              className={styles.baseTag}
+              className={chipClassName || styles.baseTag}
               onDelete={
                 !disabled && !disableEdition
                   ? () => handleDeleteTag(option)

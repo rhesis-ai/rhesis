@@ -28,6 +28,7 @@ import BaseTag from '@/components/common/BaseTag';
 import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { pollForTestRun } from '@/utils/test-run-utils';
+import tagStyles from '@/styles/BaseTag.module.css';
 
 interface ProjectOption {
   id: UUID;
@@ -55,6 +56,7 @@ export default function ExecuteTestSetDrawer({
   sessionToken,
 }: ExecuteTestSetDrawerProps) {
   const [loading, setLoading] = useState(false);
+  const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [endpoints, setEndpoints] = useState<EndpointOption[]>([]);
@@ -178,6 +180,7 @@ export default function ExecuteTestSetDrawer({
   const handleExecute = async () => {
     if (!selectedEndpoint) return;
 
+    setExecuting(true);
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = apiFactory.getTestSetsClient();
@@ -253,6 +256,8 @@ export default function ExecuteTestSetDrawer({
     } catch (err) {
       setError('Failed to execute test set');
       throw err; // Re-throw so BaseDrawer can handle the error state
+    } finally {
+      setExecuting(false);
     }
   };
 
@@ -263,7 +268,7 @@ export default function ExecuteTestSetDrawer({
       open={open}
       onClose={onClose}
       title="Execute Test Set"
-      loading={loading}
+      loading={loading || executing}
       error={error}
       onSave={isFormValid ? handleExecute : undefined}
       saveButtonText="Execute Test Set"
@@ -417,23 +422,22 @@ export default function ExecuteTestSetDrawer({
           <Divider />
 
           {/* Tags Section */}
-          <Stack spacing={1}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Test Run Tags
-            </Typography>
-            <BaseTag
-              value={tags}
-              onChange={setTags}
-              label="Tags"
-              placeholder="Add tags (press Enter or comma to add)"
-              helperText="These tags help categorize and find this test run"
-              chipColor="default"
-              addOnBlur
-              delimiters={[',', 'Enter']}
-              size="small"
-              fullWidth
-            />
-          </Stack>
+          <Typography variant="subtitle2" color="text.secondary">
+            Test Run Tags
+          </Typography>
+          <BaseTag
+            value={tags}
+            onChange={setTags}
+            label="Tags"
+            placeholder="Add tags (press Enter or comma to add)"
+            helperText="These tags help categorize and find this test run"
+            chipColor="default"
+            addOnBlur
+            delimiters={[',', 'Enter']}
+            size="small"
+            fullWidth
+            chipClassName={tagStyles.modalTag}
+          />
         </Stack>
       )}
     </BaseDrawer>

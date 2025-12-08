@@ -22,6 +22,7 @@ import { UUID } from 'crypto';
 import BaseTag from '@/components/common/BaseTag';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { pollForTestRun } from '@/utils/test-run-utils';
+import tagStyles from '@/styles/BaseTag.module.css';
 
 interface ProjectOption {
   id: UUID;
@@ -417,23 +418,22 @@ export default function CreateTestRun({
           <Divider />
 
           {/* Tags Section */}
-          <Stack spacing={1}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Test Run Tags
-            </Typography>
-            <BaseTag
-              value={tags}
-              onChange={setTags}
-              label="Tags"
-              placeholder="Add tags (press Enter or comma to add)"
-              helperText="These tags help categorize and find this test run"
-              chipColor="default"
-              addOnBlur
-              delimiters={[',', 'Enter']}
-              size="small"
-              fullWidth
-            />
-          </Stack>
+          <Typography variant="subtitle2" color="text.secondary">
+            Test Run Tags
+          </Typography>
+          <BaseTag
+            value={tags}
+            onChange={setTags}
+            label="Tags"
+            placeholder="Add tags (press Enter or comma to add)"
+            helperText="These tags help categorize and find this test run"
+            chipColor="default"
+            addOnBlur
+            delimiters={[',', 'Enter']}
+            size="small"
+            fullWidth
+            chipClassName={tagStyles.modalTag}
+          />
         </Stack>
       )}
     </>

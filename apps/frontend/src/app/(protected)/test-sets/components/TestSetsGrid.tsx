@@ -321,8 +321,7 @@ export default function TestSetsGrid({
                   key={tag.id}
                   label={tag.name}
                   size="small"
-                  variant="filled"
-                  color="primary"
+                  variant="outlined"
                 />
               ))}
             {testSet.tags.filter((tag: Tag) => tag && tag.id && tag.name)
