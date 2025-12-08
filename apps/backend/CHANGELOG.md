@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2025-12-08
+
+### Changed
+
+- fix(dashboard): remove invalid fields from activities response (#1017)
+- fix: remove permission restrictions from entity routes (#1015)
+- Add Test Connection Tool (#971)
+
+
+
 ## [0.5.1] - 2025-12-04
 
 ### Added
