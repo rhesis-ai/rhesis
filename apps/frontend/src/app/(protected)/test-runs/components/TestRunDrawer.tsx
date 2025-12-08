@@ -469,26 +469,31 @@ export default function TestRunDrawer({
         <Divider />
 
         {/* Tags Section */}
-        <BaseTag
-          value={tags}
-          onChange={setTags}
-          label="Tags"
-          placeholder="Add tags (press Enter or comma to add)"
-          helperText="These tags help categorize and find this test run"
-          chipColor="default"
-          addOnBlur
-          delimiters={[',', 'Enter']}
-          size="medium"
-          fullWidth
-          sx={{
-            '& .MuiInputBase-root': {
-              minHeight: '56px',
-              alignItems: 'flex-start',
-              paddingTop: 1,
-              paddingBottom: 1,
-            },
-          }}
-        />
+        <Stack spacing={2}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Test Run Tags
+          </Typography>
+          <BaseTag
+            value={tags}
+            onChange={setTags}
+            label="Tags"
+            placeholder="Add tags (press Enter or comma to add)"
+            helperText="These tags help categorize and find this test run"
+            chipColor="default"
+            addOnBlur
+            delimiters={[',', 'Enter']}
+            size="medium"
+            fullWidth
+            sx={{
+              '& .MuiInputBase-root': {
+                minHeight: '56px',
+                alignItems: 'flex-start',
+                paddingTop: 1,
+                paddingBottom: 1,
+              },
+            }}
+          />
+        </Stack>
       </Stack>
     </BaseDrawer>
   );

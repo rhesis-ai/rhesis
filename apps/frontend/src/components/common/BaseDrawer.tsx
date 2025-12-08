@@ -7,6 +7,7 @@ import {
   Typography,
   Button,
   Stack,
+  CircularProgress,
   // Divider // Keep or remove based on whether header/footer have borders
 } from '@mui/material';
 
@@ -146,8 +147,17 @@ export default function BaseDrawer({
             {closeButtonText}
           </Button>
           {onSave && (
-            <Button variant="contained" onClick={onSave} disabled={loading}>
-              {saveButtonText}
+            <Button
+              variant="contained"
+              onClick={onSave}
+              disabled={loading}
+              startIcon={
+                loading ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : undefined
+              }
+            >
+              {loading ? 'Executing...' : saveButtonText}
             </Button>
           )}
         </Stack>

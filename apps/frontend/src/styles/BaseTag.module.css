@@ -50,3 +50,37 @@
   margin: 2px 4px 2px 0;
   flex-shrink: 0;
 }
+
+/* Modal tag styling - matches input font size and ensures vertical centering */
+.tagContainer :global(.modalTag) {
+  margin: 2px 4px 2px 0 !important;
+}
+
+/* Ensure Autocomplete input container properly aligns modal tags */
+.tagContainer :global(.MuiAutocomplete-root) :global(.MuiOutlinedInput-root) {
+  align-items: center;
+}
+
+.modalTag {
+  height: 24px;
+  max-width: 200px;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.modalTag :global(.MuiChip-label) {
+  padding: 0px 10px;
+  font-size: 0.875rem;
+  line-height: 1.4375;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+}
+
+.modalTag :global(.MuiChip-deleteIcon) {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0 4px 0 -4px;
+}
