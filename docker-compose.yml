@@ -180,8 +180,8 @@ services:
         FRONTEND_ENV: ${FRONTEND_ENV:-local}
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-        NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN:-http://localhost:3000}
-        NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID:-http://localhost:3000}
+        NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN:-your-auth0-domain.auth0.com}
+        NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID:-your-auth0-client-id}
         NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
     container_name: rhesis-frontend
     environment:
