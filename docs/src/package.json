@@ -3,7 +3,7 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
-    "postbuild": "pagefind --site .next --output-path public/_pagefind",
+    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
