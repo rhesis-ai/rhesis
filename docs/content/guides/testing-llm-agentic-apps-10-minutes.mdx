@@ -20,7 +20,7 @@ Testing LLM and agentic apps is hard: outputs are non-deterministic, edge cases 
 - Ports 3000, 8080, 8081, 5432, and 6379 available on your system
 - An AI provider API key (Rhesis API, OpenAI, Azure OpenAI, or Google Gemini)
 
-## Step 1: Clone and Start (2 minutes)
+## Step 1: Clone and Start (5 minutes)
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Clone the repository
@@ -41,9 +41,9 @@ The `./rh start` command automatically:
 - Creates the default admin user (`Local Admin`)
 - Loads example test data
 
-Wait 2-3 minutes for all services to start. You'll see containers starting up in your terminal.
+Wait approximately 5-7 minutes for all services to start. You'll see containers starting up in your terminal.
 
-## Step 2: Access the Platform (30 seconds)
+## Step 2: Access the Platform (1 minutes)
 
 Once services are running, access:
 
@@ -53,7 +53,14 @@ Once services are running, access:
 
 You should see the Rhesis dashboard automatically logged in as "Local Admin".
 
-## Step 3: Configure AI Provider (2 minutes)
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-dashboard-docker-spinup.png"
+  darkSrc="/screenshots/rhesis-ai-dashboard-docker-spinup.png"
+  alt="Rhesis AI Dashboard"
+/>
+
+
+## Step 3: Configure AI Provider (1 minute)
 
 To enable test generation, you need to configure an AI provider. Choose one:
 
@@ -93,17 +100,18 @@ After updating, restart services:
 {`./rh restart`}
 </CodeBlock>
 
-## Step 4: Start Testing Your LLM/Agentic App (5 minutes)
+## Step 4: Start Testing Your LLM/Agentic App (3 minutes)
 
 ### Via Web UI
 
 1. Open http://localhost:3000
 
 <ThemeAwareImage
-  lightSrc="/screenshots/rhesis-ai-dashboard-docker-spinup.png"
-  darkSrc="/screenshots/rhesis-ai-dashboard-docker-spinup.png"
-  alt="Rhesis AI Dashboard"
+  lightSrc="/screenshots/rhesis-ai-auto-login-page.png"
+  darkSrc="/screenshots/rhesis-ai-auto-login-page.png"
+  alt="auto logged in as Local Admin"
 />
+
 
 2. **Create an Endpoint**: Add your LLM/agentic app's API endpoint
 3. **Define Requirements**: Write what your app should and shouldn't do (e.g., "never provide medical diagnoses", "always cite sources")
