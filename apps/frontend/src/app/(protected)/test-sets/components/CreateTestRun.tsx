@@ -431,7 +431,6 @@ export default function CreateTestRun({
               addOnBlur
               delimiters={[',', 'Enter']}
               size="small"
-              margin="normal"
               fullWidth
             />
           </Stack>

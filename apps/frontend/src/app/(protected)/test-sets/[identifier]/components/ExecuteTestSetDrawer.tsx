@@ -431,7 +431,6 @@ export default function ExecuteTestSetDrawer({
               addOnBlur
               delimiters={[',', 'Enter']}
               size="small"
-              margin="normal"
               fullWidth
             />
           </Stack>
