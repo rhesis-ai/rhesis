@@ -55,6 +55,7 @@ export default function ExecuteTestSetDrawer({
   sessionToken,
 }: ExecuteTestSetDrawerProps) {
   const [loading, setLoading] = useState(false);
+  const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [endpoints, setEndpoints] = useState<EndpointOption[]>([]);
@@ -178,6 +179,7 @@ export default function ExecuteTestSetDrawer({
   const handleExecute = async () => {
     if (!selectedEndpoint) return;
 
+    setExecuting(true);
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = apiFactory.getTestSetsClient();
@@ -253,6 +255,8 @@ export default function ExecuteTestSetDrawer({
     } catch (err) {
       setError('Failed to execute test set');
       throw err; // Re-throw so BaseDrawer can handle the error state
+    } finally {
+      setExecuting(false);
     }
   };
 
@@ -263,7 +267,7 @@ export default function ExecuteTestSetDrawer({
       open={open}
       onClose={onClose}
       title="Execute Test Set"
-      loading={loading}
+      loading={loading || executing}
       error={error}
       onSave={isFormValid ? handleExecute : undefined}
       saveButtonText="Execute Test Set"
