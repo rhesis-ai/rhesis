@@ -367,7 +367,7 @@ jobs:
               --set-env-vars="$(cat <<EOF
           MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
-          LOAD_KWARGS='{"load_in_8bit":true,"device_map":"auto"}',
+          LOAD_KWARGS_B64=$(echo -n '{"load_in_8bit":true,"device_map":"auto"}' | base64),
           TRANSFORMERS_CACHE=/tmp/transformers_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
@@ -410,7 +410,7 @@ jobs:
               --set-env-vars="$(cat <<EOF
           MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
-          LOAD_KWARGS='{"load_in_8bit":true,"device_map":"auto"}',
+          LOAD_KWARGS_B64=$(echo -n '{"load_in_8bit":true,"device_map":"auto"}' | base64),
           TRANSFORMERS_CACHE=/tmp/transformers_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
