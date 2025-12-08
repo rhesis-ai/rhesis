@@ -132,7 +132,7 @@ describe('BaseDrawer', () => {
     );
 
     expect(screen.getByText('Cancel')).toBeDisabled();
-    expect(screen.getByText('Save Changes')).toBeDisabled();
+    expect(screen.getByText('Executing...')).toBeDisabled();
   });
 
   it('displays error message when error is provided', () => {
