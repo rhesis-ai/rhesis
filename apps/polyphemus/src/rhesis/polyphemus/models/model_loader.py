@@ -173,11 +173,32 @@ class LazyModelLoader(BaseLLM):
 
             # Use SDK's get_model factory to create the appropriate model
             # Pass auto_loading=False and model_path via kwargs
+            # Configure load_kwargs for memory optimization
+            # Use torch_dtype (not dtype) for HuggingFace models
+            default_load_kwargs = {"torch_dtype": "float16"}
+
+            # Allow override via environment variable for advanced configurations
+            # Examples:
+            # - 8-bit: LOAD_KWARGS='{"load_in_8bit": true, "device_map": "auto"}'
+            # - 4-bit: LOAD_KWARGS='{"load_in_4bit": true, "device_map": "auto"}'
+            load_kwargs_env = os.environ.get("LOAD_KWARGS")
+            if load_kwargs_env:
+                import json
+
+                try:
+                    default_load_kwargs = json.loads(load_kwargs_env)
+                    logger.info(f"Using custom load_kwargs from env: {default_load_kwargs}")
+                except json.JSONDecodeError:
+                    logger.warning(
+                        f"Invalid LOAD_KWARGS JSON, using default: {default_load_kwargs}"
+                    )
+
             try:
                 self._internal_model = get_model(
                     self._model_name,
                     auto_loading=False,
                     model_path=model_path,
+                    load_kwargs=default_load_kwargs,
                 )
             except TypeError:
                 # If model_path is not supported by this model type, try without it
