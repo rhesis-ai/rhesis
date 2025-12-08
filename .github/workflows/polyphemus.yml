@@ -394,7 +394,7 @@ jobs:
               --gpu=1 \
               --gpu-type=nvidia-l4 \
               --memory=24Gi \
-              --cpu=6 \
+              --cpu=4 \
               --timeout=3600 \
               --min-instances=1 \
               --max-instances=1 \
