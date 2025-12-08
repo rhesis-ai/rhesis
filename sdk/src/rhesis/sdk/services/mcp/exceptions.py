@@ -16,25 +16,82 @@ class MCPError(Exception):
         self.original_error = original_error
 
 
-class MCPAuthenticationError(MCPError):
-    """Raised when authentication or authorization fails."""
+# ============================================================================
+# Client Errors (4xx) - User can fix these
+# ============================================================================
+
+
+class MCPClientError(MCPError):
+    """
+    Base class for client-side errors.
+
+    These errors indicate issues with configuration or how the SDK is being used.
+    User can fix these by updating configuration or correcting API usage.
+    """
 
     pass
 
 
-class MCPNotFoundError(MCPError):
-    """Raised when a resource or item is not found."""
+class MCPConfigurationError(MCPClientError):
+    """
+    Tool configuration is invalid or incomplete.
+
+    Raised when:
+        - Tool not found in database
+        - Tool is not configured as MCP type
+        - Credentials are missing or invalid format
+        - Required configuration fields not set
+
+    Maps to HTTP 404 (Not Found) in backend.
+    """
 
     pass
 
 
-class MCPDataFormatError(MCPError):
-    """Raised when data format is invalid, JSON parsing fails, or max iterations reached."""
+class MCPValidationError(MCPClientError):
+    """
+    Input validation failed - SDK was called incorrectly.
+
+    Raised when:
+        - Invalid parameter types passed to SDK methods
+        - Schema validation failed
+        - Required fields missing in SDK call
+        - Max iterations reached (agent configuration issue)
+        - LLM response parsing failed
+
+    Maps to HTTP 422 (Unprocessable Entity) in backend.
+    """
 
     pass
 
 
-class MCPConnectionError(MCPError):
-    """Raised when connection to MCP server fails or times out."""
+# ============================================================================
+# Server Errors (5xx) - Infrastructure/transient issues
+# ============================================================================
+
+
+class MCPServerError(MCPError):
+    """
+    Base class for server-side errors.
+
+    These errors indicate infrastructure or network issues that may be transient.
+    """
+
+    pass
+
+
+class MCPConnectionError(MCPServerError):
+    """
+    Cannot establish or maintain connection to MCP server.
+
+    Raised when:
+        - Network timeout
+        - Connection refused
+        - Server not reachable
+        - MCP server process not running
+        - Session disconnected
+
+    Maps to HTTP 503 (Service Unavailable) in backend.
+    """
 
     pass

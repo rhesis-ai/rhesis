@@ -50,13 +50,39 @@ class AgentAction(BaseModel):
 
 
 class ToolResult(BaseModel):
-    """Result from executing a tool."""
+    """Result from executing an MCP tool.
+
+    A ToolResult is returned when the MCP server successfully received and
+    processed the tool call. The 'success' field indicates whether the
+    tool's OPERATION succeeded at the application layer.
+
+    If the tool cannot be executed at all (connection failures, timeouts,
+    configuration errors), the executor raises an exception instead.
+
+    The agent receives ALL ToolResults (success or failure) and passes them
+    to the LLM, which reasons about failures and decides how to respond.
+
+    Examples:
+        - Connection timeout → MCPConnectionError raised (no ToolResult)
+        - Tool config missing → MCPConfigurationError raised (no ToolResult)
+        - Tool executed, found resource → ToolResult(success=True, content="...")
+        - Tool executed, resource not found → ToolResult(success=False, error="Not found")
+        - Tool executed, 401 auth error → ToolResult(success=False, error="Unauthorized")
+        - Tool executed, missing parameter → ToolResult(success=False, error="Missing 'id'")
+    """
 
     tool_name: str = Field(description="Name of the tool that was executed")
-    success: bool = Field(description="Whether the tool execution succeeded")
-    content: str = Field(default="", description="Content returned by the tool")
+    success: bool = Field(
+        description="Whether the tool's operation succeeded at the application layer. "
+        "True = operation succeeded. "
+        "False = tool executed but operation failed for ANY reason "
+        "(validation, not found, auth, rate limit, etc.)."
+    )
+    content: str = Field(default="", description="Content returned by the tool when success=True")
     error: Optional[str] = Field(
-        default=None, description="Error message produced by the agent code, if execution failed"
+        default=None,
+        description="Error message when success=False. "
+        "The LLM will reason about this error and decide how to respond.",
     )
 
 
