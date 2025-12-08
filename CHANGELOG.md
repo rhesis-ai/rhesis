@@ -13,6 +13,35 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.5.2] - 2025-12-08
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.2**
+- **Frontend 0.5.2**
+
+### Summary of Changes
+
+**Backend v0.5.2:**
+- Added a Test Connection Tool for easier configuration and troubleshooting.
+- Removed permission restrictions from entity routes.
+- Fixed: Activities API response now returns valid fields.
+
+
+**Frontend v0.5.2:**
+- Security: Updated React and Next.js to address CVE-2025-55182.
+- Test Runs: Added support for tags.
+- Metrics: Added support for categories and threshold operators.
+- Added Test Connection Tool.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+
+
+
 ## [0.5.1] - 2025-12-04
 
 ### Platform Release
