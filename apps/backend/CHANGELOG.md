@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-12-08
+
+### Added
+- Added a "Test Connection" tool to verify connectivity to external services.
+
+### Fixed
+- Fixed the Activities API response on the dashboard to remove invalid fields, improving data accuracy.
+- Removed unnecessary permission restrictions from entity routes, allowing broader access to data.
+
+
 ## [0.5.1] - 2025-12-04
 
 ### Added
