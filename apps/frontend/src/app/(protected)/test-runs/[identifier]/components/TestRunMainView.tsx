@@ -9,6 +9,7 @@ import TestDetailPanel from './TestDetailPanel';
 import TestsTableView from './TestsTableView';
 import ComparisonView from './ComparisonView';
 import TestRunHeader from './TestRunHeader';
+import TestRunTags from './TestRunTags';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -632,6 +633,11 @@ export default function TestRunMainView({
               projectName={testRun.test_configuration?.endpoint?.project?.name}
             />
           )}
+
+          {/* Test Run Tags - moved to bottom */}
+          <Paper elevation={2} sx={{ mt: 3, p: 2 }}>
+            <TestRunTags sessionToken={sessionToken} testRun={testRun} />
+          </Paper>
         </>
       ) : (
         <ComparisonView
