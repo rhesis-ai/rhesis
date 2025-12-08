@@ -5,4 +5,8 @@ export default {
   sdk: "SDK",
   penelope: "Penelope",
   development: "Development",
+  "---": {
+    type: "separator",
+  },
+  guides: "Guides",
 };
