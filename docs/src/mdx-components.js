@@ -9,6 +9,7 @@ import { CodeBlock } from './components/CodeBlock'
 import { ButtonGroup } from './components/ButtonGroup'
 import { FileTree } from './components/FileTree'
 import { ThemeAwareImage } from './components/ThemeAwareImage'
+import { Table } from './components/Table'
 import { InfoCardHorizontal } from './components/InfoCardHorizontal'
 import { PlatformFeatures } from './components/PlatformFeatures'
 import { AdvancedCapabilities } from './components/AdvancedCapabilities'
@@ -35,6 +36,7 @@ export function useMDXComponents(components) {
     ButtonGroup,
     FileTree,
     ThemeAwareImage,
+    Table,
     InfoCardHorizontal,
     PlatformFeatures,
     AdvancedCapabilities,
