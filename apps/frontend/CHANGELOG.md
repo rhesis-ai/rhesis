@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-12-08
+
+### Added
+
+- Added support for tags to test runs, allowing for better organization and filtering.
+- Added categories and threshold operator support for metrics, enabling more granular and flexible metric configuration.
+- Added a Test Connection Tool to simplify and improve the process of verifying connectivity to external systems.
+
+### Fixed
+
+- Fixed an issue where the navigation context was not properly preserved during certain tasks.
+- Updated React and Next.js to address CVE-2025-55182, resolving a potential security vulnerability.
+
 ## [0.5.1] - 2025-12-04
 
 ### Added
