@@ -140,21 +140,30 @@ class LazyModelLoader(BaseLLM):
             }
 
             # Allow override via environment variable for advanced configurations
+            # Support both base64-encoded (LOAD_KWARGS_B64) and plain JSON (LOAD_KWARGS)
             # Examples:
             # - 8-bit: LOAD_KWARGS='{"load_in_8bit": true, "device_map": "auto"}'
             # - 4-bit: LOAD_KWARGS='{"load_in_4bit": true, "device_map": "auto"}'
-            load_kwargs_env = os.environ.get("LOAD_KWARGS")
+            load_kwargs_env = os.environ.get("LOAD_KWARGS_B64") or os.environ.get("LOAD_KWARGS")
             if load_kwargs_env:
+                import base64
                 import json
 
                 try:
-                    parsed_kwargs = json.loads(load_kwargs_env)
+                    # If it's base64-encoded, decode it first
+                    if os.environ.get("LOAD_KWARGS_B64"):
+                        load_kwargs_json = base64.b64decode(load_kwargs_env).decode("utf-8")
+                        logger.info("Decoding LOAD_KWARGS from base64")
+                    else:
+                        load_kwargs_json = load_kwargs_env
+
+                    parsed_kwargs = json.loads(load_kwargs_json)
                     # Merge with defaults, allowing override
                     default_load_kwargs.update(parsed_kwargs)
                     logger.info(f"Using custom load_kwargs from env: {default_load_kwargs}")
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, base64.binascii.Error) as e:
                     logger.warning(
-                        f"Invalid LOAD_KWARGS JSON, using default: {default_load_kwargs}"
+                        f"Invalid LOAD_KWARGS (error: {e}), using default: {default_load_kwargs}"
                     )
 
             logger.info(f"Loading with configuration: {default_load_kwargs}")
