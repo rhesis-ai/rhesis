@@ -478,8 +478,16 @@ export default function TestRunDrawer({
           chipColor="default"
           addOnBlur
           delimiters={[',', 'Enter']}
-          size="small"
+          size="medium"
           fullWidth
+          sx={{
+            '& .MuiInputBase-root': {
+              minHeight: '56px',
+              alignItems: 'flex-start',
+              paddingTop: 1,
+              paddingBottom: 1,
+            },
+          }}
         />
       </Stack>
     </BaseDrawer>
