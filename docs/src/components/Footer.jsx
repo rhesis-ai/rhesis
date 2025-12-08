@@ -27,14 +27,14 @@ const footerData = {
     title: 'Product',
     links: [
       { name: 'Platform', href: 'https://app.rhesis.ai', external: true },
-      { name: 'SDK', href: '/development/sdk' },
+      { name: 'SDK', href: '/sdk' },
       { name: 'Repository', href: 'https://github.com/rhesis-ai/rhesis', external: true },
     ],
   },
   docs: {
     title: 'Docs',
     links: [
-      { name: 'Getting started', href: '/getting-started' },
+      { name: 'Getting started', href: '/getting-started/self-hosting' },
       { name: 'Test Generation', href: '/platform/tests-generation' },
       { name: 'Metrics', href: '/platform/metrics' },
     ],
@@ -54,7 +54,7 @@ const legalLinks = [
   { name: 'Privacy', href: 'https://www.rhesis.ai/privacy-policy', external: true },
   {
     name: 'Terms',
-    href: 'https://www.rhesis.ai/https://www.rhesis.ai/terms-conditions',
+    href: 'https://www.rhesis.ai/terms-conditions',
     external: true,
   },
 ]
