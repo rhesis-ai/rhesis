@@ -351,7 +351,7 @@ jobs:
               --allow-unauthenticated \
               --gpu=1 \
               --gpu-type=nvidia-l4 \
-              --memory=16Gi \
+              --memory=24Gi \
               --cpu=4 \
               --timeout=3600 \
               --min-instances=1 \
@@ -365,7 +365,7 @@ jobs:
               --set-env-vars="$(cat <<EOF
           MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
-          TRANSFORMERS_CACHE=/app/models,
+          TRANSFORMERS_CACHE=/tmp/transformers_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
           SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
@@ -393,7 +393,7 @@ jobs:
               --allow-unauthenticated \
               --gpu=1 \
               --gpu-type=nvidia-l4 \
-              --memory=16Gi \
+              --memory=24Gi \
               --cpu=4 \
               --timeout=3600 \
               --min-instances=1 \
@@ -405,7 +405,7 @@ jobs:
               --set-env-vars="$(cat <<EOF
           MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
-          TRANSFORMERS_CACHE=/app/models,
+          TRANSFORMERS_CACHE=/tmp/transformers_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
           SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},

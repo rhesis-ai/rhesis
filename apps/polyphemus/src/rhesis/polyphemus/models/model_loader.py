@@ -5,7 +5,6 @@ Contains different model classes that can be used based on configuration.
 
 import logging
 import os
-from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 from rhesis.sdk.models import BaseLLM
@@ -17,87 +16,8 @@ logger = logging.getLogger("rhesis-polyphemus")
 DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "huggingface/distilgpt2")
 
 # Model path configuration - supports local path or GCS bucket location
+# For GCS paths (gs://...), HuggingFace will load directly without downloading
 MODEL_PATH = os.environ.get("MODEL_PATH", "")
-
-
-def _download_from_gcs_if_needed(model_name: str, gcs_path: str) -> str:
-    """
-    Download model from GCS bucket to local cache if MODEL_PATH is a GCS location.
-
-    Args:
-        model_name: Model identifier (e.g., "NousResearch/DeepHermes-3-Llama-3-3B-Preview")
-        gcs_path: GCS path (e.g., "gs://bucket/path")
-
-    Returns:
-        str: Local path where model is cached
-
-    Raises:
-        ImportError: If google-cloud-storage is not installed
-        RuntimeError: If download fails
-    """
-    if not gcs_path.startswith("gs://"):
-        return gcs_path
-
-    try:
-        from google.cloud import storage
-    except ImportError:
-        logger.error("google-cloud-storage is required for GCS model loading")
-        logger.error("Install it with: pip install google-cloud-storage")
-        raise ImportError(
-            "google-cloud-storage is required for GCS model loading. "
-            "Install with: pip install google-cloud-storage"
-        )
-
-    # Parse GCS path
-    bucket_name = gcs_path[5:].split("/")[0]
-    bucket_prefix = "/".join(gcs_path[5:].split("/")[1:])
-    model_dir_name = model_name.split("/")[-1]
-
-    # Local cache directory
-    local_cache_dir = Path("/app/models") / model_dir_name
-    local_cache_dir.mkdir(parents=True, exist_ok=True)
-
-    # Check if model already cached
-    if list(local_cache_dir.glob("*.safetensors")) or list(local_cache_dir.glob("*.bin")):
-        logger.info(f"Model already cached at: {local_cache_dir}")
-        return str(local_cache_dir)
-
-    logger.info(f"Downloading model from GCS: {gcs_path}/{model_dir_name}")
-    logger.info(f"Local cache directory: {local_cache_dir}")
-
-    try:
-        client = storage.Client()
-        bucket = client.bucket(bucket_name)
-
-        # List all blobs in the GCS path
-        gcs_model_prefix = f"{bucket_prefix}/{model_dir_name}" if bucket_prefix else model_dir_name
-        blobs = bucket.list_blobs(prefix=gcs_model_prefix)
-
-        blob_count = 0
-        for blob in blobs:
-            # Extract relative path from GCS
-            relative_path = blob.name[len(gcs_model_prefix) :].lstrip("/")
-            if not relative_path:
-                continue
-
-            local_file = local_cache_dir / relative_path
-            local_file.parent.mkdir(parents=True, exist_ok=True)
-
-            logger.info(f"Downloading: {blob.name} -> {local_file}")
-            blob.download_to_filename(local_file)
-            blob_count += 1
-
-        if blob_count == 0:
-            raise RuntimeError(
-                f"No model files found in GCS path: gs://{bucket_name}/{gcs_model_prefix}"
-            )
-
-        logger.info(f"Downloaded {blob_count} files from GCS to {local_cache_dir}")
-        return str(local_cache_dir)
-
-    except Exception as e:
-        logger.error(f"Failed to download model from GCS: {str(e)}")
-        raise RuntimeError(f"GCS download failed: {str(e)}")
 
 
 class LazyModelLoader(BaseLLM):
@@ -143,8 +63,9 @@ class LazyModelLoader(BaseLLM):
 
         If MODEL_PATH is configured:
         - For local paths: loads from local disk
-        - For GCS paths (gs://...): downloads from GCS to local cache first, then loads
-        - Uses /app/models/{model_name} as default path if MODEL_PATH not set
+        - For GCS paths (gs://...): loads directly from GCS without downloading
+          (saves container memory by streaming model files to GPU)
+        - If not set: uses HuggingFace Hub to download model
 
         The model can be any supported type (HuggingFace, OpenAI, etc.)
         based on the model_name format.
@@ -158,18 +79,21 @@ class LazyModelLoader(BaseLLM):
             # Determine the model path to use
             model_path = None
             if MODEL_PATH:
-                # Check if it's a GCS path and download if needed
+                # For GCS paths, construct the full path to the model directory
                 if MODEL_PATH.startswith("gs://"):
-                    model_path = _download_from_gcs_if_needed(self._model_name, MODEL_PATH)
+                    model_name_dir = self._model_name.split("/")[-1]
+                    model_path = f"{MODEL_PATH}/{model_name_dir}"
+                    logger.info(f"Loading directly from GCS (no download): {model_path}")
                 else:
                     # Use local path directly
                     model_path = MODEL_PATH
+                    logger.info(f"Loading from local path: {model_path}")
             else:
-                # Use default local cache path
-                model_name_dir = self._model_name.split("/")[-1]
-                model_path = f"/app/models/{model_name_dir}"
+                # No MODEL_PATH set - will use HuggingFace Hub
+                logger.info("No MODEL_PATH set, will download from HuggingFace Hub")
 
-            logger.info(f"Model path: {model_path}")
+            if model_path:
+                logger.info(f"Model path: {model_path}")
 
             # Use SDK's get_model factory to create the appropriate model
             # Pass auto_loading=False and model_path via kwargs
