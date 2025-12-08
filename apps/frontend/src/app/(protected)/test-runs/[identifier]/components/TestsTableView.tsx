@@ -987,20 +987,22 @@ export default function TestsTableView({
       </TableContainer>
 
       {/* Pagination */}
-      <TablePagination
-        rowsPerPageOptions={[10, 25, 50, 100]}
-        component="div"
-        count={mergedTests.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        sx={{
-          borderTop: 1,
-          borderColor: 'divider',
-          backgroundColor: theme.palette.background.paper,
-        }}
-      />
+      <Paper elevation={2}>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          component="div"
+          count={mergedTests.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          sx={{
+            borderTop: 1,
+            borderColor: 'divider',
+            backgroundColor: theme.palette.background.paper,
+          }}
+        />
+      </Paper>
 
       {/* Test Result Drawer */}
       <TestResultDrawer

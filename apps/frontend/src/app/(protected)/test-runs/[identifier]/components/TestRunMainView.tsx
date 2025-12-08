@@ -635,9 +635,9 @@ export default function TestRunMainView({
           )}
 
           {/* Test Run Tags - moved to bottom */}
-          <Box sx={{ mt: 3 }}>
+          <Paper elevation={2} sx={{ mt: 3, p: 2 }}>
             <TestRunTags sessionToken={sessionToken} testRun={testRun} />
-          </Box>
+          </Paper>
         </>
       ) : (
         <ComparisonView
