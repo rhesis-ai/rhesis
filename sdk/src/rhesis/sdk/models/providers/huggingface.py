@@ -140,14 +140,20 @@ class HuggingFaceLLM(BaseLLM):
             # Load both model and tokenizer without local_files_only flag
             # Transformers will detect the local path automatically
             print("Loading from local path without local_files_only flag...")
+            config = AutoConfig.from_pretrained(
+                model_source,
+                trust_remote_code=True,
+            )
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_source,
+                config=config,
                 device_map=device_map,
                 trust_remote_code=True,
                 **self.load_kwargs,
             )
             self.tokenizer = AutoTokenizer.from_pretrained(
                 model_source,
+                config=config,
                 trust_remote_code=True,
             )
         else:
