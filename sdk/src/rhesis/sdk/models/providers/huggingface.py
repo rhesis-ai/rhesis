@@ -124,8 +124,7 @@ class HuggingFaceLLM(BaseLLM):
             device_map = "auto"
 
         # Load model from local path if provided, otherwise from HuggingFace Hub
-        # model_source = self.model_path if self.model_path else self.model_name
-        model_source = self.model_name
+        model_source = self.model_path if self.model_path else self.model_name
         local_files_only = bool(self.model_path)
 
         if self.model_path:
@@ -137,28 +136,28 @@ class HuggingFaceLLM(BaseLLM):
         # Transformers will detect it's a local path and load from there
         # Using local_files_only causes config dict/object issues
 
-        # if local_files_only:
-        #     # Load both model and tokenizer without local_files_only flag
-        #     # Transformers will detect the local path automatically
-        #     print("Loading from local path without local_files_only flag...")
-        #     self.model = AutoModelForCausalLM.from_pretrained(
-        #         model_source,
-        #         device_map=device_map,
-        #         trust_remote_code=True,
-        #         **self.load_kwargs,
-        #     )
-        #     self.tokenizer = AutoTokenizer.from_pretrained(
-        #         model_source,
-        #         trust_remote_code=True,
-        #     )
-        # else:
-        # Standard loading from HuggingFace Hub
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_source,
-            device_map=device_map,
-            **self.load_kwargs,
-        )
-        self.tokenizer = AutoTokenizer.from_pretrained(model_source)
+        if local_files_only:
+            # Load both model and tokenizer without local_files_only flag
+            # Transformers will detect the local path automatically
+            print("Loading from local path without local_files_only flag...")
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_source,
+                device_map=device_map,
+                trust_remote_code=True,
+                **self.load_kwargs,
+            )
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_source,
+                trust_remote_code=True,
+            )
+        else:
+            # Standard loading from HuggingFace Hub
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_source,
+                device_map=device_map,
+                **self.load_kwargs,
+            )
+            self.tokenizer = AutoTokenizer.from_pretrained(model_source)
 
         # Get the device for input tensors
         # When using device_map="auto", the model may be split across devices
