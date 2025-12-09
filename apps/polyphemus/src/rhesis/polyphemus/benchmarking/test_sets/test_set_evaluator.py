@@ -329,12 +329,20 @@ class TestSetEvaluator:
 
         return round(cost, 4)
 
-    def _evaluate_test_result(self, test_result: TestResult):
+    def _evaluate_test_result(self, test_result: TestResult, metrics_to_compute: list = None):
         """
         Evaluate using SDK metrics + Perspective API + Cost metric.
 
         Metrics: Fluency, Relevancy, Refusal Detection, Context Retention (if context), Toxicity
         Cost: Efficiency metric (separate from quality score)
+
+        Parameters
+        ----------
+        test_result : TestResult
+            The test result to evaluate.
+        metrics_to_compute : list, optional
+            List of metric names to compute. If None, compute all metrics.
+            Valid values: ["fluency", "relevancy", "refusal", "context_retention", "toxicity"]
         """
         from ..metrics import (
             ContextRetentionJudge,
@@ -344,54 +352,64 @@ class TestSetEvaluator:
             RelevancyJudge,
         )
 
-        test_result.details = {}
+        # Initialize details if it doesn't exist
+        if test_result.details is None:
+            test_result.details = {}
 
-        # Calculate cost metric if metadata available
-        test_result.cost = self._calculate_cost_metric(test_result)
+        # Calculate cost metric if metadata available and not already set
+        if test_result.cost is None:
+            test_result.cost = self._calculate_cost_metric(test_result)
+
+        # Determine which metrics to compute
+        if metrics_to_compute is None:
+            metrics_to_compute = ["fluency", "relevancy", "refusal", "context_retention", "toxicity"]
 
         # Fluency
-        fluency = FluencyJudge(model=self.judge)
-        try:
-            r = fluency.evaluate(
-                input=test_result.prompt,
-                output=test_result.text,
-                expected_output=test_result.expected_text,
-            )
-            test_result.details["fluency"] = {"score": r.score, **r.details}
-        except Exception as e:
-            test_result.details["fluency"] = {"error": str(e)}
+        if "fluency" in metrics_to_compute:
+            fluency = FluencyJudge(model=self.judge)
+            try:
+                r = fluency.evaluate(
+                    input=test_result.prompt,
+                    output=test_result.text,
+                    expected_output=test_result.expected_text,
+                )
+                test_result.details["fluency"] = {"score": r.score, **r.details}
+            except Exception as e:
+                test_result.details["fluency"] = {"error": str(e)}
 
         # Relevancy
-        relevancy = RelevancyJudge(model=self.judge)
-        try:
-            r = relevancy.evaluate(
-                input=test_result.prompt,
-                output=test_result.text,
-            )
-            test_result.details["relevancy"] = {"score": r.score, **r.details}
-        except Exception as e:
-            test_result.details["relevancy"] = {"error": str(e)}
+        if "relevancy" in metrics_to_compute:
+            relevancy = RelevancyJudge(model=self.judge)
+            try:
+                r = relevancy.evaluate(
+                    input=test_result.prompt,
+                    output=test_result.text,
+                )
+                test_result.details["relevancy"] = {"score": r.score, **r.details}
+            except Exception as e:
+                test_result.details["relevancy"] = {"error": str(e)}
 
         # Refusal Detection
-        refusal = RefusalDetection(model=self.judge)
-        try:
-            r = refusal.evaluate(
-                input=test_result.prompt,
-                output=test_result.text,
-            )
-            complied = r.score == "COMPLIED"
-            # Extract details but exclude 'score' to avoid overwriting numeric score
-            refusal_details = {k: v for k, v in r.details.items() if k != "score"}
-            test_result.details["refusal"] = {
-                "verdict": r.score,  # "COMPLIED" or "REFUSED"
-                "score": 1.0 if complied else 0.0,
-                **refusal_details,
-            }
-        except Exception as e:
-            test_result.details["refusal"] = {"error": str(e)}
+        if "refusal" in metrics_to_compute:
+            refusal = RefusalDetection(model=self.judge)
+            try:
+                r = refusal.evaluate(
+                    input=test_result.prompt,
+                    output=test_result.text,
+                )
+                complied = r.score == "COMPLIED"
+                # Extract details but exclude 'score' to avoid overwriting numeric score
+                refusal_details = {k: v for k, v in r.details.items() if k != "score"}
+                test_result.details["refusal"] = {
+                    "verdict": r.score,  # "COMPLIED" or "REFUSED"
+                    "score": 1.0 if complied else 0.0,
+                    **refusal_details,
+                }
+            except Exception as e:
+                test_result.details["refusal"] = {"error": str(e)}
 
         # Context Retention (if context available)
-        if test_result.context:
+        if "context_retention" in metrics_to_compute and test_result.context:
             context_retention = ContextRetentionJudge(model=self.judge)
             try:
                 r = context_retention.evaluate(
@@ -405,11 +423,12 @@ class TestSetEvaluator:
                 test_result.details["context_retention"] = {"error": str(e)}
 
         # Toxicity (Perspective API)
-        try:
-            perspective = PerspectiveToxicity()
-            test_result.details["toxicity"] = perspective.evaluate(test_result.text)
-        except Exception as e:
-            test_result.details["toxicity"] = {"error": str(e)}
+        if "toxicity" in metrics_to_compute:
+            try:
+                perspective = PerspectiveToxicity()
+                test_result.details["toxicity"] = perspective.evaluate(test_result.text)
+            except Exception as e:
+                test_result.details["toxicity"] = {"error": str(e)}
 
         # Overall score: average of available metric scores
         # Process all metrics in details automatically
@@ -436,10 +455,15 @@ class TestSetEvaluator:
         Run the evaluation logic on all test results.
         Evaluates only results with valid model responses and no errors.
 
+        When recompute_existing=False, only computes missing metrics for each result.
+        For example, if a result has fluency, relevancy, and refusal computed but is
+        missing toxicity, only toxicity will be computed.
+
         Parameters
         ----------
         recompute_existing : bool
-            If True, recompute scores even for results that already have scores.
+            If True, recompute all metrics even if they already exist.
+            If False, only compute metrics that are missing or have errors.
 
         Returns
         -------
@@ -459,11 +483,31 @@ class TestSetEvaluator:
                     test_result.score = None
                     continue
 
-                # Skip already evaluated if not recomputing
-                if not recompute_existing and test_result.score is not None:
-                    continue
+                # Determine which metrics need to be computed
+                if recompute_existing:
+                    # Recompute all metrics
+                    metrics_to_compute = None
+                else:
+                    # Check which metrics are missing or have errors
+                    all_metrics = ["fluency", "relevancy", "refusal", "toxicity"]
+                    # Add context_retention if context is available
+                    if test_result.context:
+                        all_metrics.append("context_retention")
 
-                self._evaluate_test_result(test_result)
+                    metrics_to_compute = []
+                    existing_details = test_result.details or {}
+
+                    for metric in all_metrics:
+                        metric_data = existing_details.get(metric)
+                        # Compute if metric is missing or has an error
+                        if metric_data is None or "error" in metric_data:
+                            metrics_to_compute.append(metric)
+
+                    # Skip if all metrics are already computed
+                    if not metrics_to_compute:
+                        continue
+
+                self._evaluate_test_result(test_result, metrics_to_compute)
                 newly_evaluated.append(test_result)
             self.save_results(model_index_to_save=model_index)
         return newly_evaluated
