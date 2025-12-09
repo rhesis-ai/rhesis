@@ -124,7 +124,8 @@ class HuggingFaceLLM(BaseLLM):
             device_map = "auto"
 
         # Load model from local path if provided, otherwise from HuggingFace Hub
-        model_source = self.model_path if self.model_path else self.model_name
+        # model_source = self.model_path if self.model_path else self.model_name
+        model_source = self.model_name
         local_files_only = bool(self.model_path)
 
         if self.model_path:
