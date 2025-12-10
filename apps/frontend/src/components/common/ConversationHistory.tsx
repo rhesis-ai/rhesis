@@ -423,7 +423,7 @@ export default function ConversationHistory({
                   maxWidth: '85%',
                   bgcolor: theme.palette.background.paper,
                   border: `1px solid ${theme.palette.divider}`,
-                  borderRight: `3px solid ${theme.palette.secondary.main}`,
+                  borderRight: `3px solid ${theme.palette.warning.main}`,
                 }}
               >
                 <Typography
@@ -440,7 +440,7 @@ export default function ConversationHistory({
                 <Box
                   sx={{
                     fontSize: 20,
-                    color: theme.palette.secondary.main,
+                    color: theme.palette.warning.main,
                     mt: 0.5,
                     display: 'flex',
                     alignItems: 'center',
