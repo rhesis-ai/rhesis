@@ -157,11 +157,11 @@ export interface TestPromptCreate {
 }
 
 export interface TestBulkCreate {
-  prompt: TestPromptCreate;
+  prompt?: TestPromptCreate; // Optional - only required for single-turn tests
   behavior: string;
   category: string;
   topic: string;
-  test_configuration?: Record<string, any>;
+  test_configuration?: Record<string, any>; // Required for multi-turn tests (must contain 'goal')
   assignee_id?: UUID;
   owner_id?: UUID;
   status?: string;

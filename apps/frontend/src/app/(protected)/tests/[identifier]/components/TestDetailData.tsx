@@ -257,81 +257,15 @@ export default function TestDetailData({
             options={types}
             value={getDisplayValue('test_type')}
             onChange={async value => {
-              // Validate multi-turn tests require a goal
-              let selectedType: TestDetailOption | null = null;
-              if (typeof value === 'string') {
-                selectedType =
-                  types.find((type: TestDetailOption) => type.name === value) ||
-                  null;
-              } else {
-                selectedType = value;
-              }
-
-              // Check if switching to multi-turn - initialize with placeholder goal
-              if (selectedType && isMultiTurnTest(selectedType.name)) {
-                const hasGoal =
-                  isMultiTurnConfig(test.test_configuration) &&
-                  test.test_configuration.goal &&
-                  test.test_configuration.goal.trim().length > 0;
-
-                if (!hasGoal) {
-                  // Initialize test_configuration with a placeholder goal
-                  setIsUpdating(true);
-                  try {
-                    const apiFactory = new ApiClientFactory(sessionToken);
-                    const testsClient = apiFactory.getTestsClient();
-
-                    // First, update to multi-turn type
-                    await testsClient.updateTest(test.id, {
-                      test_type_id: selectedType.id,
-                    });
-
-                    // Then, initialize test_configuration with placeholder goal
-                    await testsClient.updateTest(test.id, {
-                      test_configuration: {
-                        goal: 'Please define a goal',
-                        max_turns: 10,
-                      },
-                    });
-
-                    notifications.show(
-                      'Switched to Multi-Turn. Please provide a goal for this test.',
-                      {
-                        severity: 'info',
-                        autoHideDuration: 6000,
-                      }
-                    );
-
-                    // Refresh the test data
-                    await refreshTest();
-                  } catch (error) {
-                    notifications.show('Failed to switch to multi-turn type', {
-                      severity: 'error',
-                      autoHideDuration: 6000,
-                    });
-                  } finally {
-                    setIsUpdating(false);
-                  }
-                  return;
-                }
-              }
-
-              // Find the matching type option by name
-              if (typeof value === 'string') {
-                const matchingType = types.find(
-                  (type: TestDetailOption) => type.name === value
-                );
-                if (matchingType) {
-                  handleUpdate('test_type', matchingType);
-                } else {
-                  handleUpdate('test_type', value);
-                }
-              } else {
-                handleUpdate('test_type', value);
-              }
+              // Test type is read-only and cannot be changed
+              notifications.show('Test type cannot be changed after creation', {
+                severity: 'info',
+                autoHideDuration: 3000,
+              });
             }}
             label="Type"
             popperWidth="100%"
+            disabled={true}
           />
         </Box>
       </Grid>
