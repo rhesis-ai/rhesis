@@ -59,10 +59,12 @@ function EditableField({
   const [editedValue, setEditedValue] = React.useState(value);
   const [isUpdating, setIsUpdating] = React.useState(false);
 
-  // Update local state when prop value changes
+  // Update local state when prop value changes, but only if not currently editing
   React.useEffect(() => {
-    setEditedValue(value);
-  }, [value]);
+    if (!isEditing) {
+      setEditedValue(value);
+    }
+  }, [value, isEditing]);
 
   const displayRows = rows;
 
