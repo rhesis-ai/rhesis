@@ -10,8 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from rhesis.backend.app.models.user import User
 from rhesis.polyphemus.schemas import GenerateRequest
 from rhesis.polyphemus.services import generate_text
-from rhesis.polyphemus.services.auth import require_api_key
-from rhesis.polyphemus.utils.rate_limit import RATE_LIMIT_AUTHENTICATED, limiter
+from rhesis.polyphemus.utils.rate_limit import check_rate_limit
 
 logger = logging.getLogger("rhesis-polyphemus")
 
@@ -19,11 +18,10 @@ router = APIRouter()
 
 
 @router.post("/generate")
-@limiter.limit(RATE_LIMIT_AUTHENTICATED)
 async def generate(
     request: Request,
     generate_request: GenerateRequest,
-    current_user: User = Depends(require_api_key),
+    current_user: User = Depends(check_rate_limit),
 ):
     """
     Generate text using Rhesis API format.

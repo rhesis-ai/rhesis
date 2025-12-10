@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 from endpoint import generate_context, stream_assistant_response
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from notifications import send_rate_limit_alert
 from pydantic import BaseModel
@@ -51,40 +51,24 @@ security = HTTPBearer(auto_error=False)  # auto_error=False allows optional auth
 
 def get_rate_limit_identifier(request: Request) -> str:
     """
-    Determine rate limit identifier based on authentication.
+    Get rate limit identifier from request state.
 
-    - Authenticated requests (with valid API key): Use user/org ID from headers
-    - Unauthenticated requests: Use IP address
+    This is called by the limiter's key function, but should NOT be used
+    as the primary rate limiting mechanism. Use check_rate_limit_chatbot
+    dependency instead.
+
+    This function now only reads from request.state which is set by
+    the verify_api_key_with_rate_limit dependency.
     """
-    # Check if request has valid authentication
-    auth_header = request.headers.get("Authorization", "")
+    # Get identifier from request state (set by auth dependency)
+    identifier = getattr(request.state, "rate_limit_id", None)
+    if identifier:
+        return identifier
 
-    logger.info(
-        f"🔍 Rate limit check - Has auth header: {bool(auth_header)}, "
-        f"API key configured: {bool(CHATBOT_API_KEY)}"
-    )
-
-    if auth_header and CHATBOT_API_KEY:
-        try:
-            token = auth_header.replace("Bearer ", "").strip()
-            if token == CHATBOT_API_KEY:
-                # Authenticated - use user/org ID for per-user rate limiting
-                org_id = request.headers.get("X-Organization-ID", "default-org")
-                user_id = request.headers.get("X-User-ID", "default-user")
-                identifier = f"authenticated:{org_id}:{user_id}"
-                logger.info(
-                    f"✅ Authenticated request - Identifier: {identifier}, "
-                    f"Rate limit: {RATE_LIMIT_AUTHENTICATED}"
-                )
-                return identifier
-        except Exception as e:
-            logger.warning(f"⚠️ Error processing auth header: {e}")
-
-    # Unauthenticated - use IP address for stricter rate limiting
+    # Fallback to IP address (shouldn't normally reach here with proper dependency order)
     ip = get_remote_address(request)
-    identifier = f"public:{ip}"
-    logger.info(f"🌐 Public request - Identifier: {identifier}, Rate limit: {RATE_LIMIT_PUBLIC}")
-    return identifier
+    logger.warning(f"⚠️ Rate limit identifier not found in request state, falling back to IP: {ip}")
+    return f"public:{ip}"
 
 
 # Initialize rate limiter with custom key function
@@ -163,17 +147,27 @@ async def lifespan(app: FastAPI):
         logger.info("🛑 Session cleanup task cancelled")
 
 
-def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> dict:
+def verify_api_key(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> dict:
     """
     Verify API key for authentication.
     Returns authentication info. Does not raise error if no key is provided (allows public access).
+    Also sets rate_limit_id and rate_limit_tier in request.state for proper rate limiting.
     """
     if not CHATBOT_API_KEY:
         # No API key configured - all requests are treated as public
+        ip = get_remote_address(request)
+        request.state.rate_limit_id = f"public:{ip}"
+        request.state.rate_limit_tier = "public"
         return {"authenticated": False, "tier": "public"}
 
     if not credentials:
         # No credentials provided - public access with stricter limits
+        ip = get_remote_address(request)
+        request.state.rate_limit_id = f"public:{ip}"
+        request.state.rate_limit_tier = "public"
         return {"authenticated": False, "tier": "public"}
 
     if credentials.credentials != CHATBOT_API_KEY:
@@ -184,7 +178,75 @@ def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Depends
         )
 
     # Valid credentials - authenticated access
+    # Use user/org ID for per-user rate limiting
+    org_id = request.headers.get("X-Organization-ID", "default-org")
+    user_id = request.headers.get("X-User-ID", "default-user")
+    request.state.rate_limit_id = f"authenticated:{org_id}:{user_id}"
+    request.state.rate_limit_tier = "authenticated"
+
+    logger.info(
+        f"✅ Authenticated request - Identifier: {request.state.rate_limit_id}, "
+        f"Rate limit: {RATE_LIMIT_AUTHENTICATED}"
+    )
+
     return {"authenticated": True, "tier": "authenticated"}
+
+
+async def check_rate_limit_chatbot(
+    request: Request,
+    auth: dict = Depends(verify_api_key),  # Authentication runs first
+) -> dict:
+    """
+    Rate limit dependency that runs after authentication.
+
+    This ensures rate limiting is based on authenticated user/org identifiers
+    instead of just IP addresses.
+
+    Returns the auth dict for downstream dependencies.
+    """
+    from limits import parse
+
+    # Get the rate limit identifier and tier from request state (set by verify_api_key)
+    identifier = request.state.rate_limit_id
+    tier = request.state.rate_limit_tier
+
+    # Determine which rate limit to apply
+    rate_limit_str = RATE_LIMIT_AUTHENTICATED if tier == "authenticated" else RATE_LIMIT_PUBLIC
+
+    try:
+        # Parse the rate limit string into a RateLimitItem
+        rate_limit_item = parse(rate_limit_str)
+
+        # Manually perform rate limit check using slowapi's internal limiter
+        allowed = limiter._limiter.hit(rate_limit_item, identifier)
+
+        if not allowed:
+            logger.warning(
+                f"🚫 Rate limit exceeded - Tier: {tier}, Identifier: {identifier}, "
+                f"Limit: {rate_limit_str}"
+            )
+
+            # Send email notification (async, non-blocking)
+            try:
+                send_rate_limit_alert(request, identifier, tier.capitalize(), rate_limit_str)
+            except Exception as e:
+                logger.error(f"⚠️ Error sending rate limit alert: {e}")
+
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Rate limit exceeded. Try again later. Limit: {rate_limit_str}",
+            )
+
+        logger.debug(f"✅ Rate limit check passed - Tier: {tier}, Identifier: {identifier}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Rate limiting error for {identifier}: {str(e)}", exc_info=True)
+        # Don't block request on rate limiter errors - fail open
+        pass
+
+    return auth
 
 
 app = FastAPI(
@@ -341,8 +403,9 @@ async def root(request: Request, auth: dict = Depends(verify_api_key)):
 
 
 @app.post("/chat", response_model=ChatResponse)
-@limiter.limit(RATE_LIMIT_PUBLIC)
-async def chat(request: Request, chat_request: ChatRequest, auth: dict = Depends(verify_api_key)):
+async def chat(
+    request: Request, chat_request: ChatRequest, auth: dict = Depends(check_rate_limit_chatbot)
+):
     try:
         logger.info(
             f"💬 Chat request received - Auth tier: {auth['tier']}, "
@@ -393,8 +456,9 @@ async def chat(request: Request, chat_request: ChatRequest, auth: dict = Depends
 
 
 @app.get("/sessions/{session_id}")
-@limiter.limit(RATE_LIMIT_PUBLIC)
-async def get_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
+async def get_session(
+    request: Request, session_id: str, auth: dict = Depends(check_rate_limit_chatbot)
+):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -409,8 +473,9 @@ async def get_session(request: Request, session_id: str, auth: dict = Depends(ve
 
 
 @app.delete("/sessions/{session_id}")
-@limiter.limit(RATE_LIMIT_PUBLIC)
-async def delete_session(request: Request, session_id: str, auth: dict = Depends(verify_api_key)):
+async def delete_session(
+    request: Request, session_id: str, auth: dict = Depends(check_rate_limit_chatbot)
+):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     del sessions[session_id]
@@ -419,8 +484,7 @@ async def delete_session(request: Request, session_id: str, auth: dict = Depends
 
 
 @app.get("/use-cases")
-@limiter.limit(RATE_LIMIT_PUBLIC)
-async def list_use_cases(request: Request, auth: dict = Depends(verify_api_key)):
+async def list_use_cases(request: Request, auth: dict = Depends(check_rate_limit_chatbot)):
     """Get list of available use cases"""
     try:
         use_cases = get_available_use_cases()
