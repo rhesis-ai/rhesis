@@ -68,14 +68,14 @@ export interface TestBase {
   test_type_id?: UUID;
   priority?: number;
   user_id?: UUID;
-  assignee_id?: UUID;
-  owner_id?: UUID;
+  assignee_id?: UUID | null;
+  owner_id?: UUID | null;
   test_configuration?: Record<string, any>;
   parent_id?: UUID;
   topic_id?: UUID;
   behavior_id?: UUID;
   category_id?: UUID;
-  status_id?: UUID;
+  status_id?: UUID | null;
   organization_id?: UUID;
   tags?: Tag[];
   test_metadata?: Record<string, any>;

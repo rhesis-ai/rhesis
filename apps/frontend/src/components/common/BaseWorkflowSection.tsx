@@ -317,7 +317,7 @@ export default function BaseWorkflowSection({
 
       try {
         await onUpdateEntity(
-          { assignee_id: newAssignee?.id || undefined },
+          { assignee_id: newAssignee?.id || null },
           'Assignee'
         );
         // Only call onAssigneeChange after successful API update
@@ -348,7 +348,7 @@ export default function BaseWorkflowSection({
 
       // Then update backend
       try {
-        await onUpdateEntity({ owner_id: newOwner?.id || undefined }, 'Owner');
+        await onUpdateEntity({ owner_id: newOwner?.id || null }, 'Owner');
       } catch (error) {
         // Revert on error
         const originalOwner = findUserById(owner?.id) as UserOption | null;

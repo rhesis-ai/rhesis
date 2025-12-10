@@ -445,9 +445,9 @@ export default function UpdateTest({
         topic_id: selectedTopic.id,
         category_id: selectedCategory.id,
         priority: numericPriority,
-        assignee_id: formData.assignee_id,
-        owner_id: formData.owner_id,
-        status_id: formData.status_id,
+        assignee_id: formData.assignee_id || null,
+        owner_id: formData.owner_id || null,
+        status_id: formData.status_id || null,
       };
 
       await testsClient.updateTest(test.id, updateData);

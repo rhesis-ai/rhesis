@@ -61,12 +61,12 @@ export default function DashboardPage() {
 
         {/* Main Content Grid - 2 Column Layout */}
         <Grid container spacing={3}>
-          {/* Recent Test Runs - Left Column (4 test runs) */}
+          {/* Recent Test Runs - Left Column (6 test runs) */}
           <Grid size={{ xs: 12, md: 6 }}>
             <TestRunPerformance
               sessionToken={session?.session_token || ''}
               onLoadComplete={() => handleComponentLoad('testRuns')}
-              limit={4}
+              limit={7}
             />
           </Grid>
 
