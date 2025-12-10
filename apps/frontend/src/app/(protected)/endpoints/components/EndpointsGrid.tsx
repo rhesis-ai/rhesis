@@ -14,7 +14,6 @@ import {
   StorageIcon,
   CodeIcon,
 } from '@/components/icons';
-import UploadIcon from '@mui/icons-material/UploadOutlined';
 import {
   GridColDef,
   GridPaginationModel,
@@ -242,22 +241,6 @@ export default function EndpointGrid({
           disabled={shouldDisableButtons}
         >
           New Endpoint
-        </Button>
-        <Button
-          component={shouldDisableButtons ? 'button' : Link}
-          href={
-            shouldDisableButtons
-              ? undefined
-              : projectId
-                ? `/projects/${projectId}/endpoints/swagger`
-                : '/endpoints/swagger'
-          }
-          variant="contained"
-          startIcon={<UploadIcon />}
-          data-tour="import-swagger-button"
-          disabled={shouldDisableButtons}
-        >
-          Import Swagger
         </Button>
       </Box>
     </Box>

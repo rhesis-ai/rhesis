@@ -383,7 +383,7 @@ export default function TaskDetailPage({ params }: PageProps) {
         description: editDescription,
         status_id: editedTask.status_id,
         priority_id: editedTask.priority_id,
-        assignee_id: editedTask.assignee_id || undefined,
+        assignee_id: editedTask.assignee_id || null,
       };
 
       const updatedTask = await updateTask(taskId, updateData);
@@ -419,7 +419,7 @@ export default function TaskDetailPage({ params }: PageProps) {
         description: taskData.description,
         status_id: taskData.status_id,
         priority_id: taskData.priority_id,
-        assignee_id: taskData.assignee_id || undefined,
+        assignee_id: taskData.assignee_id || null,
       };
 
       const updatedTask = await updateTask(taskId, updateData);

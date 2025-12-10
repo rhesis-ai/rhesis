@@ -308,7 +308,7 @@ export default function TestRunPerformance({
             return (
               <Grid size={{ xs: 12 }} key={testRun.id}>
                 <Card
-                  elevation={1}
+                  elevation={0}
                   sx={{
                     height: '100%',
                     minHeight: theme.spacing(21),
