@@ -27,9 +27,9 @@ export interface Task {
 export interface TaskCreate {
   title: string;
   description?: string;
-  assignee_id?: string;
+  assignee_id?: string | null;
   status_id: string;
-  priority_id?: string;
+  priority_id?: string | null;
   entity_id?: string;
   entity_type?: string;
   completed_at?: string;
@@ -39,9 +39,9 @@ export interface TaskCreate {
 export interface TaskUpdate {
   title?: string;
   description?: string;
-  assignee_id?: string;
+  assignee_id?: string | null;
   status_id?: string;
-  priority_id?: string;
+  priority_id?: string | null;
   entity_id?: string;
   entity_type?: string;
   completed_at?: string;
