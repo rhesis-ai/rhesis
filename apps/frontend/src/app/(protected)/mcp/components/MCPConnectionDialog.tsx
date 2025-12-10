@@ -681,9 +681,9 @@ export function MCPConnectionDialog({
                       color="text.secondary"
                       sx={{ mb: 2 }}
                     >
-                      Provide your API token above, then paste your MCP server config below 
-                      using <code>{"{{ TOKEN }}"}</code> as a placeholder 
-                      wherever the token is required.
+                      Provide your API token above, then paste your MCP server
+                      config below using <code>{'{{ TOKEN }}'}</code> as a
+                      placeholder wherever the token is required.
                     </Typography>
                     <Typography
                       variant="body2"
