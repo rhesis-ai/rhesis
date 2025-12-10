@@ -386,7 +386,8 @@ def bulk_create_tests(
             )
 
             # Determine test type for this specific test
-            # Priority: 1. Individual test's test_type, 2. Auto-detect from config, 3. test_set's test_type_value, 4. defaults
+            # Priority: 1. Individual test's test_type, 2. Auto-detect from config,
+            # 3. test_set's test_type_value, 4. defaults
             individual_test_type = test_data_dict.pop("test_type", None)
 
             # Auto-detect test type based on test_configuration
@@ -400,7 +401,10 @@ def bulk_create_tests(
                 auto_detected_type = "Single-Turn"
 
             type_value_to_use = (
-                individual_test_type or auto_detected_type or test_type_value or defaults["test"]["test_type"]
+                individual_test_type
+                or auto_detected_type
+                or test_type_value
+                or defaults["test"]["test_type"]
             )
 
             # Get or create test type for this specific test
