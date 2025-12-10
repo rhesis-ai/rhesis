@@ -16,7 +16,7 @@ from rhesis.backend.worker import app
 
 @email_notification(
     template=EmailTemplate.TEST_EXECUTION_SUMMARY,
-    subject_template="Test Execution Complete: {test_set_name} - {status}",
+    subject_template='Test Execution "{task_name}" {execution_status}',
 )
 @app.task(base=BaseTask, bind=True, display_name="Test Execution Summary")
 def collect_results(self, *args, **kwargs) -> Dict[str, Any]:
