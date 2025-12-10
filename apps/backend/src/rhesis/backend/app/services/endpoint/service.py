@@ -9,6 +9,14 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.models.enums import (
+    EndpointAuthType,
+    EndpointConfigSource,
+    EndpointConnectionType,
+    EndpointEnvironment,
+    EndpointResponseFormat,
+)
+from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
 
 # Import sdk_sync at module level to avoid circular imports
@@ -124,6 +132,99 @@ class EndpointService:
         """
         with open(self.schema_path, "r") as f:
             return json.load(f)
+
+    async def test_endpoint(
+        self,
+        db: Session,
+        test_config: EndpointTestRequest,
+        organization_id: str = None,
+        user_id: str = None,
+    ) -> Dict[str, Any]:
+        """
+        Test an endpoint configuration without saving it to the database.
+
+        Args:
+            db: Database session (required for invoker, but no writes occur)
+            test_config: Endpoint test configuration
+            organization_id: Organization ID for context injection (CRITICAL)
+            user_id: User ID for context injection (CRITICAL - injected into
+                headers, not from user input)
+
+        Returns:
+            Dict containing the mapped response from the endpoint
+
+        Raises:
+            HTTPException: If configuration is invalid or invocation fails
+        """
+
+        # Validate connection_type and auth_type (schema validation should catch this,
+        # but double-check for safety)
+        # Helper function to safely get enum value
+        def get_enum_value(enum_or_str, expected_enum_class):
+            """Safely extract value from enum or return string."""
+            if hasattr(enum_or_str, "value"):
+                return enum_or_str.value
+            return str(enum_or_str)
+
+        connection_type_str = get_enum_value(test_config.connection_type, EndpointConnectionType)
+        auth_type_str = get_enum_value(test_config.auth_type, EndpointAuthType)
+        response_format_str = get_enum_value(test_config.response_format, EndpointResponseFormat)
+
+        if connection_type_str != EndpointConnectionType.REST.value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only REST endpoints are supported for testing. Got: {connection_type_str}",
+            )
+
+        if auth_type_str != EndpointAuthType.BEARER_TOKEN.value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only BEARER_TOKEN authentication is supported for testing. Got: {auth_type_str}",
+            )
+
+        logger.debug(f"Testing endpoint configuration: {test_config.url} ({connection_type_str})")
+
+        try:
+            # Create a temporary Endpoint object (not saved to DB)
+            # Set required fields from test_config and defaults for non-test fields
+            endpoint = Endpoint(
+                name="test",  # Temporary name for testing
+                connection_type=connection_type_str,
+                url=test_config.url,
+                method=test_config.method,
+                endpoint_path=test_config.endpoint_path,
+                request_headers=test_config.request_headers,
+                query_params=test_config.query_params,
+                request_mapping=test_config.request_mapping,
+                response_mapping=test_config.response_mapping,
+                response_format=response_format_str,
+                auth_type=auth_type_str,
+                auth_token=test_config.auth_token,
+                environment=EndpointEnvironment.DEVELOPMENT.value,
+                config_source=EndpointConfigSource.MANUAL.value,
+            )
+
+            # Create appropriate invoker based on connection_type
+            invoker = create_invoker(endpoint)
+
+            # Inject organization_id and user_id into input_data for context
+            # These are injected by the backend, NOT from user input (SECURITY CRITICAL)
+            enriched_input_data = test_config.input_data.copy()
+            if organization_id:
+                enriched_input_data["organization_id"] = organization_id
+            if user_id:
+                enriched_input_data["user_id"] = user_id
+
+            # Invoke the endpoint
+            result = await invoker.invoke(db, endpoint, enriched_input_data)
+            logger.debug("Endpoint test invocation completed")
+            return result
+        except ValueError as e:
+            logger.error(f"ValueError testing endpoint: {e}")
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f"Exception testing endpoint: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def sync_sdk_endpoints(
         self,

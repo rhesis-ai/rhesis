@@ -54,3 +54,19 @@ export interface EndpointEditData extends Partial<Endpoint> {
   auth_token?: string;
   client_secret?: string;
 }
+
+// Type for testing endpoints without saving to database
+export interface EndpointTestRequest {
+  connection_type: 'REST' | 'WEBSOCKET' | 'GRPC' | 'SDK';
+  url: string;
+  method: string;
+  request_headers: Record<string, string>;
+  request_mapping: Record<string, any>;
+  response_mapping: Record<string, string>;
+  auth_type: 'bearer_token' | 'client_credentials';
+  auth_token: string;
+  input_data: Record<string, any>;
+  endpoint_path?: string;
+  query_params?: Record<string, any>;
+  response_format?: 'json' | 'xml' | 'text';
+}
