@@ -14,7 +14,11 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientManager
-from rhesis.sdk.services.mcp.exceptions import MCPConfigurationError, MCPError
+from rhesis.sdk.services.mcp.exceptions import (
+    MCPApplicationError,
+    MCPConfigurationError,
+    MCPError,
+)
 
 # Initialize Jinja2 environment for loading prompt templates
 TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
@@ -40,7 +44,20 @@ def handle_mcp_exception(e: Exception, operation: str) -> HTTPException:
     if isinstance(e, MCPError):
         # All MCP errors have status_code set by their __init__
         status_code = e.status_code if e.status_code else 500
-        message = str(e)
+
+        # For MCPApplicationError, use the detail attribute directly to avoid redundant prefixes
+        # For other errors, use the string representation
+        if isinstance(e, MCPApplicationError):
+            message = e.detail
+        else:
+            message = str(e)
+
+        # Map MCP authentication errors (401, 403) to 502 Bad Gateway
+        # These are external service auth issues, not user session issues
+        # This prevents the frontend from logging users out when MCP tools have auth problems
+        if status_code in {401, 403} and e.category == "application":
+            status_code = 502
+            message = f"MCP tool authentication failed: {message}"
 
         # Log based on severity (client errors vs server errors)
         original_error_name = type(e.original_error).__name__ if e.original_error else None

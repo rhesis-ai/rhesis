@@ -738,13 +738,9 @@ async def test_mcp_connection(
         logger.warning(f"Invalid request for MCP connection test: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Failed to test MCP connection: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Failed to test MCP connection. Please verify the tool configuration and try again."
-            ),
-        )
+        # Use handle_mcp_exception to properly handle MCP errors (401, 403, etc.)
+        # This ensures authentication errors are properly mapped and don't log users out
+        raise handle_mcp_exception(e, "test-connection")
 
 
 @router.get("/recent-activities", response_model=RecentActivitiesResponse)

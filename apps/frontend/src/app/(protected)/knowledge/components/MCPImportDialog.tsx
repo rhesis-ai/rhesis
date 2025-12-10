@@ -33,6 +33,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { MCPItem } from '@/utils/api-client/services-client';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
+import { getErrorMessage } from '@/utils/entity-error-handler';
 
 interface MCPImportDialogProps {
   open: boolean;
@@ -121,10 +122,10 @@ export default function MCPImportDialog({
         setError('No results found. Try a different search query.');
       }
     } catch (err) {
+      // Use getErrorMessage to extract clean error messages from API responses
+      // This handles error.data.detail and provides user-friendly messages
       const errorMessage =
-        err instanceof Error
-          ? err.message
-          : 'Failed to search. Please try again.';
+        getErrorMessage(err) || 'Failed to search. Please try again.';
       setError(errorMessage);
     } finally {
       setSearching(false);

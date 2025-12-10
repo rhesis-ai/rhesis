@@ -34,6 +34,7 @@ import {
 import { UUID } from 'crypto';
 import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { getErrorMessage } from '@/utils/entity-error-handler';
 
 // Lazy load Monaco Editor
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -186,10 +187,12 @@ export function MCPConnectionDialog({
     }
   }, [open, provider, tool, isEditMode, isCustomProvider]);
 
-  // Reset connection test status when critical fields change
+  // Reset connection test status when critical credential fields change
+  // Note: name and description changes don't affect connection validity
   useEffect(() => {
     if (!isEditMode) {
-      // In create mode, always reset when fields change
+      // In create mode, reset only when credential fields change
+      // (not when name/description change, as they don't affect connection)
       setConnectionTested(false);
       setTestResult(null);
     } else if (authToken && authToken !== '************') {
@@ -197,7 +200,7 @@ export function MCPConnectionDialog({
       setConnectionTested(false);
       setTestResult(null);
     }
-  }, [name, authToken, toolMetadata, provider, isEditMode]);
+  }, [authToken, toolMetadata, provider, isEditMode]);
 
   const validateToolMetadata = (
     jsonString: string
@@ -322,12 +325,14 @@ export function MCPConnectionDialog({
         setConnectionTested(false);
       }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to test connection. Please try again.'
-      );
-      setTestResult(null);
+      // Display error in testResult (under the button) instead of error state (at top)
+      // This matches the success message display pattern
+      const errorMessage =
+        getErrorMessage(err) || 'Failed to test connection. Please try again.';
+      setTestResult({
+        is_authenticated: 'No',
+        message: errorMessage,
+      });
       setConnectionTested(false);
     } finally {
       setTestingConnection(false);
