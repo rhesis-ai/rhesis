@@ -80,7 +80,7 @@ def get_test_statistics(test_run: TestRun, db) -> Tuple[int, int, int, int]:
 
 def determine_overall_status(
     tests_passed: int, tests_failed: int, execution_errors: int, total_tests: int, logger_func
-) -> Tuple[str, str]:
+) -> Tuple[str, str, str]:
     """
     Determine the overall status of the test run.
 
@@ -92,12 +92,17 @@ def determine_overall_status(
         logger_func: Logging function for debug messages
 
     Returns:
-        Tuple of (overall_status, email_status)
+        Tuple of (overall_status, email_status, execution_status)
 
     Status Logic:
         - FAILED: No tests in the run OR all tests had execution errors
         - COMPLETED: All tests executed successfully (regardless of pass/fail)
         - PARTIAL: Some tests executed, some had execution errors (incomplete)
+
+    Execution Status (for subject line):
+        - "Complete": All tests executed (execution_errors == 0)
+        - "Partial": Some tests executed, some had errors
+        - "Failed": No tests or all tests failed to execute
     """
     logger_func(
         "debug",
@@ -107,7 +112,7 @@ def determine_overall_status(
 
     # No tests at all - mark as failed
     if total_tests == 0:
-        overall_status, email_status = RunStatus.FAILED.value, "failed"
+        overall_status, email_status, execution_status = RunStatus.FAILED.value, "failed", "Failed"
         logger_func("debug", "Status logic: No tests in run -> FAILED")
 
     # All tests executed successfully (even if some assertions failed)
@@ -115,21 +120,26 @@ def determine_overall_status(
         overall_status = RunStatus.COMPLETED.value
         # Email status reflects test results
         email_status = "success" if tests_failed == 0 else "failed"
+        execution_status = "Complete"
         logger_func(
             "debug", f"Status logic: All tests executed -> COMPLETED (email: {email_status})"
         )
 
     # All tests had execution errors (none could execute)
     elif execution_errors == total_tests:
-        overall_status, email_status = RunStatus.FAILED.value, "failed"
+        overall_status, email_status, execution_status = RunStatus.FAILED.value, "failed", "Failed"
         logger_func("debug", "Status logic: All tests had execution errors -> FAILED")
 
     # Mixed: some executed, some didn't (incomplete execution)
     else:
-        overall_status, email_status = RunStatus.PARTIAL.value, "partial"
+        overall_status, email_status, execution_status = (
+            RunStatus.PARTIAL.value,
+            "partial",
+            "Partial",
+        )
         logger_func("debug", "Status logic: Some tests executed, some had errors -> PARTIAL")
 
-    return overall_status, email_status
+    return overall_status, email_status, execution_status
 
 
 def get_test_context(test_configuration) -> Tuple[str, str, str, str]:
@@ -340,6 +350,7 @@ def format_status_details(tests_passed: int, tests_failed: int, execution_errors
 def build_summary_data(
     test_run_id: str,
     email_status: str,
+    execution_status: str,
     total_tests: int,
     tests_passed: int,
     tests_failed: int,
@@ -356,7 +367,8 @@ def build_summary_data(
 
     Args:
         test_run_id: ID of the test run
-        email_status: Status for email notifications
+        email_status: Status for email notifications (kept for backward compatibility)
+        execution_status: Execution status for subject line ("Complete", "Partial", or "Failed")
         total_tests: Total number of tests
         tests_passed: Number of passed tests
         tests_failed: Number of failed tests
@@ -374,6 +386,7 @@ def build_summary_data(
     return {
         "test_run_id": test_run_id,
         "status": email_status,
+        "execution_status": execution_status,
         "total_tests": total_tests,
         "tests_passed": tests_passed,
         "tests_failed": tests_failed,
@@ -431,10 +444,14 @@ class TestRunProcessor:
         )
 
         # Determine overall status
-        overall_status, email_status = determine_overall_status(
+        overall_status, email_status, execution_status = determine_overall_status(
             tests_passed, tests_failed, execution_errors, total_tests, self.logger_func
         )
-        self.logger_func("info", f"Determined status: {overall_status} (email: {email_status})")
+        self.logger_func(
+            "info",
+            f"Determined status: {overall_status} "
+            f"(email: {email_status}, execution: {execution_status})",
+        )
 
         # Get test context information
         test_configuration = test_run.test_configuration
@@ -454,6 +471,7 @@ class TestRunProcessor:
         return build_summary_data(
             test_run_id,
             email_status,
+            execution_status,
             total_tests,
             tests_passed,
             tests_failed,
