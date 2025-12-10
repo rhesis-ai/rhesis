@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import jinja2
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
@@ -13,7 +14,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientManager
-from rhesis.sdk.services.mcp.exceptions import MCPConfigurationError
+from rhesis.sdk.services.mcp.exceptions import MCPConfigurationError, MCPError
 
 # Initialize Jinja2 environment for loading prompt templates
 TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
@@ -23,6 +24,46 @@ jinja_env = jinja2.Environment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
+
+
+def handle_mcp_exception(e: Exception, operation: str) -> HTTPException:
+    """
+    Map MCP exceptions to HTTP responses using their status codes.
+
+    Args:
+        e: The caught exception
+        operation: Description of operation (e.g., "search", "extract", "query")
+
+    Returns:
+        HTTPException with appropriate status code and message
+    """
+    if isinstance(e, MCPError):
+        # All MCP errors have status_code set by their __init__
+        status_code = e.status_code if e.status_code else 500
+        message = str(e)
+
+        # Log based on severity (client errors vs server errors)
+        original_error_name = type(e.original_error).__name__ if e.original_error else None
+        if status_code >= 500:
+            logger.error(
+                f"MCP {operation} error [{e.category}] ({status_code}): {message}",
+                exc_info=True,
+                extra={"category": e.category, "original_error": original_error_name},
+            )
+        else:
+            logger.warning(
+                f"MCP {operation} error [{e.category}] ({status_code}): {message}",
+                extra={"category": e.category, "original_error": original_error_name},
+            )
+
+        return HTTPException(status_code=status_code, detail=message)
+
+    # Non-MCP errors
+    logger.error(f"Unexpected error in MCP {operation}: {str(e)}", exc_info=True)
+    return HTTPException(
+        status_code=500,
+        detail=f"An unexpected error occurred during {operation}. Please try again.",
+    )
 
 
 def _get_mcp_client_by_tool_id(
@@ -197,8 +238,8 @@ async def search_mcp(
 
     logger.info(f"Raw Agent output: {repr(result.final_answer)}")
 
-    # Agent now raises exceptions for errors, so if we get here, it succeeded
-    # Parse the result - if it's an empty list, that's a valid result (no items found)
+    # Parse response - agent returns list of items
+    # (Fatal errors raise exceptions before reaching here)
     try:
         parsed_results = json.loads(result.final_answer)
         if not isinstance(parsed_results, list):
@@ -246,7 +287,7 @@ async def extract_mcp(
     # Load MCP client from database tool configuration
     client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
 
-    extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render()
+    extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(item_id=id)
     agent = MCPAgent(
         model=model,
         mcp_client=client,
@@ -257,7 +298,8 @@ async def extract_mcp(
 
     result = await agent.run_async(f"Extract content from item {id}")
 
-    # Agent now raises exceptions for errors, so if we get here, it succeeded
+    # Parse response - agent returns content as text
+    # (Fatal errors raise exceptions before reaching here)
     return result.final_answer
 
 
