@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Grid, Typography, useTheme } from '@mui/material';
+import { Box, Grid, Typography, useTheme, TextField } from '@mui/material';
 import BaseFreesoloAutocomplete, {
   AutocompleteOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
@@ -253,19 +253,15 @@ export default function TestDetailData({
           />
         </Box>
         <Box>
-          <BaseFreesoloAutocomplete
-            options={types}
-            value={getDisplayValue('test_type')}
-            onChange={async value => {
-              // Test type is read-only and cannot be changed
-              notifications.show('Test type cannot be changed after creation', {
-                severity: 'info',
-                autoHideDuration: 3000,
-              });
-            }}
+          <TextField
+            fullWidth
             label="Type"
-            popperWidth="100%"
-            disabled={true}
+            value={getDisplayValue('test_type')}
+            InputProps={{
+              readOnly: true,
+            }}
+            size="medium"
+            variant="outlined"
           />
         </Box>
       </Grid>
