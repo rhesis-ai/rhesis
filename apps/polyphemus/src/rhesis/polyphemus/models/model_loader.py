@@ -31,11 +31,11 @@ def _map_gcs_to_mounted_path(model_name: str, gcs_path: str) -> str:
     gs://bucket/path/to/model -> /gcs-models/path/to/model
 
     Args:
-        model_name: Model identifier (e.g., "Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1")
-        gcs_path: GCS path (e.g., "gs://rhesis-model-bucket-dev/models")
+        model_name: Model identifier (e.g., "organization/model-name")
+        gcs_path: GCS path (e.g., "gs://bucket-name/models")
 
     Returns:
-        str: Local mounted path (e.g., "/gcs-models/models/Josiefied-Qwen3-8B-abliterated-v1")
+        str: Local mounted path (e.g., "/gcs-models/models/model-name")
     """
     if not gcs_path.startswith("gs://"):
         return gcs_path
@@ -115,17 +115,17 @@ class LazyModelLoader(BaseLLM):
         if self._internal_model is None:
             logger.info(f"Loading model: {self._model_name}")
 
-            # Determine the model path to use
-            model_path = None
+            # Determine the model source to use (local path or Hub identifier)
+            model_source = None
             if MODEL_PATH:
                 # Check if it's a GCS path and map to mounted volume
                 if MODEL_PATH.startswith("gs://"):
-                    model_path = _map_gcs_to_mounted_path(self._model_name, MODEL_PATH)
-                    logger.info(f"Using Cloud Storage mounted volume at: {model_path}")
+                    model_source = _map_gcs_to_mounted_path(self._model_name, MODEL_PATH)
+                    logger.info(f"Using Cloud Storage mounted volume at: {model_source}")
                 else:
                     # Use local path directly
-                    model_path = MODEL_PATH
-                    logger.info(f"Using local path: {model_path}")
+                    model_source = MODEL_PATH
+                    logger.info(f"Using local path: {model_source}")
             else:
                 # No MODEL_PATH set - will download from HuggingFace Hub
                 logger.info("No MODEL_PATH set, will use HuggingFace Hub")
@@ -173,7 +173,7 @@ class LazyModelLoader(BaseLLM):
                 self._internal_model = get_model(
                     self._model_name,
                     auto_loading=False,
-                    model_path=model_path,
+                    model_path=model_source,
                     load_kwargs=default_load_kwargs,
                 )
             except TypeError:
