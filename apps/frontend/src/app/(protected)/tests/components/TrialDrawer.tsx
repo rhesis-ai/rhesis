@@ -541,7 +541,7 @@ export default function TrialDrawer({
                 fontFamily: 'monospace',
                 p: 1,
                 bgcolor: 'action.hover',
-                borderRadius: 0,
+                borderRadius: theme.shape.sharp,
                 minHeight: '100px',
               }}
             >
@@ -576,7 +576,7 @@ export default function TrialDrawer({
                     fontFamily: 'monospace',
                     p: 1,
                     bgcolor: 'action.hover',
-                    borderRadius: 0,
+                    borderRadius: theme.shape.sharp,
                   }}
                 >
                   {testData.test_configuration.goal}
@@ -620,7 +620,7 @@ export default function TrialDrawer({
                               fontFamily: 'monospace',
                               p: 1,
                               bgcolor: 'action.hover',
-                              borderRadius: 0,
+                              borderRadius: theme.shape.sharp,
                             }}
                           >
                             {testData.test_configuration.instructions}
@@ -648,7 +648,7 @@ export default function TrialDrawer({
                               fontFamily: 'monospace',
                               p: 1,
                               bgcolor: 'action.hover',
-                              borderRadius: 0,
+                              borderRadius: theme.shape.sharp,
                             }}
                           >
                             {testData.test_configuration.scenario}
@@ -676,7 +676,7 @@ export default function TrialDrawer({
                               fontFamily: 'monospace',
                               p: 1,
                               bgcolor: 'action.hover',
-                              borderRadius: 0,
+                              borderRadius: theme.shape.sharp,
                             }}
                           >
                             {testData.test_configuration.restrictions}
@@ -723,7 +723,7 @@ export default function TrialDrawer({
                   fontFamily: 'monospace',
                   p: 1,
                   bgcolor: 'action.hover',
-                  borderRadius: 0,
+                  borderRadius: theme.shape.sharp,
                   minHeight: '100px',
                   color: 'text.secondary',
                 }}
@@ -766,9 +766,9 @@ export default function TrialDrawer({
                         fontFamily: 'monospace',
                         p: 1,
                         bgcolor: 'action.hover',
-                        borderRadius: 0,
+                        borderRadius: theme.shape.sharp,
                         minHeight: '100px',
-                        fontSize: '0.75rem',
+                        ...theme.typography.chartLabel,
                         overflow: 'auto',
                         maxHeight: '400px',
                       }}
@@ -788,7 +788,7 @@ export default function TrialDrawer({
                   fontFamily: 'monospace',
                   p: 1,
                   bgcolor: 'action.hover',
-                  borderRadius: 0,
+                  borderRadius: theme.shape.sharp,
                   minHeight: '100px',
                 }}
               >

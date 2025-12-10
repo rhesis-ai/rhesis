@@ -88,6 +88,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
   },
   shape: {
     borderRadius: 4, // Default MUI border radius
+    sharp: 0, // Sharp corners (no border radius)
     circular: '50%', // For circular elements
   },
   typography: {
@@ -446,6 +447,7 @@ declare module '@mui/material/styles' {
     };
     shape: {
       borderRadius: number;
+      sharp: number;
       circular: string;
     };
     customSpacing: {
