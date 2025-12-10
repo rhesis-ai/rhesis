@@ -46,6 +46,7 @@ from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.handlers import DocumentHandler
 from rhesis.backend.app.services.mcp_service import (
     extract_mcp,
+    handle_mcp_exception,
     query_mcp,
     search_mcp,
     test_mcp_authentication,
@@ -54,13 +55,6 @@ from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.extractor import DocumentExtractor
-from rhesis.sdk.services.mcp.exceptions import (
-    MCPClientError,
-    MCPConfigurationError,
-    MCPConnectionError,
-    MCPServerError,
-    MCPValidationError,
-)
 
 router = APIRouter(
     prefix="/services",
@@ -533,50 +527,6 @@ async def generate_test_config(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-def _handle_mcp_exception(e: Exception, operation: str) -> HTTPException:
-    """
-    Map MCP exceptions to appropriate HTTP responses.
-
-    Args:
-        e: The caught exception
-        operation: Description of operation (e.g., "search", "extract", "query")
-
-    Returns:
-        HTTPException with appropriate status code and message
-    """
-    # Configuration errors (tool not found, invalid setup)
-    if isinstance(e, MCPConfigurationError):
-        logger.warning(f"MCP {operation} config error: {str(e)}")
-        return HTTPException(status_code=404, detail=str(e))
-
-    # Validation errors (SDK called incorrectly, max iterations, JSON parsing)
-    if isinstance(e, MCPValidationError):
-        logger.error(f"MCP {operation} validation error: {str(e)}", exc_info=True)
-        return HTTPException(status_code=422, detail=str(e))
-
-    # Connection errors (network, timeout, server unreachable)
-    if isinstance(e, MCPConnectionError):
-        logger.error(f"MCP {operation} connection error: {str(e)}", exc_info=True)
-        return HTTPException(status_code=503, detail=str(e))
-
-    # Catch-all for client errors
-    if isinstance(e, MCPClientError):
-        logger.warning(f"MCP {operation} client error: {str(e)}")
-        return HTTPException(status_code=400, detail=str(e))
-
-    # Catch-all for server errors
-    if isinstance(e, MCPServerError):
-        logger.error(f"MCP {operation} server error: {str(e)}", exc_info=True)
-        return HTTPException(status_code=502, detail=str(e))
-
-    # Unexpected error
-    logger.error(f"Unexpected error in MCP {operation}: {str(e)}", exc_info=True)
-    return HTTPException(
-        status_code=500,
-        detail=f"An unexpected error occurred during {operation}. Please try again.",
-    )
-
-
 @router.post("/mcp/search", response_model=List[ItemResult])
 async def search_mcp_server(
     request: SearchMCPRequest,
@@ -616,7 +566,7 @@ async def search_mcp_server(
             request.query, request.tool_id, db, current_user, organization_id, user_id
         )
     except Exception as e:
-        raise _handle_mcp_exception(e, "search")
+        raise handle_mcp_exception(e, "search")
 
 
 @router.post("/mcp/extract", response_model=ExtractMCPResponse)
@@ -661,7 +611,7 @@ async def extract_mcp_item(
         )
         return {"content": content}
     except Exception as e:
-        raise _handle_mcp_exception(e, "extract")
+        raise handle_mcp_exception(e, "extract")
 
 
 @router.post("/mcp/query", response_model=QueryMCPResponse)
@@ -713,7 +663,7 @@ async def query_mcp_server(
         )
         return result
     except Exception as e:
-        raise _handle_mcp_exception(e, "query")
+        raise handle_mcp_exception(e, "query")
 
 
 @router.post("/mcp/test-connection", response_model=TestMCPConnectionResponse)
