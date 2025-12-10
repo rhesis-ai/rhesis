@@ -23,6 +23,8 @@ import {
   Autocomplete,
   createFilterOptions,
   Breadcrumbs,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -43,15 +45,34 @@ import { Behavior } from '@/utils/api-client/interfaces/behavior';
 import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Category } from '@/utils/api-client/interfaces/category';
 import { TestBulkCreate } from '@/utils/api-client/interfaces/tests';
+import { MultiTurnTestConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
 
-interface TestCase {
+type TestType = 'single_turn' | 'multi_turn';
+
+interface SingleTurnTestCase {
   id: string;
+  testType: 'single_turn';
   prompt: string;
   category: string;
   topic: string;
   behavior: string;
   expectedOutput: string;
 }
+
+interface MultiTurnTestCase {
+  id: string;
+  testType: 'multi_turn';
+  goal: string;
+  instructions: string;
+  restrictions: string;
+  scenario: string;
+  maxTurns: number;
+  category: string;
+  topic: string;
+  behavior: string;
+}
+
+type TestCase = SingleTurnTestCase | MultiTurnTestCase;
 
 interface ManualTestWriterProps {
   onBack?: () => void;
@@ -64,16 +85,41 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
   const { data: session } = useSession();
   const notifications = useNotifications();
 
-  const [testCases, setTestCases] = useState<TestCase[]>([
-    {
-      id: '1',
-      prompt: '',
-      category: '',
-      topic: '',
-      behavior: '',
-      expectedOutput: '',
-    },
-  ]);
+  // Get test type from sessionStorage (set by the test creation flow)
+  const [testType, setTestType] = useState<TestType>(() => {
+    if (typeof window !== 'undefined') {
+      const storedType = sessionStorage.getItem('testType') as TestType | null;
+      return storedType || 'single_turn';
+    }
+    return 'single_turn';
+  });
+
+  const [testCases, setTestCases] = useState<TestCase[]>(() => {
+    const initialTestCase: TestCase =
+      testType === 'single_turn'
+        ? {
+            id: '1',
+            testType: 'single_turn',
+            prompt: '',
+            category: '',
+            topic: '',
+            behavior: '',
+            expectedOutput: '',
+          }
+        : {
+            id: '1',
+            testType: 'multi_turn',
+            goal: '',
+            instructions: '',
+            restrictions: '',
+            scenario: '',
+            maxTurns: 10,
+            category: '',
+            topic: '',
+            behavior: '',
+          };
+    return [initialTestCase];
+  });
 
   // API data
   const [behaviors, setBehaviors] = useState<Behavior[]>([]);
@@ -138,14 +184,29 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
   }, [session, notifications]);
 
   const addNewRow = () => {
-    const newTestCase: TestCase = {
-      id: Date.now().toString(),
-      prompt: '',
-      category: '',
-      topic: '',
-      behavior: '',
-      expectedOutput: '',
-    };
+    const newTestCase: TestCase =
+      testType === 'single_turn'
+        ? {
+            id: Date.now().toString(),
+            testType: 'single_turn',
+            prompt: '',
+            category: '',
+            topic: '',
+            behavior: '',
+            expectedOutput: '',
+          }
+        : {
+            id: Date.now().toString(),
+            testType: 'multi_turn',
+            goal: '',
+            instructions: '',
+            restrictions: '',
+            scenario: '',
+            maxTurns: 10,
+            category: '',
+            topic: '',
+            behavior: '',
+          };
     setTestCases([...testCases, newTestCase]);
   };
 
@@ -155,7 +216,11 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
     }
   };
 
-  const updateTestCase = (id: string, field: keyof TestCase, value: string) => {
+  const updateTestCase = (
+    id: string,
+    field: string,
+    value: string | number
+  ) => {
     setTestCases(
       testCases.map(tc => (tc.id === id ? { ...tc, [field]: value } : tc))
     );
@@ -163,14 +228,27 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
 
   const handleSave = () => {
     // Filter out completely empty rows
-    const nonEmptyTestCases = testCases.filter(
-      tc =>
-        tc.prompt.trim() ||
-        tc.category.trim() ||
-        tc.topic.trim() ||
-        tc.behavior.trim() ||
-        tc.expectedOutput.trim()
-    );
+    const nonEmptyTestCases = testCases.filter(tc => {
+      if (tc.testType === 'single_turn') {
+        return (
+          tc.prompt.trim() ||
+          tc.category.trim() ||
+          tc.topic.trim() ||
+          tc.behavior.trim() ||
+          tc.expectedOutput.trim()
+        );
+      } else {
+        return (
+          tc.goal.trim() ||
+          tc.category.trim() ||
+          tc.topic.trim() ||
+          tc.behavior.trim() ||
+          tc.instructions.trim() ||
+          tc.restrictions.trim() ||
+          tc.scenario.trim()
+        );
+      }
+    });
 
     // Check if there are any test cases to save
     if (nonEmptyTestCases.length === 0) {
@@ -181,17 +259,31 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
     }
 
     // Validate that all non-empty rows have required fields filled
-    const hasIncompleteRows = nonEmptyTestCases.some(
-      tc =>
-        !tc.prompt.trim() ||
-        !tc.category.trim() ||
-        !tc.topic.trim() ||
-        !tc.behavior.trim()
-    );
+    const hasIncompleteRows = nonEmptyTestCases.some(tc => {
+      if (tc.testType === 'single_turn') {
+        return (
+          !tc.prompt.trim() ||
+          !tc.category.trim() ||
+          !tc.topic.trim() ||
+          !tc.behavior.trim()
+        );
+      } else {
+        return (
+          !tc.goal.trim() ||
+          !tc.category.trim() ||
+          !tc.topic.trim() ||
+          !tc.behavior.trim()
+        );
+      }
+    });
 
     if (hasIncompleteRows) {
+      const requiredFields =
+        testType === 'single_turn'
+          ? 'Prompt, Category, Topic, Behavior'
+          : 'Goal, Category, Topic, Behavior';
       notifications.show(
-        'Please fill in all required fields (Prompt, Category, Topic, Behavior) for each test case',
+        `Please fill in all required fields (${requiredFields}) for each test case`,
         { severity: 'error' }
       );
       return;
@@ -211,14 +303,27 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
       const apiFactory = new ApiClientFactory(session.session_token);
 
       // Filter out completely empty rows
-      const nonEmptyTestCases = testCases.filter(
-        tc =>
-          tc.prompt.trim() ||
-          tc.category.trim() ||
-          tc.topic.trim() ||
-          tc.behavior.trim() ||
-          tc.expectedOutput.trim()
-      );
+      const nonEmptyTestCases = testCases.filter(tc => {
+        if (tc.testType === 'single_turn') {
+          return (
+            tc.prompt.trim() ||
+            tc.category.trim() ||
+            tc.topic.trim() ||
+            tc.behavior.trim() ||
+            tc.expectedOutput.trim()
+          );
+        } else {
+          return (
+            tc.goal.trim() ||
+            tc.category.trim() ||
+            tc.topic.trim() ||
+            tc.behavior.trim() ||
+            tc.instructions.trim() ||
+            tc.restrictions.trim() ||
+            tc.scenario.trim()
+          );
+        }
+      });
 
       if (nonEmptyTestCases.length === 0) {
         notifications.show('No test cases to save', { severity: 'error' });
@@ -237,15 +342,35 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
       }
 
       // Prepare bulk test creation with only non-empty test cases
-      const testsToCreate: TestBulkCreate[] = nonEmptyTestCases.map(tc => ({
-        prompt: {
-          content: tc.prompt,
-          expected_response: tc.expectedOutput || undefined,
-        },
-        behavior: tc.behavior,
-        category: tc.category,
-        topic: tc.topic,
-      }));
+      const testsToCreate: TestBulkCreate[] = nonEmptyTestCases.map(tc => {
+        if (tc.testType === 'single_turn') {
+          return {
+            prompt: {
+              content: tc.prompt,
+              expected_response: tc.expectedOutput || undefined,
+            },
+            behavior: tc.behavior,
+            category: tc.category,
+            topic: tc.topic,
+          };
+        } else {
+          // Multi-turn test - do NOT include prompt field
+          // The backend determines test type by checking if test_configuration has 'goal'
+          const config: MultiTurnTestConfig = {
+            goal: tc.goal,
+            instructions: tc.instructions || undefined,
+            restrictions: tc.restrictions || undefined,
+            scenario: tc.scenario || undefined,
+            max_turns: tc.maxTurns,
+          };
+          return {
+            behavior: tc.behavior,
+            category: tc.category,
+            topic: tc.topic,
+            test_configuration: config,
+          };
+        }
+      });
 
       const testsClient = apiFactory.getTestsClient();
       await testsClient.createTestsBulk({
@@ -260,6 +385,11 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
 
       setShowSaveDialog(false);
       setTestSetName('');
+
+      // Clear sessionStorage
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('testType');
+      }
 
       // Navigate back to tests list
       router.push('/tests');
@@ -324,6 +454,10 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
   };
 
   const handleBack = () => {
+    // Clear sessionStorage when navigating back
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('testType');
+    }
     if (onBack) {
       onBack();
     } else {
@@ -357,8 +491,12 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
         </Breadcrumbs>
 
         {/* Page Title */}
-        <Typography variant="h4" sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ mb: 1 }}>
           Manual Test Writer
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+          Creating {testType === 'single_turn' ? 'Single-Turn' : 'Multi-Turn'}{' '}
+          Tests
         </Typography>
 
         {/* Test Cases Grid */}
@@ -399,15 +537,44 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ width: 50 }}>#</TableCell>
-                      <TableCell sx={{ minWidth: 300 }}>
-                        Test Prompt *
-                      </TableCell>
-                      <TableCell sx={{ minWidth: 200 }}>Category *</TableCell>
-                      <TableCell sx={{ minWidth: 200 }}>Topic *</TableCell>
-                      <TableCell sx={{ minWidth: 200 }}>Behavior *</TableCell>
-                      <TableCell sx={{ minWidth: 300 }}>
-                        Expected Output
-                      </TableCell>
+                      {testType === 'single_turn' ? (
+                        <>
+                          <TableCell sx={{ minWidth: 300 }}>
+                            Test Prompt *
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 200 }}>
+                            Category *
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 200 }}>Topic *</TableCell>
+                          <TableCell sx={{ minWidth: 200 }}>
+                            Behavior *
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 300 }}>
+                            Expected Output
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell sx={{ minWidth: 250 }}>Goal *</TableCell>
+                          <TableCell sx={{ minWidth: 200 }}>
+                            Instructions
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 200 }}>
+                            Restrictions
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 200 }}>Scenario</TableCell>
+                          <TableCell sx={{ minWidth: 120 }}>
+                            Max. Turns *
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 180 }}>
+                            Category *
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 180 }}>Topic *</TableCell>
+                          <TableCell sx={{ minWidth: 180 }}>
+                            Behavior *
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell sx={{ width: 80 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
@@ -419,158 +586,384 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                             {index + 1}
                           </Typography>
                         </TableCell>
-                        <TableCell sx={{ p: 1 }}>
-                          <TextField
-                            fullWidth
-                            value={testCase.prompt}
-                            onChange={e =>
-                              updateTestCase(
-                                testCase.id,
-                                'prompt',
-                                e.target.value
-                              )
-                            }
-                            placeholder="Enter test prompt or scenario description..."
-                            size="small"
-                            disabled={loading}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ p: 1 }}>
-                          <Autocomplete
-                            freeSolo
-                            options={categoryOptions}
-                            value={testCase.category}
-                            onChange={(_, newValue) => {
-                              updateTestCase(
-                                testCase.id,
-                                'category',
-                                newValue || ''
-                              );
-                            }}
-                            onInputChange={(_, newInputValue) => {
-                              updateTestCase(
-                                testCase.id,
-                                'category',
-                                newInputValue
-                              );
-                            }}
-                            filterOptions={(options, params) => {
-                              const filtered = filter(options, params);
-                              const { inputValue } = params;
-                              const isExisting = options.some(
-                                option => inputValue === option
-                              );
-                              if (inputValue !== '' && !isExisting) {
-                                filtered.push(inputValue);
-                              }
-                              return filtered;
-                            }}
-                            renderInput={params => (
+                        {testCase.testType === 'single_turn' ? (
+                          <>
+                            <TableCell sx={{ p: 1 }}>
                               <TextField
-                                {...params}
-                                placeholder="Select or type new..."
+                                fullWidth
+                                multiline
+                                minRows={2}
+                                value={testCase.prompt}
+                                onChange={e =>
+                                  updateTestCase(
+                                    testCase.id,
+                                    'prompt',
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="Enter test prompt or scenario description..."
                                 size="small"
+                                disabled={loading}
                               />
-                            )}
-                            disabled={loading}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ p: 1 }}>
-                          <Autocomplete
-                            freeSolo
-                            options={topicOptions}
-                            value={testCase.topic}
-                            onChange={(_, newValue) => {
-                              updateTestCase(
-                                testCase.id,
-                                'topic',
-                                newValue || ''
-                              );
-                            }}
-                            onInputChange={(_, newInputValue) => {
-                              updateTestCase(
-                                testCase.id,
-                                'topic',
-                                newInputValue
-                              );
-                            }}
-                            filterOptions={(options, params) => {
-                              const filtered = filter(options, params);
-                              const { inputValue } = params;
-                              const isExisting = options.some(
-                                option => inputValue === option
-                              );
-                              if (inputValue !== '' && !isExisting) {
-                                filtered.push(inputValue);
-                              }
-                              return filtered;
-                            }}
-                            renderInput={params => (
+                            </TableCell>
+                            <TableCell sx={{ p: 1 }}>
+                              <Autocomplete
+                                freeSolo
+                                options={categoryOptions}
+                                value={testCase.category}
+                                onChange={(_, newValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'category',
+                                    newValue || ''
+                                  );
+                                }}
+                                onInputChange={(_, newInputValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'category',
+                                    newInputValue
+                                  );
+                                }}
+                                filterOptions={(options, params) => {
+                                  const filtered = filter(options, params);
+                                  const { inputValue } = params;
+                                  const isExisting = options.some(
+                                    option => inputValue === option
+                                  );
+                                  if (inputValue !== '' && !isExisting) {
+                                    filtered.push(inputValue);
+                                  }
+                                  return filtered;
+                                }}
+                                renderInput={params => (
+                                  <TextField
+                                    {...params}
+                                    placeholder="Select or type new..."
+                                    size="small"
+                                  />
+                                )}
+                                disabled={loading}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ p: 1 }}>
+                              <Autocomplete
+                                freeSolo
+                                options={topicOptions}
+                                value={testCase.topic}
+                                onChange={(_, newValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'topic',
+                                    newValue || ''
+                                  );
+                                }}
+                                onInputChange={(_, newInputValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'topic',
+                                    newInputValue
+                                  );
+                                }}
+                                filterOptions={(options, params) => {
+                                  const filtered = filter(options, params);
+                                  const { inputValue } = params;
+                                  const isExisting = options.some(
+                                    option => inputValue === option
+                                  );
+                                  if (inputValue !== '' && !isExisting) {
+                                    filtered.push(inputValue);
+                                  }
+                                  return filtered;
+                                }}
+                                renderInput={params => (
+                                  <TextField
+                                    {...params}
+                                    placeholder="Select or type new..."
+                                    size="small"
+                                  />
+                                )}
+                                disabled={loading}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ p: 1 }}>
+                              <Autocomplete
+                                freeSolo
+                                options={behaviorOptions}
+                                value={testCase.behavior}
+                                onChange={(_, newValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'behavior',
+                                    newValue || ''
+                                  );
+                                }}
+                                onInputChange={(_, newInputValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'behavior',
+                                    newInputValue
+                                  );
+                                }}
+                                filterOptions={(options, params) => {
+                                  const filtered = filter(options, params);
+                                  const { inputValue } = params;
+                                  const isExisting = options.some(
+                                    option => inputValue === option
+                                  );
+                                  if (inputValue !== '' && !isExisting) {
+                                    filtered.push(inputValue);
+                                  }
+                                  return filtered;
+                                }}
+                                renderInput={params => (
+                                  <TextField
+                                    {...params}
+                                    placeholder="Select or type new..."
+                                    size="small"
+                                  />
+                                )}
+                                disabled={loading}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ p: 1 }}>
                               <TextField
-                                {...params}
-                                placeholder="Select or type new..."
+                                fullWidth
+                                multiline
+                                minRows={2}
+                                value={testCase.expectedOutput}
+                                onChange={e =>
+                                  updateTestCase(
+                                    testCase.id,
+                                    'expectedOutput',
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="Describe expected output or behavior..."
                                 size="small"
+                                disabled={loading}
                               />
-                            )}
-                            disabled={loading}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ p: 1 }}>
-                          <Autocomplete
-                            freeSolo
-                            options={behaviorOptions}
-                            value={testCase.behavior}
-                            onChange={(_, newValue) => {
-                              updateTestCase(
-                                testCase.id,
-                                'behavior',
-                                newValue || ''
-                              );
-                            }}
-                            onInputChange={(_, newInputValue) => {
-                              updateTestCase(
-                                testCase.id,
-                                'behavior',
-                                newInputValue
-                              );
-                            }}
-                            filterOptions={(options, params) => {
-                              const filtered = filter(options, params);
-                              const { inputValue } = params;
-                              const isExisting = options.some(
-                                option => inputValue === option
-                              );
-                              if (inputValue !== '' && !isExisting) {
-                                filtered.push(inputValue);
-                              }
-                              return filtered;
-                            }}
-                            renderInput={params => (
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell sx={{ p: 1 }}>
                               <TextField
-                                {...params}
-                                placeholder="Select or type new..."
+                                fullWidth
+                                multiline
+                                minRows={2}
+                                value={testCase.goal}
+                                onChange={e =>
+                                  updateTestCase(
+                                    testCase.id,
+                                    'goal',
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="What the target should do - the success criteria for this test"
                                 size="small"
+                                disabled={loading}
                               />
-                            )}
-                            disabled={loading}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ p: 1 }}>
-                          <TextField
-                            fullWidth
-                            value={testCase.expectedOutput}
-                            onChange={e =>
-                              updateTestCase(
-                                testCase.id,
-                                'expectedOutput',
-                                e.target.value
-                              )
-                            }
-                            placeholder="Describe expected output or behavior..."
-                            size="small"
-                            disabled={loading}
-                          />
-                        </TableCell>
+                            </TableCell>
+                            <TableCell sx={{ p: 1 }}>
+                              <TextField
+                                fullWidth
+                                multiline
+                                minRows={2}
+                                value={testCase.instructions}
+                                onChange={e =>
+                                  updateTestCase(
+                                    testCase.id,
+                                    'instructions',
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="How to conduct the test - if not provided, the agent plans its own approach"
+                                size="small"
+                                disabled={loading}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ p: 1 }}>
+                              <TextField
+                                fullWidth
+                                multiline
+                                minRows={2}
+                                value={testCase.restrictions}
+                                onChange={e =>
+                                  updateTestCase(
+                                    testCase.id,
+                                    'restrictions',
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="What the target must not do - forbidden behaviors or boundaries"
+                                size="small"
+                                disabled={loading}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ p: 1 }}>
+                              <TextField
+                                fullWidth
+                                multiline
+                                minRows={2}
+                                value={testCase.scenario}
+                                onChange={e =>
+                                  updateTestCase(
+                                    testCase.id,
+                                    'scenario',
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="Context and persona for the test - narrative setup or user role"
+                                size="small"
+                                disabled={loading}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ p: 1 }}>
+                              <TextField
+                                fullWidth
+                                type="number"
+                                value={testCase.maxTurns}
+                                onChange={e =>
+                                  updateTestCase(
+                                    testCase.id,
+                                    'maxTurns',
+                                    Math.min(
+                                      50,
+                                      Math.max(
+                                        1,
+                                        parseInt(e.target.value) || 10
+                                      )
+                                    )
+                                  )
+                                }
+                                inputProps={{ min: 1, max: 50 }}
+                                size="small"
+                                disabled={loading}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ p: 1 }}>
+                              <Autocomplete
+                                freeSolo
+                                options={categoryOptions}
+                                value={testCase.category}
+                                onChange={(_, newValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'category',
+                                    newValue || ''
+                                  );
+                                }}
+                                onInputChange={(_, newInputValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'category',
+                                    newInputValue
+                                  );
+                                }}
+                                filterOptions={(options, params) => {
+                                  const filtered = filter(options, params);
+                                  const { inputValue } = params;
+                                  const isExisting = options.some(
+                                    option => inputValue === option
+                                  );
+                                  if (inputValue !== '' && !isExisting) {
+                                    filtered.push(inputValue);
+                                  }
+                                  return filtered;
+                                }}
+                                renderInput={params => (
+                                  <TextField
+                                    {...params}
+                                    placeholder="Select or type new..."
+                                    size="small"
+                                  />
+                                )}
+                                disabled={loading}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ p: 1 }}>
+                              <Autocomplete
+                                freeSolo
+                                options={topicOptions}
+                                value={testCase.topic}
+                                onChange={(_, newValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'topic',
+                                    newValue || ''
+                                  );
+                                }}
+                                onInputChange={(_, newInputValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'topic',
+                                    newInputValue
+                                  );
+                                }}
+                                filterOptions={(options, params) => {
+                                  const filtered = filter(options, params);
+                                  const { inputValue } = params;
+                                  const isExisting = options.some(
+                                    option => inputValue === option
+                                  );
+                                  if (inputValue !== '' && !isExisting) {
+                                    filtered.push(inputValue);
+                                  }
+                                  return filtered;
+                                }}
+                                renderInput={params => (
+                                  <TextField
+                                    {...params}
+                                    placeholder="Select or type new..."
+                                    size="small"
+                                  />
+                                )}
+                                disabled={loading}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ p: 1 }}>
+                              <Autocomplete
+                                freeSolo
+                                options={behaviorOptions}
+                                value={testCase.behavior}
+                                onChange={(_, newValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'behavior',
+                                    newValue || ''
+                                  );
+                                }}
+                                onInputChange={(_, newInputValue) => {
+                                  updateTestCase(
+                                    testCase.id,
+                                    'behavior',
+                                    newInputValue
+                                  );
+                                }}
+                                filterOptions={(options, params) => {
+                                  const filtered = filter(options, params);
+                                  const { inputValue } = params;
+                                  const isExisting = options.some(
+                                    option => inputValue === option
+                                  );
+                                  if (inputValue !== '' && !isExisting) {
+                                    filtered.push(inputValue);
+                                  }
+                                  return filtered;
+                                }}
+                                renderInput={params => (
+                                  <TextField
+                                    {...params}
+                                    placeholder="Select or type new..."
+                                    size="small"
+                                  />
+                                )}
+                                disabled={loading}
+                              />
+                            </TableCell>
+                          </>
+                        )}
                         <TableCell>
                           <IconButton
                             onClick={() => deleteRow(testCase.id)}
