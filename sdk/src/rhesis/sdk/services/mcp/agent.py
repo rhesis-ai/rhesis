@@ -11,6 +11,12 @@ import jinja2
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.services.mcp.client import MCPClient
+from rhesis.sdk.services.mcp.exceptions import (
+    MCPApplicationError,
+    MCPConfigurationError,
+    MCPConnectionError,
+    MCPValidationError,
+)
 from rhesis.sdk.services.mcp.executor import ToolExecutor
 from rhesis.sdk.services.mcp.schemas import (
     AgentAction,
@@ -142,15 +148,19 @@ class MCPAgent:
             if self.verbose:
                 print(f"\n⚠️  Max iterations ({self.max_iterations}) reached")
 
-            return AgentResult(
-                final_answer="",
-                execution_history=history,
-                iterations_used=iteration,
-                max_iterations_reached=True,
-                success=False,
-                error="Max iterations reached",
+            raise MCPValidationError(
+                f"Agent did not complete task within {self.max_iterations} iterations. "
+                "Consider increasing max_iterations or simplifying the task."
             )
 
+        except (
+            MCPConnectionError,
+            MCPConfigurationError,
+            MCPValidationError,
+            MCPApplicationError,
+        ):
+            # Propagate MCP exceptions directly
+            raise
         except Exception as e:
             error_msg = f"Agent execution failed: {str(e)}"
             logger.error(error_msg, exc_info=True)
@@ -158,14 +168,8 @@ class MCPAgent:
             if self.verbose:
                 print(f"\n❌ Error: {error_msg}")
 
-            return AgentResult(
-                final_answer="",
-                execution_history=history,
-                iterations_used=iteration,
-                max_iterations_reached=False,
-                success=False,
-                error=str(e),
-            )
+            # Wrap unexpected errors
+            raise MCPValidationError(f"Agent execution failed: {str(e)}", original_error=e)
 
         finally:
             await self.mcp_client.disconnect()
@@ -318,27 +322,37 @@ class MCPAgent:
         )
 
     async def _execute_tools(self, tool_calls: List[ToolCall]) -> List[ToolResult]:
-        """Execute multiple tool calls and return results."""
+        """
+        Execute multiple tool calls and return results.
+
+        All ToolResults (success or failure) are passed to the LLM for reasoning.
+        The LLM decides how to handle failures (retry, different approach, give up).
+        """
         tool_results: List[ToolResult] = []
 
         for tool_call in tool_calls:
-            result = await self.executor.execute_tool(tool_call)
-            tool_results.append(result)
+            try:
+                result = await self.executor.execute_tool(tool_call)
+                tool_results.append(result)
 
-            # Logging
-            if result.success:
-                logger.info(
-                    f"[MCPAgent] Tool {result.tool_name} succeeded, "
-                    f"returned {len(result.content)} chars"
-                )
-            else:
-                logger.error(f"[MCPAgent] Tool {result.tool_name} failed: {result.error}")
-
-            if self.verbose:
+                # Logging
                 if result.success:
-                    print(f"      ✓ {result.tool_name}: {len(result.content)} chars")
+                    logger.info(
+                        f"[MCPAgent] Tool {result.tool_name} succeeded, "
+                        f"returned {len(result.content)} chars"
+                    )
                 else:
-                    print(f"      ✗ {result.tool_name}: {result.error}")
+                    logger.warning(f"[MCPAgent] Tool {result.tool_name} failed: {result.error}")
+
+                if self.verbose:
+                    if result.success:
+                        print(f"      ✓ {result.tool_name}: {len(result.content)} chars")
+                    else:
+                        print(f"      ✗ {result.tool_name}: {result.error}")
+
+            except (MCPConnectionError, MCPConfigurationError, MCPApplicationError):
+                # Infrastructure/config/application failures - propagate immediately
+                raise
 
         return tool_results
 

@@ -6,12 +6,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import jinja2
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
+from rhesis.backend.logging import logger
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientManager
+from rhesis.sdk.services.mcp.exceptions import MCPConfigurationError, MCPError
 
 # Initialize Jinja2 environment for loading prompt templates
 TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
@@ -21,6 +24,46 @@ jinja_env = jinja2.Environment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
+
+
+def handle_mcp_exception(e: Exception, operation: str) -> HTTPException:
+    """
+    Map MCP exceptions to HTTP responses using their status codes.
+
+    Args:
+        e: The caught exception
+        operation: Description of operation (e.g., "search", "extract", "query")
+
+    Returns:
+        HTTPException with appropriate status code and message
+    """
+    if isinstance(e, MCPError):
+        # All MCP errors have status_code set by their __init__
+        status_code = e.status_code if e.status_code else 500
+        message = str(e)
+
+        # Log based on severity (client errors vs server errors)
+        original_error_name = type(e.original_error).__name__ if e.original_error else None
+        if status_code >= 500:
+            logger.error(
+                f"MCP {operation} error [{e.category}] ({status_code}): {message}",
+                exc_info=True,
+                extra={"category": e.category, "original_error": original_error_name},
+            )
+        else:
+            logger.warning(
+                f"MCP {operation} error [{e.category}] ({status_code}): {message}",
+                extra={"category": e.category, "original_error": original_error_name},
+            )
+
+        return HTTPException(status_code=status_code, detail=message)
+
+    # Non-MCP errors
+    logger.error(f"Unexpected error in MCP {operation}: {str(e)}", exc_info=True)
+    return HTTPException(
+        status_code=500,
+        detail=f"An unexpected error occurred during {operation}. Please try again.",
+    )
 
 
 def _get_mcp_client_by_tool_id(
@@ -39,16 +82,18 @@ def _get_mcp_client_by_tool_id(
         Tuple of (MCPClient, provider_name) ready to use
 
     Raises:
-        ValueError: If tool not found or not an MCP integration
+        MCPConfigurationError: If tool not found, not an MCP integration, or invalid credentials
     """
     tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
 
     if not tool:
-        raise ValueError(f"Tool '{tool_id}' not found. Please add it in /integrations/tools")
+        raise MCPConfigurationError(
+            f"Tool '{tool_id}' not found. Please add it in /integrations/tools"
+        )
 
     # Verify tool type is MCP
     if tool.tool_type.type_value != "mcp":
-        raise ValueError(f"Tool '{tool.name}' is not an MCP integration")
+        raise MCPConfigurationError(f"Tool '{tool.name}' is not an MCP integration")
 
     # Get provider name for the client
     provider = tool.tool_provider_type.type_value
@@ -57,13 +102,13 @@ def _get_mcp_client_by_tool_id(
     try:
         credentials_dict = json.loads(tool.credentials)
     except (json.JSONDecodeError, TypeError) as e:
-        raise ValueError(f"Invalid credentials format for tool '{tool_id}': {e}")
+        raise MCPConfigurationError(f"Invalid credentials format for tool '{tool_id}': {e}")
 
     # Check if tool uses custom provider (requires manual JSON config) or standard provider
     if provider == "custom":
         # Custom provider: requires tool_metadata with full JSON config
         if not tool.tool_metadata:
-            raise ValueError("Custom provider tools require tool_metadata configuration")
+            raise MCPConfigurationError("Custom provider tools require tool_metadata configuration")
 
         manager = MCPClientManager.from_tool_config(
             tool_name=f"{provider}Api",
@@ -191,10 +236,17 @@ async def search_mcp(
 
     result = await agent.run_async(query)
 
-    if not result.success:
-        raise ValueError(f"Search failed: {result.error}")
+    logger.info(f"Raw Agent output: {repr(result.final_answer)}")
 
-    return json.loads(result.final_answer)
+    # Parse response - agent returns list of items
+    # (Fatal errors raise exceptions before reaching here)
+    try:
+        parsed_results = json.loads(result.final_answer)
+        if not isinstance(parsed_results, list):
+            raise ValueError("Agent returned invalid format: expected a list of items")
+        return parsed_results
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Agent returned invalid JSON: {str(e)}")
 
 
 async def extract_mcp(
@@ -235,7 +287,7 @@ async def extract_mcp(
     # Load MCP client from database tool configuration
     client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
 
-    extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render()
+    extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(item_id=id)
     agent = MCPAgent(
         model=model,
         mcp_client=client,
@@ -246,9 +298,8 @@ async def extract_mcp(
 
     result = await agent.run_async(f"Extract content from item {id}")
 
-    if not result.success:
-        raise ValueError(f"Extraction failed: {result.error}")
-
+    # Parse response - agent returns content as text
+    # (Fatal errors raise exceptions before reaching here)
     return result.final_answer
 
 
@@ -308,9 +359,7 @@ async def query_mcp(
 
     result = await agent.run_async(query)
 
-    if not result.success:
-        raise ValueError(f"Query failed: {result.error}")
-
+    # Agent now raises exceptions for errors, so if we get here, it succeeded
     return result.model_dump()
 
 

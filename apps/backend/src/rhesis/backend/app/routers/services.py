@@ -46,6 +46,7 @@ from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.handlers import DocumentHandler
 from rhesis.backend.app.services.mcp_service import (
     extract_mcp,
+    handle_mcp_exception,
     query_mcp,
     search_mcp,
     test_mcp_authentication,
@@ -565,10 +566,7 @@ async def search_mcp_server(
             request.query, request.tool_id, db, current_user, organization_id, user_id
         )
     except Exception as e:
-        logger.error(f"Failed to search MCP server: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail="Failed to search MCP server. Please try again."
-        )
+        raise handle_mcp_exception(e, "search")
 
 
 @router.post("/mcp/extract", response_model=ExtractMCPResponse)
@@ -613,11 +611,7 @@ async def extract_mcp_item(
         )
         return {"content": content}
     except Exception as e:
-        logger.error(f"Failed to extract MCP item: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to extract content. Please verify the item ID and try again.",
-        )
+        raise handle_mcp_exception(e, "extract")
 
 
 @router.post("/mcp/query", response_model=QueryMCPResponse)
@@ -669,10 +663,7 @@ async def query_mcp_server(
         )
         return result
     except Exception as e:
-        logger.error(f"Failed to query MCP server: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail="Failed to execute query on MCP server. Please try again."
-        )
+        raise handle_mcp_exception(e, "query")
 
 
 @router.post("/mcp/test-connection", response_model=TestMCPConnectionResponse)
