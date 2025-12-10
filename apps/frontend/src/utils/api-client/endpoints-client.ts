@@ -1,6 +1,6 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { Endpoint } from './interfaces/endpoint';
+import { Endpoint, EndpointTestRequest } from './interfaces/endpoint';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 
 // Default pagination settings
@@ -61,6 +61,16 @@ export class EndpointsClient extends BaseApiClient {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(inputData),
+    });
+  }
+
+  async testEndpoint(testConfig: EndpointTestRequest): Promise<any> {
+    return this.fetch<any>(`${API_ENDPOINTS.endpoints}/test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(testConfig),
     });
   }
 

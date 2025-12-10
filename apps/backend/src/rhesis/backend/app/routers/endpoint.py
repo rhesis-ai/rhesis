@@ -198,6 +198,63 @@ async def invoke_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/test")
+async def test_endpoint(
+    test_config: schemas.EndpointTestRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    endpoint_service: EndpointService = Depends(get_endpoint_service),
+):
+    """
+    Test an endpoint configuration without saving it to the database.
+
+    This endpoint allows testing endpoint connectivity, authentication, and response
+    handling before creating a persistent endpoint record.
+
+    Currently only supports REST endpoints with BEARER_TOKEN authentication.
+
+    Args:
+        test_config: Endpoint test configuration including connection_type, url, method,
+                    request_headers, request_mapping, response_mapping, auth_type,
+                    auth_token, and input_data
+        db: Database session
+        tenant_context: Tenant context for organization and user IDs
+        endpoint_service: The endpoint service instance
+
+    Returns:
+        The response from the endpoint, either mapped or raw depending on endpoint configuration
+    """
+    try:
+        # Safely get connection_type string value
+        connection_type_str = (
+            test_config.connection_type.value
+            if hasattr(test_config.connection_type, "value")
+            else str(test_config.connection_type)
+        )
+        logger.info(
+            f"API test request for endpoint: {test_config.url} "
+            f"({connection_type_str}, {test_config.method})"
+        )
+
+        organization_id, user_id = tenant_context
+        result = await endpoint_service.test_endpoint(
+            db,
+            test_config,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        )
+        logger.info(f"API test successful for endpoint: {test_config.url}")
+        return result
+    except HTTPException as e:
+        logger.error(f"API test HTTPException for endpoint {test_config.url}: {e.detail}")
+        raise e
+    except Exception as e:
+        logger.error(
+            f"API test unexpected error for endpoint {test_config.url}: {str(e)}", exc_info=True
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/schema")
 def get_endpoint_schema(endpoint_service: EndpointService = Depends(get_endpoint_service)):
     """

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import UUID4, ConfigDict
+from pydantic import UUID4, ConfigDict, field_validator
 
 from rhesis.backend.app.models.enums import (
     EndpointAuthType,
@@ -115,6 +115,58 @@ class EndpointUpdate(EndpointBase):
     name: Optional[str] = None
     connection_type: Optional[EndpointConnectionType] = None
     url: Optional[str] = None
+
+
+class EndpointTestRequest(Base):
+    """
+    Schema for testing endpoint configurations without saving to database.
+
+    Currently only supports REST endpoints with BEARER_TOKEN authentication.
+    """
+
+    # Required fields
+    connection_type: EndpointConnectionType
+    url: str
+    method: str
+    request_headers: Dict[str, str]
+    request_mapping: Dict[str, Any]
+    response_mapping: Dict[str, str]
+    auth_type: EndpointAuthType
+    auth_token: str
+    input_data: Dict[str, Any]
+
+    # Optional fields
+    endpoint_path: Optional[str] = None
+    query_params: Optional[Dict[str, Any]] = None
+    response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
+
+    @field_validator("connection_type")
+    @classmethod
+    def validate_connection_type(cls, v):
+        """Validate that connection_type is REST (initial implementation constraint)."""
+        if v != EndpointConnectionType.REST:
+            raise ValueError(f"Only REST endpoints are supported for testing. Got: {v.value}")
+        return v
+
+    @field_validator("auth_type")
+    @classmethod
+    def validate_auth_type(cls, v):
+        """Validate that auth_type is BEARER_TOKEN (initial implementation constraint)."""
+        if v != EndpointAuthType.BEARER_TOKEN:
+            raise ValueError(
+                f"Only BEARER_TOKEN authentication is supported for testing. Got: {v.value}"
+            )
+        return v
+
+    @field_validator("input_data")
+    @classmethod
+    def validate_input_data(cls, v):
+        """Validate that input_data contains the required 'input' field."""
+        if not isinstance(v, dict):
+            raise ValueError("input_data must be a dictionary")
+        if "input" not in v:
+            raise ValueError("input_data must contain an 'input' field")
+        return v
 
 
 class Endpoint(Base):
