@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -67,8 +67,11 @@ export default function SourcePreviewClientWrapper({
   const notifications = useNotifications();
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
-  const [editData, setEditData] = useState<Partial<EditData>>({});
   const [isSaving, setIsSaving] = useState(false);
+
+  // Refs for uncontrolled text fields
+  const titleRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   const displayTitle = truncateFilename(source.title);
 
@@ -156,17 +159,32 @@ export default function SourcePreviewClientWrapper({
   const handleEdit = useCallback(
     (section: EditableSectionType) => {
       setIsEditing(section);
-      setEditData({
-        title: source.title || '',
-        description: source.description || '',
-      });
+      // Populate refs with current values when entering edit mode
+      if (section === 'general') {
+        if (titleRef.current) {
+          titleRef.current.value = source.title || '';
+        }
+        if (descriptionRef.current) {
+          descriptionRef.current.value = source.description || '';
+        }
+      }
     },
     [source]
   );
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(null);
-    setEditData({});
+  }, []);
+
+  // Helper function to collect current field values without triggering re-renders
+  const collectFieldValues = useCallback((): Partial<EditData> => {
+    const values: Partial<EditData> = {};
+
+    if (titleRef.current) values.title = titleRef.current.value;
+    if (descriptionRef.current)
+      values.description = descriptionRef.current.value;
+
+    return values;
   }, []);
 
   const handleConfirmEdit = useCallback(async () => {
@@ -177,16 +195,18 @@ export default function SourcePreviewClientWrapper({
       const clientFactory = new ApiClientFactory(sessionToken);
       const sourcesClient = clientFactory.getSourcesClient();
 
+      // Collect values from refs
+      const fieldValues = collectFieldValues();
+
       await sourcesClient.updateSource(source.id, {
-        title: editData.title,
-        description: editData.description,
+        title: fieldValues.title,
+        description: fieldValues.description,
       });
 
       // Update the source object to reflect changes
-      source.title = editData.title || source.title;
-      source.description = editData.description || source.description;
+      source.title = fieldValues.title || source.title;
+      source.description = fieldValues.description || source.description;
       setIsEditing(null);
-      setEditData({});
 
       notifications.show('Source updated successfully', {
         severity: 'success',
@@ -198,7 +218,7 @@ export default function SourcePreviewClientWrapper({
     } finally {
       setIsSaving(false);
     }
-  }, [sessionToken, source, editData, notifications]);
+  }, [sessionToken, source, collectFieldValues, notifications]);
 
   // EditableSection component
   const EditableSection = React.memo(
@@ -493,28 +513,23 @@ export default function SourcePreviewClientWrapper({
               >
                 <InfoRow label="Title">
                   <TextField
+                    key={`title-${source.id}`}
                     fullWidth
                     required
-                    value={editData.title || ''}
-                    onChange={e =>
-                      setEditData(prev => ({ ...prev, title: e.target.value }))
-                    }
+                    inputRef={titleRef}
+                    defaultValue={source.title || ''}
                     placeholder="Enter source title"
                   />
                 </InfoRow>
 
                 <InfoRow label="Description">
                   <TextField
+                    key={`description-${source.id}`}
                     fullWidth
                     multiline
                     rows={4}
-                    value={editData.description || ''}
-                    onChange={e =>
-                      setEditData(prev => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
+                    inputRef={descriptionRef}
+                    defaultValue={source.description || ''}
                     placeholder="Enter source description"
                   />
                 </InfoRow>
