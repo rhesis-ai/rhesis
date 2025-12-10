@@ -3,11 +3,11 @@
 from rhesis.sdk.services.mcp.agent import MCPAgent
 from rhesis.sdk.services.mcp.client import MCPClient, MCPClientManager
 from rhesis.sdk.services.mcp.exceptions import (
-    MCPAuthenticationError,
+    MCPApplicationError,
+    MCPConfigurationError,
     MCPConnectionError,
-    MCPDataFormatError,
     MCPError,
-    MCPNotFoundError,
+    MCPValidationError,
 )
 from rhesis.sdk.services.mcp.executor import ToolExecutor
 from rhesis.sdk.services.mcp.schemas import (
@@ -27,9 +27,11 @@ __all__ = [
     "ToolExecutor",
     # Exceptions
     "MCPError",
-    "MCPAuthenticationError",
-    "MCPNotFoundError",
-    "MCPDataFormatError",
+    "MCPClientError",
+    "MCPConfigurationError",
+    "MCPValidationError",
+    "MCPApplicationError",
+    "MCPServerError",
     "MCPConnectionError",
     # Schemas
     "AgentAction",
