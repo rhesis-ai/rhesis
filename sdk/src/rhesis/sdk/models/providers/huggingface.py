@@ -132,14 +132,14 @@ class HuggingFaceLLM(BaseLLM):
             print(f"Loading model from HuggingFace Hub: {self.model_name}")
 
         # Configure kwargs based on whether we have a local path
-        # trust_remote_code is needed for local custom models
+        # trust_remote_code is needed for model loading with custom architectures
+        # Note: We only pass trust_remote_code to the MODEL, not the tokenizer
+        # Passing it to tokenizer causes "dict has no attribute model_type" error
         load_kwargs = {**self.load_kwargs}
-        tokenizer_kwargs = {}
 
         if self.model_path:
-            # Local path - need trust_remote_code for custom models
+            # Local path - need trust_remote_code for custom model architectures
             load_kwargs["trust_remote_code"] = True
-            tokenizer_kwargs["trust_remote_code"] = True
 
         # Load model and tokenizer using the SAME model_source
         # Transformers auto-detects if model_source is a local path or Hub ID
@@ -148,9 +148,10 @@ class HuggingFaceLLM(BaseLLM):
             device_map=device_map,
             **load_kwargs,
         )
+        # Tokenizer loaded WITHOUT trust_remote_code to avoid config dict/object issues
+        # The tokenizer will still load correctly from local paths
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_source,
-            **tokenizer_kwargs,
         )
 
         # Get the device for input tensors
