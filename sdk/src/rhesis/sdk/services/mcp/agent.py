@@ -9,6 +9,7 @@ from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.services.mcp.client import MCPClient
 from rhesis.sdk.services.mcp.exceptions import (
+    MCPApplicationError,
     MCPConfigurationError,
     MCPConnectionError,
     MCPValidationError,
@@ -158,6 +159,7 @@ Remember: You must explicitly use action="finish" when done."""
             MCPConnectionError,
             MCPConfigurationError,
             MCPValidationError,
+            MCPApplicationError,
         ):
             # Propagate MCP exceptions directly
             raise
@@ -350,8 +352,8 @@ Remember: You must explicitly use action="finish" when done."""
                     else:
                         print(f"      ✗ {result.tool_name}: {result.error}")
 
-            except (MCPConnectionError, MCPConfigurationError):
-                # Infrastructure/config failures - propagate immediately
+            except (MCPConnectionError, MCPConfigurationError, MCPApplicationError):
+                # Infrastructure/config/application failures - propagate immediately
                 raise
 
         return tool_results
