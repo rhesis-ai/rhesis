@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import ConversationHistory from '@/components/common/ConversationHistory';
 import {
   Box,
   Typography,
@@ -14,6 +15,8 @@ import {
   Autocomplete,
   TextField,
   useTheme,
+  Button,
+  Collapse,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
@@ -21,6 +24,11 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { UUID } from 'crypto';
+import { isMultiTurnTest } from '@/constants/test-types';
+import {
+  isMultiTurnConfig,
+  MultiTurnTestConfig,
+} from '@/utils/api-client/interfaces/multi-turn-test-config';
 
 interface ProjectOption {
   id: UUID;
@@ -63,23 +71,66 @@ export default function TrialDrawer({
   const [trialResponse, setTrialResponse] = useState<any>(null);
   const [trialInProgress, setTrialInProgress] = useState(false);
   const [trialCompleted, setTrialCompleted] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [selectedProjectData, setSelectedProjectData] =
+    useState<Project | null>(null);
   const notifications = useNotifications();
+  const hasLoadedRef = useRef(false);
+  const testIdsRef = useRef<string>('');
 
   // Fetch projects, endpoints, and test data
   useEffect(() => {
+    console.log('[TrialDrawer] useEffect triggered', {
+      open,
+      sessionToken: sessionToken ? 'present' : 'missing',
+      testIds,
+      hasLoadedRef: hasLoadedRef.current,
+    });
+
     const fetchData = async () => {
-      if (!sessionToken || !open) return;
+      if (!sessionToken || !open) {
+        console.log(
+          '[TrialDrawer] Skipping fetch - sessionToken or open is false'
+        );
+        return;
+      }
+
+      // Check if testIds actually changed (not just reference)
+      const testIdsKey = JSON.stringify(testIds);
+      const isTestIdsChanged = testIdsRef.current !== testIdsKey;
+      console.log('[TrialDrawer] TestIds check', {
+        current: testIdsRef.current,
+        new: testIdsKey,
+        isTestIdsChanged,
+        hasLoadedRef: hasLoadedRef.current,
+      });
+      testIdsRef.current = testIdsKey;
+
+      // Only fetch if it's the first load or testIds actually changed
+      if (!isTestIdsChanged && hasLoadedRef.current) {
+        console.log(
+          '[TrialDrawer] Skipping fetch - already loaded and testIds unchanged'
+        );
+        return;
+      }
+
+      // Only reset state on initial open, not on subsequent re-renders
+      const isInitialOpen = !hasLoadedRef.current;
+      console.log('[TrialDrawer] Starting data fetch', { isInitialOpen });
 
       try {
         setLoading(true);
-        setTrialResponse(null);
-        setTrialCompleted(false);
-        setError(undefined);
+        if (isInitialOpen) {
+          setTrialResponse(null);
+          setTrialCompleted(false);
+          setError(undefined);
+        }
         const clientFactory = new ApiClientFactory(sessionToken);
 
         // Fetch test data (we only support single test trial for now)
         if (testIds.length > 0) {
           try {
+            console.log('[TrialDrawer] Fetching test data for:', testIds[0]);
             const testsClient = clientFactory.getTestsClient();
             const testDetail = await testsClient.getTest(testIds[0]);
 
@@ -100,6 +151,7 @@ export default function TrialDrawer({
 
         // Fetch projects with proper response handling
         try {
+          console.log('[TrialDrawer] Fetching projects...');
           const projectsClient = clientFactory.getProjectsClient();
           const projectsData = await projectsClient.getProjects({
             sort_by: 'name',
@@ -133,6 +185,7 @@ export default function TrialDrawer({
 
         // Fetch all endpoints
         try {
+          console.log('[TrialDrawer] Fetching endpoints...');
           const endpointsClient = clientFactory.getEndpointsClient();
           const endpointsResponse = await endpointsClient.getEndpoints({
             sort_by: 'name',
@@ -162,18 +215,31 @@ export default function TrialDrawer({
           );
         }
       } catch (error) {
+        console.error('[TrialDrawer] Error loading data:', error);
         setError(
           'Failed to load data. Please check your connection and try again.'
         );
       } finally {
         setLoading(false);
+        hasLoadedRef.current = true;
+        console.log(
+          '[TrialDrawer] Data fetch completed, hasLoadedRef set to true'
+        );
       }
     };
 
     if (open) {
+      console.log('[TrialDrawer] Drawer opened, calling fetchData');
       fetchData();
+    } else {
+      console.log('[TrialDrawer] Drawer closed, resetting refs');
+      // Reset the refs when drawer closes so next open will be treated as initial
+      hasLoadedRef.current = false;
+      testIdsRef.current = '';
     }
-  }, [sessionToken, open, testIds, notifications]);
+    // testIds is intentionally not in deps - we track changes via testIdsRef to avoid re-running on array reference changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionToken, open]);
 
   // Filter endpoints when project changes
   useEffect(() => {
@@ -203,24 +269,110 @@ export default function TrialDrawer({
   };
 
   const handleSave = async () => {
-    if (!sessionToken || !selectedEndpoint || !testData?.prompt?.content)
-      return;
+    console.log('[TrialDrawer] handleSave called');
+    if (!sessionToken || !selectedEndpoint || !testData) return;
+
+    // Determine test type
+    const isMultiTurn = isMultiTurnTest(testData.test_type?.type_value);
+
+    // Validate based on test type
+    if (isMultiTurn) {
+      // For multi-turn, check test_configuration
+      if (
+        !testData.test_configuration ||
+        !isMultiTurnConfig(testData.test_configuration)
+      ) {
+        setError('Invalid multi-turn test configuration');
+        return;
+      }
+    } else {
+      // For single-turn, check prompt content
+      if (!testData.prompt?.content) {
+        setError('Test prompt is missing');
+        return;
+      }
+    }
 
     try {
+      // Clear previous results immediately when starting a new execution
+      setTrialResponse(null);
       setTrialInProgress(true);
+      setError(undefined);
 
       const clientFactory = new ApiClientFactory(sessionToken);
-      const endpointsClient = clientFactory.getEndpointsClient();
 
-      const data = await endpointsClient.invokeEndpoint(selectedEndpoint, {
-        input: testData.prompt.content,
-      });
+      if (isMultiTurn) {
+        // Multi-turn test execution
+        const testsClient = clientFactory.getTestsClient();
+        const config = testData.test_configuration as MultiTurnTestConfig;
 
-      setTrialResponse(data);
+        const executeRequest = {
+          endpoint_id:
+            selectedEndpoint as `${string}-${string}-${string}-${string}-${string}`,
+          test_configuration: {
+            goal: config.goal,
+            instructions: config.instructions,
+            restrictions: config.restrictions,
+            scenario: config.scenario,
+            max_turns: config.max_turns,
+          },
+          behavior: testData.behavior?.name || '',
+          topic: testData.topic?.name || '',
+          category: testData.category?.name || '',
+          evaluate_metrics: false,
+        };
+
+        const executeResponse = await testsClient.executeTest(executeRequest);
+
+        // Extract conversation from test_output
+        let conversation = [];
+        if (
+          executeResponse.test_output &&
+          typeof executeResponse.test_output === 'object'
+        ) {
+          // Check for conversation_summary
+          if (executeResponse.test_output.conversation_summary) {
+            conversation = executeResponse.test_output.conversation_summary;
+          }
+          // Also check if test_output itself is an array (alternative structure)
+          else if (Array.isArray(executeResponse.test_output)) {
+            conversation = executeResponse.test_output;
+          }
+        }
+
+        setTrialResponse({
+          type: 'multi_turn',
+          conversation,
+          execution_time: executeResponse.execution_time,
+          status: executeResponse.status,
+          raw_response: executeResponse, // Keep full response for debugging
+        });
+      } else {
+        // Single-turn test execution
+        const endpointsClient = clientFactory.getEndpointsClient();
+
+        const data = await endpointsClient.invokeEndpoint(selectedEndpoint, {
+          input: testData.prompt?.content || '',
+        });
+
+        setTrialResponse({
+          type: 'single_turn',
+          output: data?.output || data,
+        });
+      }
+
+      console.log('[TrialDrawer] Test execution completed successfully');
+      notifications.show('Test executed successfully', { severity: 'success' });
+      console.log('[TrialDrawer] Success notification shown');
     } catch (error) {
-      setError('Failed to execute trial');
+      console.log('[TrialDrawer] Test execution failed', error);
+      setError(
+        `Failed to execute test: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      notifications.show('Failed to execute test', { severity: 'error' });
     } finally {
       setTrialInProgress(false);
+      console.log('[TrialDrawer] handleSave completed');
     }
   };
 
@@ -231,21 +383,66 @@ export default function TrialDrawer({
       title="Run Test"
       loading={loading || trialInProgress}
       error={error}
-      onSave={handleSave}
-      saveButtonText={trialInProgress ? 'Running Test...' : 'Run Test'}
+      onSave={trialResponse ? onClose : handleSave}
+      saveButtonText={
+        trialResponse
+          ? 'Close'
+          : trialInProgress
+            ? 'Running Test...'
+            : 'Run Test'
+      }
+      closeButtonText={trialResponse ? '' : 'Cancel'}
+      width={900}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <FormControl fullWidth>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+          height: '100%',
+          overflow: 'hidden',
+        }}
+      >
+        <FormControl fullWidth sx={{ mt: 1 }}>
           <Autocomplete
             options={projects}
             value={projects.find(p => p.id === selectedProject) || null}
-            onChange={(_, newValue) => {
+            onChange={async (_, newValue) => {
+              console.log('[TrialDrawer] Project selected:', newValue);
               if (!newValue) {
                 setSelectedProject(null);
+                setSelectedProjectData(null);
                 return;
               }
               setSelectedProject(newValue.id);
               setSelectedEndpoint(null);
+
+              // Fetch full project data to get icon
+              try {
+                console.log(
+                  '[TrialDrawer] Fetching project details for:',
+                  newValue.id
+                );
+                const clientFactory = new ApiClientFactory(sessionToken);
+                const projectsClient = clientFactory.getProjectsClient();
+                const projectData = await projectsClient.getProject(
+                  newValue.id
+                );
+                setSelectedProjectData(projectData);
+                console.log(
+                  '[TrialDrawer] Project details fetched successfully'
+                );
+              } catch (error) {
+                console.error(
+                  '[TrialDrawer] Failed to fetch project details:',
+                  error
+                );
+                // Fallback to basic data if fetch fails
+                setSelectedProjectData({
+                  id: newValue.id,
+                  name: newValue.name,
+                } as Project);
+              }
             }}
             getOptionLabel={option => option.name}
             renderOption={(props, option) => {
@@ -330,10 +527,11 @@ export default function TrialDrawer({
           )}
         </FormControl>
 
+        {/* Test Content - Single-Turn */}
         {testData?.prompt?.content && (
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
-              Test Executable
+              Test Prompt
             </Typography>
             <Typography
               variant="body2"
@@ -343,7 +541,7 @@ export default function TrialDrawer({
                 fontFamily: 'monospace',
                 p: 1,
                 bgcolor: 'action.hover',
-                borderRadius: theme.shape.borderRadius,
+                borderRadius: theme.shape.sharp,
                 minHeight: '100px',
               }}
             >
@@ -352,24 +550,252 @@ export default function TrialDrawer({
           </Paper>
         )}
 
-        <Paper variant="outlined" sx={{ p: 2 }}>
+        {/* Test Content - Multi-Turn */}
+        {testData &&
+          isMultiTurnTest(testData.test_type?.type_value) &&
+          isMultiTurnConfig(testData.test_configuration) && (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Test Configuration
+              </Typography>
+
+              {/* Goal - Always visible */}
+              <Box sx={{ mb: 2 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}
+                >
+                  Goal:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  component="pre"
+                  sx={{
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'monospace',
+                    p: 1,
+                    bgcolor: 'action.hover',
+                    borderRadius: theme.shape.sharp,
+                  }}
+                >
+                  {testData.test_configuration.goal}
+                </Typography>
+              </Box>
+
+              {/* Collapsible Details */}
+              {(testData.test_configuration.instructions ||
+                testData.test_configuration.scenario ||
+                testData.test_configuration.restrictions) && (
+                <>
+                  <Button
+                    size="small"
+                    onClick={() => setShowDetails(!showDetails)}
+                    sx={{ mb: 1, textTransform: 'none' }}
+                  >
+                    {showDetails ? 'Hide Details' : 'Show Details'}
+                  </Button>
+                  <Collapse in={showDetails}>
+                    <Box
+                      sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+                    >
+                      {testData.test_configuration.instructions && (
+                        <Box>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{
+                              fontWeight: 'bold',
+                              display: 'block',
+                              mb: 0.5,
+                            }}
+                          >
+                            Instructions:
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            component="pre"
+                            sx={{
+                              whiteSpace: 'pre-wrap',
+                              fontFamily: 'monospace',
+                              p: 1,
+                              bgcolor: 'action.hover',
+                              borderRadius: theme.shape.sharp,
+                            }}
+                          >
+                            {testData.test_configuration.instructions}
+                          </Typography>
+                        </Box>
+                      )}
+                      {testData.test_configuration.scenario && (
+                        <Box>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{
+                              fontWeight: 'bold',
+                              display: 'block',
+                              mb: 0.5,
+                            }}
+                          >
+                            Scenario:
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            component="pre"
+                            sx={{
+                              whiteSpace: 'pre-wrap',
+                              fontFamily: 'monospace',
+                              p: 1,
+                              bgcolor: 'action.hover',
+                              borderRadius: theme.shape.sharp,
+                            }}
+                          >
+                            {testData.test_configuration.scenario}
+                          </Typography>
+                        </Box>
+                      )}
+                      {testData.test_configuration.restrictions && (
+                        <Box>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{
+                              fontWeight: 'bold',
+                              display: 'block',
+                              mb: 0.5,
+                            }}
+                          >
+                            Restrictions:
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            component="pre"
+                            sx={{
+                              whiteSpace: 'pre-wrap',
+                              fontFamily: 'monospace',
+                              p: 1,
+                              bgcolor: 'action.hover',
+                              borderRadius: theme.shape.sharp,
+                            }}
+                          >
+                            {testData.test_configuration.restrictions}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </Collapse>
+                </>
+              )}
+            </Paper>
+          )}
+
+        {/* Response Output */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            minHeight: 0,
+          }}
+        >
           <Typography variant="subtitle2" gutterBottom>
             Response Output
+            {trialInProgress && <CircularProgress size={16} sx={{ ml: 1 }} />}
           </Typography>
-          <Typography
-            variant="body2"
-            component="pre"
+
+          <Box
             sx={{
-              whiteSpace: 'pre-wrap',
-              fontFamily: 'monospace',
-              p: 1,
-              bgcolor: 'action.hover',
-              borderRadius: theme.shape.borderRadius,
-              minHeight: '100px',
+              flex: 1,
+              overflow: 'auto',
+              minHeight: 0,
             }}
           >
-            {trialResponse?.output || 'Run the trial to see the response'}
-          </Typography>
+            {!trialResponse ? (
+              <Typography
+                variant="body2"
+                component="pre"
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'monospace',
+                  p: 1,
+                  bgcolor: 'action.hover',
+                  borderRadius: theme.shape.sharp,
+                  minHeight: '100px',
+                  color: 'text.secondary',
+                }}
+              >
+                Run the test to see the response
+              </Typography>
+            ) : trialResponse.type === 'multi_turn' ? (
+              // Multi-turn response
+              <Box>
+                {trialResponse.conversation &&
+                trialResponse.conversation.length > 0 ? (
+                  <Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Test Execution: {trialResponse.conversation.length}{' '}
+                        turns completed
+                      </Typography>
+                    </Box>
+                    <ConversationHistory
+                      conversationSummary={trialResponse.conversation}
+                      project={selectedProjectData || undefined}
+                      projectName={selectedProjectData?.name}
+                      maxHeight="100%"
+                    />
+                  </Box>
+                ) : (
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 1 }}
+                    >
+                      No conversation data available. Raw response:
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      component="pre"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        fontFamily: 'monospace',
+                        p: 1,
+                        bgcolor: 'action.hover',
+                        borderRadius: theme.shape.sharp,
+                        minHeight: '100px',
+                        ...theme.typography.chartLabel,
+                        overflow: 'auto',
+                        maxHeight: '400px',
+                      }}
+                    >
+                      {JSON.stringify(trialResponse.raw_response, null, 2)}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            ) : (
+              // Single-turn response
+              <Typography
+                variant="body2"
+                component="pre"
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'monospace',
+                  p: 1,
+                  bgcolor: 'action.hover',
+                  borderRadius: theme.shape.sharp,
+                  minHeight: '100px',
+                }}
+              >
+                {trialResponse.output || 'No response received'}
+              </Typography>
+            )}
+          </Box>
         </Paper>
       </Box>
     </BaseDrawer>
