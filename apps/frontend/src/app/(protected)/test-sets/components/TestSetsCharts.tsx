@@ -176,14 +176,14 @@ export default function TestSetsCharts() {
       .slice(0, CHART_CONFIG.status.top);
   };
 
-  // Generate creator data using organization property
+  // Generate creator data using user property
   const generateCreatorData = () => {
-    if (!testSetStats?.stats.organization) {
+    if (!testSetStats?.stats.user) {
       return FALLBACK_DATA.noData;
     }
 
     const { stats } = testSetStats;
-    return Object.entries(stats.organization.breakdown)
+    return Object.entries(stats.user.breakdown)
       .map(([name, value]) => ({
         name: truncateName(name),
         value: value as number,
