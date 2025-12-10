@@ -5,7 +5,13 @@ from .comment import Comment, CommentBase, CommentCreate, CommentUpdate
 from .demographic import Demographic, DemographicBase, DemographicCreate, DemographicUpdate
 from .dimension import Dimension, DimensionBase, DimensionCreate, DimensionUpdate
 from .emoji_reaction import CommentEmojis, EmojiReaction
-from .endpoint import Endpoint, EndpointBase, EndpointCreate, EndpointUpdate
+from .endpoint import (
+    Endpoint,
+    EndpointBase,
+    EndpointCreate,
+    EndpointTestRequest,
+    EndpointUpdate,
+)
 from .metric import Metric, MetricBase, MetricCreate, MetricDetail, MetricUpdate, ScoreType
 from .model import Model, ModelBase, ModelCreate, ModelUpdate
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
@@ -142,6 +148,7 @@ __all__ = [
     "Endpoint",
     "EndpointBase",
     "EndpointCreate",
+    "EndpointTestRequest",
     "EndpointUpdate",
     "Model",
     "ModelBase",
