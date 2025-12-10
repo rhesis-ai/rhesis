@@ -87,8 +87,8 @@ export function TaskCreationDrawer({
     await onSubmit({
       title: title.trim(),
       description: description.trim(),
-      priority_id: priorityId || undefined,
-      assignee_id: assigneeId || undefined,
+      priority_id: priorityId || null,
+      assignee_id: assigneeId || null,
       entity_type: entityType,
       entity_id: entityId,
       task_metadata: commentId ? { comment_id: commentId } : undefined,

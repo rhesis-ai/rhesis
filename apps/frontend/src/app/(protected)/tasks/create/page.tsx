@@ -184,7 +184,7 @@ export default function CreateTaskPage() {
         description: formData.description,
         status_id: formData.status_id,
         priority_id: formData.priority_id,
-        assignee_id: formData.assignee_id || undefined,
+        assignee_id: formData.assignee_id || null,
         entity_type: formData.entity_type,
         entity_id: formData.entity_id,
         task_metadata: formData.task_metadata,
