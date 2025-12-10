@@ -197,7 +197,7 @@ export const Footer = ({
                   <h3 style={styles.sectionTitle}>{section.title}</h3>
                   <ul style={styles.linkList}>
                     {section.links.map((link, linkIndex) => (
-                      <li key={linkIndex}>
+                      <li key={`${section.title}-link-${linkIndex}`}>
                         <a
                           href={link.href}
                           target={link.external ? '_blank' : '_self'}
@@ -213,7 +213,7 @@ export const Footer = ({
                     {additionalLinks
                       .filter(link => link.section === section.title.toLowerCase())
                       .map((link, linkIndex) => (
-                        <li key={`additional-${linkIndex}`}>
+                        <li key={`${section.title}-additional-${linkIndex}`}>
                           <a
                             href={link.href}
                             target={link.external ? '_blank' : '_self'}
@@ -242,7 +242,7 @@ export const Footer = ({
             <div style={styles.legalLinks}>
               {legalLinks.map((link, index) => (
                 <a
-                  key={index}
+                  key={`legal-default-${index}`}
                   href={link.href}
                   target={link.external ? '_blank' : '_self'}
                   rel={link.external ? 'noopener noreferrer' : undefined}
@@ -257,7 +257,7 @@ export const Footer = ({
                 .filter(link => link.section === 'legal')
                 .map((link, index) => (
                   <a
-                    key={`legal-${index}`}
+                    key={`legal-additional-${index}`}
                     href={link.href}
                     target={link.external ? '_blank' : '_self'}
                     rel={link.external ? 'noopener noreferrer' : undefined}
