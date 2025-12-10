@@ -55,8 +55,9 @@ RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
 
 # Install dependencies using uv sync
 # Use cache mount for faster builds and install only production dependencies
+# Note: SDK, Penelope, and Backend are installed in editable mode from local paths
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-dev --no-editable
+    uv sync --no-dev
 
 # Now copy ALL source code - this layer will invalidate when any source changes
 COPY apps/polyphemus/src /app/src
