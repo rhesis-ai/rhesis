@@ -25,6 +25,7 @@ interface BaseFreesoloAutocompleteProps {
   label: string;
   required?: boolean;
   popperWidth?: number | string;
+  disabled?: boolean;
 }
 
 // Extend PopperProps to include our custom popperWidth property
@@ -103,6 +104,7 @@ export default function BaseFreesoloAutocomplete({
   label,
   required = false,
   popperWidth,
+  disabled = false,
 }: BaseFreesoloAutocompleteProps) {
   // Create filter for autocomplete
   const filter = createFilterOptions<AutocompleteOption>();
@@ -175,6 +177,7 @@ export default function BaseFreesoloAutocomplete({
         options={options}
         getOptionLabel={getOptionLabel}
         PopperComponent={ForwardedPopper}
+        disabled={disabled}
         filterOptions={(options, params) => {
           // Cast to AutocompleteOption[] - since we know MUI provides valid options internally
           const filtered = filter(options as AutocompleteOption[], params);
