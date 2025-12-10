@@ -143,9 +143,11 @@ export default function BaseDrawer({
           </Typography>
         )}
         <Stack direction="row" spacing={2} justifyContent="flex-end">
-          <Button onClick={onClose} disabled={loading}>
-            {closeButtonText}
-          </Button>
+          {closeButtonText && (
+            <Button onClick={onClose} disabled={loading}>
+              {closeButtonText}
+            </Button>
+          )}
           {onSave && (
             <Button
               variant="contained"
