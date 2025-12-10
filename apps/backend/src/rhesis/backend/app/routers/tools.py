@@ -33,23 +33,42 @@ def create_tool(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Create a new tool integration.
+    Create a new tool.
 
-    The credentials (JSON dict) will be encrypted in the database.
-    Examples: {"NOTION_TOKEN": "ntn_abc..."} or {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_abc..."}
+    A tool allows the system to connect to an external service or API. Examples of tools are:
 
-    For custom providers (provider_type="custom"), you must provide the MCP server configuration
-    in tool_metadata with credential placeholders. Placeholders MUST use simple format like
-    {{ TOKEN }} (not {{ TOKEN | tojson }}) because the JSON must be valid before Jinja2 rendering.
+    - MCPs
+    - APIs
 
-    Example tool_metadata for custom provider:
+    Currently, we support the following MCP tool providers:
+
+    1. **Notion**
+    - Store the Notion token in the credentials dictionary with the key `"NOTION_TOKEN"`.
+    - Example:
+        ```json
+        {"NOTION_TOKEN": "ntn_abc..."}
+        ```
+
+    2. **Custom MCP provider**
+    - The MCP server configuration JSON should be provided in `tool_metadata`
+    - The API token should be stored in the credentials dictionary
+    - The custom provider should use **npx** to run the MCP server.
+
+    Example `tool_metadata` for a custom provider:
+    ```json
     {
-        "command": "bunx",
-        "args": ["--bun", "@custom/mcp-server"],
+        "command": "npx",
+        "args": ["@example/mcp-server"],
         "env": {
-            "NOTION_TOKEN": "{{ NOTION_TOKEN }}"
+            "API_TOKEN": "{{ TOKEN }}"
         }
     }
+    ```
+
+    Where the credentials dictionary is:
+    ```json
+    {"TOKEN": "your_api_token_123"}
+    ```
     """
     organization_id, user_id = tenant_context
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
