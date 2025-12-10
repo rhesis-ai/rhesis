@@ -172,6 +172,9 @@ export default function EndpointForm() {
   const [urlError] = useState<string | null>(null);
   const [testResponse, setTestResponse] = useState<string>('');
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
+  const [testInput, setTestInput] = useState<string>(`{
+  "input": "[place your input here]"
+}`);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
   const [showAuthToken, setShowAuthToken] = useState(false);
@@ -201,7 +204,7 @@ export default function EndpointForm() {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
-    connection_type: 'REST',
+    connection_type: 'REST', // Fixed to REST for now
     url: '',
     environment: 'development',
     config_source: 'manual',
@@ -477,19 +480,16 @@ export default function EndpointForm() {
                     <InputLabel>Connection Type</InputLabel>
                     <Select
                       name="connectionType"
-                      value={formData.connection_type}
-                      onChange={e =>
-                        handleChange('connection_type', e.target.value)
-                      }
+                      value="REST"
                       label="Connection Type"
                       required
+                      disabled
                     >
-                      {CONNECTION_TYPES.map(connectionType => (
-                        <MenuItem key={connectionType} value={connectionType}>
-                          {connectionType}
-                        </MenuItem>
-                      ))}
+                      <MenuItem value="REST">REST</MenuItem>
                     </Select>
+                    <FormHelperText>
+                      Only REST endpoints are supported at this time
+                    </FormHelperText>
                   </FormControl>
                 </Grid>
                 <Grid
@@ -858,9 +858,8 @@ export default function EndpointForm() {
                   height="200px"
                   defaultLanguage="json"
                   theme={editorTheme}
-                  defaultValue={`{
-  "input": "[place your input here]"
-}`}
+                  value={testInput}
+                  onChange={value => setTestInput(value || '')}
                   options={{
                     minimap: { enabled: false },
                     lineNumbers: 'on',
@@ -886,22 +885,94 @@ export default function EndpointForm() {
                 color="primary"
                 onClick={async () => {
                   setIsTestingEndpoint(true);
+                  setTestResponse('');
                   try {
-                    // TODO: Implement actual test logic here
-                    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulated delay
-                    setTestResponse(
-                      JSON.stringify(
-                        {
-                          success: true,
-                          message: 'Response from endpoint',
-                          data: {
-                            output: 'Sample response data',
-                          },
-                        },
-                        null,
-                        2
-                      )
-                    );
+                    // Validate required fields
+                    if (!formData.url || !validateUrl(formData.url)) {
+                      throw new Error('Please enter a valid URL');
+                    }
+                    if (!formData.connection_type) {
+                      throw new Error('Connection type is required');
+                    }
+                    if (!formData.method) {
+                      throw new Error('Method is required');
+                    }
+                    if (!formData.auth_token) {
+                      throw new Error('Auth token is required for testing');
+                    }
+
+                    // Parse test input
+                    let inputData;
+                    try {
+                      inputData = JSON.parse(testInput);
+                    } catch (error) {
+                      throw new Error('Invalid JSON in test input data');
+                    }
+
+                    // Parse JSON fields
+                    let requestHeaders: Record<string, string> = {};
+                    let requestMapping: Record<string, any> = {};
+                    let responseMapping: Record<string, string> = {};
+
+                    try {
+                      if (
+                        formData.request_headers &&
+                        formData.request_headers.trim()
+                      ) {
+                        requestHeaders = JSON.parse(formData.request_headers);
+                      }
+                    } catch {
+                      throw new Error('Invalid JSON in request headers');
+                    }
+
+                    try {
+                      if (
+                        formData.request_mapping &&
+                        formData.request_mapping.trim()
+                      ) {
+                        requestMapping = JSON.parse(formData.request_mapping);
+                      }
+                    } catch {
+                      throw new Error('Invalid JSON in request mapping');
+                    }
+
+                    try {
+                      if (
+                        formData.response_mapping &&
+                        formData.response_mapping.trim()
+                      ) {
+                        responseMapping = JSON.parse(formData.response_mapping);
+                      }
+                    } catch {
+                      throw new Error('Invalid JSON in response mapping');
+                    }
+
+                    // Build test request
+                    const testRequest = {
+                      connection_type: formData.connection_type as 'REST',
+                      url: formData.url,
+                      method: formData.method,
+                      request_headers: requestHeaders,
+                      request_mapping: requestMapping,
+                      response_mapping: responseMapping,
+                      auth_type: 'bearer_token' as const,
+                      auth_token: formData.auth_token,
+                      input_data: inputData,
+                      endpoint_path: formData.endpoint_path || undefined,
+                      response_format: formData.response_format || 'json',
+                    };
+
+                    // Call test endpoint API
+                    if (!session?.session_token) {
+                      throw new Error('Session token not available');
+                    }
+
+                    const client = new ApiClientFactory(
+                      session.session_token
+                    ).getEndpointsClient();
+                    const result = await client.testEndpoint(testRequest);
+
+                    setTestResponse(JSON.stringify(result, null, 2));
                   } catch (error) {
                     setTestResponse(
                       JSON.stringify(
