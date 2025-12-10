@@ -588,7 +588,7 @@ export default function BaseDataGrid({
           <TextField
             inputRef={quickFilterInputRef}
             size="small"
-            placeholder="Search by title or description..."
+            placeholder="Search..."
             defaultValue=""
             onChange={handleQuickFilterChange}
             sx={{ minWidth: 250 }}
