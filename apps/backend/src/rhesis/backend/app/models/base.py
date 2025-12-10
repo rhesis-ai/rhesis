@@ -21,7 +21,9 @@ class Base:
     id = Column(
         GUID(), primary_key=True, index=True, unique=True, server_default=text("gen_random_uuid()")
     )
-    nano_id = Column(String, default=lambda: generate(size=12, alphabet=custom_alphabet))
+    nano_id = Column(
+        String, unique=True, default=lambda: generate(size=12, alphabet=custom_alphabet)
+    )
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
 
