@@ -1,0 +1,243 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Connector
+
+Register Python functions as testable endpoints in Rhesis using the SDK connector. This code-first approach automatically creates and manages endpoints, providing an alternative to [manual endpoint configuration](/platform/endpoints/index).
+
+<Callout type="info">
+  **How it works**: Decorate functions with `@collaborate` and they automatically become endpoints
+  in Rhesis. The SDK connects via WebSocket, registers function metadata, and keeps endpoints in
+  sync with your code.
+</Callout>
+
+## Quick Start
+
+<Steps>
+### 1. Initialize the Client
+
+<CodeBlock filename="setup.py" language="python">
+{`from rhesis.sdk import RhesisClient
+
+client = RhesisClient(
+api_key="your-api-key",
+project_id="your-project-id",
+environment="development" # Required: "development", "staging", or "production"
+)`}
+
+</CodeBlock>
+
+### 2. Decorate Functions
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import collaborate
+
+@collaborate()
+def chat(input: str, session_id: str = None) -> dict:
+"""Handle chat messages."""
+return {
+"output": process_message(input),
+"session_id": session_id or generate_session_id()
+}`}
+
+</CodeBlock>
+
+### 3. Automatic Registration
+
+When your app starts, functions are automatically registered as endpoints. View them in **Projects** → **Your Project** → **Endpoints**.
+
+</Steps>
+
+## Environment
+
+The `environment` parameter is **required** and must be one of:
+
+- **`development`**: Local iteration and testing
+- **`staging`**: Pre-production validation
+- **`production`**: Live systems
+
+<Callout type="warning">
+  **Production**: Changes take effect immediately. Test in development/staging first.
+</Callout>
+
+<CodeBlock filename="config.py" language="python">
+{`import os
+
+client = RhesisClient(
+api_key=os.getenv("RHESIS_API_KEY"),
+project_id=os.getenv("RHESIS_PROJECT_ID"),
+environment=os.getenv("RHESIS_ENVIRONMENT", "development")
+)`}
+
+</CodeBlock>
+
+## Mapping
+
+### Auto-Mapping (Recommended)
+
+Use standard field names for automatic detection:
+
+<CodeBlock filename="auto_mapping.py" language="python">
+  {`@collaborate()
+def chat(input: str, session_id: str = None) -> dict:
+    """Standard names auto-detect."""
+    return {
+        "output": process_message(input),
+        "session_id": session_id
+    }`}
+</CodeBlock>
+
+**Standard fields**:
+
+- Request: `input`, `session_id`, `context`, `metadata`, `tool_calls`
+- Response: `output`, `context`, `metadata`, `tool_calls`, `session_id`
+
+### Manual Mapping
+
+For custom parameter names or complex structures, provide explicit mappings:
+
+<CodeBlock filename="manual_mapping.py" language="python">
+  {`@collaborate(
+    request_mapping={
+        "user_query": "{{ input }}",
+        "conv_id": "{{ session_id }}"
+    },
+    response_mapping={
+        "output": "$.result.text",
+        "session_id": "$.conv_id"
+    }
+)
+def chat(user_query: str, conv_id: str = None) -> dict:
+    """Custom names require manual mapping."""
+    return {"result": {"text": "..."}, "conv_id": conv_id}`}
+</CodeBlock>
+
+**Request Mapping** (Jinja2 Templates):
+
+- Use Jinja2 template syntax: `{{ variable_name }}`
+- Maps standard Rhesis request fields (`input`, `session_id`, `context`) to your function parameters
+- Custom fields from the request are passed through automatically
+- Example: `"user_message": "{{ input }}"` maps the Rhesis `input` field to your function's `user_message` parameter
+
+**Response Mapping** (JSONPath or Jinja2):
+
+- **JSONPath syntax** (starting with `$`): Use for direct field extraction
+  - Example: `"output": "$.choices[0].message.content"` extracts a nested field
+  - Example: `"session_id": "$.conv_id"` extracts a top-level field
+- **Jinja2 templates**: Use with `jsonpath()` function for conditional logic or complex extraction
+  - Example: `"output": "{{ jsonpath('$.text_response') or jsonpath('$.result.content') }}"` tries the first path, falls back to second if empty
+  - Pure JSONPath expressions (starting with `$`) work directly without Jinja2
+
+For conditional logic or fallback values, use Jinja2 templates with `jsonpath()`:
+
+<CodeBlock filename="advanced_mapping.py" language="python">
+  {`@collaborate(
+    response_mapping={
+        "output": "{{ jsonpath('$.text_response') or jsonpath('$.result.content') }}",
+        "conversation_id": "$.conv_id"
+    }
+)
+def chat(input: str) -> dict:
+    """Extract output from multiple possible locations."""
+    # Function may return different structures
+    return {"text_response": "...", "conv_id": "abc123"}`}
+</CodeBlock>
+
+## Examples
+
+### Multiple Functions
+
+<CodeBlock filename="multi_function.py" language="python">
+{`from rhesis.sdk import RhesisClient, collaborate
+
+client = RhesisClient(
+api_key="your-api-key",
+project_id="your-project-id",
+environment="development"
+)
+
+@collaborate()
+def handle_chat(input: str, session_id: str = None) -> dict:
+"""Process chat messages."""
+return {"output": generate_response(input), "session_id": session_id}
+
+@collaborate()
+def search_documents(input: str, context: list = None) -> dict:
+"""Search documents."""
+results = perform_search(input, context or [])
+return {"output": format_results(results), "context": results}`}
+
+</CodeBlock>
+
+### Custom Fields
+
+<CodeBlock filename="custom_fields.py" language="python">
+  {`@collaborate(
+    request_mapping={
+        "question": "{{ input }}",
+        "policy_id": "{{ policy_number }}"
+    },
+    response_mapping={"output": "$.answer"}
+)
+def insurance_query(question: str, policy_id: str) -> dict:
+    """Query insurance policy."""
+    return {"answer": lookup_policy(question, policy_id)}`}
+</CodeBlock>
+
+## Platform Integration
+
+### Viewing Endpoints
+
+Registered endpoints appear in the Rhesis dashboard:
+
+- **Location**: Projects → Your Project → Endpoints
+- **Connection Type**: `SDK`
+- **Status**: `Active` (connected) or `Inactive` (disconnected)
+- **Naming**: `{Project Name} ({function_name})`
+
+### Connection Management
+
+- **Reconnection**: SDK automatically reconnects with exponential backoff if connection is lost
+- **Re-registration**: Functions are automatically re-registered on reconnect
+- **Function changes**: Adding/modifying functions updates endpoints automatically; removing functions marks endpoints as Inactive
+
+## Best Practices
+
+- **Use connectors when**: Functions are in your codebase, using standard patterns, want code-first definition
+- **Use manual config when**: Testing external APIs, need complex transformations, services outside codebase
+- **Function naming**: Use descriptive names (avoid `function1`, `handler`)
+- **Type hints**: Always include type hints for better auto-detection
+- **Error handling**: Return structured error responses: `{"output": None, "status": "error", "error": str(e)}`
+
+## Troubleshooting
+
+**Functions not appearing**:
+
+- Verify `RhesisClient` initialized with `api_key`, `project_id`, and `environment`
+- Check functions use `@collaborate()` decorator
+- Check logs for "Connector initialized" and "Sent registration" messages
+
+**Connection issues**:
+
+- Verify API key and project ID are correct
+- Ensure Rhesis backend is accessible
+- Check firewall/network settings for WebSocket connections
+
+**Mapping problems**:
+
+- **Auto-mapping**: Use standard field names (`input`, `session_id`, `output`)
+- **Manual mapping**: Verify Jinja2/JSONPath syntax
+- **Custom fields**: Ensure custom request fields are included in API requests
+
+**Common errors**:
+
+- `"RhesisClient not initialized"`: Create `RhesisClient` instance before using `@collaborate`
+- `"@collaborate requires project_id"`: Provide `project_id` or set `RHESIS_PROJECT_ID` env var
+- `"Functions not appearing as Active"`: Restart app to trigger re-registration
+
+---
+
+<Callout type="default">
+  **Next Steps** - Learn about [Models](./models) to use LLMs in your functions - Explore
+  [Metrics](./metrics) to evaluate responses - See [Platform Endpoints](/platform/endpoints/index)
+  for manual configuration
+</Callout>
