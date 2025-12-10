@@ -48,7 +48,7 @@ def get_rate_limit_identifier(request: Request) -> str:
 limiter = Limiter(key_func=get_rate_limit_identifier)
 
 # Rate limits for different tiers
-RATE_LIMIT_AUTHENTICATED = "1000/day"  # 100 requests per day per authenticated user
+RATE_LIMIT_AUTHENTICATED = "100/day"  # 100 requests per day per authenticated user
 
 # Parse the rate limit string into a RateLimitItem for manual checking
 _rate_limit_item = parse(RATE_LIMIT_AUTHENTICATED)
