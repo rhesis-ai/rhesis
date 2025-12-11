@@ -15,9 +15,7 @@ DEFAULT_POLYPHEMUS_URL = "https://polyphemus.rhesis.ai"
 class PolyphemusLLM(BaseLLM):
     """Service for interacting with the Polyphemus API endpoints."""
 
-    def __init__(
-        self, model_name: str = "", api_key=None, base_url=None, **kwargs
-    ) -> None:
+    def __init__(self, model_name: str = "", api_key=None, base_url=None, **kwargs) -> None:
         """
         PolyphemusLLM: Polyphemus LLM Provider
 
