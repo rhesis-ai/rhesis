@@ -110,8 +110,6 @@ COPY --from=builder --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh /app/migrate.sh
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh /app/start.sh
-# Copy debug script for troubleshooting MCP connections
-COPY --chown=rhesis-user:rhesis-user --chmod=755 test_mcp_notion_debug.py /app/test_mcp_notion_debug.py
 
 # Remove .env files
 RUN find /app -name ".env" -type f -delete
