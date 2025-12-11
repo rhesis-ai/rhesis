@@ -351,8 +351,8 @@ jobs:
               --allow-unauthenticated \
               --gpu=1 \
               --gpu-type=nvidia-l4 \
-              --memory=32Gi \
-              --cpu=8 \
+              --memory=16Gi \
+              --cpu=4 \
               --timeout=3600 \
               --min-instances=1 \
               --max-instances=1 \
@@ -396,8 +396,8 @@ jobs:
               --allow-unauthenticated \
               --gpu=1 \
               --gpu-type=nvidia-l4 \
-              --memory=32Gi \
-              --cpu=8 \
+              --memory=16Gi \
+              --cpu=4 \
               --timeout=3600 \
               --min-instances=1 \
               --max-instances=1 \
