@@ -99,7 +99,7 @@ The first value evaluates as a Jinja2 template (returns first non-empty field), 
   - `output`: The main response text from your API (required)
   - `context`: Additional context or reasoning from the response
   - Conversation tracking fields (see below) for multi-turn conversations
-  
+
   Other fields like `model_used` or `tokens` are stored but not actively used by the platform.
 </Callout>
 
@@ -154,7 +154,7 @@ This works for both REST and WebSocket endpoints without any additional configur
 // API maintains context and responds about Paris`}
 </CodeBlock>
 
-**[SCREENSHOT HERE: Endpoint configuration form showing the Request Body Template editor with JSON syntax highlighting and the Response Mappings section below it. Both should be filled with example OpenAI API configuration.]**
+![Request Settings](/screenshots/rhesis-ai-request-settings.png)
 
 ### Importing from Swagger/OpenAPI
 
@@ -164,7 +164,7 @@ Click **Import Swagger**, enter your Swagger/OpenAPI specification URL, and clic
 
 Before running full test suites, verify your endpoint configuration works correctly. Navigate to the **Test Connection** tab, enter sample input data, and click **Test Endpoint**. Review the response to ensure it returns expected data.
 
-**[SCREENSHOT HERE: Test Connection tab showing the input JSON editor with sample test data, Test Endpoint button, and the response output area displaying a successful API response with formatted JSON.]**
+![Test Connection](/screenshots/rhesis-ai-test-connection.png)
 
 ## Managing Endpoints
 
@@ -212,8 +212,8 @@ Environment tags help you quickly identify which endpoints are production-critic
 
 <Callout type="default">
   **Next Steps** - Test your endpoint configuration using the Test Connection
-  tab - Generate [Tests](/docs/platform/tests-generation) with AI to create
+  tab - Generate [Tests](/platform/tests-generation) with AI to create
   comprehensive coverage - Create multiple endpoints to compare models or
-  environments - Define [Metrics](/docs/platform/metrics) to evaluate response
+  environments - Define [Metrics](/platform/metrics) to evaluate response
   quality
 </Callout>
