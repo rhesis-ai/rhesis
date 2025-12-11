@@ -42,6 +42,8 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_NO_MANAGED_PYTHON=1
 # Skip the installation of the dev dependencies
 ENV UV_NO_DEV=1
+# Use copy mode for better cache mount compatibility
+ENV UV_LINK_MODE=copy
 
 # Copy the SDK, Penelope, and backend directories
 COPY sdk /app/sdk/
@@ -75,7 +77,6 @@ WORKDIR /app
 # Install only runtime dependencies (no build tools)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user first
@@ -96,6 +97,9 @@ COPY --from=builder --chown=appuser:appuser /app/apps/backend /app/apps/backend
 
 # Create models directory for runtime model caching
 COPY --from=builder --chown=appuser:appuser /app/models /app/models
+
+# Clean up any .env files for security
+RUN find /app -name ".env" -type f -delete
 
 # Switch to the non-root user
 USER appuser
