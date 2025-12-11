@@ -68,8 +68,22 @@ FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
 # Copy Bun from official image (lighter than Node.js, required for bunx to run MCP servers)
 COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=oven/bun:latest /usr/local/bin/bunx /usr/local/bin/bunx
-# Create npx alias to bunx for compatibility (users can write npx, Docker will use bunx)
-RUN ln -s /usr/local/bin/bunx /usr/local/bin/npx
+# Create npx wrapper that translates npx flags to bunx flags
+# This ensures compatibility when users/code use npx syntax
+RUN printf '#!/bin/sh\n\
+# Wrapper to translate npx flags to bunx flags\n\
+args=""\n\
+for arg in "$@"; do\n\
+  case "$arg" in\n\
+    -y|--yes)\n\
+      # Skip -y flag, bunx does not need it\n\
+      ;;\n\
+    *)\n\
+      args="$args $arg"\n\
+      ;;\n\
+  esac\n\
+done\n\
+exec bunx --silent $args\n' > /usr/local/bin/npx && chmod +x /usr/local/bin/npx
 
 WORKDIR /app
 
@@ -96,6 +110,8 @@ COPY --from=builder --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh /app/migrate.sh
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh /app/start.sh
+# Copy debug script for troubleshooting MCP connections
+COPY --chown=rhesis-user:rhesis-user --chmod=755 test_mcp_notion_debug.py /app/test_mcp_notion_debug.py
 
 # Remove .env files
 RUN find /app -name ".env" -type f -delete
