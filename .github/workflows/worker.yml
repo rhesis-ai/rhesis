@@ -298,7 +298,7 @@ jobs:
             --from-literal=WORKER_ENV="${{ secrets.WORKER_ENV }}" \
             --from-literal=FRONTEND_URL="${{ secrets.FRONTEND_URL }}" \
             --from-literal=STORAGE_SERVICE_URI="${{ secrets.STORAGE_SERVICE_URI }}" \
-            --from-literal=STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }} \
+            --from-literal=STORAGE_SERVICE_ACCOUNT_KEY="${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}" \
             --from-literal=LOCAL_STORAGE_PATH="${{ secrets.LOCAL_STORAGE_PATH }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
