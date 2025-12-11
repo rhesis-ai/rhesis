@@ -118,6 +118,9 @@ class PolyphemusLLM(BaseLLM):
 
                 return content
 
+            # Return appropriate type based on whether schema was provided
+            if schema:
+                return {"error": "No response generated."}
             return "No response generated."
 
         except (requests.exceptions.HTTPError, KeyError, IndexError, json.JSONDecodeError) as e:
