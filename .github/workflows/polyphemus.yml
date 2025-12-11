@@ -362,11 +362,11 @@ jobs:
               --revision-suffix=${{ env.COMMIT_SHA }} \
               --no-cpu-throttling \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
-              --add-volume name=models,type=cloud-storage,bucket=rhesis-model-bucket-dev \
+              --add-volume name=models,type=cloud-storage,bucket=${{ secrets.MODEL_BUCKET }} \
               --add-volume-mount volume=models,mount-path=/gcs-models \
               --set-env-vars="$(cat <<EOF
           MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
-          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
+          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }},
           LOAD_KWARGS_B64=$(echo -n '{"load_in_8bit":true}' | base64),
           TRANSFORMERS_CACHE=/tmp/transformers_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
@@ -405,11 +405,11 @@ jobs:
               --concurrency=1 \
               --no-cpu-throttling \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
-              --add-volume name=models,type=cloud-storage,bucket=rhesis-model-bucket-dev \
+              --add-volume name=models,type=cloud-storage,bucket=${{ secrets.MODEL_BUCKET }} \
               --add-volume-mount volume=models,mount-path=/gcs-models \
               --set-env-vars="$(cat <<EOF
           MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
-          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
+          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL}},
           LOAD_KWARGS_B64=$(echo -n '{"load_in_8bit":true}' | base64),
           TRANSFORMERS_CACHE=/tmp/transformers_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
