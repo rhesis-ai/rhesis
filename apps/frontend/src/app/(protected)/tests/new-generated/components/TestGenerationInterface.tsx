@@ -22,7 +22,6 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SendIcon from '@mui/icons-material/Send';
-import AddIcon from '@mui/icons-material/Add';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
@@ -43,7 +42,6 @@ import ChipGroup from './shared/ChipGroup';
 import TestSampleCard from './shared/TestSampleCard';
 import ActionBar from '@/components/common/ActionBar';
 import EndpointSelector from './shared/EndpointSelector';
-import UploadSourceDialog from '../../../knowledge/components/UploadSourceDialog';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
@@ -119,7 +117,6 @@ export default function TestGenerationInterface({
   );
   const [fetchTrigger, setFetchTrigger] = useState(0);
   const [showEndpointModal, setShowEndpointModal] = useState(false);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const { data: session } = useSession();
 
   // Sync local samples with prop changes - merge new samples while preserving existing responses
@@ -723,7 +720,7 @@ export default function TestGenerationInterface({
                       Tests Configuration
                     </Typography>
                     <Tooltip
-                      title="Configure test parameters and upload sources to guide AI generation."
+                      title="Configure test parameters to guide AI generation."
                       arrow
                       placement="top"
                     >
@@ -913,15 +910,6 @@ export default function TestGenerationInterface({
                     p: 0.5,
                   }}
                 >
-                  <Tooltip title="Upload source">
-                    <IconButton
-                      size="small"
-                      sx={{ ml: 0.5 }}
-                      onClick={() => setShowUploadDialog(true)}
-                    >
-                      <AddIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
                   <TextField
                     fullWidth
                     placeholder="Further refine test generation..."
@@ -1212,15 +1200,6 @@ export default function TestGenerationInterface({
           <Button onClick={() => setShowEndpointModal(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-
-      {/* Upload Source Dialog */}
-      {session?.session_token && (
-        <UploadSourceDialog
-          open={showUploadDialog}
-          onClose={() => setShowUploadDialog(false)}
-          sessionToken={session.session_token}
-        />
-      )}
     </Box>
   );
 }
