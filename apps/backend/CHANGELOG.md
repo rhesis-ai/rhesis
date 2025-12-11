@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2025-12-11
+
+### Added
+- Added unique constraint to `nano_id` columns in the database.
+- Added endpoint test functionality for connection testing.
+- Added multi-turn test support in manual test writer.
+
+### Fixed
+- Fixed MCP authentication errors and improved related UX.
+- Improved MCP error handling and reporting.
+- Separated execution status from test results in notification emails.
+
+### Changed
+- Improved MCP usability.
+
+
 ## [0.5.2] - 2025-12-08
 
 ### Changed

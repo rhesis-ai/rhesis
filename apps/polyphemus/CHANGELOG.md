@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-12-11
+
+### Fixed
+- **Rate Limiter:** Resolved an issue where the rate limiter was executing before authentication, potentially allowing unauthorized requests to consume rate limit resources. (#1031)
+
+
 ## [0.2.1] - 2025-12-04
 
 ### Added

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2025-12-11
+
+### Added
+
+- Added endpoint test functionality for connection testing.
+- Added multi-turn test support in manual test writer.
+
+### Changed
+
+- Enhanced trial drawer with multi-turn support and UX improvements.
+- Improved MCP usability with various UX enhancements.
+- Improved tag styling and added loading state in test run modals.
+
+### Fixed
+
+- Fixed filter by tag functionality.
+- Fixed MCP authentication errors and improved related UX.
+- Fixed cursor focus loss in title and description fields.
+- Fixed display of users instead of organizations in creator chart.
+- Fixed issue where task/test assignee could not be unassigned.
+
 ## [0.5.2] - 2025-12-08
 
 ### Added
