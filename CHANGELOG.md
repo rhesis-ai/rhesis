@@ -13,6 +13,42 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.5.3] - 2025-12-11
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.3**
+- **Frontend 0.5.3**
+- **Polyphemus 0.2.2**
+
+### Summary of Changes
+
+**Backend v0.5.3:**
+- Improved MCP authentication and error handling, enhancing usability.
+- Added unique constraint to `nano_id` columns in the database.
+- Enhanced testing capabilities with endpoint connection testing and multi-turn test support.
+- Notifications now separate execution status from test results in emails.
+
+
+**Frontend v0.5.3:**
+- Improved trial drawer with multi-turn support and UX enhancements.
+- Added multi-turn test support in manual test writer.
+- Fixed authentication errors and improved UX for MCP (Model Comparison Platform).
+- Resolved cursor focus loss in title and description fields.
+
+
+**Polyphemus v0.2.2:**
+- Fix: Rate limiting now occurs after authentication, preventing unintended rate limits on unauthenticated requests.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.5.2] - 2025-12-08
 
 ### Platform Release

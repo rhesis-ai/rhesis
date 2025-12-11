@@ -715,8 +715,8 @@ async def test_mcp_connection(
             "provider_type_id": "provider-uuid-123",
             "credentials": {"TOKEN": "token123"},
             "tool_metadata": {
-                "command": "bunx",
-                "args": ["--bun", "@notionhq/notion-mcp-server"],
+                "command": "npx",
+                "args": ["@notionhq/notion-mcp-server"],
                 "env": {"NOTION_TOKEN": "{{ TOKEN }}"}
             }
         }
