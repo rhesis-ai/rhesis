@@ -5,6 +5,7 @@ from rhesis.sdk.models.providers.litellm import LiteLLM
 from rhesis.sdk.models.providers.native import RhesisLLM
 from rhesis.sdk.models.providers.openai import OpenAILLM
 from rhesis.sdk.models.providers.openrouter import OpenRouterLLM
+from rhesis.sdk.models.providers.polyphemus import PolyphemusLLM
 from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
 
 try:
@@ -22,6 +23,7 @@ __all__ = [
     "VertexAILLM",
     "OpenAILLM",
     "OpenRouterLLM",
+    "PolyphemusLLM",
     "get_model",
 ]
 

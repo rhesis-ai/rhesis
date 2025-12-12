@@ -33,6 +33,7 @@ export const SUPPORTED_PROVIDERS = [
   'openrouter',
   'replicate',
   'perplexity',
+  'polyphemus',
   'together_ai',
   'cohere',
   'huggingface',
@@ -67,6 +68,9 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
   ),
   perplexity: (
+    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
+  ),
+  polyphemus: (
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
   ),
   replicate: <SiReplicate className="h-8 w-8" />,
