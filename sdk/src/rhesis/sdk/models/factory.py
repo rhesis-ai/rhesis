@@ -26,6 +26,7 @@ DEFAULT_MODELS = {
     "openai": "gpt-4o",
     "openrouter": "openai/gpt-4o-mini",
     "perplexity": "sonar-pro",
+    "polyphemus": "",  # Polyphemus uses API's default model
     "replicate": "llama-2-70b-chat",
     "together_ai": "togethercomputer/llama-2-70b-chat",
     "vertex_ai": "gemini-2.0-flash",  # Best performance - avoid 2.5-flash
@@ -143,6 +144,13 @@ def _create_openrouter_llm(model_name: str, api_key: Optional[str], **kwargs) ->
     return OpenRouterLLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
+def _create_polyphemus_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
+    """Factory function for PolyphemusLLM."""
+    from rhesis.sdk.models.providers.polyphemus import PolyphemusLLM
+
+    return PolyphemusLLM(model_name=model_name, api_key=api_key, **kwargs)
+
+
 # Provider registry mapping provider names to their factory functions
 PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
     "rhesis": _create_rhesis_llm,
@@ -157,6 +165,7 @@ PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
     "openai": _create_openai_llm,
     "openrouter": _create_openrouter_llm,
     "perplexity": _create_perplexity_llm,
+    "polyphemus": _create_polyphemus_llm,
     "replicate": _create_replicate_llm,
     "together_ai": _create_together_ai_llm,
     "vertex_ai": _create_vertex_ai_llm,
