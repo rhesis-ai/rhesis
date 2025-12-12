@@ -259,6 +259,10 @@ jobs:
 
       - name: Create or update secrets
         run: |
+          # Create temporary files for values with special characters to avoid shell interpretation
+          echo -n "${{ secrets.FROM_EMAIL }}" > /tmp/from_email.txt
+          echo -n "${{ secrets.WELCOME_FROM_EMAIL }}" > /tmp/welcome_from_email.txt
+          
           kubectl create secret generic rhesis-worker-secrets \
             --namespace="${{ env.NAMESPACE }}" \
             --from-literal=BROKER_URL="${{ secrets.BROKER_URL }}" \
@@ -290,10 +294,10 @@ jobs:
             --from-literal=SMTP_PORT="${{ secrets.SMTP_PORT }}" \
             --from-literal=SMTP_USER="${{ secrets.SMTP_USER }}" \
             --from-literal=SMTP_PASSWORD="${{ secrets.SMTP_PASSWORD }}" \
-            --from-literal=FROM_EMAIL="${{ secrets.FROM_EMAIL }}" \
+            --from-file=FROM_EMAIL=/tmp/from_email.txt \
             --from-literal=AGENT_EMAIL_BCC="${{ secrets.AGENT_EMAIL_BCC }}" \
             --from-literal=WELCOME_CALENDAR_LINK="${{ secrets.WELCOME_CALENDAR_LINK }}" \
-            --from-literal=WELCOME_FROM_EMAIL="${{ secrets.WELCOME_FROM_EMAIL }}" \
+            --from-file=WELCOME_FROM_EMAIL=/tmp/welcome_from_email.txt \
             --from-literal=BACKEND_ENV="${{ secrets.BACKEND_ENV }}" \
             --from-literal=WORKER_ENV="${{ secrets.WORKER_ENV }}" \
             --from-literal=FRONTEND_URL="${{ secrets.FRONTEND_URL }}" \
@@ -301,6 +305,9 @@ jobs:
             --from-literal=STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }} \
             --from-literal=LOCAL_STORAGE_PATH="${{ secrets.LOCAL_STORAGE_PATH }}" \
             --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Clean up temporary files
+          rm -f /tmp/from_email.txt /tmp/welcome_from_email.txt
 
       - name: Deploy to GKE
         run: |
