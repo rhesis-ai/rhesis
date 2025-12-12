@@ -4,66 +4,126 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Jinja is used for template rendering
 import jinja2
 from mcp import ClientSession, StdioServerParameters  # type: ignore[import-untyped]
+from mcp.client.sse import sse_client  # type: ignore[import-untyped]
 from mcp.client.stdio import stdio_client  # type: ignore[import-untyped]
+from mcp.client.streamable_http import streamablehttp_client  # type: ignore[import-untyped]
 
 
 class MCPClient:
     """
     Client for connecting to and communicating with MCP servers.
 
-    Manages stdio-based communication with external MCP servers (Notion, GitHub, etc.)
-    and provides methods to list/call tools and read resources.
+    Supports multiple transport types (stdio, HTTP, SSE) with automatic detection
+    from configuration structure. Provides methods to list/call tools and read resources.
     """
 
-    def __init__(
-        self,
-        server_name: str,
-        command: str,
-        args: List[str],
-        env: Optional[Dict[str, str]] = None,
-    ):
+    def __init__(self, server_name: str, config: Dict[str, Any]):
         """
-        Initialize MCP client for a specific server.
+        Initialize MCP client with flexible configuration.
 
         Args:
             server_name: Friendly name for the server (e.g., "notionApi")
-            command: Command to launch the server (e.g., "npx", "python")
-            args: Command arguments (e.g., ["@notionhq/notion-mcp-server"])
-            env: Environment variables to pass to the server process
+            config: Server configuration dict (stdio, HTTP, or SSE format)
+                    - stdio: {"command": "...", "args": [...], "env": {...}}
+                    - HTTP: {"url": "...", "headers": {"Authorization": "..."}}
+                    - SSE: {"url": "...", "headers": {...}}
         """
         self.server_name = server_name
-        self.command = command
-        self.args = args
-        self.env = env or {}
+        self.config = config
+        self.transport_type = self._detect_transport_type(config)
         self.session: Optional[ClientSession] = None
-        self._read = None
-        self._write = None
-        self._stdio_context = None
+        self._transport_context = None
+
+    def _detect_transport_type(self, config: Dict[str, Any]) -> str:
+        """
+        Auto-detect transport type from config structure.
+
+        Detection rules:
+        - Has 'command' field → stdio
+        - Has 'url' + 'headers' with Authorization → http
+        - Has 'url' only → sse
+
+        Args:
+            config: Server configuration dictionary
+
+        Returns:
+            Transport type: "stdio", "http", or "sse"
+
+        Raises:
+            ValueError: If transport type cannot be determined
+        """
+        if "command" in config:
+            return "stdio"
+        elif "url" in config:
+            # Check if headers contain Authorization (typical for HTTP APIs)
+            headers = config.get("headers", {})
+            if headers and any(k.lower() == "authorization" for k in headers.keys()):
+                return "http"
+            else:
+                return "sse"
+        else:
+            raise ValueError(
+                "Cannot detect transport type from config. "
+                "Config must have either 'command' (stdio) or 'url' (HTTP/SSE) field."
+            )
 
     async def connect(self) -> None:
         """
-        Start the MCP server subprocess and establish connection.
+        Connect to MCP server using the appropriate transport.
 
+        Routes to transport-specific connection method based on detected transport type.
         Must be called before any other operations.
         """
+        if self.transport_type == "stdio":
+            await self._connect_stdio()
+        elif self.transport_type == "http":
+            await self._connect_http()
+        elif self.transport_type == "sse":
+            await self._connect_sse()
+
+    async def _connect_stdio(self) -> None:
+        """Connect via stdio transport."""
         server_params = StdioServerParameters(
-            command=self.command,
-            args=self.args,
-            env=self.env,
+            command=self.config["command"],
+            args=self.config["args"],
+            env=self.config.get("env", {}),
         )
 
         # stdio_client returns an async context manager
         stdio_context = stdio_client(server_params)
-        self._read, self._write = await stdio_context.__aenter__()
-        self._stdio_context = stdio_context  # Keep reference for cleanup
+        read, write = await stdio_context.__aenter__()
+        self._transport_context = stdio_context
 
-        self.session = ClientSession(self._read, self._write)
+        self.session = ClientSession(read, write)
         await self.session.__aenter__()
+        await self.session.initialize()
 
-        # Initialize the session
+    async def _connect_http(self) -> None:
+        """Connect via HTTP/StreamableHTTP transport."""
+        http_context = streamablehttp_client(
+            url=self.config["url"],
+            headers=self.config.get("headers", {}),
+        )
+        read, write, get_session_id = await http_context.__aenter__()
+        self._transport_context = http_context
+
+        self.session = ClientSession(read, write)
+        await self.session.__aenter__()
+        await self.session.initialize()
+
+    async def _connect_sse(self) -> None:
+        """Connect via SSE transport."""
+        sse_context = sse_client(
+            url=self.config["url"],
+            headers=self.config.get("headers", {}),
+        )
+        read, write = await sse_context.__aenter__()
+        self._transport_context = sse_context
+
+        self.session = ClientSession(read, write)
+        await self.session.__aenter__()
         await self.session.initialize()
 
     async def disconnect(self) -> None:
@@ -72,9 +132,9 @@ class MCPClient:
             await self.session.__aexit__(None, None, None)
             self.session = None
 
-        if self._stdio_context:
-            await self._stdio_context.__aexit__(None, None, None)
-            self._stdio_context = None
+        if self._transport_context:
+            await self._transport_context.__aexit__(None, None, None)
+            self._transport_context = None
 
     async def list_resources(self) -> List[Dict[str, Any]]:
         """
@@ -221,23 +281,17 @@ class MCPClientManager:
         """
         config = self._load_config()
 
-        if "mcpServers" not in config:
-            raise ValueError("Invalid MCP configuration: 'mcpServers' key not found")
+        # Support both "mcpServers" and "servers" format
+        servers = config.get("mcpServers") or config.get("servers")
+        if not servers:
+            raise ValueError("Invalid MCP configuration: no 'mcpServers' or 'servers' key found")
 
-        if server_name not in config["mcpServers"]:
-            available = ", ".join(config["mcpServers"].keys())
-            raise ValueError(
-                f"Server '{server_name}' not found in configuration. Available servers: {available}"
-            )
+        if server_name not in servers:
+            available = ", ".join(servers.keys())
+            raise ValueError(f"Server '{server_name}' not found. Available: {available}")
 
-        server_config = config["mcpServers"][server_name]
-
-        client = MCPClient(
-            server_name=server_name,
-            command=server_config["command"],
-            args=server_config["args"],
-            env=server_config.get("env"),
-        )
+        server_config = servers[server_name]
+        client = MCPClient(server_name=server_name, config=server_config)
 
         self.clients[server_name] = client
         return client
@@ -257,53 +311,65 @@ class MCPClientManager:
         """
         Create MCPClientManager from database tool configuration.
 
-        The user provides the complete tool_metadata JSON with credential placeholders.
-        This method substitutes the placeholders with the actual credential values.
+        The user provides the complete tool_metadata JSON in full MCP format with
+        credential placeholders. This method substitutes the placeholders with
+        the actual credential values.
 
         Args:
-            tool_name: Name for the MCP server (e.g., "notionApi")
-            tool_config: Tool metadata dict with credential placeholders like {{NOTION_TOKEN}}
+            tool_name: Name for the MCP server (e.g., "notionApi") - ignored if
+                       tool_config contains mcpServers
+            tool_config: Full MCP config with credential placeholders:
+                        {"mcpServers": {"name": {...}}}
             credentials: Dictionary of credential key-value pairs
 
         Returns:
             MCPClientManager instance configured with the tool
 
         Note:
-            Placeholders must use simple format like {{ TOKEN }} (not {{ TOKEN | tojson }})
-            because the tool_config must be valid JSON before Jinja2 rendering.
+            tool_config should be the full MCP structure matching standard format.
+            This method performs credential substitution via Jinja2 templates.
 
         Example:
             tool_config = {
-                "command": "npx",
-                "args": ["@notionhq/notion-mcp-server"],
-                "env": {
-                    "NOTION_TOKEN": "{{ NOTION_TOKEN }}"
+                "mcpServers": {
+                    "notionApi": {
+                        "command": "npx",
+                        "args": ["-y", "@notionhq/notion-mcp-server"],
+                        "env": {
+                            "NOTION_TOKEN": "{{ NOTION_TOKEN }}"
+                        }
+                    }
                 }
             }
             credentials = {"NOTION_TOKEN": "ntn_abc123..."}
             manager = MCPClientManager.from_tool_config("notionApi", tool_config, credentials)
         """
-        # Use Jinja to safely render the placeholders without breaking JSON
+        # Use Jinja to safely render the placeholders
         env = jinja2.Environment(autoescape=False)
         template = env.from_string(json.dumps(tool_config))
         rendered = template.render(**credentials)
         processed_config = json.loads(rendered)
 
-        # Wrap in mcpServers format expected by create_client
-        config_dict = {"mcpServers": {tool_name: processed_config}}
+        # Config should already have mcpServers structure
+        # Validate it has the expected format
+        if "mcpServers" not in processed_config:
+            raise ValueError(
+                "tool_config must contain 'mcpServers' key. "
+                "Expected format: {'mcpServers': {'serverName': {...}}}"
+            )
 
-        return cls(config_dict=config_dict)
+        return cls(config_dict=processed_config)
 
     @classmethod
     def from_provider(cls, provider: str, credentials: Dict[str, str]):
         """
         Create MCPClientManager from a provider name.
 
-        Automatically loads the right MCP config for that provider,
+        Automatically loads the right MCP config template for that provider,
         renders it with the provided credentials, and creates a manager.
 
         Args:
-            provider: Provider name (e.g., "notion", "github", "gdrive")
+            provider: Provider name (e.g., "notion", "github", "atlassian")
             credentials: Dictionary of credential key-value pairs
 
         Returns:
@@ -313,9 +379,7 @@ class MCPClientManager:
             credentials = {"NOTION_TOKEN": "ntn_abc123..."}
             manager = MCPClientManager.from_provider("notion", credentials)
         """
-        # -----------------------------
         # Load and render Jinja template
-        # -----------------------------
         templates_dir = Path(__file__).parent / "provider_templates"
         template_file = templates_dir / f"{provider}.json.j2"
 
@@ -330,11 +394,14 @@ class MCPClientManager:
         # Render with proper JSON-escaping via the built-in `tojson` filter
         rendered = template.render(**credentials)
 
-        # Parse rendered JSON into dict
-        config = json.loads(rendered)
+        # Parse rendered JSON into dict (templates already include full mcpServers structure)
+        config_dict = json.loads(rendered)
 
-        # Build manager configuration
-        tool_name = f"{provider}Api"
-        config_dict = {"mcpServers": {tool_name: config}}
+        # Validate structure
+        if "mcpServers" not in config_dict:
+            raise ValueError(
+                f"Provider template for '{provider}' is invalid. "
+                "Expected format: {'mcpServers': {'serverName': {...}}}"
+            )
 
         return cls(config_dict=config_dict)
