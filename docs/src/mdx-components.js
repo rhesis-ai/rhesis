@@ -13,6 +13,7 @@ import { Table } from './components/Table'
 import { InfoCardHorizontal } from './components/InfoCardHorizontal'
 import { PlatformFeatures } from './components/PlatformFeatures'
 import { AdvancedCapabilities } from './components/AdvancedCapabilities'
+import { OKLCHColorDemo, ColorSwatch } from './components/OKLCHColorDemo'
 
 // Get the default MDX components
 const themeComponents = getThemeComponents()
@@ -40,5 +41,7 @@ export function useMDXComponents(components) {
     InfoCardHorizontal,
     PlatformFeatures,
     AdvancedCapabilities,
+    OKLCHColorDemo,
+    ColorSwatch,
   }
 }

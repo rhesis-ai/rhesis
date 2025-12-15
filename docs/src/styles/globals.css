@@ -23,6 +23,24 @@
 
   /* Accent Colors */
   --rhesis-accent-yellow: #fdd803; /* RGB: 253, 216, 3 */
+
+  /* OKLCH Categorical Colors - Theme Invariant */
+  /* Fixed lightness (65%) and chroma (0.25) for vivid, consistent colors across themes */
+  --mermaid-cat-1: oklch(65% 0.25 220); /* Blue */
+  --mermaid-cat-2: oklch(65% 0.25 280); /* Purple */
+  --mermaid-cat-3: oklch(65% 0.25 30); /* Orange */
+  --mermaid-cat-4: oklch(65% 0.25 140); /* Green */
+  --mermaid-cat-5: oklch(65% 0.25 350); /* Magenta */
+  --mermaid-cat-6: oklch(65% 0.25 190); /* Cyan */
+  --mermaid-cat-7: oklch(65% 0.25 60); /* Yellow-Orange */
+  --mermaid-cat-8: oklch(65% 0.25 170); /* Teal */
+
+  /* Mermaid theme-aware backgrounds and text */
+  --mermaid-bg: #ffffff;
+  --mermaid-text: #3d3d3d;
+  --mermaid-line: oklch(50% 0.05 220);
+  --mermaid-text-light: #ffffff;
+  --mermaid-node-text: #1a1a1a; /* Dark text for nodes in light theme */
 }
 
 /* Dark mode brand colors */
@@ -30,6 +48,13 @@
 .dark {
   --rhesis-text-primary: #e6edf3;
   --rhesis-text-dark: #ffffff;
+
+  /* OKLCH colors remain identical - only bg/text change */
+  --mermaid-bg: #0d1117;
+  --mermaid-text: #e6edf3;
+  --mermaid-line: oklch(75% 0.05 220); /* Light arrows for dark mode visibility */
+  --mermaid-text-light: #ffffff;
+  --mermaid-node-text: #ffffff; /* Light text for nodes in dark theme */
 }
 
 /* Local Font Definitions */
@@ -954,47 +979,140 @@ div[class*='callout'] strong {
   --nextra-callout-default-icon: #2aa1ce !important;
 }
 
-/* Mermaid Diagram Theme Support */
-/* Light mode - default Mermaid colors work well */
+/* Mermaid Diagram Theme Support - OKLCH Based */
+/* Ensure Mermaid diagrams persist during theme transitions */
 .nextra-content .mermaid {
   background-color: transparent;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transition: none !important; /* Prevent transition flicker */
+  contain: layout style paint; /* Optimize rendering */
+  position: relative;
+  z-index: 1; /* Ensure diagrams stay above any background overlays */
 }
 
 .nextra-content .mermaid svg {
   max-width: 100%;
   height: auto;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transition: none !important; /* Prevent SVG from transitioning */
+  position: relative;
+  z-index: 1;
 }
 
-/* Dark mode - invert colors for better visibility */
+/* Increase width of Mermaid nodes for better text display */
+.nextra-content .mermaid .node rect,
+.nextra-content .mermaid .node polygon,
+.nextra-content .mermaid .node circle,
+.nextra-content .mermaid .node ellipse {
+  min-width: 200px !important;
+  rx: 8 !important;
+  ry: 8 !important;
+}
+
+.nextra-content .mermaid .nodeLabel,
+.nextra-content .mermaid .node .label,
+.nextra-content .mermaid text {
+  padding: 12px 16px !important;
+  white-space: normal !important;
+  text-align: center !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 200px !important;
+}
+
+/* Ensure labels wrap in all node types */
+.nextra-content .mermaid .label foreignObject {
+  overflow: visible !important;
+}
+
+.nextra-content .mermaid .label div {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  text-align: center !important;
+  line-height: 1.4 !important;
+}
+
+/* Use CSS variables for theme-aware but stable rendering */
+/* Arrow lines and paths */
+.nextra-content .mermaid .edgePath .path,
+.nextra-content .mermaid path.path {
+  stroke: var(--mermaid-line) !important;
+  transition: none !important;
+}
+
+/* Arrow heads and markers */
+.nextra-content .mermaid marker path,
+.nextra-content .mermaid marker polygon {
+  fill: var(--mermaid-line) !important;
+  stroke: var(--mermaid-line) !important;
+  transition: none !important;
+}
+
+/* Edge labels (text on arrows) */
+.nextra-content .mermaid .edgeLabel,
+.nextra-content .mermaid .edgeLabel text {
+  fill: var(--mermaid-text) !important;
+  color: var(--mermaid-text) !important;
+  transition: none !important;
+}
+
+.nextra-content .mermaid .edgeLabel rect,
+.nextra-content .mermaid .edgeLabel span {
+  background: var(--mermaid-bg) !important;
+  transition: none !important;
+}
+
+/* Text colors adapt to theme but nodes use OKLCH categorical colors */
+.nextra-content .mermaid text {
+  fill: var(--mermaid-text) !important;
+  transition: none !important;
+}
+
+.nextra-content .mermaid .nodeLabel {
+  color: var(--mermaid-node-text) !important;
+  transition: none !important;
+}
+
+/* Force immediate rendering without transitions */
+[data-theme='dark'] .nextra-content .mermaid,
+.dark .nextra-content .mermaid,
+[data-theme='light'] .nextra-content .mermaid {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transition: none !important;
+}
+
 [data-theme='dark'] .nextra-content .mermaid svg,
-.dark .nextra-content .mermaid svg {
-  filter: brightness(0.9) contrast(1.1);
+.dark .nextra-content .mermaid svg,
+[data-theme='light'] .nextra-content .mermaid svg {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transition: none !important;
 }
 
-/* Ensure text in Mermaid diagrams is readable in dark mode */
-[data-theme='dark'] .nextra-content .mermaid .nodeLabel,
-.dark .nextra-content .mermaid .nodeLabel,
-[data-theme='dark'] .nextra-content .mermaid .edgeLabel,
-.dark .nextra-content .mermaid .edgeLabel {
-  color: #e6edf3 !important;
+/* Ensure mermaid stays visible even when modals/dropdowns are open */
+.mermaid,
+.nextra-content .mermaid,
+div.mermaid {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
-/* Adjust node backgrounds for dark mode */
-[data-theme='dark'] .nextra-content .mermaid .node rect,
-.dark .nextra-content .mermaid .node rect,
-[data-theme='dark'] .nextra-content .mermaid .node circle,
-.dark .nextra-content .mermaid .node circle,
-[data-theme='dark'] .nextra-content .mermaid .node polygon,
-.dark .nextra-content .mermaid .node polygon {
-  filter: brightness(0.85) saturate(0.9);
-}
-
-/* Adjust arrows and lines for dark mode */
-[data-theme='dark'] .nextra-content .mermaid .edgePath .path,
-.dark .nextra-content .mermaid .edgePath .path,
-[data-theme='dark'] .nextra-content .mermaid marker,
-.dark .nextra-content .mermaid marker {
-  stroke: #a9b1bb !important;
+.mermaid svg,
+.nextra-content .mermaid svg,
+div.mermaid svg {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Table Component Styles */

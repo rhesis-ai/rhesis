@@ -18,13 +18,13 @@ export default withNextra({
   webpack: config => {
     config.resolve.alias['@'] = path.resolve(__dirname)
 
-    // Resolve @theguild/remark-mermaid/mermaid to the actual file
-    // The package uses wildcard exports (./*) which may not resolve correctly in all contexts
-    const mermaidPath = path.resolve(
+    // Override @theguild/remark-mermaid/mermaid to use OUR custom wrapper
+    // This ensures our theme-aware Mermaid component is used instead of the default
+    const ourMermaidPath = path.resolve(
       __dirname,
-      'node_modules/@theguild/remark-mermaid/dist/mermaid.js'
+      'components/MermaidWrapper.jsx'
     )
-    config.resolve.alias['@theguild/remark-mermaid/mermaid'] = mermaidPath
+    config.resolve.alias['@theguild/remark-mermaid/mermaid'] = ourMermaidPath
 
     return config
   },
