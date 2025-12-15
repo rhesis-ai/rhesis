@@ -199,11 +199,11 @@ The backend uses JWT (JSON Web Tokens) for stateless authentication:
 Organizations provide data isolation and user management:
 
 <CodeBlock filename="organization-access.py" language="python">
-  {`# Organization-based data access
+{`# Organization-based data access
 @router.get("/tests/")
 async def get_tests(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     return get_tests_for_organization(db, current_user.organization_id)`}
 </CodeBlock>
@@ -240,7 +240,7 @@ The backend uses SQLAlchemy ORM with the following core models:
 Long-running operations are handled by Celery workers:
 
 <CodeBlock filename="celery-task.py" language="python">
-  {`# Example background task
+{`# Example background task
 @celery_app.task
 def process_test_results(test_id: int):
     """Process and analyze test results asynchronously."""

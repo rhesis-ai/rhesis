@@ -28,7 +28,7 @@ Token-based authentication is used for API access:
 The application integrates with Auth0 for identity management:
 
 <CodeBlock filename="auth0-config.py" language="python">
-  {`AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
+{`AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
 AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
 AUTH0_CLIENT_ID = os.getenv("AUTH0_CLIENT_ID")
 AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET")`}
@@ -51,8 +51,8 @@ async def login(request: Request):
 
 @router.get("/callback")
 async def auth_callback(request: Request, db: Session = Depends(get_db)):
-token = await oauth.auth0.authorize_access_token(request)
-user_info = token.get("userinfo")
+    token = await oauth.auth0.authorize_access_token(request)
+    user_info = token.get("userinfo")
 
     # Store user info in session
     request.session["user"] = dict(user_info)
@@ -69,7 +69,7 @@ user_info = token.get("userinfo")
 The application uses a custom route class to enforce authentication requirements:
 
 <CodeBlock filename="auth-middleware.py" language="python">
-  {`class AuthenticatedAPIRoute(APIRoute):
+{`class AuthenticatedAPIRoute(APIRoute):
     def get_dependencies(self):
         if self.path in public_routes:
             # No auth required

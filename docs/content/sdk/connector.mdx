@@ -13,35 +13,35 @@ Register Python functions as testable endpoints in Rhesis using the SDK connecto
 ## Quick Start
 
 <Steps>
-### 1. Initialize the Client
+### Initialize the Client
 
 <CodeBlock filename="setup.py" language="python">
 {`from rhesis.sdk import RhesisClient
 
 client = RhesisClient(
-api_key="your-api-key",
-project_id="your-project-id",
-environment="development" # Required: "development", "staging", or "production"
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development"  # Required: "development", "staging", or "production"
 )`}
 
 </CodeBlock>
 
-### 2. Decorate Functions
+### Decorate Functions
 
 <CodeBlock filename="app.py" language="python">
 {`from rhesis.sdk import collaborate
 
 @collaborate()
 def chat(input: str, session_id: str = None) -> dict:
-"""Handle chat messages."""
-return {
-"output": process_message(input),
-"session_id": session_id or generate_session_id()
-}`}
+    """Handle chat messages."""
+    return {
+        "output": process_message(input),
+        "session_id": session_id or generate_session_id(),
+    }`}
 
 </CodeBlock>
 
-### 3. Automatic Registration
+### Automatic Registration
 
 When your app starts, functions are automatically registered as endpoints. View them in **Projects** → **Your Project** → **Endpoints**.
 
@@ -84,9 +84,9 @@ The `environment` parameter is **required** and must be one of:
 {`import os
 
 client = RhesisClient(
-api_key=os.getenv("RHESIS_API_KEY"),
-project_id=os.getenv("RHESIS_PROJECT_ID"),
-environment=os.getenv("RHESIS_ENVIRONMENT", "development")
+    api_key=os.getenv("RHESIS_API_KEY"),
+    project_id=os.getenv("RHESIS_PROJECT_ID"),
+    environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
 )`}
 
 </CodeBlock>
@@ -98,12 +98,12 @@ environment=os.getenv("RHESIS_ENVIRONMENT", "development")
 Use standard field names for automatic detection:
 
 <CodeBlock filename="auto_mapping.py" language="python">
-  {`@collaborate()
+{`@collaborate()
 def chat(input: str, session_id: str = None) -> dict:
     """Standard names auto-detect."""
     return {
         "output": process_message(input),
-        "session_id": session_id
+        "session_id": session_id,
     }`}
 </CodeBlock>
 
@@ -117,15 +117,15 @@ def chat(input: str, session_id: str = None) -> dict:
 For custom parameter names or complex structures, provide explicit mappings:
 
 <CodeBlock filename="manual_mapping.py" language="python">
-  {`@collaborate(
+{`@collaborate(
     request_mapping={
         "user_query": "{{ input }}",
-        "conv_id": "{{ session_id }}"
+        "conv_id": "{{ session_id }}",
     },
     response_mapping={
         "output": "$.result.text",
-        "session_id": "$.conv_id"
-    }
+        "session_id": "$.conv_id",
+    },
 )
 def chat(user_query: str, conv_id: str = None) -> dict:
     """Custom names require manual mapping."""
@@ -151,11 +151,11 @@ def chat(user_query: str, conv_id: str = None) -> dict:
 For conditional logic or fallback values, use Jinja2 templates with `jsonpath()`:
 
 <CodeBlock filename="advanced_mapping.py" language="python">
-  {`@collaborate(
+{`@collaborate(
     response_mapping={
         "output": "{{ jsonpath('$.text_response') or jsonpath('$.result.content') }}",
-        "conversation_id": "$.conv_id"
-    }
+        "conversation_id": "$.conv_id",
+    },
 )
 def chat(input: str) -> dict:
     """Extract output from multiple possible locations."""
@@ -171,33 +171,33 @@ def chat(input: str) -> dict:
 {`from rhesis.sdk import RhesisClient, collaborate
 
 client = RhesisClient(
-api_key="your-api-key",
-project_id="your-project-id",
-environment="development"
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development",
 )
 
 @collaborate()
 def handle_chat(input: str, session_id: str = None) -> dict:
-"""Process chat messages."""
-return {"output": generate_response(input), "session_id": session_id}
+    """Process chat messages."""
+    return {"output": generate_response(input), "session_id": session_id}
 
 @collaborate()
 def search_documents(input: str, context: list = None) -> dict:
-"""Search documents."""
-results = perform_search(input, context or [])
-return {"output": format_results(results), "context": results}`}
+    """Search documents."""
+    results = perform_search(input, context or [])
+    return {"output": format_results(results), "context": results}`}
 
 </CodeBlock>
 
 ### Custom Fields
 
 <CodeBlock filename="custom_fields.py" language="python">
-  {`@collaborate(
+{`@collaborate(
     request_mapping={
         "question": "{{ input }}",
-        "policy_id": "{{ policy_number }}"
+        "policy_id": "{{ policy_number }}",
     },
-    response_mapping={"output": "$.answer"}
+    response_mapping={"output": "$.answer"},
 )
 def insurance_query(question: str, policy_id: str) -> dict:
     """Query insurance policy."""

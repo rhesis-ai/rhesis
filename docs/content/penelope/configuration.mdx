@@ -10,20 +10,17 @@ Configure Penelope's behavior through agent initialization, environment variable
 {`from rhesis.sdk.models import AnthropicLLM
 from rhesis.penelope import PenelopeAgent
 
-agent = PenelopeAgent( # Optional: Model (defaults to Vertex AI / gemini-2.0-flash)
-model=AnthropicLLM(),
-
+agent = PenelopeAgent(
+    # Optional: Model (defaults to Vertex AI / gemini-2.0-flash)
+    model=AnthropicLLM(),
     # Optional: Stopping conditions
-    max_iterations=20,        # Defaults to 10
-    timeout_seconds=300,      # No timeout by default
-
+    max_iterations=20,  # Defaults to 10
+    timeout_seconds=300,  # No timeout by default
     # Observability
     enable_transparency=True,
     verbose=True,
-
     # Optional: Custom tools
     tools=[],
-
 )`}
 
 </CodeBlock>
@@ -47,8 +44,7 @@ export PENELOPE_DEFAULT_MODEL_NAME=claude-4`}
 PenelopeConfig.set_default_model("anthropic", "claude-4")
 
 # Now all agents use this default
-
-agent = PenelopeAgent() # Uses anthropic/claude-4`}
+agent = PenelopeAgent()  # Uses anthropic/claude-4`}
 
 </CodeBlock>
 
@@ -65,15 +61,12 @@ Penelope works with any Rhesis SDK model:
 {`from rhesis.sdk.models import VertexAILLM, AnthropicLLM, OpenAILLM
 
 # Vertex AI
-
 agent = PenelopeAgent(model=VertexAILLM(model_name="gemini-pro"))
 
 # Anthropic
-
 agent = PenelopeAgent(model=AnthropicLLM(model_name="claude-4"))
 
 # OpenAI
-
 agent = PenelopeAgent(model=OpenAILLM(model_name="gpt-4"))`}
 
 </CodeBlock>
@@ -94,14 +87,14 @@ Default: **10**. Configure globally or per-agent:
 {`from rhesis.penelope import PenelopeConfig
 
 PenelopeConfig.set_default_max_iterations(20)
-agent = PenelopeAgent() # Uses 20`}
+agent = PenelopeAgent()  # Uses 20`}
 
 </CodeBlock>
 
 **Per Agent:**
 
 <CodeBlock filename="agent.py" language="python">
-  {`agent = PenelopeAgent(max_iterations=30)  # Overrides defaults`}
+{`agent = PenelopeAgent(max_iterations=30)  # Overrides defaults`}
 </CodeBlock>
 
 <Callout type="info">
@@ -116,12 +109,12 @@ Set execution timeout to prevent runaway tests:
 <CodeBlock filename="timeout.py" language="python">
 {`agent = PenelopeAgent(
     timeout_seconds=300,  # 5 minutes
-    max_iterations=50
+    max_iterations=50,
 )
 
 result = agent.execute_test(
-target=target,
-goal="Complex long-running test"
+    target=target,
+    goal="Complex long-running test",
 )
 
 # result.status will be 'timeout' if time limit exceeded`}
@@ -136,18 +129,16 @@ Control output detail level:
 {`# Full transparency - see all reasoning
 agent = PenelopeAgent(
     enable_transparency=True,  # Show reasoning boxes
-    verbose=True               # Print all details
+    verbose=True,  # Print all details
 )
 
 # Quiet mode - minimal output
-
 agent = PenelopeAgent(
-enable_transparency=False,
-verbose=False
+    enable_transparency=False,
+    verbose=False,
 )
 
 # Results only - no execution details
-
 agent = PenelopeAgent(verbose=False)`}
 
 </CodeBlock>
@@ -157,11 +148,11 @@ agent = PenelopeAgent(verbose=False)`}
 Override settings per test:
 
 <CodeBlock filename="test_config.py" language="python">
-  {`# Different max_turns for specific test
+{`# Different max_turns for specific test
 result = agent.execute_test(
     target=target,
     goal="Short simple test",
-    max_turns=5  # Override agent's max_iterations for this test
+    max_turns=5,  # Override agent's max_iterations for this test
 )`}
 </CodeBlock>
 
@@ -180,9 +171,9 @@ Control logging verbosity:
 <CodeBlock filename="logging.py" language="python">
 {`from rhesis.penelope import PenelopeConfig
 
-PenelopeConfig.set_log_level("DEBUG") # Shows all logs including external libraries
-PenelopeConfig.set_log_level("INFO") # Standard logging (default)
-PenelopeConfig.set_log_level("WARNING") # Only warnings and errors`}
+PenelopeConfig.set_log_level("DEBUG")  # Shows all logs including external libraries
+PenelopeConfig.set_log_level("INFO")  # Standard logging (default)
+PenelopeConfig.set_log_level("WARNING")  # Only warnings and errors`}
 
 </CodeBlock>
 
@@ -193,30 +184,27 @@ PenelopeConfig.set_log_level("WARNING") # Only warnings and errors`}
 from rhesis.penelope import PenelopeAgent, PenelopeConfig
 
 # Global defaults
-
 PenelopeConfig.set_default_model("anthropic", "claude-4")
 PenelopeConfig.set_default_max_iterations(20)
 PenelopeConfig.set_log_level("INFO")
 
 # Agent with custom config
-
 agent = PenelopeAgent(
-model=AnthropicLLM(model_name="claude-4"),
-max_iterations=30,
-timeout_seconds=600,
-enable_transparency=True,
-verbose=True,
-tools=[] # Add custom tools here
+    model=AnthropicLLM(model_name="claude-4"),
+    max_iterations=30,
+    timeout_seconds=600,
+    enable_transparency=True,
+    verbose=True,
+    tools=[],  # Add custom tools here
 )
 
 # Execute test
-
 result = agent.execute_test(
-target=target,
-goal="Comprehensive test",
-instructions="Detailed instructions...",
-context={"environment": "staging"},
-max_turns=25 # Test-specific override
+    target=target,
+    goal="Comprehensive test",
+    instructions="Detailed instructions...",
+    context={"environment": "staging"},
+    max_turns=25,  # Test-specific override
 )`}
 
 </CodeBlock>

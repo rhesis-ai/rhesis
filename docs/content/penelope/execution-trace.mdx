@@ -221,28 +221,23 @@ agent = PenelopeAgent()
 result = agent.execute_test(target=target, goal="Test goal")
 
 # Access trace data
-
 print(f"Status: {result.status}")
 print(f"Goal achieved: {result.goal_achieved}")
 print(f"Turns used: {result.turns_used}")
 
 # Iterate through history
-
 for turn in result.history:
-print(f"Turn {turn.turn_number}: {turn.reasoning}")
+    print(f"Turn {turn.turn_number}: {turn.reasoning}")
 
 # Access conversation summary (easy-to-read format)
-
 for turn in result.conversation_summary:
     print(f"Turn {turn.turn}: {turn.penelope_message}")
     print(f"  → {turn.target_response}")
 
 # Export to JSON
-
 trace_json = result.dict()
 
 # Export to file
-
 result.to_json("trace.json")`}
 
 </CodeBlock>
@@ -253,18 +248,16 @@ result.to_json("trace.json")`}
 {`import json
 
 # Save trace
-
 with open("execution_trace.json", "w") as f:
-json.dump(result.dict(), f, indent=2)
+    json.dump(result.dict(), f, indent=2)
 
 # Load trace
-
 with open("execution_trace.json", "r") as f:
-trace_data = json.load(f)
+    trace_data = json.load(f)
 
 # Reconstruct TestResult
-
 from rhesis.penelope.context import TestResult
+
 result = TestResult.from_dict(trace_data)`}
 
 </CodeBlock>
@@ -278,18 +271,16 @@ Penelope traces integrate seamlessly with the Rhesis platform:
 from rhesis.sdk import Rhesis
 
 # Execute with Penelope
-
 agent = PenelopeAgent()
 result = agent.execute_test(target=target, goal="Test goal")
 
 # Submit to Rhesis platform
-
 client = Rhesis()
 client.create_test_result(
-test_id="test-123",
-metrics=result.metrics,
-output=result.dict(),
-execution_time=result.stats["execution_time_seconds"]
+    test_id="test-123",
+    metrics=result.metrics,
+    output=result.dict(),
+    execution_time=result.stats["execution_time_seconds"],
 )`}
 
 </CodeBlock>
@@ -309,11 +300,10 @@ Findings: {', '.join(result.findings)}
 """)
 
 # Check for issues
-
 if not result.goal_achieved:
-print("Failure reasons:")
-for criterion in result.goal_evaluation.criteria_evaluations:
-if not criterion.met:
+    print("Failure reasons:")
+    for criterion in result.goal_evaluation.criteria_evaluations:
+        if not criterion.met:
             print(f" ❌ {criterion.criterion}: {criterion.evidence}")`}
 
 </CodeBlock>
@@ -332,10 +322,9 @@ for turn in result.history:
         print(f"  Response: {turn.tool_message.content[:100]}...")
 
 # Check token usage
-
 stats = result.stats
 if stats["total_tokens"] > 50000:
-print(f"⚠️ High token usage: {stats['total_tokens']}")`}
+    print(f"⚠️ High token usage: {stats['total_tokens']}")`}
 
 </CodeBlock>
 

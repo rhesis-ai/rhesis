@@ -40,6 +40,23 @@ export const CodeBlock = ({
   language = 'text',
   isTerminal = false,
 }) => {
+  // Fix MDX auto-dedenting for Python code
+  // MDX automatically dedents template literals by removing 2 spaces from each line
+  // This function adds back those 2 spaces to restore proper Python indentation
+  const fixPythonIndentation = code => {
+    if (language !== 'python') return code
+    
+    return code.split('\n').map(line => {
+      // Count leading spaces
+      const leadingSpaces = line.match(/^( *)/)[1].length
+      if (leadingSpaces === 0) return line
+      
+      // Add 2 spaces to every indented line to compensate for MDX dedenting
+      // This converts: 2 spaces -> 4, 6 spaces -> 8, 10 spaces -> 12, etc.
+      return '  ' + line
+    }).join('\n')
+  }
+
   // Format JSON automatically
   const formatJSON = code => {
     try {
@@ -246,12 +263,15 @@ export const CodeBlock = ({
 
   let code = typeof children === 'string' ? children : String(children)
 
+  // Fix Python indentation (MDX dedents template literals, converting 4 spaces to 2)
+  code = fixPythonIndentation(code)
+
   // Auto-format JSON if language is json
   if (language === 'json') {
     code = formatJSON(code)
   }
 
-  const highlightedCode = applySyntaxHighlighting(code)
+  const processedCode = applySyntaxHighlighting(code)
 
   const styles = {
     container: {
@@ -303,8 +323,6 @@ export const CodeBlock = ({
       wordBreak: 'break-word',
     },
   }
-
-  const processedCode = applySyntaxHighlighting(children?.toString() || '')
 
   return (
     <div style={styles.container} className="not-prose rhesis-codeblock">
