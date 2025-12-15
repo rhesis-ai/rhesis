@@ -43,16 +43,15 @@ Main orchestrator coordinating test execution:
 {`agent = PenelopeAgent(model=model, max_iterations=10)
 
 result = agent.execute_test(
-target=target,
-goal="Test goal",
-instructions="Optional instructions"
+    target=target,
+    goal="Test goal",
+    instructions="Optional instructions",
 )
 
 # Result contains full execution history
-
-print(result.status) # success, failure, error, timeout
-print(result.goal_achieved) # True/False
-print(result.history) # Full conversation`}
+print(result.status)  # success, failure, error, timeout
+print(result.goal_achieved)  # True/False
+print(result.history)  # Full conversation`}
 
 </CodeBlock>
 
@@ -72,13 +71,10 @@ Abstraction for systems under test:
 {`from rhesis.penelope import EndpointTarget
 
 # Rhesis endpoints
-
 target = EndpointTarget(endpoint_id="your-endpoint-id")
 
 # Future: LangChain, CrewAI, custom targets
-
 # target = LangChainTarget(chain=my_chain)
-
 # target = CrewAITarget(agent=my_agent)`}
 
 </CodeBlock>
@@ -103,7 +99,7 @@ Penelope includes three core tools:
 3. **Completion** - Returns TestResult with full history
 
 <CodeBlock filename="execution_detail.py" language="python">
-  {`# Each turn produces structured output
+{`# Each turn produces structured output
 for turn in result.history:
     print(f"Turn {turn.turn_number}")
     print(f"Reasoning: {turn.reasoning}")
@@ -118,20 +114,19 @@ Tests stop when any condition is met:
 
 <CodeBlock filename="stopping.py" language="python">
 {`agent = PenelopeAgent(
-    max_iterations=20,      # Stop after 20 turns
-    timeout_seconds=300     # Stop after 5 minutes
+    max_iterations=20,  # Stop after 20 turns
+    timeout_seconds=300,  # Stop after 5 minutes
 )
 
 result = agent.execute_test(target=target, goal="...")
 
 # Check why it stopped
-
 if result.status == "success" and result.goal_achieved:
-print("Goal achieved!")
+    print("Goal achieved!")
 elif result.status == "failure":
-print("Max iterations reached")
+    print("Max iterations reached")
 elif result.status == "timeout":
-print("Time limit exceeded")`}
+    print("Time limit exceeded")`}
 
 </CodeBlock>
 
@@ -148,11 +143,11 @@ All tools implement the `Tool` abstract base class:
 from rhesis.penelope.tools.base import Tool, ToolResult
 
 class Tool(ABC):
-@property
-@abstractmethod
-def name(self) -> str:
-"""Unique identifier for the tool"""
-pass
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Unique identifier for the tool"""
+        pass
 
     @property
     @abstractmethod
@@ -181,8 +176,8 @@ Example: Database verification tool for testing data persistence.
 import sqlite3
 
 class DatabaseVerificationTool(Tool):
-def **init**(self, db_path: str):
-self.db_path = db_path
+    def __init__(self, db_path: str):
+        self.db_path = db_path
 
     @property
     def name(self) -> str:
@@ -198,14 +193,13 @@ WHEN TO USE:
 ✓ Verify data consistency
 
 PARAMETERS:
-
 - table_name: Database table to query
 - record_id: Specific record ID to verify
 
 EXAMPLE:
 verify_database_state(
-table_name="users",
-record_id="user123"
+    table_name="users",
+    record_id="user123"
 )
 
 Returns record data or error if not found."""
@@ -214,7 +208,7 @@ Returns record data or error if not found."""
         if not table_name or not record_id:
             return ToolResult(
                 success=False,
-                output={"error": "table_name and record_id required"}
+                output={"error": "table_name and record_id required"},
             )
 
         try:
@@ -222,7 +216,7 @@ Returns record data or error if not found."""
             cursor = conn.cursor()
             cursor.execute(
                 f"SELECT * FROM {table_name} WHERE id = ?",
-                (record_id,)
+                (record_id,),
             )
             result = cursor.fetchone()
             conn.close()
@@ -230,12 +224,12 @@ Returns record data or error if not found."""
             if result:
                 return ToolResult(
                     success=True,
-                    output={"found": True, "record": dict(result)}
+                    output={"found": True, "record": dict(result)},
                 )
             else:
                 return ToolResult(
                     success=True,
-                    output={"found": False, "message": f"No record found"}
+                    output={"found": False, "message": f"No record found"},
                 )
         except Exception as e:
             return ToolResult(success=False, output={"error": str(e)})`}
@@ -248,23 +242,23 @@ Returns record data or error if not found."""
 {`from rhesis.penelope import PenelopeAgent, EndpointTarget
 
 # Create tool instance
-
 db_tool = DatabaseVerificationTool(db_path="test.db")
 
 # Initialize agent with custom tool
-
 agent = PenelopeAgent(
-tools=[db_tool],
-enable_transparency=True
+    tools=[db_tool],
+    enable_transparency=True,
 )
 
 # Execute test - Penelope can now use the database tool
-
 result = agent.execute_test(
-target=EndpointTarget(endpoint_id="your-endpoint-id"),
-goal="Verify chatbot correctly saves user preferences to database",
-instructions=""" 1. Ask chatbot to save a preference 2. Use verify_database_state to check if it was saved 3. Verify the saved data matches what was requested
-"""
+    target=EndpointTarget(endpoint_id="your-endpoint-id"),
+    goal="Verify chatbot correctly saves user preferences to database",
+    instructions="""
+    1. Ask chatbot to save a preference
+    2. Use verify_database_state to check if it was saved
+    3. Verify the saved data matches what was requested
+    """,
 )`}
 
 </CodeBlock>
@@ -295,23 +289,21 @@ WHEN NOT TO USE:
 ✗ Don't use for authentication checks
 
 PARAMETERS:
-
 - endpoint_url: Full URL to check (string, required)
 - timeout_seconds: Request timeout (int, default: 5)
 
 EXAMPLE:
 check_api_health(
-endpoint_url="https://api.example.com/health",
-timeout_seconds=10
+    endpoint_url="https://api.example.com/health",
+    timeout_seconds=10
 )
 
 Returns: {"status": "ok", "response_time_ms": 145}
 
 IMPORTANT:
-
 - Only checks public endpoints
 - Does not include authentication headers"""`}
-  </CodeBlock>
+</CodeBlock>
 
 ## Multiple Custom Tools
 
@@ -323,18 +315,21 @@ api_tool = APIMonitoringTool(base_url="https://api.example.com")
 security_tool = SecurityScannerTool()
 
 # Agent can use all tools
-
 agent = PenelopeAgent(
-tools=[db_tool, api_tool, security_tool],
-enable_transparency=True,
-max_iterations=20
+    tools=[db_tool, api_tool, security_tool],
+    enable_transparency=True,
+    max_iterations=20,
 )
 
 result = agent.execute_test(
-target=target,
-goal="Comprehensive system validation",
-instructions=""" 1. Verify API is responding (use check_api_health) 2. Test chatbot functionality 3. Check database state (use verify_database_state) 4. Run security scan (use run_security_scan)
-"""
+    target=target,
+    goal="Comprehensive system validation",
+    instructions="""
+    1. Verify API is responding (use check_api_health)
+    2. Test chatbot functionality
+    3. Check database state (use verify_database_state)
+    4. Run security scan (use run_security_scan)
+    """,
 )`}
 
 </CodeBlock>
@@ -350,7 +345,6 @@ instructions=""" 1. Verify API is responding (use check_api_health) 2. Test chat
 "validate_user_permissions"
 
 # Bad: vague, unclear
-
 "db_tool"
 "api"
 "check"`}
@@ -360,19 +354,19 @@ instructions=""" 1. Verify API is responding (use check_api_health) 2. Test chat
 ### Handle Errors Gracefully
 
 <CodeBlock filename="error_handling.py" language="python">
-  {`def execute(self, **kwargs) -> ToolResult:
+{`def execute(self, **kwargs) -> ToolResult:
     try:
         result = perform_operation()
         return ToolResult(success=True, output=result)
     except ValueError as e:
         return ToolResult(
             success=False,
-            output={"error": f"Invalid input: {e}"}
+            output={"error": f"Invalid input: {e}"},
         )
     except Exception as e:
         return ToolResult(
             success=False,
-            output={"error": f"Unexpected error: {e}"}
+            output={"error": f"Unexpected error: {e}"},
         )`}
 </CodeBlock>
 
@@ -386,12 +380,11 @@ return ToolResult(
         "status": "healthy",
         "response_time_ms": 145,
         "timestamp": "2024-01-15T10:30:00Z",
-        "details": {"version": "1.2.3", "uptime": "5d 3h"}
-    }
+        "details": {"version": "1.2.3", "uptime": "5d 3h"},
+    },
 )
 
 # Bad: minimal information
-
 return ToolResult(success=True, output="ok")`}
 
 </CodeBlock>
@@ -403,15 +396,15 @@ return ToolResult(success=True, output="ok")`}
 from my_tools import DatabaseVerificationTool
 
 def test_database_tool_success():
-tool = DatabaseVerificationTool(db_path="test.db")
-result = tool.execute(table_name="users", record_id="123")
+    tool = DatabaseVerificationTool(db_path="test.db")
+    result = tool.execute(table_name="users", record_id="123")
 
     assert result.success is True
     assert result.output["found"] is True
 
 def test_database_tool_missing_params():
-tool = DatabaseVerificationTool(db_path="test.db")
-result = tool.execute(table_name="", record_id="")
+    tool = DatabaseVerificationTool(db_path="test.db")
+    result = tool.execute(table_name="", record_id="")
 
     assert result.success is False
     assert "error" in result.output`}

@@ -61,7 +61,7 @@ Resources are scoped to organizations:
 Cross-Origin Resource Sharing (CORS) is configured to prevent unauthorized cross-origin requests:
 
 <CodeBlock filename="cors-config.py" language="python">
-  {`app.add_middleware(
+{`app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "https://app.rhesis.ai"],
     allow_credentials=True,
@@ -76,7 +76,7 @@ Cross-Origin Resource Sharing (CORS) is configured to prevent unauthorized cross
 HTTPS is enforced for all communications:
 
 <CodeBlock filename="https-middleware.py" language="python">
-  {`class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
+{`class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if "X-Forwarded-Proto" in request.headers:
             request.scope["scheme"] = request.headers["X-Forwarded-Proto"]
