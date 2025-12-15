@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Endpoint Configuration Guide
 
 This guide explains how to configure endpoints in the system for REST, WebSocket, and SDK connection types, including authentication methods.
@@ -46,36 +48,36 @@ The system uses special placeholders that are automatically replaced with actual
 
 #### REST Example
 
-```json
-// request_mapping
-{
+<CodeBlock language="json" filename="REST request_mapping">
+{`{
   "query": "{{ input }}"
-}
+}`}
+</CodeBlock>
 
-// request_headers
-{
+<CodeBlock language="json" filename="REST request_headers">
+{`{
   "Content-Type": "application/json",
   "Authorization": "Bearer {{ auth_token }}"
-}
-```
+}`}
+</CodeBlock>
 
 #### WebSocket Example
 
-```json
-// request_mapping
-{
+<CodeBlock language="json" filename="WebSocket request_mapping">
+{`{
   "auth_token": "{{ auth_token }}",
   "session_id": "{{ session_id }}",
   "query": "{{ input }}"
-}
+}`}
+</CodeBlock>
 
-// request_headers
-{
+<CodeBlock language="json" filename="WebSocket request_headers">
+{`{
   "Upgrade": "websocket",
   "Connection": "Upgrade",
   "Sec-WebSocket-Version": "13"
-}
-```
+}`}
+</CodeBlock>
 
 ### Response Configuration Fields
 
@@ -84,23 +86,21 @@ The system uses special placeholders that are automatically replaced with actual
 
 #### REST Example
 
-```json
-// response_mapping
-{
+<CodeBlock language="json" filename="REST response_mapping">
+{`{
   "output": "$.data.response"
-}
-```
+}`}
+</CodeBlock>
 
 #### WebSocket Example
 
-```json
-// response_mapping
-{
+<CodeBlock language="json" filename="WebSocket response_mapping">
+{`{
   "conversation_id": "$.conversation_id",
   "error": "$.error",
   "status": "$.message"
-}
-```
+}`}
+</CodeBlock>
 
 ### Authentication Fields
 
@@ -122,44 +122,44 @@ The system uses special placeholders that are automatically replaced with actual
 
 ### REST Endpoint
 
-```json
-{
+<CodeBlock language="json" filename="REST Endpoint Configuration">
+{`{
   "name": "Data Query API",
   "description": "Endpoint for querying data using natural language",
   "url": "https://api.example.com/query",
   "connection_type": "REST",
   "method": "POST",
   "endpoint_path": "/query",
-  "request_mapping": "{\"query\": \"{{ input }}\"}",
-  "request_headers": "{\"Authorization\": \"Bearer {{ auth_token }}\", \"Content-Type\": \"application/json\"}",
+  "request_mapping": "{\\"query\\": \\"{{ input }}\\"}",
+  "request_headers": "{\\"Authorization\\": \\"Bearer {{ auth_token }}\\", \\"Content-Type\\": \\"application/json\\"}",
   "response_format": "json",
-  "response_mapping": "{\"result\": \"$.data.result\"}",
+  "response_mapping": "{\\"result\\": \\"$.data.result\\"}",
   "auth_type": "bearer"
-}
-```
+}`}
+</CodeBlock>
 
 ### WebSocket Endpoint
 
-```json
-{
+<CodeBlock language="json" filename="WebSocket Endpoint Configuration">
+{`{
   "name": "Real-time Chat API",
   "description": "WebSocket endpoint for real-time chat interactions",
   "url": "wss://api.example.com/chat",
   "connection_type": "WebSocket",
   "method": "WS",
   "endpoint_path": "/chat",
-  "request_mapping": "{\"auth_token\": \"{{ auth_token }}\", \"session_id\": \"{{ session_id }}\", \"query\": \"{{ input }}\"}",
-  "request_headers": "{\"Upgrade\": \"websocket\", \"Connection\": \"Upgrade\", \"Sec-WebSocket-Version\": \"13\"}",
+  "request_mapping": "{\\"auth_token\\": \\"{{ auth_token }}\\", \\"session_id\\": \\"{{ session_id }}\\", \\"query\\": \\"{{ input }}\\"}",
+  "request_headers": "{\\"Upgrade\\": \\"websocket\\", \\"Connection\\": \\"Upgrade\\", \\"Sec-WebSocket-Version\\": \\"13\\"}",
   "response_format": "json",
-  "response_mapping": "{\"conversation_id\": \"$.conversation_id\", \"status\": \"$.message\"}",
+  "response_mapping": "{\\"conversation_id\\": \\"$.conversation_id\\", \\"status\\": \\"$.message\\"}",
   "auth_type": "client_credentials",
   "client_id": "your-client-id",
   "client_secret": "your-client-secret",
   "token_url": "https://auth-provider.com/oauth/token",
   "scopes": ["chat:write"],
   "audience": "https://api.example.com"
-}
-```
+}`}
+</CodeBlock>
 
 ## Best Practices
 
@@ -203,8 +203,8 @@ The system uses special placeholders that are automatically replaced with actual
 
 You can specify validation rules for the endpoint using the `validation_rules` field:
 
-```json
-{
+<CodeBlock language="json" filename="Validation Rules">
+{`{
   "validation_rules": {
     "required_fields": ["input", "session_id"],
     "max_length": {
@@ -214,8 +214,8 @@ You can specify validation rules for the endpoint using the `validation_rules` f
       "session_id": "uuid"
     }
   }
-}
-```
+}`}
+</CodeBlock>
 
 ## Troubleshooting
 

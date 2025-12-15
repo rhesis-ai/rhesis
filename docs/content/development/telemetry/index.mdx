@@ -1,4 +1,5 @@
 import { FileTree } from '@/components/FileTree'
+import { CodeBlock } from '@/components/CodeBlock'
 
 # Telemetry System
 
@@ -31,18 +32,18 @@ graph TD
         Backend["Backend<br/><small>OTLP (gRPC/HTTP)</small>"]
         Frontend["Frontend<br/><small>OTLP (HTTP)</small>"]
     end
-    
+
     Collector["OpenTelemetry Collector<br/><small>Port 4317 (gRPC)<br/>Port 4318 (HTTP)</small>"]
-    
+
     Processor["Telemetry Processor<br/><small>Port 4317 (gRPC)<br/>Process & Store</small>"]
-    
+
     DB["PostgreSQL Analytics Database<br/><small>Separate Analytics DB<br/>(Isolated from main DB)</small>"]
-    
+
     Backend --> Collector
     Frontend --> Collector
     Collector -->|OTLP gRPC| Processor
     Processor -->|SQL| DB
-    
+
     style instances fill:#f0f7ff,stroke:#0066cc,stroke-width:2px
     style Collector fill:#e6f3ff,stroke:#0066cc,stroke-width:2px
     style Processor fill:#fff0e6,stroke:#ff8c00,stroke-width:2px

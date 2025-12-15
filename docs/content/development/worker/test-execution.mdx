@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Test Execution System
 
 ## Overview
@@ -8,13 +10,13 @@ The Rhesis test execution system provides a flexible and extensible architecture
 
 The system uses the **Strategy Pattern** to route tests to appropriate executors based on their type:
 
-```
-Test → Factory → Executor → Results
+<CodeBlock language="text" isTerminal={false}>
+{`Test → Factory → Executor → Results
          ↓
     SingleTurnExecutor (traditional tests)
     MultiTurnExecutor (Penelope-based)
-    [Future: ImageTestExecutor, etc.]
-```
+    [Future: ImageTestExecutor, etc.]`}
+</CodeBlock>
 
 ### Key Components
 
@@ -38,8 +40,8 @@ Test → Factory → Executor → Results
 
 ### Standard Execution Flow
 
-```
-Test Configuration
+<CodeBlock language="text" isTerminal={false}>
+{`Test Configuration
     ↓
 Retrieve Test
     ↓
@@ -51,8 +53,8 @@ Determine Test Type
     ↓
 Store Results
     ↓
-Return Summary
-```
+Return Summary`}
+</CodeBlock>
 
 ### Parallel vs Sequential
 
@@ -69,8 +71,8 @@ See [Execution Modes](/development/worker/execution-modes) for details.
 
 All executors must implement the `BaseTestExecutor` interface:
 
-```python
-from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
+<CodeBlock language="python" filename="custom_executor.py" isTerminal={false}>
+{`from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
 
 class CustomTestExecutor(BaseTestExecutor):
     def execute(
@@ -89,8 +91,8 @@ class CustomTestExecutor(BaseTestExecutor):
             "test_id": test_id,
             "execution_time": execution_time_ms,
             "metrics": metrics_dict,
-        }
-```
+        }`}
+</CodeBlock>
 
 ### Return Format
 
@@ -104,8 +106,8 @@ All executors must return a dictionary with:
 
 ### Running a Test
 
-```python
-from rhesis.backend.tasks.execution.test_execution import execute_test
+<CodeBlock language="python" filename="run_test.py" isTerminal={false}>
+{`from rhesis.backend.tasks.execution.test_execution import execute_test
 
 # Execute test (automatically routes to correct executor)
 result = execute_test(
@@ -119,13 +121,13 @@ result = execute_test(
 )
 
 print(f"Execution time: {result['execution_time']}ms")
-print(f"Metrics: {result['metrics']}")
-```
+print(f"Metrics: {result['metrics']}")`}
+</CodeBlock>
 
 ### Using Executors Directly
 
-```python
-from rhesis.backend.tasks.execution.executors import (
+<CodeBlock language="python" filename="direct_executor.py" isTerminal={false}>
+{`from rhesis.backend.tasks.execution.executors import (
     create_executor,
     SingleTurnTestExecutor,
     MultiTurnTestExecutor,
@@ -137,8 +139,8 @@ executor = create_executor(test)
 
 # Or use a specific executor directly
 executor = MultiTurnTestExecutor()
-result = executor.execute(db, test_config_id, ...)
-```
+result = executor.execute(db, test_config_id, ...)`}
+</CodeBlock>
 
 ## Extending the System
 
@@ -146,20 +148,20 @@ result = executor.execute(db, test_config_id, ...)
 
 1. **Create the Executor**
 
-```python
-# executors/image_test_executor.py
+<CodeBlock language="python" filename="executors/image_test_executor.py" isTerminal={false}>
+{`# executors/image_test_executor.py
 from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
 
 class ImageTestExecutor(BaseTestExecutor):
     def execute(self, ...):
         # Image-specific test logic
-        pass
-```
+        pass`}
+</CodeBlock>
 
 2. **Update the Factory**
 
-```python
-# executors/factory.py
+<CodeBlock language="python" filename="executors/factory.py" isTerminal={false}>
+{`# executors/factory.py
 def create_executor(test: Test) -> BaseTestExecutor:
     test_type = get_test_type(test)
 
@@ -167,18 +169,18 @@ def create_executor(test: Test) -> BaseTestExecutor:
         from .image_test_executor import ImageTestExecutor
         return ImageTestExecutor()
     elif test_type == TestType.MULTI_TURN:
-        # ...existing code
-```
+        # ...existing code`}
+</CodeBlock>
 
 3. **Add Test Type Enum**
 
-```python
-# tasks/enums.py
+<CodeBlock language="python" filename="tasks/enums.py" isTerminal={false}>
+{`# tasks/enums.py
 class TestType(str, Enum):
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
-    IMAGE = "Image"  # New type
-```
+    IMAGE = "Image"  # New type`}
+</CodeBlock>
 
 ## Design Principles
 
@@ -222,8 +224,8 @@ Use parallel execution mode for independent tests to maximize throughput.
 
 The test execution code is located in the backend repository but is primarily executed by workers:
 
-```
-apps/backend/src/rhesis/backend/tasks/execution/
+<CodeBlock language="text" isTerminal={false}>
+{`apps/backend/src/rhesis/backend/tasks/execution/
 ├── executors/
 │   ├── __init__.py
 │   ├── base.py                    # BaseTestExecutor ABC
@@ -239,8 +241,8 @@ apps/backend/src/rhesis/backend/tasks/execution/
 ├── orchestration.py               # Task orchestration
 ├── parallel.py                    # Parallel execution
 ├── sequential.py                  # Sequential execution
-└── penelope_target.py             # Backend target for Penelope
-```
+└── penelope_target.py             # Backend target for Penelope`}
+</CodeBlock>
 
 ## Related Documentation
 

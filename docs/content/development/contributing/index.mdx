@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Contributing to Rhesis
 
 Thank you for your interest in contributing to Rhesis! This guide will help you get started with contributing to our AI-powered testing and evaluation platform.
@@ -26,35 +28,36 @@ Before contributing, make sure you have:
 
 1. **Fork and clone the repository:**
 
-   ```bash
-   git clone https://github.com/your-username/rhesis.git
-   cd rhesis
-   ```
+<CodeBlock language="bash" isTerminal={true}>
+{`git clone https://github.com/your-username/rhesis.git
+cd rhesis`}
+</CodeBlock>
 
 2. **Set up your development environment:**
 
-   ```bash
-   # Install Python dependencies
-   uv sync
+<CodeBlock language="bash" isTerminal={true}>
+{`# Install Python dependencies
+uv sync
 
-   # Install Node.js dependencies
-   cd apps/frontend && npm install
-   cd ../docs && npm install
-   ```
+# Install Node.js dependencies
+cd apps/frontend && npm install
+cd ../docs && npm install`}
+</CodeBlock>
 
 3. **Configure environment:**
 
-   ```bash
-   cp .env.example .env
-   # Edit .env with your local configuration
-   ```
+<CodeBlock language="bash" isTerminal={true}>
+{`cp .env.example .env
+# Edit .env with your local configuration`}
+</CodeBlock>
 
 4. **Start the development servers:**
-   ```bash
-   ./rh backend start
-   ./rh frontend start
-   ./rh docs start
-   ```
+
+<CodeBlock language="bash" isTerminal={true}>
+{`./rh backend start
+./rh frontend start
+./rh docs start`}
+</CodeBlock>
 
 ## Project Structure
 
@@ -101,16 +104,16 @@ Understanding the project structure will help you navigate the codebase:
 
 We use a feature branch workflow:
 
-```bash
-# Create a new feature branch
+<CodeBlock language="bash" isTerminal={true}>
+{`# Create a new feature branch
 git checkout -b feature/your-feature-name
 
 # Or for bug fixes
 git checkout -b fix/your-bug-description
 
 # Or for documentation
-git checkout -b docs/your-doc-update
-```
+git checkout -b docs/your-doc-update`}
+</CodeBlock>
 
 <Callout type="default">
   **Branch Naming Convention** - `feature/` - New features and enhancements -
@@ -130,12 +133,12 @@ git checkout -b docs/your-doc-update
 
 We follow conventional commit messages:
 
-```bash
-# Format: type(scope): description
+<CodeBlock language="bash" isTerminal={true}>
+{`# Format: type(scope): description
 git commit -m "feat(backend): add user authentication endpoint"
 git commit -m "fix(frontend): resolve login form validation issue"
-git commit -m "docs(readme): update installation instructions"
-```
+git commit -m "docs(readme): update installation instructions"`}
+</CodeBlock>
 
 **Commit Types:**
 
@@ -153,8 +156,8 @@ git commit -m "docs(readme): update installation instructions"
 
 We follow PEP 8 and use modern Python practices:
 
-```python
-# Use type hints
+<CodeBlock language="python" filename="Python Code Standards">
+{`# Use type hints
 def create_user(user_data: UserCreate, db: Session) -> User:
     """Create a new user in the database."""
     user = User(**user_data.dict())
@@ -169,8 +172,8 @@ async def get_user_by_id(user_id: int, db: AsyncSession) -> Optional[User]:
     result = await db.execute(
         select(User).where(User.id == user_id)
     )
-    return result.scalar_one_or_none()
-```
+    return result.scalar_one_or_none()`}
+</CodeBlock>
 
 **Python Standards:**
 
@@ -184,8 +187,8 @@ async def get_user_by_id(user_id: int, db: AsyncSession) -> Optional[User]:
 
 We follow modern JavaScript/TypeScript practices:
 
-```typescript
-// Use TypeScript interfaces
+<CodeBlock language="typescript" filename="TypeScript Code Standards">
+{`// Use TypeScript interfaces
 interface User {
   id: string;
   email: string;
@@ -211,8 +214,8 @@ const handleSubmit = async (data: FormData) => {
     toast.error("Failed to create user");
     console.error(error);
   }
-};
-```
+};`}
+</CodeBlock>
 
 **Frontend Standards:**
 
@@ -228,8 +231,8 @@ const handleSubmit = async (data: FormData) => {
 
 We use pytest for backend testing:
 
-```python
-# Test example
+<CodeBlock language="python" filename="tests/test_user.py">
+{`# Test example
 def test_create_user(db_session):
     """Test user creation."""
     user_data = UserCreate(
@@ -242,8 +245,8 @@ def test_create_user(db_session):
 
     assert user.email == "test@example.com"
     assert user.name == "Test User"
-    assert user.id is not None
-```
+    assert user.id is not None`}
+</CodeBlock>
 
 **Testing Guidelines:**
 
@@ -256,8 +259,8 @@ def test_create_user(db_session):
 
 We use Jest and React Testing Library:
 
-```typescript
-// Component test example
+<CodeBlock language="typescript" filename="tests/UserForm.test.tsx">
+{`// Component test example
 import { render, screen, fireEvent } from '@testing-library/react';
 import { UserForm } from './UserForm';
 
@@ -276,8 +279,8 @@ describe('UserForm', () => {
       email: 'test@example.com',
     });
   });
-});
-```
+});`}
+</CodeBlock>
 
 **Frontend Testing Guidelines:**
 
@@ -292,8 +295,8 @@ describe('UserForm', () => {
 
 All code should be well-documented:
 
-```python
-class UserService:
+<CodeBlock language="python" filename="services/user_service.py">
+{`class UserService:
     """Service for user management operations."""
 
     def __init__(self, db: Session):
@@ -313,15 +316,15 @@ class UserService:
         Raises:
             UserAlreadyExistsError: If user with email already exists
         """
-        # Implementation...
-```
+        # Implementation...`}
+</CodeBlock>
 
 ### API Documentation
 
 API endpoints should be documented with OpenAPI/Swagger:
 
-```python
-@router.post("/users/", response_model=User)
+<CodeBlock language="python" filename="routes/users.py">
+{`@router.post("/users/", response_model=User)
 async def create_user(
     user_data: UserCreate,
     current_user: User = Depends(get_current_user),
@@ -333,8 +336,8 @@ async def create_user(
     This endpoint allows administrators to create new user accounts
     in the system.
     """
-    return user_service.create_user(user_data, db)
-```
+    return user_service.create_user(user_data, db)`}
+</CodeBlock>
 
 ## Pull Request Process
 
@@ -347,8 +350,8 @@ async def create_user(
 
 ### PR Template
 
-```markdown
-## Description
+<CodeBlock language="markdown" filename="Pull Request Template">
+{`## Description
 
 Brief description of the changes made.
 
@@ -371,8 +374,8 @@ Brief description of the changes made.
 - [ ] Code follows style guidelines
 - [ ] Documentation updated
 - [ ] Tests added/updated
-- [ ] No breaking changes
-```
+- [ ] No breaking changes`}
+</CodeBlock>
 
 ### Review Process
 
@@ -417,16 +420,16 @@ Brief description of the changes made.
 
 When reviewing code, be constructive and specific:
 
-```markdown
-# Good review comment
+<CodeBlock language="markdown" filename="Code Review Examples">
+{`# Good review comment
 
 Consider using a more descriptive variable name here.
-`user_data` could be `user_creation_payload` to be more specific.
+\`user_data\` could be \`user_creation_payload\` to be more specific.
 
 # Bad review comment
 
-This is wrong.
-```
+This is wrong.`}
+</CodeBlock>
 
 ## GitHub Automation
 

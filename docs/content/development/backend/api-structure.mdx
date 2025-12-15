@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # API Structure
 
 ## Overview
@@ -128,21 +130,21 @@ The API supports various query parameters for filtering, sorting, and pagination
 
 OData-style filtering is supported:
 
-```
-GET /tests/?$filter=prompt_id eq '89905869-e8e9-4b2f-b362-3598cfe91968'
-```
+<CodeBlock filename="filter-example.txt" language="text">
+{`GET /tests/?$filter=prompt_id eq '89905869-e8e9-4b2f-b362-3598cfe91968'`}
+</CodeBlock>
 
 ### Sorting
 
-```
-GET /tests/?$orderby=created_at desc
-```
+<CodeBlock filename="sort-example.txt" language="text">
+{`GET /tests/?$orderby=created_at desc`}
+</CodeBlock>
 
 ### Pagination
 
-```
-GET /tests/?$skip=10&$top=10
-```
+<CodeBlock filename="pagination-example.txt" language="text">
+{`GET /tests/?$skip=10&$top=10`}
+</CodeBlock>
 
 ## Response Headers
 
