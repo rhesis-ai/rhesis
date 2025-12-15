@@ -28,8 +28,8 @@ The Rhesis frontend integrates with the Rhesis backend for authentication, which
 
 The authentication is configured in `src/auth.ts`:
 
-```tsx
-import { jwtDecode } from "jwt-decode";
+<CodeBlock language="tsx" filename="src/auth.ts">
+{`import { jwtDecode } from "jwt-decode";
 
 // Token storage keys
 const ACCESS_TOKEN_KEY = "rhesis_access_token";
@@ -39,10 +39,10 @@ const USER_KEY = "rhesis_user";
 // Auth API endpoints
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const AUTH_ENDPOINTS = {
-  login: `${API_BASE_URL}/auth/login`,
-  logout: `${API_BASE_URL}/auth/logout`,
-  refresh: `${API_BASE_URL}/auth/refresh`,
-  user: `${API_BASE_URL}/auth/user`,
+  login: \`\${API_BASE_URL}/auth/login\`,
+  logout: \`\${API_BASE_URL}/auth/logout\`,
+  refresh: \`\${API_BASE_URL}/auth/refresh\`,
+  user: \`\${API_BASE_URL}/auth/user\`,
 };
 
 export interface User {
@@ -136,7 +136,7 @@ export async function logout(): Promise<void> {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${tokens.accessToken}`,
+          Authorization: \`Bearer \${tokens.accessToken}\`,
         },
       });
     }
@@ -191,7 +191,7 @@ export async function fetchUser(): Promise<User | null> {
   try {
     const response = await fetch(AUTH_ENDPOINTS.user, {
       headers: {
-        Authorization: `Bearer ${tokens.accessToken}`,
+        Authorization: \`Bearer \${tokens.accessToken}\`,
       },
     });
 
@@ -206,15 +206,15 @@ export async function fetchUser(): Promise<User | null> {
     console.error("Fetch user error:", error);
     return null;
   }
-}
-```
+}`}
+</CodeBlock>
 
 ## Route Protection
 
 Routes are protected using a custom middleware in `src/middleware.ts`:
 
-```tsx
-import { NextResponse } from "next/server";
+<CodeBlock language="tsx" filename="src/middleware.ts">
+{`import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isTokenExpired } from "./auth";
 
@@ -261,15 +261,15 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth).*)"],
-};
-```
+};`}
+</CodeBlock>
 
 ## Authentication Context
 
 A React context is used to manage authentication state on the client:
 
-```tsx
-// src/components/providers/AuthProvider.tsx
+<CodeBlock language="tsx" filename="src/components/providers/AuthProvider.tsx">
+{`// src/components/providers/AuthProvider.tsx
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
@@ -365,15 +365,15 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-}
-```
+}`}
+</CodeBlock>
 
 ## Auth0 Callback Handling
 
 The callback from Auth0 is handled by a dedicated page:
 
-```tsx
-// app/auth/callback/page.tsx
+<CodeBlock language="tsx" filename="app/auth/callback/page.tsx">
+{`// app/auth/callback/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -404,7 +404,7 @@ export default function AuthCallback() {
       try {
         // Exchange code for tokens with backend
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/callback`,
+          \`\${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/callback\`,
           {
             method: "POST",
             headers: {
@@ -460,15 +460,15 @@ export default function AuthCallback() {
       <p>Please wait while we complete the authentication process.</p>
     </div>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ## Login Component
 
 The login component redirects to Auth0:
 
-```tsx
-// src/components/auth/LoginButton.tsx
+<CodeBlock language="tsx" filename="src/components/auth/LoginButton.tsx">
+{`// src/components/auth/LoginButton.tsx
 "use client";
 
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -481,15 +481,15 @@ export default function LoginButton() {
       Log In with Auth0
     </button>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ## Using Authentication in Components
 
 ### Protected Component
 
-```tsx
-// src/components/common/ProtectedComponent.tsx
+<CodeBlock language="tsx" filename="src/components/common/ProtectedComponent.tsx">
+{`// src/components/common/ProtectedComponent.tsx
 "use client";
 
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -512,13 +512,13 @@ export default function ProtectedComponent({
   }
 
   return <>{children}</>;
-}
-```
+}`}
+</CodeBlock>
 
 ### User Profile
 
-```tsx
-// src/components/auth/UserProfile.tsx
+<CodeBlock language="tsx" filename="src/components/auth/UserProfile.tsx">
+{`// src/components/auth/UserProfile.tsx
 "use client";
 
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -540,15 +540,15 @@ export default function UserProfile() {
       <button onClick={logout}>Log Out</button>
     </div>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ## Role-Based Access Control
 
 Role-based access control is implemented using the user's roles:
 
-```tsx
-// src/components/common/RoleBasedAccess.tsx
+<CodeBlock language="tsx" filename="src/components/common/RoleBasedAccess.tsx">
+{`// src/components/common/RoleBasedAccess.tsx
 "use client";
 
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -579,15 +579,15 @@ export default function RoleBasedAccess({
   }
 
   return <>{children}</>;
-}
-```
+}`}
+</CodeBlock>
 
 ## Auth Provider Setup
 
 The auth provider is set up in the root layout:
 
-```tsx
-// app/layout.tsx
+<CodeBlock language="tsx" filename="app/layout.tsx">
+{`// app/layout.tsx
 import { AuthProvider } from "@/components/providers/AuthProvider";
 
 export default function RootLayout({
@@ -602,8 +602,8 @@ export default function RootLayout({
       </body>
     </html>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ## Security Considerations
 

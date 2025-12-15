@@ -240,19 +240,19 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
 
 Loading states are defined using special `loading.tsx` files:
 
-```tsx
-// app/(protected)/projects/loading.tsx
+<CodeBlock language="tsx" filename="app/(protected)/projects/loading.tsx">
+{`// app/(protected)/projects/loading.tsx
 export default function Loading() {
   return <div>Loading projects...</div>;
-}
-```
+}`}
+</CodeBlock>
 
 ## Error Handling
 
 Error states are defined using special `error.tsx` files:
 
-```tsx
-// app/(protected)/projects/error.tsx
+<CodeBlock language="tsx" filename="app/(protected)/projects/error.tsx">
+{`// app/(protected)/projects/error.tsx
 "use client";
 
 export default function Error({
@@ -268,26 +268,26 @@ export default function Error({
       <button onClick={reset}>Try again</button>
     </div>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ## Not Found Pages
 
 Not found pages are defined using special `not-found.tsx` files:
 
-```tsx
-// app/(protected)/projects/[id]/not-found.tsx
+<CodeBlock language="tsx" filename="app/(protected)/projects/[id]/not-found.tsx">
+{`// app/(protected)/projects/[id]/not-found.tsx
 export default function NotFound() {
   return <div>Project not found</div>;
-}
-```
+}`}
+</CodeBlock>
 
 ## Metadata
 
 Page metadata is defined using the `metadata` export:
 
-```tsx
-// app/(protected)/projects/page.tsx
+<CodeBlock language="tsx" filename="app/(protected)/projects/page.tsx">
+{`// app/(protected)/projects/page.tsx
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -297,8 +297,8 @@ export const metadata: Metadata = {
 
 export default function ProjectsPage() {
   // ...
-}
-```
+}`}
+</CodeBlock>
 
 ## Best Practices
 

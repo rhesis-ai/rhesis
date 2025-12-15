@@ -87,8 +87,8 @@ module.exports = createJestConfig(customJestConfig)`}
 
 The test environment is configured in `jest.setup.js`:
 
-```javascript
-import "@testing-library/jest-dom";
+<CodeBlock language="javascript" filename="jest.setup.js">
+{`import "@testing-library/jest-dom";
 
 // Set environment variables for tests
 process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:8080/api/v1";
@@ -130,8 +130,8 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
   observe: jest.fn(),
   unobserve: jest.fn(),
   disconnect: jest.fn(),
-}));
-```
+}));`}
+</CodeBlock>
 
 ## Writing Tests
 
@@ -139,8 +139,8 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
 
 Use React Testing Library to test component behavior and user interactions:
 
-```typescript
-import { render, screen } from '@testing-library/react';
+<CodeBlock language="typescript" filename="BaseDrawer.test.tsx">
+{`import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BaseDrawer from '../BaseDrawer';
 import '@testing-library/jest-dom';
@@ -193,15 +193,15 @@ describe('BaseDrawer', () => {
     expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled();
   });
-});
-```
+});`}
+</CodeBlock>
 
 ### Hook Testing
 
 Test custom hooks using `@testing-library/react-hooks`:
 
-```typescript
-import { renderHook, act } from "@testing-library/react";
+<CodeBlock language="typescript" filename="useTasks.test.ts">
+{`import { renderHook, act } from "@testing-library/react";
 import { useTasks } from "../useTasks";
 import { TasksClient } from "@/utils/api-client/tasks-client";
 
@@ -241,15 +241,15 @@ describe("useTasks", () => {
     expect(result.current.error).toBe("API Error");
     expect(result.current.isLoading).toBe(false);
   });
-});
-```
+});`}
+</CodeBlock>
 
 ### Utility Function Testing
 
 Test utility functions with Jest:
 
-```typescript
-import { formatDate } from "../date-utils";
+<CodeBlock language="typescript" filename="formatDate.test.ts">
+{`import { formatDate } from "../date-utils";
 
 describe("formatDate", () => {
   it("formats ISO date string correctly", () => {
@@ -272,8 +272,8 @@ describe("formatDate", () => {
 
     expect(formatted).toBe("15 Jan 2024");
   });
-});
-```
+});`}
+</CodeBlock>
 
 ## Test Utilities
 
@@ -281,8 +281,8 @@ describe("formatDate", () => {
 
 Use custom test utilities for consistent test setup:
 
-```typescript
-// src/__mocks__/test-utils.tsx
+<CodeBlock language="typescript" filename="src/__mocks__/test-utils.tsx">
+{`// src/__mocks__/test-utils.tsx
 import { render, RenderOptions } from '@testing-library/react';
 import { ReactElement } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -311,15 +311,15 @@ export const renderWithProviders = (
   return render(ui, { wrapper: providers, ...options });
 };
 
-export * from '@testing-library/react';
-```
+export * from '@testing-library/react';`}
+</CodeBlock>
 
 ### Mock Implementations
 
 Create mock implementations for API clients:
 
-```typescript
-// Mock API client
+<CodeBlock language="typescript" filename="Mock API Client">
+{`// Mock API client
 jest.mock("@/utils/api-client/tasks-client", () => ({
   TasksClient: jest.fn().mockImplementation(() => ({
     getTasks: jest.fn(),
@@ -327,8 +327,8 @@ jest.mock("@/utils/api-client/tasks-client", () => ({
     updateTask: jest.fn(),
     deleteTask: jest.fn(),
   })),
-}));
-```
+}));`}
+</CodeBlock>
 
 ## Testing Best Practices
 
@@ -482,8 +482,8 @@ expect(component.state.isLoading).toBe(true);`}</code></pre>
 
 Tests run automatically before commits through the validation script:
 
-```bash
-# apps/frontend/scripts/validate.sh
+<CodeBlock language="bash" isTerminal={true} filename="apps/frontend/scripts/validate.sh">
+{`# apps/frontend/scripts/validate.sh
 echo "🔍 Running tests..."
 npm test -- --passWithNoTests --watchAll=false
 TEST_EXIT_CODE=$?
@@ -492,15 +492,15 @@ TEST_EXIT_CODE=$?
 if [ $TEST_EXIT_CODE -ne 0 ]; then
   echo "✗ Tests failed"
   exit 1
-fi
-```
+fi`}
+</CodeBlock>
 
 ### GitHub Actions
 
 Automated testing in CI/CD pipeline:
 
-```yaml
-# .github/workflows/frontend.yml
+<CodeBlock language="yaml" filename=".github/workflows/frontend.yml">
+{`# .github/workflows/frontend.yml
 test:
   runs-on: ubuntu-latest
   steps:
@@ -525,8 +525,8 @@ test:
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
-        file: ./apps/frontend/coverage/lcov.info
-```
+        file: ./apps/frontend/coverage/lcov.info`}
+</CodeBlock>
 
 ## Troubleshooting
 
@@ -559,8 +559,8 @@ await act(async () => {
 
 ### Debug Tips
 
-```bash
-# Run tests with verbose output
+<CodeBlock language="bash" isTerminal={true}>
+{`# Run tests with verbose output
 npm test -- --verbose
 
 # Run specific test file
@@ -570,8 +570,8 @@ npm test Button.test.tsx
 npm test -- --testNamePattern="should render"
 
 # Debug failing test
-npm test -- --detectOpenHandles
-```
+npm test -- --detectOpenHandles`}
+</CodeBlock>
 
 ---
 

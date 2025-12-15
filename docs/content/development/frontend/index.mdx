@@ -224,8 +224,8 @@ const { user, login, logout, isLoading } = useAuth();
 
 Using Zustand for lightweight, scalable state management:
 
-```typescript
-// Example store
+<CodeBlock language="typescript" filename="Zustand Store Example">
+{`// Example store
 interface AppState {
   user: User | null;
   organization: Organization | null;
@@ -238,8 +238,8 @@ const useAppStore = create<AppState>((set) => ({
   organization: null,
   setUser: (user) => set({ user }),
   setOrganization: (org) => set({ organization: org }),
-}));
-```
+}));`}
+</CodeBlock>
 
 ### Data Fetching
 
@@ -318,8 +318,8 @@ The frontend includes a comprehensive component library:
 
 Next.js 15 App Router provides file-based routing:
 
-```
-app/
+<CodeBlock language="plaintext" filename="App Router Structure">
+{`app/
 ├── page.tsx                    # Home page (/)
 ├── auth/
 │   ├── signin/page.tsx         # Sign in (/auth/signin)
@@ -330,13 +330,13 @@ app/
 │   │   ├── page.tsx           # Tests list (/tests)
 │   │   └── [id]/page.tsx      # Test detail (/tests/123)
 │   └── settings/page.tsx       # Settings (/settings)
-└── layout.tsx                  # Root layout
-```
+└── layout.tsx                  # Root layout`}
+</CodeBlock>
 
 ### Route Protection
 
-```typescript
-// Middleware for route protection
+<CodeBlock language="typescript" filename="middleware.ts">
+{`// Middleware for route protection
 export function middleware(request: NextRequest) {
   const token = request.cookies.get("auth-token");
 
@@ -345,8 +345,8 @@ export function middleware(request: NextRequest) {
   }
 
   return NextResponse.next();
-}
-```
+}`}
+</CodeBlock>
 
 ## API Integration
 
@@ -354,8 +354,8 @@ export function middleware(request: NextRequest) {
 
 Centralized API client with automatic error handling:
 
-```typescript
-// API client configuration
+<CodeBlock language="typescript" filename="API Client Configuration">
+{`// API client configuration
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   timeout: 10000,
@@ -365,18 +365,18 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   const token = getAuthToken();
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    config.headers.Authorization = \`Bearer \${token}\`;
   }
   return config;
-});
-```
+});`}
+</CodeBlock>
 
 ### API Hooks
 
 Custom hooks for API integration:
 
-```typescript
-// Custom hook for tests
+<CodeBlock language="typescript" filename="API Hooks">
+{`// Custom hook for tests
 export function useTests(organizationId: string) {
   return useQuery({
     queryKey: ["tests", organizationId],
@@ -393,8 +393,8 @@ export function useCreateTest() {
       queryClient.invalidateQueries(["tests"]);
     },
   });
-}
-```
+}`}
+</CodeBlock>
 
 ## Styling & Design
 
@@ -402,20 +402,20 @@ export function useCreateTest() {
 
 Utility-first CSS framework for rapid development:
 
-```typescript
-// Component with Tailwind classes
+<CodeBlock language="typescript" filename="Tailwind Example">
+{`// Component with Tailwind classes
 <div className="flex items-center justify-between p-6 bg-white rounded-lg shadow-sm border border-gray-200">
   <h2 className="text-xl font-semibold text-gray-900">Test Results</h2>
   <Button variant="primary">Export</Button>
-</div>
-```
+</div>`}
+</CodeBlock>
 
 ### Design System
 
 Consistent design tokens and components:
 
-```typescript
-// Design tokens
+<CodeBlock language="typescript" filename="Design System">
+{`// Design tokens
 const colors = {
   primary: {
     50: "#eff6ff",
@@ -430,8 +430,8 @@ const buttonVariants = {
   primary: "bg-primary-500 text-white hover:bg-primary-600",
   secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",
   danger: "bg-red-500 text-white hover:bg-red-600",
-};
-```
+};`}
+</CodeBlock>
 
 ## Performance Optimization
 
@@ -439,20 +439,20 @@ const buttonVariants = {
 
 Automatic code splitting with Next.js:
 
-```typescript
-// Dynamic imports for code splitting
+<CodeBlock language="typescript" filename="Code Splitting">
+{`// Dynamic imports for code splitting
 const TestEditor = dynamic(() => import('./TestEditor'), {
   loading: () => <TestEditorSkeleton />,
   ssr: false,
-});
-```
+});`}
+</CodeBlock>
 
 ### Image Optimization
 
 Next.js Image component for optimized images:
 
-```typescript
-import Image from 'next/image';
+<CodeBlock language="typescript" filename="Image Optimization">
+{`import Image from 'next/image';
 
 <Image
   src="/logo.png"
@@ -460,8 +460,8 @@ import Image from 'next/image';
   width={200}
   height={50}
   priority
-/>
-```
+/>`}
+</CodeBlock>
 
 ### Caching Strategies
 
@@ -488,8 +488,8 @@ import Image from 'next/image';
 
 ### Local Development
 
-```bash
-# Start development server
+<CodeBlock language="bash" isTerminal={true}>
+{`# Start development server
 npm run dev
 
 # Run type checking
@@ -502,15 +502,15 @@ npm run lint
 npm run test
 
 # Build for production
-npm run build
-```
+npm run build`}
+</CodeBlock>
 
 ### Environment Configuration
 
 Key environment variables:
 
-```bash
-# API Configuration
+<CodeBlock language="bash" filename=".env.local">
+{`# API Configuration
 NEXT_PUBLIC_API_URL=http://localhost:8080
 NEXT_PUBLIC_WS_URL=ws://localhost:8080
 
@@ -520,8 +520,8 @@ NEXT_PUBLIC_AUTH_CLIENT_ID=your-client-id
 
 # Feature Flags
 NEXT_PUBLIC_ENABLE_ANALYTICS=true
-NEXT_PUBLIC_ENABLE_BETA_FEATURES=false
-```
+NEXT_PUBLIC_ENABLE_BETA_FEATURES=false`}
+</CodeBlock>
 
 ## Testing
 
@@ -529,8 +529,8 @@ NEXT_PUBLIC_ENABLE_BETA_FEATURES=false
 
 Comprehensive testing with Jest and React Testing Library:
 
-```typescript
-// Component test example
+<CodeBlock language="typescript" filename="TestCard.test.tsx">
+{`// Component test example
 import { render, screen } from '@testing-library/react';
 import { TestCard } from './TestCard';
 
@@ -541,8 +541,8 @@ describe('TestCard', () => {
     expect(screen.getByText(mockTest.name)).toBeInTheDocument();
     expect(screen.getByText(mockTest.description)).toBeInTheDocument();
   });
-});
-```
+});`}
+</CodeBlock>
 
 ### Test Categories
 
@@ -569,13 +569,13 @@ describe('TestCard', () => {
 
 ### Build Process
 
-```bash
-# Production build
+<CodeBlock language="bash" isTerminal={true}>
+{`# Production build
 npm run build
 
 # Static export (optional)
-npm run export
-```
+npm run export`}
+</CodeBlock>
 
 ### Deployment Options
 
