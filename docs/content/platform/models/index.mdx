@@ -1,95 +1,63 @@
 # Models
 
-Connect to AI service providers to power your metric evaluation and testing workflows.
+<Callout type="default">
+  **What are Models?** Models are AI service providers that you can set up for your evaluation and testing workflows.
+</Callout>
 
-## Understanding LLM Providers
+Models in Rhesis are used for two primary purposes:
 
-LLM Providers are connections to AI models used for evaluating test responses. Each provider connection includes a connection name that identifies the specific configuration, the provider (AI service like OpenAI, Anthropic, or Google), the specific model name to use, the provider's API endpoint URL, your API key for authentication, and optional custom HTTP headers if needed.
+- **Test Generation**: Automatically generate test cases based on your requirements (see [Tests](/platform/tests))
+- **Evaluation (LLM as Judge)**: Evaluate AI responses using metrics powered by LLMs (see [Metrics](/platform/metrics))
+
+You can configure default models for each purpose in the model settings, or select specific models when creating individual metrics or test cases.
+
+## Default Model
+
+Rhesis provides a default managed model that requires no configuration:
+
+- **Rhesis Default**: Default Rhesis-hosted model
+  - No API key required
+  - Pre-configured for both generation and evaluation
+  - Ready to use immediately
+
 
 ## Supported Providers
 
-Rhesis supports connections to major AI providers including: Anthropic (Claude), Cohere, Google (Gemini, PaLM), Groq, Hugging Face, Meta (Llama), Mistral, Ollama (local models), OpenAI (GPT), Perplexity, Replicate, Together AI, and Custom (vLLM) for self-hosted models.
+Rhesis supports connections to major AI providers including:
+
+- **Anthropic** (Claude)
+- **Cohere**
+- **Google** (Gemini, PaLM)
+- **Groq**
+- **Hugging Face**
+- **Meta** (Llama)
+- **Mistral**
+- **Ollama** (local models)
+- **OpenAI** (GPT)
+- **Perplexity**
+- **Replicate**
+- **Together AI**
 
 ![Models Overview](/screenshots/rhesis-ai-models.png)
 
-## Connecting a Provider
+## Connecting a Model Provider
 
-### Standard Provider Connection
-
-1. Click "Add LLM" card on the LLM Providers page
-2. Select a provider from the list
-3. Fill in the connection details:
+1. Click **"Add Model"** on the Models page
+2. Select a provider (e.g., Google Gemini, OpenAI, Anthropic)
+3. Fill in the required fields:
    - **Connection Name**: Unique identifier for this connection
-   - **Model Name**: Specific model (e.g., "gpt-4", "claude-3-opus")
-   - **API Endpoint**: Provider's API URL
-   - **API Key**: Your API key from the model provider's dashboard
-4. (Optional) Add custom headers if required
-5. Click "Connect"
+   - **Model Name**: Specific model to use (e.g., "gemini-1.5-pro", "gpt-4-turbo")
+   - **API Key**: Your API key from the provider's dashboard
+4. (Optional) Configure additional settings:
+   - **Custom Headers**: Add HTTP headers required for your API calls
+   - **Default for Test Generation**: Use this model when generating test cases
+   - **Default for Evaluation**: Use this model for metrics evaluation
+5. Click **"Test Connection"** to verify your configuration
+6. Click **"Save"** to add the model
 
-### Custom Provider (vLLM) Connection
-
-For self-hosted or custom model deployments:
-
-1. Select "vLLM" as the provider
-2. Provide additional details:
-   - **Provider Name**: Descriptive name for your deployment
-   - **Model Name**: Your model identifier
-   - **API Endpoint**: Full URL of your deployment
-   - **API Key**: Authentication key (if required)
-3. Configure custom headers as needed
-4. Click "Connect"
-
-## Managing Provider Connections
-
-### Viewing Connections
-
-Connected providers display:
-
-- Provider icon with checkmark
-- Connection name and description
-- Model being used
-- Masked API key (last 4 characters visible)
-- "Connected" status button
-
-### Adding Custom Headers
-
-Custom headers can be added during setup:
-
-1. In the connection dialog, scroll to "Custom Headers" section
-2. Enter header name and value
-3. Click "Add" button
-4. Headers appear in the list
-5. Remove headers using the delete icon
-
-**Note**: Authorization header is automatically included with your API key.
-
-### Deleting Connections
-
-Remove a provider connection:
-
-1. Click delete icon (X) on the provider card
-2. Confirm deletion in the dialog
-3. Connection is permanently removed
-
-**Warning**: Metrics using this provider will no longer work after deletion.
-
-## Using Provider Connections
-
-Once connected, providers are available for:
-
-- **Metric Evaluation**: Select the model when creating metrics
-- **Test Execution**: Metrics use the configured provider to evaluate test responses
-
-The system automatically handles:
-
-- Authentication with your API key
-- Request formatting for the provider
-- Response parsing and error handling
 
 ---
 
 <Callout type="default">
-  **Next Steps** - Create [Metrics](/docs/platform/metrics) using your connected
-  providers - Run [Tests](/docs/platform/tests) with provider-backed
-  evaluation
+  **Next Steps** - Create [Metrics](/docs/platform/metrics) using your connected models - Generate [Tests](/docs/platform/tests) with AI-powered test generation
 </Callout>
