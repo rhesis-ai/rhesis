@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Overview
 
 The Rhesis SDK provides a comprehensive metrics system for evaluating LLM-based systems. The metrics module supports multiple evaluation frameworks and allows you to create custom metrics tailored to your specific use cases. The metrics module is integrated with the backend, allowing you to work with metrics directly from the platform.
@@ -53,10 +55,10 @@ These tools are used through their public APIs. The original licenses and copyri
 
 **API Key Required**: All examples require a valid Rhesis API key. Set your API key using:
 
-```python
-import os
-os.environ["RHESIS_API_KEY"] = "your-api-key"
-```
+<CodeBlock filename="setup.py" language="python">
+{`import os
+os.environ["RHESIS_API_KEY"] = "your-api-key"`}
+</CodeBlock>
 
 For more information, see the [Installation & Setup](../installation) guide.
 
@@ -64,8 +66,8 @@ For more information, see the [Installation & Setup](../installation) guide.
 
 ### Single-Turn Evaluation
 
-```python
-from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
+<CodeBlock filename="single_turn.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
 
 # Initialize metric
 metric = DeepEvalAnswerRelevancy(threshold=0.7)
@@ -77,13 +79,13 @@ result = metric.evaluate(
 )
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ### Conversational Evaluation
 
-```python
-from rhesis.sdk.metrics import DeepEvalTurnRelevancy, ConversationHistory
+<CodeBlock filename="conversational.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalTurnRelevancy, ConversationHistory
 
 # Initialize metric
 metric = DeepEvalTurnRelevancy(threshold=0.7)
@@ -100,8 +102,8 @@ conversation = ConversationHistory.from_messages([
 result = metric.evaluate(conversation_history=conversation)
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ## Custom Metrics
 
@@ -112,8 +114,8 @@ In addition to framework-provided metrics, Rhesis offers custom metric builders:
 - **`NumericJudge`**: Create custom numeric scoring metrics (e.g., 0-10 scale)
 - **`CategoricalJudge`**: Create custom categorical classification metrics
 
-```python
-from rhesis.sdk.metrics import NumericJudge
+<CodeBlock filename="numeric_judge.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge
 
 metric = NumericJudge(
     name="response_clarity",
@@ -121,16 +123,16 @@ metric = NumericJudge(
     min_score=0.0,
     max_score=10.0,
     threshold=7.0
-)
-```
+)`}
+</CodeBlock>
 
 ### For Conversational Evaluation
 
 - **`ConversationalJudge`**: Create custom conversational quality metrics
 - **`GoalAchievementJudge`**: Evaluate goal achievement with custom criteria
 
-```python
-from rhesis.sdk.metrics import ConversationalJudge
+<CodeBlock filename="conversational_judge.py" language="python">
+{`from rhesis.sdk.metrics import ConversationalJudge
 
 metric = ConversationalJudge(
     name="conversation_coherence",
@@ -138,20 +140,20 @@ metric = ConversationalJudge(
     min_score=0.0,
     max_score=10.0,
     threshold=7.0
-)
-```
+)`}
+</CodeBlock>
 
 ## Platform Integration
 
 Metrics can be managed both in the platform and in the SDK. The SDK provides `push` and `pull` methods to synchronize metrics with the platform.
 
-```python
-# Push a metric to the platform
+<CodeBlock filename="platform_integration.py" language="python">
+{`# Push a metric to the platform
 metric.push()
 
 # Pull a metric from the platform
-metric = NumericJudge.pull(name="response_clarity")
-```
+metric = NumericJudge.pull(name="response_clarity")`}
+</CodeBlock>
 
 ## Next Steps
 

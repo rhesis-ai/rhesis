@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Conversational Metrics
 
 ## Overview
@@ -8,10 +10,10 @@ Conversational metrics (multi-turn metrics) evaluate the quality of interactions
 
 **API Key Required**: All examples in this documentation require a valid Rhesis API key. Set your API key using:
 
-```python
-import os
-os.environ["RHESIS_API_KEY"] = "your-api-key"
-```
+<CodeBlock filename="setup.py" language="python">
+{`import os
+os.environ["RHESIS_API_KEY"] = "your-api-key"`}
+</CodeBlock>
 
 For more information, see the [Installation & Setup](../installation) guide.
 
@@ -54,16 +56,16 @@ If any metrics are missing from the list, or you would like to use a different p
 
 All conversational metrics require a `ConversationHistory` object that represents the multi-turn dialogue. Create one using the `from_messages` method:
 
-```python
-from rhesis.sdk.metrics import ConversationHistory
+<CodeBlock filename="conversation_history.py" language="python">
+{`from rhesis.sdk.metrics import ConversationHistory
 
 conversation = ConversationHistory.from_messages([
     {"role": "user", "content": "What insurance do you offer?"},
     {"role": "assistant", "content": "We offer auto, home, and life insurance."},
     {"role": "user", "content": "Tell me more about auto coverage."},
     {"role": "assistant", "content": "Auto insurance includes liability and collision coverage."},
-])
-```
+])`}
+</CodeBlock>
 
 ## Quick Start
 
@@ -71,8 +73,8 @@ conversation = ConversationHistory.from_messages([
 
 Evaluates whether assistant responses are relevant to the conversational context throughout the conversation.
 
-```python
-from rhesis.sdk.metrics import DeepEvalTurnRelevancy, ConversationHistory
+<CodeBlock filename="turn_relevancy.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalTurnRelevancy, ConversationHistory
 
 # Initialize metric
 metric = DeepEvalTurnRelevancy(threshold=0.7, window_size=10)
@@ -89,15 +91,15 @@ conversation = ConversationHistory.from_messages([
 result = metric.evaluate(conversation_history=conversation)
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ### Role Adherence
 
 Evaluates whether the assistant maintains its assigned role throughout the conversation.
 
-```python
-from rhesis.sdk.metrics import DeepEvalRoleAdherence, ConversationHistory
+<CodeBlock filename="role_adherence.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalRoleAdherence, ConversationHistory
 
 # Initialize metric
 metric = DeepEvalRoleAdherence(threshold=0.7)
@@ -120,15 +122,15 @@ result = metric.evaluate(
 )
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ### Knowledge Retention
 
 Evaluates the assistant's ability to retain and recall factual information introduced earlier in the conversation.
 
-```python
-from rhesis.sdk.metrics import DeepEvalKnowledgeRetention, ConversationHistory
+<CodeBlock filename="knowledge_retention.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalKnowledgeRetention, ConversationHistory
 
 # Initialize metric
 metric = DeepEvalKnowledgeRetention(threshold=0.7)
@@ -145,15 +147,15 @@ conversation = ConversationHistory.from_messages([
 result = metric.evaluate(conversation_history=conversation)
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ### Conversation Completeness
 
 Evaluates whether the conversation reaches a satisfactory conclusion where the user's needs are met.
 
-```python
-from rhesis.sdk.metrics import DeepEvalConversationCompleteness, ConversationHistory
+<CodeBlock filename="conversation_completeness.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalConversationCompleteness, ConversationHistory
 
 # Initialize metric
 metric = DeepEvalConversationCompleteness(threshold=0.7, window_size=3)
@@ -170,15 +172,15 @@ conversation = ConversationHistory.from_messages([
 result = metric.evaluate(conversation_history=conversation)
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ### Goal Accuracy
 
 Evaluates the assistant's ability to plan and execute tasks to achieve specific goals.
 
-```python
-from rhesis.sdk.metrics import DeepEvalGoalAccuracy, ConversationHistory
+<CodeBlock filename="goal_accuracy.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalGoalAccuracy, ConversationHistory
 
 # Initialize metric
 metric = DeepEvalGoalAccuracy(threshold=0.7)
@@ -199,15 +201,15 @@ result = metric.evaluate(
 )
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ### Tool Use
 
 Evaluates the assistant's capability in selecting and utilizing tools appropriately during conversations.
 
-```python
-from rhesis.sdk.metrics import DeepEvalToolUse, ConversationHistory
+<CodeBlock filename="tool_use.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalToolUse, ConversationHistory
 
 # Define available tools
 available_tools = [
@@ -238,8 +240,8 @@ conversation = ConversationHistory.from_messages([
 result = metric.evaluate(conversation_history=conversation)
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ## Creating Custom Conversational Metrics
 
@@ -247,8 +249,8 @@ print(f"Passed: {result.details['is_successful']}")
 
 Create custom conversational evaluations using `ConversationalJudge`:
 
-```python
-from rhesis.sdk.metrics import ConversationalJudge
+<CodeBlock filename="conversational_judge.py" language="python">
+{`from rhesis.sdk.metrics import ConversationalJudge
 
 # Define custom conversational metric
 metric = ConversationalJudge(
@@ -275,15 +277,15 @@ conversation = ConversationHistory.from_messages([
 result = metric.evaluate(conversation_history=conversation)
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ### Goal Achievement Judge
 
 Evaluate goal achievement with custom criteria using `GoalAchievementJudge`:
 
-```python
-from rhesis.sdk.metrics import GoalAchievementJudge
+<CodeBlock filename="goal_achievement_judge.py" language="python">
+{`from rhesis.sdk.metrics import GoalAchievementJudge
 
 # Define goal achievement metric
 metric = GoalAchievementJudge(
@@ -308,15 +310,15 @@ conversation = ConversationHistory.from_messages([
 result = metric.evaluate(conversation_history=conversation)
 
 print(f"Overall Score: {result.score}")
-print(f"Criteria Results: {result.details['criteria_results']}")
-```
+print(f"Criteria Results: {result.details['criteria_results']}")`}
+</CodeBlock>
 
 ## Understanding Results
 
 All conversational metrics return a `MetricResult` object:
 
-```python
-result = metric.evaluate(conversation_history=conversation)
+<CodeBlock filename="results.py" language="python">
+{`result = metric.evaluate(conversation_history=conversation)
 
 # Access score
 print(result.score)
@@ -329,8 +331,8 @@ print(result.details)
 #     'is_successful': True,
 #     'threshold': 0.7,
 #     'score_type': 'numeric'
-# }
-```
+# }`}
+</CodeBlock>
 
 ## Configuring Models
 
@@ -338,8 +340,8 @@ All conversational metrics require an LLM model to perform the evaluation. If no
 
 For more information about models, see the [Models Documentation](../models).
 
-```python
-from rhesis.sdk.metrics import DeepEvalTurnRelevancy
+<CodeBlock filename="configure_models.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalTurnRelevancy
 from rhesis.sdk.models import get_model
 
 # Use specific model
@@ -347,8 +349,8 @@ model = get_model("gemini")
 metric = DeepEvalTurnRelevancy(threshold=0.7, model=model)
 
 # Or pass model name directly
-metric = DeepEvalTurnRelevancy(threshold=0.7, model="gpt-4")
-```
+metric = DeepEvalTurnRelevancy(threshold=0.7, model="gpt-4")`}
+</CodeBlock>
 
 ## See Also
 

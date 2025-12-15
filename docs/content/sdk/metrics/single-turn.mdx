@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Single-Turn Metrics
 
 ## Overview
@@ -8,10 +10,10 @@ Single-turn metrics evaluate individual exchanges between user input and system 
 
 **API Key Required**: All examples in this documentation require a valid Rhesis API key. Set your API key using:
 
-```python
-import os
-os.environ["RHESIS_API_KEY"] = "your-api-key"
-```
+<CodeBlock filename="setup.py" language="python">
+{`import os
+os.environ["RHESIS_API_KEY"] = "your-api-key"`}
+</CodeBlock>
 
 For more information, see the [Installation & Setup](../installation) guide.
 
@@ -79,8 +81,8 @@ If any metrics are missing from the list, or you would like to use a different p
 
 ### Using DeepEval Metrics
 
-```python
-from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
+<CodeBlock filename="deepeval_example.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
 
 # Initialize metric
 metric = DeepEvalAnswerRelevancy(threshold=0.7)
@@ -92,13 +94,13 @@ result = metric.evaluate(
 )
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ### Using Ragas Metrics
 
-```python
-from rhesis.sdk.metrics import RagasFaithfulness
+<CodeBlock filename="ragas_example.py" language="python">
+{`from rhesis.sdk.metrics import RagasFaithfulness
 
 # Initialize metric
 metric = RagasFaithfulness(threshold=0.8)
@@ -114,8 +116,8 @@ result = metric.evaluate(
 )
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ### Creating Custom Metrics
 
@@ -125,8 +127,8 @@ You can create custom metrics using the `NumericJudge` and `CategoricalJudge` cl
 
 `NumericJudge` returns a numeric score (e.g., from 0 to 10) and requires four specific parameters: `min_score`, `max_score`, `threshold`, and `threshold_operator`.
 
-```python
-from rhesis.sdk.metrics import NumericJudge
+<CodeBlock filename="numeric_judge.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge
 
 # Define custom numeric metric
 metric = NumericJudge(
@@ -150,15 +152,15 @@ result = metric.evaluate(
 )
 
 print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 #### Categorical Judge
 
 `CategoricalJudge` returns a categorical value and requires you to specify `categories` and `passing_categories`.
 
-```python
-from rhesis.sdk.metrics import CategoricalJudge
+<CodeBlock filename="categorical_judge.py" language="python">
+{`from rhesis.sdk.metrics import CategoricalJudge
 
 # Define custom categorical metric
 metric = CategoricalJudge(
@@ -175,15 +177,15 @@ result = metric.evaluate(
 )
 
 print(f"Category: {result.score}")
-print(f"Passed: {result.details['is_successful']}")
-```
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
 
 ## Understanding Results
 
 All metrics return a `MetricResult` object:
 
-```python
-result = metric.evaluate(input="...", output="...")
+<CodeBlock filename="results.py" language="python">
+{`result = metric.evaluate(input="...", output="...")
 
 # Access score (numeric value or categorical label)
 print(result.score)
@@ -196,8 +198,8 @@ print(result.details)
 #     'is_successful': True,
 #     'threshold': 0.7,
 #     'score_type': 'numeric'
-# }
-```
+# }`}
+</CodeBlock>
 
 ## Configuring Models
 
@@ -205,8 +207,8 @@ All metrics require an LLM model to perform the evaluation. If no model is speci
 
 For more information about models, see the [Models Documentation](../models).
 
-```python
-from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
+<CodeBlock filename="configure_models.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
 from rhesis.sdk.models import get_model
 
 # Use specific model
@@ -214,8 +216,8 @@ model = get_model("gemini")
 metric = DeepEvalAnswerRelevancy(threshold=0.7, model=model)
 
 # Or pass model name directly
-metric = DeepEvalAnswerRelevancy(threshold=0.7, model="gpt-4")
-```
+metric = DeepEvalAnswerRelevancy(threshold=0.7, model="gpt-4")`}
+</CodeBlock>
 
 ## Advanced Configuration
 
@@ -223,8 +225,8 @@ metric = DeepEvalAnswerRelevancy(threshold=0.7, model="gpt-4")
 
 Custom metrics can be serialized and deserialized using the `from_config`/`to_config` or `from_dict`/`to_dict` methods.
 
-```python
-metric = NumericJudge(
+<CodeBlock filename="serialization.py" language="python">
+{`metric = NumericJudge(
     name="response_clarity",
     evaluation_prompt="Rate how clear and understandable the response is.",
     evaluation_steps=(
@@ -243,8 +245,8 @@ metric_dict = metric.to_dict()
 
 # Deserialize
 metric = NumericJudge.from_config(config)
-metric = NumericJudge.from_dict(metric_dict)
-```
+metric = NumericJudge.from_dict(metric_dict)`}
+</CodeBlock>
 
 ### Platform Integration
 
@@ -254,8 +256,8 @@ Metrics can be managed both in the platform and in the SDK. The SDK provides `pu
 
 To push a metric to the platform:
 
-```python
-metric = NumericJudge(
+<CodeBlock filename="push_metric.py" language="python">
+{`metric = NumericJudge(
     name="response_clarity",
     description="Rate how clear and understandable the response is.",
     metric_type="classification",
@@ -271,16 +273,16 @@ metric = NumericJudge(
     max_score=10.0,
     threshold=7.0
 )
-metric.push()
-```
+metric.push()`}
+</CodeBlock>
 
 #### Pulling Metrics
 
 To pull metrics from the platform, use the `pull` method and specify the metric name. If the name is not unique, you must also specify the metric ID.
 
-```python
-metric = NumericJudge.pull(name="response_clarity")
-```
+<CodeBlock filename="pull_metric.py" language="python">
+{`metric = NumericJudge.pull(name="response_clarity")`}
+</CodeBlock>
 
 ## See Also
 

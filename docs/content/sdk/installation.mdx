@@ -1,12 +1,14 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Installation & Setup
 
 Get started with the Rhesis Python SDK - install the package, configure authentication, and learn the fundamental concepts including models, synthesizers, and metrics.
 
 ## Installation
 
-```bash
-pip install rhesis-sdk
-```
+<CodeBlock filename="Terminal" language="bash">
+{`pip install rhesis-sdk`}
+</CodeBlock>
 
 ## Getting Started
 
@@ -29,26 +31,26 @@ You can configure the SDK either through environment variables or direct configu
 
 **Environment Variables:**
 
-```bash
-export RHESIS_API_KEY="your-api-key"
-export RHESIS_BASE_URL="https://api.rhesis.ai"
-```
+<CodeBlock filename="Terminal" language="bash">
+{`export RHESIS_API_KEY="your-api-key"
+export RHESIS_BASE_URL="https://api.rhesis.ai"`}
+</CodeBlock>
 
 **Direct Configuration:**
 
-```python
-import rhesis
+<CodeBlock filename="config.py" language="python">
+{`import rhesis
 
 rhesis.api_key = "your-api-key"
-rhesis.base_url = "https://api.rhesis.ai"  # optional
-```
+rhesis.base_url = "https://api.rhesis.ai"  # optional`}
+</CodeBlock>
 
 ### Basic Usage
 
 Once configured, you can start using the SDK to create and manage tests:
 
-```python
-from rhesis.sdk import RhesisClient
+<CodeBlock filename="basic_usage.py" language="python">
+{`from rhesis.sdk import RhesisClient
 
 # Initialize the client
 client = RhesisClient()
@@ -62,8 +64,8 @@ test = client.create_test(
 
 # Run the test
 result = client.run_test(test_id=test.id, endpoint_id="your-endpoint-id")
-print(result)
-```
+print(result)`}
+</CodeBlock>
 
 </Steps>
 
