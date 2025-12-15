@@ -8,12 +8,9 @@ Define and manage evaluation criteria for testing AI responses with LLM-based gr
 
 ## Metrics at a glance
 
-Metrics are organized by **Behaviors**, which are groups of related metrics. Example of behaviors are, for instance:
+Metrics are organized by [**Behaviors**](/platform/behaviors), which define how your AI system should perform. Each behavior represents a specific aspect of your system's output that you want to evaluate.
 
-- **Accuracy**: Metrics for factual correctness
-- **Tone**: Metrics for appropriate communication style
-- **Safety**: Metrics for harmful content detection
-- **Relevance**: Metrics for on-topic responses
+**In short:** Behaviors define what you expect, metrics measure how well you meet those expectations.
 
 You can add an existing metric to a behavior by clicking the "+" icon in the top-right corner of the chip on the Metrics Overview page.
 
@@ -21,88 +18,128 @@ You can add an existing metric to a behavior by clicking the "+" icon in the top
 
 
 
-### Example of Existing Metrics
+## Using Existing Metrics
 
-The platform includes pre-built metrics from Rhesis, DeepEval, and Ragas. Here are some examples:
+The platform includes pre-built metrics from multiple providers:
 
-| Metric Name | Provider | Score Type | Scope | Behavior | Description |
-|-------------|----------|------------|-------|----------|-------------|
-| Role Adherence | DeepEval | Numeric | Multi-Turn | Compliance | Evaluates whether the assistant maintains its assigned role throughout the conversation. |
-| Knowledge Retention | Rhesis | Numeric | Multi-Turn | Reliability | Measures memory consistency and correct use of information introduced earlier in the conversation. |
-| Answer Accuracy | Ragas | Numeric | Single-Turn | Reliability | Measures accuracy of the generated answer against ground truth. |
+- **[DeepEval](https://github.com/confident-ai/deepeval)** - The LLM Evaluation Framework by Confident AI
+- **[Ragas](https://github.com/explodinggradients/ragas)** - Supercharge Your LLM Application Evaluations by Exploding Gradients
+- **Rhesis** - Custom metrics developed by the Rhesis team
+
+Here are some examples:
+
+| Metric Name | Provider | Score Type | Scope | Description |
+|-------------|----------|------------|-------|-------------|
+| Role Adherence | DeepEval | Numeric | Multi-Turn | Evaluates whether the assistant maintains its assigned role throughout the conversation. |
+| Knowledge Retention | Rhesis | Numeric | Multi-Turn | Measures memory consistency and correct use of information introduced earlier in the conversation. |
+| Answer Accuracy | Ragas | Numeric | Single-Turn | Measures accuracy of the generated answer against ground truth. |
 
 
-## Creating Metrics
+## Creating Custom Metrics
 
-Besides the metrics already provided in the platform, you can create your own custom metrics.
+You can create custom metrics tailored to your specific evaluation needs. Here's what you'll need to configure:
 
-### Evaluation Process
+### 1. Evaluation Process
 
-Define how the LLM will evaluate responses:
+Define how the LLM evaluates responses by providing three key components:
 
-**Evaluation Prompt**
+<details>
+<summary><strong>Evaluation Prompt</strong></summary>
 
-Write clear instructions on what to evaluate. Be specific about the criteria.
+Write clear instructions specifying what to evaluate and the criteria to use.
 
-Example: "Evaluate whether the response is accurate, complete, and relevant. Use the following criteria: accuracy of facts, coverage of required points, clarity of explanation."
+```
+Example: "Evaluate whether the response is accurate, complete, and relevant.
+Use the following criteria: accuracy of facts, coverage of required points,
+clarity of explanation."
+```
+</details>
 
-**Evaluation Steps**
+<details>
+<summary><strong>Evaluation Steps</strong></summary>
 
-Break down the evaluation into steps. These steps will not be executed sequentially, but they provide clear guidance for the LLM to follow when producing a score and reasoning.
+Break down the evaluation into clear steps. These guide the LLM when producing a score and reasoning.
 
-Example steps:
-1. Check Accuracy: Identify any factual errors or unsupported statements.
-2. Check Coverage: Determine if all required elements or sub-questions are addressed.
-3. Check Clarity: Assess whether the response is clear and well-structured.
+```
+Example:
+1. Check Accuracy: Identify any factual errors or unsupported statements
+2. Check Coverage: Determine if all required elements are addressed
+3. Check Clarity: Assess whether the response is clear and well-structured
+```
+</details>
 
-**Reasoning Instructions**
+<details>
+<summary><strong>Reasoning Instructions</strong></summary>
 
-Explain how the evaluation should be reasoned about. Include key aspects to consider.
+Explain how to reason about the evaluation and weight different aspects.
 
-Example: "For each response, first extract the key claims or points. Assess the overall completeness, correctness and clarity, weighing each issue according to its importance. Use this structured reasoning to determine the final score"
+```
+Example: "Extract key claims, assess completeness and correctness,
+weigh issues by importance, then determine the final score."
+```
+</details>
 
 **Best Practices:**
-- Keep prompts focused on one evaluation dimension (accuracy, tone, safety, etc.)
-- Use concrete, measurable criteria rather than vague terms
-- Provide clear examples in your prompts when possible
+- Focus on one evaluation dimension (accuracy, tone, safety, etc.)
+- Use concrete, measurable criteria
+- Provide clear examples when possible
 
-### Score Configuration
+---
 
-Choose how your metric will evaluate responses:
+### 2. Score Configuration
 
-**Numeric Scoring**
+Choose your scoring approach:
+
+<details>
+<summary><strong>Numeric Scoring</strong></summary>
 
 Define a numeric scale with a pass/fail threshold:
 
-- **Minimum Score**: (e.g., 1)
-- **Maximum Score**: (e.g., 10)
-- **Threshold**: Set the passing criteria (e.g., 7)
-- **Operator**: Choose comparison operator (greater than or equal, greater than, less than or equal, less than, equal to)
+- **Min/Max Score**: e.g., 0-10
+- **Threshold**: Passing score (e.g., 7)
+- **Operator**: `>=`, `>`, `<=`, `<`, or `=`
 
-Example: Min 0, Max 10, Threshold 7 with "greater than or equal" operator means scores of 7-10 pass, 0-6 fail.
+*Example: Min 0, Max 10, Threshold ≥7 means scores 7-10 pass, 0-6 fail.*
 
-**Categorical Scoring**
+</details>
 
-Define custom categories the LLM can return:
+<details>
+<summary><strong>Categorical Scoring</strong></summary>
 
-- Add categories like "Excellent", "Good", "Fair", "Poor"
-- Press Enter or comma to add each category
-- The LLM will classify responses into one of these categories
+Define custom categories for classification:
 
-Example: Categories could be "Safe", "Borderline", "Unsafe" for safety metrics.
+- Add categories: "Excellent", "Good", "Fair", "Poor"
+- Use comma or Enter to add each category
+- The LLM classifies responses into one category
 
-### Metric Scope
+*Example: "Safe", "Borderline", "Unsafe" for safety evaluation.*
 
-Select which test types this metric applies to (at least one required):
+</details>
 
-- **Single-Turn**: Evaluates individual question-answer pairs
-- **Multi-Turn**: Evaluates conversations across multiple exchanges
+---
 
-### Result Explanation
+### 3. Metric Scope
 
-Provide instructions on how the LLM should explain the reasoning behind the score. This helps users understand why a particular score was given.
+Select applicable test types (at least one required):
 
-Example: "Explain which specific parts of the response were accurate or inaccurate, citing evidence from the context provided."
+- **Single-Turn**: Individual question-answer pairs
+- **Multi-Turn**: Multi-exchange conversations
+
+You can find more information about test types in the [Tests Section](/platform/tests).
+
+---
+
+### 4. Result Explanation
+
+Provide instructions for how the LLM should explain its scoring rationale.
+
+```
+Example: "Explain which specific parts were accurate or inaccurate,
+citing evidence from the provided context."
+```
+
+## See Also
+-  Learn how to use metrics programmatically in the [SDK Metrics Documentation](/sdk/metrics)
 
 <Callout type="default">
   **Next Steps** - Use metrics in [Tests](/platform/tests-generation) by
