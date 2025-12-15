@@ -21,12 +21,6 @@ graph LR
     Workers <-->|Pub/Sub RPC| Redis
     Backend -->|Store Endpoints| PostgreSQL
     Workers -->|Read Config| PostgreSQL
-
-    style TargetApp fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    style Backend fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    style Workers fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    style Redis fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    style PostgreSQL fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
 **Target Application (SDK)**:

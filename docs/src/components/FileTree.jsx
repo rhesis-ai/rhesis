@@ -115,9 +115,14 @@ const FileTree = ({ data, title = 'Project Structure' }) => {
 
         {node.type === 'folder' && node.children && node.children.length > 0 && (
           <div>
-            {node.children.map((child, index) =>
-              renderNode(child, depth + 1, index === node.children.length - 1, prefix + childPrefix)
-            )}
+            {node.children.map((child, index) => {
+              const isLast = index === node.children.length - 1
+              return (
+                <div key={`${prefix}-${depth}-${child.name}`}>
+                  {renderNode(child, depth + 1, isLast, prefix + childPrefix)}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -135,7 +140,11 @@ const FileTree = ({ data, title = 'Project Structure' }) => {
         <div style={styles.title}>{title}</div>
       </div>
       <div style={styles.content}>
-        {data && data.map((node, index) => renderNode(node, 0, index === data.length - 1, ''))}
+        {data &&
+          data.map((node, index) => {
+            const isLast = index === data.length - 1
+            return <div key={`root-${node.name}`}>{renderNode(node, 0, isLast, '')}</div>
+          })}
       </div>
     </div>
   )

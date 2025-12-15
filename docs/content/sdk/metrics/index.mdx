@@ -1,0 +1,168 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Overview
+
+The Rhesis SDK provides a comprehensive metrics system for evaluating LLM-based systems. The metrics module supports multiple evaluation frameworks and allows you to create custom metrics tailored to your specific use cases. The metrics module is integrated with the backend, allowing you to work with metrics directly from the platform.
+
+## Metric Types
+
+Rhesis SDK supports two types of metrics:
+
+### Single-Turn Metrics
+
+Single-turn metrics evaluate individual exchanges between user input and system output. These metrics are ideal for assessing:
+
+- **RAG Systems**: Context relevance, faithfulness, and answer accuracy
+- **Response Quality**: Clarity, relevance, and accuracy of individual responses
+- **Safety & Compliance**: Bias, toxicity, PII leakage, and other safety concerns
+- **Custom Evaluations**: Domain-specific quality assessments
+
+[**View Single-Turn Metrics Documentation →**](./single-turn)
+
+### Conversational Metrics
+
+Conversational metrics (multi-turn metrics) evaluate the quality of interactions across multiple conversation turns. These metrics are ideal for assessing:
+
+- **Conversation Flow**: Turn relevancy and coherence across dialogue
+- **Goal Achievement**: Whether objectives are met throughout the conversation
+- **Role Adherence**: Consistency in maintaining assigned roles
+- **Knowledge Retention**: Ability to recall and reference earlier conversation context
+- **Tool Usage**: Appropriate selection and utilization of available tools
+- **Conversation Completeness**: Whether conversations reach satisfactory conclusions
+
+[**View Conversational Metrics Documentation →**](./conversational)
+
+## Framework Integration
+
+<Callout type="info">
+
+Rhesis integrates with the following open-source evaluation frameworks:
+
+- **[DeepEval](https://github.com/confident-ai/deepeval)** - Apache License 2.0  
+  The LLM Evaluation Framework by Confident AI
+- **[DeepTeam](https://github.com/confident-ai/deepteam)** - Apache License 2.0  
+  The LLM Red Teaming Framework by Confident AI
+- **[Ragas](https://github.com/explodinggradients/ragas)** - Apache License 2.0  
+  Supercharge Your LLM Application Evaluations by Exploding Gradients
+
+These tools are used through their public APIs. The original licenses and copyright notices can be found in their respective repositories. Rhesis is not affiliated with these projects.
+
+</Callout>
+
+## Quick Example
+
+<Callout type="info">
+
+**API Key Required**: All examples require a valid Rhesis API key. Set your API key using:
+
+<CodeBlock filename="setup.py" language="python">
+{`import os
+os.environ["RHESIS_API_KEY"] = "your-api-key"`}
+</CodeBlock>
+
+For more information, see the [Installation & Setup](../installation) guide.
+
+</Callout>
+
+### Single-Turn Evaluation
+
+<CodeBlock filename="single_turn.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
+
+# Initialize metric
+metric = DeepEvalAnswerRelevancy(threshold=0.7)
+
+# Evaluate a single response
+result = metric.evaluate(
+    input="What is the capital of France?",
+    output="The capital of France is Paris."
+)
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
+
+### Conversational Evaluation
+
+<CodeBlock filename="conversational.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalTurnRelevancy, ConversationHistory
+
+# Initialize metric
+metric = DeepEvalTurnRelevancy(threshold=0.7)
+
+# Create conversation
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "What insurance do you offer?"},
+    {"role": "assistant", "content": "We offer auto, home, and life insurance."},
+    {"role": "user", "content": "Tell me about auto coverage."},
+    {"role": "assistant", "content": "Auto includes liability and collision coverage."},
+])
+
+# Evaluate the conversation
+result = metric.evaluate(conversation_history=conversation)
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
+
+## Custom Metrics
+
+In addition to framework-provided metrics, Rhesis offers custom metric builders:
+
+### For Single-Turn Evaluation
+
+- **`NumericJudge`**: Create custom numeric scoring metrics (e.g., 0-10 scale)
+- **`CategoricalJudge`**: Create custom categorical classification metrics
+
+<CodeBlock filename="numeric_judge.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge
+
+metric = NumericJudge(
+    name="response_clarity",
+    evaluation_prompt="Rate how clear and understandable the response is.",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0
+)`}
+</CodeBlock>
+
+### For Conversational Evaluation
+
+- **`ConversationalJudge`**: Create custom conversational quality metrics
+- **`GoalAchievementJudge`**: Evaluate goal achievement with custom criteria
+
+<CodeBlock filename="conversational_judge.py" language="python">
+{`from rhesis.sdk.metrics import ConversationalJudge
+
+metric = ConversationalJudge(
+    name="conversation_coherence",
+    evaluation_prompt="Evaluate the coherence and flow of the conversation.",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0
+)`}
+</CodeBlock>
+
+## Platform Integration
+
+Metrics can be managed both in the platform and in the SDK. The SDK provides `push` and `pull` methods to synchronize metrics with the platform.
+
+<CodeBlock filename="platform_integration.py" language="python">
+{`# Push a metric to the platform
+metric.push()
+
+# Pull a metric from the platform
+metric = NumericJudge.pull(name="response_clarity")`}
+</CodeBlock>
+
+## Next Steps
+
+- [**Single-Turn Metrics**](./single-turn) - Learn about all available single-turn metrics
+- [**Conversational Metrics**](./conversational) - Learn about all available conversational metrics
+- [**Models Documentation**](../models) - Configure LLM models for evaluation
+- [**Installation & Setup**](../installation) - Setup instructions
+
+## Need Help?
+
+If any metrics are missing from the list, or you would like to use a different provider, please let us know by creating an issue on [GitHub](https://github.com/rhesis-ai/rhesis/issues).
+

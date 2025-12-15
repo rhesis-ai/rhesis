@@ -1,0 +1,138 @@
+import { PathCard, PathCardGrid } from '@/components/PathCard'
+import { NextStepCard, NextStepCardGrid } from '@/components/NextStepCard'
+
+# Getting Started with Rhesis
+
+Welcome to Rhesis! This guide will help you get started with Gen AI testing, whether you're using the cloud platform, the SDK, or self-hosting.
+
+## Choose Your Path
+
+<PathCardGrid>
+  <PathCard
+    emoji="☁️"
+    title="Cloud Platform"
+    description="Start testing immediately with zero setup required."
+    link="https://app.rhesis.ai"
+    linkText="Go to app.rhesis.ai →"
+    external
+  />
+  <PathCard
+    emoji="🐍"
+    title="Python SDK"
+    description="Integrate testing into your Python applications."
+    link="/sdk/installation"
+    linkText="View SDK Docs →"
+  />
+  <PathCard
+    emoji="💻"
+    title="Run Locally"
+    description="Run Rhesis on your local machine with just a few commands."
+    link="/getting-started/running-locally"
+    linkText="Running Locally Guide →"
+  />
+  <PathCard
+    emoji="🏢"
+    title="Self-Hosting"
+    description="Deploy Rhesis on your own infrastructure with full control."
+    link="/getting-started/self-hosting"
+    linkText="Self-Hosting Guide →"
+  />
+</PathCardGrid>
+
+## Quick Start Options
+
+### Option 1: Cloud Platform (Fastest)
+
+Get started in minutes at [app.rhesis.ai](https://app.rhesis.ai):
+
+1. Create a free account
+2. Create your first project
+3. Generate test scenarios collaboratively
+4. Invite your team to define requirements together
+
+### Option 2: Python SDK
+
+Install and integrate testing into your application:
+
+<CodeBlock filename="terminal" language="bash">
+{`pip install rhesis-sdk`}
+</CodeBlock>
+
+<CodeBlock filename="example.py" language="python">
+{`import rhesis
+from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
+
+rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"  # From app.rhesis.ai
+
+synthesizer = PromptSynthesizer(
+    "Generate test cases for a doctor appointment scheduling chatbot"
+)
+
+test_set = synthesizer.generate(num_tests=4)
+
+for test in test_set.tests:
+    print(f"Prompt: {test['prompt']['content']}")
+    print(f"Category: {test['category']}")`}
+</CodeBlock>
+
+[View full SDK documentation →](/sdk/installation)
+
+### Option 3: Run Locally
+
+Run the full platform on your local machine with Docker:
+
+<CodeBlock filename="terminal" language="bash">
+{`git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis
+./rh start`}
+</CodeBlock>
+
+Visit [http://localhost:3000](http://localhost:3000) - you'll be automatically logged in!
+
+[View running locally guide →](/getting-started/running-locally)
+
+**Need production deployment?** See the [Self-Hosting Guide](/getting-started/self-hosting) for deploying to your own infrastructure with proper security and authentication.
+
+## Next Steps
+
+<NextStepCardGrid>
+  <NextStepCard
+    emoji="📚"
+    title="Core Concepts"
+    description="Understand the fundamental concepts of Gen AI testing with Rhesis."
+    link="/getting-started/concepts"
+    linkText="Learn Core Concepts →"
+  />
+  <NextStepCard
+    emoji="🚀"
+    title="Platform Guide"
+    description="Explore the Rhesis platform features and capabilities."
+    link="/platform"
+    linkText="View Platform Guide →"
+  />
+  <NextStepCard
+    emoji="🔧"
+    title="Development"
+    description="Contribute to Rhesis or customize your deployment."
+    link="/development"
+    linkText="Development Docs →"
+  />
+  <NextStepCard
+    emoji="📖"
+    title="Guides"
+    description="Step-by-step tutorials for common use cases."
+    link="/guides"
+    linkText="View Guides →"
+  />
+</NextStepCardGrid>
+
+## Need Help?
+
+- **Documentation**: Browse the docs using the navigation menu
+- **GitHub Issues**: [Report bugs or request features](https://github.com/rhesis-ai/rhesis/issues)
+- **Community**: Join discussions and get support
+
+<Callout type="default">
+**Tip**: If you're new to Gen AI testing, start with [Core Concepts](/getting-started/concepts) to understand key principles before diving into implementation.
+</Callout>
+

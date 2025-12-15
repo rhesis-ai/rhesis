@@ -145,6 +145,7 @@ export const GhostButton = props => <Button variant="ghost" {...props} />
 // Navbar-specific button that handles its own click logic
 export const NavbarGoToAppButton = () => {
   const handleClick = () => {
+    // eslint-disable-next-line no-console
     console.log('Go to app clicked')
     // TODO: Add navigation logic here when ready
   }

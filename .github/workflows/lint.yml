@@ -21,6 +21,9 @@ jobs:
         filters: |
           frontend:
             - 'apps/frontend/**'
+          docs:
+            - 'docs/src/**'
+            - 'docs/content/**'
           sdk:
             - 'sdk/**'
           backend:
@@ -75,23 +78,21 @@ jobs:
         make lint
       continue-on-error: false
 
-    # Frontend Linting
-    - name: Set up Node.js for Frontend
-      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+    # Frontend & Docs Linting (both use Node.js)
+    - name: Set up Node.js for Frontend/Docs
+      if: steps.filter.outputs.frontend == 'true' || steps.filter.outputs.docs == 'true'
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: apps/frontend/package-lock.json
 
     - name: Install frontend dependencies
-      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+      if: steps.filter.outputs.frontend == 'true'
       run: |
         cd apps/frontend
         npm ci --legacy-peer-deps
 
     - name: Run frontend validation (format, lint, type-check, build)
-      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+      if: steps.filter.outputs.frontend == 'true'
       run: |
         cd apps/frontend
         ./scripts/validate.sh
@@ -106,6 +107,20 @@ jobs:
         APP_VERSION: '0.2.4'
         NEXT_PUBLIC_AUTH0_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_AUTH0_CLIENT_ID || 'dummy-client-id' }}
         NEXT_PUBLIC_AUTH0_DOMAIN: ${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN || 'dummy-domain.auth0.com' }}
+
+    # Documentation Linting
+    - name: Install docs dependencies
+      if: steps.filter.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
+      run: |
+        cd docs/src
+        make install
+
+    - name: Run docs linting
+      if: steps.filter.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
+      run: |
+        cd docs/src
+        make lint
+      continue-on-error: false
 
     # Summary
     - name: Lint Summary
@@ -137,8 +152,14 @@ jobs:
           echo "- **Penelope**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
         fi
 
-        if [ "${{ steps.filter.outputs.frontend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+        if [ "${{ steps.filter.outputs.frontend }}" == "true" ]; then
           echo "- **Frontend**: ESLint, Prettier formatting, TypeScript type checking, and build validation ✅" >> "$GITHUB_STEP_SUMMARY"
         else
           echo "- **Frontend**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        if [ "${{ steps.filter.outputs.docs }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "- **Docs**: ESLint and Prettier formatting ✅" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "- **Docs**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
         fi
