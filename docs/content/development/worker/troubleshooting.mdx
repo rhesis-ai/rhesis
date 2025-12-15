@@ -307,7 +307,7 @@ python -c "from rhesis.backend.worker import app; print('Workers:', list(app.con
 python -c "from rhesis.backend.worker import app; import json; print(json.dumps(app.control.inspect().stats(), indent=2))"
 
 # Check registered tasks
-python -c "from rhesis.backend.worker import app; registered = app.control.inspect().registered(); print(f'Registered tasks: {sum(len(tasks) for tasks in registered.values()) if registered else 0}')"`}
+python -c "from rhesis.backend.worker import app; registered = app.control.inspect().registered(); print('Registered tasks:', sum(len(tasks) for tasks in registered.values()) if registered else 0)"`}
 </CodeBlock>
 
 ### Worker Connection Troubleshooting
