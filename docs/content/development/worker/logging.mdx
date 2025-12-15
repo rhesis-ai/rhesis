@@ -393,34 +393,38 @@ kubectl exec -it <pod-name> -n <namespace> -- curl localhost:8080/debug | jq`}
 
 ### Common Debugging Scenarios
 
-#### Scenario 1: Pod Won't Start`}
-</CodeBlock>bash
-# Check startup logs
+#### Scenario 1: Pod Won't Start
+
+<CodeBlock language="bash" isTerminal={true}>
+{`# Check startup logs
 kubectl logs <pod-name> -c worker -n <namespace>
 
 # Look for import errors, connection failures, configuration issues
-kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(❌|ERROR|Failed)"
-<CodeBlock language="text" isTerminal={false}>
+kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(❌|ERROR|Failed)"`}
+</CodeBlock>
 
-#### Scenario 2: Health Checks Failing`}
-</CodeBlock>bash
-# Check health endpoint logs
+#### Scenario 2: Health Checks Failing
+
+<CodeBlock language="bash" isTerminal={true}>
+{`# Check health endpoint logs
 kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(GET /health|500|timeout)"
 
 # Test health endpoint directly
-kubectl exec -it <pod-name> -n <namespace> -- curl -w "%{time_total}" localhost:8080/health
-<CodeBlock language="text" isTerminal={false}>
+kubectl exec -it <pod-name> -n <namespace> -- curl -w "%{time_total}" localhost:8080/health`}
+</CodeBlock>
 
-#### Scenario 3: Tasks Not Processing`}
-</CodeBlock>bash
-# Check for task reception
+#### Scenario 3: Tasks Not Processing
+
+<CodeBlock language="bash" isTerminal={true}>
+{`# Check for task reception
 kubectl logs <pod-name> -c worker -n <namespace> | grep "Received task"
 
 # Check for task failures
 kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(failed|exception|error)"
 
 # Check worker status
-kubectl exec -it <pod-name> -n <namespace> -- curl localhost:8080/debug | jq '.celery_status'
+kubectl exec -it <pod-name> -n <namespace> -- curl localhost:8080/debug | jq '.celery_status'`}
+</CodeBlock>
 ```
 
 ## Best Practices
