@@ -1,0 +1,111 @@
+# Getting Started with Rhesis
+
+Welcome to Rhesis! This guide will help you get started with Gen AI testing, whether you're using the cloud platform, the SDK, or self-hosting.
+
+## Choose Your Path
+
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div>
+    <h3>☁️ Cloud Platform</h3>
+    <p>Start testing immediately with zero setup required.</p>
+    <a href="https://app.rhesis.ai" target="_blank">Go to app.rhesis.ai →</a>
+  </div>
+  <div>
+    <h3>🐍 Python SDK</h3>
+    <p>Integrate testing into your Python applications.</p>
+    <a href="/sdk/installation">View SDK Docs →</a>
+  </div>
+  <div>
+    <h3>🏠 Self-Hosted</h3>
+    <p>Run Rhesis on your own infrastructure.</p>
+    <a href="/getting-started/self-hosting">Self-hosting Guide →</a>
+  </div>
+</div>
+
+## Quick Start Options
+
+### Option 1: Cloud Platform (Fastest)
+
+Get started in minutes at [app.rhesis.ai](https://app.rhesis.ai):
+
+1. Create a free account
+2. Create your first project
+3. Generate test scenarios collaboratively
+4. Invite your team to define requirements together
+
+### Option 2: Python SDK
+
+Install and integrate testing into your application:
+
+<CodeBlock filename="terminal" language="bash">
+{`pip install rhesis-sdk`}
+</CodeBlock>
+
+<CodeBlock filename="example.py" language="python">
+{`import rhesis
+from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
+
+rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"  # From app.rhesis.ai
+
+synthesizer = PromptSynthesizer(
+    "Generate test cases for a doctor appointment scheduling chatbot"
+)
+
+test_set = synthesizer.generate(num_tests=4)
+
+for test in test_set.tests:
+    print(f"Prompt: {test['prompt']['content']}")
+    print(f"Category: {test['category']}")`}
+</CodeBlock>
+
+[View full SDK documentation →](/sdk/installation)
+
+### Option 3: Local Development
+
+Run the full platform locally with Docker:
+
+<CodeBlock filename="terminal" language="bash">
+{`git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis
+./rh start`}
+</CodeBlock>
+
+Visit [http://localhost:3000](http://localhost:3000) - you'll be automatically logged in!
+
+[View self-hosting documentation →](/getting-started/self-hosting)
+
+## Next Steps
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div>
+    <h3>📚 Core Concepts</h3>
+    <p>Understand the fundamental concepts of Gen AI testing with Rhesis.</p>
+    <a href="/getting-started/concepts">Learn Core Concepts →</a>
+  </div>
+  <div>
+    <h3>🚀 Platform Guide</h3>
+    <p>Explore the Rhesis platform features and capabilities.</p>
+    <a href="/platform">View Platform Guide →</a>
+  </div>
+  <div>
+    <h3>🔧 Development</h3>
+    <p>Contribute to Rhesis or customize your deployment.</p>
+    <a href="/development">Development Docs →</a>
+  </div>
+  <div>
+    <h3>📖 Guides</h3>
+    <p>Step-by-step tutorials for common use cases.</p>
+    <a href="/guides">View Guides →</a>
+  </div>
+</div>
+
+## Need Help?
+
+- **Documentation**: Browse the docs using the navigation menu
+- **GitHub Issues**: [Report bugs or request features](https://github.com/rhesis-ai/rhesis/issues)
+- **Community**: Join discussions and get support
+
+<Callout type="default">
+**Tip**: If you're new to Gen AI testing, start with [Core Concepts](/getting-started/concepts) to understand key principles before diving into implementation.
+</Callout>
+
