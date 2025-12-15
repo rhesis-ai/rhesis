@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Development Setup
 
 This guide will walk you through setting up your development environment for Rhesis, ensuring you have everything needed to contribute effectively.
@@ -26,20 +28,20 @@ Before you begin, ensure you have the following installed on your system:
 
 We use [uv](https://docs.astral.sh/uv/) as our Python package manager for faster, more reliable dependency management.
 
-```bash
-# Install uv
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Verify installation
-uv --version
-```
+uv --version`}
+</CodeBlock>
 
 #### Node.js Setup
 
 We recommend using [nvm](https://github.com/nvm-sh/nvm) for Node.js version management:
 
-```bash
-# Install nvm
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# Install nvm
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
 
 # Restart your terminal or run
@@ -51,15 +53,15 @@ nvm use 18
 
 # Verify installation
 node --version
-npm --version
-```
+npm --version`}
+</CodeBlock>
 
 #### Database Setup
 
 **PostgreSQL:**
 
-```bash
-# macOS (using Homebrew)
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# macOS (using Homebrew)
 brew install postgresql
 brew services start postgresql
 
@@ -69,38 +71,38 @@ sudo apt install postgresql postgresql-contrib
 sudo systemctl start postgresql
 
 # Create database
-createdb rhesis_dev
-```
+createdb rhesis_dev`}
+</CodeBlock>
 
 **Redis:**
 
-```bash
-# macOS (using Homebrew)
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# macOS (using Homebrew)
 brew install redis
 brew services start redis
 
 # Ubuntu/Debian
 sudo apt install redis-server
-sudo systemctl start redis-server
-```
+sudo systemctl start redis-server`}
+</CodeBlock>
 
 ## Environment Setup
 
 ### 1. Clone the Repository
 
-```bash
-# Fork the repository on GitHub first, then clone your fork
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# Fork the repository on GitHub first, then clone your fork
 git clone https://github.com/YOUR_USERNAME/rhesis.git
 cd rhesis
 
 # Add the upstream repository
-git remote add upstream https://github.com/rhesis-ai/rhesis.git
-```
+git remote add upstream https://github.com/rhesis-ai/rhesis.git`}
+</CodeBlock>
 
 ### 2. Install Dependencies
 
-```bash
-# Install Python dependencies
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# Install Python dependencies
 uv sync
 
 # Install frontend dependencies
@@ -112,23 +114,23 @@ cd ../docs
 npm install
 
 # Return to root
-cd ../..
-```
+cd ../..`}
+</CodeBlock>
 
 ### 3. Environment Configuration
 
-```bash
-# Copy the example environment file
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# Copy the example environment file
 cp .env.example .env
 
 # Edit the environment file with your configuration
-# You'll need to set up database URLs, API keys, etc.
-```
+# You'll need to set up database URLs, API keys, etc.`}
+</CodeBlock>
 
 **Key Environment Variables:**
 
-```bash
-# Database Configuration
+<CodeBlock filename=".env" language="bash">
+{`# Database Configuration
 DATABASE_URL=postgresql://username:password@localhost/rhesis_dev
 TEST_DATABASE_URL=postgresql://username:password@localhost/rhesis_test
 
@@ -147,13 +149,13 @@ GITHUB_CLIENT_SECRET=your-github-client-secret
 
 # Development Settings
 DEBUG=true
-ENVIRONMENT=development
-```
+ENVIRONMENT=development`}
+</CodeBlock>
 
 ### 4. Database Setup
 
-```bash
-# Navigate to backend directory
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# Navigate to backend directory
 cd apps/backend
 
 # Run database migrations
@@ -163,8 +165,8 @@ uv run alembic upgrade head
 uv run python -m rhesis.backend.scripts.create_initial_data
 
 # Return to root
-cd ../..
-```
+cd ../..`}
+</CodeBlock>
 
 ## Starting Development Servers
 
@@ -172,22 +174,22 @@ cd ../..
 
 We provide a convenient CLI tool for managing services:
 
-```bash
-# Start all services
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# Start all services
 ./rh backend start
 ./rh frontend start
 ./rh docs start
 
 # Or start them all at once (if configured)
-./rh start all
-```
+./rh start all`}
+</CodeBlock>
 
 ### Manual Startup
 
 If you prefer to start services manually:
 
-```bash
-# Backend (FastAPI)
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# Backend (FastAPI)
 cd apps/backend
 uv run uvicorn rhesis.backend.app.main:app --reload --port 8080
 
@@ -201,8 +203,8 @@ npm run dev
 
 # Worker (Celery)
 cd apps/worker
-uv run celery -A rhesis.worker worker --loglevel=info
-```
+uv run celery -A rhesis.worker worker --loglevel=info`}
+</CodeBlock>
 
 ## Verification
 

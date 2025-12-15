@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Worker Logging Guide
 
 This guide covers everything about logging in the Rhesis worker system, from configuration to analysis and troubleshooting.

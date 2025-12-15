@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # GKE Worker Troubleshooting Guide
 
 This guide covers troubleshooting Celery workers running in Google Kubernetes Engine (GKE), including using the built-in debugging tools.

@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Worker Architecture and Dependencies
 
 This document explains the relationships and dependencies between the Rhesis worker system, the backend API, and the SDK components.

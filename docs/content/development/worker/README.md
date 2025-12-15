@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Rhesis Worker Documentation
 
 This directory contains documentation related to the Rhesis worker system, which handles background processing, task queues, and asynchronous operations using **Redis as the message broker**.

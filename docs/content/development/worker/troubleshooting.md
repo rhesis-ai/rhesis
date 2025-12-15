@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Worker Troubleshooting Guide
 
 This document covers common issues you may encounter with the Rhesis worker system and how to resolve them.

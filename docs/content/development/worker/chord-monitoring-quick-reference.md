@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Chord Monitoring Quick Reference
 
 This is a quick reference for chord monitoring commands. For detailed information, see [Chord Management and Monitoring](chord-management.md).
