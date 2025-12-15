@@ -1,0 +1,358 @@
+# Conversational Metrics
+
+## Overview
+
+Conversational metrics (multi-turn metrics) evaluate the quality of interactions across multiple conversation turns. These metrics assess aspects like coherence, goal achievement, role adherence, and tool usage in extended dialogues.
+
+<Callout type="info">
+
+**API Key Required**: All examples in this documentation require a valid Rhesis API key. Set your API key using:
+
+```python
+import os
+os.environ["RHESIS_API_KEY"] = "your-api-key"
+```
+
+For more information, see the [Installation & Setup](../installation) guide.
+
+</Callout>
+
+<Callout type="info">
+
+Rhesis integrates with the following open-source evaluation frameworks:
+
+- **[DeepEval](https://github.com/confident-ai/deepeval)** - Apache License 2.0  
+  The LLM Evaluation Framework by Confident AI
+
+These tools are used through their public APIs. The original licenses and copyright notices can be found in their respective repositories. Rhesis is not affiliated with these projects.
+
+</Callout>
+
+## Supported Metrics
+
+### DeepEval Conversational Metrics
+
+| Metric | Description | Reference |
+| --- | --- | --- |
+| `DeepEvalTurnRelevancy` | Evaluates relevance of assistant responses across conversation turns | [Docs](https://docs.confident-ai.com/docs/metrics-conversational-turn-relevancy) |
+| `DeepEvalRoleAdherence` | Evaluates whether assistant maintains its assigned role throughout the conversation | [Docs](https://docs.confident-ai.com/docs/metrics-conversational-role-adherence) |
+| `DeepEvalKnowledgeRetention` | Evaluates assistant's ability to retain and recall facts from earlier in the conversation | [Docs](https://docs.confident-ai.com/docs/metrics-conversational-knowledge-retention) |
+| `DeepEvalConversationCompleteness` | Evaluates whether conversation reaches a satisfactory conclusion | [Docs](https://docs.confident-ai.com/docs/metrics-conversational-completeness) |
+| `DeepEvalGoalAccuracy` | Evaluates assistant's ability to plan and execute tasks to achieve specific goals | [Docs](https://docs.confident-ai.com/docs/metrics-conversational-goal-accuracy) |
+| `DeepEvalToolUse` | Evaluates assistant's capability in selecting and using tools appropriately | [Docs](https://docs.confident-ai.com/docs/metrics-conversational-tool-use) |
+
+### Rhesis Conversational Metrics
+
+| Metric | Description | Configuration |
+| --- | --- | --- |
+| `ConversationalJudge` | Custom LLM-based evaluation for conversation quality | Custom prompts, evaluation criteria, scoring rubric |
+| `GoalAchievementJudge` | Evaluates whether specific goals were achieved in the conversation | Goal criteria, achievement indicators, threshold |
+
+If any metrics are missing from the list, or you would like to use a different provider, please let us know by creating an issue on [GitHub](https://github.com/rhesis-ai/rhesis/issues).
+
+## Conversation History
+
+All conversational metrics require a `ConversationHistory` object that represents the multi-turn dialogue. Create one using the `from_messages` method:
+
+```python
+from rhesis.sdk.metrics import ConversationHistory
+
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "What insurance do you offer?"},
+    {"role": "assistant", "content": "We offer auto, home, and life insurance."},
+    {"role": "user", "content": "Tell me more about auto coverage."},
+    {"role": "assistant", "content": "Auto insurance includes liability and collision coverage."},
+])
+```
+
+## Quick Start
+
+### Turn Relevancy
+
+Evaluates whether assistant responses are relevant to the conversational context throughout the conversation.
+
+```python
+from rhesis.sdk.metrics import DeepEvalTurnRelevancy, ConversationHistory
+
+# Initialize metric
+metric = DeepEvalTurnRelevancy(threshold=0.7, window_size=10)
+
+# Create conversation
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "What insurance do you offer?"},
+    {"role": "assistant", "content": "We offer auto, home, and life insurance."},
+    {"role": "user", "content": "Tell me about auto coverage."},
+    {"role": "assistant", "content": "Auto includes liability and collision coverage."},
+])
+
+# Evaluate
+result = metric.evaluate(conversation_history=conversation)
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")
+```
+
+### Role Adherence
+
+Evaluates whether the assistant maintains its assigned role throughout the conversation.
+
+```python
+from rhesis.sdk.metrics import DeepEvalRoleAdherence, ConversationHistory
+
+# Initialize metric
+metric = DeepEvalRoleAdherence(threshold=0.7)
+
+# Create conversation
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "I need help with my order."},
+    {"role": "assistant", "content": "I'll help you with that right away."},
+    {"role": "user", "content": "Can you also give me stock tips?"},
+    {
+        "role": "assistant",
+        "content": "I'm a support agent, I can only help with orders."
+    },
+])
+
+# Evaluate
+result = metric.evaluate(
+    conversation_history=conversation,
+    chatbot_role="customer support agent"
+)
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")
+```
+
+### Knowledge Retention
+
+Evaluates the assistant's ability to retain and recall factual information introduced earlier in the conversation.
+
+```python
+from rhesis.sdk.metrics import DeepEvalKnowledgeRetention, ConversationHistory
+
+# Initialize metric
+metric = DeepEvalKnowledgeRetention(threshold=0.7)
+
+# Create conversation
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "My order number is ABC123."},
+    {"role": "assistant", "content": "I've noted your order number ABC123."},
+    {"role": "user", "content": "What was my order number again?"},
+    {"role": "assistant", "content": "Your order number is ABC123."},
+])
+
+# Evaluate
+result = metric.evaluate(conversation_history=conversation)
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")
+```
+
+### Conversation Completeness
+
+Evaluates whether the conversation reaches a satisfactory conclusion where the user's needs are met.
+
+```python
+from rhesis.sdk.metrics import DeepEvalConversationCompleteness, ConversationHistory
+
+# Initialize metric
+metric = DeepEvalConversationCompleteness(threshold=0.7, window_size=3)
+
+# Create conversation
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "I need to cancel my subscription."},
+    {"role": "assistant", "content": "I can help with that."},
+    {"role": "user", "content": "Thank you!"},
+    {"role": "assistant", "content": "Your subscription has been cancelled."},
+])
+
+# Evaluate
+result = metric.evaluate(conversation_history=conversation)
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")
+```
+
+### Goal Accuracy
+
+Evaluates the assistant's ability to plan and execute tasks to achieve specific goals.
+
+```python
+from rhesis.sdk.metrics import DeepEvalGoalAccuracy, ConversationHistory
+
+# Initialize metric
+metric = DeepEvalGoalAccuracy(threshold=0.7)
+
+# Create conversation
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "Book me a flight to Paris for next week."},
+    {"role": "assistant", "content": "I'll search for flights to Paris."},
+    {"role": "assistant", "content": "Found flights. Shall I book?"},
+    {"role": "user", "content": "Yes, please."},
+    {"role": "assistant", "content": "Flight booked successfully."},
+])
+
+# Evaluate with explicit goal
+result = metric.evaluate(
+    conversation_history=conversation,
+    goal="Book a flight to Paris for the user"
+)
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")
+```
+
+### Tool Use
+
+Evaluates the assistant's capability in selecting and utilizing tools appropriately during conversations.
+
+```python
+from rhesis.sdk.metrics import DeepEvalToolUse, ConversationHistory
+
+# Define available tools
+available_tools = [
+    {"name": "get_weather", "description": "Get current weather for a location"}
+]
+
+# Initialize metric
+metric = DeepEvalToolUse(available_tools=available_tools, threshold=0.7)
+
+# Create conversation with tool usage
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "What's the weather like in Paris?"},
+    {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [{"id": "1", "function": {"name": "get_weather"}}]
+    },
+    {
+        "role": "tool",
+        "tool_call_id": "1",
+        "name": "get_weather",
+        "content": "Sunny, 22°C"
+    },
+    {"role": "assistant", "content": "It's sunny in Paris, 22°C."},
+])
+
+# Evaluate
+result = metric.evaluate(conversation_history=conversation)
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")
+```
+
+## Creating Custom Conversational Metrics
+
+### Conversational Judge
+
+Create custom conversational evaluations using `ConversationalJudge`:
+
+```python
+from rhesis.sdk.metrics import ConversationalJudge
+
+# Define custom conversational metric
+metric = ConversationalJudge(
+    name="conversation_coherence",
+    evaluation_prompt="Evaluate the coherence and flow of the conversation.",
+    evaluation_steps=(
+        "1. Check if responses follow logically from previous turns\n"
+        "2. Evaluate topic continuity\n"
+        "3. Assess overall conversation flow"
+    ),
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0
+)
+
+# Evaluate
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "Tell me about your product."},
+    {"role": "assistant", "content": "Our product helps with task automation."},
+    {"role": "user", "content": "How does it work?"},
+    {"role": "assistant", "content": "It integrates with your existing tools."},
+])
+
+result = metric.evaluate(conversation_history=conversation)
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")
+```
+
+### Goal Achievement Judge
+
+Evaluate goal achievement with custom criteria using `GoalAchievementJudge`:
+
+```python
+from rhesis.sdk.metrics import GoalAchievementJudge
+
+# Define goal achievement metric
+metric = GoalAchievementJudge(
+    name="customer_satisfaction_goal",
+    evaluation_prompt="Evaluate whether the customer's issue was resolved.",
+    goal="Resolve the customer's billing issue",
+    criteria=[
+        "Issue was identified correctly",
+        "Solution was provided",
+        "Customer confirmed satisfaction"
+    ]
+)
+
+# Evaluate
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "I was charged twice for my subscription."},
+    {"role": "assistant", "content": "I'll investigate this billing issue."},
+    {"role": "assistant", "content": "I found the duplicate charge and refunded it."},
+    {"role": "user", "content": "Thank you, that resolved my issue!"},
+])
+
+result = metric.evaluate(conversation_history=conversation)
+
+print(f"Overall Score: {result.score}")
+print(f"Criteria Results: {result.details['criteria_results']}")
+```
+
+## Understanding Results
+
+All conversational metrics return a `MetricResult` object:
+
+```python
+result = metric.evaluate(conversation_history=conversation)
+
+# Access score
+print(result.score)
+
+# Access details
+print(result.details)
+# {
+#     'score': 0.85,
+#     'reason': 'The conversation maintains relevance...',
+#     'is_successful': True,
+#     'threshold': 0.7,
+#     'score_type': 'numeric'
+# }
+```
+
+## Configuring Models
+
+All conversational metrics require an LLM model to perform the evaluation. If no model is specified, the default model will be used.
+
+For more information about models, see the [Models Documentation](../models).
+
+```python
+from rhesis.sdk.metrics import DeepEvalTurnRelevancy
+from rhesis.sdk.models import get_model
+
+# Use specific model
+model = get_model("gemini")
+metric = DeepEvalTurnRelevancy(threshold=0.7, model=model)
+
+# Or pass model name directly
+metric = DeepEvalTurnRelevancy(threshold=0.7, model="gpt-4")
+```
+
+## See Also
+
+- [Single-Turn Metrics](./single-turn) - Individual response evaluation
+- [Models Documentation](../models) - Configure LLM models for evaluation
+- [Installation & Setup](../installation) - Setup instructions
+
