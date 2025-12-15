@@ -356,17 +356,17 @@ grep -i "connected" /path/to/worker/logs`}
 
 Set up automated monitoring to catch issues early:
 
-</CodeBlock>bash
-# Add to crontab for periodic monitoring
-*/15 * * * * cd /path/to/backend && python fix_chords.py >/dev/null 2>&1
-<CodeBlock language="text" isTerminal={false}>
+<CodeBlock language="bash" isTerminal={true}>
+{`# Add to crontab for periodic monitoring
+*/15 * * * * cd /path/to/backend && python fix_chords.py >/dev/null 2>&1`}
+</CodeBlock>
 
 ### Health Checks
 
 Include chord status in your application health checks:
 
-</CodeBlock>python
-from rhesis.backend.tasks.execution.chord_monitor import get_active_chord_unlocks, check_stuck_chords
+<CodeBlock language="python" isTerminal={false}>
+{`from rhesis.backend.tasks.execution.chord_monitor import get_active_chord_unlocks, check_stuck_chords
 
 def worker_health_check():
     active_chords = get_active_chord_unlocks()
@@ -376,8 +376,8 @@ def worker_health_check():
         "status": "unhealthy" if stuck_chords else "healthy",
         "active_chord_unlocks": len(active_chords),
         "stuck_chords": len(stuck_chords)
-    }
-```
+    }`}
+</CodeBlock>
 
 ## Related Documentation
 
