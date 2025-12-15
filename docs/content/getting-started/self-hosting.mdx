@@ -10,12 +10,12 @@ Deploy Rhesis on your own infrastructure with proper security, authentication, a
 
 This guide covers deploying Rhesis for production use with:
 
-- 🔒 **Secure authentication** - Auth0 integration with proper user management
-- 🔑 **Production secrets** - Proper JWT and encryption key management
-- 📧 **Email notifications** - SMTP configuration for system emails
-- 🤖 **AI providers** - Configure your preferred AI model providers
-- 📊 **Monitoring** - Health checks and logging setup
-- 🔄 **Automated setup** - Database migrations and initialization
+- **[Secure authentication](#authentication--security)** - Auth0 integration with JWT token management
+- **[Database encryption](#database-encryption)** - Field-level encryption for sensitive data
+- **[Email notifications](#email-configuration-optional)** - SMTP configuration for system emails
+- **[AI model providers](#ai-model-configuration)** - Gemini, OpenAI, and Azure OpenAI configuration
+- **[Service monitoring](#monitoring-and-logs)** - Health checks, logging, and status management
+- **[Automated setup](#automated-database-setup)** - Database initialization and migrations
 
 <Callout type="warning">
 **Production Deployment**
@@ -157,7 +157,6 @@ The Rhesis platform consists of several interconnected services:
 ### Service Dependencies
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#2AA1CE', 'primaryTextColor':'#fff', 'primaryBorderColor':'#2AA1CE', 'lineColor':'#6B7280', 'secondaryColor':'#50B9E0', 'tertiaryColor':'#97D5EE', 'background':'#ffffff', 'mainBkg':'#f9fafb', 'secondBkg':'#f3f4f6', 'textColor':'#3D3D3D', 'border1':'#e5e7eb', 'border2':'#d1d5db'}}}%%
 graph LR
     Frontend["Frontend<br/><small>Port 3000<br/>Next.js</small>"]
     Backend["Backend<br/><small>Port 8080<br/>FastAPI</small>"]
@@ -169,12 +168,6 @@ graph LR
     Backend --> PostgreSQL
     Backend --> Redis
     Worker --> Redis
-    
-    style Frontend fill:#2AA1CE,stroke:#1976d2,stroke-width:2px,color:#fff
-    style Backend fill:#7b1fa2,stroke:#6a1b9a,stroke-width:2px,color:#fff
-    style PostgreSQL fill:#388e3c,stroke:#2e7d32,stroke-width:2px,color:#fff
-    style Redis fill:#f57c00,stroke:#ef6c00,stroke-width:2px,color:#fff
-    style Worker fill:#c2185b,stroke:#ad1457,stroke-width:2px,color:#fff
 ```
 
 ## Automated Database Setup
