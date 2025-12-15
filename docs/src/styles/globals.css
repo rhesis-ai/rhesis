@@ -754,6 +754,38 @@ aside nav a[class*='text-primary'],
   }
 }
 
+/* PathCard Component Styles */
+.path-card {
+  --border-color: #e5e7eb;
+  --card-bg: #ffffff;
+  --text-primary: #3d3d3d;
+  --text-secondary: #6b7280;
+}
+
+[data-theme='dark'] .path-card,
+.dark .path-card {
+  --border-color: #2c2c2c;
+  --card-bg: #161b22;
+  --text-primary: #e6edf3;
+  --text-secondary: #a9b1bb;
+}
+
+/* NextStepCard Component Styles */
+.next-step-card {
+  --border-color: #e5e7eb;
+  --card-bg: #ffffff;
+  --text-primary: #3d3d3d;
+  --text-secondary: #6b7280;
+}
+
+[data-theme='dark'] .next-step-card,
+.dark .next-step-card {
+  --border-color: #2c2c2c;
+  --card-bg: #161b22;
+  --text-primary: #e6edf3;
+  --text-secondary: #a9b1bb;
+}
+
 /* Platform Features Compact Styles */
 .platform-features-compact {
   max-width: 1000px;
@@ -920,6 +952,49 @@ div[class*='callout'] strong {
   --nextra-callout-default-border: #2aa1ce !important;
   --nextra-callout-default-bg: rgba(42, 161, 206, 0.08) !important;
   --nextra-callout-default-icon: #2aa1ce !important;
+}
+
+/* Mermaid Diagram Theme Support */
+/* Light mode - default Mermaid colors work well */
+.nextra-content .mermaid {
+  background-color: transparent;
+}
+
+.nextra-content .mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Dark mode - invert colors for better visibility */
+[data-theme='dark'] .nextra-content .mermaid svg,
+.dark .nextra-content .mermaid svg {
+  filter: brightness(0.9) contrast(1.1);
+}
+
+/* Ensure text in Mermaid diagrams is readable in dark mode */
+[data-theme='dark'] .nextra-content .mermaid .nodeLabel,
+.dark .nextra-content .mermaid .nodeLabel,
+[data-theme='dark'] .nextra-content .mermaid .edgeLabel,
+.dark .nextra-content .mermaid .edgeLabel {
+  color: #e6edf3 !important;
+}
+
+/* Adjust node backgrounds for dark mode */
+[data-theme='dark'] .nextra-content .mermaid .node rect,
+.dark .nextra-content .mermaid .node rect,
+[data-theme='dark'] .nextra-content .mermaid .node circle,
+.dark .nextra-content .mermaid .node circle,
+[data-theme='dark'] .nextra-content .mermaid .node polygon,
+.dark .nextra-content .mermaid .node polygon {
+  filter: brightness(0.85) saturate(0.9);
+}
+
+/* Adjust arrows and lines for dark mode */
+[data-theme='dark'] .nextra-content .mermaid .edgePath .path,
+.dark .nextra-content .mermaid .edgePath .path,
+[data-theme='dark'] .nextra-content .mermaid marker,
+.dark .nextra-content .mermaid marker {
+  stroke: #a9b1bb !important;
 }
 
 /* Table Component Styles */

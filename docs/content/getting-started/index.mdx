@@ -1,26 +1,43 @@
+import { PathCard, PathCardGrid } from '@/components/PathCard'
+import { NextStepCard, NextStepCardGrid } from '@/components/NextStepCard'
+
 # Getting Started with Rhesis
 
 Welcome to Rhesis! This guide will help you get started with Gen AI testing, whether you're using the cloud platform, the SDK, or self-hosting.
 
 ## Choose Your Path
 
-<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-  <div>
-    <h3>☁️ Cloud Platform</h3>
-    <p>Start testing immediately with zero setup required.</p>
-    <a href="https://app.rhesis.ai" target="_blank">Go to app.rhesis.ai →</a>
-  </div>
-  <div>
-    <h3>🐍 Python SDK</h3>
-    <p>Integrate testing into your Python applications.</p>
-    <a href="/sdk/installation">View SDK Docs →</a>
-  </div>
-  <div>
-    <h3>🏠 Self-Hosted</h3>
-    <p>Run Rhesis on your own infrastructure.</p>
-    <a href="/getting-started/self-hosting">Self-hosting Guide →</a>
-  </div>
-</div>
+<PathCardGrid>
+  <PathCard
+    emoji="☁️"
+    title="Cloud Platform"
+    description="Start testing immediately with zero setup required."
+    link="https://app.rhesis.ai"
+    linkText="Go to app.rhesis.ai →"
+    external
+  />
+  <PathCard
+    emoji="🐍"
+    title="Python SDK"
+    description="Integrate testing into your Python applications."
+    link="/sdk/installation"
+    linkText="View SDK Docs →"
+  />
+  <PathCard
+    emoji="💻"
+    title="Run Locally"
+    description="Run Rhesis on your local machine with just a few commands."
+    link="/getting-started/running-locally"
+    linkText="Running Locally Guide →"
+  />
+  <PathCard
+    emoji="🏢"
+    title="Self-Hosting"
+    description="Deploy Rhesis on your own infrastructure with full control."
+    link="/getting-started/self-hosting"
+    linkText="Self-Hosting Guide →"
+  />
+</PathCardGrid>
 
 ## Quick Start Options
 
@@ -60,9 +77,9 @@ for test in test_set.tests:
 
 [View full SDK documentation →](/sdk/installation)
 
-### Option 3: Local Development
+### Option 3: Run Locally
 
-Run the full platform locally with Docker:
+Run the full platform on your local machine with Docker:
 
 <CodeBlock filename="terminal" language="bash">
 {`git clone https://github.com/rhesis-ai/rhesis.git
@@ -72,32 +89,42 @@ cd rhesis
 
 Visit [http://localhost:3000](http://localhost:3000) - you'll be automatically logged in!
 
-[View self-hosting documentation →](/getting-started/self-hosting)
+[View running locally guide →](/getting-started/running-locally)
+
+**Need production deployment?** See the [Self-Hosting Guide](/getting-started/self-hosting) for deploying to your own infrastructure with proper security and authentication.
 
 ## Next Steps
 
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <div>
-    <h3>📚 Core Concepts</h3>
-    <p>Understand the fundamental concepts of Gen AI testing with Rhesis.</p>
-    <a href="/getting-started/concepts">Learn Core Concepts →</a>
-  </div>
-  <div>
-    <h3>🚀 Platform Guide</h3>
-    <p>Explore the Rhesis platform features and capabilities.</p>
-    <a href="/platform">View Platform Guide →</a>
-  </div>
-  <div>
-    <h3>🔧 Development</h3>
-    <p>Contribute to Rhesis or customize your deployment.</p>
-    <a href="/development">Development Docs →</a>
-  </div>
-  <div>
-    <h3>📖 Guides</h3>
-    <p>Step-by-step tutorials for common use cases.</p>
-    <a href="/guides">View Guides →</a>
-  </div>
-</div>
+<NextStepCardGrid>
+  <NextStepCard
+    emoji="📚"
+    title="Core Concepts"
+    description="Understand the fundamental concepts of Gen AI testing with Rhesis."
+    link="/getting-started/concepts"
+    linkText="Learn Core Concepts →"
+  />
+  <NextStepCard
+    emoji="🚀"
+    title="Platform Guide"
+    description="Explore the Rhesis platform features and capabilities."
+    link="/platform"
+    linkText="View Platform Guide →"
+  />
+  <NextStepCard
+    emoji="🔧"
+    title="Development"
+    description="Contribute to Rhesis or customize your deployment."
+    link="/development"
+    linkText="Development Docs →"
+  />
+  <NextStepCard
+    emoji="📖"
+    title="Guides"
+    description="Step-by-step tutorials for common use cases."
+    link="/guides"
+    linkText="View Guides →"
+  />
+</NextStepCardGrid>
 
 ## Need Help?
 
