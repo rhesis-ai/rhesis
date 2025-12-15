@@ -7,10 +7,10 @@ import mermaid from 'mermaid'
 /**
  * Theme-aware Mermaid wrapper that uses OKLCH categorical colors
  * for consistent rendering across light and dark themes.
- * 
+ *
  * This component manually controls Mermaid rendering to prevent
  * graphs from disappearing during theme transitions.
- * 
+ *
  * The OKLCH colors are defined in globals.css with fixed lightness
  * and chroma to ensure theme-invariant contrast.
  */
@@ -53,19 +53,19 @@ function MermaidComponent({ chart }) {
       try {
         // Get CSS variables for theme-aware properties
         const style = getComputedStyle(document.documentElement)
-        
+
         // Helper function to convert OKLCH to hex for Mermaid compatibility
-        const oklchToHex = (oklchString) => {
+        const oklchToHex = oklchString => {
           // If it's already a hex color, return it
           if (oklchString.startsWith('#')) return oklchString
-          
+
           // Create a temporary element to let the browser convert OKLCH to RGB
           const temp = document.createElement('div')
           temp.style.color = oklchString
           document.body.appendChild(temp)
           const rgb = getComputedStyle(temp).color
           document.body.removeChild(temp)
-          
+
           // Convert rgb(r, g, b) to hex
           const match = rgb.match(/\d+/g)
           if (match && match.length >= 3) {
@@ -76,7 +76,7 @@ function MermaidComponent({ chart }) {
           }
           return oklchString // Fallback
         }
-        
+
         const bg = oklchToHex(style.getPropertyValue('--mermaid-bg').trim())
         const text = oklchToHex(style.getPropertyValue('--mermaid-text').trim())
         const line = oklchToHex(style.getPropertyValue('--mermaid-line').trim())
@@ -164,9 +164,7 @@ function MermaidComponent({ chart }) {
 
   // Keep displaying the SVG even during re-renders
   // This prevents the graph from disappearing during theme transitions
-  return (
-    <div className="mermaid" dangerouslySetInnerHTML={{ __html: svg || '' }} />
-  )
+  return <div className="mermaid" dangerouslySetInnerHTML={{ __html: svg || '' }} />
 }
 
 // Memoize the component to prevent unnecessary re-renders

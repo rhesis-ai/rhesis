@@ -122,4 +122,3 @@ export const PathCardGrid = ({ children }) => {
 }
 
 export default PathCard
-

@@ -20,10 +20,7 @@ export default withNextra({
 
     // Override @theguild/remark-mermaid/mermaid to use OUR custom wrapper
     // This ensures our theme-aware Mermaid component is used instead of the default
-    const ourMermaidPath = path.resolve(
-      __dirname,
-      'components/MermaidWrapper.jsx'
-    )
+    const ourMermaidPath = path.resolve(__dirname, 'components/MermaidWrapper.jsx')
     config.resolve.alias['@theguild/remark-mermaid/mermaid'] = ourMermaidPath
 
     return config
