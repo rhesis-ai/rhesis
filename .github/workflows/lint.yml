@@ -113,20 +113,13 @@ jobs:
       if: steps.filter.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
       run: |
         cd docs/src
-        npm ci
+        make install
 
     - name: Run docs linting
       if: steps.filter.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
       run: |
         cd docs/src
-        npm run lint
-      continue-on-error: false
-
-    - name: Run docs prettier check
-      if: steps.filter.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
-      run: |
-        cd docs/src
-        npm run format:check
+        make lint
       continue-on-error: false
 
     # Summary

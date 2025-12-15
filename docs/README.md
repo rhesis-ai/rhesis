@@ -22,6 +22,29 @@ If you're contributing to Rhesis or setting up a local development environment, 
 ### For Integration
 If you're building applications that integrate with Rhesis, check out the [SDK Documentation](https://docs.rhesis.ai/sdk).
 
+## Local Development
+
+To work on the documentation locally:
+
+```bash
+cd docs/src
+
+# Install dependencies
+make install
+
+# Run development server
+npm run dev
+
+# Linting and formatting
+make lint         # Run all checks (ESLint + Prettier)
+make lint-fast    # Same as lint (no build needed)
+make format       # Auto-fix formatting issues
+make format-check # Check formatting only
+make eslint       # Run ESLint only
+```
+
+The documentation site will be available at `http://localhost:3001`.
+
 ## Additional Resources
 
 - [Full Documentation](https://docs.rhesis.ai)

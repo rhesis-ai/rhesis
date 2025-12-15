@@ -56,7 +56,7 @@ export const CommunitySupport = () => {
   return (
     <>
       <div style={styles.container} className="not-prose rhesis-community-support">
-        {communityItems.map((item) => (
+        {communityItems.map(item => (
           <InfoCard
             key={item.title}
             icon={item.icon}

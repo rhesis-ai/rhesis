@@ -140,14 +140,11 @@ const FileTree = ({ data, title = 'Project Structure' }) => {
         <div style={styles.title}>{title}</div>
       </div>
       <div style={styles.content}>
-        {data && data.map((node, index) => {
-          const isLast = index === data.length - 1
-          return (
-            <div key={`root-${node.name}`}>
-              {renderNode(node, 0, isLast, '')}
-            </div>
-          )
-        })}
+        {data &&
+          data.map((node, index) => {
+            const isLast = index === data.length - 1
+            return <div key={`root-${node.name}`}>{renderNode(node, 0, isLast, '')}</div>
+          })}
       </div>
     </div>
   )

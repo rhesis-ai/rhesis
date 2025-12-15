@@ -1,20 +1,12 @@
-import { fixupConfigRules } from '@eslint/compat';
-import pluginReact from 'eslint-plugin-react';
-import pluginReactHooks from 'eslint-plugin-react-hooks';
-import pluginJsxA11y from 'eslint-plugin-jsx-a11y';
-import globals from 'globals';
+import { fixupConfigRules } from '@eslint/compat'
+import pluginReact from 'eslint-plugin-react'
+import pluginReactHooks from 'eslint-plugin-react-hooks'
+import pluginJsxA11y from 'eslint-plugin-jsx-a11y'
+import globals from 'globals'
 
 export default [
   {
-    ignores: [
-      'node_modules/',
-      '.next/',
-      'out/',
-      'dist/',
-      'build/',
-      'coverage/',
-      'public/',
-    ],
+    ignores: ['node_modules/', '.next/', 'out/', 'dist/', 'build/', 'coverage/', 'public/'],
   },
   ...fixupConfigRules({
     plugins: {
@@ -61,5 +53,4 @@ export default [
       'react/jsx-uses-vars': 'error',
     },
   },
-];
-
+]

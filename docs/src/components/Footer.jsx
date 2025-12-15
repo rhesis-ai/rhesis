@@ -192,11 +192,11 @@ export const Footer = ({
 
             {/* Main footer sections */}
             <div style={styles.grid}>
-              {allSections.map((section) => (
+              {allSections.map(section => (
                 <div key={section.title} style={styles.section}>
                   <h3 style={styles.sectionTitle}>{section.title}</h3>
                   <ul style={styles.linkList}>
-                    {section.links.map((link) => (
+                    {section.links.map(link => (
                       <li key={`${section.title}-${link.name}`}>
                         <a
                           href={link.href}
@@ -212,7 +212,7 @@ export const Footer = ({
                     {/* Add any additional links for this section */}
                     {additionalLinks
                       .filter(link => link.section === section.title.toLowerCase())
-                      .map((link) => (
+                      .map(link => (
                         <li key={`${section.title}-additional-${link.name || link.href}`}>
                           <a
                             href={link.href}
@@ -240,7 +240,7 @@ export const Footer = ({
             )}
 
             <div style={styles.legalLinks}>
-              {legalLinks.map((link) => (
+              {legalLinks.map(link => (
                 <a
                   key={`legal-${link.name}`}
                   href={link.href}
@@ -255,7 +255,7 @@ export const Footer = ({
               {/* Add any additional legal links */}
               {additionalLinks
                 .filter(link => link.section === 'legal')
-                .map((link) => (
+                .map(link => (
                   <a
                     key={`legal-additional-${link.name}`}
                     href={link.href}

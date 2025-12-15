@@ -49,7 +49,7 @@ export const IndustryExamples = () => {
 
   return (
     <div style={styles.container} className="not-prose rhesis-industry-examples">
-      {examples.map((example) => (
+      {examples.map(example => (
         <InfoCardHorizontal
           key={example.title}
           icon={example.icon}
