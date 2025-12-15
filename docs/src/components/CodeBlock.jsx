@@ -50,7 +50,7 @@ export const CodeBlock = ({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error('Failed to copy code:', err)
+      // Silently fail - clipboard copy is not critical functionality
     }
   }
   // Format JSON automatically
@@ -123,9 +123,10 @@ export const CodeBlock = ({
             return part
           }
           // Apply single-line string highlighting
+          // Use [^"\n] instead of [^"\\] to explicitly exclude newlines and ensure single-line matching
           return part
-            .replace(/"([^"\\]|\\.)*"/g, '<span class="code-string">$&</span>')
-            .replace(/'([^'\\]|\\.)*'/g, '<span class="code-string">$&</span>')
+            .replace(/"(?:[^"\\\n]|\\.)*"/g, '<span class="code-string">$&</span>')
+            .replace(/'(?:[^'\\\n]|\\.)*'/g, '<span class="code-string">$&</span>')
         })
         .join('')
 
@@ -178,11 +179,11 @@ export const CodeBlock = ({
 
       // 1. Strings first
       highlightedCode = highlightedCode.replace(
-        /"([^"\\]|\\.)*"/g,
+        /"(?:[^"\\\n]|\\.)*"/g,
         '<span class="code-string">$&</span>'
       )
       highlightedCode = highlightedCode.replace(
-        /'([^'\\]|\\.)*'/g,
+        /'(?:[^'\\\n]|\\.)*'/g,
         '<span class="code-string">$&</span>'
       )
 
@@ -224,7 +225,7 @@ export const CodeBlock = ({
 
       // 1. Strings first (including keys and values)
       highlightedCode = highlightedCode.replace(
-        /"([^"\\]|\\.)*"/g,
+        /"(?:[^"\\\n]|\\.)*"/g,
         '<span class="code-string">$&</span>'
       )
 

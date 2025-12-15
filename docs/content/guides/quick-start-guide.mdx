@@ -4,7 +4,7 @@ import { ThemeAwareImage } from '@/components/ThemeAwareImage'
 
 # How to Start Testing LLM and Agentic Apps in 10 Minutes with Rhesis AI
 
-Testing LLM and agentic apps is hard: outputs are non-deterministic, edge cases are unpredictable, and manual testing doesn't scale. It's also not a task a single person can realistically manage — effective testing requires close collaboration between domain experts, technical engineers, and QA specialists to ensure comprehensive coverage and meaningful evaluation. While setting up a full testing pipeline usually takes days of configuration and tooling, this guide shows you how to get a complete, automated testing pipeline up and running with Rhesis in under 10 minutes. Rhesis provides the infrastructure to generate tests, run them against your app, and evaluate results automatically.
+Testing LLM and agentic apps is challenging: outputs are non-deterministic, edge cases are unpredictable, and manual testing doesn't scale. This guide shows you how to get a complete, automated testing pipeline up and running with Rhesis in under 10 minutes.
 
 ## What You'll Get
 
@@ -43,15 +43,13 @@ The `./rh start` command automatically:
 
 Wait approximately 5-7 minutes for all services to start. You'll see containers starting up in your terminal.
 
-## Step 2: Access the Platform (1 minutes)
+## Step 2: Access the Platform (1 minute)
 
-Once services are running, access:
+Once services are running:
 
 - **Frontend Dashboard**: http://localhost:3000 (auto-login enabled)
 - **Backend API Docs**: http://localhost:8080/docs
 - **Worker Health**: http://localhost:8081/health/basic
-
-You should see the Rhesis dashboard automatically logged in as "Local Admin".
 
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-dashboard-docker-spinup.png"
@@ -62,7 +60,7 @@ You should see the Rhesis dashboard automatically logged in as "Local Admin".
 
 ## Step 3: Configure AI Provider (1 minute)
 
-To enable test generation, you need to configure an AI provider. Choose one:
+Configure an AI provider to enable test generation:
 
 ### Option 1: Use Rhesis API (Recommended)
 
@@ -105,19 +103,11 @@ After updating, restart services:
 ### Via Web UI
 
 1. Open http://localhost:3000
-
-<ThemeAwareImage
-  lightSrc="/screenshots/rhesis-ai-auto-login-page.png"
-  darkSrc="/screenshots/rhesis-ai-auto-login-page.png"
-  alt="auto logged in as Local Admin"
-/>
-
-
 2. **Create an Endpoint**: Add your LLM/agentic app's API endpoint
-3. **Define Requirements**: Write what your app should and shouldn't do (e.g., "never provide medical diagnoses", "always cite sources")
-4. **Generate Tests**: Rhesis automatically generates hundreds of test scenarios, including adversarial cases
+3. **Define Requirements**: Specify what your app should and shouldn't do
+4. **Generate Tests**: Automatically generate hundreds of test scenarios
 5. **Run Tests**: Execute tests against your endpoint
-6. **Review Results**: See which outputs violate your requirements, add comments, assign tasks
+6. **Review Results**: View which outputs violate requirements
 
 ### Via Python SDK
 
@@ -202,15 +192,13 @@ Your local infrastructure includes:
 
 ### Architecture Overview
 
-The Rhesis testing infrastructure consists of interconnected services:
-
 ```mermaid
 graph LR
-    Frontend["Frontend<br/><small>Port 3000<br/>Next.js</small>"]
-    Backend["Backend API<br/><small>Port 8080<br/>FastAPI</small>"]
-    Worker["Worker<br/><small>Port 8081<br/>Celery</small>"]
-    PostgreSQL["PostgreSQL<br/><small>Port 5432<br/>Database</small>"]
-    Redis["Redis<br/><small>Port 6379<br/>Cache & Queue</small>"]
+    Frontend[Frontend :3000]
+    Backend[Backend API :8080]
+    Worker[Worker :8081]
+    PostgreSQL[PostgreSQL :5432]
+    Redis[Redis :6379]
 
     Frontend --> Backend
     Backend --> PostgreSQL
@@ -250,35 +238,31 @@ graph LR
 
 ## Troubleshooting
 
-Running into issues? Don't worry — many common problems have simple solutions, and our community is always happy to help. If you get stuck, join us on Discord: https://discord.rhesis.ai
-
 **Docker not running?**
-Start Docker Desktop and run again.
 
 <CodeBlock filename="Terminal" language="bash">
-
-{` ./rh start`}
+{`./rh start`}
 </CodeBlock>
 
-
-
 **Port already in use?**
+
 <CodeBlock filename="Terminal" language="bash">
 {`lsof -i :3000  # Check what's using the port
 kill -9 <PID>  # Kill the process`}
 </CodeBlock>
 
 **Services not starting?**
+
 <CodeBlock filename="Terminal" language="bash">
 {`./rh logs  # Check logs for errors
 ./rh delete && ./rh start  # Fresh start`}
 </CodeBlock>
 
 **AI provider not working?**
-Verify your API key is correct in `.env.docker.local` and restart with `./rh restart`.
 
-## Need More Help?
-Sometimes issues are tricky — that's why we love community support! Join our Discord (https://discord.rhesis.ai) and ask questions. Share logs, screenshots, or errors, and we'll help you get back on track quickly.
+Verify your API key in `.env.docker.local` and restart with `./rh restart`.
+
+**Need help?** Join our Discord: https://discord.rhesis.ai
 
 ---
 

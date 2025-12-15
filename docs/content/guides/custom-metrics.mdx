@@ -1,0 +1,528 @@
+import { CodeBlock } from '@/components/CodeBlock'
+import { InfoCard } from '@/components/InfoCard'
+import { NextStepCard, NextStepCardGrid } from '@/components/NextStepCard'
+
+# Building Custom Metrics with the Rhesis SDK
+
+While Rhesis provides integrations with DeepEval, Ragas, and other evaluation frameworks, you'll often need custom metrics tailored to your specific use case. This guide shows you how to create custom metrics for evaluating LLM responses and conversations.
+
+## Prerequisites
+
+<Callout type="info">
+
+**LLM Service Required**: Custom metrics use LLM models to perform evaluations. You need to configure an LLM service:
+
+---
+
+**Option 1: Rhesis API (Default)**
+
+Set your Rhesis API key to use the default evaluation service:
+
+<CodeBlock filename="setup.py" language="python">
+{`import os
+os.environ["RHESIS_API_KEY"] = "your-api-key"`}
+</CodeBlock>
+
+Get your API key from [app.rhesis.ai](https://app.rhesis.ai/) or configure your self-hosted instance following the [Installation & Setup](../sdk/installation) guide.
+
+---
+
+**Option 2: Other LLM Providers**
+
+You can use any supported LLM provider (OpenAI, Azure OpenAI, Google Gemini, Anthropic, etc.) by configuring the appropriate API keys and passing the model to your metrics. See the [Models Documentation](../sdk/models) for details.
+
+</Callout>
+
+## What You'll Learn
+
+This guide covers:
+
+- **NumericJudge**: Create metrics that score responses on a numeric scale (0-10, 1-5, etc.)
+- **CategoricalJudge**: Build classifiers that categorize responses (tone, intent, safety levels)
+- **ConversationalJudge**: Evaluate multi-turn conversation quality and coherence
+- **GoalAchievementJudge**: Assess whether specific goals were achieved in conversations
+- **Model Configuration**: Choose and configure LLM models for evaluation
+- **Platform Integration**: Push and pull metrics to/from the Rhesis platform
+- **Best Practices**: Tips for crafting effective evaluation prompts and criteria
+
+## Overview of Custom Metrics
+
+Rhesis provides four custom metric builders:
+
+### Single-Turn Metrics
+
+- **NumericJudge**: Returns numeric scores (e.g., 0-10 scale) for quality assessment
+- **CategoricalJudge**: Returns categorical classifications (e.g., "professional", "casual", "inappropriate")
+
+### Conversational Metrics
+
+- **ConversationalJudge**: Evaluates multi-turn conversation quality
+- **GoalAchievementJudge**: Assesses whether specific goals were achieved in a conversation
+
+## Creating a Numeric Judge
+
+`NumericJudge` is ideal when you need to score responses on a numeric scale. Common use cases include rating clarity, professionalism, technical accuracy, or any subjective quality measure.
+
+### Basic Example
+
+<CodeBlock filename="numeric_judge_basic.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge
+
+# Create a custom metric for response clarity
+metric = NumericJudge(
+    name="response_clarity",
+    evaluation_prompt="Rate how clear and understandable the response is.",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0
+)
+
+# Evaluate a response
+result = metric.evaluate(
+    input="What is machine learning?",
+    output="Machine learning is a subset of AI that enables systems to learn from data without being explicitly programmed.")
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")
+print(f"Reason: {result.details['reason']}")`}
+</CodeBlock>
+
+### Advanced Configuration
+
+Add evaluation steps to guide the LLM's assessment:
+
+<CodeBlock filename="numeric_judge_advanced.py" language="python">
+{`metric = NumericJudge(
+    name="technical_accuracy",
+    evaluation_prompt="Evaluate the technical accuracy of the response.",
+    evaluation_steps="""1. Check if key concepts are correctly defined
+2. Verify factual claims against known information
+3. Assess depth and completeness of explanation
+4. Identify any misleading or incorrect statements""",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=8.0,
+    model="gpt-4o"  # Specify evaluation model
+)
+
+# Evaluate with expected output for comparison
+result = metric.evaluate(
+    input="Explain neural networks",
+    output="Neural networks are computational models inspired by the human brain...",
+    expected_output="A neural network consists of interconnected nodes organized in layers...")
+
+print(f"Technical Accuracy Score: {result.score}/10")
+print(f"Meets Threshold (8.0): {result.details['is_successful']}")
+print(f"Evaluation Reasoning: {result.details['reason']}")`}
+</CodeBlock>
+
+### Real-World Example: Customer Support Quality
+
+<CodeBlock filename="numeric_judge_support.py" language="python">
+{`# Create a metric for evaluating support agent responses
+support_quality = NumericJudge(
+    name="support_response_quality",
+    evaluation_prompt="Evaluate the quality of a customer support response.",
+    evaluation_steps="""1. Assess empathy and tone (professional, helpful)
+2. Check if the response addresses the customer's question
+3. Evaluate clarity of instructions or explanations
+4. Check for appropriate next steps or follow-up""",
+    min_score=1.0,
+    max_score=5.0,
+    threshold=4.0
+)
+
+# Test with a customer inquiry
+result = support_quality.evaluate(
+    input="My order hasn't arrived and it's been 2 weeks. What should I do?",
+    output="I apologize for the delay with your order. Let me check the tracking information for you. Your order #12345 appears to be delayed in transit. I'll file a claim with the carrier and send you a replacement immediately. You should receive it within 3-5 business days. Is there anything else I can help you with?")
+
+print(f"Support Quality: {result.score}/5.0")
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
+
+## Creating a Categorical Judge
+
+`CategoricalJudge` classifies responses into predefined categories. This is perfect for tone detection, content classification, intent recognition, or compliance checking.
+
+### Basic Example
+
+<CodeBlock filename="categorical_judge_basic.py" language="python">
+{`from rhesis.sdk.metrics import CategoricalJudge
+
+# Create a tone classifier
+metric = CategoricalJudge(
+    name="tone_classifier",
+    evaluation_prompt="Classify the tone of the response.",
+    categories=["professional", "casual", "technical", "friendly", "inappropriate"],
+    passing_categories=["professional", "technical"]
+)
+
+# Evaluate response tone
+result = metric.evaluate(
+    input="How does encryption work?",
+    output="Encryption is a process that encodes data using mathematical algorithms to prevent unauthorized access.")
+
+print(f"Detected Tone: {result.score}")
+print(f"Acceptable Tone: {result.details['is_successful']}")`}
+</CodeBlock>
+
+### Real-World Example: Content Safety Classification
+
+<CodeBlock filename="categorical_judge_safety.py" language="python">
+{`# Create a safety classifier for chatbot responses
+safety_classifier = CategoricalJudge(
+    name="content_safety",
+    evaluation_prompt="Classify the safety level of the response.",
+    evaluation_steps="""1. Check for harmful, offensive, or inappropriate content
+2. Assess if response provides dangerous advice
+3. Evaluate compliance with safety guidelines
+4. Determine overall safety classification""",
+    categories=["safe", "needs_review", "unsafe"],
+    passing_categories=["safe"]
+)
+
+# Test responses
+test_cases = [
+    {
+        "input": "How can I improve my coding skills?",
+        "output": "Practice regularly, contribute to open source projects, and take online courses."
+    },
+    {
+        "input": "Tell me about data structures",
+        "output": "Data structures organize and store data efficiently for various operations."
+    }
+]
+
+for case in test_cases:
+    result = safety_classifier.evaluate(**case)
+    print(f"Input: {case['input'][:50]}...")
+    print(f"Classification: {result.score}")
+    print(f"Safe: {result.details['is_successful']}\n")`}
+</CodeBlock>
+
+### Multi-Category Intent Classifier
+
+<CodeBlock filename="categorical_judge_intent.py" language="python">
+{`# Classify user intent for routing
+intent_classifier = CategoricalJudge(
+    name="user_intent",
+    evaluation_prompt="Classify the primary intent of the user's message.",
+    categories=[
+        "technical_support",
+        "billing_question",
+        "feature_request",
+        "general_inquiry",
+        "complaint",
+        "feedback"
+    ],
+    passing_categories=["technical_support", "general_inquiry"]  # Routes to tier-1 support
+)
+
+result = intent_classifier.evaluate(
+    input="I can't log into my account. I keep getting an error message.",
+    output=""  # Intent classification typically doesn't need output
+)
+
+print(f"Detected Intent: {result.score}")
+print(f"Route to Tier-1: {result.details['is_successful']}")`}
+</CodeBlock>
+
+## Creating Conversational Metrics
+
+For evaluating multi-turn conversations, use `ConversationalJudge` and `GoalAchievementJudge`. These metrics assess dialogue quality across multiple exchanges.
+
+### Conversational Judge
+
+<CodeBlock filename="conversational_judge.py" language="python">
+{`from rhesis.sdk.metrics import ConversationalJudge, ConversationHistory
+
+# Create a conversation coherence metric
+metric = ConversationalJudge(
+    name="conversation_coherence",
+    evaluation_prompt="Evaluate the coherence and flow of the conversation.",
+    evaluation_steps="""1. Check if assistant responses follow logically from previous turns
+2. Evaluate topic continuity and context awareness
+3. Assess if the assistant maintains conversation thread
+4. Determine overall conversation quality""",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0
+)
+
+# Create a conversation history
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "I need help setting up my account."},
+    {"role": "assistant", "content": "I'd be happy to help! What step are you on?"},
+    {"role": "user", "content": "I'm trying to verify my email."},
+    {"role": "assistant", "content": "Please check your inbox for the verification link. Click it to verify."},
+    {"role": "user", "content": "I didn't receive any email."},
+    {"role": "assistant", "content": "Let me resend it. Check your spam folder too. What email did you use?"},
+])
+
+# Evaluate the conversation
+result = metric.evaluate(conversation_history=conversation)
+
+print(f"Coherence Score: {result.score}/10")
+print(f"Passed: {result.details['is_successful']}")
+print(f"Analysis: {result.details['reason']}")`}
+</CodeBlock>
+
+### Goal Achievement Judge
+
+`GoalAchievementJudge` evaluates whether specific objectives were met during a conversation.
+
+<CodeBlock filename="goal_achievement_judge.py" language="python">
+{`from rhesis.sdk.metrics import GoalAchievementJudge, ConversationHistory
+
+# Define a goal-based metric
+metric = GoalAchievementJudge(
+    name="booking_completion",
+    evaluation_prompt="Evaluate whether the flight booking goal was achieved.",
+    goal="Successfully book a flight for the customer",
+    criteria=[
+        "Destination was confirmed",
+        "Travel dates were collected",
+        "Flight options were presented",
+        "Customer selected a flight",
+        "Booking was confirmed"
+    ]
+)
+
+# Example successful booking conversation
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "I need to book a flight to London."},
+    {"role": "assistant", "content": "I can help! When would you like to travel?"},
+    {"role": "user", "content": "Next Tuesday, returning Friday."},
+    {"role": "assistant", "content": "I found 3 flights. Morning departure at 8am ($450), afternoon at 2pm ($380), or evening at 7pm ($420)."},
+    {"role": "user", "content": "I'll take the 2pm flight."},
+    {"role": "assistant", "content": "Perfect! Your flight is booked. Confirmation #ABC123. You'll receive an email shortly."},
+])
+
+result = metric.evaluate(conversation_history=conversation)
+
+print(f"Goal Achievement Score: {result.score}")
+print(f"Goal Achieved: {result.details['is_successful']}")
+
+# Check individual criteria
+if 'criteria_results' in result.details:
+    print("\nCriteria Breakdown:")
+    for criterion, achieved in result.details['criteria_results'].items():
+        print(f"  {criterion}: {'✓' if achieved else '✗'}")`}
+</CodeBlock>
+
+### Real-World Example: Customer Retention
+
+<CodeBlock filename="conversational_judge_retention.py" language="python">
+{`# Evaluate if support successfully retained a customer
+retention_metric = ConversationalJudge(
+    name="customer_retention_quality",
+    evaluation_prompt="Evaluate how effectively the agent attempted to retain the customer.",
+    evaluation_steps="""1. Assess if agent acknowledged the customer's concerns
+2. Check if solutions or alternatives were offered
+3. Evaluate empathy and professionalism
+4. Determine if the conversation ended positively
+5. Score overall retention effectiveness""",
+    min_score=1.0,
+    max_score=5.0,
+    threshold=4.0
+)
+
+# Cancellation attempt conversation
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "I want to cancel my subscription."},
+    {"role": "assistant", "content": "I'm sorry to hear that. May I ask what's prompting this decision?"},
+    {"role": "user", "content": "It's too expensive and I'm not using it much."},
+    {"role": "assistant", "content": "I understand. We actually have a lower-tier plan at 50% off that might work better. Would you like to hear about it?"},
+    {"role": "user", "content": "How much is it?"},
+    {"role": "assistant", "content": "It's $15/month instead of $30. You keep core features but with some limits. Would you like to try it for a month?"},
+    {"role": "user", "content": "That sounds more reasonable. Yes, let's do that."},
+    {"role": "assistant", "content": "Great! I've switched you to the basic plan. Your next bill will be $15. Thanks for staying with us!"},
+])
+
+result = retention_metric.evaluate(conversation_history=conversation)
+
+print(f"Retention Effectiveness: {result.score}/5.0")
+print(f"Strong Retention Attempt: {result.details['is_successful']}")`}
+</CodeBlock>
+
+## Configuring Evaluation Models
+
+All custom metrics use LLM models to perform evaluations. You can specify which model to use:
+
+<CodeBlock filename="model_configuration.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge
+from rhesis.sdk.models import get_model
+
+# Option 1: Pass model name directly
+metric = NumericJudge(
+    name="response_quality",
+    evaluation_prompt="Rate the response quality.",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0,
+    model="gpt-4o"  # Use specific model
+)
+
+# Option 2: Use get_model helper
+model = get_model("gemini")  # or "claude", "gpt-4", etc.
+metric = NumericJudge(
+    name="response_quality",
+    evaluation_prompt="Rate the response quality.",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0,
+    model=model
+)
+
+# If no model is specified, the default model is used`}
+</CodeBlock>
+
+For detailed model configuration, see the [Models Documentation](../sdk/models).
+
+## Platform Integration
+
+Custom metrics can be synchronized with the Rhesis platform for centralized management.
+
+### Pushing Metrics to Platform
+
+<CodeBlock filename="push_metrics.py" language="python">
+{`# Create a custom metric
+metric = NumericJudge(
+    name="brand_voice_adherence",
+    description="Evaluates how well responses match our brand voice guidelines.",
+    metric_type="classification",
+    requires_ground_truth=False,
+    requires_context=False,
+    evaluation_prompt="Rate how well the response adheres to brand voice guidelines.",
+    evaluation_steps="""1. Check tone matches brand personality (friendly, professional)
+2. Verify language style (clear, concise, no jargon)
+3. Assess messaging consistency
+4. Rate overall brand voice alignment""",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.5
+)
+
+# Push to platform
+metric.push()
+print("Metric pushed to platform!")`}
+</CodeBlock>
+
+### Pulling Metrics from Platform
+
+<CodeBlock filename="pull_metrics.py" language="python">
+{`# Pull an existing metric by name
+metric = NumericJudge.pull(name="brand_voice_adherence")
+
+# Use the pulled metric
+result = metric.evaluate(
+    input="What are your business hours?",
+    output="We're here for you Monday-Friday, 9am-5pm EST! Feel free to reach out anytime.")
+
+print(f"Score: {result.score}")`}
+</CodeBlock>
+
+## Serialization and Storage
+
+Save and load metric configurations for version control or sharing:
+
+<CodeBlock filename="serialization.py" language="python">
+{`import json
+
+# Create a metric
+metric = CategoricalJudge(
+    name="sentiment_classifier",
+    evaluation_prompt="Classify the sentiment of the response.",
+    categories=["positive", "neutral", "negative"],
+    passing_categories=["positive", "neutral"]
+)
+
+# Serialize to dict
+metric_dict = metric.to_dict()
+with open("sentiment_metric.json", "w") as f:
+    json.dump(metric_dict, f, indent=2)
+
+# Load from dict
+with open("sentiment_metric.json", "r") as f:
+    loaded_dict = json.load(f)
+loaded_metric = CategoricalJudge.from_dict(loaded_dict)
+
+# Alternatively, use config format
+config = metric.to_config()
+restored_metric = CategoricalJudge.from_config(config)`}
+</CodeBlock>
+
+## Best Practices
+
+<Callout type="tip">
+
+**Crafting Effective Evaluation Prompts**
+
+1. **Be Specific**: Clearly define what you're evaluating
+2. **Provide Context**: Include relevant background or guidelines
+3. **Break Down Steps**: Use evaluation_steps for complex assessments
+4. **Set Appropriate Thresholds**: Test and adjust based on results
+5. **Choose the Right Model**: More complex evaluations may need more capable models
+
+</Callout>
+
+### Example: Well-Structured Metric
+
+<CodeBlock filename="best_practice_metric.py" language="python">
+{`# ✓ Good: Clear, specific, structured
+good_metric = NumericJudge(
+    name="code_explanation_quality",
+    evaluation_prompt="Evaluate the quality of a code explanation for a beginner programmer.",
+    evaluation_steps="""1. Check if technical terms are defined clearly
+2. Assess if examples are provided where helpful
+3. Verify explanation follows logical progression
+4. Evaluate if the explanation is accessible to beginners
+5. Rate overall explanation quality""",
+    min_score=1.0,
+    max_score=10.0,
+    threshold=7.0,
+    model="gpt-4o")
+
+# ✗ Avoid: Vague, unclear criteria
+bad_metric = NumericJudge(
+    name="quality",
+    evaluation_prompt="Is this good?",
+    min_score=0.0,
+    max_score=1.0,
+    threshold=0.5
+)`}
+</CodeBlock>
+
+## Next Steps
+
+<NextStepCardGrid>
+  <NextStepCard
+    emoji="📊"
+    title="Single-Turn Metrics"
+    description="Explore built-in metrics from DeepEval, Ragas, and other frameworks for single-turn evaluation."
+    link="/sdk/metrics/single-turn"
+    linkText="View Single-Turn Metrics →"
+  />
+  
+  <NextStepCard
+    emoji="💬"
+    title="Conversational Metrics"
+    description="Learn about built-in conversational metrics for multi-turn dialogue evaluation."
+    link="/sdk/metrics/conversational"
+    linkText="View Conversational Metrics →"
+  />
+  
+  <NextStepCard
+    emoji="🤖"
+    title="Models Configuration"
+    description="Configure LLM models for metric evaluation and customize model behavior."
+    link="/sdk/models"
+    linkText="Configure Models →"
+  />
+</NextStepCardGrid>
+
+## Need Help?
+
+If you have questions or need assistance creating custom metrics for your use case, reach out on [GitHub](https://github.com/rhesis-ai/rhesis/issues) or join our community on [Discord](https://discord.rhesis.ai).
+
