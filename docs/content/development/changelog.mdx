@@ -8,6 +8,97 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.5.3] - 2025-12-11
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.3**
+- **Frontend 0.5.3**
+- **Polyphemus 0.2.2**
+
+### Summary
+
+This release enhances MCP authentication and error handling, adds unique constraints to database fields, and improves multi-turn test support. The frontend receives UX improvements for trial drawer and manual test writer, while Polyphemus fixes rate limiting behavior for unauthenticated requests.
+
+### Backend Highlights
+- Improved MCP authentication and error handling, enhancing usability
+- Added unique constraint to `nano_id` columns in the database
+- Enhanced testing capabilities with endpoint connection testing and multi-turn test support
+- Notifications now separate execution status from test results in emails
+
+### Frontend Highlights
+- Improved trial drawer with multi-turn support and UX enhancements
+- Added multi-turn test support in manual test writer
+- Fixed authentication errors and improved UX for MCP (Model Comparison Platform)
+- Resolved cursor focus loss in title and description fields
+
+### Polyphemus Highlights
+- Fixed rate limiting to occur after authentication, preventing unintended rate limits on unauthenticated requests
+
+## [0.5.2] - 2025-12-08
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.2**
+- **Frontend 0.5.2**
+
+### Summary
+
+This release adds a Test Connection Tool for easier configuration and troubleshooting, removes permission restrictions from entity routes, and addresses security vulnerabilities. The frontend includes updates for React and Next.js to address CVE-2025-55182, plus support for tags in test runs and enhanced metrics capabilities.
+
+### Backend Highlights
+- Added a Test Connection Tool for easier configuration and troubleshooting
+- Removed permission restrictions from entity routes
+- Fixed: Activities API response now returns valid fields
+
+### Frontend Highlights
+- Security: Updated React and Next.js to address CVE-2025-55182
+- Test Runs: Added support for tags
+- Metrics: Added support for categories and threshold operators
+- Added Test Connection Tool
+
+## [0.5.1] - 2025-12-04
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.1**
+- **Frontend 0.5.1**
+- **Polyphemus 0.2.1**
+
+### Summary
+
+This release modernizes the dashboard with MUI X charts and activity timeline, improves connector output mapping with message field support, and adds OpenRouter provider support. The frontend receives grid state persistence and improved MCP dialogs, while Polyphemus adds user verification status.
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/-GeDT-qzGMQ"
+    title="Modernized Dashboard - Release 0.5.1"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Backend Highlights
+- Modernized dashboard with MUI X charts and activity timeline
+- Improved connector output mapping with message field support
+- Added support for OpenRouter provider
+- Increased exporter timeout from 10 to 30 seconds
+
+### Frontend Highlights
+- Modernized dashboard with MUI X charts and activity timeline
+- Improved MCP import and tool selector dialogs
+- Added grid state persistence to localStorage
+- Backend execution RPC fixes and UI improvements
+
+### Polyphemus Highlights
+- Added "Is Verified" status to user profiles
+- Users can now be marked as verified
+
 ## [0.5.0] - 2025-11-27
 
 ### Platform Release
@@ -20,6 +111,68 @@ This release includes the following component versions:
 ### Summary
 
 This release introduces comprehensive multi-turn test support via Penelope execution agent, bidirectional SDK connector with intelligent auto-mapping, and enhanced behavior-metrics management. MCP server integration with Notion improves context for test generation, while the new interactive onboarding system guides users through initial setup.
+
+### Featured Capabilities
+
+**Multi-Turn Testing with Penelope**
+
+Watch Penelope autonomously execute complex multi-turn conversations against your LLM applications:
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/Noo8gYh04eA"
+    title="Penelope Multi-Turn Testing - Release 0.5.0"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+**SDK Connector Integration**
+
+See how the `@collaborate` decorator integrates your LLM application in under a minute:
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/6hteHCpOxpM"
+    title="SDK Connector - Release 0.5.0"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+**Behaviors and Metrics Structure**
+
+Learn how the two-layer testing structure enables whole-team collaboration on quality:
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/7sJlZ_nCPpI"
+    title="Behaviors and Metrics - Release 0.5.0"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+**MCP Integration with Notion**
+
+Connect your Notion workspace directly to your testing pipeline:
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/7OI7RQSKvkc"
+    title="MCP Notion Integration - Release 0.5.0"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
 
 ### Backend Highlights
 - Added comprehensive multi-turn test support including creation, listing, execution, and preview generation
