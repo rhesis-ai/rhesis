@@ -192,12 +192,12 @@ export const Footer = ({
 
             {/* Main footer sections */}
             <div style={styles.grid}>
-              {allSections.map((section, index) => (
-                <div key={index} style={styles.section}>
+              {allSections.map(section => (
+                <div key={section.title} style={styles.section}>
                   <h3 style={styles.sectionTitle}>{section.title}</h3>
                   <ul style={styles.linkList}>
-                    {section.links.map((link, linkIndex) => (
-                      <li key={`${section.title}-link-${linkIndex}`}>
+                    {section.links.map(link => (
+                      <li key={`${section.title}-${link.name}`}>
                         <a
                           href={link.href}
                           target={link.external ? '_blank' : '_self'}
@@ -212,8 +212,8 @@ export const Footer = ({
                     {/* Add any additional links for this section */}
                     {additionalLinks
                       .filter(link => link.section === section.title.toLowerCase())
-                      .map((link, linkIndex) => (
-                        <li key={`${section.title}-additional-${linkIndex}`}>
+                      .map(link => (
+                        <li key={`${section.title}-additional-${link.name || link.href}`}>
                           <a
                             href={link.href}
                             target={link.external ? '_blank' : '_self'}
@@ -240,9 +240,9 @@ export const Footer = ({
             )}
 
             <div style={styles.legalLinks}>
-              {legalLinks.map((link, index) => (
+              {legalLinks.map(link => (
                 <a
-                  key={`legal-default-${index}`}
+                  key={`legal-${link.name}`}
                   href={link.href}
                   target={link.external ? '_blank' : '_self'}
                   rel={link.external ? 'noopener noreferrer' : undefined}
@@ -255,9 +255,9 @@ export const Footer = ({
               {/* Add any additional legal links */}
               {additionalLinks
                 .filter(link => link.section === 'legal')
-                .map((link, index) => (
+                .map(link => (
                   <a
-                    key={`legal-additional-${index}`}
+                    key={`legal-additional-${link.name}`}
                     href={link.href}
                     target={link.external ? '_blank' : '_self'}
                     rel={link.external ? 'noopener noreferrer' : undefined}

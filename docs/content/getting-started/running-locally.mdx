@@ -1,0 +1,303 @@
+import { CodeBlock } from '@/components/CodeBlock'
+import { Table } from '@/components/Table'
+import { FileTree } from '@/components/FileTree'
+
+# Running Locally
+
+Get Rhesis running on your local machine in under 5 minutes with zero configuration required.
+
+## Overview
+
+Perfect for quickly testing Rhesis locally without any configuration hassles. This setup includes:
+
+- ✅ **No Auth0 setup required** - Local authentication bypass enabled
+- ✅ **Pre-configured database** - PostgreSQL with automatic setup
+- ✅ **Auto-login enabled** - Access the dashboard immediately
+- ✅ **Default admin user** - `admin@local.dev` created automatically
+- ✅ **All secrets included** - Development-safe defaults provided
+
+<Callout type="warning">
+**Local Development Only**
+
+This configuration is **NOT suitable for production**. It includes hardcoded secrets and disabled security features for ease of local development.
+</Callout>
+
+## Prerequisites
+
+- Docker Desktop installed and running
+- Git (to clone the repository)
+- Ports 3000, 8080, 8081, 5432, and 6379 available on your system
+
+## Quick Start
+
+Get Rhesis running in under 5 minutes:
+
+<CodeBlock filename="Terminal" language="bash">
+{`# 1. Clone the repository
+git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis
+
+# 2. Start all services with one command
+./rh start
+
+# That's it! The platform will automatically:
+# - Generate database encryption key
+# - Create .env.docker.local with local configuration
+# - Start all services (backend, frontend, database, worker)
+# - Create default admin user and example data
+# - Enable auto-login
+
+# 3. Access the platform
+# Frontend: http://localhost:3000 (auto-login enabled)
+# Backend API: http://localhost:8080/docs
+# Worker Health: http://localhost:8081/health/basic
+
+# 4. (Optional) Enable test generation
+# Get your API key from https://app.rhesis.ai/
+# Edit .env.docker.local and update RHESIS_API_KEY=your-actual-key`}
+</CodeBlock>
+
+That's it! The `./rh start` command automatically:
+- Checks if Docker is running
+- Generates a secure database encryption key
+- Creates `.env.docker.local` with all required configuration
+- Enables local authentication bypass (auto-login)
+- Starts all services
+- Creates the database and runs migrations
+- Creates the default admin user (`Local Admin`)
+- Loads example test data
+
+## What You Get
+
+### Configuration Files
+
+The zero-configuration setup uses these files:
+
+<FileTree
+  title="Local Deployment Files"
+  data={[
+    {
+      name: '.env.docker.local',
+      type: 'file',
+      description: 'Auto-generated environment file (created by ./rh start)'
+    },
+    {
+      name: 'docker-compose.yml',
+      type: 'file',
+      description: 'Docker Compose configuration with sensible defaults'
+    },
+    {
+      name: 'rh',
+      type: 'file',
+      description: 'CLI tool for managing services (start, stop, logs, delete)'
+    }
+  ]}
+/>
+
+### Auto-Generated Configuration
+
+When you run `./rh start`, the `.env.docker.local` file is automatically created with:
+
+**Auto-Generated Keys:**
+- Database encryption key (using Python cryptography.fernet)
+- Local authentication bypass flags:
+  - `QUICK_START=true` (enables backend auto-login endpoint)
+  - `NEXT_PUBLIC_QUICK_START=true` (enables frontend auto-login detection)
+
+**You can add (optional):**
+- Rhesis API key (for test generation)
+- AI provider keys (Gemini, OpenAI, Azure)
+- SMTP credentials (for email notifications)
+
+**Default Services:**
+- Backend API on port 8080
+- Frontend on port 3000 
+- Worker on port 8081
+- PostgreSQL on port 5432
+- Redis on port 6379
+
+### Default Access
+
+Once running, access the platform at:
+
+<Table
+  headers={['Service', 'URL', 'Credentials']}
+  rows={[
+    ['Frontend', 'http://localhost:3000', 'Auto-login (no credentials needed)'],
+    ['Backend API', 'http://localhost:8080/docs', 'API documentation'],
+    ['Worker Health', 'http://localhost:8081/health/basic', 'Health check endpoint'],
+    ['Default Admin', 'Local Admin', 'Created automatically with auto-login'],
+  ]}
+  align={['left', 'left', 'left']}
+/>
+
+## Optional Configuration
+
+### Enable Test Generation
+
+The local setup works out-of-the-box, but to enable test generation, you need an AI provider. Two options:
+
+**Option 1: Use Rhesis API (Recommended)**
+
+1. Get your API key from https://app.rhesis.ai/
+2. Edit `.env.docker.local` and add:
+
+<CodeBlock filename=".env.docker.local" language="bash">
+{`RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
+</CodeBlock>
+
+**Option 2: Use Your Own AI Provider**
+
+Add your provider's credentials to `.env.docker.local`:
+
+<CodeBlock filename=".env.docker.local" language="bash">
+{`# Google Gemini
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL_NAME=gemini-2.0-flash-001
+GOOGLE_API_KEY=your-google-api-key
+
+# Or Azure OpenAI
+AZURE_OPENAI_ENDPOINT=your-endpoint
+AZURE_OPENAI_API_KEY=your-key
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_API_VERSION=your-version
+
+# Or OpenAI
+OPENAI_API_KEY=your-openai-key
+OPENAI_MODEL_NAME=gpt-4o`}
+</CodeBlock>
+
+After updating, restart services:
+<CodeBlock filename="Terminal" language="bash">
+{`./rh restart`}
+</CodeBlock>
+
+## Managing Services
+
+Use the `./rh` CLI for easy service management:
+
+**Stop services:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Stop all services
+./rh stop`}
+</CodeBlock>
+
+**View logs:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# All services (follow in real-time)
+./rh logs
+
+# Specific service
+./rh logs backend
+./rh logs frontend
+./rh logs worker`}
+</CodeBlock>
+
+**Restart services:**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Restart all services
+./rh restart`}
+</CodeBlock>
+
+**Delete everything (fresh start):**
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Remove all containers, volumes, images, and data
+./rh delete
+
+# Then start fresh
+./rh start`}
+</CodeBlock>
+
+## Troubleshooting
+
+### Docker not running
+
+<CodeBlock filename="Terminal" language="bash">
+{`# The ./rh start command checks automatically
+# If you see this error:
+# ❌ Error: Docker is not running
+# 💡 Please start Docker Desktop and try again
+
+# Start Docker Desktop, then run:
+./rh start`}
+</CodeBlock>
+
+### Port already in use
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Check what's using a port (e.g., port 3000)
+lsof -i :3000
+
+# Kill the process
+kill -9 <PID>`}
+</CodeBlock>
+
+### Need a fresh start
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Delete everything and start fresh
+./rh delete
+./rh start`}
+</CodeBlock>
+
+### Check service health
+
+<CodeBlock filename="Terminal" language="bash">
+{`# View all running containers
+docker compose ps
+
+# Check backend health
+curl http://localhost:8080/health
+
+# Check worker health
+curl http://localhost:8081/health/basic`}
+</CodeBlock>
+
+### Python cryptography package missing
+
+<CodeBlock filename="Terminal" language="bash">
+{`# If you see this error:
+# ❌ Error: Failed to generate encryption key
+# 💡 Make sure Python 3 and cryptography package are installed
+
+# Install the package:
+pip install cryptography
+
+# Then run:
+./rh start`}
+</CodeBlock>
+
+### Auto-login not working
+
+<CodeBlock filename="Terminal" language="bash">
+{`# Check if Quick Start variables are set correctly
+cat .env.docker.local | grep QUICK_START
+
+# Should show:
+# QUICK_START=true
+# NEXT_PUBLIC_QUICK_START=true
+
+# If missing, add them:
+echo "QUICK_START=true" >> .env.docker.local
+echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
+
+# Then restart:
+./rh restart`}
+</CodeBlock>
+
+**Note:** The `./rh start` command automatically sets both variables. If you're manually configuring, ensure both `QUICK_START=true` (for backend) and `NEXT_PUBLIC_QUICK_START=true` (for frontend) are set in your `.env.docker.local` file. If you add these variables after the frontend container was already built, you may need to rebuild it: `docker compose --env-file .env.docker.local build frontend && ./rh restart`
+
+## Next Steps
+
+<Callout type="info">
+**Ready for Production?**
+
+This local setup is great for testing and development. When you're ready to deploy to production, see the [Self-Hosting Guide](/getting-started/self-hosting) for proper security configuration and production deployment.
+</Callout>
+
+For local development setup without Docker (for contributing to Rhesis), see the [Environment Setup Guide](/development/environment-setup).
+

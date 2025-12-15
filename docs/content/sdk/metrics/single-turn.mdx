@@ -1,0 +1,284 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Single-Turn Metrics
+
+## Overview
+
+Single-turn metrics evaluate individual exchanges between user input and system output. These metrics are ideal for assessing the quality of standalone responses, RAG systems, and classification tasks.
+
+<Callout type="info">
+
+**API Key Required**: All examples in this documentation require a valid Rhesis API key. Set your API key using:
+
+<CodeBlock filename="setup.py" language="python">
+{`import os
+os.environ["RHESIS_API_KEY"] = "your-api-key"`}
+</CodeBlock>
+
+For more information, see the [Installation & Setup](../installation) guide.
+
+</Callout>
+
+<Callout type="info">
+
+Rhesis integrates with the following open-source evaluation frameworks:
+
+- **[DeepEval](https://github.com/confident-ai/deepeval)** - Apache License 2.0  
+  The LLM Evaluation Framework by Confident AI
+- **[DeepTeam](https://github.com/confident-ai/deepteam)** - Apache License 2.0  
+  The LLM Red Teaming Framework by Confident AI
+- **[Ragas](https://github.com/explodinggradients/ragas)** - Apache License 2.0  
+  Supercharge Your LLM Application Evaluations by Exploding Gradients
+
+These tools are used through their public APIs. The original licenses and copyright notices can be found in their respective repositories. Rhesis is not affiliated with these projects.
+
+</Callout>
+
+## Supported Metrics
+
+### DeepEval Metrics
+
+| Metric | Description | Requires Context | Requires Ground Truth | Reference |
+| --- | --- | --- | --- | --- |
+| `DeepEvalAnswerRelevancy` | Measures answer relevance to the question | No | No | [Docs](https://deepeval.com/docs/metrics-answer-relevancy) |
+| `DeepEvalFaithfulness` | Checks if answer is grounded in context | Yes | No | [Docs](https://deepeval.com/docs/metrics-faithfulness) |
+| `DeepEvalContextualRelevancy` | Evaluates context relevance to question | Yes | No | [Docs](https://deepeval.com/docs/metrics-contextual-relevancy) |
+| `DeepEvalContextualPrecision` | Measures precision of retrieved context | Yes | Yes | [Docs](https://deepeval.com/docs/metrics-contextual-precision) |
+| `DeepEvalContextualRecall` | Measures recall of retrieved context | Yes | Yes | [Docs](https://deepeval.com/docs/metrics-contextual-recall) |
+| `DeepEvalBias` | Detects biased content in responses | No | No | [Docs](https://deepeval.com/docs/metrics-bias) |
+| `DeepEvalToxicity` | Detects toxic content in responses | No | No | [Docs](https://deepeval.com/docs/metrics-toxicity) |
+| `DeepEvalPIILeakage` | Detects personally identifiable information | No | No | [Docs](https://deepeval.com/docs/metrics-pii-leakage) |
+| `DeepEvalRoleViolation` | Detects when assistant violates assigned role | No | No | [Docs](https://deepeval.com/docs/metrics-role-violation) |
+| `DeepEvalMisuse` | Detects potential misuse of the system | No | No | [Docs](https://deepeval.com/docs/metrics-misuse) |
+| `DeepEvalNonAdvice` | Ensures assistant doesn't give restricted advice | No | No | [Docs](https://deepeval.com/docs/metrics-non-advice) |
+
+### DeepTeam Metrics
+
+| Metric | Description | Requires Context | Requires Ground Truth | Reference |
+| --- | --- | --- | --- | --- |
+| `DeepTeamSafety` | Detects safety violations | No | No | [Docs](https://www.trydeepteam.com/docs/red-teaming-vulnerabilities-personal-safety) |
+| `DeepTeamIllegal` | Detects illegal content or requests | No | No | [Docs](https://www.trydeepteam.com/docs/red-teaming-vulnerabilities-illegal-activity) |
+
+### Ragas Metrics
+
+| Metric | Description | Requires Context | Requires Ground Truth | Reference |
+| --- | --- | --- | --- | --- |
+| `RagasContextRelevance` | Evaluates context relevance to question | Yes | No | [Docs](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/nvidia_metrics/#context-relevance) |
+| `RagasAnswerAccuracy` | Measures answer accuracy against ground truth | No | Yes | [Docs](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/nvidia_metrics/#answer-accuracy) |
+| `RagasFaithfulness` | Checks if answer is grounded in context | Yes | No | [Docs](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/faithfulness/) |
+| `RagasAspectCritic` | Custom aspect-based evaluation | No | No | [Docs](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/general_purpose/#aspect-critic) |
+
+### Rhesis Custom Metrics
+
+| Metric | Description | Configuration |
+| --- | --- | --- |
+| `NumericJudge` | LLM-based numeric scoring (e.g., 0-10 scale) | Min/max score, threshold, custom prompts |
+| `CategoricalJudge` | LLM-based categorical classification | Categories, passing categories, custom prompts |
+
+If any metrics are missing from the list, or you would like to use a different provider, please let us know by creating an issue on [GitHub](https://github.com/rhesis-ai/rhesis/issues).
+
+## Quick Start
+
+### Using DeepEval Metrics
+
+<CodeBlock filename="deepeval_example.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
+
+# Initialize metric
+metric = DeepEvalAnswerRelevancy(threshold=0.7)
+
+# Evaluate
+result = metric.evaluate(
+    input="What is the capital of France?",
+    output="The capital of France is Paris."
+)
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
+
+### Using Ragas Metrics
+
+<CodeBlock filename="ragas_example.py" language="python">
+{`from rhesis.sdk.metrics import RagasFaithfulness
+
+# Initialize metric
+metric = RagasFaithfulness(threshold=0.8)
+
+# Evaluate with context
+result = metric.evaluate(
+    input="What is photosynthesis?",
+    output="Photosynthesis is the process by which plants convert light into energy.",
+    context=[
+        "Photosynthesis occurs in chloroplasts...",
+        "Plants use sunlight to produce glucose..."
+    ]
+)
+
+print(f"Score: {result.score}")
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
+
+### Creating Custom Metrics
+
+You can create custom metrics using the `NumericJudge` and `CategoricalJudge` classes.
+
+#### Numeric Judge
+
+`NumericJudge` returns a numeric score (e.g., from 0 to 10) and requires four specific parameters: `min_score`, `max_score`, `threshold`, and `threshold_operator`.
+
+<CodeBlock filename="numeric_judge.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge
+
+# Define custom numeric metric
+metric = NumericJudge(
+    name="response_clarity",
+    evaluation_prompt="Rate how clear and understandable the response is.",
+    evaluation_steps="""
+                    1. Check sentence structure
+                    2. Evaluate word choice
+                    3. Assess overall clarity""",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0,
+)
+
+# Evaluate
+result = metric.evaluate(
+    input="Explain quantum computing",
+    output="Quantum computers use qubits to process information...",
+    expected_output="A quantum computer uses quantum mechanics...",
+)`}
+</CodeBlock>
+
+#### Categorical Judge
+
+`CategoricalJudge` returns a categorical value and requires you to specify `categories` and `passing_categories`.
+
+<CodeBlock filename="categorical_judge.py" language="python">
+{`from rhesis.sdk.metrics import CategoricalJudge
+
+# Define custom categorical metric
+metric = CategoricalJudge(
+    name="tone_classifier",
+    evaluation_prompt="Classify the tone of the response.",
+    categories=["professional", "casual", "technical", "friendly"],
+    passing_categories=["professional", "technical"]
+)
+
+# Evaluate
+result = metric.evaluate(
+    input="Describe machine learning",
+    output="Machine learning is a subset of AI...",
+    expected_output="ML enables systems to learn from data...",
+)
+
+print(f"Category: {result.score}")
+print(f"Passed: {result.details['is_successful']}")`}
+</CodeBlock>
+
+## Understanding Results
+
+All metrics return a `MetricResult` object:
+
+<CodeBlock filename="metric_results.py" language="python">
+{`result = metric.evaluate(input="...", output="...")
+
+# Access score
+# Numeric score or categorical value
+print(result.score)
+
+# Access details
+print(result.details)
+# {
+#     'score': 0.85,
+#     'reason': 'The response is highly relevant...',
+#     'is_successful': True,
+#     'threshold': 0.7,
+#     'score_type': 'numeric'
+# }`}
+</CodeBlock>
+
+## Configuring Models
+
+All metrics require an LLM model to perform the evaluation. If no model is specified, the default model will be used. You can specify the model using the `model` argument.
+
+For more information about models, see the [Models Documentation](../models).
+
+<CodeBlock filename="model_config.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
+from rhesis.sdk.models import get_model
+
+# Use specific model
+model = get_model("gemini")
+metric = DeepEvalAnswerRelevancy(threshold=0.7, model=model)
+
+# Or pass model name directly
+metric = DeepEvalAnswerRelevancy(threshold=0.7, model="gpt-4")`}
+</CodeBlock>
+
+## Advanced Configuration
+
+### Serialization
+
+Custom metrics can be serialized and deserialized using the `from_config`/`to_config` or `from_dict`/`to_dict` methods.
+
+<CodeBlock filename="serialization.py" language="python">
+{`metric = NumericJudge(
+    name="response_clarity",
+    evaluation_prompt="Rate how clear and understandable the response is.",
+    evaluation_steps="""
+                    1. Check sentence structure
+                    2. Evaluate word choice
+                    3. Assess overall clarity""",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0,
+)
+
+config = metric.to_config()
+metric = NumericJudge.from_config(config)`}
+</CodeBlock>
+
+### Platform Integration
+
+Metrics can be managed both in the platform and in the SDK. The SDK provides `push` and `pull` methods to synchronize metrics with the platform.
+
+#### Pushing Metrics
+
+To push a metric to the platform:
+
+<CodeBlock filename="push_metric.py" language="python">
+{`metric = NumericJudge(
+    name="response_clarity",
+    description="Rate how clear and understandable the response is.",
+    metric_type="classification",
+    requires_ground_truth=True,
+    requires_context=False,
+    evaluation_prompt="Rate how clear and understandable the response is.",
+    evaluation_steps="""
+                    1. Check sentence structure
+                    2. Evaluate word choice
+                    3. Assess overall clarity""",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0,
+)
+metric.push()`}
+</CodeBlock>
+
+#### Pulling Metrics
+
+To pull metrics from the platform, use the `pull` method and specify the metric name. If the name is not unique, you must also specify the metric ID.
+
+<CodeBlock filename="pull_metric.py" language="python">
+{`metric = NumericJudge.pull(name="response_clarity")`}
+</CodeBlock>
+
+## See Also
+
+- [Conversational Metrics](./conversational) - Multi-turn conversation evaluation
+- [Models Documentation](../models) - Configure LLM models for evaluation
+- [Installation & Setup](../installation) - Setup instructions
+- [GitHub Repository](https://github.com/rhesis-ai/rhesis) - Source code and examples
+

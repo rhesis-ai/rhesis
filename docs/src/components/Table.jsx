@@ -152,44 +152,55 @@ export const Table = ({
         {headers.length > 0 && (
           <thead style={styles.thead}>
             <tr>
-              {headers.map((header, index) => (
-                <th
-                  key={index}
-                  style={{
-                    ...styles.th,
-                    textAlign: getAlignment(index),
-                  }}
-                >
-                  {header}
-                </th>
-              ))}
+              {headers.map((header, index) => {
+                const alignment = getAlignment(index)
+                return (
+                  <th
+                    key={`header-${header}`}
+                    style={{
+                      ...styles.th,
+                      textAlign: alignment,
+                    }}
+                  >
+                    {header}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
         )}
 
         <tbody style={styles.tbody}>
-          {rows.map((row, rowIndex) => (
-            <tr
-              key={rowIndex}
-              style={styles.tr}
-              className={`
-                ${striped && rowIndex % 2 === 1 ? 'table-row-striped' : ''}
-                ${hoverable ? 'table-row-hoverable' : ''}
-              `}
-            >
-              {row.map((cell, cellIndex) => (
-                <td
-                  key={cellIndex}
-                  style={{
-                    ...styles.td,
-                    textAlign: getAlignment(cellIndex),
-                  }}
-                >
-                  {renderCellContent(cell)}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {rows.map((row, rowIndex) => {
+            const rowKey = `row-${row.join('-').substring(0, 50)}`
+            const isStriped = striped && rowIndex % 2 === 1
+            return (
+              <tr
+                key={rowKey}
+                style={styles.tr}
+                className={`
+                  ${isStriped ? 'table-row-striped' : ''}
+                  ${hoverable ? 'table-row-hoverable' : ''}
+                `}
+              >
+                {row.map((cell, cellIndex) => {
+                  const cellKey = `${rowKey}-cell-${cellIndex}`
+                  const alignment = getAlignment(cellIndex)
+                  return (
+                    <td
+                      key={cellKey}
+                      style={{
+                        ...styles.td,
+                        textAlign: alignment,
+                      }}
+                    >
+                      {renderCellContent(cell)}
+                    </td>
+                  )
+                })}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

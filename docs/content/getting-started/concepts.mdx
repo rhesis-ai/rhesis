@@ -1,13 +1,39 @@
 # Core Concepts
 
-This guid walk you through the core concepts of Rhesis.
+This guide walks you through the core concepts of Rhesis.
 
 ## The Testing Workflow
 
 Rhesis mirrors the natural flow of professional testing. You start broad with organizational structure, narrow down to specific applications, configure how to test them, then execute and analyze results:
 
-```
-Organization → Projects → Endpoints + Tests + Metrics → Test Sets → Test Runs → Test Results
+```mermaid
+graph TB
+    subgraph Setup[" "]
+        Org["Organization<br/><small>Team workspace &<br/>data isolation</small>"]
+        Project["Projects<br/><small>AI applications<br/>to test</small>"]
+        Org --> Project
+    end
+    
+    subgraph Config[" "]
+        Endpoint["Endpoints<br/><small>API connections</small>"]
+        Tests["Tests<br/><small>Prompts & inputs</small>"]
+        Metrics["Metrics<br/><small>Evaluation criteria</small>"]
+    end
+    
+    subgraph Execution[" "]
+        TestSet["Test Sets<br/><small>Grouped tests</small>"]
+        TestRun["Test Runs<br/><small>Execution snapshots</small>"]
+        Results["Test Results<br/><small>Aggregate analytics</small>"]
+        TestSet --> TestRun
+        TestRun --> Results
+    end
+    
+    Project --> Endpoint
+    Project --> Tests
+    Project --> Metrics
+    Endpoint --> TestSet
+    Tests --> TestSet
+    Metrics -.-> TestRun
 ```
 
 Let's explore each component and understand why the architecture works this way.
