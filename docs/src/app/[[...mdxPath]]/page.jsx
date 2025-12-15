@@ -10,6 +10,7 @@ export async function generateMetadata(props) {
     const { metadata } = await importPage(params.mdxPath)
     return metadata
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.warn('Failed to load metadata for path:', params.mdxPath, error)
     return {
       title: 'Rhesis Documentation',
@@ -31,6 +32,7 @@ export default async function Page(props) {
       </Wrapper>
     )
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.warn('Failed to load page for path:', params.mdxPath, error)
     return (
       <Wrapper toc={[]} metadata={{ title: 'Page Not Found' }} sourceCode="">
