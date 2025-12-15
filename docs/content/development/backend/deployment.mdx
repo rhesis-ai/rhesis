@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Deployment
 
 ## Overview
@@ -19,20 +21,20 @@ Before deploying, ensure you have:
 
 The application includes a `Dockerfile` that defines the container build:
 
-```bash
-# Build the Docker image
-docker build -t rhesis-backend:latest ./apps/backend
-```
+<CodeBlock filename="build-image.sh" language="bash">
+{`# Build the Docker image
+docker build -t rhesis-backend:latest ./apps/backend`}
+</CodeBlock>
 
 ### Running the Container
 
 Run the container with appropriate environment variables:
 
-```bash
-docker run -p 8000:8000 \
+<CodeBlock filename="run-container.sh" language="bash">
+{`docker run -p 8000:8000 \
   --env-file ./apps/backend/.env.docker \
-  rhesis-backend:latest
-```
+  rhesis-backend:latest`}
+</CodeBlock>
 
 ## Environment Configuration
 
@@ -40,8 +42,8 @@ docker run -p 8000:8000 \
 
 For production deployments, ensure these environment variables are configured:
 
-```
-# Database
+<CodeBlock filename=".env.production" language="bash">
+{`# Database
 SQLALCHEMY_DATABASE_URL=postgresql://user:password@host:port/database
 
 # Authentication
@@ -57,8 +59,8 @@ FRONTEND_URL=https://app.rhesis.ai
 
 # Celery
 BROKER_URL=sqla+postgresql://celery-user:password@host:port/celery
-CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@host:port/celery
-```
+CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@host:port/celery`}
+</CodeBlock>
 
 ## Deployment Environments
 
@@ -66,10 +68,10 @@ CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@host:port/celery
 
 For local testing of the production build:
 
-```bash
-# Run the Docker container locally
-docker run -p 8000:8000 --env-file ./apps/backend/.env.docker rhesis-backend:latest
-```
+<CodeBlock filename="run-local.sh" language="bash">
+{`# Run the Docker container locally
+docker run -p 8000:8000 --env-file ./apps/backend/.env.docker rhesis-backend:latest`}
+</CodeBlock>
 
 ### Google Cloud Run
 
@@ -77,27 +79,27 @@ Deploy to Google Cloud Run:
 
 1. Build and push the image to Google Container Registry:
 
-```bash
-gcloud builds submit --tag gcr.io/project-id/rhesis-backend ./apps/backend
-```
+<CodeBlock filename="build-gcr.sh" language="bash">
+{`gcloud builds submit --tag gcr.io/project-id/rhesis-backend ./apps/backend`}
+</CodeBlock>
 
 2. Deploy to Cloud Run:
 
-```bash
-gcloud run deploy rhesis-backend \
+<CodeBlock filename="deploy-cloud-run.sh" language="bash">
+{`gcloud run deploy rhesis-backend \
   --image gcr.io/project-id/rhesis-backend \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars "SQLALCHEMY_DB_HOST=/cloudsql/project-id:region:instance"
-```
+  --set-env-vars "SQLALCHEMY_DB_HOST=/cloudsql/project-id:region:instance"`}
+</CodeBlock>
 
 3. Set up Cloud SQL connection:
 
-```bash
-gcloud run services update rhesis-backend \
-  --add-cloudsql-instances project-id:region:instance
-```
+<CodeBlock filename="setup-cloudsql.sh" language="bash">
+{`gcloud run services update rhesis-backend \
+  --add-cloudsql-instances project-id:region:instance`}
+</CodeBlock>
 
 ### AWS Deployment
 
