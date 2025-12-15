@@ -315,51 +315,54 @@ python -c "from rhesis.backend.worker import app; registered = app.control.inspe
 If no workers are found:
 
 1. **Check broker connectivity:**
-   <CodeBlock language="bash" isTerminal={true}>
-{`   python -c "
-   import os
-   import redis
-   from urllib.parse import urlparse
 
-   broker_url = os.getenv('BROKER_URL')
-   parsed = urlparse(broker_url)
-   r = redis.Redis(host=parsed.hostname, port=parsed.port, password=parsed.password, ssl=(parsed.scheme=='rediss'))
-   print('Redis ping:', r.ping())
-   "
-   \`\`\`
+<CodeBlock language="python" isTerminal={false}>
+{`python -c "
+import os
+import redis
+from urllib.parse import urlparse
+
+broker_url = os.getenv('BROKER_URL')
+parsed = urlparse(broker_url)
+r = redis.Redis(host=parsed.hostname, port=parsed.port, password=parsed.password, ssl=(parsed.scheme=='rediss'))
+print('Redis ping:', r.ping())
+"`}
+</CodeBlock>
 
 2. **Verify worker processes are running:**
-   \`\`\`bash
-   # For local development
-   ps aux | grep celery
 
-   # For Docker/Kubernetes
-   kubectl get pods -n <namespace>
-   kubectl logs <pod-name> -n <namespace>
-   \`\`\`
+<CodeBlock language="bash" isTerminal={true}>
+{`# For local development
+ps aux | grep celery
+
+# For Docker/Kubernetes
+kubectl get pods -n <namespace>
+kubectl logs <pod-name> -n <namespace>`}
+</CodeBlock>
 
 3. **Check worker startup logs:**
-   \`\`\`bash
-   # Look for successful worker registration
-   grep -i "ready" /path/to/worker/logs
-   grep -i "connected" /path/to/worker/logs
-   \`\`\`
+
+<CodeBlock language="bash" isTerminal={true}>
+{`# Look for successful worker registration
+grep -i "ready" /path/to/worker/logs
+grep -i "connected" /path/to/worker/logs`}
+</CodeBlock>
 
 ## Monitoring and Prevention
 
 ### Regular Monitoring
 
 Set up automated monitoring to catch issues early:
-`}
+
 </CodeBlock>bash
 # Add to crontab for periodic monitoring
 */15 * * * * cd /path/to/backend && python fix_chords.py >/dev/null 2>&1
 <CodeBlock language="text" isTerminal={false}>
-{`
+
 ### Health Checks
 
 Include chord status in your application health checks:
-`}
+
 </CodeBlock>python
 from rhesis.backend.tasks.execution.chord_monitor import get_active_chord_unlocks, check_stuck_chords
 

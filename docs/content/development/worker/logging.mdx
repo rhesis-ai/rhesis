@@ -355,37 +355,41 @@ fi`}
 ### Step-by-Step Debugging Process
 
 1. **Identify the Problem**
-   <CodeBlock language="bash" isTerminal={true}>
-{`   # Check pod status
-   kubectl get pods -n <namespace>
 
-   # Look for restart indicators
-   kubectl describe pod <pod-name> -n <namespace>
-   \`\`\`
+<CodeBlock language="bash" isTerminal={true}>
+{`# Check pod status
+kubectl get pods -n <namespace>
+
+# Look for restart indicators
+kubectl describe pod <pod-name> -n <namespace>`}
+</CodeBlock>
 
 2. **Get Recent Logs**
-   \`\`\`bash
-   # Get current logs
-   kubectl logs <pod-name> -c worker -n <namespace> --tail=100
 
-   # Get crash logs if restarted
-   kubectl logs <pod-name> -c worker -n <namespace> --previous
-   \`\`\`
+<CodeBlock language="bash" isTerminal={true}>
+{`# Get current logs
+kubectl logs <pod-name> -c worker -n <namespace> --tail=100
+
+# Get crash logs if restarted
+kubectl logs <pod-name> -c worker -n <namespace> --previous`}
+</CodeBlock>
 
 3. **Search for Specific Issues**
-   \`\`\`bash
-   # Connection problems
-   kubectl logs <pod-name> -c worker -n <namespace> | grep -i "connection\|redis\|timeout"
 
-   # Task problems
-   kubectl logs <pod-name> -c worker -n <namespace> | grep -i "task\|error\|failed"
-   \`\`\`
+<CodeBlock language="bash" isTerminal={true}>
+{`# Connection problems
+kubectl logs <pod-name> -c worker -n <namespace> | grep -i "connection\|redis\|timeout"
+
+# Task problems
+kubectl logs <pod-name> -c worker -n <namespace> | grep -i "task\|error\|failed"`}
+</CodeBlock>
 
 4. **Correlate with Health Endpoints**
-   \`\`\`bash
-   # Check current system state
-   kubectl exec -it <pod-name> -n <namespace> -- curl localhost:8080/debug | jq
-   \`\`\`
+
+<CodeBlock language="bash" isTerminal={true}>
+{`# Check current system state
+kubectl exec -it <pod-name> -n <namespace> -- curl localhost:8080/debug | jq`}
+</CodeBlock>
 
 ### Common Debugging Scenarios
 
@@ -397,7 +401,7 @@ kubectl logs <pod-name> -c worker -n <namespace>
 # Look for import errors, connection failures, configuration issues
 kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(❌|ERROR|Failed)"
 <CodeBlock language="text" isTerminal={false}>
-{`
+
 #### Scenario 2: Health Checks Failing`}
 </CodeBlock>bash
 # Check health endpoint logs
@@ -406,7 +410,7 @@ kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(GET /health|500|tim
 # Test health endpoint directly
 kubectl exec -it <pod-name> -n <namespace> -- curl -w "%{time_total}" localhost:8080/health
 <CodeBlock language="text" isTerminal={false}>
-{`
+
 #### Scenario 3: Tasks Not Processing`}
 </CodeBlock>bash
 # Check for task reception
