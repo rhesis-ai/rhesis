@@ -28,8 +28,8 @@ We follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) and use [Ruff](http
 
 All functions should include type hints:
 
-```python
-from typing import List, Optional, Dict, Any
+<CodeBlock language="python" filename="Type Hints Example">
+{`from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 def create_user(
@@ -59,15 +59,15 @@ async def get_users_by_organization(
         .where(User.organization_id == org_id)
         .limit(limit)
     )
-    return result.scalars().all()
-```
+    return result.scalars().all()`}
+</CodeBlock>
 
 ### Docstrings
 
 Use Google-style docstrings for all functions and classes:
 
-```python
-def calculate_test_coverage(
+<CodeBlock language="python" filename="Docstring Example">
+{`def calculate_test_coverage(
     test_results: List[Dict[str, Any]],
     threshold: Optional[float] = None
 ) -> float:
@@ -107,15 +107,15 @@ def calculate_test_coverage(
             f"Coverage {coverage}% below threshold {threshold}%"
         )
 
-    return coverage
-```
+    return coverage`}
+</CodeBlock>
 
 ### Error Handling
 
 Use specific exceptions and proper error handling:
 
-```python
-from rhesis.backend.core.exceptions import (
+<CodeBlock language="python" filename="Error Handling Example">
+{`from rhesis.backend.core.exceptions import (
     UserNotFoundError,
     ValidationError,
     DatabaseError
@@ -131,8 +131,8 @@ def get_user_by_id(user_id: int, db: Session) -> User:
     except SQLAlchemyError as e:
         raise DatabaseError(f"Database error: {str(e)}") from e
     except Exception as e:
-        raise ValidationError(f"Unexpected error: {str(e)}") from e
-```
+        raise ValidationError(f"Unexpected error: {str(e)}") from e`}
+</CodeBlock>
 
 ### Testing Standards
 
@@ -161,8 +161,8 @@ def get_user_by_id(user_id: int, db: Session) -> User:
 
 **Example Test:**
 
-```python
-import pytest
+<CodeBlock language="python" filename="tests/test_user_service.py">
+{`import pytest
 from unittest.mock import Mock, patch
 from rhesis.backend.services.user_service import UserService
 from rhesis.backend.models.user import User
@@ -219,8 +219,8 @@ class TestUserService:
 
         # Act & Assert
         with pytest.raises(UserAlreadyExistsError):
-            user_service.create_user(user_data)
-```
+            user_service.create_user(user_data)`}
+</CodeBlock>
 
 ## JavaScript/TypeScript Standards
 
@@ -240,8 +240,8 @@ We use ESLint and Prettier for code formatting and linting.
 
 Use TypeScript for all new code with strict configuration:
 
-```typescript
-// Define interfaces for data structures
+<CodeBlock language="typescript" filename="TypeScript Interfaces and Functions">
+{`// Define interfaces for data structures
 interface User {
   id: string;
   email: string;
@@ -278,23 +278,23 @@ const createUser = async (
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(\`HTTP error! status: \${response.status}\`);
     }
 
     const result = await response.json();
     return result;
   } catch (error) {
-    throw new Error(`Failed to create user: ${error.message}`);
+    throw new Error(\`Failed to create user: \${error.message}\`);
   }
-};
-```
+};`}
+</CodeBlock>
 
 ### React Components
 
 Follow React best practices and hooks:
 
-```typescript
-import React, { useState, useEffect, useCallback } from 'react';
+<CodeBlock language="typescript" filename="components/UserForm.tsx">
+{`import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 
 interface UserFormProps {
@@ -375,15 +375,15 @@ export const UserForm: React.FC<UserFormProps> = ({
       </button>
     </form>
   );
-};
-```
+};`}
+</CodeBlock>
 
 ### Custom Hooks
 
 Create reusable custom hooks for common functionality:
 
-```typescript
-import { useState, useEffect } from "react";
+<CodeBlock language="typescript" filename="hooks/useUsers.ts">
+{`import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export const useUsers = (organizationId: string) => {
@@ -425,7 +425,7 @@ export const useLocalStorage = <T>(
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error);
+      console.error(\`Error reading localStorage key "\${key}":\`, error);
       return initialValue;
     }
   });
@@ -435,20 +435,20 @@ export const useLocalStorage = <T>(
       setStoredValue(value);
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
-      console.error(`Error setting localStorage key "${key}":`, error);
+      console.error(\`Error setting localStorage key "\${key}":\`, error);
     }
   };
 
   return [storedValue, setValue];
-};
-```
+};`}
+</CodeBlock>
 
 ### Error Handling
 
 Implement proper error boundaries and error handling:
 
-```typescript
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+<CodeBlock language="typescript" filename="components/ErrorBoundary.tsx">
+{`import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -492,8 +492,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children;
   }
-}
-```
+}`}
+</CodeBlock>
 
 ## General Best Practices
 
@@ -524,8 +524,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
 ### Performance Considerations
 
-```typescript
-// Use React.memo for expensive components
+<CodeBlock language="typescript" filename="Performance Optimization">
+{`// Use React.memo for expensive components
 const ExpensiveComponent = React.memo<Props>(({ data }) => {
   return <div>{/* Expensive rendering logic */}</div>;
 });
@@ -538,8 +538,8 @@ const expensiveValue = useMemo(() => {
 // Use useCallback for function props
 const handleClick = useCallback(() => {
   // Handle click logic
-}, [dependencies]);
-```
+}, [dependencies]);`}
+</CodeBlock>
 
 ### Security Best Practices
 
@@ -574,8 +574,8 @@ const handleClick = useCallback(() => {
 
 We use pre-commit hooks to enforce code quality:
 
-```yaml
-# .pre-commit-config.yaml
+<CodeBlock language="yaml" filename=".pre-commit-config.yaml">
+{`# .pre-commit-config.yaml
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.0
@@ -587,15 +587,15 @@ repos:
     rev: v8.0.0
     hooks:
       - id: eslint
-        files: \.(js|ts|tsx)$
+        files: \\.(js|ts|tsx)$
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
-      - id: check-added-large-files
-```
+      - id: check-added-large-files`}
+</CodeBlock>
 
 ## Code Review Checklist
 
