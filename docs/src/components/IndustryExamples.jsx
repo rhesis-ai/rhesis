@@ -49,9 +49,9 @@ export const IndustryExamples = () => {
 
   return (
     <div style={styles.container} className="not-prose rhesis-industry-examples">
-      {examples.map((example, index) => (
+      {examples.map((example) => (
         <InfoCardHorizontal
-          key={index}
+          key={example.title}
           icon={example.icon}
           title={example.title}
           description={example.description}

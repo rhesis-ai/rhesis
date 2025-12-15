@@ -2,8 +2,6 @@ import { fixupConfigRules } from '@eslint/compat';
 import pluginReact from 'eslint-plugin-react';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
 import pluginJsxA11y from 'eslint-plugin-jsx-a11y';
-import pluginImport from 'eslint-plugin-import';
-import { configs as typescriptConfigs } from 'typescript-eslint';
 import globals from 'globals';
 
 export default [
@@ -15,18 +13,14 @@ export default [
       'dist/',
       'build/',
       'coverage/',
-      'jest.config.js',
-      'jest.setup.js',
-      'scripts/**/*.js',
+      'public/',
     ],
   },
-  ...typescriptConfigs.recommended,
   ...fixupConfigRules({
     plugins: {
       react: pluginReact,
       'react-hooks': pluginReactHooks,
       'jsx-a11y': pluginJsxA11y,
-      import: pluginImport,
     },
   }),
   {
@@ -50,22 +44,12 @@ export default [
       },
     },
     rules: {
-      // TypeScript specific rules
-      '@typescript-eslint/no-unused-vars': 'warn',
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-non-null-assertion': 'warn',
-      '@typescript-eslint/no-non-null-asserted-optional-chain': 'error',
-      '@typescript-eslint/ban-ts-comment': 'warn',
-
       // General JavaScript rules
       'prefer-const': 'error',
       'no-var': 'error',
       'no-console': 'warn',
       'no-debugger': 'error',
       'no-duplicate-imports': 'error',
-      'no-unused-expressions': 'error',
 
       // React specific rules
       'react/prop-types': 'off',
@@ -78,3 +62,4 @@ export default [
     },
   },
 ];
+
