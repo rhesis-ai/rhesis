@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Authentication
 
 ## Overview
@@ -28,7 +30,7 @@ Token-based authentication is used for API access:
 The application integrates with Auth0 for identity management:
 
 <CodeBlock filename="auth0-config.py" language="python">
-  {`AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
+{`AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
 AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
 AUTH0_CLIENT_ID = os.getenv("AUTH0_CLIENT_ID")
 AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET")`}
@@ -51,8 +53,8 @@ async def login(request: Request):
 
 @router.get("/callback")
 async def auth_callback(request: Request, db: Session = Depends(get_db)):
-token = await oauth.auth0.authorize_access_token(request)
-user_info = token.get("userinfo")
+    token = await oauth.auth0.authorize_access_token(request)
+    user_info = token.get("userinfo")
 
     # Store user info in session
     request.session["user"] = dict(user_info)
@@ -69,7 +71,7 @@ user_info = token.get("userinfo")
 The application uses a custom route class to enforce authentication requirements:
 
 <CodeBlock filename="auth-middleware.py" language="python">
-  {`class AuthenticatedAPIRoute(APIRoute):
+{`class AuthenticatedAPIRoute(APIRoute):
     def get_dependencies(self):
         if self.path in public_routes:
             # No auth required
@@ -89,8 +91,8 @@ The application defines several authentication dependencies:
 
 Requires a valid user session:
 
-```python
-async def require_current_user(request: Request, db: Session = Depends(get_db)):
+<CodeBlock filename="require-current-user.py" language="python">
+{`async def require_current_user(request: Request, db: Session = Depends(get_db)):
     user = request.session.get("user")
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -98,15 +100,15 @@ async def require_current_user(request: Request, db: Session = Depends(get_db)):
     # Set tenant context for database operations
     set_tenant(db, user.get("organization_id"), user.get("sub"))
 
-    return user
-```
+    return user`}
+</CodeBlock>
 
 ### `require_current_user_or_token`
 
 Accepts either a valid user session or a valid token:
 
-```python
-async def require_current_user_or_token(
+<CodeBlock filename="require-current-user-or-token.py" language="python">
+{`async def require_current_user_or_token(
     request: Request,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
@@ -119,8 +121,8 @@ async def require_current_user_or_token(
         return payload
     except:
         # Fall back to session authentication
-        return await require_current_user(request, db)
-```
+        return await require_current_user(request, db)`}
+</CodeBlock>
 
 ## JWT Tokens
 
@@ -128,8 +130,8 @@ The application uses JWT tokens for API authentication:
 
 ### Token Generation
 
-```python
-def create_access_token(data: dict, expires_delta: timedelta = None):
+<CodeBlock filename="create-access-token.py" language="python">
+{`def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -137,30 +139,30 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
         expire = datetime.utcnow() + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
-```
+    return encoded_jwt`}
+</CodeBlock>
 
 ### Token Validation
 
-```python
-def verify_token(token: str):
+<CodeBlock filename="verify-token.py" language="python">
+{`def verify_token(token: str):
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         return payload
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-```
+        raise HTTPException(status_code=401, detail="Invalid token")`}
+</CodeBlock>
 
 ## Logout
 
 The logout process invalidates the user's session:
 
-```python
-@router.get("/logout")
+<CodeBlock filename="logout.py" language="python">
+{`@router.get("/logout")
 async def logout(request: Request):
     request.session.pop("user", None)
-    return RedirectResponse(url=FRONTEND_URL)
-```
+    return RedirectResponse(url=FRONTEND_URL)`}
+</CodeBlock>
 
 ## Security Considerations
 

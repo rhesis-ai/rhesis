@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Test Types
 
 ## Overview
@@ -34,16 +36,16 @@ Single-turn tests use the `Test` model with a `Prompt` containing:
 
 ### Example
 
-```python
-# Create a single-turn test
+<CodeBlock language="python" filename="single_turn_test.py" isTerminal={false}>
+{`# Create a single-turn test
 test = Test(
     prompt=prompt,
     behavior=behavior,  # Contains metrics
     test_type="Single-Turn",
     organization_id=org_id,
     user_id=user_id
-)
-```
+)`}
+</CodeBlock>
 
 ### Metric Evaluation
 
@@ -81,8 +83,8 @@ Agentic conversation tests where [Penelope](/penelope) orchestrates multi-turn i
 
 Multi-turn tests store configuration in the `test_configuration` JSONB field:
 
-```json
-{
+<CodeBlock language="json" filename="multi_turn_config.json" isTerminal={false}>
+{`{
   "goal": "Verify the chatbot can answer 2 questions about insurance coverage",
   "instructions": "Ask about coverage, then ask a follow-up question",
   "scenario": "You are a customer seeking information",
@@ -91,8 +93,8 @@ Multi-turn tests store configuration in the `test_configuration` JSONB field:
     "additional_info": "..."
   },
   "max_turns": 10
-}
-```
+}`}
+</CodeBlock>
 
 ### Configuration Fields
 
@@ -105,8 +107,8 @@ Multi-turn tests store configuration in the `test_configuration` JSONB field:
 
 ### Example
 
-```python
-# Create a multi-turn test
+<CodeBlock language="python" filename="multi_turn_test.py" isTerminal={false}>
+{`# Create a multi-turn test
 test = Test(
     prompt=prompt,  # Used as fallback goal if not in config
     test_type="Multi-Turn",
@@ -117,8 +119,8 @@ test = Test(
     },
     organization_id=org_id,
     user_id=user_id
-)
-```
+)`}
+</CodeBlock>
 
 ### Metric Evaluation
 
@@ -139,8 +141,8 @@ The complete Penelope trace is stored, including:
 
 ### Penelope Trace Structure
 
-```json
-{
+<CodeBlock language="json" filename="penelope_trace.json" isTerminal={false}>
+{`{
   "status": "success",
   "goal_achieved": true,
   "turns_used": 3,
@@ -168,8 +170,8 @@ The complete Penelope trace is stored, including:
       "confidence": 1.0
     }
   }
-}
-```
+}`}
+</CodeBlock>
 
 ---
 
@@ -199,8 +201,8 @@ Load testing and stress testing endpoints under various conditions.
 
 The system automatically routes tests to the appropriate executor:
 
-```python
-from rhesis.backend.tasks.execution.modes import get_test_type, is_multi_turn_test
+<CodeBlock language="python" filename="test_type_detection.py" isTerminal={false}>
+{`from rhesis.backend.tasks.execution.modes import get_test_type, is_multi_turn_test
 from rhesis.backend.tasks.enums import TestType
 
 # Get test type
@@ -213,8 +215,8 @@ if is_multi_turn_test(test):
 
 # Or use enum
 if test_type == TestType.MULTI_TURN:
-    # ...
-```
+    # ...`}
+</CodeBlock>
 
 ---
 

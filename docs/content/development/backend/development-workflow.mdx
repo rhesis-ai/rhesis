@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Development Workflow
 
 ## Overview
@@ -18,9 +20,9 @@ This document outlines the recommended development workflow for working with the
 
 Start the FastAPI development server:
 
-```bash
-uvicorn rhesis.backend.app.main:app --reload
-```
+<CodeBlock filename="start-server.sh" language="bash">
+{`uvicorn rhesis.backend.app.main:app --reload`}
+</CodeBlock>
 
 The `--reload` flag enables auto-reloading when code changes are detected.
 
@@ -30,9 +32,9 @@ The `--reload` flag enables auto-reloading when code changes are detected.
 
 The project uses `ruff` for code formatting. Format your code using:
 
-```bash
-uv run --all-groups ruff format .
-```
+<CodeBlock filename="format.sh" language="bash">
+{`uv run --all-groups ruff format .`}
+</CodeBlock>
 
 This ensures consistent code style across the project.
 
@@ -40,15 +42,15 @@ This ensures consistent code style across the project.
 
 Run the linter to check for code quality issues:
 
-```bash
-uv run --all-groups ruff check .
-```
+<CodeBlock filename="lint-check.sh" language="bash">
+{`uv run --all-groups ruff check .`}
+</CodeBlock>
 
 Fix automatically fixable issues:
 
-```bash
-uv run --all-groups ruff check --fix .
-```
+<CodeBlock filename="lint-fix.sh" language="bash">
+{`uv run --all-groups ruff check --fix .`}
+</CodeBlock>
 
 ### Type Checking
 

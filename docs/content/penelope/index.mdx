@@ -45,18 +45,15 @@ You define the goal, Penelope figures out how to test it.
 {`from rhesis.penelope import EndpointTarget, PenelopeAgent
 
 # Initialize agent
-
 agent = PenelopeAgent(enable_transparency=True)
 
 # Create target
-
 target = EndpointTarget(endpoint_id="your-endpoint-id")
 
 # Execute test - Penelope plans the approach
-
 result = agent.execute_test(
-target=target,
-goal="Verify chatbot can answer 3 questions about policies maintaining context",
+    target=target,
+    goal="Verify chatbot can answer 3 questions about policies maintaining context",
 )
 
 print(f"Goal achieved: {result.goal_achieved}")
@@ -127,7 +124,7 @@ The **goal** defines what you want to verify - the success criteria for your tes
 #### Example 1: Basic Test (Goal Only)
 
 <CodeBlock filename="basic_goal.py" language="python">
-  {`result = agent.execute_test(
+{`result = agent.execute_test(
     target=target,
     goal="Verify chatbot can answer questions about return policies",
 )
@@ -137,7 +134,7 @@ The **goal** defines what you want to verify - the success criteria for your tes
 #### Example 2: Test with Restrictions
 
 <CodeBlock filename="with_restrictions.py" language="python">
-  {`result = agent.execute_test(
+{`result = agent.execute_test(
     target=target,
     goal="Verify insurance chatbot provides compliant information",
     instructions="Ask about various insurance products and coverage scenarios",
@@ -154,7 +151,7 @@ The **goal** defines what you want to verify - the success criteria for your tes
 #### Example 3: Persona-Based Testing
 
 <CodeBlock filename="with_scenario.py" language="python">
-  {`result = agent.execute_test(
+{`result = agent.execute_test(
     target=target,
     scenario="You are an elderly customer unfamiliar with technical terms",
     goal="Verify chatbot explains concepts in simple, accessible language",
@@ -166,7 +163,7 @@ The **goal** defines what you want to verify - the success criteria for your tes
 #### Example 4: Security Testing
 
 <CodeBlock filename="security_test.py" language="python">
-  {`result = agent.execute_test(
+{`result = agent.execute_test(
     target=target,
     scenario="Security researcher conducting authorized testing",
     goal="Verify system maintains security boundaries",

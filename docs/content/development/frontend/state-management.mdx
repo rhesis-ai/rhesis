@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # State Management
 
 This document explains the state management approach used in the Rhesis frontend application.
@@ -18,8 +20,8 @@ This approach minimizes client-side state management while leveraging Next.js Ap
 
 Server components handle data fetching and initial state:
 
-```tsx
-// app/(protected)/projects/page.tsx
+<CodeBlock language="tsx" filename="app/(protected)/projects/page.tsx">
+{`// app/(protected)/projects/page.tsx
 import { projectsApi } from "@/utils/api-client/endpoints/projects";
 import ProjectList from "@/components/projects/ProjectList";
 
@@ -52,8 +54,8 @@ export default async function ProjectsPage({
       />
     </div>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ## React Context
 
@@ -61,8 +63,8 @@ For global state, the application uses React Context:
 
 ### Context Definition
 
-```tsx
-// src/components/providers/ThemeProvider.tsx
+<CodeBlock language="tsx" filename="src/components/providers/ThemeProvider.tsx">
+{`// src/components/providers/ThemeProvider.tsx
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
@@ -113,13 +115,13 @@ export function useTheme() {
     throw new Error("useTheme must be used within a ThemeProvider");
   }
   return context;
-}
-```
+}`}
+</CodeBlock>
 
 ### Context Usage
 
-```tsx
-// src/components/layout/ThemeToggle.tsx
+<CodeBlock language="tsx" filename="src/components/layout/ThemeToggle.tsx">
+{`// src/components/layout/ThemeToggle.tsx
 "use client";
 
 import { useTheme } from "@/components/providers/ThemeProvider";
@@ -144,13 +146,13 @@ export default function ThemeToggle() {
       {theme === "system" && "System Theme"}
     </button>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ### Context Setup
 
-```tsx
-// app/layout.tsx
+<CodeBlock language="tsx" filename="app/layout.tsx">
+{`// app/layout.tsx
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 export default function RootLayout({
@@ -165,15 +167,15 @@ export default function RootLayout({
       </body>
     </html>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ## Local Component State
 
 For component-specific state, use React's built-in hooks:
 
-```tsx
-// src/components/projects/ProjectFilter.tsx
+<CodeBlock language="tsx" filename="src/components/projects/ProjectFilter.tsx">
+{`// src/components/projects/ProjectFilter.tsx
 "use client";
 
 import { useState } from "react";
@@ -197,7 +199,7 @@ export default function ProjectFilter({
       params.set("search", search);
     }
 
-    router.push(`${pathname}?${params.toString()}`);
+    router.push(\`\${pathname}?\${params.toString()}\`);
   };
 
   return (
@@ -211,15 +213,15 @@ export default function ProjectFilter({
       <button type="submit">Search</button>
     </form>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ## Server Actions
 
 For mutations and form submissions, use server actions:
 
-```tsx
-// app/(protected)/projects/actions.ts
+<CodeBlock language="tsx" filename="app/(protected)/projects/actions.ts">
+{`// app/(protected)/projects/actions.ts
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -249,13 +251,13 @@ export async function createProject(formData: FormData) {
         error instanceof Error ? error.message : "Failed to create project",
     };
   }
-}
-```
+}`}
+</CodeBlock>
 
 Using server actions in a form:
 
-```tsx
-// src/components/projects/ProjectForm.tsx
+<CodeBlock language="tsx" filename="src/components/projects/ProjectForm.tsx">
+{`// src/components/projects/ProjectForm.tsx
 "use client";
 
 import { useFormState } from "react-dom";
@@ -283,15 +285,15 @@ export default function ProjectForm() {
       <button type="submit">Create Project</button>
     </form>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ## URL State
 
 For preserving state in the URL:
 
-```tsx
-// src/components/common/Pagination.tsx
+<CodeBlock language="tsx" filename="src/components/common/Pagination.tsx">
+{`// src/components/common/Pagination.tsx
 "use client";
 
 import Link from "next/link";
@@ -312,7 +314,7 @@ export default function Pagination({ total, page, limit }: PaginationProps) {
   const createPageURL = (pageNumber: number) => {
     const params = new URLSearchParams(searchParams);
     params.set("page", pageNumber.toString());
-    return `${pathname}?${params.toString()}`;
+    return \`\${pathname}?\${params.toString()}\`;
   };
 
   return (
@@ -332,8 +334,8 @@ export default function Pagination({ total, page, limit }: PaginationProps) {
       {page < totalPages && <Link href={createPageURL(page + 1)}>Next</Link>}
     </div>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ## State Management Best Practices
 
@@ -349,8 +351,8 @@ export default function Pagination({ total, page, limit }: PaginationProps) {
 
 For complex state management needs, combine these approaches:
 
-```tsx
-// app/(protected)/projects/[id]/page.tsx
+<CodeBlock language="tsx" filename="app/(protected)/projects/[id]/page.tsx">
+{`// app/(protected)/projects/[id]/page.tsx
 import { projectsApi } from "@/utils/api-client/endpoints/projects";
 import ProjectDetails from "@/components/projects/ProjectDetails";
 import { notFound } from "next/navigation";
@@ -369,11 +371,11 @@ export default async function ProjectPage({
     // Handle 404 errors
     notFound();
   }
-}
-```
+}`}
+</CodeBlock>
 
-```tsx
-// src/components/projects/ProjectDetails.tsx
+<CodeBlock language="tsx" filename="src/components/projects/ProjectDetails.tsx">
+{`// src/components/projects/ProjectDetails.tsx
 "use client";
 
 import { useState } from "react";
@@ -452,5 +454,5 @@ export default function ProjectDetails({ project }: { project: Project }) {
       {error && <div className="error">{error}</div>}
     </div>
   );
-}
-```
+}`}
+</CodeBlock>

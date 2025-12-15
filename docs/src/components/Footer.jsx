@@ -272,7 +272,7 @@ export const Footer = ({
         </div>
       </footer>
 
-      <style jsx>{`
+      <style jsx global>{`
         /* Rhesis brand footer theme */
         .rhesis-footer {
           --border-color: var(--rhesis-primary-main);
@@ -285,10 +285,10 @@ export const Footer = ({
         /* Dark theme adjustments */
         [data-theme='dark'] .rhesis-footer,
         .dark .rhesis-footer {
-          --border-color: var(--rhesis-primary-light);
-          --footer-bg: var(--rhesis-primary-dark);
-          --text-primary: #ffffff;
-          --text-secondary: rgba(255, 255, 255, 0.7);
+          --border-color: rgba(255, 255, 255, 0.1);
+          --footer-bg: #0d1117;
+          --text-primary: #e6edf3;
+          --text-secondary: rgba(230, 237, 243, 0.7);
           --logo-bg: #ffffff;
         }
 
@@ -301,13 +301,13 @@ export const Footer = ({
           --logo-bg: #ffffff;
         }
 
-        /* System theme fallback */
+        /* System theme fallback - only when no explicit theme is set */
         @media (prefers-color-scheme: dark) {
-          .rhesis-footer {
-            --border-color: var(--rhesis-primary-light);
-            --footer-bg: var(--rhesis-primary-dark);
-            --text-primary: #ffffff;
-            --text-secondary: rgba(255, 255, 255, 0.7);
+          html:not([data-theme]) .rhesis-footer {
+            --border-color: rgba(255, 255, 255, 0.1);
+            --footer-bg: #0d1117;
+            --text-primary: #e6edf3;
+            --text-secondary: rgba(230, 237, 243, 0.7);
             --logo-bg: #ffffff;
           }
         }

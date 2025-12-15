@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # API Structure
 
 ## Overview
@@ -24,7 +26,7 @@ Routes are categorized based on authentication requirements:
 These routes don't require any authentication:
 
 <CodeBlock filename="public-routes.py" language="python">
-  {`public_routes = [
+{`public_routes = [
     "/",
     "/auth/login",
     "/auth/callback",
@@ -41,7 +43,7 @@ These routes don't require any authentication:
 These routes accept both session and token authentication:
 
 <CodeBlock filename="token-enabled-routes.py" language="python">
-  {`token_enabled_routes = [
+{`token_enabled_routes = [
     "/api/",
     "/tokens/",
     "/test_sets/",
@@ -60,7 +62,7 @@ All other routes require session-based authentication.
 The application uses a custom `AuthenticatedAPIRoute` class that automatically adds the appropriate authentication dependencies based on the route path:
 
 <CodeBlock filename="authenticated-api-route.py" language="python">
-  {`class AuthenticatedAPIRoute(APIRoute):
+{`class AuthenticatedAPIRoute(APIRoute):
     def get_dependencies(self):
         if self.path in public_routes:
             # No auth required
@@ -107,14 +109,14 @@ tags=["tests"],
 
 @router.post("/", response_model=Test)
 def create_test_endpoint(test: TestCreate, db: Session = Depends(get_db)):
-return create_test(db=db, test=test)
+    return create_test(db=db, test=test)
 
 @router.get("/{test_id}", response_model=Test)
 def read_test(test_id: str, db: Session = Depends(get_db)):
-db_test = get_test(db, test_id=test_id)
-if db_test is None:
-raise HTTPException(status_code=404, detail="Test not found")
-return db_test
+    db_test = get_test(db, test_id=test_id)
+    if db_test is None:
+        raise HTTPException(status_code=404, detail="Test not found")
+    return db_test
 
 # Additional endpoints...`}
 
@@ -128,21 +130,21 @@ The API supports various query parameters for filtering, sorting, and pagination
 
 OData-style filtering is supported:
 
-```
-GET /tests/?$filter=prompt_id eq '89905869-e8e9-4b2f-b362-3598cfe91968'
-```
+<CodeBlock filename="filter-example.txt" language="text">
+{`GET /tests/?$filter=prompt_id eq '89905869-e8e9-4b2f-b362-3598cfe91968'`}
+</CodeBlock>
 
 ### Sorting
 
-```
-GET /tests/?$orderby=created_at desc
-```
+<CodeBlock filename="sort-example.txt" language="text">
+{`GET /tests/?$orderby=created_at desc`}
+</CodeBlock>
 
 ### Pagination
 
-```
-GET /tests/?$skip=10&$top=10
-```
+<CodeBlock filename="pagination-example.txt" language="text">
+{`GET /tests/?$skip=10&$top=10`}
+</CodeBlock>
 
 ## Response Headers
 

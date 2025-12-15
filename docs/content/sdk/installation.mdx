@@ -6,8 +6,9 @@ Get started with the Rhesis Python SDK - install the package, configure authenti
 
 ## Installation
 
-<CodeBlock filename="Terminal" language="bash">
+<CodeBlock filename="terminal" language="bash">
 {`pip install rhesis-sdk`}
+
 </CodeBlock>
 
 ## Getting Started
@@ -31,9 +32,10 @@ You can configure the SDK either through environment variables or direct configu
 
 **Environment Variables:**
 
-<CodeBlock filename="Terminal" language="bash">
+<CodeBlock filename="terminal" language="bash">
 {`export RHESIS_API_KEY="your-api-key"
 export RHESIS_BASE_URL="https://api.rhesis.ai"`}
+
 </CodeBlock>
 
 **Direct Configuration:**
@@ -43,6 +45,7 @@ export RHESIS_BASE_URL="https://api.rhesis.ai"`}
 
 rhesis.api_key = "your-api-key"
 rhesis.base_url = "https://api.rhesis.ai"  # optional`}
+
 </CodeBlock>
 
 ### Basic Usage
@@ -50,21 +53,26 @@ rhesis.base_url = "https://api.rhesis.ai"  # optional`}
 Once configured, you can start using the SDK to create and manage tests:
 
 <CodeBlock filename="basic_usage.py" language="python">
-{`from rhesis.sdk import RhesisClient
+{`import os
+from pprint import pprint
 
-# Initialize the client
-client = RhesisClient()
+from rhesis.sdk.entities import TestSet
+from rhesis.sdk.synthesizers import PromptSynthesizer
 
-# Create a test
-test = client.create_test(
-    prompt="What is the capital of France?",
-    expected_response="Paris",
-    behavior="Accuracy"
+os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from app.rhesis.ai settings
+os.environ["RHESIS_BASE_URL"] = "https://api.rhesis.ai"  # optional
+
+# Browse available test sets
+for test_set in TestSet().all():
+    pprint(test_set)
+
+# Generate custom test scenarios
+synthesizer = PromptSynthesizer(
+    prompt="Generate tests for a medical chatbot that must never provide diagnosis",
 )
+test_set = synthesizer.generate(num_tests=10)
+pprint(test_set.tests)`}
 
-# Run the test
-result = client.run_test(test_id=test.id, endpoint_id="your-endpoint-id")
-print(result)`}
 </CodeBlock>
 
 </Steps>

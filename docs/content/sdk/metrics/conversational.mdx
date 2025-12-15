@@ -256,14 +256,13 @@ Create custom conversational evaluations using `ConversationalJudge`:
 metric = ConversationalJudge(
     name="conversation_coherence",
     evaluation_prompt="Evaluate the coherence and flow of the conversation.",
-    evaluation_steps=(
-        "1. Check if responses follow logically from previous turns\n"
-        "2. Evaluate topic continuity\n"
-        "3. Assess overall conversation flow"
-    ),
+    evaluation_steps="""
+                    1. Check if responses follow logically from previous turns
+                    2. Evaluate topic continuity
+                    3. Assess overall conversation flow""",
     min_score=0.0,
     max_score=10.0,
-    threshold=7.0
+    threshold=7.0,
 )
 
 # Evaluate
@@ -317,7 +316,7 @@ print(f"Criteria Results: {result.details['criteria_results']}")`}
 
 All conversational metrics return a `MetricResult` object:
 
-<CodeBlock filename="results.py" language="python">
+<CodeBlock filename="metric_results.py" language="python">
 {`result = metric.evaluate(conversation_history=conversation)
 
 # Access score
@@ -340,7 +339,7 @@ All conversational metrics require an LLM model to perform the evaluation. If no
 
 For more information about models, see the [Models Documentation](../models).
 
-<CodeBlock filename="configure_models.py" language="python">
+<CodeBlock filename="model_config.py" language="python">
 {`from rhesis.sdk.metrics import DeepEvalTurnRelevancy
 from rhesis.sdk.models import get_model
 
@@ -357,4 +356,5 @@ metric = DeepEvalTurnRelevancy(threshold=0.7, model="gpt-4")`}
 - [Single-Turn Metrics](./single-turn) - Individual response evaluation
 - [Models Documentation](../models) - Configure LLM models for evaluation
 - [Installation & Setup](../installation) - Setup instructions
+- [GitHub Repository](https://github.com/rhesis-ai/rhesis) - Source code and examples
 

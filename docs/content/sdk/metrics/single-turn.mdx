@@ -134,25 +134,21 @@ You can create custom metrics using the `NumericJudge` and `CategoricalJudge` cl
 metric = NumericJudge(
     name="response_clarity",
     evaluation_prompt="Rate how clear and understandable the response is.",
-    evaluation_steps=(
-        "1. Check sentence structure\n"
-        "2. Evaluate word choice\n"
-        "3. Assess overall clarity"
-    ),
+    evaluation_steps="""
+                    1. Check sentence structure
+                    2. Evaluate word choice
+                    3. Assess overall clarity""",
     min_score=0.0,
     max_score=10.0,
-    threshold=7.0
+    threshold=7.0,
 )
 
 # Evaluate
 result = metric.evaluate(
     input="Explain quantum computing",
     output="Quantum computers use qubits to process information...",
-    expected_output="A quantum computer uses quantum mechanics..."
-)
-
-print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")`}
+    expected_output="A quantum computer uses quantum mechanics...",
+)`}
 </CodeBlock>
 
 #### Categorical Judge
@@ -173,7 +169,8 @@ metric = CategoricalJudge(
 # Evaluate
 result = metric.evaluate(
     input="Describe machine learning",
-    output="Machine learning is a subset of AI that enables systems to learn from data...",
+    output="Machine learning is a subset of AI...",
+    expected_output="ML enables systems to learn from data...",
 )
 
 print(f"Category: {result.score}")
@@ -184,10 +181,11 @@ print(f"Passed: {result.details['is_successful']}")`}
 
 All metrics return a `MetricResult` object:
 
-<CodeBlock filename="results.py" language="python">
+<CodeBlock filename="metric_results.py" language="python">
 {`result = metric.evaluate(input="...", output="...")
 
-# Access score (numeric value or categorical label)
+# Access score
+# Numeric score or categorical value
 print(result.score)
 
 # Access details
@@ -207,7 +205,7 @@ All metrics require an LLM model to perform the evaluation. If no model is speci
 
 For more information about models, see the [Models Documentation](../models).
 
-<CodeBlock filename="configure_models.py" language="python">
+<CodeBlock filename="model_config.py" language="python">
 {`from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
 from rhesis.sdk.models import get_model
 
@@ -229,23 +227,17 @@ Custom metrics can be serialized and deserialized using the `from_config`/`to_co
 {`metric = NumericJudge(
     name="response_clarity",
     evaluation_prompt="Rate how clear and understandable the response is.",
-    evaluation_steps=(
-        "1. Check sentence structure\n"
-        "2. Evaluate word choice\n"
-        "3. Assess overall clarity"
-    ),
+    evaluation_steps="""
+                    1. Check sentence structure
+                    2. Evaluate word choice
+                    3. Assess overall clarity""",
     min_score=0.0,
     max_score=10.0,
-    threshold=7.0
+    threshold=7.0,
 )
 
-# Serialize
 config = metric.to_config()
-metric_dict = metric.to_dict()
-
-# Deserialize
-metric = NumericJudge.from_config(config)
-metric = NumericJudge.from_dict(metric_dict)`}
+metric = NumericJudge.from_config(config)`}
 </CodeBlock>
 
 ### Platform Integration
@@ -264,14 +256,13 @@ To push a metric to the platform:
     requires_ground_truth=True,
     requires_context=False,
     evaluation_prompt="Rate how clear and understandable the response is.",
-    evaluation_steps=(
-        "1. Check sentence structure\n"
-        "2. Evaluate word choice\n"
-        "3. Assess overall clarity"
-    ),
+    evaluation_steps="""
+                    1. Check sentence structure
+                    2. Evaluate word choice
+                    3. Assess overall clarity""",
     min_score=0.0,
     max_score=10.0,
-    threshold=7.0
+    threshold=7.0,
 )
 metric.push()`}
 </CodeBlock>
@@ -289,4 +280,5 @@ To pull metrics from the platform, use the `pull` method and specify the metric 
 - [Conversational Metrics](./conversational) - Multi-turn conversation evaluation
 - [Models Documentation](../models) - Configure LLM models for evaluation
 - [Installation & Setup](../installation) - Setup instructions
+- [GitHub Repository](https://github.com/rhesis-ai/rhesis) - Source code and examples
 

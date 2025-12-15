@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Background Tasks
 
 ## Overview
@@ -50,8 +52,8 @@ CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@/celery?host=/cloudsq
 
 All tasks inherit from a `BaseTask` class that provides retry logic, error handling, and most importantly, context awareness for multi-tenant operations:
 
-```python
-from celery import Task
+<CodeBlock filename="base_task.py" language="python">
+{`from celery import Task
 from contextlib import contextmanager
 
 from rhesis.backend.app.database import SessionLocal, set_tenant
@@ -119,8 +121,8 @@ class BaseTask(Task):
             if 'organization_id' in headers:
                 self.request.organization_id = headers['organization_id']
             if 'user_id' in headers:
-                self.request.user_id = headers['user_id']
-```
+                self.request.user_id = headers['user_id']`}
+</CodeBlock>
 
 This enhanced `BaseTask` ensures that:
 
@@ -133,8 +135,8 @@ This enhanced `BaseTask` ensures that:
 
 A task decorator is provided to automatically handle database sessions with proper tenant context:
 
-```python
-from functools import wraps
+<CodeBlock filename="tenant_context_decorator.py" language="python">
+{`from functools import wraps
 
 def with_tenant_context(func):
     """
@@ -158,13 +160,13 @@ def with_tenant_context(func):
             kwargs['db'] = db
             return func(self, *args, **kwargs)
 
-    return wrapper
-```
+    return wrapper`}
+</CodeBlock>
 
 Using this decorator simplifies working with database operations in tasks:
 
-```python
-@app.task(base=BaseTask, name="rhesis.backend.tasks.count_test_sets")
+<CodeBlock filename="count_test_sets.py" language="python">
+{`@app.task(base=BaseTask, name="rhesis.backend.tasks.count_test_sets")
 @with_tenant_context
 def count_test_sets(self, db=None):
     """
@@ -183,15 +185,15 @@ def count_test_sets(self, db=None):
         "count": count,
         "organization_id": org_id,
         "user_id": user_id
-    }
-```
+    }`}
+</CodeBlock>
 
 ## Task Launcher Utility
 
 A `task_launcher` utility method is provided to easily launch tasks with proper context from FastAPI routes:
 
-```python
-def task_launcher(task: Callable, *args: Any, current_user=None, **kwargs: Any):
+<CodeBlock filename="task_launcher.py" language="python">
+{`def task_launcher(task: Callable, *args: Any, current_user=None, **kwargs: Any):
     """
     Launch a task with proper context from a FastAPI route.
 
@@ -207,21 +209,21 @@ def task_launcher(task: Callable, *args: Any, current_user=None, **kwargs: Any):
             kwargs.setdefault('organization_id', str(current_user.organization_id))
 
     # Launch the task
-    return task.delay(*args, **kwargs)
-```
+    return task.delay(*args, **kwargs)`}
+</CodeBlock>
 
 ## Task Organization
 
 Tasks are organized in the `tasks/` directory:
 
-```
-tasks/
+<CodeBlock filename="task-structure.txt" language="text">
+{`tasks/
 ├── __init__.py
 ├── base.py
 ├── example_task.py
 ├── test_configuration.py
-└── test_set.py
-```
+└── test_set.py`}
+</CodeBlock>
 
 ## Creating Tasks
 
@@ -229,8 +231,8 @@ When creating a task, you no longer need to explicitly require organization_id a
 
 ### Simple Task without Database Access
 
-```python
-@app.task(base=BaseTask, name="rhesis.backend.tasks.echo")
+<CodeBlock filename="echo_task.py" language="python">
+{`@app.task(base=BaseTask, name="rhesis.backend.tasks.echo")
 def echo(message: str):
     """Echo task for testing context."""
     task = echo.request
@@ -238,13 +240,13 @@ def echo(message: str):
     user_id = getattr(task, 'user_id', 'unknown')
 
     print(f"Task executed for organization: {org_id}, by user: {user_id}")
-    return f"Message: {message}, Organization: {org_id}, User: {user_id}"
-```
+    return f"Message: {message}, Organization: {org_id}, User: {user_id}"`}
+</CodeBlock>
 
 ### Task with Automatic Database Context
 
-```python
-@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_configuration")
+<CodeBlock filename="get_test_configuration.py" language="python">
+{`@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_configuration")
 @with_tenant_context
 def get_test_configuration(test_configuration_id: str, db=None):
     """
@@ -265,13 +267,13 @@ def get_test_configuration(test_configuration_id: str, db=None):
     return {
         "found": test_config is not None,
         "id": str(test_config.id) if test_config else None
-    }
-```
+    }`}
+</CodeBlock>
 
 ### Task with Manual Database Session Control
 
-```python
-@app.task(base=BaseTask, name="rhesis.backend.tasks.manual_db_example")
+<CodeBlock filename="manual_db_example.py" language="python">
+{`@app.task(base=BaseTask, name="rhesis.backend.tasks.manual_db_example")
 def manual_db_example():
     """Example of manually managing database sessions."""
     results = {}
@@ -282,15 +284,15 @@ def manual_db_example():
         test_sets = crud.get_test_sets(db)
         results["test_set_count"] = len(test_sets)
 
-    return results
-```
+    return results`}
+</CodeBlock>
 
 ## Using Tasks in FastAPI Routes
 
 The most common way to launch tasks is from FastAPI route handlers:
 
-```python
-from rhesis.backend.tasks import task_launcher, execute_test_configuration
+<CodeBlock filename="route_handler.py" language="python">
+{`from rhesis.backend.tasks import task_launcher, execute_test_configuration
 
 @router.post("/{test_configuration_id}/execute")
 def execute_test_configuration_endpoint(
@@ -305,21 +307,21 @@ def execute_test_configuration_endpoint(
     )
 
     # Return the task ID for checking status later
-    return {"task_id": result.id}
-```
+    return {"task_id": result.id}`}
+</CodeBlock>
 
 ## Worker Configuration
 
 Celery workers are configured with performance optimizations:
 
-```dockerfile
-# Default Celery configuration
+<CodeBlock filename="Dockerfile" language="bash">
+{`# Default Celery configuration
 ENV CELERY_WORKER_CONCURRENCY=8 \
     CELERY_WORKER_PREFETCH_MULTIPLIER=4 \
     CELERY_WORKER_MAX_TASKS_PER_CHILD=1000 \
     CELERY_WORKER_LOGLEVEL=INFO \
-    CELERY_WORKER_OPTS="--without-heartbeat --without-gossip"
-```
+    CELERY_WORKER_OPTS="--without-heartbeat --without-gossip"`}
+</CodeBlock>
 
 The worker startup script applies these configurations:
 
@@ -335,10 +337,10 @@ celery -A rhesis.backend.worker.app worker \
 
 Optional monitoring is available through Flower:
 
-```bash
-# Enable Flower monitoring
-docker run -e ENABLE_FLOWER=yes -p 5555:5555 your-worker-image
-```
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# Enable Flower monitoring
+docker run -e ENABLE_FLOWER=yes -p 5555:5555 your-worker-image`}
+</CodeBlock>
 
 ## Task Monitoring
 
@@ -346,8 +348,8 @@ Task status can be monitored through several interfaces:
 
 ### API Endpoint
 
-```python
-@router.get("/tasks/{task_id}")
+<CodeBlock filename="task_status.py" language="python">
+{`@router.get("/tasks/{task_id}")
 async def get_task_status(task_id: str):
     """Get the status of a task."""
     result = AsyncResult(task_id, app=celery_app)
@@ -356,8 +358,8 @@ async def get_task_status(task_id: str):
         "status": result.status,
         "result": result.result if result.ready() else None,
         "error": str(result.error) if result.failed() else None,
-    }
-```
+    }`}
+</CodeBlock>
 
 ### Flower Dashboard
 
@@ -387,9 +389,9 @@ Sometimes tasks can get stuck in an infinite retry loop, especially chord tasks 
 
 The most obvious symptom is thousands of repeated log entries like these:
 
-```
-Task celery.chord_unlock[82116cfc-ae23-4526-b7ff-7267f389b367] retry: Retry in 1.0s
-```
+<CodeBlock filename="Terminal" language="text" isTerminal={true}>
+{`Task celery.chord_unlock[82116cfc-ae23-4526-b7ff-7267f389b367] retry: Retry in 1.0s`}
+</CodeBlock>
 
 These messages indicate that there are "zombie" tasks that keep retrying indefinitely.
 
@@ -397,21 +399,21 @@ These messages indicate that there are "zombie" tasks that keep retrying indefin
 
 The worker.py file includes configuration to limit chord retries:
 
-```python
-app.conf.update(
+<CodeBlock filename="worker.py" language="python">
+{`app.conf.update(
     # Other settings...
 
     # Limit chord unlocks to prevent infinite retry loops
     chord_unlock_max_retries=3,
     # Use light amqp result store
     result_persistent=False,
-)
-```
+)`}
+</CodeBlock>
 
 Additionally, the results handling in `tasks/execution/results.py` includes logic to detect and handle failed subtasks:
 
-```python
-# Check for failed tasks and count them
+<CodeBlock filename="results.py" language="python">
+{`# Check for failed tasks and count them
 failed_tasks = sum(1 for result in results if result is None)
 if failed_tasks > 0:
     logger.warning(f"{failed_tasks} tasks failed out of {total_tests} for test run {test_run_id}")
@@ -419,40 +421,40 @@ if failed_tasks > 0:
 # Determine status based on failures
 status = RunStatus.COMPLETED.value
 if failed_tasks > 0:
-    status = RunStatus.PARTIAL.value if failed_tasks < total_tests else RunStatus.FAILED.value
-```
+    status = RunStatus.PARTIAL.value if failed_tasks < total_tests else RunStatus.FAILED.value`}
+</CodeBlock>
 
 #### Purging Stuck Tasks
 
 If you encounter stuck tasks, you can purge all tasks from the queue:
 
-```bash
-# Purge all queues (use with caution in production)
-celery -A rhesis.backend.worker purge -f
-```
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# Purge all queues (use with caution in production)
+celery -A rhesis.backend.worker purge -f`}
+</CodeBlock>
 
 This command removes all pending tasks from all queues. Use it with caution in production as it will delete all tasks, including those that are legitimately waiting to be processed.
 
 For a more targeted approach, you can inspect and revoke specific tasks:
 
-```bash
-# Inspect active tasks
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`# Inspect active tasks
 celery -A rhesis.backend.worker inspect active
 
 # Revoke specific tasks
 celery -A rhesis.backend.worker control revoke <task_id>
 
 # Terminate specific tasks (force)
-celery -A rhesis.backend.worker control terminate <task_id>
-```
+celery -A rhesis.backend.worker control terminate <task_id>`}
+</CodeBlock>
 
 ### Troubleshooting Tenant Context Issues
 
 If tasks fail with errors related to the tenant context, such as:
 
-```
-unrecognized configuration parameter "app.current_organization"
-```
+<CodeBlock filename="Terminal" language="text" isTerminal={true}>
+{`unrecognized configuration parameter "app.current_organization"`}
+</CodeBlock>
 
 Ensure that:
 
@@ -462,8 +464,8 @@ Ensure that:
 
 The `execute_single_test` task in `tasks/execution/test.py` includes defensive coding to handle such issues:
 
-```python
-# Explicitly set tenant context to ensure it's active for all queries
+<CodeBlock filename="test.py" language="python">
+{`# Explicitly set tenant context to ensure it's active for all queries
 if organization_id:
     # Verify PostgreSQL has the parameter defined
     try:
@@ -473,8 +475,8 @@ if organization_id:
         # Continue without setting tenant context - will use normal filters instead
 
     # Set the tenant context for this session
-    set_tenant(db, organization_id, user_id)
-```
+    set_tenant(db, organization_id, user_id)`}
+</CodeBlock>
 
 ## Task Monitoring
 

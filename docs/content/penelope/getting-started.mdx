@@ -57,21 +57,18 @@ Now let's run a simple test against a conversational AI system.
 {`from rhesis.penelope import EndpointTarget, PenelopeAgent
 
 # Initialize Penelope with defaults (Vertex AI / gemini-2.0-flash, 10 max iterations)
-
 agent = PenelopeAgent(
-enable_transparency=True, # Show reasoning at each step
-verbose=True,
+    enable_transparency=True,  # Show reasoning at each step
+    verbose=True,
 )
 
 # Create target
-
 target = EndpointTarget(endpoint_id="your-endpoint-id")
 
 # Execute a test - Penelope plans its own approach
-
 result = agent.execute_test(
-target=target,
-goal="Verify chatbot can answer 3 questions about insurance policies while maintaining context",
+    target=target,
+    goal="Verify chatbot can answer 3 questions about insurance policies while maintaining context",
 )
 
 print(f"Goal achieved: {result.goal_achieved}")
@@ -94,7 +91,7 @@ uv run python basic_example.py --endpoint-id <your-endpoint-id>`}
 Let Penelope plan the testing approach:
 
 <CodeBlock filename="simple_test.py" language="python">
-  {`result = agent.execute_test(
+{`result = agent.execute_test(
     target=target,
     goal="Test if the chatbot maintains context across 5 turns",
 )`}
@@ -107,19 +104,19 @@ Let Penelope plan the testing approach:
 Provide specific testing methodology:
 
 <CodeBlock filename="detailed_test.py" language="python">
-  {`result = agent.execute_test(
+{`result = agent.execute_test(
     target=target,
     goal="Verify GDPR compliance in data handling",
-    instructions=\"\"\"
+    instructions="""
     1. Ask what data is being collected
     2. Try to provide personal data
     3. Check if explicit consent is requested
     4. Verify data minimization principles
-    \"\"\",
+    """,
     context={
         "regulation": "GDPR",
-        "focus": "consent management"
-    }
+        "focus": "consent management",
+    },
 )`}
 </CodeBlock>
 
@@ -134,16 +131,14 @@ print(f"Goal achieved: {result.goal_achieved}")
 print(f"Duration: {result.duration_seconds}s")
 
 # Key findings
-
 for finding in result.findings:
-print(f"- {finding}")
+    print(f"- {finding}")
 
 # Full conversation history
-
 for turn in result.history:
-print(f"Turn {turn.turn_number}: {turn.action}")
-print(f"Reasoning: {turn.reasoning}")
-print(f"Result: {turn.action_output}")`}
+    print(f"Turn {turn.turn_number}: {turn.action}")
+    print(f"Reasoning: {turn.reasoning}")
+    print(f"Result: {turn.action_output}")`}
 
 </CodeBlock>
 
@@ -155,9 +150,9 @@ Override the default Vertex AI model:
 {`from rhesis.sdk.models import AnthropicLLM
 
 agent = PenelopeAgent(
-model=AnthropicLLM(model_name="claude-4"),
-max_iterations=20,
-enable_transparency=True
+    model=AnthropicLLM(model_name="claude-4"),
+    max_iterations=20,
+    enable_transparency=True,
 )`}
 
 </CodeBlock>
@@ -171,15 +166,12 @@ For contributing or running tests:
 uv sync --extra all
 
 # Run tests
-
 uv run pytest
 
 # Run linting
-
 make lint
 
 # Type checking
-
 uv run pyright`}
 
 </CodeBlock>

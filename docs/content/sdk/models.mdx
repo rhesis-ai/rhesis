@@ -8,19 +8,21 @@ Models are core components of the SDK that enable you to create and manage test 
 
 The easiest way to use models is through the `get_model` function. When called without any arguments, this function returns the default Rhesis model.
 
-<CodeBlock filename="get_model.py" language="python">
+<CodeBlock filename="default_model.py" language="python">
 {`from rhesis.sdk.models import get_model
 
 model = get_model()`}
+
 </CodeBlock>
 
 To use a different provider, you can pass the provider name as an argument. This will use the default model for that provider.
 
-<CodeBlock filename="get_model_provider.py" language="python">
+<CodeBlock filename="provider_model.py" language="python">
 {`from rhesis.sdk.models import get_model
 
 # Use default Gemini model
 model = get_model("gemini")`}
+
 </CodeBlock>
 
 **Supported providers:**
@@ -33,18 +35,20 @@ model = get_model("gemini")`}
 
 To use a specific model, provide its name in the format `provider/model_name`:
 
-<CodeBlock filename="get_specific_model.py" language="python">
+<CodeBlock filename="specific_model.py" language="python">
 {`from rhesis.sdk.models import get_model
 
 model = get_model("gemini/gemini-2.0-flash")`}
+
 </CodeBlock>
 
 The above code is equivalent to:
 
-<CodeBlock filename="get_specific_model_alt.py" language="python">
+<CodeBlock filename="specific_model_alt.py" language="python">
 {`from rhesis.sdk.models import get_model
 
 model = get_model(provider="gemini", model_name="gemini-2.0-flash")`}
+
 </CodeBlock>
 
 ### Direct import
@@ -59,6 +63,7 @@ ollama_model = OllamaLLM()
 
 # Use specific Gemini model
 gemini_model = GeminiLLM('gemini-2.0-flash')`}
+
 </CodeBlock>
 
 ### Generate content with models
@@ -75,6 +80,7 @@ All models share a consistent interface. The primary function is `generate`, whi
 model = get_model()
 output = model.generate(prompt="What is the capital of France?")
 # Output: "The capital of France is Paris."`}
+
 </CodeBlock>
 
 **Generate structured output using schemas:**
@@ -96,13 +102,14 @@ output = model.generate(
     prompt="The list of 5 biggest cities in Germany?",
     schema=CityResponse
 )`}
+
 </CodeBlock>
 
 ### Using models with synthesizers and metrics
 
 Models become most useful when combined with synthesizers and metrics:
 
-<CodeBlock filename="models_with_synthesizers.py" language="python">
+<CodeBlock filename="models_with_tools.py" language="python">
 {`from rhesis.sdk.models import get_model
 from rhesis.sdk.synthesizers import PromptSynthesizer
 from rhesis.sdk.metrics import RhesisPromptMetricNumeric
@@ -111,13 +118,14 @@ from rhesis.sdk.metrics import RhesisPromptMetricNumeric
 model = get_model("gemini")
 synthesizer = PromptSynthesizer(
     prompt="Generate tests for the car selling chatbot",
-    model=model
+    model=model,
 )
 
 # With metrics
 metric = RhesisPromptMetricNumeric(
     name="answer_quality_evaluator",
     evaluation_prompt="Evaluate the answer for accuracy, completeness, clarity, and relevance.",
-    model="gemini"
+    model="gemini",
 )`}
+
 </CodeBlock>
