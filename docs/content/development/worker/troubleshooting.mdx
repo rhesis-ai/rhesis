@@ -209,50 +209,52 @@ sys.path.insert(0, 'apps/backend/src')
 try:
     from rhesis.backend.worker import app as celery_app
 except ImportError as e:
-    print(f"❌ Import error: {e}")
+    print("❌ Import error:", e)
     sys.exit(1)
 
 def check_celery_workers():
     print("🚀 CELERY WORKER CHECKER")
     print("=" * 50)
-    print(f"⏰ Timestamp: {datetime.now().isoformat()}")
+    print("⏰ Timestamp:", datetime.now().isoformat())
 
     try:
         inspect = celery_app.control.inspect()
 
         # Check active workers
-        print("\n📋 Active Workers:")
+        print("\\n📋 Active Workers:")
         active = inspect.active()
         if active:
             for worker_name, tasks in active.items():
-                print(f"  ✅ {worker_name}: {len(tasks)} active tasks")
+                print(f"  ✅ {{worker_name}}: {{len(tasks)}} active tasks")
         else:
             print("  ❌ No active workers found")
 
         # Check registered workers
-        print("\n📋 Registered Workers:")
+        print("\\n📋 Registered Workers:")
         registered = inspect.registered()
         if registered:
             for worker_name, tasks in registered.items():
-                print(f"  ✅ {worker_name}: {len(tasks)} registered tasks")
+                print(f"  ✅ {{worker_name}}: {{len(tasks)}} registered tasks")
         else:
             print("  ❌ No registered workers found")
 
         # Check worker stats
-        print("\n📊 Worker Statistics:")
+        print("\\n📊 Worker Statistics:")
         stats = inspect.stats()
         if stats:
             for worker_name, worker_stats in stats.items():
-                print(f"  📈 {worker_name}:")
-                print(f"    - Pool: {worker_stats.get('pool', {}).get('max-concurrency', 'unknown')} max concurrency")
-                print(f"    - Total tasks: {worker_stats.get('total', 'unknown')}")
+                print(f"  📈 {{worker_name}}:")
+                pool_info = worker_stats.get('pool', {})
+                max_concurrency = pool_info.get('max-concurrency', 'unknown')
+                print(f"    - Pool: {{max_concurrency}} max concurrency")
+                print(f"    - Total tasks: {{worker_stats.get('total', 'unknown')}}")
         else:
             print("  ❌ No worker statistics available")
 
         return bool(active or registered)
 
     except Exception as e:
-        print(f"❌ Error checking Celery workers: {e}")
+        print("❌ Error checking Celery workers:", e)
         return False
 
 if __name__ == "__main__":
