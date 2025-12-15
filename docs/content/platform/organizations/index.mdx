@@ -2,51 +2,37 @@
 
 Manage your organization's profile, settings, and team members.
 
-## Why Organizations?
-
-Multi-user testing platforms need secure data isolation and access control. Organizations provide:
-
-- **Data Isolation**: Your projects, tests, and results are completely separate from other organizations
-- **Team Collaboration**: Invite colleagues, assign work, and collaborate on testing initiatives
-- **Centralized Management**: Control settings, branding, and contact information from one place
-- **Access Control**: Manage who can access your testing data and resources
-- **Scalability**: Grow your testing team without worrying about conflicts or data mixing
+![Metrics Assign](/screenshots/rhesis-ai-team.png)
 
 ## Organization Settings
 
-Configure your organization's basic information, contact details, and preferences.
+You can configure your organization's information and contact details in [Organization Settings](https://app.rhesis.ai/organizations/settings).
 
-### Basic Information
 
-Edit your organization's core details from the Basic Information section. You can set the organization name (required), which serves as the internal identifier, and optionally provide a display name that's shown to users for a friendlier appearance. Add a brief description of your organization, your website URL, and a logo URL—both URLs are validated to ensure they're properly formatted. To make changes, navigate to Organization Settings, update any fields you need to modify, and click "Save Changes" to apply them.
 
-### Contact Information
 
-Manage your organization's primary contact details including email, phone, and physical address. The email and phone fields are validated for proper formatting, and validation occurs automatically when you leave each field. To update contact information, navigate to Organization Settings, modify the fields in the Contact Information section, and click "Save Changes" to apply your updates.
 
 ## Team Management
 
-Invite and manage team members in your organization.
-
 ### Inviting Team Members
 
-Send email invitations to colleagues from the Team page. Enter email addresses in the invitation form—you can add up to 10 email addresses per batch using the "+ Add Another Email" button. The system validates email formats and checks for duplicates within the batch before sending. Click "Send Invitations" to process the batch.
+1. Navigate to the [Team Page](https://app.rhesis.ai/organizations/team) and send an invitation email.
+**Invitation statuses:**
+- **Invited**: The mail has been sent, but the user has not accepted the invitation yet.
+- **Active**: The user has accepted the request of being part of your organization.
 
-After sending, you'll see the status for each invitation. **Success** means the user received the invitation email and now appears in your team list with an "Invited" status. If the status shows **Already Exists**, that email belongs to an existing member. If it shows **Already in Another Org**, the user needs to leave their current organization before they can join yours.
+<Callout type="info">
+Users cannot belong to multiple organizations simultaneously.
+</Callout>
 
-### Viewing Team Members
 
-The Team Members grid shows all users in your organization with their avatar (profile picture or default icon), name (full name or email if not yet active), email address, and status. The status indicates whether the user is **Active** (has logged in and accepted the invitation) or **Invited** (invitation sent but hasn't logged in yet). Each row includes a remove button in the Actions column, though you can't remove yourself. The grid supports pagination (showing 10, 25, or 50 members per page), search and filtering capabilities, and displays the total member count.
+### Leaving an Organization
 
-### Removing Team Members
+1. Navigate to Organization Settings
+2. Scroll to "Danger Zone"
+3. Click "Leave Organization" and type the organization name to confirm
 
-Find the user in the Team Members grid, click the delete icon in the Actions column, and confirm. The user immediately loses access but their contributions remain. You cannot remove yourself—use Leave Organization instead.
-
-![Metrics Assign](/screenshots/rhesis-ai-team.png)
-
-## Leaving an Organization
-
-To leave your organization, navigate to Organization Settings, scroll to the "Danger Zone" section, click "Leave Organization", and type the organization name exactly to confirm. You'll immediately lose access to all organization data and be signed out. Your contributions remain in the organization, and you'll need a new invitation to rejoin.
+You'll immediately lose access and be signed out. A new invitation is required to rejoin.
 
 ---
 
