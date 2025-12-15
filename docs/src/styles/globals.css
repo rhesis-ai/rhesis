@@ -1221,3 +1221,80 @@ div.mermaid svg {
 }
 
 /* Remove problematic overrides that might block functionality */
+
+/* Details/Summary Component Styles - Clean and Simple */
+.nextra-content details,
+details {
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  padding: 1rem !important;
+  margin: 1rem 0 !important;
+  background-color: #ffffff !important;
+  transition: all 0.2s ease !important;
+}
+
+.nextra-content details[open],
+details[open] {
+  border-color: #2aa1ce !important;
+}
+
+.nextra-content details summary,
+details summary {
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  color: #3d3d3d !important;
+  list-style: none !important;
+  display: flex !important;
+  align-items: center !important;
+  user-select: none !important;
+  background-color: transparent !important;
+  padding: 0.25rem !important;
+}
+
+.nextra-content details[open] summary,
+details[open] summary {
+  color: #2aa1ce !important;
+  margin-bottom: 0.75rem !important;
+}
+
+/* Override Nextra's SVG arrow - hide it */
+.nextra-content details summary svg,
+details summary svg {
+  display: none !important;
+}
+
+/* Hide default marker */
+.nextra-content details summary::-webkit-details-marker,
+details summary::-webkit-details-marker {
+  display: none !important;
+}
+
+/* Dark mode styles for details */
+[data-theme='dark'] .nextra-content details,
+[data-theme='dark'] details,
+.dark .nextra-content details,
+.dark details {
+  border-color: #2c2c2c !important;
+  background-color: #161b22 !important;
+}
+
+[data-theme='dark'] .nextra-content details[open],
+[data-theme='dark'] details[open],
+.dark .nextra-content details[open],
+.dark details[open] {
+  border-color: #2aa1ce !important;
+}
+
+[data-theme='dark'] .nextra-content details summary,
+[data-theme='dark'] details summary,
+.dark .nextra-content details summary,
+.dark details summary {
+  color: #e6edf3 !important;
+}
+
+[data-theme='dark'] .nextra-content details[open] summary,
+[data-theme='dark'] details[open] summary,
+.dark .nextra-content details[open] summary,
+.dark details[open] summary {
+  color: #3bc4f2 !important;
+}
