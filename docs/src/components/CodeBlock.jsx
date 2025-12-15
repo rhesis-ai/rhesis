@@ -60,16 +60,19 @@ export const CodeBlock = ({
   // This function adds back those 2 spaces to restore proper Python indentation
   const fixPythonIndentation = code => {
     if (language !== 'python') return code
-    
-    return code.split('\n').map(line => {
-      // Count leading spaces
-      const leadingSpaces = line.match(/^( *)/)[1].length
-      if (leadingSpaces === 0) return line
-      
-      // Add 2 spaces to every indented line to compensate for MDX dedenting
-      // This converts: 2 spaces -> 4, 6 spaces -> 8, 10 spaces -> 12, etc.
-      return '  ' + line
-    }).join('\n')
+
+    return code
+      .split('\n')
+      .map(line => {
+        // Count leading spaces
+        const leadingSpaces = line.match(/^( *)/)[1].length
+        if (leadingSpaces === 0) return line
+
+        // Add 2 spaces to every indented line to compensate for MDX dedenting
+        // This converts: 2 spaces -> 4, 6 spaces -> 8, 10 spaces -> 12, etc.
+        return '  ' + line
+      })
+      .join('\n')
   }
   // Format JSON automatically
   const formatJSON = code => {
