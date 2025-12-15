@@ -1,10 +1,5 @@
 export default {
-  index: {
-    title: "Overview",
-    theme: {
-      layout: "full",
-    },
-  },
+  index: "Overview",
   "getting-started": {
     title: "Getting Started",
   },
@@ -16,6 +11,9 @@ export default {
   },
   "database-models": {
     title: "Database Models",
+  },
+  "user-settings": {
+    title: "User Settings",
   },
   "soft-deletion": {
     title: "Soft Deletion",
