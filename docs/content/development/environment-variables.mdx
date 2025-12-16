@@ -1,0 +1,177 @@
+import { CodeBlock } from '@/components/CodeBlock'
+import { Table } from '@/components/Table'
+
+# Environment Variables
+
+List of the environment variables for the backend, frontend, and worker services.
+
+## Backend Environment Variables
+
+Create a `.env` file in `apps/backend/` with the following variables:
+
+<Table
+  headers={['Variable', 'Required/Default', 'Description']}
+  rows={[
+    ['`SQLALCHEMY_DATABASE_URL`', '**Required**', 'PostgreSQL connection URL. Format: `postgresql://user:password@host:port/database`. Supports Unix sockets for Cloud SQL'],
+    ['`SQLALCHEMY_DB_MODE`', 'Default: `develop`', 'Database mode: `develop`, `test`, or `production`. When `test`, uses `SQLALCHEMY_DATABASE_TEST_URL` if available'],
+    ['`SQLALCHEMY_DB_DRIVER`', 'Default: `postgresql`', 'Database driver type'],
+    ['`SQLALCHEMY_DB_USER`', '**Required** (if URL not provided)', 'PostgreSQL database username'],
+    ['`SQLALCHEMY_DB_PASS`', '**Required** (if URL not provided)', 'PostgreSQL database password'],
+    ['`SQLALCHEMY_DB_HOST`', 'Default: `localhost`', 'PostgreSQL database hostname or Unix socket path'],
+    ['`SQLALCHEMY_DB_NAME`', '**Required** (if URL not provided)', 'PostgreSQL database name'],
+    ['`SQLALCHEMY_DB_PORT`', 'Default: `5432`', 'PostgreSQL database port'],
+    ['`SQLALCHEMY_DATABASE_TEST_URL`', 'Optional', 'Test database connection URL used when `SQLALCHEMY_DB_MODE=test`'],
+    ['`DB_ENCRYPTION_KEY`', '**Required**', '32-byte URL-safe base64-encoded encryption key for database field encryption. Generate with: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. **Never commit to version control**'],
+    ['`LOG_LEVEL`', 'Default: `DEBUG`', 'Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`'],
+    ['`AUTH0_DOMAIN`', '**Required**', 'Auth0 tenant domain. Format: `your-tenant.region.auth0.com`'],
+    ['`AUTH0_AUDIENCE`', '**Required**', 'Auth0 API audience identifier'],
+    ['`AUTH0_CLIENT_ID`', '**Required**', 'Auth0 application client ID'],
+    ['`AUTH0_CLIENT_SECRET`', '**Required**', 'Auth0 application client secret'],
+    ['`AUTH0_SECRET_KEY`', '**Required**', 'Auth0 secret key for session encryption'],
+    ['`JWT_SECRET_KEY`', '**Required**', 'Secret key for JWT token signing. Generate with: `openssl rand -hex 64`'],
+    ['`JWT_ALGORITHM`', 'Default: `HS256`', 'JWT signing algorithm'],
+    ['`JWT_ACCESS_TOKEN_EXPIRE_MINUTES`', 'Default: `1440`', 'JWT access token expiration time in minutes'],
+    ['`FRONTEND_URL`', 'Default: `http://localhost:3000`', 'Frontend application URL for CORS and redirects'],
+    ['`RHESIS_BASE_URL`', 'Default: `http://localhost:8080`', 'Backend API base URL'],
+    ['`BACKEND_URL`', 'Default: `http://backend:8080`', 'Internal backend URL for service-to-service communication'],
+    ['`RHESIS_BASE_PATH`', 'Optional', 'Base filesystem path to Rhesis installation directory'],
+    ['`QUICK_START`', 'Default: `false`', 'Enable Quick Start mode for local development. **Never enable in production**'],
+    ['`DEMO_USER_EMAIL`', 'Optional', 'Email address for demo user account'],
+    ['`OPENAI_API_KEY`', 'Optional', 'OpenAI API key. Obtain from https://platform.openai.com/api-keys'],
+    ['`OPENAI_MODEL_NAME`', 'Default: `gpt-4o`', 'OpenAI model name'],
+    ['`AZURE_OPENAI_ENDPOINT`', 'Optional', 'Azure OpenAI endpoint URL. Format: `https://your-resource.openai.azure.com/`'],
+    ['`AZURE_OPENAI_API_KEY`', 'Optional', 'Azure OpenAI API key'],
+    ['`AZURE_OPENAI_DEPLOYMENT_NAME`', '**Required** (if using Azure)', 'Azure OpenAI deployment name'],
+    ['`AZURE_OPENAI_API_VERSION`', 'Default: `2024-10-21`', 'Azure OpenAI API version'],
+    ['`GEMINI_API_KEY`', 'Optional', 'Google Gemini API key. Obtain from Google AI Studio'],
+    ['`GEMINI_MODEL_NAME`', 'Default: `gemini-2.0-flash`', 'Google Gemini model name'],
+    ['`DEFAULT_GENERATION_MODEL`', 'Default: `vertex_ai`', 'Default AI provider for test generation'],
+    ['`DEFAULT_MODEL_NAME`', 'Default: `gemini-2.0-flash`', 'Default model name for generation'],
+    ['`GOOGLE_APPLICATION_CREDENTIALS`', 'Optional', 'Path to Google Cloud service account credentials JSON file'],
+    ['`VERTEX_AI_LOCATION`', 'Optional', 'Google Cloud Vertex AI location/region. Format: `us-central1`, `europe-west1`, etc.'],
+    ['`VERTEX_AI_PROJECT`', 'Optional', 'Google Cloud project ID for Vertex AI'],
+    ['`CHATBOT_API_KEY`', 'Optional', 'API key for chatbot service'],
+    ['`SMTP_HOST`', 'Optional', 'SMTP server hostname. Examples: `smtp.sendgrid.net`, `smtp.gmail.com`'],
+    ['`SMTP_PORT`', 'Default: `587`', 'SMTP server port'],
+    ['`SMTP_USER`', 'Optional', 'SMTP authentication username'],
+    ['`SMTP_PASSWORD`', 'Optional', 'SMTP authentication password'],
+    ['`FROM_EMAIL`', 'Default: `"Harry from Rhesis AI" <engineering@rhesis.ai>`', 'Default sender email address'],
+    ['`AGENT_EMAIL_BCC`', 'Optional', 'BCC email address for agent-related emails'],
+    ['`WELCOME_FROM_EMAIL`', 'Optional', 'Sender email for welcome emails'],
+    ['`WELCOME_CALENDAR_LINK`', 'Optional', 'Calendar link for welcome emails'],
+    ['`BROKER_URL`', 'Optional', 'Celery broker URL. Format: `redis://:password@host:port/db` or `sqla+postgresql://...`'],
+    ['`CELERY_RESULT_BACKEND`', 'Optional', 'Celery result backend URL. Use different database number than `BROKER_URL` if using Redis'],
+    ['`CELERY_WORKER_CONCURRENCY`', 'Default: `8`', 'Number of concurrent worker processes'],
+    ['`CELERY_WORKER_PREFETCH_MULTIPLIER`', 'Default: `4`', 'Number of tasks to prefetch per worker process'],
+    ['`CELERY_WORKER_MAX_TASKS_PER_CHILD`', 'Default: `1000`', 'Maximum tasks per worker child process before replacement'],
+    ['`CELERY_WORKER_LOGLEVEL`', 'Default: `INFO`', 'Celery worker logging level'],
+    ['`REDIS_URL`', 'Optional', 'Redis connection URL. Format: `redis://:password@host:port/db`'],
+    ['`REDIS_PASSWORD`', 'Optional', 'Redis password'],
+    ['`STORAGE_SERVICE_URI`', 'Optional', 'Storage service endpoint URL for file operations'],
+    ['`STORAGE_SERVICE_ACCOUNT_KEY`', 'Optional', 'Storage service account key or access token'],
+    ['`LOCAL_STORAGE_PATH`', 'Optional', 'Local filesystem path for file storage'],
+    ['`OTEL_EXPORTER_OTLP_ENDPOINT`', 'Optional', 'OpenTelemetry collector endpoint URL'],
+    ['`OTEL_SERVICE_NAME`', 'Default: `rhesis-backend`', 'OpenTelemetry service name'],
+    ['`OTEL_DEPLOYMENT_TYPE`', 'Default: `unknown`', 'Deployment type: `cloud` or `self-hosted`'],
+    ['`OTEL_RHESIS_TELEMETRY_ENABLED`', 'Default: `true` (self-hosted)', 'Enable/disable Rhesis telemetry collection'],
+    ['`OTEL_PROCESSOR_ENDPOINT`', 'Default: `telemetry-processor:4317`', 'Telemetry processor endpoint URL'],
+    ['`OTEL_API_KEY`', 'Optional', 'API key for telemetry authentication'],
+    ['`ENVIRONMENT`', 'Default: `local`', 'Environment identifier: `local`, `dev`, `stg`, `prd`'],
+    ['`BACKEND_ENV`', 'Default: `local`', 'Backend environment identifier'],
+    ['`FRONTEND_ENV`', 'Default: `local`', 'Frontend environment identifier'],
+    ['`WORKER_ENV`', 'Default: `local`', 'Worker environment identifier'],
+  ]}
+/>
+
+## Frontend Environment Variables
+
+Create a `.env.local` file in `apps/frontend/` with the following variables:
+
+<Table
+  headers={['Variable', 'Required/Default', 'Description']}
+  rows={[
+    ['`NEXTAUTH_URL`', 'Default: `http://localhost:3000`', 'NextAuth.js base URL. Must match your frontend URL exactly'],
+    ['`NEXTAUTH_SECRET`', '**Required**', 'NextAuth.js secret key. Generate with: `openssl rand -base64 32`'],
+    ['`AUTH_SECRET`', '**Required**', 'Authentication secret key'],
+    ['`NEXT_PUBLIC_API_BASE_URL`', 'Default: `http://localhost:8080`', 'Backend API base URL (exposed to browser)'],
+    ['`NEXT_PUBLIC_APP_URL`', 'Default: `http://localhost:3000`', 'Frontend application URL (exposed to browser)'],
+    ['`NEXT_PUBLIC_AUTH0_CLIENT_ID`', '**Required**', 'Auth0 frontend client ID (exposed to browser)'],
+    ['`NEXT_PUBLIC_AUTH0_DOMAIN`', '**Required**', 'Auth0 domain (exposed to browser)'],
+    ['`NEXT_PUBLIC_AUTH0_AUDIENCE`', 'Optional', 'Auth0 API audience identifier (exposed to browser)'],
+    ['`NEXT_PUBLIC_AUTH0_SCOPE`', 'Optional', 'Auth0 scope for authentication (exposed to browser)'],
+    ['`NEXT_PUBLIC_QUICK_START`', 'Default: `false`', 'Enable Quick Start mode (exposed to browser). **Never enable in production**'],
+    ['`BACKEND_URL`', 'Optional', 'Backend URL for server-side API calls'],
+    ['`GOOGLE_CLIENT_ID`', 'Optional', 'Google OAuth client ID'],
+    ['`GOOGLE_CLIENT_SECRET`', 'Optional', 'Google OAuth client secret'],
+    ['`DATABASE_URL`', 'Optional', 'Database connection URL for frontend operations'],
+    ['`SMTP_HOST`', 'Optional', 'SMTP server hostname'],
+    ['`SMTP_PORT`', 'Default: `587`', 'SMTP server port'],
+    ['`SMTP_USER`', 'Optional', 'SMTP authentication username'],
+    ['`SMTP_PASSWORD`', 'Optional', 'SMTP authentication password'],
+    ['`FROM_EMAIL`', 'Optional', 'Default sender email address'],
+    ['`FRONTEND_ENV`', 'Default: `local`', 'Frontend environment identifier'],
+  ]}
+/>
+
+## Worker Environment Variables
+
+The worker service processes background tasks using Celery. Create a `.env` file in `apps/worker/` or configure environment variables for the worker container.
+
+<Table
+  headers={['Variable', 'Required/Default', 'Description']}
+  rows={[
+    ['`SQLALCHEMY_DATABASE_URL`', '**Required**', 'PostgreSQL connection URL for worker database access'],
+    ['`SQLALCHEMY_DB_MODE`', 'Default: `develop`', 'Database mode: `develop`, `test`, or `production`'],
+    ['`SQLALCHEMY_DB_DRIVER`', 'Default: `postgresql`', 'Database driver type'],
+    ['`SQLALCHEMY_DB_USER`', '**Required** (if URL not provided)', 'PostgreSQL database username'],
+    ['`SQLALCHEMY_DB_PASS`', '**Required** (if URL not provided)', 'PostgreSQL database password'],
+    ['`SQLALCHEMY_DB_HOST`', 'Default: `localhost`', 'PostgreSQL database hostname or Unix socket path'],
+    ['`SQLALCHEMY_DB_NAME`', '**Required** (if URL not provided)', 'PostgreSQL database name'],
+    ['`SQLALCHEMY_DB_PORT`', 'Default: `5432`', 'PostgreSQL database port'],
+    ['`USE_TCP_DATABASE`', 'Default: `true`', 'Use TCP connection instead of Unix socket. Set to `false` for Unix socket connections'],
+    ['`DB_ENCRYPTION_KEY`', '**Required**', 'Database encryption key. Must match backend key. Generate with: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`'],
+    ['`BROKER_URL`', '**Required**', 'Celery message broker URL. Format: `redis://:password@host:port/db` or `sqla+postgresql://...`'],
+    ['`CELERY_RESULT_BACKEND`', '**Required**', 'Celery result backend URL. Use different database number than `BROKER_URL` if using Redis'],
+    ['`CELERY_WORKER_CONCURRENCY`', 'Default: `8`', 'Number of concurrent worker processes per instance'],
+    ['`CELERY_WORKER_PREFETCH_MULTIPLIER`', 'Default: `4`', 'Number of tasks each worker process prefetches'],
+    ['`CELERY_WORKER_MAX_TASKS_PER_CHILD`', 'Default: `1000`', 'Maximum tasks per worker child process before replacement'],
+    ['`CELERY_WORKER_LOGLEVEL`', 'Default: `INFO`', 'Celery worker logging level'],
+    ['`CELERY_WORKER_HIJACK_ROOT_LOGGER`', 'Default: `False`', 'Whether Celery should hijack the root logger'],
+    ['`CELERY_WORKER_LOG_COLOR`', 'Default: `False`', 'Enable colored log output for Celery workers'],
+    ['`ENABLE_FLOWER`', 'Default: `no`', 'Enable Flower monitoring tool. Set to `yes` to start Flower web UI'],
+    ['`WORKER_ENV`', 'Default: `local`', 'Worker environment identifier. When set to `development`, automatically sets log level to `DEBUG`'],
+    ['`LOG_LEVEL`', 'Default: `DEBUG`', 'Application logging level for worker processes'],
+    ['`REDIS_URL`', 'Optional', 'Redis connection URL. Format: `redis://:password@host:port/db`'],
+    ['`REDIS_PASSWORD`', 'Optional', 'Redis password'],
+    ['`AUTH0_DOMAIN`', '**Required**', 'Auth0 tenant domain'],
+    ['`AUTH0_AUDIENCE`', '**Required**', 'Auth0 API audience identifier'],
+    ['`AUTH0_CLIENT_ID`', '**Required**', 'Auth0 client ID for worker service'],
+    ['`AUTH0_CLIENT_SECRET`', '**Required**', 'Auth0 client secret for worker service'],
+    ['`FRONTEND_URL`', 'Default: `http://localhost:3000`', 'Frontend URL for constructing links in emails'],
+    ['`SMTP_HOST`', 'Optional', 'SMTP server hostname'],
+    ['`SMTP_PORT`', 'Default: `587`', 'SMTP server port'],
+    ['`SMTP_USER`', 'Optional', 'SMTP authentication username'],
+    ['`SMTP_PASSWORD`', 'Optional', 'SMTP authentication password'],
+    ['`FROM_EMAIL`', 'Default: `"Harry from Rhesis AI" <engineering@rhesis.ai>`', 'Default sender email address'],
+    ['`AGENT_EMAIL_BCC`', 'Optional', 'BCC email address for agent-related emails'],
+    ['`WELCOME_CALENDAR_LINK`', 'Optional', 'Calendar link for welcome emails'],
+    ['`OPENAI_API_KEY`', 'Optional', 'OpenAI API key'],
+    ['`OPENAI_MODEL_NAME`', 'Default: `gpt-4o`', 'OpenAI model name'],
+    ['`AZURE_OPENAI_ENDPOINT`', 'Optional', 'Azure OpenAI endpoint URL'],
+    ['`AZURE_OPENAI_API_KEY`', 'Optional', 'Azure OpenAI API key'],
+    ['`AZURE_OPENAI_DEPLOYMENT_NAME`', '**Required** (if using Azure)', 'Azure OpenAI deployment name'],
+    ['`AZURE_OPENAI_API_VERSION`', 'Default: `2024-10-21`', 'Azure OpenAI API version'],
+    ['`GEMINI_API_KEY`', 'Optional', 'Google Gemini API key'],
+    ['`GEMINI_MODEL_NAME`', 'Default: `gemini-2.0-flash`', 'Google Gemini model name'],
+    ['`GOOGLE_API_KEY`', 'Optional', 'Google API key for various Google services'],
+    ['`GOOGLE_APPLICATION_CREDENTIALS`', 'Optional', 'Path to Google Cloud service account credentials JSON file'],
+    ['`VERTEX_AI_LOCATION`', 'Optional', 'Google Cloud Vertex AI location/region'],
+    ['`VERTEX_AI_PROJECT`', 'Optional', 'Google Cloud project ID for Vertex AI'],
+    ['`DEFAULT_GENERATION_MODEL`', 'Default: `vertex_ai`', 'Default AI provider for test generation'],
+    ['`DEFAULT_MODEL_NAME`', 'Default: `gemini-2.0-flash`', 'Default model name for generation'],
+    ['`STORAGE_SERVICE_URI`', 'Optional', 'Storage service endpoint URL for file operations'],
+    ['`STORAGE_SERVICE_ACCOUNT_KEY`', 'Optional', 'Storage service account key or access token'],
+    ['`LOCAL_STORAGE_PATH`', 'Optional', 'Local filesystem path for file storage'],
+    ['`ENVIRONMENT`', 'Default: `local`', 'Environment identifier: `local`, `dev`, `stg`, `prd`'],
+  ]}
+/>

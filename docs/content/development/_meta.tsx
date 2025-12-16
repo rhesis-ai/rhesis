@@ -5,6 +5,6 @@ export default {
   backend: "Backend",
   connector: "Connector",
   worker: "Worker",
-  "environment-setup": "Environment Setup",
+  "environment-variables": "Environment Variables",
   contributing: "Contributing",
 };
