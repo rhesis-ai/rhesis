@@ -48,7 +48,13 @@ This section presents what needs to be configured to create a custom metric usin
 
 ### 1. Evaluation Process
 
-Define how the LLM evaluates responses by providing three key components:
+Define how the LLM evaluates responses by providing four key components:
+
+<details>
+<summary><strong>Evaluation Model</strong></summary>
+
+Select the [Model](https://app.rhesis.ai/models) you want to use for the evaluation. For more information on how to configure models, see the [Models documentation](/platform/models).
+</details>
 
 <details>
 <summary><strong>Evaluation Prompt</strong></summary>
@@ -116,7 +122,6 @@ Define a numeric scale with a pass/fail threshold:
 Define custom categories for classification:
 
 - Add categories: "Excellent", "Good", "Fair", "Poor"
-- Use comma or Enter to add each category
 - The LLM classifies responses into one category
 
 *Example: "Safe", "Borderline", "Unsafe" for safety evaluation.*
@@ -142,8 +147,7 @@ Provide instructions for how the LLM should explain its scoring rationale.
 
 
 ```
-Example: "Explain which specific parts were accurate or inaccurate,
-citing evidence from the provided context."
+Example: "Explain which specific parts were accurate or inaccurate, citing evidence from the provided context."
 ```
 
 ## See Also
