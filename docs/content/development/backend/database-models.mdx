@@ -111,8 +111,8 @@ The application uses mixins to add common functionality to models:
 
 Adds tagging capabilities to models:
 
-```python
-class TagsMixin:
+<CodeBlock filename="tags-mixin.py" language="python">
+{`class TagsMixin:
     @declared_attr
     def tags(cls):
         return relationship(
@@ -122,16 +122,16 @@ class TagsMixin:
                         f"TaggedItem.item_type == '{cls.__name__.lower()}')",
             secondaryjoin="TaggedItem.tag_id == Tag.id",
             viewonly=True,
-        )
-```
+        )`}
+</CodeBlock>
 
 ## Database Initialization
 
 The database schema is created using SQLAlchemy's metadata:
 
-```python
-Base.metadata.create_all(bind=engine)
-```
+<CodeBlock filename="database-initialization.py" language="python">
+{`Base.metadata.create_all(bind=engine)`}
+</CodeBlock>
 
 For schema migrations, the application uses Alembic, which is configured in the `alembic/` directory.
 
