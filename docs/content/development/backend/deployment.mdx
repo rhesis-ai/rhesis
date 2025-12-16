@@ -107,11 +107,11 @@ Deploy to AWS ECS:
 
 1. Push the image to Amazon ECR:
 
-```bash
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin account-id.dkr.ecr.us-east-1.amazonaws.com
+<CodeBlock filename="push-to-ecr.sh" language="bash">
+{`aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin account-id.dkr.ecr.us-east-1.amazonaws.com
 docker tag rhesis-backend:latest account-id.dkr.ecr.us-east-1.amazonaws.com/rhesis-backend:latest
-docker push account-id.dkr.ecr.us-east-1.amazonaws.com/rhesis-backend:latest
-```
+docker push account-id.dkr.ecr.us-east-1.amazonaws.com/rhesis-backend:latest`}
+</CodeBlock>
 
 2. Update the ECS task definition and service
 
@@ -121,10 +121,10 @@ Before deploying a new version:
 
 1. Apply database migrations:
 
-```bash
-# Inside the container or with access to the database
-alembic upgrade head
-```
+<CodeBlock filename="apply-migrations.sh" language="bash">
+{`# Inside the container or with access to the database
+alembic upgrade head`}
+</CodeBlock>
 
 For zero-downtime migrations:
 
@@ -147,12 +147,12 @@ The application is designed to scale horizontally:
 
 Deploy Celery workers separately:
 
-```bash
-docker run \
-  --env-file ./apps/backend/.env.docker \
-  rhesis-backend:latest \
-  celery -A rhesis.backend.worker worker --loglevel=info
-```
+<CodeBlock filename="deploy-celery-workers.sh" language="bash">
+{`docker run \\
+  --env-file ./apps/backend/.env.docker \\
+  rhesis-backend:latest \\
+  celery -A rhesis.backend.worker worker --loglevel=info`}
+</CodeBlock>
 
 ## Monitoring and Logging
 
@@ -160,18 +160,18 @@ docker run \
 
 The application logs to stdout/stderr, which can be captured by container platforms:
 
-```bash
-# View logs in Docker
-docker logs container_id
-```
+<CodeBlock filename="view-logs.sh" language="bash">
+{`# View logs in Docker
+docker logs container_id`}
+</CodeBlock>
 
 ### Health Checks
 
 The application provides a health check endpoint at `/health`:
 
-```bash
-curl http://localhost:8000/health
-```
+<CodeBlock filename="health-check.sh" language="bash">
+{`curl http://localhost:8000/health`}
+</CodeBlock>
 
 ## Rollback Procedure
 
@@ -181,9 +181,9 @@ If deployment issues occur:
 2. Rollback to the previous known-good version by redeploying the previous image
 3. If database migrations need to be reversed:
 
-```bash
-alembic downgrade -1  # Downgrade one version
-```
+<CodeBlock filename="rollback-migration.sh" language="bash">
+{`alembic downgrade -1  # Downgrade one version`}
+</CodeBlock>
 
 ## Security Considerations
 
