@@ -402,8 +402,8 @@ uv run pytest tests/services/`}
 
 ### Health Checks
 
-```bash
-# Health check endpoint
+<CodeBlock filename="health-check.sh" language="bash">
+{`# Health check endpoint
 GET /health
 
 # Response
@@ -412,19 +412,19 @@ GET /health
   "database": "connected",
   "redis": "connected",
   "timestamp": "2024-01-01T00:00:00Z"
-}
-```
+}`}
+</CodeBlock>
 
 ### Logging
 
 Structured logging with configurable levels:
 
-```python
-import logging
+<CodeBlock filename="structured-logging.py" language="python">
+{`import logging
 
 logger = logging.getLogger(__name__)
-logger.info("User authenticated", extra={"user_id": user.id})
-```
+logger.info("User authenticated", extra={"user_id": user.id})`}
+</CodeBlock>
 
 ---
 

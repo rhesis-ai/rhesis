@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Environment Configuration
 
 ## Overview
@@ -16,18 +18,18 @@ The application supports multiple environment files:
 
 Environment variables are loaded using the `python-dotenv` library:
 
-```python
-from dotenv import load_dotenv
+<CodeBlock filename="load-dotenv.py" language="python">
+{`from dotenv import load_dotenv
 
-load_dotenv()  # Loads variables from .env file
-```
+load_dotenv()  # Loads variables from .env file`}
+</CodeBlock>
 
 ## Core Configuration Categories
 
 ### Database Configuration
 
-```
-# PostgreSQL Configuration
+<CodeBlock filename="database-config.env" language="bash">
+{`# PostgreSQL Configuration
 SQLALCHEMY_DB_DRIVER=postgresql
 SQLALCHEMY_DB_USER=username
 SQLALCHEMY_DB_PASS=password
@@ -37,14 +39,14 @@ SQLALCHEMY_DATABASE_URL=postgresql://username:password@localhost:5432/rhesis
 SQLALCHEMY_DATABASE_TEST_URL=postgresql://username:password@localhost:5432/rhesis-test
 
 # Database Encryption Configuration (Required)
-DB_ENCRYPTION_KEY=your-32-byte-url-safe-base64-encoded-key
-```
+DB_ENCRYPTION_KEY=your-32-byte-url-safe-base64-encoded-key`}
+</CodeBlock>
 
 **Generating an Encryption Key:**
 
-```bash
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
+<CodeBlock filename="generate-encryption-key.sh" language="bash">
+{`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`}
+</CodeBlock>
 
 **Security Notes:**
 
@@ -57,8 +59,8 @@ See: [Database Field Encryption](./database-field-encryption.mdx) and [Encryptio
 
 ### Authentication Configuration
 
-```
-# Auth0 Configuration
+<CodeBlock filename="auth-config.env" language="bash">
+{`# Auth0 Configuration
 AUTH0_DOMAIN=dev-rhesis.eu.auth0.com
 AUTH0_AUDIENCE=audience-id
 AUTH0_CLIENT_ID=client-id
@@ -68,46 +70,46 @@ AUTH0_SECRET_KEY=secret-key
 # JWT Configuration
 JWT_SECRET_KEY=your-jwt-secret-key
 JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
-```
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440`}
+</CodeBlock>
 
 ### Application Configuration
 
-```
-# App & Logging Configuration
+<CodeBlock filename="app-config.env" language="bash">
+{`# App & Logging Configuration
 LOG_LEVEL=DEBUG
 RHESIS_BASE_PATH=/path/to/rhesis/
-FRONTEND_URL=http://localhost:3000
-```
+FRONTEND_URL=http://localhost:3000`}
+</CodeBlock>
 
 ### AI Model Configuration
 
-```
-# OpenAI Configuration
+<CodeBlock filename="ai-model-config.env" language="bash">
+{`# OpenAI Configuration
 OPENAI_API_KEY=your-openai-api-key
 OPENAI_MODEL_NAME=gpt-4o
 
 # Hugging Face Configuration
-HF_API_TOKEN=your-huggingface-token
-```
+HF_API_TOKEN=your-huggingface-token`}
+</CodeBlock>
 
 ### Background Task Configuration
 
-```
-# Celery Configuration
+<CodeBlock filename="celery-config.env" language="bash">
+{`# Celery Configuration
 BROKER_URL=sqla+postgresql://celery-user:password@localhost:5432/celery
-CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@localhost:5432/celery
-```
+CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@localhost:5432/celery`}
+</CodeBlock>
 
 ## Environment Variable Usage
 
 Environment variables are accessed throughout the codebase using `os.getenv()`:
 
-```python
-import os
+<CodeBlock filename="env-var-usage.py" language="python">
+{`import os
 
-database_url = os.getenv("SQLALCHEMY_DATABASE_URL", "sqlite:///./test.db")
-```
+database_url = os.getenv("SQLALCHEMY_DATABASE_URL", "sqlite:///./test.db")`}
+</CodeBlock>
 
 The second parameter provides a default value if the environment variable is not set.
 
@@ -123,8 +125,8 @@ Sensitive information such as API keys and passwords should never be committed t
 
 The application can load different configuration based on the environment:
 
-```python
-import os
+<CodeBlock filename="environment-specific-config.py" language="python">
+{`import os
 
 # Determine environment
 ENV = os.getenv("ENV", "development")
@@ -143,15 +145,15 @@ elif ENV == "testing":
 else:
     # Development settings
     DEBUG = True
-    LOG_LEVEL = "DEBUG"
-```
+    LOG_LEVEL = "DEBUG"`}
+</CodeBlock>
 
 ## Configuration Validation
 
 The application validates critical configuration at startup:
 
-```python
-def validate_config():
+<CodeBlock filename="validate-config.py" language="python">
+{`def validate_config():
     """Validate that all required configuration is present."""
     required_vars = [
         "SQLALCHEMY_DATABASE_URL",
@@ -163,8 +165,8 @@ def validate_config():
     missing = [var for var in required_vars if not os.getenv(var)]
 
     if missing:
-        raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
-```
+        raise ValueError(f"Missing required environment variables: {', '.join(missing)}")`}
+</CodeBlock>
 
 ## Docker Environment
 
@@ -176,16 +178,16 @@ When running in Docker, environment variables can be passed in several ways:
 
 Example Docker Compose configuration:
 
-```yaml
-services:
+<CodeBlock filename="docker-compose.yml" language="yaml">
+{`services:
   backend:
     build: ./apps/backend
     env_file:
       - ./apps/backend/.env.docker
     environment:
       - SQLALCHEMY_DB_HOST=postgres
-      - LOG_LEVEL=INFO
-```
+      - LOG_LEVEL=INFO`}
+</CodeBlock>
 
 ## Cloud Deployment
 

@@ -21,8 +21,8 @@ The Rhesis backend implements a robust multi-tenancy model with organization-bas
 **Issue**: Task queries lacked organization filtering, allowing cross-tenant access
 **Fix**: Added `organization_id` parameters and filtering to all task operations
 
-```python
-# Before (VULNERABLE)
+<CodeBlock filename="fix-task-management.py" language="python">
+{`# Before (VULNERABLE)
 task = db.query(models.Task).filter(models.Task.id == task_id).first()
 
 # After (SECURE)
@@ -30,8 +30,8 @@ def get_task(db: Session, task_id: UUID, organization_id: str = None) -> Optiona
     query = db.query(models.Task).filter(models.Task.id == task_id)
     if organization_id:
         query = query.filter(models.Task.organization_id == UUID(organization_id))
-    return query.first()
-```
+    return query.first()`}
+</CodeBlock>
 
 ### 2. CRUD Operations Security
 
@@ -39,8 +39,8 @@ def get_task(db: Session, task_id: UUID, organization_id: str = None) -> Optiona
 **Issue**: `remove_tag`, task queries without organization filtering
 **Fix**: Added organization filtering to prevent cross-tenant tag manipulation
 
-```python
-# Before (VULNERABLE)
+<CodeBlock filename="fix-crud-operations.py" language="python">
+{`# Before (VULNERABLE)
 db_tag = db.query(models.Tag).filter(models.Tag.id == tag_id).first()
 
 # After (SECURE)
@@ -48,8 +48,8 @@ def remove_tag(db: Session, tag_id: UUID, entity_id: UUID, entity_type: str, org
     tag_query = db.query(models.Tag).filter(models.Tag.id == tag_id)
     if organization_id:
         tag_query = tag_query.filter(models.Tag.organization_id == UUID(organization_id))
-    # ... rest of function
-```
+    # ... rest of function`}
+</CodeBlock>
 
 ### 3. User Router Security
 
@@ -57,16 +57,16 @@ def remove_tag(db: Session, tag_id: UUID, entity_id: UUID, entity_type: str, org
 **Issue**: User update queries without organization filtering
 **Fix**: Added organization filtering with superuser exceptions
 
-```python
-# Before (VULNERABLE)
+<CodeBlock filename="fix-user-router.py" language="python">
+{`# Before (VULNERABLE)
 db_user = db.query(User).filter(User.id == user_id).first()
 
 # After (SECURE)
 user_query = db.query(User).filter(User.id == user_id)
 if not current_user.is_superuser and current_user.organization_id:
     user_query = user_query.filter(User.organization_id == current_user.organization_id)
-db_user = user_query.first()
-```
+db_user = user_query.first()`}
+</CodeBlock>
 
 ### 4. Auth Permissions Security
 
@@ -100,13 +100,13 @@ The security test suite includes:
 - **Regression tests** to prevent future vulnerabilities
 - **Security markers** for targeted test execution
 
-```bash
-# Run all security tests
+<CodeBlock filename="run-security-tests.sh" language="bash">
+{`# Run all security tests
 pytest tests/backend/test_security_fixes.py -v
 
 # Run only security-marked tests
-pytest -m security
-```
+pytest -m security`}
+</CodeBlock>
 
 ### Test Results
 
@@ -124,13 +124,13 @@ The security check script automatically scans the codebase for:
 - HIGH severity issues (queries on organization-aware models)
 - MEDIUM severity issues (potentially unsafe queries)
 
-```bash
-# Run security check
+<CodeBlock filename="security-check.sh" language="bash">
+{`# Run security check
 python scripts/check_organization_filtering.py --verbose
 
 # Setup CI/CD integration
-python scripts/check_organization_filtering.py --setup-ci
-```
+python scripts/check_organization_filtering.py --setup-ci`}
+</CodeBlock>
 
 ### Current Security Status
 
@@ -156,25 +156,25 @@ Provides automatic organization filtering through:
 
 1. **Context Manager Approach** (Recommended)
 
-```python
-with with_organization_context("org-123"):
-    tests = db.query(Test).all()  # Automatically filtered
-```
+<CodeBlock filename="middleware-context-manager.py" language="python">
+{`with with_organization_context("org-123"):
+    tests = db.query(Test).all()  # Automatically filtered`}
+</CodeBlock>
 
 2. **Organization-Aware Session Wrapper** (Recommended)
 
-```python
-org_session = get_organization_aware_session(db, "org-123")
-tests = org_session.query(Test).all()  # Automatically filtered
-```
+<CodeBlock filename="middleware-session-wrapper.py" language="python">
+{`org_session = get_organization_aware_session(db, "org-123")
+tests = org_session.query(Test).all()  # Automatically filtered`}
+</CodeBlock>
 
 3. **Decorator Approach**
 
-```python
-@organization_aware_query
+<CodeBlock filename="middleware-decorator.py" language="python">
+{`@organization_aware_query
 def get_user_tests(db: Session, user_id: str, organization_id: str):
-    return db.query(Test).filter(Test.user_id == user_id).all()
-```
+    return db.query(Test).filter(Test.user_id == user_id).all()`}
+</CodeBlock>
 
 ### Safety Features
 
@@ -189,8 +189,8 @@ def get_user_tests(db: Session, user_id: str, organization_id: str):
 
 **✅ SAFE QUERIES (No organization filtering needed):**
 
-```python
-# ID-based queries are SAFE - UUIDs are globally unique
+<CodeBlock filename="safe-queries.py" language="python">
+{`# ID-based queries are SAFE - UUIDs are globally unique
 def get_entity_by_id(db: Session, entity_id: UUID) -> Optional[Entity]:
     return db.query(Entity).filter(Entity.id == entity_id).first()
 
@@ -198,13 +198,13 @@ def get_entity_by_id(db: Session, entity_id: UUID) -> Optional[Entity]:
 entity = db.query(Entity).get(entity_id)
 
 # User queries (handled separately)
-user = db.query(User).filter(User.id == user_id).first()
-```
+user = db.query(User).filter(User.id == user_id).first()`}
+</CodeBlock>
 
 **🚨 CRITICAL QUERIES (Organization filtering required):**
 
-```python
-# List queries without filters - DANGEROUS
+<CodeBlock filename="critical-queries.py" language="python">
+{`# List queries without filters - DANGEROUS
 def get_all_entities(db: Session, organization_id: str) -> List[Entity]:
     return db.query(Entity).filter(
         Entity.organization_id == UUID(organization_id)  # REQUIRED!
@@ -215,35 +215,35 @@ def get_entities_by_name(db: Session, name: str, organization_id: str) -> List[E
     return db.query(Entity).filter(
         Entity.name == name,
         Entity.organization_id == UUID(organization_id)  # REQUIRED!
-    ).all()
-```
+    ).all()`}
+</CodeBlock>
 
 ### 2. Direct Parameter Passing (Current Approach)
 
-```python
-# RECOMMENDED: Explicit organization filtering for list/search queries
+<CodeBlock filename="direct-parameter-passing.py" language="python">
+{`# RECOMMENDED: Explicit organization filtering for list/search queries
 def get_entities(db: Session, organization_id: str) -> List[Entity]:
     return db.query(Entity).filter(
         Entity.organization_id == UUID(organization_id)
-    ).all()
-```
+    ).all()`}
+</CodeBlock>
 
 ### 3. Always Validate Organization Context
 
-```python
-# Verify organization context is provided
+<CodeBlock filename="validate-organization-context.py" language="python">
+{`# Verify organization context is provided
 if not organization_id:
-    raise ValueError("Organization context required for multi-tenant operation")
-```
+    raise ValueError("Organization context required for multi-tenant operation")`}
+</CodeBlock>
 
 ### 3. Use Security Tests
 
-```python
-# Test cross-tenant access prevention
+<CodeBlock filename="use-security-tests.py" language="python">
+{`# Test cross-tenant access prevention
 def test_cross_tenant_prevention(self, test_db: Session):
     # Create entities in different organizations
-    # Verify org1 user cannot access org2 data
-```
+    # Verify org1 user cannot access org2 data`}
+</CodeBlock>
 
 ### 4. Apply Defense in Depth
 
