@@ -54,7 +54,7 @@
     "emoji-picker-react": "^4.13.3",
     "invariant": "^2.2.4",
     "lucide-react": "^0.475.0",
-    "next": "^16.0.7",
+    "next": "^16.0.10",
     "next-auth": "5.0.0-beta.30",
     "nodemailer": "^7.0.11",
     "prismjs": "^1.29.0",
