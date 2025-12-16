@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Dict, Optional
 
-from rhesis.sdk.client import Endpoints
+from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 
@@ -21,6 +21,26 @@ class TestConfiguration(BaseEntity):
     status_id: Optional[str] = None
     attributes: Optional[Dict[str, Any]] = None
     id: Optional[str] = None
+
+    def get_test_runs(self):
+        """Get all test runs for this test configuration.
+
+        Returns:
+            List of test runs for this test configuration
+        """
+        if self.id is None:
+            raise ValueError("Test configuration ID is required")
+        client = Client()
+
+        # Filter test runs by test_configuration_id using OData
+        params = {"$filter": f"test_configuration_id eq '{self.id}'"}
+
+        response = client.send_request(
+            endpoint=Endpoints.TEST_RUNS,
+            method=Methods.GET,
+            params=params,
+        )
+        return response
 
 
 class TestConfigurations(BaseCollection):
