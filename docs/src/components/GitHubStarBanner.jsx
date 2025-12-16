@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 
 export default function GitHubStarBanner() {
   const [isVisible, setIsVisible] = useState(false)
-  const storageKey = 'star-banner-2025-dismissed'
+  const storageKey = 'rhesis-star-banner-dismissed'
 
   useEffect(() => {
     // Check if banner was previously dismissed
