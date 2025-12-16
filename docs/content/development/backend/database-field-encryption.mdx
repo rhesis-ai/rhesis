@@ -43,15 +43,15 @@ We will implement field-level encryption for sensitive database columns using **
 
 **Installation:**
 
-```bash
-cd apps/backend
-uv add cryptography
-```
+<CodeBlock filename="install-cryptography.sh" language="bash">
+{`cd apps/backend
+uv add cryptography`}
+</CodeBlock>
 
 **Basic Usage:**
 
-```python
-from cryptography.fernet import Fernet
+<CodeBlock filename="fernet-basic-usage.py" language="python">
+{`from cryptography.fernet import Fernet
 
 # Generate encryption key (one-time setup)
 key = Fernet.generate_key()  # Returns: b'32-byte-url-safe-base64-encoded-key'
@@ -64,8 +64,8 @@ plaintext = "my-api-key-12345"
 encrypted = cipher.encrypt(plaintext.encode())  # Returns: b'encrypted-base64-string'
 
 # Decrypt
-decrypted = cipher.decrypt(encrypted).decode()  # Returns: "my-api-key-12345"
-```
+decrypted = cipher.decrypt(encrypted).decode()  # Returns: "my-api-key-12345"`}
+</CodeBlock>
 
 ### 2. Key Management Strategy
 
@@ -79,9 +79,9 @@ decrypted = cipher.decrypt(encrypted).decode()  # Returns: "my-api-key-12345"
 **Key Generation:**
 Developers can generate keys locally using:
 
-```bash
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
+<CodeBlock filename="generate-key.sh" language="bash">
+{`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`}
+</CodeBlock>
 
 **Key Storage by Environment:**
 
@@ -127,22 +127,22 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 **Migration Flow:**
 
-```
-1. Deploy application code with EncryptedString TypeDecorator
+<CodeBlock filename="migration-flow.txt" language="text">
+{`1. Deploy application code with EncryptedString TypeDecorator
    - Includes backward compatibility (reads both encrypted and plaintext)
 2. Run data migration script to encrypt all existing plaintext values
    - Processes each row: plaintext → encrypted in same column
 3. Monitor application logs for any remaining plaintext values
    - Log warnings when plaintext is encountered
-4. After validation period (e.g., 1 week), remove backward compatibility fallback
-```
+4. After validation period (e.g., 1 week), remove backward compatibility fallback`}
+</CodeBlock>
 
 **Backward Compatibility Implementation:**
 
 The `EncryptedString` SQLAlchemy TypeDecorator will gracefully handle both encrypted and plaintext values during the migration window:
 
-```python
-def process_result_value(self, value, dialect):
+<CodeBlock filename="backward-compatibility.py" language="python">
+{`def process_result_value(self, value, dialect):
     """Decrypt when reading from database"""
     if value is None:
         return value
@@ -158,8 +158,8 @@ def process_result_value(self, value, dialect):
             "Encountered unencrypted value in encrypted column",
             extra={"column": self.column_name}
         )
-        return value  # Return plaintext during migration window
-```
+        return value  # Return plaintext during migration window`}
+</CodeBlock>
 
 ### 4. Database Schema: No Changes Required
 
@@ -184,8 +184,8 @@ Fernet encryption adds overhead to the stored data:
 **SQLAlchemy TypeDecorator:**
 Encryption/decryption will be transparent to application code using SQLAlchemy's `TypeDecorator`:
 
-```python
-from sqlalchemy import TypeDecorator, Text
+<CodeBlock filename="encrypted-string-type.py" language="python">
+{`from sqlalchemy import TypeDecorator, Text
 from cryptography.fernet import Fernet
 import os
 
@@ -209,13 +209,13 @@ class EncryptedString(TypeDecorator):
         """Decrypt when reading from database"""
         if value is None:
             return value
-        return self.cipher.decrypt(value.encode()).decode()
-```
+        return self.cipher.decrypt(value.encode()).decode()`}
+</CodeBlock>
 
 **Usage in Models:**
 
-```python
-from sqlalchemy import Column, Integer, String
+<CodeBlock filename="encrypted-model-usage.py" language="python">
+{`from sqlalchemy import Column, Integer, String
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.utils.encryption import EncryptedString
 
@@ -225,8 +225,8 @@ class Endpoint(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String)
     auth_token = Column(EncryptedString)  # Transparently encrypted
-    client_secret = Column(EncryptedString)  # Transparently encrypted
-```
+    client_secret = Column(EncryptedString)  # Transparently encrypted`}
+</CodeBlock>
 
 ### 6. Security Model
 
@@ -381,8 +381,8 @@ This ADR is part of a larger implementation plan broken into subtasks:
 **1. Key Rotation:**
 Implement support for dual-key encryption to enable zero-downtime key rotation:
 
-```python
-# Support both current and previous key
+<CodeBlock filename="key-rotation.py" language="python">
+{`# Support both current and previous key
 OLD_KEY = os.getenv("DB_ENCRYPTION_KEY_OLD")
 NEW_KEY = os.getenv("DB_ENCRYPTION_KEY")
 
@@ -390,8 +390,8 @@ def decrypt_with_fallback(value):
     try:
         return Fernet(NEW_KEY).decrypt(value)
     except InvalidToken:
-        return Fernet(OLD_KEY).decrypt(value)  # Fall back to old key
-```
+        return Fernet(OLD_KEY).decrypt(value)  # Fall back to old key`}
+</CodeBlock>
 
 **2. GCP Secret Manager Integration:**
 Migrate from environment variables to GCP Secret Manager:

@@ -311,14 +311,14 @@ When you delete a `Project`:
 
 The cascade service uses efficient bulk UPDATE queries instead of loading objects:
 
-```python
-# EFFICIENT: Bulk UPDATE (single query)
+<CodeBlock filename="bulk-update-operations.py" language="python">
+{`# EFFICIENT: Bulk UPDATE (single query)
 query.update({"deleted_at": datetime.utcnow()}, synchronize_session=False)
 
 # INEFFICIENT: Load and update each object
 for obj in query.all():
-    obj.soft_delete()
-```
+    obj.soft_delete()`}
+</CodeBlock>
 
 **Benefits:**
 
@@ -330,10 +330,10 @@ for obj in query.all():
 
 The cascade service automatically applies organization filters when available:
 
-```python
-if organization_id and hasattr(rel.child_model, 'organization_id'):
-    query = query.filter(rel.child_model.organization_id == organization_id)
-```
+<CodeBlock filename="organization-filtering.py" language="python">
+{`if organization_id and hasattr(rel.child_model, 'organization_id'):
+    query = query.filter(rel.child_model.organization_id == organization_id)`}
+</CodeBlock>
 
 This ensures:
 
@@ -345,8 +345,8 @@ This ensures:
 
 All cascade operations are fully transactional:
 
-```python
-try:
+<CodeBlock filename="transaction-management.py" language="python">
+{`try:
     # Cascade to children (bulk UPDATE)
     cascade_service.cascade_soft_delete(db, model, item_id, org_id)
 
@@ -359,8 +359,8 @@ try:
 except Exception as e:
     # Rollback EVERYTHING on error
     db.rollback()
-    raise
-```
+    raise`}
+</CodeBlock>
 
 **Guarantees:**
 
@@ -375,8 +375,8 @@ except Exception as e:
 
 Test cascade relationships in isolation:
 
-```python
-@pytest.mark.unit
+<CodeBlock filename="test-unit-cascade.py" language="python">
+{`@pytest.mark.unit
 @pytest.mark.crud
 def test_cascade_soft_delete(test_db, db_parent, db_children):
     """Test that soft deleting parent cascades to children"""
@@ -393,15 +393,15 @@ def test_cascade_soft_delete(test_db, db_parent, db_children):
             child = test_db.query(models.Child).filter(
                 models.Child.id == child_id
             ).first()
-            assert child.deleted_at is not None
-```
+            assert child.deleted_at is not None`}
+</CodeBlock>
 
 ### Integration Tests
 
 Test end-to-end cascade behavior:
 
-```python
-@pytest.mark.integration
+<CodeBlock filename="test-integration-cascade.py" language="python">
+{`@pytest.mark.integration
 def test_delete_test_run_api_cascades(client, db_test_run, db_test_results):
     """Test that API delete endpoint properly cascades"""
     response = client.delete(f"/test-runs/{db_test_run.id}")
@@ -410,15 +410,15 @@ def test_delete_test_run_api_cascades(client, db_test_run, db_test_results):
     # Verify cascade happened
     with without_soft_delete_filter():
         for result in db_test_results:
-            assert result.deleted_at is not None
-```
+            assert result.deleted_at is not None`}
+</CodeBlock>
 
 ### Test Data Factories
 
 Use fixtures to create parent-child test data:
 
-```python
-@pytest.fixture
+<CodeBlock filename="test-data-factory.py" language="python">
+{`@pytest.fixture
 def db_test_run_with_results(test_db, test_organization, db_user):
     """Create a test run with associated test results"""
     test_run = models.TestRun(
@@ -441,8 +441,8 @@ def db_test_run_with_results(test_db, test_organization, db_user):
         test_results.append(result)
 
     test_db.commit()
-    return test_run, test_results
-```
+    return test_run, test_results`}
+</CodeBlock>
 
 ## Best Practices
 
@@ -450,20 +450,20 @@ def db_test_run_with_results(test_db, test_organization, db_user):
 
 Always add a `description` to cascade relationships:
 
-```python
-CascadeRelationship(
+<CodeBlock filename="document-relationships.py" language="python">
+{`CascadeRelationship(
     child_model=models.TestResult,
     foreign_key='test_run_id',
     description="Test results belong to a test run and should cascade with it"
-)
-```
+)`}
+</CodeBlock>
 
 ### 2. Consider Data Preservation
 
 Some relationships should **NOT** cascade:
 
-```python
-# DON'T: cascade delete audit logs
+<CodeBlock filename="data-preservation.py" language="python">
+{`# DON'T: cascade delete audit logs
 models.User: [
     CascadeRelationship(
         child_model=models.AuditLog,
@@ -481,42 +481,42 @@ models.User: [
         cascade_delete=True,   # Clean up sessions
         description="User sessions should be removed when user is deleted"
     )
-]
-```
+]`}
+</CodeBlock>
 
 ### 3. Test Cascade Behavior
 
 Always add tests when adding new cascade relationships:
 
-```python
-# tests/backend/crud/test_project_cascade_delete.py
+<CodeBlock filename="test-cascade-behavior.py" language="python">
+{`# tests/backend/crud/test_project_cascade_delete.py
 def test_delete_project_cascades_to_test_sets(test_db, db_project):
-    # ... test implementation ...
-```
+    # ... test implementation ...`}
+</CodeBlock>
 
 ### 4. Monitor Performance
 
 For entities with many children (>1000), monitor cascade performance:
 
-```python
-# Log cascade operations in production
+<CodeBlock filename="monitor-performance.py" language="python">
+{`# Log cascade operations in production
 logger.info(
     f"Cascade soft delete: {count} {child_model.__name__} "
     f"records for {parent_model.__name__} {parent_id}"
-)
-```
+)`}
+</CodeBlock>
 
 ### 5. Keep Cascade Chains Short
 
 Avoid deep cascade chains (>3 levels) as they can be hard to reason about:
 
-```python
-# RECOMMENDED: 2-level cascade
+<CodeBlock filename="cascade-chains.py" language="python">
+{`# RECOMMENDED: 2-level cascade
 Project -> TestSet -> Test
 
 # CAUTION: 4-level cascade (consider carefully)
-Organization -> Project -> TestSet -> Test -> TestResult
-```
+Organization -> Project -> TestSet -> Test -> TestResult`}
+</CodeBlock>
 
 ## Common Patterns
 
@@ -524,21 +524,21 @@ Organization -> Project -> TestSet -> Test -> TestResult
 
 The most common pattern:
 
-```python
-models.TestRun: [
+<CodeBlock filename="pattern-one-to-many.py" language="python">
+{`models.TestRun: [
     CascadeRelationship(
         child_model=models.TestResult,
         foreign_key='test_run_id'
     )
-]
-```
+]`}
+</CodeBlock>
 
 ### Pattern 2: Multiple Children
 
 A parent with multiple child types:
 
-```python
-models.Test: [
+<CodeBlock filename="pattern-multiple-children.py" language="python">
+{`models.Test: [
     CascadeRelationship(
         child_model=models.TestResult,
         foreign_key='test_id'
@@ -551,23 +551,23 @@ models.Test: [
         child_model=models.TestAttachment,
         foreign_key='test_id'
     )
-]
-```
+]`}
+</CodeBlock>
 
 ### Pattern 3: Conditional Cascade
 
 Different behavior for delete vs. restore:
 
-```python
-models.Organization: [
+<CodeBlock filename="pattern-conditional-cascade.py" language="python">
+{`models.Organization: [
     CascadeRelationship(
         child_model=models.Project,
         foreign_key='organization_id',
         cascade_delete=True,   # Delete projects when org is deleted
         cascade_restore=False  # Don't auto-restore (manual review needed)
     )
-]
-```
+]`}
+</CodeBlock>
 
 ## Troubleshooting
 
@@ -613,21 +613,21 @@ If you have existing manual cascade logic, follow these steps:
 
 Add the relationship to `CASCADE_RELATIONSHIPS`:
 
-```python
-models.YourParent: [
+<CodeBlock filename="migration-add-config.py" language="python">
+{`models.YourParent: [
     CascadeRelationship(
         child_model=models.YourChild,
         foreign_key='your_parent_id'
     )
-]
-```
+]`}
+</CodeBlock>
 
 #### Step 2: Remove Manual Logic
 
 Replace manual cascade code:
 
-```python
-# BEFORE: Manual cascade (remove this)
+<CodeBlock filename="migration-remove-manual-logic.py" language="python">
+{`# BEFORE: Manual cascade (remove this)
 def delete_your_parent(db, parent_id, org_id, user_id):
     parent = get_item(db, models.YourParent, parent_id, org_id, user_id)
 
@@ -641,15 +641,15 @@ def delete_your_parent(db, parent_id, org_id, user_id):
 
 # AFTER: Automatic cascade (use this)
 def delete_your_parent(db, parent_id, org_id, user_id):
-    return delete_item(db, models.YourParent, parent_id, org_id, user_id)
-```
+    return delete_item(db, models.YourParent, parent_id, org_id, user_id)`}
+</CodeBlock>
 
 #### Step 3: Update Tests
 
 Update tests to use the new pattern:
 
-```python
-# Update test assertions if needed
+<CodeBlock filename="migration-update-tests.py" language="python">
+{`# Update test assertions if needed
 def test_delete_parent_cascades(test_db, db_parent, db_children):
     # Delete now happens automatically
     deleted = crud.delete_your_parent(test_db, parent_id, org_id, user_id)
@@ -657,8 +657,8 @@ def test_delete_parent_cascades(test_db, db_parent, db_children):
     # Verify cascade with context manager
     with without_soft_delete_filter():
         for child in db_children:
-            assert child.deleted_at is not None
-```
+            assert child.deleted_at is not None`}
+</CodeBlock>
 
 ## Related Documentation
 

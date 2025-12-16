@@ -32,37 +32,37 @@ The test result statistics endpoint (`/test_results/stats`) provides powerful an
 
 All requests require Bearer token authentication:
 
-```bash
-curl -H "Authorization: Bearer YOUR_API_KEY" "URL"
-```
+<CodeBlock filename="authentication.sh" language="bash">
+{`curl -H "Authorization: Bearer YOUR_API_KEY" "URL"`}
+</CodeBlock>
 
 ## Quick Start
 
 ### Basic Usage
 
-```bash
-# Get complete statistics for last 6 months
+<CodeBlock filename="basic-usage.sh" language="bash">
+{`# Get complete statistics for last 6 months
 curl 'http://localhost:8080/test_results/stats' -H 'Authorization: Bearer YOUR_TOKEN'
 
 # Get lightweight summary
 curl 'http://localhost:8080/test_results/stats?mode=summary' -H 'Authorization: Bearer YOUR_TOKEN'
 
 # Get metrics analysis only
-curl 'http://localhost:8080/test_results/stats?mode=metrics' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+curl 'http://localhost:8080/test_results/stats?mode=metrics' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 ### Basic Filtering
 
-```bash
-# Filter by specific test run
+<CodeBlock filename="basic-filtering.sh" language="bash">
+{`# Filter by specific test run
 curl 'http://localhost:8080/test_results/stats?test_run_id=UUID' -H 'Authorization: Bearer YOUR_TOKEN'
 
 # Filter by priority level
 curl 'http://localhost:8080/test_results/stats?priority_min=3' -H 'Authorization: Bearer YOUR_TOKEN'
 
 # Filter by date range
-curl 'http://localhost:8080/test_results/stats?start_date=2024-01-01&end_date=2024-12-31' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+curl 'http://localhost:8080/test_results/stats?start_date=2024-01-01&end_date=2024-12-31' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 ## Data Modes
 
@@ -86,9 +86,9 @@ The endpoint supports configurable data modes for performance optimization:
 
 **Summary Mode (Ultra-lightweight)**
 
-```bash
-curl 'http://localhost:8080/test_results/stats?mode=summary' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+<CodeBlock filename="mode-summary.sh" language="bash">
+{`curl 'http://localhost:8080/test_results/stats?mode=summary' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 Returns only:
 
@@ -97,9 +97,9 @@ Returns only:
 
 **Metrics Mode (Individual metric analysis)**
 
-```bash
-curl 'http://localhost:8080/test_results/stats?mode=metrics&months=12' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+<CodeBlock filename="mode-metrics.sh" language="bash">
+{`curl 'http://localhost:8080/test_results/stats?mode=metrics&months=12' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 Returns only:
 
@@ -108,9 +108,9 @@ Returns only:
 
 **Timeline Mode (Trend analysis)**
 
-```bash
-curl 'http://localhost:8080/test_results/stats?mode=timeline&months=6' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+<CodeBlock filename="mode-timeline.sh" language="bash">
+{`curl 'http://localhost:8080/test_results/stats?mode=timeline&months=6' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 Returns only:
 
@@ -171,44 +171,44 @@ All list-based filters support multiple values using repeated parameters:
 
 ### Multiple Test Runs
 
-```bash
-# Multiple test runs
+<CodeBlock filename="multiple-test-runs.sh" language="bash">
+{`# Multiple test runs
 curl 'http://localhost:8080/test_results/stats?test_run_ids=uuid1&test_run_ids=uuid2' -H 'Authorization: Bearer YOUR_TOKEN'
 
 # Backward compatibility (combines both)
-curl 'http://localhost:8080/test_results/stats?test_run_id=uuid1&test_run_ids=uuid2' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+curl 'http://localhost:8080/test_results/stats?test_run_id=uuid1&test_run_ids=uuid2' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 ### Multiple Behaviors/Categories/Topics
 
-```bash
-# Multiple behaviors
+<CodeBlock filename="multiple-behaviors-categories.sh" language="bash">
+{`# Multiple behaviors
 curl 'http://localhost:8080/test_results/stats?behavior_ids=uuid1&behavior_ids=uuid2' -H 'Authorization: Bearer YOUR_TOKEN'
 
 # Multiple categories
-curl 'http://localhost:8080/test_results/stats?category_ids=uuid1&category_ids=uuid2' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+curl 'http://localhost:8080/test_results/stats?category_ids=uuid1&category_ids=uuid2' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 ### Multiple Users/Teams
 
-```bash
-# Multiple team members
-curl 'http://localhost:8080/test_results/stats?user_ids=dev1&user_ids=dev2&assignee_ids=lead1' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+<CodeBlock filename="multiple-users-teams.sh" language="bash">
+{`# Multiple team members
+curl 'http://localhost:8080/test_results/stats?user_ids=dev1&user_ids=dev2&assignee_ids=lead1' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 ### Multiple Tags
 
-```bash
-# Multiple tags (AND logic - tests must have ALL tags)
-curl 'http://localhost:8080/test_results/stats?tags=urgent&tags=healthcare' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+<CodeBlock filename="multiple-tags.sh" language="bash">
+{`# Multiple tags (AND logic - tests must have ALL tags)
+curl 'http://localhost:8080/test_results/stats?tags=urgent&tags=healthcare' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 ## Response Structure
 
 ### Summary Mode Response
 
-```json
-{
+<CodeBlock filename="response-summary-mode.json" language="json">
+{`{
   "overall_pass_rates": {
     "total": 150,
     "passed": 75,
@@ -227,13 +227,13 @@ curl 'http://localhost:8080/test_results/stats?tags=urgent&tags=healthcare' -H '
     "available_categories": ["RAG Systems", "Chatbots"],
     "available_topics": ["Healthcare", "Finance"]
   }
-}
-```
+}`}
+</CodeBlock>
 
 ### Metrics Mode Response
 
-```json
-{
+<CodeBlock filename="response-metrics-mode.json" language="json">
+{`{
   "metric_pass_rates": {
     "Answer Fluency": {
       "total": 150,
@@ -249,8 +249,8 @@ curl 'http://localhost:8080/test_results/stats?tags=urgent&tags=healthcare' -H '
     }
   },
   "metadata": { "mode": "metrics", ... }
-}
-```
+}`}
+</CodeBlock>
 
 ### Complete Mode Sections
 
@@ -272,42 +272,42 @@ curl 'http://localhost:8080/test_results/stats?tags=urgent&tags=healthcare' -H '
 
 **For Dashboard Widgets**
 
-```bash
-# Ultra-fast, minimal data
-curl 'http://localhost:8080/test_results/stats?mode=summary&months=1' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+<CodeBlock filename="dashboard-widgets.sh" language="bash">
+{`# Ultra-fast, minimal data
+curl 'http://localhost:8080/test_results/stats?mode=summary&months=1' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 **For Specific Analysis**
 
-```bash
-# Only metrics data
+<CodeBlock filename="specific-analysis.sh" language="bash">
+{`# Only metrics data
 curl 'http://localhost:8080/test_results/stats?mode=metrics&test_set_ids=uuid' -H 'Authorization: Bearer YOUR_TOKEN'
 
 # Only behavior trends
-curl 'http://localhost:8080/test_results/stats?mode=behavior&months=6' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+curl 'http://localhost:8080/test_results/stats?mode=behavior&months=6' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 **For Time-based Charts**
 
-```bash
-# Timeline data only
-curl 'http://localhost:8080/test_results/stats?mode=timeline&start_date=2024-01-01&end_date=2024-06-30' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+<CodeBlock filename="time-based-charts.sh" language="bash">
+{`# Timeline data only
+curl 'http://localhost:8080/test_results/stats?mode=timeline&start_date=2024-01-01&end_date=2024-06-30' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 ### Use Targeted Filters
 
 **Reduce Dataset Size**
 
-```bash
-# Specific test set analysis
+<CodeBlock filename="reduce-dataset-size.sh" language="bash">
+{`# Specific test set analysis
 curl 'http://localhost:8080/test_results/stats?test_set_ids=uuid&mode=metrics' -H 'Authorization: Bearer YOUR_TOKEN'
 
 # High-priority tests only
 curl 'http://localhost:8080/test_results/stats?priority_min=3&mode=summary' -H 'Authorization: Bearer YOUR_TOKEN'
 
 # Recent data only
-curl 'http://localhost:8080/test_results/stats?months=1&mode=timeline' -H 'Authorization: Bearer YOUR_TOKEN'
-```
+curl 'http://localhost:8080/test_results/stats?months=1&mode=timeline' -H 'Authorization: Bearer YOUR_TOKEN'`}
+</CodeBlock>
 
 ## Complete Examples
 
@@ -315,63 +315,63 @@ curl 'http://localhost:8080/test_results/stats?months=1&mode=timeline' -H 'Autho
 
 **Executive Dashboard (Ultra-fast)**
 
-```bash
-curl 'http://localhost:8080/test_results/stats?mode=summary&months=1' -H 'Authorization: Bearer YOUR_TOKEN'
-# Response time: ~50ms, Data size: ~5%
-```
+<CodeBlock filename="executive-dashboard.sh" language="bash">
+{`curl 'http://localhost:8080/test_results/stats?mode=summary&months=1' -H 'Authorization: Bearer YOUR_TOKEN'
+# Response time: ~50ms, Data size: ~5%`}
+</CodeBlock>
 
 **Team Performance Dashboard**
 
-```bash
-curl 'http://localhost:8080/test_results/stats?mode=test_runs&assignee_ids=lead1&assignee_ids=lead2&months=3' -H 'Authorization: Bearer YOUR_TOKEN'
-# Shows test run performance for specific team leads
-```
+<CodeBlock filename="team-performance-dashboard.sh" language="bash">
+{`curl 'http://localhost:8080/test_results/stats?mode=test_runs&assignee_ids=lead1&assignee_ids=lead2&months=3' -H 'Authorization: Bearer YOUR_TOKEN'
+# Shows test run performance for specific team leads`}
+</CodeBlock>
 
 ### Analytics Use Cases
 
 **Metric Performance Analysis**
 
-```bash
-curl 'http://localhost:8080/test_results/stats?mode=metrics&test_set_ids=regression_suite&months=12' -H 'Authorization: Bearer YOUR_TOKEN'
-# 12-month metric trends for regression test suite
-```
+<CodeBlock filename="metric-performance-analysis.sh" language="bash">
+{`curl 'http://localhost:8080/test_results/stats?mode=metrics&test_set_ids=regression_suite&months=12' -H 'Authorization: Bearer YOUR_TOKEN'
+# 12-month metric trends for regression test suite`}
+</CodeBlock>
 
 **Behavior Comparison**
 
-```bash
-curl 'http://localhost:8080/test_results/stats?mode=behavior&behavior_ids=uuid1&behavior_ids=uuid2&start_date=2024-01-01&end_date=2024-06-30' -H 'Authorization: Bearer YOUR_TOKEN'
-# Compare specific behaviors over date range
-```
+<CodeBlock filename="behavior-comparison.sh" language="bash">
+{`curl 'http://localhost:8080/test_results/stats?mode=behavior&behavior_ids=uuid1&behavior_ids=uuid2&start_date=2024-01-01&end_date=2024-06-30' -H 'Authorization: Bearer YOUR_TOKEN'
+# Compare specific behaviors over date range`}
+</CodeBlock>
 
 **Category Trends**
 
-```bash
-curl 'http://localhost:8080/test_results/stats?mode=category&category_ids=chatbot&months=6' -H 'Authorization: Bearer YOUR_TOKEN'
-# 6-month category performance trends
-```
+<CodeBlock filename="category-trends.sh" language="bash">
+{`curl 'http://localhost:8080/test_results/stats?mode=category&category_ids=chatbot&months=6' -H 'Authorization: Bearer YOUR_TOKEN'
+# 6-month category performance trends`}
+</CodeBlock>
 
 ### Advanced Filtering
 
 **Urgent Healthcare Tests**
 
-```bash
-curl 'http://localhost:8080/test_results/stats?behavior_ids=healthcare_uuid&tags=urgent&priority_min=4&mode=summary' -H 'Authorization: Bearer YOUR_TOKEN'
-# High-priority urgent healthcare test performance
-```
+<CodeBlock filename="urgent-healthcare-tests.sh" language="bash">
+{`curl 'http://localhost:8080/test_results/stats?behavior_ids=healthcare_uuid&tags=urgent&priority_min=4&mode=summary' -H 'Authorization: Bearer YOUR_TOKEN'
+# High-priority urgent healthcare test performance`}
+</CodeBlock>
 
 **Team Regression Analysis**
 
-```bash
-curl 'http://localhost:8080/test_results/stats?tags=regression&assignee_ids=dev1&assignee_ids=dev2&start_date=2024-01-01&mode=test_runs' -H 'Authorization: Bearer YOUR_TOKEN'
-# Regression test performance by team members
-```
+<CodeBlock filename="team-regression-analysis.sh" language="bash">
+{`curl 'http://localhost:8080/test_results/stats?tags=regression&assignee_ids=dev1&assignee_ids=dev2&start_date=2024-01-01&mode=test_runs' -H 'Authorization: Bearer YOUR_TOKEN'
+# Regression test performance by team members`}
+</CodeBlock>
 
 **Multi-dimensional Analysis**
 
-```bash
-curl 'http://localhost:8080/test_results/stats?test_set_ids=suite1&test_set_ids=suite2&behavior_ids=behavior1&category_ids=category1&priority_min=2&mode=all' -H 'Authorization: Bearer YOUR_TOKEN'
-# Complete analysis across multiple dimensions
-```
+<CodeBlock filename="multi-dimensional-analysis.sh" language="bash">
+{`curl 'http://localhost:8080/test_results/stats?test_set_ids=suite1&test_set_ids=suite2&behavior_ids=behavior1&category_ids=category1&priority_min=2&mode=all' -H 'Authorization: Bearer YOUR_TOKEN'
+# Complete analysis across multiple dimensions`}
+</CodeBlock>
 
 ## Best Practices
 
@@ -386,33 +386,33 @@ curl 'http://localhost:8080/test_results/stats?test_set_ids=suite1&test_set_ids=
 
 **Good Examples:**
 
-```bash
-# Lightweight dashboard widget
+<CodeBlock filename="query-optimization-good.sh" language="bash">
+{`# Lightweight dashboard widget
 ?mode=summary&months=1
 
 # Focused metric analysis
 ?mode=metrics&test_set_ids=uuid&months=3
 
 # Targeted behavior comparison
-?mode=behavior&behavior_ids=uuid1&behavior_ids=uuid2&months=6
-```
+?mode=behavior&behavior_ids=uuid1&behavior_ids=uuid2&months=6`}
+</CodeBlock>
 
 **Avoid These:**
 
-```bash
-# Unnecessarily broad queries
+<CodeBlock filename="query-optimization-avoid.sh" language="bash">
+{`# Unnecessarily broad queries
 ?mode=all&months=24
 
 # Unfocused large datasets
-?mode=all  # without any filters
-```
+?mode=all  # without any filters`}
+</CodeBlock>
 
 ### Error Handling
 
 The API provides clear validation errors:
 
-```json
-{
+<CodeBlock filename="error-validation.json" language="json">
+{`{
   "detail": [
     {
       "type": "int_parsing",
@@ -421,15 +421,15 @@ The API provides clear validation errors:
       "input": "abc"
     }
   ]
-}
-```
+}`}
+</CodeBlock>
 
 ### Integration Tips
 
 **React/JavaScript Usage:**
 
-```javascript
-// Dashboard widget
+<CodeBlock filename="integration-javascript.js" language="javascript">
+{`// Dashboard widget
 const summaryData = await fetch("/test_results/stats?mode=summary&months=1");
 
 // Chart data
@@ -438,13 +438,13 @@ const metricsData = await fetch(
 );
 
 // Timeline chart
-const timelineData = await fetch("/test_results/stats?mode=timeline&months=6");
-```
+const timelineData = await fetch("/test_results/stats?mode=timeline&months=6");`}
+</CodeBlock>
 
 **Python Usage:**
 
-```python
-import requests
+<CodeBlock filename="integration-python.py" language="python">
+{`import requests
 
 # Dashboard summary
 response = requests.get(
@@ -463,8 +463,8 @@ response = requests.get(
         "priority_min": 3,
         "months": 6
     }
-)
-```
+)`}
+</CodeBlock>
 
 This endpoint provides enterprise-level analytics capabilities with the flexibility and performance needed for production dashboards and detailed analysis workflows.
 

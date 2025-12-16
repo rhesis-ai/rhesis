@@ -126,15 +126,15 @@ Tests are located in the `tests/backend/` directory. When writing tests:
 
 Run the test suite:
 
-```bash
-pytest
-```
+<CodeBlock filename="run-tests.sh" language="bash">
+{`pytest`}
+</CodeBlock>
 
 Run specific tests:
 
-```bash
-pytest tests/backend/test_specific_module.py
-```
+<CodeBlock filename="run-specific-tests.sh" language="bash">
+{`pytest tests/backend/test_specific_module.py`}
+</CodeBlock>
 
 ## Debugging
 
@@ -142,14 +142,14 @@ pytest tests/backend/test_specific_module.py
 
 Use the application's logging system for debugging:
 
-```python
-from rhesis.backend.logging import logger
+<CodeBlock filename="logging-example.py" language="python">
+{`from rhesis.backend.logging import logger
 
 logger.debug("Debug message")
 logger.info("Info message")
 logger.warning("Warning message")
-logger.error("Error message")
-```
+logger.error("Error message")`}
+</CodeBlock>
 
 ### Interactive Debugging
 
@@ -179,15 +179,15 @@ Follow these guidelines for commit messages:
 
 Example:
 
-```
-Add user authentication endpoint
+<CodeBlock filename="commit-message-example.txt" language="text">
+{`Add user authentication endpoint
 
 - Implement JWT token generation
 - Add user validation
 - Set up Auth0 integration
 
-Fixes #123
-```
+Fixes #123`}
+</CodeBlock>
 
 ### Pull Requests
 
