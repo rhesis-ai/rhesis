@@ -2,6 +2,7 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: "Overview",
+  dashboard: "Dashboard",
   organizations: "Organizations & Team",
   "---": {
     type: "separator",
