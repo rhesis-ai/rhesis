@@ -35,64 +35,55 @@ const features = [
   {
     icon: BusinessIcon,
     title: 'Organizations & Team',
-    description:
-      'Manage organization settings and invite team members.',
+    description: 'Manage organization settings and invite team members.',
     link: '/platform/organizations',
   },
   {
     icon: FolderIcon,
     title: 'Projects',
-    description:
-      'Organize your testing work into projects.',
+    description: 'Organize your testing work into projects.',
     link: '/platform/projects',
   },
   {
     icon: MenuBookIcon,
     title: 'Knowledge',
-    description:
-      'Add sources to generate context-aware test cases.',
+    description: 'Add sources to generate context-aware test cases.',
     link: '/platform/knowledge',
   },
   {
     icon: PsychologyIcon,
     title: 'Behaviors',
-    description:
-      'Define expected behaviors that your AI application should follow during testing.',
+    description: 'Define expected behaviors that your AI application should follow during testing.',
     link: '/platform/behaviors',
   },
   {
     icon: TuneIcon,
     title: 'Metrics',
-    description:
-      'Define and manage LLM-based evaluation criteria.',
+    description: 'Define and manage LLM-based evaluation criteria.',
     link: '/platform/metrics',
   },
   {
     icon: ApiIcon,
     title: 'Endpoints',
-    description:
-      'Configure the AI application you are testing against.',
+    description: 'Configure the AI application you are testing against.',
     link: '/platform/endpoints',
   },
   {
     icon: ModelTrainingIcon,
     title: 'Models',
-    description:
-      'Configure and manage AI models used for test generation and evaluation.',
+    description: 'Configure and manage AI models used for test generation and evaluation.',
     link: '/platform/models',
   },
   {
     icon: AssignmentIcon,
     title: 'Tests',
-    description:
-      'Create and manage test cases manually or generate them using AI.',
+    description: 'Create and manage test cases manually or generate them using AI.',
     link: '/platform/tests',
   },
   {
     icon: LibraryBooksIcon,
     title: 'Test Sets',
-    description:
-      'Organize tests into collections and execute them against your AI application.',
+    description: 'Organize tests into collections and execute them against your AI application.',
     link: '/platform/test-sets',
   },
   {
@@ -105,15 +96,13 @@ const features = [
   {
     icon: BarChartIcon,
     title: 'Results Overview',
-    description:
-      'A global view of all your test results.',
+    description: 'A global view of all your test results.',
     link: '/platform/results-overview',
   },
   {
     icon: SettingsInputComponentIcon,
     title: 'MCP',
-    description:
-      'Connect to Model Context Protocol servers to import knowledge sources.',
+    description: 'Connect to Model Context Protocol servers to import knowledge sources.',
     link: '/platform/mcp',
   },
 ]
