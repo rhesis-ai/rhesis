@@ -187,10 +187,10 @@ export default {
     </>
   ),
 
-  // Banner configuration (if needed)
+  // Banner configuration
   banner: {
     dismissible: true,
-    key: 'rhesis-banner',
+    key: 'star-banner-2025',
   },
 
   // Git timestamp

@@ -1,8 +1,9 @@
 import { Layout, Navbar } from 'nextra-theme-docs'
-import { Banner, Head } from 'nextra/components'
+import { Head } from 'nextra/components'
 import { getPageMap } from 'nextra/page-map'
 import ThemeAwareLogo from '../components/ThemeAwareLogo'
 import Footer from '../components/Footer'
+import GitHubStarBanner from '../components/GitHubStarBanner'
 import 'nextra-theme-docs/style.css'
 import '../styles/globals.css'
 
@@ -43,6 +44,7 @@ export default async function RootLayout({ children }) {
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <Head />
       <body>
+        <GitHubStarBanner />
         <Layout
           navbar={navbar}
           footer={footer}
