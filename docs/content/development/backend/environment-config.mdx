@@ -6,6 +6,10 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 The Rhesis backend uses environment variables for configuration, allowing for different settings across development, testing, and production environments. This approach follows the [12-factor app](https://12factor.net/) methodology for configuration management.
 
+## Environment Variables Reference
+
+For a complete list of all environment variables, their requirements, and descriptions, see the [Environment Variables](../environment-variables.mdx).
+
 ## Environment Files
 
 The application supports multiple environment files:
@@ -18,114 +22,17 @@ The application supports multiple environment files:
 
 Environment variables are loaded using the `python-dotenv` library:
 
-<CodeBlock filename="load-dotenv.py" language="python">
+<CodeBlock filename="python" language="python">
 {`from dotenv import load_dotenv
 
 load_dotenv()  # Loads variables from .env file`}
 </CodeBlock>
 
-## Core Configuration Categories
-
-### Database Configuration
-
-<CodeBlock filename="database-config.env" language="bash">
-{`# PostgreSQL Configuration
-SQLALCHEMY_DB_DRIVER=postgresql
-SQLALCHEMY_DB_USER=username
-SQLALCHEMY_DB_PASS=password
-SQLALCHEMY_DB_HOST=localhost
-SQLALCHEMY_DB_NAME=rhesis
-SQLALCHEMY_DATABASE_URL=postgresql://username:password@localhost:5432/rhesis
-SQLALCHEMY_DATABASE_TEST_URL=postgresql://username:password@localhost:5432/rhesis-test
-
-# Database Encryption Configuration (Required)
-DB_ENCRYPTION_KEY=your-32-byte-url-safe-base64-encoded-key`}
-</CodeBlock>
-
-**Generating an Encryption Key:**
-
-<CodeBlock filename="generate-encryption-key.sh" language="bash">
-{`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`}
-</CodeBlock>
-
-**Security Notes:**
-
-- ⚠️ **Never commit this key to version control**
-- ⚠️ Use different keys for dev, staging, and production
-- ⚠️ Back up production keys securely
-- ⚠️ Store in secure secret management systems (GCP Secret Manager, AWS Secrets Manager, etc.)
-
-See: [Database Field Encryption](./database-field-encryption.mdx) and [Encryption Troubleshooting](./encryption-troubleshooting.mdx) for detailed setup instructions.
-
-### Authentication Configuration
-
-<CodeBlock filename="auth-config.env" language="bash">
-{`# Auth0 Configuration
-AUTH0_DOMAIN=dev-rhesis.eu.auth0.com
-AUTH0_AUDIENCE=audience-id
-AUTH0_CLIENT_ID=client-id
-AUTH0_CLIENT_SECRET=client-secret
-AUTH0_SECRET_KEY=secret-key
-
-# JWT Configuration
-JWT_SECRET_KEY=your-jwt-secret-key
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440`}
-</CodeBlock>
-
-### Application Configuration
-
-<CodeBlock filename="app-config.env" language="bash">
-{`# App & Logging Configuration
-LOG_LEVEL=DEBUG
-RHESIS_BASE_PATH=/path/to/rhesis/
-FRONTEND_URL=http://localhost:3000`}
-</CodeBlock>
-
-### AI Model Configuration
-
-<CodeBlock filename="ai-model-config.env" language="bash">
-{`# OpenAI Configuration
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL_NAME=gpt-4o
-
-# Hugging Face Configuration
-HF_API_TOKEN=your-huggingface-token`}
-</CodeBlock>
-
-### Background Task Configuration
-
-<CodeBlock filename="celery-config.env" language="bash">
-{`# Celery Configuration
-BROKER_URL=sqla+postgresql://celery-user:password@localhost:5432/celery
-CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@localhost:5432/celery`}
-</CodeBlock>
-
-## Environment Variable Usage
-
-Environment variables are accessed throughout the codebase using `os.getenv()`:
-
-<CodeBlock filename="env-var-usage.py" language="python">
-{`import os
-
-database_url = os.getenv("SQLALCHEMY_DATABASE_URL", "sqlite:///./test.db")`}
-</CodeBlock>
-
-The second parameter provides a default value if the environment variable is not set.
-
-## Sensitive Information
-
-Sensitive information such as API keys and passwords should never be committed to version control. Instead:
-
-1. Use placeholder values in `.env.example`
-2. Document the required variables
-3. Use secrets management in production environments
-
 ## Environment-Specific Configuration
 
 The application can load different configuration based on the environment:
 
-<CodeBlock filename="environment-specific-config.py" language="python">
+<CodeBlock filename="python" language="python">
 {`import os
 
 # Determine environment
@@ -152,7 +59,7 @@ else:
 
 The application validates critical configuration at startup:
 
-<CodeBlock filename="validate-config.py" language="python">
+<CodeBlock filename="python" language="python">
 {`def validate_config():
     """Validate that all required configuration is present."""
     required_vars = [
@@ -196,3 +103,20 @@ For cloud deployments, environment variables should be set using the cloud provi
 - Google Cloud: Secret Manager and environment variables in Cloud Run
 - AWS: Parameter Store/Secrets Manager and environment variables in ECS/Lambda
 - Azure: Key Vault and App Configuration
+
+## Security Best Practices
+
+- ⚠️ **Never commit sensitive values to version control**
+- ⚠️ Use different keys and secrets for dev, staging, and production
+- ⚠️ Back up production keys securely
+- ⚠️ Store in secure secret management systems (GCP Secret Manager, AWS Secrets Manager, etc.)
+- ⚠️ Rotate secrets regularly
+- ⚠️ Use environment-specific configurations for production
+
+## Sensitive Information
+
+Sensitive information such as API keys and passwords should never be committed to version control. Instead:
+
+1. Use placeholder values in `.env.example`
+2. Document the required variables in the [Environment Setup Guide](../environment-setup.mdx)
+3. Use secrets management in production environments
