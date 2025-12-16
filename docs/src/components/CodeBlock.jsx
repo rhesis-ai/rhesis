@@ -265,7 +265,7 @@ export const CodeBlock = ({
           if (/^\s*#/.test(line)) {
             return '<span class="code-comment">' + line + '</span>'
           }
-          
+
           // For other lines, only highlight # and everything after it as comments, avoiding strings
           if (line.includes('class="code-string"')) {
             const parts = line.split(/(<span class="code-string">.*?<\/span>)/)

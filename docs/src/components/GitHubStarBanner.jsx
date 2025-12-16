@@ -49,12 +49,12 @@ export default function GitHubStarBanner() {
           fontSize: '14px',
           transition: 'opacity 0.2s ease-in-out',
         }}
-        onMouseEnter={(e) => (e.target.style.opacity = '0.9')}
-        onMouseLeave={(e) => (e.target.style.opacity = '1')}
+        onMouseEnter={e => (e.target.style.opacity = '0.9')}
+        onMouseLeave={e => (e.target.style.opacity = '1')}
       >
         ⭐ If you find Rhesis useful, please star us on GitHub! →
       </a>
-      
+
       <button
         onClick={handleDismiss}
         style={{
@@ -74,11 +74,11 @@ export default function GitHubStarBanner() {
           justifyContent: 'center',
           transition: 'all 0.2s ease-in-out',
         }}
-        onMouseEnter={(e) => {
+        onMouseEnter={e => {
           e.target.style.opacity = '1'
           e.target.style.background = 'rgba(255, 255, 255, 0.1)'
         }}
-        onMouseLeave={(e) => {
+        onMouseLeave={e => {
           e.target.style.opacity = '0.8'
           e.target.style.background = 'transparent'
         }}

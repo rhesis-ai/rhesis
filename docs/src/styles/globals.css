@@ -1194,21 +1194,21 @@ div.mermaid svg {
 
 /* Style the close button to match the banner - minimal overrides */
 .nextra-banner button,
-.nextra-banner [role="button"] {
+.nextra-banner [role='button'] {
   color: #ffffff !important;
   opacity: 0.8;
   transition: all 0.2s ease-in-out;
 }
 
 .nextra-banner button:hover,
-.nextra-banner [role="button"]:hover {
+.nextra-banner [role='button']:hover {
   opacity: 1 !important;
   background: rgba(255, 255, 255, 0.1) !important;
 }
 
 /* Ensure the X icon is white */
 .nextra-banner button svg,
-.nextra-banner [role="button"] svg {
+.nextra-banner [role='button'] svg {
   color: #ffffff !important;
   fill: #ffffff !important;
 }
@@ -1216,7 +1216,7 @@ div.mermaid svg {
 /* Override text color but preserve functionality */
 .nextra-banner a,
 .nextra-banner span,
-.nextra-banner div:not(button):not([role="button"]) {
+.nextra-banner div:not(button):not([role='button']) {
   color: #ffffff !important;
 }
 
