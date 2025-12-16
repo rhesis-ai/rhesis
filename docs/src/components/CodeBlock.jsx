@@ -140,7 +140,7 @@ export const CodeBlock = ({
 
       // 2. Strings (to protect content inside strings) - avoid already commented lines
       // Handle triple-quoted strings first (they can contain quotes inside)
-      let parts = highlightedCode.split(/(<span class="code-comment">.*?<\/span>)/g)
+      const parts = highlightedCode.split(/(<span class="code-comment">.*?<\/span>)/g)
       highlightedCode = parts
         .map(part => {
           if (part.includes('class="code-comment"')) {
@@ -167,7 +167,7 @@ export const CodeBlock = ({
         .join('')
 
       // 3. Inline comments (# and everything after) - avoid matching inside strings and already commented lines
-      let commentParts = highlightedCode.split(/(<span class="code-[^"]*">[\s\S]*?<\/span>)/g)
+      const commentParts = highlightedCode.split(/(<span class="code-[^"]*">[\s\S]*?<\/span>)/g)
       highlightedCode = commentParts
         .map(part => {
           if (part.includes('class="code-')) {
@@ -178,7 +178,7 @@ export const CodeBlock = ({
         .join('')
 
       // 4. Numbers - avoid inside strings and comments
-      let numberParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      const numberParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
       highlightedCode = numberParts
         .map(part => {
           if (part.startsWith('<span')) {
@@ -189,7 +189,7 @@ export const CodeBlock = ({
         .join('')
 
       // 5. Keywords - avoid inside strings, comments, and numbers
-      let keywordParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      const keywordParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
       highlightedCode = keywordParts
         .map(part => {
           if (part.startsWith('<span')) {
@@ -283,7 +283,7 @@ export const CodeBlock = ({
         .join('\n')
 
       // 3. Numbers - avoid inside strings and comments
-      let jsonNumberParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      const jsonNumberParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
       highlightedCode = jsonNumberParts
         .map(part => {
           if (part.startsWith('<span')) {
@@ -297,7 +297,7 @@ export const CodeBlock = ({
         .join('')
 
       // 4. Keywords (true, false, null) - avoid inside strings, comments, and numbers
-      let jsonKeywordParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      const jsonKeywordParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
       highlightedCode = jsonKeywordParts
         .map(part => {
           if (part.startsWith('<span')) {
