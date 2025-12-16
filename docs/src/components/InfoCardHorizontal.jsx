@@ -52,6 +52,7 @@ export const InfoCardHorizontal = ({
       backgroundColor: 'var(--card-bg, #ffffff)',
       transition: 'all 0.2s ease',
       boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+      textDecoration: 'none',
     },
     iconWrapper: {
       flexShrink: 0,
@@ -96,8 +97,8 @@ export const InfoCardHorizontal = ({
     },
   }
 
-  return (
-    <div style={styles.card} className={`info-card-horizontal ${className}`}>
+  const cardContent = (
+    <>
       <div style={styles.iconWrapper}>
         <Icon style={styles.icon} />
       </div>
@@ -105,17 +106,44 @@ export const InfoCardHorizontal = ({
         <h3 style={styles.title}>{title}</h3>
         {children || <p style={styles.description}>{description}</p>}
         {hasLink && (
-          <a
-            href={link}
-            target={external ? '_blank' : '_self'}
-            rel={external ? 'noopener noreferrer' : undefined}
-            style={styles.link}
-            className="info-card-link"
-          >
-            {linkText}
-          </a>
+          <span style={styles.link}>
+            {linkText || 'Learn more →'}
+          </span>
         )}
       </div>
+    </>
+  )
+
+  if (hasLink) {
+    return (
+      <a
+        href={link}
+        target={external ? '_blank' : '_self'}
+        rel={external ? 'noopener noreferrer' : undefined}
+        style={{
+          ...styles.card,
+          textDecoration: 'none',
+          color: 'inherit',
+          cursor: 'pointer',
+        }}
+        className={`info-card-horizontal ${className}`}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+          e.currentTarget.style.transform = 'translateY(-2px)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
+          e.currentTarget.style.transform = 'translateY(0)'
+        }}
+      >
+        {cardContent}
+      </a>
+    )
+  }
+
+  return (
+    <div style={styles.card} className={`info-card-horizontal ${className}`}>
+      {cardContent}
     </div>
   )
 }
