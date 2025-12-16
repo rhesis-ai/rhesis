@@ -123,56 +123,63 @@ export const CodeBlock = ({
     let highlightedCode = code
 
     if (language === 'python') {
-      // Apply highlighting in order: strings, comments, numbers, keywords
+      // Apply highlighting in order: comments first (to catch entire commented lines), then strings, numbers, keywords
       // Each step must avoid already-highlighted content
 
-      // 1. Strings first (to protect content inside strings)
+      // 1. Comments first - treat entire lines starting with # as comments (even if they contain code-like structures)
+      highlightedCode = highlightedCode
+        .split('\n')
+        .map(line => {
+          // If line starts with # (optionally preceded by whitespace), treat entire line as comment
+          if (/^\s*#/.test(line)) {
+            return '<span class="code-comment">' + line + '</span>'
+          }
+          return line
+        })
+        .join('\n')
+
+      // 2. Strings (to protect content inside strings) - avoid already commented lines
       // Handle triple-quoted strings first (they can contain quotes inside)
-      highlightedCode = highlightedCode.replace(
-        /"""[\s\S]*?"""/g,
-        '<span class="code-string">$&</span>'
-      )
-      highlightedCode = highlightedCode.replace(
-        /'''[\s\S]*?'''/g,
-        '<span class="code-string">$&</span>'
-      )
-      // Then handle single-line strings (avoid already-highlighted triple-quoted strings)
-      const stringParts = highlightedCode.split(/(<span class="code-string">[\s\S]*?<\/span>)/g)
+      let parts = highlightedCode.split(/(<span class="code-comment">.*?<\/span>)/g)
+      highlightedCode = parts
+        .map(part => {
+          if (part.includes('class="code-comment"')) {
+            return part
+          }
+          return part
+            .replace(/"""[\s\S]*?"""/g, '<span class="code-string">$&</span>')
+            .replace(/'''[\s\S]*?'''/g, '<span class="code-string">$&</span>')
+        })
+        .join('')
+
+      // Then handle single-line strings (avoid already-highlighted content)
+      const stringParts = highlightedCode.split(/(<span class="code-[^"]*">[\s\S]*?<\/span>)/g)
       highlightedCode = stringParts
         .map(part => {
-          if (part.includes('class="code-string"')) {
+          if (part.includes('class="code-')) {
             return part
           }
           // Apply single-line string highlighting
-          // Use [^"\n] instead of [^"\\] to explicitly exclude newlines and ensure single-line matching
           return part
             .replace(/"(?:[^"\\\n]|\\.)*"/g, '<span class="code-string">$&</span>')
             .replace(/'(?:[^'\\\n]|\\.)*'/g, '<span class="code-string">$&</span>')
         })
         .join('')
 
-      // 2. Comments - avoid matching inside strings
-      highlightedCode = highlightedCode
-        .split('\n')
-        .map(line => {
-          if (line.includes('class="code-string"')) {
-            const parts = line.split(/(<span class="code-string">.*?<\/span>)/)
-            return parts
-              .map(part => {
-                if (part.includes('class="code-string"')) {
-                  return part
-                }
-                return part.replace(/#.*$/, '<span class="code-comment">$&</span>')
-              })
-              .join('')
+      // 3. Inline comments (# and everything after) - avoid matching inside strings and already commented lines
+      let commentParts = highlightedCode.split(/(<span class="code-[^"]*">[\s\S]*?<\/span>)/g)
+      highlightedCode = commentParts
+        .map(part => {
+          if (part.includes('class="code-')) {
+            return part
           }
-          return line.replace(/#.*$/, '<span class="code-comment">$&</span>')
+          return part.replace(/#.*$/, '<span class="code-comment">$&</span>')
         })
-        .join('\n')
+        .join('')
 
-      // 3. Numbers - avoid inside strings and comments
-      let parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
-      highlightedCode = parts
+      // 4. Numbers - avoid inside strings and comments
+      let numberParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      highlightedCode = numberParts
         .map(part => {
           if (part.startsWith('<span')) {
             return part
@@ -181,9 +188,9 @@ export const CodeBlock = ({
         })
         .join('')
 
-      // 4. Keywords - avoid inside strings, comments, and numbers
-      parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
-      highlightedCode = parts
+      // 5. Keywords - avoid inside strings, comments, and numbers
+      let keywordParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      highlightedCode = keywordParts
         .map(part => {
           if (part.startsWith('<span')) {
             return part
@@ -228,8 +235,8 @@ export const CodeBlock = ({
         .join('\n')
 
       // 3. Commands - avoid inside strings and comments
-      const parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
-      highlightedCode = parts
+      const commandParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      highlightedCode = commandParts
         .map(part => {
           if (part.startsWith('<span')) {
             return part
@@ -242,7 +249,7 @@ export const CodeBlock = ({
         .join('')
     } else if (language === 'json') {
       // JSON syntax highlighting
-      // Apply highlighting in order: strings, numbers, keywords (true/false/null)
+      // Apply highlighting in order: strings, comments, numbers, keywords (true/false/null)
 
       // 1. Strings first (including keys and values)
       highlightedCode = highlightedCode.replace(
@@ -250,9 +257,34 @@ export const CodeBlock = ({
         '<span class="code-string">$&</span>'
       )
 
-      // 2. Numbers - avoid inside strings
-      let parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
-      highlightedCode = parts
+      // 2. Comments - treat entire lines starting with # as comments (even if they contain JSON-like structures)
+      highlightedCode = highlightedCode
+        .split('\n')
+        .map(line => {
+          // If line starts with # (optionally preceded by whitespace), treat entire line as comment
+          if (/^\s*#/.test(line)) {
+            return '<span class="code-comment">' + line + '</span>'
+          }
+          
+          // For other lines, only highlight # and everything after it as comments, avoiding strings
+          if (line.includes('class="code-string"')) {
+            const parts = line.split(/(<span class="code-string">.*?<\/span>)/)
+            return parts
+              .map(part => {
+                if (part.includes('class="code-string"')) {
+                  return part
+                }
+                return part.replace(/#.*$/, '<span class="code-comment">$&</span>')
+              })
+              .join('')
+          }
+          return line.replace(/#.*$/, '<span class="code-comment">$&</span>')
+        })
+        .join('\n')
+
+      // 3. Numbers - avoid inside strings and comments
+      let jsonNumberParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      highlightedCode = jsonNumberParts
         .map(part => {
           if (part.startsWith('<span')) {
             return part
@@ -264,9 +296,9 @@ export const CodeBlock = ({
         })
         .join('')
 
-      // 3. Keywords (true, false, null) - avoid inside strings and numbers
-      parts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
-      highlightedCode = parts
+      // 4. Keywords (true, false, null) - avoid inside strings, comments, and numbers
+      let jsonKeywordParts = highlightedCode.split(/(<span[^>]*>[\s\S]*?<\/span>)/g)
+      highlightedCode = jsonKeywordParts
         .map(part => {
           if (part.startsWith('<span')) {
             return part

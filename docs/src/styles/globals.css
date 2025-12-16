@@ -1167,3 +1167,57 @@ div.mermaid svg {
     padding: 0.625rem 0.75rem;
   }
 }
+
+/* GitHub Star Banner Styling */
+.nextra-banner {
+  font-family: 'Be Vietnam Pro', sans-serif !important;
+  background: linear-gradient(135deg, #2aa1ce 0%, #3bc4f2 100%) !important;
+  border: none !important;
+  padding: 4px 16px !important;
+  min-height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  position: relative !important;
+}
+
+.nextra-banner a {
+  transition: opacity 0.2s ease-in-out;
+  color: #ffffff !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+.nextra-banner a:hover {
+  opacity: 0.9;
+  text-decoration: none !important;
+}
+
+/* Style the close button to match the banner - minimal overrides */
+.nextra-banner button,
+.nextra-banner [role="button"] {
+  color: #ffffff !important;
+  opacity: 0.8;
+  transition: all 0.2s ease-in-out;
+}
+
+.nextra-banner button:hover,
+.nextra-banner [role="button"]:hover {
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Ensure the X icon is white */
+.nextra-banner button svg,
+.nextra-banner [role="button"] svg {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+/* Override text color but preserve functionality */
+.nextra-banner a,
+.nextra-banner span,
+.nextra-banner div:not(button):not([role="button"]) {
+  color: #ffffff !important;
+}
+
+/* Remove problematic overrides that might block functionality */
