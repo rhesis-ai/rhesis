@@ -21,17 +21,17 @@ OData (Open Data Protocol) is a REST-based protocol for querying and updating da
 
 ### URL Format
 
-```
-GET /endpoint?$filter=<odata-expression>
-```
+<CodeBlock filename="url-format.txt" language="text">
+{`GET /endpoint?$filter=<odata-expression>`}
+</CodeBlock>
 
 ### Authentication
 
 All requests require a Bearer token:
 
-```bash
-curl -H "Authorization: Bearer YOUR_API_KEY" "URL"
-```
+<CodeBlock filename="authentication.sh" language="bash">
+{`curl -H "Authorization: Bearer YOUR_API_KEY" "URL"`}
+</CodeBlock>
 
 ## Comparison Operators
 
@@ -39,53 +39,53 @@ curl -H "Authorization: Bearer YOUR_API_KEY" "URL"
 
 **Equal (`eq`)**
 
-```bash
-# Find tests with priority = 1
+<CodeBlock filename="equal-operator.sh" language="bash">
+{`# Find tests with priority = 1
 GET /tests?$filter=priority eq 1
 
 # Find behaviors with specific name
-GET /behaviors?$filter=name eq 'Test Behavior'
-```
+GET /behaviors?$filter=name eq 'Test Behavior'`}
+</CodeBlock>
 
 **Not Equal (`ne`)**
 
-```bash
-# Find tests where priority is not null
+<CodeBlock filename="not-equal-operator.sh" language="bash">
+{`# Find tests where priority is not null
 GET /tests?$filter=priority ne null
 
 # Find behaviors not named 'Test'
-GET /behaviors?$filter=name ne 'Test'
-```
+GET /behaviors?$filter=name ne 'Test'`}
+</CodeBlock>
 
 ### Comparison Operators
 
 **Greater Than (`gt`)**
 
-```bash
-# Find tests with priority > 0
-GET /tests?$filter=priority gt 0
-```
+<CodeBlock filename="greater-than.sh" language="bash">
+{`# Find tests with priority > 0
+GET /tests?$filter=priority gt 0`}
+</CodeBlock>
 
 **Less Than (`lt`)**
 
-```bash
-# Find tests with priority < 5
-GET /tests?$filter=priority lt 5
-```
+<CodeBlock filename="less-than.sh" language="bash">
+{`# Find tests with priority < 5
+GET /tests?$filter=priority lt 5`}
+</CodeBlock>
 
 **Greater Than or Equal (`ge`)**
 
-```bash
-# Find tests with priority >= 1
-GET /tests?$filter=priority ge 1
-```
+<CodeBlock filename="greater-equal.sh" language="bash">
+{`# Find tests with priority >= 1
+GET /tests?$filter=priority ge 1`}
+</CodeBlock>
 
 **Less Than or Equal (`le`)**
 
-```bash
-# Find tests with priority <= 5
-GET /tests?$filter=priority le 5
-```
+<CodeBlock filename="less-equal.sh" language="bash">
+{`# Find tests with priority <= 5
+GET /tests?$filter=priority le 5`}
+</CodeBlock>
 
 ## String Functions
 
@@ -93,43 +93,43 @@ All string functions use function-style syntax: `function(field, value)`
 
 ### Contains
 
-```bash
-# Find behaviors containing 'Test' in name
+<CodeBlock filename="contains-function.sh" language="bash">
+{`# Find behaviors containing 'Test' in name
 GET /behaviors?$filter=contains(name,'Test')
 
 # Case-insensitive search
-GET /behaviors?$filter=contains(tolower(name),'test')
-```
+GET /behaviors?$filter=contains(tolower(name),'test')`}
+</CodeBlock>
 
 ### Starts With
 
-```bash
-# Find behaviors starting with 'Test'
-GET /behaviors?$filter=startswith(name,'Test')
-```
+<CodeBlock filename="startswith-function.sh" language="bash">
+{`# Find behaviors starting with 'Test'
+GET /behaviors?$filter=startswith(name,'Test')`}
+</CodeBlock>
 
 ### Ends With
 
-```bash
-# Find behaviors ending with 'Behavior'
-GET /behaviors?$filter=endswith(name,'Behavior')
-```
+<CodeBlock filename="endswith-function.sh" language="bash">
+{`# Find behaviors ending with 'Behavior'
+GET /behaviors?$filter=endswith(name,'Behavior')`}
+</CodeBlock>
 
 ### Case Conversion
 
 **To Lower Case (`tolower`)**
 
-```bash
-# Case-insensitive search using tolower
-GET /behaviors?$filter=contains(tolower(name),'test')
-```
+<CodeBlock filename="tolower-function.sh" language="bash">
+{`# Case-insensitive search using tolower
+GET /behaviors?$filter=contains(tolower(name),'test')`}
+</CodeBlock>
 
 **To Upper Case (`toupper`)**
 
-```bash
-# Case-insensitive search using toupper
-GET /behaviors?$filter=contains(toupper(name),'TEST')
-```
+<CodeBlock filename="toupper-function.sh" language="bash">
+{`# Case-insensitive search using toupper
+GET /behaviors?$filter=contains(toupper(name),'TEST')`}
+</CodeBlock>
 
 ## Navigation Properties
 
@@ -137,74 +137,74 @@ Navigate through relationships using the `/` operator: `relationship/field`
 
 ### Behavior Navigation
 
-```bash
-# Find tests by behavior name
+<CodeBlock filename="behavior-navigation.sh" language="bash">
+{`# Find tests by behavior name
 GET /tests?$filter=behavior/name eq 'Test Behavior'
 
 # Case-insensitive behavior search
-GET /tests?$filter=contains(tolower(behavior/name),'rel')
-```
+GET /tests?$filter=contains(tolower(behavior/name),'rel')`}
+</CodeBlock>
 
 ### Status Navigation
 
-```bash
-# Find tests by status
+<CodeBlock filename="status-navigation.sh" language="bash">
+{`# Find tests by status
 GET /tests?$filter=status/name eq 'New'
 
 # Find active behaviors
-GET /behaviors?$filter=status/name eq 'Active'
-```
+GET /behaviors?$filter=status/name eq 'Active'`}
+</CodeBlock>
 
 ### Prompt Navigation
 
-```bash
-# Find tests by prompt content
-GET /tests?$filter=contains(prompt/content,'test')
-```
+<CodeBlock filename="prompt-navigation.sh" language="bash">
+{`# Find tests by prompt content
+GET /tests?$filter=contains(prompt/content,'test')`}
+</CodeBlock>
 
 ### Topic Navigation
 
-```bash
-# Find tests by topic
-GET /tests?$filter=topic/name eq 'Security'
-```
+<CodeBlock filename="topic-navigation.sh" language="bash">
+{`# Find tests by topic
+GET /tests?$filter=topic/name eq 'Security'`}
+</CodeBlock>
 
 ### Category Navigation
 
-```bash
-# Find tests by category
-GET /tests?$filter=category/name eq 'Performance'
-```
+<CodeBlock filename="category-navigation.sh" language="bash">
+{`# Find tests by category
+GET /tests?$filter=category/name eq 'Performance'`}
+</CodeBlock>
 
 ## Logical Operators
 
 ### AND Operator
 
-```bash
-# Multiple conditions must be true
-GET /tests?$filter=status/name eq 'New' and priority ne null
-```
+<CodeBlock filename="and-operator.sh" language="bash">
+{`# Multiple conditions must be true
+GET /tests?$filter=status/name eq 'New' and priority ne null`}
+</CodeBlock>
 
 ### OR Operator
 
-```bash
-# Either condition can be true
-GET /tests?$filter=priority eq 1 or priority eq 2
-```
+<CodeBlock filename="or-operator.sh" language="bash">
+{`# Either condition can be true
+GET /tests?$filter=priority eq 1 or priority eq 2`}
+</CodeBlock>
 
 ### NOT Operator
 
-```bash
-# Negate a condition (use parentheses)
-GET /tests?$filter=not (priority eq 1)
-```
+<CodeBlock filename="not-operator.sh" language="bash">
+{`# Negate a condition (use parentheses)
+GET /tests?$filter=not (priority eq 1)`}
+</CodeBlock>
 
 ### Complex Expressions with Parentheses
 
-```bash
-# Group conditions with parentheses
-GET /tests?$filter=(status/name eq 'New' and priority ne null) or contains(prompt/content,'test')
-```
+<CodeBlock filename="complex-expressions.sh" language="bash">
+{`# Group conditions with parentheses
+GET /tests?$filter=(status/name eq 'New' and priority ne null) or contains(prompt/content,'test')`}
+</CodeBlock>
 
 ## Advanced Features
 
@@ -212,64 +212,64 @@ GET /tests?$filter=(status/name eq 'New' and priority ne null) or contains(promp
 
 Use `sort_by` and `sort_order` parameters:
 
-```bash
-# Sort by creation date, newest first
+<CodeBlock filename="sorting.sh" language="bash">
+{`# Sort by creation date, newest first
 GET /tests?sort_by=created_at&sort_order=desc
 
 # Sort by priority, lowest first
-GET /tests?sort_by=priority&sort_order=asc
-```
+GET /tests?sort_by=priority&sort_order=asc`}
+</CodeBlock>
 
 ### Pagination
 
 Use `skip` and `limit` parameters:
 
-```bash
-# Get 10 items starting from item 20
+<CodeBlock filename="pagination.sh" language="bash">
+{`# Get 10 items starting from item 20
 GET /tests?skip=20&limit=10
 
 # Combine with filtering
-GET /tests?$filter=status/name eq 'New'&skip=0&limit=50
-```
+GET /tests?$filter=status/name eq 'New'&skip=0&limit=50`}
+</CodeBlock>
 
 ### Combining Parameters
 
-```bash
-# Filter + Sort + Paginate
-GET /tests?$filter=contains(tolower(behavior/name),'rel')&sort_by=created_at&sort_order=desc&skip=0&limit=25
-```
+<CodeBlock filename="combining-parameters.sh" language="bash">
+{`# Filter + Sort + Paginate
+GET /tests?$filter=contains(tolower(behavior/name),'rel')&sort_by=created_at&sort_order=desc&skip=0&limit=25`}
+</CodeBlock>
 
 ## Complete Examples
 
 ### Example 1: Case-Insensitive Behavior Search
 
-```bash
-# Find all tests where behavior name contains 'rel' (case-insensitive)
-GET /tests?$filter=contains(tolower(behavior/name),'rel')
-```
+<CodeBlock filename="example-case-insensitive.sh" language="bash">
+{`# Find all tests where behavior name contains 'rel' (case-insensitive)
+GET /tests?$filter=contains(tolower(behavior/name),'rel')`}
+</CodeBlock>
 
 ### Example 2: Complex Multi-Condition Filter
 
-```bash
-# Find tests that are either:
+<CodeBlock filename="example-multi-condition.sh" language="bash">
+{`# Find tests that are either:
 # - New status with non-null priority, OR
 # - Have 'test' in prompt content
-GET /tests?$filter=(status/name eq 'New' and priority ne null) or contains(prompt/content,'test')
-```
+GET /tests?$filter=(status/name eq 'New' and priority ne null) or contains(prompt/content,'test')`}
+</CodeBlock>
 
 ### Example 3: Advanced Search with Sorting
 
-```bash
-# Find active behaviors, sort by name
-GET /behaviors?$filter=status/name eq 'Active'&sort_by=name&sort_order=asc
-```
+<CodeBlock filename="example-advanced-search.sh" language="bash">
+{`# Find active behaviors, sort by name
+GET /behaviors?$filter=status/name eq 'Active'&sort_by=name&sort_order=asc`}
+</CodeBlock>
 
 ### Example 4: Navigation with String Functions
 
-```bash
-# Find tests where behavior description contains 'robust' (case-insensitive)
-GET /tests?$filter=contains(tolower(behavior/description),'robust')
-```
+<CodeBlock filename="example-navigation.sh" language="bash">
+{`# Find tests where behavior description contains 'robust' (case-insensitive)
+GET /tests?$filter=contains(tolower(behavior/description),'robust')`}
+</CodeBlock>
 
 ## Best Practices
 
@@ -277,59 +277,59 @@ GET /tests?$filter=contains(tolower(behavior/description),'robust')
 
 For user-friendly searches, always use `tolower()` or `toupper()`:
 
-```bash
-# Good: Case-insensitive
+<CodeBlock filename="best-practice-case-insensitive.sh" language="bash">
+{`# Good: Case-insensitive
 GET /behaviors?$filter=contains(tolower(name),'reliability')
 
 # Avoid: Case-sensitive (user must know exact case)
-GET /behaviors?$filter=contains(name,'Reliability')
-```
+GET /behaviors?$filter=contains(name,'Reliability')`}
+</CodeBlock>
 
 ### 2. Use Navigation Properties for Related Data
 
 Instead of multiple API calls, use navigation:
 
-```bash
-# Good: Single request with navigation
+<CodeBlock filename="best-practice-navigation.sh" language="bash">
+{`# Good: Single request with navigation
 GET /tests?$filter=behavior/name eq 'Reliability'
 
 # Avoid: Multiple requests (less efficient)
 # 1. GET /behaviors?$filter=name eq 'Reliability'
-# 2. GET /tests?$filter=behavior_id eq 'uuid-from-step-1'
-```
+# 2. GET /tests?$filter=behavior_id eq 'uuid-from-step-1'`}
+</CodeBlock>
 
 ### 3. Use Parentheses for Complex Logic
 
 Make complex expressions clear with parentheses:
 
-```bash
-# Good: Clear precedence
+<CodeBlock filename="best-practice-parentheses.sh" language="bash">
+{`# Good: Clear precedence
 GET /tests?$filter=(status/name eq 'New' or status/name eq 'Active') and priority gt 0
 
 # Avoid: Ambiguous precedence
-GET /tests?$filter=status/name eq 'New' or status/name eq 'Active' and priority gt 0
-```
+GET /tests?$filter=status/name eq 'New' or status/name eq 'Active' and priority gt 0`}
+</CodeBlock>
 
 ### 4. Combine Filtering with Pagination
 
 Always use pagination for potentially large result sets:
 
-```bash
-# Good: Paginated results
+<CodeBlock filename="best-practice-pagination.sh" language="bash">
+{`# Good: Paginated results
 GET /tests?$filter=status/name eq 'New'&limit=50
 
 # Avoid: Potentially huge response
-GET /tests?$filter=status/name eq 'New'
-```
+GET /tests?$filter=status/name eq 'New'`}
+</CodeBlock>
 
 ### 5. URL Encoding
 
 Remember to URL-encode your queries:
 
-```bash
-# Space becomes %20, / becomes %2F, ' becomes %27
-GET /tests?%24filter=contains(behavior%2Fname,%27Test%27)
-```
+<CodeBlock filename="best-practice-url-encoding.sh" language="bash">
+{`# Space becomes %20, / becomes %2F, ' becomes %27
+GET /tests?%24filter=contains(behavior%2Fname,%27Test%27)`}
+</CodeBlock>
 
 ## Error Handling
 
@@ -337,30 +337,30 @@ GET /tests?%24filter=contains(behavior%2Fname,%27Test%27)
 
 **Invalid Field Names**
 
-```json
-{
+<CodeBlock filename="error-invalid-field.json" language="json">
+{`{
   "detail": "Invalid filter. Must use valid fields: field1, field2, ..."
-}
-```
+}`}
+</CodeBlock>
 
 **Parse Errors**
 
-```json
-{
+<CodeBlock filename="error-parse.json" language="json">
+{`{
   "detail": "Error processing filter: Failed to parse at: Token(...)"
-}
-```
+}`}
+</CodeBlock>
 
 **Invalid Syntax**
 Use function-style syntax for string operations:
 
-```bash
-# Correct
+<CodeBlock filename="error-invalid-syntax.sh" language="bash">
+{`# Correct
 GET /tests?$filter=contains(behavior/name,'test')
 
 # Incorrect (will cause parse error)
-GET /tests?$filter=behavior/name contains 'test'
-```
+GET /tests?$filter=behavior/name contains 'test'`}
+</CodeBlock>
 
 ## Available Endpoints
 
