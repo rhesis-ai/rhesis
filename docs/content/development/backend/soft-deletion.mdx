@@ -42,8 +42,8 @@ The implementation uses a layered approach with four complementary mechanisms:
 
 All models inherit from `Base` which now includes:
 
-```python
-# Soft delete support
+<CodeBlock filename="base-model.py" language="python">
+{`# Soft delete support
 deleted_at = Column(DateTime, nullable=True, index=True)
 
 @hybrid_property
@@ -63,8 +63,8 @@ def soft_delete(self):
 
 def restore(self):
     """Restore a soft-deleted record"""
-    self.deleted_at = None
-```
+    self.deleted_at = None`}
+</CodeBlock>
 
 **Location:** `apps/backend/src/rhesis/backend/app/models/base.py`
 
@@ -85,13 +85,13 @@ A `before_compile` event listener automatically adds `deleted_at IS NULL` filter
 
 New methods for explicit control over soft delete behavior:
 
-```python
-# Include both active and deleted records
+<CodeBlock filename="querybuilder-methods.py" language="python">
+{`# Include both active and deleted records
 QueryBuilder(db, User).with_deleted().all()
 
 # Retrieve only deleted records (recycle bin)
-QueryBuilder(db, User).only_deleted().all()
-```
+QueryBuilder(db, User).only_deleted().all()`}
+</CodeBlock>
 
 **Location:** `apps/backend/src/rhesis/backend/app/utils/model_utils.py`
 
@@ -99,16 +99,16 @@ QueryBuilder(db, User).only_deleted().all()
 
 Use the `without_soft_delete_filter()` context manager to temporarily disable filtering:
 
-```python
-from rhesis.backend.app.database import without_soft_delete_filter
+<CodeBlock filename="context-manager.py" language="python">
+{`from rhesis.backend.app.database import without_soft_delete_filter
 
 # Normal query (excludes deleted)
 active_users = db.query(User).all()
 
 # With context manager (includes deleted)
 with without_soft_delete_filter():
-    all_users = db.query(User).all()
-```
+    all_users = db.query(User).all()`}
+</CodeBlock>
 
 **Location:** `apps/backend.src/rhesis/backend/app/database.py`
 
@@ -116,8 +116,8 @@ with without_soft_delete_filter():
 
 The CRUD utilities have been enhanced to support soft deletion:
 
-```python
-from rhesis.backend.app.utils import crud_utils
+<CodeBlock filename="crud-operations.py" language="python">
+{`from rhesis.backend.app.utils import crud_utils
 
 # Soft delete (default behavior)
 deleted_item = crud_utils.delete_item(db, Model, item_id, organization_id=org_id)
@@ -132,8 +132,8 @@ deleted_items = crud_utils.get_deleted_items(db, Model, organization_id=org_id)
 success = crud_utils.hard_delete_item(db, Model, item_id, organization_id=org_id)
 
 # Get item including deleted records
-item = crud_utils.get_item(db, Model, item_id, include_deleted=True)
-```
+item = crud_utils.get_item(db, Model, item_id, include_deleted=True)`}
+</CodeBlock>
 
 **Location:** `apps/backend/src/rhesis/backend/app/utils/crud_utils.py`
 
@@ -143,46 +143,46 @@ A complete REST API for managing deleted records is available at `/recycle`:
 
 ### List Available Models
 
-```
-GET /recycle/models
-```
+<CodeBlock filename="recycle-list-models.txt" language="text">
+{`GET /recycle/models`}
+</CodeBlock>
 
 ### Get Deleted Records
 
-```
-GET /recycle/{model_name}?skip=0&limit=100&organization_id={org_id}
-```
+<CodeBlock filename="recycle-get-deleted.txt" language="text">
+{`GET /recycle/{model_name}?skip=0&limit=100&organization_id={org_id}`}
+</CodeBlock>
 
 ### Restore a Record
 
-```
-POST /recycle/{model_name}/{item_id}/restore
-```
+<CodeBlock filename="recycle-restore.txt" language="text">
+{`POST /recycle/{model_name}/{item_id}/restore`}
+</CodeBlock>
 
 ### Permanently Delete a Record
 
-```
-DELETE /recycle/{model_name}/{item_id}?confirm=true
-```
+<CodeBlock filename="recycle-delete.txt" language="text">
+{`DELETE /recycle/{model_name}/{item_id}?confirm=true`}
+</CodeBlock>
 
 ### Get Recycle Bin Statistics
 
-```
-GET /recycle/stats/counts
-```
+<CodeBlock filename="recycle-stats.txt" language="text">
+{`GET /recycle/stats/counts`}
+</CodeBlock>
 
 ### Bulk Restore
 
-```
-POST /recycle/bulk-restore/{model_name}
-Body: { "item_ids": ["uuid1", "uuid2", ...] }
-```
+<CodeBlock filename="recycle-bulk-restore.txt" language="text">
+{`POST /recycle/bulk-restore/{model_name}
+Body: { "item_ids": ["uuid1", "uuid2", ...] }`}
+</CodeBlock>
 
 ### Empty Recycle Bin for a Model
 
-```
-DELETE /recycle/empty/{model_name}?confirm=true
-```
+<CodeBlock filename="recycle-empty.txt" language="text">
+{`DELETE /recycle/empty/{model_name}?confirm=true`}
+</CodeBlock>
 
 **Location:** `apps/backend/src/rhesis/backend/app/routers/recycle.py`
 
@@ -201,25 +201,25 @@ The event listener ensures soft delete filters are applied **BEFORE** `LIMIT`/`O
 
 ### Example Query Behavior
 
-```python
-# This query correctly filters soft-deleted records BEFORE pagination
+<CodeBlock filename="query-behavior.py" language="python">
+{`# This query correctly filters soft-deleted records BEFORE pagination
 users = db.query(User).limit(10).all()
 # SQL: SELECT * FROM user WHERE deleted_at IS NULL LIMIT 10
 
 # Count queries also work correctly
 count = db.query(User).count()
-# SQL: SELECT COUNT(*) FROM user WHERE deleted_at IS NULL
-```
+# SQL: SELECT COUNT(*) FROM user WHERE deleted_at IS NULL`}
+</CodeBlock>
 
 ## Database Migration
 
 The migration adds `deleted_at` column and index to all tables:
 
-```bash
-# Run migration
+<CodeBlock filename="run-migration.sh" language="bash">
+{`# Run migration
 cd apps/backend
-alembic upgrade head
-```
+alembic upgrade head`}
+</CodeBlock>
 
 **Migration file:** `apps/backend/src/rhesis/backend/alembic/versions/e364aaec703f_add_soft_delete_support.py`
 
@@ -246,8 +246,8 @@ Comprehensive test suite with 35 passing tests covering:
 
 ### Basic Soft Delete and Restore
 
-```python
-from rhesis.backend.app.utils import crud_utils
+<CodeBlock filename="basic-soft-delete-restore.py" language="python">
+{`from rhesis.backend.app.utils import crud_utils
 from rhesis.backend.app import models
 
 # Soft delete a test
@@ -269,45 +269,45 @@ test = crud_utils.get_item(
 restored_test = crud_utils.restore_item(
     db, models.Test, test_id,
     organization_id=org_id
-)
-```
+)`}
+</CodeBlock>
 
 ### Using QueryBuilder
 
-```python
-from rhesis.backend.app.utils.model_utils import QueryBuilder
+<CodeBlock filename="using-querybuilder.py" language="python">
+{`from rhesis.backend.app.utils.model_utils import QueryBuilder
 
 # Default: excludes deleted records
-active_tests = QueryBuilder(db, models.Test)\
-    .with_organization_filter(org_id)\
+active_tests = QueryBuilder(db, models.Test)\\
+    .with_organization_filter(org_id)\\
     .all()
 
 # Include deleted records
-all_tests = QueryBuilder(db, models.Test)\
-    .with_deleted()\
-    .with_organization_filter(org_id)\
+all_tests = QueryBuilder(db, models.Test)\\
+    .with_deleted()\\
+    .with_organization_filter(org_id)\\
     .all()
 
 # Only deleted records (recycle bin view)
-deleted_tests = QueryBuilder(db, models.Test)\
-    .only_deleted()\
-    .with_organization_filter(org_id)\
-    .with_sorting('deleted_at', 'desc')\
-    .all()
-```
+deleted_tests = QueryBuilder(db, models.Test)\\
+    .only_deleted()\\
+    .with_organization_filter(org_id)\\
+    .with_sorting('deleted_at', 'desc')\\
+    .all()`}
+</CodeBlock>
 
 ### Using Context Manager
 
-```python
-from rhesis.backend.app.database import without_soft_delete_filter
+<CodeBlock filename="using-context-manager.py" language="python">
+{`from rhesis.backend.app.database import without_soft_delete_filter
 
 # For admin operations that need to see everything
 with without_soft_delete_filter():
     all_users = db.query(models.User).all()
-    deleted_count = db.query(models.User)\
-        .filter(models.User.deleted_at.isnot(None))\
-        .count()
-```
+    deleted_count = db.query(models.User)\\
+        .filter(models.User.deleted_at.isnot(None))\\
+        .count()`}
+</CodeBlock>
 
 ## Key Implementation Files
 
