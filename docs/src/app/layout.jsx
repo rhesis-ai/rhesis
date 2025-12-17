@@ -56,7 +56,7 @@ export default async function RootLayout({ children }) {
           }}
           editLink={null}
           feedback={{
-            content: 'Any question or feedback? Contact us',
+            content: 'Questions, feedbacks? Contact us!',
             labels: 'feedback',
             link: 'https://www.rhesis.ai/contact-us',
           }}

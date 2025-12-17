@@ -8,7 +8,7 @@ Define and manage evaluation criteria for testing AI responses with LLM-based gr
 
 ## Metrics at a glance
 
-Metrics are organized by [**Behaviors**](/platform/behaviors), which define how your AI system should perform. Each behavior represents a specific aspect of your system's output that you want to evaluate.
+Metrics are organized by [**Behaviors**](/platform/behaviors), which are atomic expectations you have for the output of your application.
 
 **In short:** Behaviors define what you expect, metrics measure how well you meet those expectations.
 
@@ -16,13 +16,12 @@ You can add an existing metric to a behavior by clicking the "+" icon in the top
 
 ![Metrics Assign](/screenshots/rhesis-ai-metrics-assign.png)
 
-
-
 ## Using Existing Metrics
 
 The platform includes pre-built metrics from multiple providers:
 
 - **[DeepEval](https://github.com/confident-ai/deepeval)** - The LLM Evaluation Framework by Confident AI
+- **[DeepTeam](https://github.com/confident-ai/deepteam)** - Team-based evaluation framework by Confident AI
 - **[Ragas](https://github.com/explodinggradients/ragas)** - Supercharge Your LLM Application Evaluations by Exploding Gradients
 - **Rhesis** - Custom metrics developed by the Rhesis team
 
@@ -34,11 +33,7 @@ Here are some examples:
 | Knowledge Retention | Rhesis | Numeric | Multi-Turn | Measures memory consistency and correct use of information introduced earlier in the conversation. |
 | Answer Accuracy | Ragas | Numeric | Single-Turn | Measures accuracy of the generated answer against ground truth. |
 
-
 ## Creating Custom Metrics
-
-
-
 
 You can create custom metrics tailored to your specific evaluation needs.
 
@@ -144,7 +139,6 @@ You can find more information about test types in the [Tests Section](/platform/
 ### 4. Result Explanation
 
 Provide instructions for how the LLM should explain its scoring rationale.
-
 
 ```
 Example: "Explain which specific parts were accurate or inaccurate, citing evidence from the provided context."
