@@ -76,7 +76,8 @@ export async function CodeBlock({
 
   const styles = {
     container: {
-      fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace",
+      fontFamily:
+        "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace",
       background: '#161B22',
       borderRadius: '8px',
       margin: '24px 0',

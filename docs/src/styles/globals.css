@@ -685,7 +685,8 @@ aside nav a[class*='text-primary'],
 .rhesis-codeblock pre,
 .rhesis-codeblock code,
 .rhesis-codeblock span {
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
+  font-family:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
   tab-size: 4 !important;
   letter-spacing: 0 !important;
   white-space: pre !important;
