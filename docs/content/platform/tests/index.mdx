@@ -2,111 +2,55 @@
 
 Individual test cases that evaluate specific aspects of your AI system's performance.
 
-## Understanding Tests
-
-Tests are individual test cases that check specific inputs and expected outputs for your AI system. Each test includes an input prompt, expected response criteria, assigned metrics for evaluation, and execution history.
+<Callout type="default">
+  **What are Tests?** Tests are individual test cases that validate specific inputs and expected outputs for your AI system, evaluated using assigned metrics.
+</Callout>
 
 ## Test Types
 
+There are two types of tests:
+
+- **Single-turn** tests check how the AI responds to a single prompt with no follow-up (Q&A).
+- **Multi-turn** tests check how the AI behaves over multiple messages in a conversation.
+
 ### Single-Turn Tests
 
-Single-turn tests evaluate individual interactions:
+A single prompt sent to your AI system, evaluated against expected outputs and metrics.
 
-- Single prompt and response
-- Immediate evaluation
-- Quick validation of specific behaviors
+**Properties: **
+
+| Field | Description |
+|-------|-------------|
+| **Test Prompt** | The input text sent to your AI system |
+| **Category** | High-level classification (e.g., Harmful, Harmless) |
+| **Topic** | Specific subject matter (e.g., healthcare, financial advice) |
+| **Behavior** | Type of behavior to validate (e.g., Compliance, Reliability, Robustness) |
+| **Expected Output** | (Optional) What the AI should respond with |
 
 ### Multi-Turn Tests
 
-Multi-turn tests simulate conversations:
+Goal-based conversations that test your AI system across multiple turns. Powered by [Penelope](/penelope), an autonomous testing agent that adapts its strategy based on responses. Ideal for testing conversational workflows.
 
-- Multiple turns of interaction
-- Conversational context maintained
-- Evaluation of complete workflows
-- Goal achievement tracking
+**Properties:**
+
+| Field | Description |
+|-------|-------------|
+| **Goal** | What the target should do - the success criteria for this test |
+| **Instructions** | (Optional) How to conduct the test - if not provided, the agent plans its own approach |
+| **Restrictions** | (Optional) What the target must not do - forbidden behaviors or boundaries |
+| **Scenario** | (Optional) Context and persona for the test - narrative setup or user role |
+| **Max. Turns** | Maximum number of conversation turns allowed |
+| **Category** | High-level classification (e.g., Harmful, Harmless) |
+| **Topic** | Specific subject matter (e.g., healthcare, financial advice) |
+| **Behavior** | Type of behavior to validate (e.g., Compliance, Reliability, Robustness) |
 
 ## Creating Tests
 
-### Manual Creation
-
-Create tests manually for specific scenarios:
-
-1. Navigate to the Tests page
-2. Click "Create Test"
-3. Select test type (single-turn or multi-turn)
-4. Enter test details:
-   - **Name**: Descriptive test name
-   - **Input**: Initial prompt or conversation starter
-   - **Expected Behavior**: What should happen
-   - **Metrics**: Select evaluation metrics
-5. Save the test
-
-### Automated Generation
-
-Generate tests automatically based on your requirements:
-
-1. Go to the Generation page
-2. Select generation method:
-   - From behaviors
-   - From knowledge sources
-   - From scenarios
-3. Configure generation parameters
-4. Review and refine generated tests
-5. Add to test sets
-
-See [Generation](/platform/tests-generation) for detailed generation options.
+Create tests manually or generate them automatically from behaviors and requirements. See [Generation](/platform/tests-generation) for automated test generation.
 
 ## Running Tests
 
-Execute individual tests:
-
-1. Open a test from the Tests page
-2. Click "Run Test"
-3. Select the endpoint to test against
-4. Monitor execution progress
-5. Review results
-
-For batch execution, add tests to [Test Sets](/platform/test-sets).
-
-## Viewing Test Results
-
-After execution, review:
-
-- Actual response from your AI system
-- Metric scores and evaluation details
-- Pass/fail status
-- Execution time and metadata
-- Historical trends
-
-## Managing Tests
-
-### Editing Tests
-
-Modify existing tests:
-
-1. Open the test
-2. Click "Edit"
-3. Update fields as needed
-4. Save changes
-
-### Organizing Tests
-
-Keep tests organized:
-
-- Add tests to test sets
-- Tag tests by feature or category
-- Link tests to knowledge sources
-- Associate with behaviors
-
-### Deleting Tests
-
-Remove obsolete tests:
-
-1. Select test(s) to delete
-2. Click delete action
-3. Confirm deletion
-
-**Note**: Tests in test sets will be removed from those sets.
+Run individual tests from the [Tests page](https://app.rhesis.ai/tests) or execute multiple tests together using [Test Sets](/platform/test-sets).
 
 ---
 
