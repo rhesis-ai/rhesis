@@ -1,129 +1,51 @@
 # Test Runs
 
-Execute test sets against endpoints and analyze individual test results with detailed metrics and comparisons.
+View execution results when you run a test set against an endpoint. Each test run contains all individual test results with detailed metrics, conversation history, and performance data.
 
-## Why Test Runs?
+<Callout type="default">
+  **What are Test Runs?** A test run is created when you execute a test set against an endpoint. It captures all test results, execution metadata, and evaluation metrics for analysis.
+</Callout>
+![Test Runs Page](/screenshots/rhesis-ai-test-runs.png)
 
-Understanding individual test executions is crucial for debugging and quality tracking. Test runs provide:
+By clicking on a test run, you'll see the overview of how the test run went. From here you can:
 
-- **Detailed Analysis**: Drill into each test result with full prompts, responses, and metric breakdowns
-- **Comparison**: Compare current results against baseline runs to detect regressions
-- **Historical Tracking**: See how specific tests perform across multiple executions
-- **Team Collaboration**: Assign runs for review, add comments, and track tasks
-- **Root Cause Analysis**: Filter failed tests by behavior, search responses, and identify patterns
+- **Review**: Manually revise the automated test evaluation
+- **Compare**: Compare against a baseline test run
+- **Re-run**: Execute the test set again with the same configuration
+- **Download**: Export test run data as CSV
 
-## Understanding Test Runs
+![Test Run Detail Page](/screenshots/rhesis-ai-test-run-details.png)
 
-A test run is the execution of a test set against a specific endpoint. When you run a test set, the platform creates a test run record that captures all the individual test results, execution metadata like start time and duration, the specific endpoint and test set combination used, and workflow information including assignee, owner, and tags.
+## Review Test Runs
+Reviews allow human evaluators to validate or override automated test evaluations.
 
-## Viewing Test Runs
+1. Select a Test Run from the [Test Runs](https://app.rhesis.ai/test-runs) overview page
+2. Click on the **Reviews** tab, then **Add Your Review**
+3. Select a **Review Status**:
+   - **Pass**: The test passes the metric
+   - **Fail**: The test fails the metric
+4. Add a comment explaining your review decision
 
-The Test Runs page provides both a detailed grid and analytical charts to help you understand your testing activity.
+## Compare Test Runs
 
-### Grid View
+Compare test runs to identify regressions and improvements between executions.
 
-The grid shows each test run with its name and status, the test set and endpoint that were used, the pass rate and total number of tests executed, when it ran, who it's assigned to, and how many comments and tasks are associated with it. This gives you a comprehensive overview of all test executions at a glance.
+**How to Compare:**
+1. Click the **Compare** button (top right, next to Download)
+2. Select a baseline test run to compare against
+3. View the test-by-test comparison of the test set
 
-### Charts
+**Comparison Filters:**
 
-Below the grid, charts visualize your testing patterns. **Test Runs by Status** shows the distribution of run statuses, **Test Runs by Result** breaks down passed versus failed runs, **Most Run Test Sets** highlights your most frequently executed test sets, and **Top Test Executors** shows which team members are running the most tests.
+Use filters to focus on specific changes:
 
-## Test Run Detail Page
-
-Click any test run to view detailed results.
-
-### Summary Cards
-
-At the top of the test run detail page, four summary cards provide key metrics: **Pass Rate** shows the percentage and count of passed tests, **Tests Executed** displays the total along with passed and failed counts, **Duration** shows how long the tests took to run and when they started, and **Status** indicates completion status with quick links to the associated test set and endpoint.
-
-### Filtering and Search
-
-Use the search bar to find specific test results by searching through prompt or response content. Status filter buttons let you quickly view all tests, only passed tests, or only failed tests. The behavior filter lets you focus on tests with specific behaviors, showing a count badge when filters are active. The results counter keeps you oriented by showing how many tests match your filters out of the total (for example, "45 of 120 tests").
-
-### Test Results List
-
-The left panel (approximately one-third of the screen width) shows a scrollable list of all test results in the run. Each result displays a pass/fail icon (green checkmark or red X), a truncated prompt preview (hover to see the full text), a metrics summary showing how many metrics passed (like "8/8 metrics"), and counts for any associated comments and tasks. The currently selected test is highlighted with a blue border.
-
-Navigate through results by clicking on them, or use your keyboard's arrow up and down keys to move between tests. The list automatically scrolls to keep the selected test in view.
-
-### View Modes
-
-Toggle between **Split View** and **Table View** using the view switcher in the filter bar.
-
-**Table View** displays all test results in a compact table format with these columns:
-- **Goal/Prompt**: The test input or multi-turn goal
-- **Result**: Color-coded chip showing Pass (green), Failed (red), or Error (orange) status at a glance
-- **Response/Reasoning**: The AI output or evaluation reasoning for multi-turn tests
-- **Review**: Icons showing automated and human review status
-- **Activity**: Comment and task counts
-- **Actions**: Quick access menu
-
-This view is ideal for quickly scanning many test results and identifying patterns across your test run.
-
-### Test Detail Panel
-
-The right panel (approximately two-thirds of the screen width) shows detailed information for the selected test across multiple tabs.
-
-#### Overview Tab
-
-This tab displays the overall pass/fail status at the top, followed by two main sections. The **Prompt Section** shows the full prompt content in a scrollable box, while the **Response Section** displays the complete AI response. You can also add or edit tags for this test result to help with organization and searching.
-
-#### Metrics Tab
-
-The Metrics tab provides a detailed breakdown of how the test performed against each evaluation criterion.
-
-**Filter Controls**: Toggle between All, Passed, or Failed metrics to focus your analysis. The summary cards update dynamically to reflect your filter selection.
-
-**Multi-Turn Tests**: For multi-turn test results, a dedicated Goal Achievement card displays:
-- **Criteria Progress**: Visual progress bar showing how many evaluation criteria were met
-- **Confidence**: Color-coded progress bar indicating the AI's confidence level (green for high, orange for medium, red for low)
-- **Criteria Breakdown**: Expandable list of all criteria with visual indicators (🟢 met, 🔴 not met)
-- **Detailed Reasoning**: Collapsible section with comprehensive evaluation explanation
-
-**Summary Cards**: Overall performance metrics, best and worst performing behaviors, and pass rate statistics help you quickly assess test quality.
-
-#### Conversation Tab
-
-Available for multi-turn tests, this tab displays the complete conversation history between the AI and simulated user interactions:
-- **Turn-by-Turn Display**: Each conversation turn shows the user input, AI response, and per-turn evaluation
-- **Expandable Sections**: Click to view detailed reasoning and evaluation for each turn
-- **Visual Indicators**: Icons and colors indicate success/failure at the turn level
-- **Project Context**: Project-specific icons help identify the test scenario at a glance
-
-#### History Tab
-
-See how this specific test has performed across multiple test runs. The execution history shows the last 10 test runs where this exact test was executed, with links to view those runs in detail (opening in new tabs). The current run is highlighted for context, and summary statistics show the test's total executions, overall pass rate, and passed/failed counts across its history.
-
-#### Tasks & Comments Tab
-
-Use this tab to collaborate with your team about specific test results. Add tasks for follow-up actions, comment on issues or interesting observations, and track task status as issues are resolved.
-
-## Comparing Test Runs
-
-Click the "Compare" button to analyze how the current test run performs against a previous baseline execution. This is invaluable for regression testing and understanding how changes to your AI application affect test outcomes.
-
-### Comparison Interface
-
-Start by selecting a previous test run to use as your baseline. The comparison interface then provides several ways to filter and analyze the differences. You can view all tests, only improved tests (those that passed in the current run but failed in the baseline), only regressed tests (those that failed now but passed before), or unchanged tests (those with the same pass/fail status in both runs). The search box lets you filter the compared tests by prompt or response content.
-
-### Comparison Statistics
-
-At the top of the comparison view, summary statistics give you an immediate sense of the changes. Green numbers show how many tests improved, red numbers indicate regressions, and you'll see the count of tests that remained unchanged.
-
-### Test-by-Test View
-
-The main comparison area shows each test side-by-side. On the left is the baseline result with its status, metrics count, and score. On the right is the current result with the same information plus a trend indicator showing whether it improved or regressed. Click any test to open a detailed metric-level comparison that shows the prompts and responses for both runs, behavior metrics with score differences, individual metric status changes, and visual highlighting of improvements and regressions.
-
-## Downloading Test Runs
-
-Click "Download" to export test run results as a CSV file containing all test prompts, responses, metric results, and execution metadata.
+- **All Tests**: Show all tests from both runs
+- **Improved**: Tests that now pass but failed in baseline
+- **Regressed**: Tests that now fail but passed in baseline
+- **Unchanged**: Tests with the same pass/fail status
 
 ---
 
 <Callout type="default">
-  **Next Steps** - Analyze trends in the [Test
-  Results](/platform/test-results) dashboard - Compare this run against
-  baselines using the Compare feature - Add [Metrics](/platform/metrics) to
-  evaluate additional quality dimensions - Export results to CSV for external
-  analysis
+  **Next Steps** - Review failed tests to understand issues - Compare against baseline runs to detect regressions - Add human reviews to test results - Export results for reporting or analysis
 </Callout>

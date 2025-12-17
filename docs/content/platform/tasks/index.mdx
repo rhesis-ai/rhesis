@@ -1,162 +1,51 @@
 # Tasks
 
-Track, manage, and collaborate on test-related work items and follow-ups.
+Organize and track testing work with integrated task management that connects directly to your tests, test sets, and results.
 
-## Understanding Tasks
+## Overview
 
-Tasks are work items created to address test failures, follow up on issues, or track improvements. They provide a lightweight project management layer integrated with your testing workflow.
+Tasks help teams coordinate work related to testing activities within Rhesis. Use tasks to track test failures, plan test development, organize reviews, and maintain accountability throughout your testing lifecycle.
 
-## Task Types
 
-### Test Failure Tasks
+Tasks can be linked to specific tests, test sets, or test results to provide full context for the work that needs to be done.
 
-Automatically or manually created when tests fail:
 
-- Linked to specific test results
-- Include failure details and context
-- Track resolution progress
+## Task Properties
 
-### Improvement Tasks
+Each task includes the following properties to help organize and track work:
 
-Track enhancements and optimizations:
+| Property | Options | Description |
+|----------|---------|-------------|
+| **Status** | Open, In Progress, Completed, Cancelled | The current state of the task |
+| **Priority** | Low, Medium, High | The urgency level for completing the task |
+| **Creator** | User | Person who created the task (automatically set) |
+| **Assignee** | User (optional) | Team member responsible for completing the task |
+| **Title** | Text | Short, descriptive name for the task |
+| **Description** | Text | Detailed information about the task |
 
-- New test coverage areas
-- Metric refinements
-- Performance improvements
+### Linked Resources
 
-### Review Tasks
+Tasks can be associated with specific resources to provide context:
 
-Collaborative review items:
+| Resource Type | Purpose |
+|---------------|---------|
+| **Test** | Link to a specific test that needs attention or development |
+| **Test Set** | Link to a collection of tests for batch operations or reviews |
+| **Test Result** | Link to a test execution result that requires follow-up |
 
-- Test set validation
-- Behavior definition reviews
-- Metric threshold adjustments
+You can create tasks from the [Tasks](https://app.rhesis.ai/tasks) page, or across the platform in [Test Results](https://app.rhesis.ai/test-results), [Tests](https://app.rhesis.ai/tests) or [Test Sets](https://app.rhesis.ai/test-sets).
 
-## Creating Tasks
 
-### Manual Creation
 
-Create tasks directly:
 
-1. Navigate to the Tasks page
-2. Click "Create Task"
-3. Enter task details:
-   - **Title**: Brief description
-   - **Description**: Detailed information
-   - **Priority**: High, Medium, or Low
-   - **Assignee**: Team member responsible
-   - **Due Date**: Target completion date
-   - **Related Test/Test Set**: Link to relevant tests
-4. Save the task
 
-### Automatic Creation
 
-Tasks can be automatically created:
 
-- When tests fail multiple times
-- Based on configured rules and thresholds
-- Through integrations (e.g., from test runs)
 
-## Managing Tasks
 
-### Task States
-
-Tasks progress through states:
-
-- **Open**: Newly created, not yet started
-- **In Progress**: Currently being worked on
-- **Blocked**: Waiting on dependencies
-- **Resolved**: Completed successfully
-- **Closed**: Verified and finalized
-
-### Assigning Tasks
-
-Distribute work to team members:
-
-1. Open the task
-2. Click "Assign"
-3. Select team member
-4. Add a comment (optional)
-5. Save assignment
-
-### Updating Tasks
-
-Track progress:
-
-- Update status as work progresses
-- Add comments and updates
-- Attach relevant files or links
-- Adjust priority or due date as needed
-
-## Task Views
-
-### List View
-
-Table view with filtering and sorting:
-
-- Filter by assignee, status, priority
-- Sort by due date, created date, priority
-- Bulk actions on selected tasks
-
-### Board View
-
-Kanban-style board:
-
-- Columns for each status
-- Drag and drop to update status
-- Visual progress tracking
-
-### Calendar View
-
-Due date visualization:
-
-- See tasks by due date
-- Identify overdue items
-- Plan workload distribution
-
-## Collaborating on Tasks
-
-### Comments
-
-Add context and updates:
-
-1. Open the task
-2. Scroll to comments section
-3. Type your comment
-4. Mention team members with @username
-5. Post comment
-
-### Notifications
-
-Stay informed:
-
-- Email notifications for assignments
-- Updates on tasks you're involved with
-- Reminders for approaching due dates
-- Digest emails with task summary
-
-## Task Integrations
-
-### Test Run Integration
-
-Tasks linked to test runs show:
-
-- Related test results
-- Failure patterns
-- Recent execution history
-
-### Project Integration
-
-Tasks respect project boundaries:
-
-- Tasks are project-specific
-- Team members see tasks for their projects
-- Filter tasks by project
 
 ---
 
 <Callout type="default">
-  **Next Steps** - Link tasks to [Test Runs](/platform/test-runs) -
-  Organize work by [Projects](/platform/projects) -
-  Collaborate with your [Team](/platform/organizations)
+  **Next Steps** - Create tasks from [Test Results](/platform/test-results) - Link tasks to [Tests](/platform/tests) - Organize work by [Projects](/platform/projects)
 </Callout>

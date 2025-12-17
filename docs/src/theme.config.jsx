@@ -64,15 +64,14 @@ export default {
   // Repository configuration
   docsRepositoryBase: 'https://github.com/rhesis-ai/rhesis/tree/main/apps/documentation',
 
-  // Edit link
-  editLink: {
-    text: 'Edit this page on GitHub →',
-  },
+  // Edit link - disabled since pages are not editable
+  editLink: null,
 
   // Feedback link
   feedback: {
-    content: 'Question? Give us feedback →',
+    content: 'Any question or feedback? Contact us',
     labels: 'feedback',
+    link: 'https://www.rhesis.ai/contact-us',
   },
 
   // Footer configuration

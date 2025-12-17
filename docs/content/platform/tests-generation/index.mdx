@@ -1,117 +1,56 @@
-# Tests
+# Test Generation
 
-Create and manage test cases for evaluating your AI applications.
+Generate test sets automatically using AI-powered templates or custom configurations.
 
-<Callout type="default">
-  **What are Tests?** Tests are individual prompts or inputs that you send to
-  your AI application to evaluate its behavior. Each test contains a prompt,
-  expected behavior, and optional metadata for organization and analysis.
-</Callout>
+## Getting Started
 
-## Why Tests?
+Generate test sets on the [Generation page](https://app.rhesis.ai/generation). Choose your test type: **multi-turn** or **single-turn** [Test Sets](/platform/test-sets). See [Tests](platform/tests) for details on the difference.
 
-Manual testing of AI applications doesn't scale beyond a handful of scenarios. Tests enable you to:
+![Select Test Types Generation](/screenshots/rhesis-ai-generation-select-test-type.png)
 
-- **Ensure Quality**: Verify AI behavior across hundreds of scenarios automatically
-- **Catch Regressions**: Detect when model updates or prompt changes break existing functionality
-- **Document Behavior**: Tests serve as living documentation of expected AI responses
-- **Enable CI/CD**: Integrate automated testing into your deployment pipeline
-- **Generate at Scale**: Use AI to create comprehensive test coverage in minutes
+To generate a test set, you can either:
+- Provide your custom configuration (such as behaviors, topics, and categories)
+- Select a predefined templates (skip to [Step 2](tests-generation#step-2-review--refine))
 
-## Understanding Tests
 
-A test in Rhesis consists of the prompt or input you send to your AI application, along with metadata that helps organize and evaluate the results. Each test has a behavior that indicates what aspect of the AI you're testing (like Reliability, Safety, or Compliance), a topic that describes the subject matter, and a category for additional classification. You can optionally specify an expected response for comparison, and add metadata like priority, status, assignee, owner, tags, and source documents.
 
-Tests can be created manually or generated using AI. Once created, tests are organized into test sets for execution.
 
-## Creating Tests Manually
 
-### Write a Single Test
+## Step 1: Initial Setup
 
-Click **Write Test**, fill in the workflow information (status, assignee, owner) and test details (behavior, topic, category, priority, and prompt content), then click **Save**. The test is immediately available in your tests list.
+![Test Generation Configuration Page](/screenshots/rhesis-ai-generation-test-configuration.png)
 
-## Generating Tests with AI
+Provide the following information to configure your test generation:
 
-### Generation Wizard
+- **Project** (optional): Associate with a project
+- **Sources** (optional): Add documents for context
+- **Description**: What you want to test
 
-The AI-powered test generation wizard creates multiple tests at once based on your configuration.
+## Step 2: Review & Refine
 
-**Step 1: Configure Generation**
+![Test Generation Samples Page](/screenshots/rhesis-ai-generation-test-samples.png)
 
-Start by selecting the project for your tests and choosing which behaviors you want to test, such as Reliability, Compliance, or Safety. Define the testing purpose—whether you're doing regression testing, validating a new feature, integration testing, exploring edge cases, or performance testing. Currently, the platform supports single-turn tests (a single prompt and response).
+Based on the test description provided or the selected template, the system generates configuration (left side) and test samples (right side):
 
-Decide whether you want the AI to generate prompts only, or to also generate expected responses for comparison. Choose your test coverage level: Focused (100 test cases), Standard (1,000 test cases), or Comprehensive (5,000 test cases). Add the topics you want your tests to cover, and provide a detailed description of what you want to test—this description is required and helps the AI understand your testing goals.
+The configurations are divided into three categories:
+- **Behaviors**: The type of behavior the target system should exhibit when responding to the prompt
+- **Topics**: The specific subject matter or theme for the test
+- **Categories**: High-level classification for grouping tests
 
-**Step 2: Upload Documents (Optional)**
+Use "Further refine test generation" to modify the configuration chips, which automatically generates new test samples based on your changes. Activate "Live Responses" to test samples against your endpoint in real-time.
 
-Upload documents to provide context for test generation:
+## Step 3: Generate
 
-- Supported formats: `.docx`, `.pptx`, `.xlsx`, `.pdf`, `.txt`, `.csv`, `.json`, `.xml`, `.html`, `.htm`, `.zip`, `.epub`
-- Maximum file size: 5 MB
-- System extracts content and generates metadata automatically
-- Documents inform the AI about your application's domain and requirements
+- **Name** (optional): Add descriptive name for your test set to be generated
+- **Size**: Choose test set size
+  - Small (25-50): Quick validation
+  - Medium (75-150): Standard testing (Recommended)
+  - Large (200+): Production-scale
 
-**Step 3: Review Samples**
-
-The system generates 5 sample tests for you to evaluate. Rate each sample from 1 to 5 stars based on its quality. For any samples you rate below 4 stars, you can provide feedback explaining what needs improvement. Click **Regenerate** to create improved versions based on your feedback, or **Load More Samples** to generate additional samples if you want more variety. You must rate all samples before proceeding to the next step.
-
-**Step 4: Confirm & Generate**
-
-Review your configuration and average sample rating. Click **Generate Tests** to start the generation process. You'll receive a notification when the tests are ready.
-
-## Managing Tests
-
-### Viewing Tests
-
-The tests page displays all your tests in a grid showing the prompt text, behavior classification, topic, category, assigned team member, and counts for comments and tasks. Use the filters to find specific tests by any of these fields. Click a test row to view full details and execution history.
-
-### Editing Tests
-
-On the test detail page, click **Edit** buttons to modify the test executable or expected response. Update behavior, type, topic, or category by clicking the field. Changes save automatically.
-
-### Organizing Tests
-
-Add tags to categorize and find tests easily. When you're ready to run tests, select one or more from the grid and click **Assign to Test Set** to add them to a test set for execution. You can also update workflow fields like status, priority, assignee, or owner directly from the test detail page.
-
-### Deleting Tests
-
-Select one or more tests from the grid, click **Delete Tests**, and confirm. This removes only the test records; related comments and tasks are not deleted.
-
-## Running Tests
-
-### Quick Test Run
-
-From the test detail page, click **Run Test**, select a project and endpoint, then click **Run Test** again to execute immediately. This runs the test without creating a full test run record.
-
-## Test Details
-
-The test detail page provides a comprehensive view of a single test and its execution history.
-
-### Statistics
-
-At the top, you'll see key metrics: the last test run (showing status, name, execution time, date, and metrics results), the overall pass rate comparing passed versus failed executions, the total number of times the test has been run, and the average execution time per run.
-
-### Test Information
-
-The main content area displays the test executable (the prompt sent to your AI), the expected response if one was specified, and classification fields like behavior, type, topic, and category. Any source documents associated with the test appear here, along with custom tags you've added.
-
-### Workflow
-
-Track the test's current state with workflow fields: status, priority, assignee (the responsible team member), and owner.
-
-### Collaboration
-
-Manage tasks and comments related to the test. Tasks represent action items that need attention, while comments facilitate team discussions about test results or improvements.
-
-### Parent Tests
-
-If a test has a parent test, a **Go to Parent** button appears at the top. This indicates the test was derived from another test.
+Generation takes 2-5 minutes. You'll receive a notification when ready.
 
 ---
 
 <Callout type="default">
-  **Next Steps** - Organize tests into [Test
-  Sets](/docs/platform/test-sets) for execution - Configure
-  [Endpoints](/docs/platform/endpoints) to run your tests against - View [Test
-  Results](/docs/platform/test-results) after execution
+  **Next Steps** - View and manage your tests in [Tests](/docs/platform/tests) - Organize tests into [Test Sets](/docs/platform/test-sets) for execution - Configure [Endpoints](/docs/platform/endpoints) to run tests against
 </Callout>

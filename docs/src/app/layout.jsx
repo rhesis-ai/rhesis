@@ -54,6 +54,12 @@ export default async function RootLayout({ children }) {
             autoCollapse: true,
             toggleButton: true,
           }}
+          editLink={null}
+          feedback={{
+            content: 'Questions, feedbacks? Contact us!',
+            labels: 'feedback',
+            link: 'https://www.rhesis.ai/contact-us',
+          }}
         >
           {children}
         </Layout>

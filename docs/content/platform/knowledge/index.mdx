@@ -1,95 +1,55 @@
 # Knowledge
 
-The Knowledge section provides documentation about Rhesis's core concepts and methodologies for AI testing and evaluation.
+Knowledge is domain-specific content that you add to Rhesis to generate relevant, context-aware test cases. Knowledge is made up of **Sources**.
 
-## What are Sources?
-
-Sources are content that you add to Rhesis to provide context and domain knowledge for AI testing. They serve as the foundation for generating relevant, domain-specific test cases.
-
-### Source Types
-
-Rhesis currently supports:
-
-- **Document**: Uploaded files (PDF, Word, Excel, PowerPoint, text files, etc.)
-- **Tool**: Pages imported from MCP servers (e.g., Notion pages)
-
-<Callout type="info">
-  **Future Support**: Additional source types including Website, API, Database,
-  Code, and Manual are planned for future releases.
+<Callout type="default">
+  **What are Sources?** Sources are pieces of content such as documents or pages imported from external systems. They are used as context for test case generation.
 </Callout>
 
-### Supported File Formats
+![Knowledge Page](/screenshots/rhesis-ai-knowledge.png)
 
-When adding documents, Rhesis supports a wide range of file formats:
 
-**Office Documents:**
+## How to Add a Source
 
-- `.docx` - Microsoft Word documents
-- `.pptx` - Microsoft PowerPoint presentations
-- `.xlsx` - Microsoft Excel spreadsheets
 
-**Documents:**
+### Upload Documents
 
-- `.pdf` - PDF files
-- `.txt` - Plain text files
-- `.csv` - Comma-separated values
-- `.json` - JSON data files
-- `.xml` - XML documents
-- `.html`, `.htm` - HTML web pages
+Upload files directly from your computer to add them as sources. Rhesis supports a wide range of file formats:
 
-**Archives:**
+<details>
+<summary><strong>Supported File Formats</strong></summary>
 
-- `.zip` - Compressed archives (contents are extracted)
 
-**E-books:**
+| Format | Description |
+|--------|-------------|
+| `.docx` | Microsoft Word documents |
+| `.pptx` | Microsoft PowerPoint presentations |
+| `.xlsx` | Microsoft Excel spreadsheets |
+| `.pdf` | PDF files |
+| `.txt` | Plain text files |
+| `.csv` | Comma-separated values |
+| `.json` | JSON data files |
+| `.xml` | XML documents |
+| `.html`, `.htm` | HTML web pages |
+| `.zip` | Compressed archives (only the directory structure is extracted) |
+| `.epub` | Electronic book format |
 
-- `.epub` - Electronic book format
+</details>
 
-## How Sources Work
 
-### Adding Sources
+### Import from MCP
 
-You can add sources in two ways:
-
-1. **Upload Documents**: Upload files directly from your computer
-2. **Import from MCP**: Import pages from connected MCP servers (see [MCP documentation](/platform/mcp))
-
-### Storage and Processing
-
-When you add a source:
-
-1. **Content Storage**: The content is securely stored in your organization's storage
-2. **Content Extraction**: Text content is automatically extracted using [Markitdown](https://github.com/microsoft/markitdown)
-3. **Metadata Creation**: Source information (type, size, date added) is stored
-4. **Source Record**: A source record is created with the extracted content and metadata
-
-You can then view details, browse extracted content, download the original file, edit metadata (title, description, tags), and add comments.
-
-### Importing from MCP
+Import pages from connected MCP servers (e.g., Notion pages) to use them as sources. See [MCP documentation](/platform/mcp) for more information about connecting MCP servers.
 
 To import sources from MCP servers:
 
 1. Click "Import Source from MCP" on the Knowledge page
-2. Select an MCP tool (e.g., Notion connection)
+2. Select an MCP tool
 3. Enter a search query to find pages
 4. Select pages from the results
 5. Click "Import as Sources" to save them
 
-<Callout type="warning">
-  **Search Errors**: If you encounter an error when searching, try again. The search agent is non-deterministic and may occasionally fail, but retrying may resolve the issue.
-</Callout>
-
-## Using Sources for Test Generation
-
-### Current Capabilities
-
-Sources are currently used in the Knowledge section to:
-
-- **Store Domain Knowledge**: Add content that contains domain-specific information
-- **Extract Content**: Automatically extract and view text content from sources
-- **Organize Information**: Categorize and tag sources for easy management
-
 <Callout type="info">
-  **Coming Soon**: Sources will be integrated with test generation to
-  automatically create domain-specific test cases.
+  **Future Support**: Right now, you can only import content from Notion. Connections to additional providers (GitHub, Atlassian) are planned. Do you have a preference? Let us know via [contact form](https://www.rhesis.ai/contact-us).
+
 </Callout>
