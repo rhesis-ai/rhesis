@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import jinja2
 from mcp import ClientSession, StdioServerParameters  # type: ignore[import-untyped]
@@ -15,65 +15,37 @@ class MCPClient:
     """
     Client for connecting to and communicating with MCP servers.
 
-    Supports multiple transport types (stdio, HTTP, SSE) with automatic detection
-    from configuration structure. Provides methods to list/call tools and read resources.
+    Supports multiple transport types (stdio, HTTP, SSE).
     """
 
-    def __init__(self, server_name: str, config: Dict[str, Any]):
+    def __init__(
+        self,
+        server_name: str,
+        transport_type: Literal["stdio", "http", "sse"],
+        transport_params: Dict[str, Any],
+    ):
         """
-        Initialize MCP client with flexible configuration.
+        Initialize MCP client with transport configuration.
 
         Args:
             server_name: Friendly name for the server (e.g., "notionApi")
-            config: Server configuration dict (stdio, HTTP, or SSE format)
-                    - stdio: {"command": "...", "args": [...], "env": {...}}
-                    - HTTP: {"url": "...", "headers": {"Authorization": "..."}}
-                    - SSE: {"url": "...", "headers": {...}}
+            transport_type: Type of transport ("stdio", "http", or "sse")
+            transport_params: Transport-specific parameters:
+                - stdio: {"command": str, "args": List[str], "env": Dict[str, str]}
+                - http: {"url": str, "headers": Dict[str, str]}
+                - sse: {"url": str, "headers": Dict[str, str]}
         """
         self.server_name = server_name
-        self.config = config
-        self.transport_type = self._detect_transport_type(config)
+        self.transport_type = transport_type
+        self.transport_params = transport_params
         self.session: Optional[ClientSession] = None
         self._transport_context = None
 
-    def _detect_transport_type(self, config: Dict[str, Any]) -> str:
-        """
-        Auto-detect transport type from config structure.
-
-        Detection rules:
-        - Has 'command' field → stdio
-        - Has 'url' + 'headers' with Authorization → http
-        - Has 'url' only → sse
-
-        Args:
-            config: Server configuration dictionary
-
-        Returns:
-            Transport type: "stdio", "http", or "sse"
-
-        Raises:
-            ValueError: If transport type cannot be determined
-        """
-        if "command" in config:
-            return "stdio"
-        elif "url" in config:
-            # Check if headers contain Authorization (typical for HTTP APIs)
-            headers = config.get("headers", {})
-            if headers and any(k.lower() == "authorization" for k in headers.keys()):
-                return "http"
-            else:
-                return "sse"
-        else:
-            raise ValueError(
-                "Cannot detect transport type from config. "
-                "Config must have either 'command' (stdio) or 'url' (HTTP/SSE) field."
-            )
-
     async def connect(self) -> None:
         """
-        Connect to MCP server using the appropriate transport.
+        Connect to MCP server using the configured transport.
 
-        Routes to transport-specific connection method based on detected transport type.
+        Routes to transport-specific connection method based on transport type.
         Must be called before any other operations.
         """
         if self.transport_type == "stdio":
@@ -86,9 +58,9 @@ class MCPClient:
     async def _connect_stdio(self) -> None:
         """Connect via stdio transport."""
         server_params = StdioServerParameters(
-            command=self.config["command"],
-            args=self.config["args"],
-            env=self.config.get("env", {}),
+            command=self.transport_params["command"],
+            args=self.transport_params["args"],
+            env=self.transport_params.get("env", {}),
         )
 
         # stdio_client returns an async context manager
@@ -103,8 +75,8 @@ class MCPClient:
     async def _connect_http(self) -> None:
         """Connect via HTTP/StreamableHTTP transport."""
         http_context = streamablehttp_client(
-            url=self.config["url"],
-            headers=self.config.get("headers", {}),
+            url=self.transport_params["url"],
+            headers=self.transport_params.get("headers", {}),
         )
         read, write, get_session_id = await http_context.__aenter__()
         self._transport_context = http_context
@@ -116,8 +88,8 @@ class MCPClient:
     async def _connect_sse(self) -> None:
         """Connect via SSE transport."""
         sse_context = sse_client(
-            url=self.config["url"],
-            headers=self.config.get("headers", {}),
+            url=self.transport_params["url"],
+            headers=self.transport_params.get("headers", {}),
         )
         read, write = await sse_context.__aenter__()
         self._transport_context = sse_context
@@ -223,40 +195,48 @@ class MCPClient:
         ]
 
 
-class MCPClientManager:
+class MCPClientFactory:
     """
-    Factory for creating MCP clients from configuration files.
+    Factory for creating MCP clients from configuration.
 
-    Loads server configurations from mcp.json and creates MCPClient instances.
+    Loads and parses MCP server configurations from files, dicts, or templates,
+    detects transport types, and creates pre-configured MCPClient instances.
     """
 
     def __init__(self, config_path: Optional[str] = None, config_dict: Optional[Dict] = None):
         """
-        Initialize client manager with config file path or config dict.
+        Initialize client factory with config file path or config dict.
 
         Args:
-            config_path: Path to mcp.json config file.
-                        Defaults to ~/.cursor/mcp.json if not provided
-            config_dict: Direct configuration dictionary (for database tools)
+            config_path: Path to mcp.json config file. Required if config_dict is not provided.
+            config_dict: Direct configuration dictionary in MCP format:
+                        {"mcpServers": {"serverName": {...}}}
+                        Required if config_path is not provided.
+
+        Raises:
+            ValueError: If neither config_path nor config_dict is provided.
         """
+        if not config_path and not config_dict:
+            raise ValueError(
+                "Either 'config_path' or 'config_dict' must be provided. "
+                "Cannot default to any config location."
+            )
         self.config_path = config_path
         self.config_dict = config_dict
-        self.clients: Dict[str, MCPClient] = {}
 
     def _load_config(self) -> Dict[str, Any]:
-        """Load MCP configuration from file or use provided config dict."""
+        """
+        Load MCP configuration from file or use provided config dict.
+
+        Returns:
+            Full MCP configuration with mcpServers structure
+        """
         # If config_dict is provided, use it directly
         if self.config_dict:
             return self.config_dict
 
-        # Otherwise load from file
-        from pathlib import Path
-
-        if self.config_path:
-            config_file = Path(self.config_path)
-        else:
-            # Default to Cursor's MCP config location
-            config_file = Path.home() / ".cursor" / "mcp.json"
+        # Load from file (config_path is guaranteed to be set by __init__)
+        config_file = Path(self.config_path)
 
         if not config_file.exists():
             raise FileNotFoundError(
@@ -269,15 +249,56 @@ class MCPClientManager:
 
         return config
 
+    def _detect_transport_type(
+        self, server_config: Dict[str, Any]
+    ) -> Literal["stdio", "http", "sse"]:
+        """
+        Auto-detect transport type from server configuration structure.
+
+        Detection rules:
+        - Has 'command' field → stdio
+        - Has 'url' + 'headers' with Authorization → http
+        - Has 'url' only → sse
+
+        Args:
+            server_config: Single server configuration dictionary
+
+        Returns:
+            Transport type: "stdio", "http", or "sse"
+
+        Raises:
+            ValueError: If transport type cannot be determined
+        """
+        if "command" in server_config:
+            return "stdio"
+        elif "url" in server_config:
+            # Check if headers contain Authorization (typical for HTTP APIs)
+            headers = server_config.get("headers", {})
+            if headers and any(k.lower() == "authorization" for k in headers.keys()):
+                return "http"
+            else:
+                return "sse"
+        else:
+            raise ValueError(
+                "Cannot detect transport type from config. "
+                "Config must have either 'command' (stdio) or 'url' (HTTP/SSE) field."
+            )
+
     def create_client(self, server_name: str) -> MCPClient:
         """
         Create an MCP client from configuration.
+
+        Loads config, detects transport type, and creates a pre-configured MCPClient instance.
 
         Args:
             server_name: Name of the MCP server from the config
 
         Returns:
-            Configured MCPClient instance
+            Configured MCPClient instance ready to connect
+
+        Raises:
+            ValueError: If server not found or config invalid
+            FileNotFoundError: If config file doesn't exist
         """
         config = self._load_config()
 
@@ -291,25 +312,23 @@ class MCPClientManager:
             raise ValueError(f"Server '{server_name}' not found. Available: {available}")
 
         server_config = servers[server_name]
-        client = MCPClient(server_name=server_name, config=server_config)
 
-        self.clients[server_name] = client
+        # Detect transport type
+        transport_type = self._detect_transport_type(server_config)
+
+        # Create client with pre-configured transport
+        client = MCPClient(
+            server_name=server_name,
+            transport_type=transport_type,
+            transport_params=server_config,
+        )
+
         return client
-
-    async def connect_all(self) -> None:
-        """Connect to all configured MCP clients."""
-        for client in self.clients.values():
-            await client.connect()
-
-    async def disconnect_all(self) -> None:
-        """Disconnect from all MCP clients."""
-        for client in self.clients.values():
-            await client.disconnect()
 
     @classmethod
     def from_tool_config(cls, tool_name: str, tool_config: Dict, credentials: Dict[str, str]):
         """
-        Create MCPClientManager from database tool configuration.
+        Create MCPClientFactory from database tool configuration.
 
         The user provides the complete tool_metadata JSON in full MCP format with
         credential placeholders. This method substitutes the placeholders with
@@ -323,7 +342,7 @@ class MCPClientManager:
             credentials: Dictionary of credential key-value pairs
 
         Returns:
-            MCPClientManager instance configured with the tool
+            MCPClientFactory instance configured with the tool
 
         Note:
             tool_config should be the full MCP structure matching standard format.
@@ -342,7 +361,7 @@ class MCPClientManager:
                 }
             }
             credentials = {"NOTION_TOKEN": "ntn_abc123..."}
-            manager = MCPClientManager.from_tool_config("notionApi", tool_config, credentials)
+            factory = MCPClientFactory.from_tool_config("notionApi", tool_config, credentials)
         """
         # Use Jinja to safely render the placeholders
         env = jinja2.Environment(autoescape=False)
@@ -363,21 +382,21 @@ class MCPClientManager:
     @classmethod
     def from_provider(cls, provider: str, credentials: Dict[str, str]):
         """
-        Create MCPClientManager from a provider name.
+        Create MCPClientFactory from a provider name.
 
         Automatically loads the right MCP config template for that provider,
-        renders it with the provided credentials, and creates a manager.
+        renders it with the provided credentials, and creates a factory.
 
         Args:
             provider: Provider name (e.g., "notion", "github", "atlassian")
             credentials: Dictionary of credential key-value pairs
 
         Returns:
-            MCPClientManager instance ready to use
+            MCPClientFactory instance ready to use
 
         Example:
             credentials = {"NOTION_TOKEN": "ntn_abc123..."}
-            manager = MCPClientManager.from_provider("notion", credentials)
+            factory = MCPClientFactory.from_provider("notion", credentials)
         """
         # Load and render Jinja template
         templates_dir = Path(__file__).parent / "provider_templates"
