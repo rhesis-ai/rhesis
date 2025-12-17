@@ -15,12 +15,14 @@
     "@mui/icons-material": "^6.3.0",
     "@mui/material": "^6.3.0",
     "@theguild/remark-mermaid": "^0.3.0",
+    "hast-util-to-jsx-runtime": "^2.3.6",
     "mermaid": "^11.12.1",
     "next": "^15.5.7",
     "nextra": "^4.6.1",
     "nextra-theme-docs": "^4.6.1",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "shiki": "^3.20.0"
   },
   "devDependencies": {
     "@eslint/compat": "^1.2.4",

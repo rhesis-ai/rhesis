@@ -681,38 +681,25 @@ aside nav a[class*='text-primary'],
   color: #3bc4f2 !important;
 }
 
-/* CodeBlock Component Syntax Highlighting */
-.rhesis-codeblock .code-keyword {
-  color: #3bc4f2;
+/* CodeBlock Component - Shiki Override */
+.rhesis-codeblock pre,
+.rhesis-codeblock code,
+.rhesis-codeblock span {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
+  tab-size: 4 !important;
+  letter-spacing: 0 !important;
+  white-space: pre !important;
+  word-spacing: normal !important;
 }
 
-.rhesis-codeblock .code-string {
-  color: #fcd34d;
+.rhesis-codeblock pre {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
 }
 
-.rhesis-codeblock .code-number {
-  color: #86efac;
-}
-
-.rhesis-codeblock .code-comment {
-  color: #6b7280;
-  opacity: 0.8;
-  font-style: italic;
-  font-weight: 400;
-}
-
-.rhesis-codeblock .terminal-separator {
-  color: #6b7280;
-  opacity: 0.7;
-}
-
-.rhesis-codeblock .terminal-label {
-  color: #60a5fa;
-  font-weight: 500;
-}
-
-.rhesis-codeblock .terminal-value {
-  color: #e5e7eb;
+.rhesis-codeblock code {
+  background: transparent !important;
 }
 
 /* InfoCard Component Styles */
