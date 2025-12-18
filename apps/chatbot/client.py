@@ -326,16 +326,10 @@ class ChatResponse(BaseModel):
 
 
 @collaborate(
-    name="chat_with_history",
-    description="Chat with the insurance assistant using conversation history",
-    response_mapping={
-        "output": "$.message",
-        "session_id": "$.session_id",
-        "context": "$.context",
-        "metadata": "$.use_case",
-    },
+    name="chat",
+    description="Chat with the insurance assistant",
 )
-def chat_with_history(
+def chat(
     message: str,
     session_id: Optional[str] = None,
     use_case: str = "insurance",
@@ -403,7 +397,7 @@ async def root(request: Request, auth: dict = Depends(verify_api_key)):
 
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat(
+async def chat_endpoint(
     request: Request, chat_request: ChatRequest, auth: dict = Depends(check_rate_limit_chatbot)
 ):
     try:
@@ -435,7 +429,7 @@ async def chat(
         conversation_history = sessions[session_id].messages.copy()
 
         # Call the collaborative function
-        result = chat_with_history(
+        result = chat(
             message=chat_request.message,
             session_id=session_id,
             use_case=use_case,
