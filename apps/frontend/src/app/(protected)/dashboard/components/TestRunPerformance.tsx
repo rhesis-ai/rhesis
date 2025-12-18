@@ -240,6 +240,9 @@ export default function TestRunPerformance({
             const testSetName = testSet?.name || 'Unknown Test Set';
             const testSetId = testSet?.id;
             const testSetType = testSet?.test_set_type?.type_value;
+            // Get total number of tests in the test set (not executed tests)
+            const totalTestsInSet =
+              testSet?.attributes?.metadata?.total_tests ?? null;
 
             // Get timing information
             const startedAt = (() => {
@@ -282,7 +285,8 @@ export default function TestRunPerformance({
             })();
 
             // Get test count and pass/fail counts from stats
-            const totalTests = testRun.stats?.total || 0;
+            // Use total tests in test set (not executed tests) for display
+            const totalTests = totalTestsInSet ?? testRun.stats?.total ?? 0;
             const passedTests = testRun.stats?.passed || 0;
             const failedTests = testRun.stats?.failed || 0;
 
