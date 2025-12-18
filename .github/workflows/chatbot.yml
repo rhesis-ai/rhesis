@@ -168,44 +168,8 @@ jobs:
           echo "🚀 Deploying chatbot service"
           echo "Image: ${{ env.IMAGE_NAME }}:latest"
 
-          # Build environment variables string
-          # Model configuration (SDK providers)
-          ENV_VARS="DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai' }}"
-          ENV_VARS="$ENV_VARS,DEFAULT_MODEL_NAME=${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.0-flash' }}"
-          
-          # Vertex AI configuration (for vertex_ai provider)
-          ENV_VARS="$ENV_VARS,GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}"
-          ENV_VARS="$ENV_VARS,VERTEX_AI_LOCATION=${{ secrets.VERTEX_AI_LOCATION }}"
-          if [ -n "${{ secrets.VERTEX_AI_PROJECT }}" ]; then
-            ENV_VARS="$ENV_VARS,VERTEX_AI_PROJECT=${{ secrets.VERTEX_AI_PROJECT }}"
-          fi
-          
-          # Legacy Gemini API configuration (for gemini provider - backward compatibility)
-          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
-            ENV_VARS="$ENV_VARS,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
-          fi
-          if [ -n "${{ secrets.GEMINI_MODEL_NAME }}" ]; then
-            ENV_VARS="$ENV_VARS,GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }}"
-          fi
-          
-          # Chatbot configuration
-          ENV_VARS="$ENV_VARS,CHATBOT_RATE_LIMIT=${{ secrets.CHATBOT_RATE_LIMIT || '1000' }}"
-          ENV_VARS="$ENV_VARS,WORKERS=${{ vars.CHATBOT_WORKERS || '4' }}"
-          ENV_VARS="$ENV_VARS,ENVIRONMENT=${{ env.ENVIRONMENT }}"
-          
-          # Add SMTP configuration for rate limit notifications
-          ENV_VARS="$ENV_VARS,SMTP_HOST=${{ secrets.SMTP_HOST }}"
-          ENV_VARS="$ENV_VARS,SMTP_PORT=${{ secrets.SMTP_PORT }}"
-          ENV_VARS="$ENV_VARS,SMTP_USER=${{ secrets.SMTP_USER }}"
-          ENV_VARS="$ENV_VARS,SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}"
-          ENV_VARS="$ENV_VARS,FROM_EMAIL=${{ secrets.FROM_EMAIL }}"
-          ENV_VARS="$ENV_VARS,AGENT_EMAIL_BCC=${{ secrets.AGENT_EMAIL_BCC }}"
-          ENV_VARS="$ENV_VARS,WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }}"
-          ENV_VARS="$ENV_VARS,WELCOME_FROM_EMAIL=${{ secrets.WELCOME_FROM_EMAIL }}"
-          
           # Add CHATBOT_API_KEY for backend authentication (if configured)
           if [ -n "${{ secrets.CHATBOT_API_KEY }}" ]; then
-            ENV_VARS="$ENV_VARS,CHATBOT_API_KEY=${{ secrets.CHATBOT_API_KEY }}"
             echo "🔐 Backend authentication enabled (API key configured)"
             echo "📊 Rate limits: 1000/day per user (authenticated), 100/day per IP (public)"
             echo "📧 Rate limit notifications enabled (hello@rhesis.ai)"
@@ -254,7 +218,28 @@ jobs:
             --timeout=120 \
             --max-instances=$MAX_INSTANCES \
             --min-instances=$MIN_INSTANCES \
-            --set-env-vars="$ENV_VARS"
+            --set-env-vars="$(cat <<EOF
+          DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai' }},
+          DEFAULT_MODEL_NAME=${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.0-flash' }},
+          GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }},
+          VERTEX_AI_LOCATION=${{ secrets.VERTEX_AI_LOCATION }},
+          VERTEX_AI_PROJECT=${{ secrets.VERTEX_AI_PROJECT }},
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},
+          GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
+          CHATBOT_RATE_LIMIT=${{ secrets.CHATBOT_RATE_LIMIT || '1000' }},
+          WORKERS=${{ vars.CHATBOT_WORKERS || '4' }},
+          ENVIRONMENT=${{ env.ENVIRONMENT }},
+          SMTP_HOST=${{ secrets.SMTP_HOST }},
+          SMTP_PORT=${{ secrets.SMTP_PORT }},
+          SMTP_USER=${{ secrets.SMTP_USER }},
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
+          FROM_EMAIL=${{ secrets.FROM_EMAIL }},
+          AGENT_EMAIL_BCC=${{ secrets.AGENT_EMAIL_BCC }},
+          WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
+          WELCOME_FROM_EMAIL=${{ secrets.WELCOME_FROM_EMAIL }},
+          CHATBOT_API_KEY=${{ secrets.CHATBOT_API_KEY }}
+          EOF
+          )"
 
           echo "✅ Deployment completed successfully"
 
