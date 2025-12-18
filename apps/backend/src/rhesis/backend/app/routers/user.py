@@ -162,7 +162,7 @@ async def read_users(
 
 @router.get("/settings", response_model=UserSettings)
 def get_user_settings(
-    db: Session = Depends(get_tenant_db_session),
+    db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
 ):
     """
@@ -183,7 +183,7 @@ def get_user_settings(
 @handle_database_exceptions(entity_name="user settings")
 def update_user_settings(
     settings_update: UserSettingsUpdate,
-    db: Session = Depends(get_tenant_db_session),
+    db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
 ):
     """
