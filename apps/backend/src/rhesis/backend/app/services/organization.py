@@ -1,14 +1,15 @@
 import json
 import os
 import uuid
-from typing import List, Type
+from typing import Any, Dict, List, Type
 
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import models
+from rhesis.backend.app import crud, models
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.services.test_set import execute_test_set_on_endpoint
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_behavior,
     get_or_create_category,
@@ -666,6 +667,155 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
     except Exception:
         # Let the calling code handle transaction rollback
         raise
+
+
+def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -> Dict[str, Any]:
+    """
+    Execute all test sets against all endpoints for initial data validation.
+
+    This function is called after load_initial_data completes to validate
+    the initial data by running test sets against available endpoints.
+
+    Args:
+        db: Database session
+        organization_id: Organization ID
+        user_id: User ID who owns the initial data
+
+    Returns:
+        Dict containing execution summary:
+        {
+            "submitted": int,  # Number of test runs submitted
+            "failed": int,     # Number that failed to submit
+            "test_set_count": int,
+            "endpoint_count": int,
+            "details": List[Dict]  # Per-execution details
+        }
+    """
+    print("\n" + "=" * 60)
+    print("Starting Initial Test Execution")
+    print("=" * 60)
+
+    # Initialize result tracking
+    result = {"submitted": 0, "failed": 0, "test_set_count": 0, "endpoint_count": 0, "details": []}
+
+    try:
+        # Fetch the User object
+        print(f"Fetching user: {user_id}")
+        current_user = crud.get_user_by_id(db, user_id)
+        if not current_user:
+            print(f"  ✗ User not found: {user_id}")
+            result["details"].append({"status": "error", "message": f"User not found: {user_id}"})
+            return result
+        print(f"  ✓ User found: {current_user.name} ({current_user.email})")
+
+        # Get all test sets for the organization
+        print(f"\nFetching test sets for organization: {organization_id}")
+        test_sets = crud.get_test_sets(
+            db=db,
+            organization_id=organization_id,
+            # Use default limit (10) - sufficient for initial data
+        )
+        result["test_set_count"] = len(test_sets)
+        print(f"  ✓ Found {len(test_sets)} test set(s)")
+        for ts in test_sets:
+            print(f"    - {ts.name} (ID: {ts.id})")
+
+        # Get all endpoints for the organization
+        print(f"\nFetching endpoints for organization: {organization_id}")
+        endpoints = crud.get_endpoints(
+            db=db,
+            organization_id=organization_id,
+            user_id=user_id,
+            # Use default limit (10) - sufficient for initial data
+        )
+        result["endpoint_count"] = len(endpoints)
+        print(f"  ✓ Found {len(endpoints)} endpoint(s)")
+        for ep in endpoints:
+            print(f"    - {ep.name} (ID: {ep.id}, URL: {ep.url})")
+
+        # Check if we have anything to execute
+        if not test_sets:
+            print("\n  ⚠ No test sets found - skipping execution")
+            result["details"].append({"status": "skipped", "message": "No test sets found"})
+            return result
+
+        if not endpoints:
+            print("\n  ⚠ No endpoints found - skipping execution")
+            result["details"].append({"status": "skipped", "message": "No endpoints found"})
+            return result
+
+        # Execute all test sets against all endpoints
+        print(f"\n{'=' * 60}")
+        print(
+            f"Executing Test Sets (Total: {len(test_sets)} × {len(endpoints)} = {len(test_sets) * len(endpoints)} execution(s))"
+        )
+        print(f"{'=' * 60}\n")
+
+        for test_set in test_sets:
+            for endpoint in endpoints:
+                execution_label = f"{test_set.name} → {endpoint.name}"
+                print(f"Executing: {execution_label}")
+
+                try:
+                    # Submit test execution (fire-and-forget)
+                    execution_result = execute_test_set_on_endpoint(
+                        db=db,
+                        test_set_identifier=str(test_set.id),
+                        endpoint_id=endpoint.id,
+                        current_user=current_user,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    )
+
+                    result["submitted"] += 1
+                    detail = {
+                        "status": "submitted",
+                        "test_set_id": str(test_set.id),
+                        "test_set_name": test_set.name,
+                        "endpoint_id": str(endpoint.id),
+                        "endpoint_name": endpoint.name,
+                        "task_id": execution_result.get("task_id"),
+                        "test_configuration_id": execution_result.get("test_configuration_id"),
+                    }
+                    result["details"].append(detail)
+
+                    print("  ✓ Submitted successfully")
+                    print(f"    Task ID: {detail['task_id']}")
+                    print(f"    Test Configuration ID: {detail['test_configuration_id']}")
+
+                except Exception as e:
+                    result["failed"] += 1
+                    detail = {
+                        "status": "failed",
+                        "test_set_id": str(test_set.id),
+                        "test_set_name": test_set.name,
+                        "endpoint_id": str(endpoint.id),
+                        "endpoint_name": endpoint.name,
+                        "error": str(e),
+                    }
+                    result["details"].append(detail)
+
+                    print(f"  ✗ Failed to submit: {str(e)}")
+
+                print()  # Blank line between executions
+
+        # Print summary
+        print(f"{'=' * 60}")
+        print("Execution Summary")
+        print(f"{'=' * 60}")
+        print(f"  Test Sets: {result['test_set_count']}")
+        print(f"  Endpoints: {result['endpoint_count']}")
+        print(f"  Total Executions: {result['submitted'] + result['failed']}")
+        print(f"  ✓ Successfully Submitted: {result['submitted']}")
+        print(f"  ✗ Failed: {result['failed']}")
+        print(f"{'=' * 60}\n")
+
+        return result
+
+    except Exception as e:
+        print(f"\n✗ Error during initial test execution: {str(e)}")
+        result["details"].append({"status": "error", "message": str(e)})
+        return result
 
 
 def _get_model_dependencies(model: Type) -> List[Type]:

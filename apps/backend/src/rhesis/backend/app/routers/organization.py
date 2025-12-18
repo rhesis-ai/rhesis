@@ -14,7 +14,11 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.services.organization import load_initial_data, rollback_initial_data
+from rhesis.backend.app.services.organization import (
+    execute_initial_test_runs,
+    load_initial_data,
+    rollback_initial_data,
+)
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 
@@ -150,6 +154,27 @@ async def initialize_organization_data(
                 )
                 db.flush()
 
+        # Execute initial test runs to validate the loaded data
+        # This is non-blocking - if it fails, onboarding still completes
+        test_execution_summary = None
+        try:
+            test_execution_summary = execute_initial_test_runs(
+                db=db, organization_id=str(organization_id), user_id=str(current_user.id)
+            )
+        except Exception as test_exec_error:
+            # Log the error but don't fail the entire onboarding
+            print(f"⚠ Warning: Initial test execution failed: {test_exec_error}")
+            test_execution_summary = {
+                "status": "error",
+                "message": (
+                    f"Test execution failed but onboarding completed: {str(test_exec_error)}"
+                ),
+                "submitted": 0,
+                "failed": 0,
+                "test_set_count": 0,
+                "endpoint_count": 0,
+            }
+
         # Mark onboarding as completed
         org.is_onboarding_complete = True
         # Transaction commit is handled by the session context manager
@@ -158,6 +183,7 @@ async def initialize_organization_data(
             "status": "success",
             "message": "Initial data loaded successfully",
             "default_model_id": default_model_id,
+            "test_execution": test_execution_summary,
         }
     except HTTPException:
         # Re-raise HTTP exceptions
