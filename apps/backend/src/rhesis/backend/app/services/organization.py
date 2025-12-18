@@ -745,9 +745,11 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
             return result
 
         # Execute all test sets against all endpoints
+        total_executions = len(test_sets) * len(endpoints)
         print(f"\n{'=' * 60}")
         print(
-            f"Executing Test Sets (Total: {len(test_sets)} × {len(endpoints)} = {len(test_sets) * len(endpoints)} execution(s))"
+            f"Executing Test Sets (Total: {len(test_sets)} × {len(endpoints)} = "
+            f"{total_executions} execution(s))"
         )
         print(f"{'=' * 60}\n")
 

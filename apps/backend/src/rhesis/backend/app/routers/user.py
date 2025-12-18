@@ -215,9 +215,11 @@ def update_user_settings(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Convert Pydantic model to dict, excluding unset fields but keeping explicit nulls, with UUIDs as strings
+    # Convert Pydantic model to dict, excluding unset fields but keeping explicit nulls,
+    # with UUIDs as strings
     # exclude_unset=True: Only include fields that were explicitly provided in the request
-    # exclude_none=False (default): Keep fields that were explicitly set to null (for clearing values)
+    # exclude_none=False (default): Keep fields that were explicitly set to null
+    # (for clearing values)
     settings_dict = settings_update.model_dump(exclude_unset=True, mode="json")
 
     # Get the settings manager instance (property creates new instance each time!)
