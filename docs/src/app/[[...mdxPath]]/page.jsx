@@ -1,5 +1,7 @@
 import { generateStaticParamsFor, importPage } from 'nextra/pages'
 import { useMDXComponents as getMDXComponents } from '../../mdx-components'
+import { generatePageMetadata } from '../../lib/metadata'
+import { siteConfig } from '../../lib/site-config'
 
 export const generateStaticParams = generateStaticParamsFor('mdxPath')
 
@@ -8,14 +10,28 @@ export async function generateMetadata(props) {
 
   try {
     const { metadata } = await importPage(params.mdxPath)
-    return metadata
+
+    // Construct URL path from mdxPath array
+    const urlPath = params.mdxPath ? params.mdxPath.join('/') : ''
+
+    // Generate enhanced metadata with SEO optimizations
+    const enhancedMetadata = generatePageMetadata(metadata, urlPath, siteConfig)
+
+    return enhancedMetadata
   } catch (error) {
     // eslint-disable-next-line no-console
     console.warn('Failed to load metadata for path:', params.mdxPath, error)
-    return {
-      title: 'Rhesis Documentation',
-      description: 'AI-powered testing and evaluation platform',
-    }
+
+    // Fallback metadata with basic SEO
+    const urlPath = params.mdxPath ? params.mdxPath.join('/') : ''
+    return generatePageMetadata(
+      {
+        title: 'Rhesis Documentation',
+        description: siteConfig.siteDescription,
+      },
+      urlPath,
+      siteConfig
+    )
   }
 }
 
