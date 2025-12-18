@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Any, Dict, Optional, Type, Union
 
@@ -6,6 +7,8 @@ from pydantic import BaseModel
 
 from rhesis.sdk.client import Client
 from rhesis.sdk.models.base import BaseLLM
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL_NAME = "rhesis-llm-v1"
 API_ENDPOINT = "services/generate/content"
@@ -94,7 +97,7 @@ class RhesisLLM(BaseLLM):
 
         except (requests.exceptions.HTTPError, KeyError, IndexError) as e:
             # Log the error and return an appropriate message
-            print(f"Error occurred while running the prompt: {e}")
+            logger.error(f"Error occurred while running the prompt: {e}", exc_info=True)
             if schema:
                 return {"error": "An error occurred while processing the request."}
 
