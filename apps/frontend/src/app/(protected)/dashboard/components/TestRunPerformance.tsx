@@ -31,8 +31,10 @@ interface TestRunWithStats extends TestRunDetail {
   } | null;
 }
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import PersonIcon from '@mui/icons-material/Person';
 import { CategoryIcon } from '@/components/icons';
@@ -46,22 +48,28 @@ interface TestRunPerformanceProps {
 }
 
 const getStatusColor = (
-  status?: string,
-  taskState?: string
+  status?: string
 ): 'success' | 'error' | 'warning' | 'info' | 'default' => {
-  if (status?.toLowerCase().includes('completed')) return 'success';
-  if (status?.toLowerCase().includes('failed')) return 'error';
-  if (taskState === 'SUCCESS') return 'success';
-  if (taskState === 'FAILURE') return 'error';
-  if (taskState === 'PROGRESS') return 'info';
-  if (taskState === 'PENDING') return 'warning';
+  if (!status) return 'default';
+  
+  const statusLower = status.toLowerCase();
+  if (statusLower === 'completed') return 'success';
+  if (statusLower === 'partial') return 'warning';
+  if (statusLower === 'failed') return 'error';
+  if (statusLower === 'progress') return 'info';
+  
   return 'default';
 };
 
-const getStatusIcon = (status?: string, taskState?: string) => {
-  const color = getStatusColor(status, taskState);
-  if (color === 'success') return <CheckCircleIcon fontSize="small" />;
-  if (color === 'error') return <ErrorIcon fontSize="small" />;
+const getStatusIcon = (status?: string) => {
+  if (!status) return <PlayArrowIcon fontSize="small" />;
+  
+  const statusLower = status.toLowerCase();
+  if (statusLower === 'completed') return <CheckCircleOutlineIcon fontSize="small" />;
+  if (statusLower === 'partial') return <WarningAmberOutlinedIcon fontSize="small" />;
+  if (statusLower === 'failed') return <CancelOutlinedIcon fontSize="small" />;
+  if (statusLower === 'progress') return <PlayCircleOutlineIcon fontSize="small" />;
+  
   return <PlayArrowIcon fontSize="small" />;
 };
 
@@ -244,9 +252,8 @@ export default function TestRunPerformance({
           testRuns.map(testRun => {
             // Get status from the test run
             const statusName = testRun.status?.name || 'Unknown';
-            const taskState = testRun.attributes?.task_state;
-            const statusColor = getStatusColor(statusName, taskState);
-            const statusIcon = getStatusIcon(statusName, taskState);
+            const statusColor = getStatusColor(statusName);
+            const statusIcon = getStatusIcon(statusName);
 
             // Get pass rate
             const passRate = calculatePassRate(testRun);
