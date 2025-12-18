@@ -216,6 +216,9 @@ apps/documentation/.swc/
 apps/documentation/coverage/
 apps/documentation/.nyc_output/
 
+# Docs (new location)
+docs/src/public/_pagefind/
+
 # Debug logs
 npm-debug.log*
 yarn-debug.log*
