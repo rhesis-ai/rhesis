@@ -81,7 +81,37 @@ function getPriority(url) {
 
 export default async function sitemap() {
   const baseUrl = 'https://docs.rhesis.ai'
-  const contentDir = path.join(__dirname, '../../content')
+  
+  // Try multiple possible content directory locations
+  const possibleContentDirs = [
+    path.join(__dirname, '../../content'), // Local development
+    path.join(process.cwd(), 'content'),   // Docker/production
+    path.join(__dirname, '../../../content'), // Alternative structure
+  ]
+  
+  let contentDir = null
+  for (const dir of possibleContentDirs) {
+    try {
+      if (fs.existsSync(dir)) {
+        contentDir = dir
+        break
+      }
+    } catch (error) {
+      // Continue to next option
+    }
+  }
+  
+  if (!contentDir) {
+    console.warn('Content directory not found, generating empty sitemap')
+    return [
+      {
+        url: baseUrl,
+        lastModified: new Date(),
+        changeFrequency: 'weekly',
+        priority: 1.0,
+      },
+    ]
+  }
 
   // Get all MDX files from content directory
   const mdxFiles = getMdxFiles(contentDir)
