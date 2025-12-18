@@ -30,6 +30,7 @@ COPY src/package.json src/package-lock.json src/next.config.mjs src/mdx-componen
 COPY src/public ./public
 COPY src/app ./app
 COPY src/components ./components
+COPY src/lib ./lib
 COPY content ./content
 COPY src/styles ./styles
 
@@ -68,6 +69,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Copy built application from builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/content ./content
+COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
 COPY --from=builder --chown=nextjs:nodejs /app/styles ./styles
 
 # Switch to non-root user
