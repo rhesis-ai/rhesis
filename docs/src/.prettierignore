@@ -8,3 +8,6 @@ build/
 *.log
 .DS_Store
 
+# Pagefind search index (auto-generated)
+public/_pagefind
+

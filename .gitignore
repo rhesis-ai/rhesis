@@ -216,7 +216,7 @@ apps/documentation/.swc/
 apps/documentation/coverage/
 apps/documentation/.nyc_output/
 
-# Docs pagefind index
+# Docs (new location)
 docs/src/public/_pagefind/
 
 # Debug logs
