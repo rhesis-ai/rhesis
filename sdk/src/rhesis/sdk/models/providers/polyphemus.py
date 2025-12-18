@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from typing import Any, Dict, Optional, Type
@@ -8,6 +9,8 @@ from pydantic import BaseModel
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.utils import validate_llm_response
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_POLYPHEMUS_URL = "https://polyphemus.rhesis.ai"
 
@@ -125,7 +128,7 @@ class PolyphemusLLM(BaseLLM):
 
         except (requests.exceptions.HTTPError, KeyError, IndexError, json.JSONDecodeError) as e:
             # Log the error and return an appropriate message
-            print(f"Error occurred while running the prompt: {e}")
+            logger.error(f"Error occurred while running the prompt: {e}", exc_info=True)
             if schema:
                 return {"error": "An error occurred while processing the request."}
 

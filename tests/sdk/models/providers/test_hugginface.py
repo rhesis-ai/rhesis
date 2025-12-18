@@ -6,8 +6,14 @@ pytest.importorskip("torch")
 pytest.importorskip("transformers")
 
 import torch
+from pydantic import BaseModel
 
-from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
+from rhesis.sdk.errors import (
+    HUGGINGFACE_MODEL_NOT_LOADED,
+    MODEL_RELOAD_WARNING,
+    NO_MODEL_NAME_PROVIDED,
+    WARNING_TOKENIZER_ALREADY_LOADED_RELOAD,
+)
 from rhesis.sdk.models import HuggingFaceLLM
 
 
@@ -43,7 +49,7 @@ class TestHuggingFaceLLM:
         self, mock_auto_model, mock_auto_tokenizer, mock_torch_device
     ):
         """Should auto-load model when auto_loading=True and no defaults"""
-        mock_model = Mock(spec=['device', 'generate', 'parameters', 'buffers'])  # No hf_device_map
+        mock_model = Mock(spec=["device", "generate", "parameters", "buffers"])  # No hf_device_map
         mock_model.device = torch.device("cpu")  # Set device attribute for single-device case
         mock_tokenizer = Mock()
         mock_device = Mock()
@@ -70,7 +76,7 @@ class TestHuggingFaceLLM:
         self, mock_auto_model, mock_auto_tokenizer, mock_torch_device
     ):
         """Should auto-load model when auto_loading=True and defaults provided"""
-        mock_model = Mock(spec=['device', 'generate', 'parameters', 'buffers'])  # No hf_device_map
+        mock_model = Mock(spec=["device", "generate", "parameters", "buffers"])  # No hf_device_map
         mock_model.device = torch.device("cpu")  # Set device attribute for single-device case
         mock_tokenizer = Mock()
         mock_device = Mock()
@@ -207,3 +213,420 @@ class TestHuggingFaceLLM:
         mock_tokenizer.decode.return_value = "   padded text   "
         result = llm.generate("Strip test")
         assert result == "padded text"
+
+    # Tests for new model_path functionality
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_load_model_with_model_path(self, mock_auto_model, mock_auto_tokenizer):
+        """Should load model from local path when model_path is provided"""
+        mock_model = Mock(spec=["device", "generate", "parameters", "buffers"])
+        mock_model.device = torch.device("cpu")
+        mock_tokenizer = Mock()
+
+        mock_auto_model.from_pretrained.return_value = mock_model
+        mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+
+        llm = HuggingFaceLLM(
+            "provider/model", auto_loading=False, model_path="/local/path/to/model"
+        )
+        llm.load_model()
+
+        # Should use model_path instead of model_name
+        mock_auto_model.from_pretrained.assert_called_once()
+        call_args = mock_auto_model.from_pretrained.call_args
+        assert call_args[0][0] == "/local/path/to/model"
+        assert call_args[1]["device_map"] == "auto"
+        assert call_args[1]["trust_remote_code"] is True
+
+        # Tokenizer should also use model_path
+        mock_auto_tokenizer.from_pretrained.assert_called_once_with("/local/path/to/model")
+
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_load_model_without_model_path(self, mock_auto_model, mock_auto_tokenizer):
+        """Should load model from HuggingFace Hub when model_path is not provided"""
+        mock_model = Mock(spec=["device", "generate", "parameters", "buffers"])
+        mock_model.device = torch.device("cpu")
+        mock_tokenizer = Mock()
+
+        mock_auto_model.from_pretrained.return_value = mock_model
+        mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        llm.load_model()
+
+        # Should use model_name
+        mock_auto_model.from_pretrained.assert_called_once()
+        call_args = mock_auto_model.from_pretrained.call_args
+        assert call_args[0][0] == "provider/model"
+        assert (
+            "trust_remote_code" not in call_args[1]
+            or call_args[1].get("trust_remote_code") is not True
+        )
+
+    # Tests for gpu_only functionality
+    @patch("rhesis.sdk.models.providers.huggingface.torch.cuda.is_available")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_load_model_gpu_only_without_cuda(
+        self, mock_auto_model, mock_auto_tokenizer, mock_cuda_available
+    ):
+        """Should raise RuntimeError when gpu_only=True but CUDA is not available"""
+        mock_cuda_available.return_value = False
+
+        llm = HuggingFaceLLM("provider/model", auto_loading=False, gpu_only=True)
+        with pytest.raises(RuntimeError, match="gpu_only=True but CUDA is not available"):
+            llm.load_model()
+
+    @patch("rhesis.sdk.models.providers.huggingface.torch.cuda.is_available")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_load_model_gpu_only_with_cuda(
+        self, mock_auto_model, mock_auto_tokenizer, mock_cuda_available
+    ):
+        """Should load model with gpu_only=True when CUDA is available"""
+        mock_cuda_available.return_value = True
+        mock_model = Mock(spec=["device", "generate", "parameters", "buffers", "hf_device_map"])
+        mock_model.device = torch.device("cuda:0")
+        mock_model.hf_device_map = {"layer1": "cuda:0", "layer2": "cuda:0"}
+        mock_tokenizer = Mock()
+
+        mock_auto_model.from_pretrained.return_value = mock_model
+        mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+
+        llm = HuggingFaceLLM("provider/model", auto_loading=False, gpu_only=True)
+        llm.load_model()
+
+        call_args = mock_auto_model.from_pretrained.call_args
+        assert call_args[1]["device_map"] == "auto"
+
+    @patch("rhesis.sdk.models.providers.huggingface.torch.cuda.is_available")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_load_model_gpu_only_with_cpu_offload(
+        self, mock_auto_model, mock_auto_tokenizer, mock_cuda_available
+    ):
+        """Should raise RuntimeError when gpu_only=True but model is offloaded to CPU"""
+        mock_cuda_available.return_value = True
+        mock_model = Mock(spec=["device", "generate", "parameters", "buffers", "hf_device_map"])
+        mock_model.device = torch.device("cuda:0")
+        # Simulate CPU offloading
+        mock_model.hf_device_map = {"layer1": "cuda:0", "layer2": "cpu"}
+        mock_tokenizer = Mock()
+
+        mock_auto_model.from_pretrained.return_value = mock_model
+        mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+
+        llm = HuggingFaceLLM("provider/model", auto_loading=False, gpu_only=True)
+        with pytest.raises(RuntimeError, match="gpu_only=True but model has layers offloaded to"):
+            llm.load_model()
+
+    # Tests for hf_device_map handling (multi-device models)
+    @patch("rhesis.sdk.models.providers.huggingface.torch.device")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_load_model_with_hf_device_map(
+        self, mock_auto_model, mock_auto_tokenizer, mock_torch_device
+    ):
+        """Should handle multi-device models with hf_device_map"""
+        mock_model = Mock(spec=["device", "generate", "parameters", "buffers", "hf_device_map"])
+        mock_model.device = torch.device("cuda:0")
+        mock_model.hf_device_map = {"layer1": "cuda:0", "layer2": "cuda:1"}
+        mock_tokenizer = Mock()
+        mock_device = torch.device("cuda:0")
+
+        mock_auto_model.from_pretrained.return_value = mock_model
+        mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+        mock_torch_device.return_value = mock_device
+
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        llm.load_model()
+
+        # Should use device from first layer in hf_device_map
+        assert llm.device == mock_device
+
+    @patch("rhesis.sdk.models.providers.huggingface.torch.device")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_load_model_without_hf_device_map(
+        self, mock_auto_model, mock_auto_tokenizer, mock_torch_device
+    ):
+        """Should use model.device when hf_device_map is not present"""
+        mock_model = Mock(spec=["device", "generate", "parameters", "buffers"])
+        mock_model.device = torch.device("cpu")
+        mock_tokenizer = Mock()
+
+        mock_auto_model.from_pretrained.return_value = mock_model
+        mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        llm.load_model()
+
+        # Should use model.device directly
+        assert llm.device == mock_model.device
+
+    # Tests for load_kwargs
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_load_model_with_load_kwargs(self, mock_auto_model, mock_auto_tokenizer):
+        """Should pass load_kwargs to from_pretrained"""
+        mock_model = Mock(spec=["device", "generate", "parameters", "buffers"])
+        mock_model.device = torch.device("cpu")
+        mock_tokenizer = Mock()
+
+        mock_auto_model.from_pretrained.return_value = mock_model
+        mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+
+        load_kwargs = {"torch_dtype": torch.float16, "low_cpu_mem_usage": True}
+        llm = HuggingFaceLLM("provider/model", auto_loading=False, load_kwargs=load_kwargs)
+        llm.load_model()
+
+        call_args = mock_auto_model.from_pretrained.call_args
+        assert call_args[1]["torch_dtype"] == torch.float16
+        assert call_args[1]["low_cpu_mem_usage"] is True
+        assert call_args[1]["device_map"] == "auto"
+
+    # Tests for reload warnings
+    @patch("builtins.print")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_load_model_warns_on_model_reload(
+        self, mock_auto_model, mock_auto_tokenizer, mock_print
+    ):
+        """Should warn when reloading an already loaded model"""
+        mock_model = Mock(spec=["device", "generate", "parameters", "buffers"])
+        mock_model.device = torch.device("cpu")
+        mock_tokenizer = Mock()
+
+        mock_auto_model.from_pretrained.return_value = mock_model
+        mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        llm.model = Mock()  # Simulate already loaded model
+        llm.load_model()
+
+        mock_print.assert_any_call(MODEL_RELOAD_WARNING.format("provider/model"))
+
+    @patch("builtins.print")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoTokenizer")
+    @patch("rhesis.sdk.models.providers.huggingface.AutoModelForCausalLM")
+    def test_load_model_warns_on_tokenizer_reload(
+        self, mock_auto_model, mock_auto_tokenizer, mock_print
+    ):
+        """Should warn when reloading an already loaded tokenizer"""
+        mock_model = Mock(spec=["device", "generate", "parameters", "buffers"])
+        mock_model.device = torch.device("cpu")
+        mock_tokenizer = Mock()
+
+        mock_auto_model.from_pretrained.return_value = mock_model
+        mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        llm.tokenizer = Mock()  # Simulate already loaded tokenizer
+        llm.load_model()
+
+        mock_print.assert_any_call(WARNING_TOKENIZER_ALREADY_LOADED_RELOAD.format("provider/model"))
+
+    # Tests for memory calculation
+    def test_get_model_memory_gb_without_model(self):
+        """Should return 0.0 when model is not loaded"""
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        assert llm._get_model_memory_gb() == 0.0
+
+    def test_get_model_memory_gb_with_model(self):
+        """Should calculate memory footprint when model is loaded"""
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+
+        # Create tensors large enough to result in non-zero GB after rounding to 3 decimal places
+        # Need at least 1MB to get 0.001 GB (1024*1024 bytes = 1MB)
+        # Let's use 10MB to get 0.010 GB
+        num_elements = (10 * 1024 * 1024) // 4  # 10MB / 4 bytes per float32 = 2,621,440 elements
+        param1 = torch.randn(num_elements // 2)  # ~5MB
+        param2 = torch.randn(num_elements // 2)  # ~5MB
+        buffer1 = torch.randn(1000)  # Small buffer
+
+        # Create a mock model that returns these tensors
+        mock_model = Mock()
+        mock_model.parameters.return_value = [param1, param2]
+        mock_model.buffers.return_value = [buffer1]
+
+        llm.model = mock_model
+
+        memory_gb = llm._get_model_memory_gb()
+        assert memory_gb > 0
+        assert isinstance(memory_gb, float)
+        # Should be approximately 10MB = 0.010 GB (rounded)
+        assert memory_gb >= 0.010
+
+    def test_get_model_memory_gb_handles_exception(self):
+        """Should return 0.0 when memory calculation fails"""
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        mock_model = Mock()
+        mock_model.parameters.side_effect = Exception("Error calculating memory")
+        llm.model = mock_model
+
+        assert llm._get_model_memory_gb() == 0.0
+
+    # Tests for schema support
+    def test_generate_with_schema(self):
+        """Should validate JSON response against schema"""
+
+        class TestSchema(BaseModel):
+            name: str
+            age: int
+
+        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks()
+        # Mock decode to return valid JSON matching schema
+        mock_tokenizer.decode.return_value = '{"name": "John", "age": 30}'
+
+        result = llm.generate("Generate person data", schema=TestSchema)
+
+        assert isinstance(result, dict)
+        assert result["name"] == "John"
+        assert result["age"] == 30
+
+        # Verify schema instruction was added to prompt
+        call_args = mock_tokenizer.apply_chat_template.call_args
+        messages = call_args[0][0]
+        assert (
+            "JSON matching this schema" in messages[0]["content"]
+            or "JSON matching this schema" in messages[1]["content"]
+        )
+
+    def test_generate_with_schema_invalid_json(self):
+        """Should raise error when JSON doesn't match schema"""
+
+        class TestSchema(BaseModel):
+            name: str
+            age: int
+
+        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks()
+        # Mock decode to return invalid JSON (missing age field)
+        mock_tokenizer.decode.return_value = '{"name": "John"}'
+
+        with pytest.raises(Exception):  # Should raise validation error
+            llm.generate("Generate person data", schema=TestSchema)
+
+    # Tests for metadata tracking
+    def test_generate_stores_metadata(self):
+        """Should store generation metadata in last_generation_metadata"""
+        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks()
+
+        # Setup mocks to return predictable values
+        input_tensor = torch.tensor([[1, 2, 3, 4, 5]])
+        output_tensor = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8]])  # 3 more tokens than input
+
+        mock_tokenizer.apply_chat_template.return_value = {
+            "input_ids": input_tensor,
+            "attention_mask": torch.tensor([[1, 1, 1, 1, 1]]),
+        }
+        mock_model.generate.return_value = output_tensor
+
+        llm.generate("Test prompt")
+
+        assert llm.last_generation_metadata is not None
+        assert "input_tokens" in llm.last_generation_metadata
+        assert "output_tokens" in llm.last_generation_metadata
+        assert "generation_time_seconds" in llm.last_generation_metadata
+        assert "model_memory_gb" in llm.last_generation_metadata
+        assert llm.last_generation_metadata["input_tokens"] == 5
+        assert llm.last_generation_metadata["output_tokens"] == 3
+
+    def test_generate_sets_default_max_new_tokens(self):
+        """Should set default max_new_tokens to 2048 if not provided"""
+        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks()
+        llm.generate("Test prompt")
+
+        call_args = mock_model.generate.call_args
+        assert call_args[1]["max_new_tokens"] == 2048
+
+    def test_generate_respects_custom_max_new_tokens(self):
+        """Should use custom max_new_tokens when provided"""
+        llm, mock_model, mock_tokenizer = self.setup_model_with_mocks()
+        llm.generate("Test prompt", max_new_tokens=100)
+
+        call_args = mock_model.generate.call_args
+        assert call_args[1]["max_new_tokens"] == 100
+
+    # Tests for error handling
+    def test_generate_raises_when_model_not_loaded(self):
+        """Should raise RuntimeError when model is not loaded"""
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            llm.generate("Test prompt")
+        assert str(exc_info.value) == HUGGINGFACE_MODEL_NOT_LOADED
+
+    def test_generate_raises_when_tokenizer_not_loaded(self):
+        """Should raise RuntimeError when tokenizer is not loaded"""
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        llm.model = Mock()  # Model loaded but tokenizer not
+
+        with pytest.raises(RuntimeError) as exc_info:
+            llm.generate("Test prompt")
+        assert str(exc_info.value) == HUGGINGFACE_MODEL_NOT_LOADED
+
+    # Tests for unload_model
+    @patch("rhesis.sdk.models.providers.huggingface.torch.cuda.empty_cache")
+    @patch("rhesis.sdk.models.providers.huggingface.gc.collect")
+    def test_unload_model(self, mock_gc_collect, mock_empty_cache):
+        """Should unload model and tokenizer and free memory"""
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        llm.model = Mock()
+        llm.tokenizer = Mock()
+
+        initial_empty_cache_count = mock_empty_cache.call_count
+        initial_gc_count = mock_gc_collect.call_count
+
+        llm.unload_model()
+
+        assert llm.model is None
+        assert llm.tokenizer is None
+        # Should attempt to free GPU cache (even if no GPU) - called twice in unload_model
+        assert mock_empty_cache.call_count >= initial_empty_cache_count + 2
+        # Should call gc.collect at least once
+        assert mock_gc_collect.call_count >= initial_gc_count + 1
+
+    @patch("rhesis.sdk.models.providers.huggingface.torch.cuda.empty_cache")
+    @patch("rhesis.sdk.models.providers.huggingface.gc.collect")
+    def test_unload_model_handles_exceptions(self, mock_gc_collect, mock_empty_cache):
+        """Should handle exceptions during unload gracefully"""
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        mock_model = Mock()
+        mock_model.cpu.side_effect = Exception("Error moving to CPU")
+        llm.model = mock_model
+        llm.tokenizer = Mock()
+
+        # Should not raise exception
+        llm.unload_model()
+
+        # Should still attempt cleanup
+        assert mock_empty_cache.call_count == 2
+        mock_gc_collect.assert_called_once()
+
+    def test_unload_model_with_state_dict(self):
+        """Should clear state_dict when unloading model"""
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        mock_model = Mock()
+        mock_state_dict = {"layer1": Mock(), "layer2": Mock()}
+        mock_model.state_dict.return_value = mock_state_dict
+        llm.model = mock_model
+
+        llm.unload_model()
+
+        assert llm.model is None
+        # Verify state_dict was accessed
+        mock_model.state_dict.assert_called_once()
+
+    # Tests for custom_results_dir
+    def test_init_with_custom_results_dir(self):
+        """Should store custom_results_dir when provided"""
+        llm = HuggingFaceLLM(
+            "provider/model", auto_loading=False, custom_results_dir="/custom/path"
+        )
+        assert llm.custom_results_dir == "/custom/path"
+
+    def test_init_without_custom_results_dir(self):
+        """Should set custom_results_dir to None when not provided"""
+        llm = HuggingFaceLLM("provider/model", auto_loading=False)
+        assert llm.custom_results_dir is None

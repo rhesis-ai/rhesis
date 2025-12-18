@@ -173,8 +173,7 @@ jobs:
         run: |
           # Use cache to speed up builds - only rebuild layers that changed
           # Build context is repo root to access SDK and pyproject.toml (like backend)
-          # Pre-download default model during build to avoid runtime downloads in Cloud Run
-          DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }}"
+          # Models are loaded at runtime from MODEL_PATH (local or GCS bucket)
           
           # Enable BuildKit for better build performance and progress output
           export DOCKER_BUILDKIT=1
@@ -182,11 +181,11 @@ jobs:
           
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, tag with commit SHA
-            docker build --progress=plain --pull --build-arg DEFAULT_MODEL="$DEFAULT_MODEL" -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/polyphemus/Dockerfile .
+            docker build --progress=plain --pull -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/polyphemus/Dockerfile .
             echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
           else
             # For regular deployments, use latest tag
-            docker build --progress=plain --pull --build-arg DEFAULT_MODEL="$DEFAULT_MODEL" -t ${{ env.IMAGE_NAME }}:latest -f apps/polyphemus/Dockerfile .
+            docker build --progress=plain --pull -t ${{ env.IMAGE_NAME }}:latest -f apps/polyphemus/Dockerfile .
             echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
           fi
 
@@ -363,9 +362,13 @@ jobs:
               --revision-suffix=${{ env.COMMIT_SHA }} \
               --no-cpu-throttling \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
+              --add-volume name=models,type=cloud-storage,bucket=${{ secrets.MODEL_BUCKET }} \
+              --add-volume-mount volume=models,mount-path=/gcs-models \
               --set-env-vars="$(cat <<EOF
-          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
-          TRANSFORMERS_CACHE=/app/model_cache,
+          MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
+          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }},
+          LOAD_KWARGS_B64=$(echo -n '{"load_in_8bit":true}' | base64),
+          TRANSFORMERS_CACHE=/tmp/transformers_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
           SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
@@ -402,9 +405,13 @@ jobs:
               --concurrency=1 \
               --no-cpu-throttling \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
+              --add-volume name=models,type=cloud-storage,bucket=${{ secrets.MODEL_BUCKET }} \
+              --add-volume-mount volume=models,mount-path=/gcs-models \
               --set-env-vars="$(cat <<EOF
-          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL || 'huggingface/distilgpt2' }},
-          TRANSFORMERS_CACHE=/app/model_cache,
+          MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
+          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL}},
+          LOAD_KWARGS_B64=$(echo -n '{"load_in_8bit":true}' | base64),
+          TRANSFORMERS_CACHE=/tmp/transformers_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
           SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},

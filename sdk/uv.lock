@@ -281,6 +281,22 @@ wheels = [
 ]
 
 [[package]]
+name = "bitsandbytes"
+version = "0.49.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "torch" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/96/2b825cb874477a26478df0ce8ce3550abe81af1c7bcbc47871f0619b120c/bitsandbytes-0.49.0-py3-none-macosx_14_0_arm64.whl", hash = "sha256:17d5b57e6d51b78bcfc07da0e93db061181b25bffabfafe101dd9b75c2710872", size = 129838, upload-time = "2025-12-11T20:50:39.645Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/4f/9f6d161e9ea68cdd6b85585dee9b383748ca07431e31c4c134111f87489e/bitsandbytes-0.49.0-py3-none-manylinux_2_24_aarch64.whl", hash = "sha256:7e69951b4d207a676986fce967544d9599f23518d0f09d478295996aeff377c2", size = 31065242, upload-time = "2025-12-11T20:50:41.903Z" },
+    { url = "https://files.pythonhosted.org/packages/a5/a8/26f7815b376b1d3dae615263471cb6d0d9f9792a472d5dab529502deac67/bitsandbytes-0.49.0-py3-none-manylinux_2_24_x86_64.whl", hash = "sha256:0c46cdef50b3174463b6bdf13715c9f1f00b360be3626e3c5d2f8d226af2cf3f", size = 59053880, upload-time = "2025-12-11T20:50:45.422Z" },
+    { url = "https://files.pythonhosted.org/packages/69/76/bc6460b1618322258e7d251cd0c9d11d98d5232bb37cd507451e40127f8e/bitsandbytes-0.49.0-py3-none-win_amd64.whl", hash = "sha256:57a327c6d65f7eda32eb8d416ef8e44d2415c2e7b4fdb735896abd04171ae696", size = 54700284, upload-time = "2025-12-11T20:50:49.373Z" },
+]
+
+[[package]]
 name = "cachetools"
 version = "5.5.2"
 source = { registry = "https://pypi.org/simple" }
@@ -4189,11 +4205,13 @@ dependencies = [
 [package.optional-dependencies]
 all = [
     { name = "accelerate" },
+    { name = "bitsandbytes" },
     { name = "torch" },
     { name = "transformers" },
 ]
 huggingface = [
     { name = "accelerate" },
+    { name = "bitsandbytes" },
     { name = "torch" },
     { name = "transformers" },
 ]
@@ -4224,6 +4242,8 @@ dev = [
 requires-dist = [
     { name = "accelerate", marker = "extra == 'all'", specifier = ">=1.2.0" },
     { name = "accelerate", marker = "extra == 'huggingface'", specifier = ">=1.2.0" },
+    { name = "bitsandbytes", marker = "extra == 'all'", specifier = ">=0.45.0" },
+    { name = "bitsandbytes", marker = "extra == 'huggingface'", specifier = ">=0.45.0" },
     { name = "deepeval", specifier = "==3.7.0" },
     { name = "deepteam", specifier = ">=0.2.5" },
     { name = "ipykernel", specifier = ">=7.1.0" },
@@ -4244,8 +4264,8 @@ requires-dist = [
     { name = "torch", marker = "extra == 'all'", specifier = ">=2.8.0" },
     { name = "torch", marker = "extra == 'huggingface'", specifier = ">=2.8.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
-    { name = "transformers", marker = "extra == 'all'", specifier = ">=4.56.0" },
-    { name = "transformers", marker = "extra == 'huggingface'", specifier = ">=4.56.0" },
+    { name = "transformers", marker = "extra == 'all'", specifier = "==4.57.1" },
+    { name = "transformers", marker = "extra == 'huggingface'", specifier = "==4.57.1" },
     { name = "websockets", specifier = ">=12.0" },
 ]
 provides-extras = ["huggingface", "all"]
@@ -5212,7 +5232,7 @@ wheels = [
 
 [[package]]
 name = "transformers"
-version = "4.56.0"
+version = "4.57.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
@@ -5226,9 +5246,9 @@ dependencies = [
     { name = "tokenizers" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e9/40/2898c1a5f8b2fff2f94dffd856d6793320e590e1cfdc3a1453c31c364094/transformers-4.56.0.tar.gz", hash = "sha256:6ca9c3f38aa4da93ebf877db7156368c1c188c7465f09dbe70951e7622e987fa", size = 9840426, upload-time = "2025-08-29T18:23:46.247Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d6/68/a39307bcc4116a30b2106f2e689130a48de8bd8a1e635b5e1030e46fcd9e/transformers-4.57.1.tar.gz", hash = "sha256:f06c837959196c75039809636cd964b959f6604b75b8eeec6fdfc0440b89cc55", size = 10142511, upload-time = "2025-10-14T15:39:26.18Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/98/41/6ba7c2eafa839069f1f949c30cd22e791b14b90c7af8cb0c65cc47702dca/transformers-4.56.0-py3-none-any.whl", hash = "sha256:bacf539c38dd850690856881c4974321af93a22f2ee96bcc994741a2121d8e71", size = 11607938, upload-time = "2025-08-29T18:23:33.92Z" },
+    { url = "https://files.pythonhosted.org/packages/71/d3/c16c3b3cf7655a67db1144da94b021c200ac1303f82428f2beef6c2e72bb/transformers-4.57.1-py3-none-any.whl", hash = "sha256:b10d05da8fa67dc41644dbbf9bc45a44cb86ae33da6f9295f5fbf5b7890bd267", size = 11990925, upload-time = "2025-10-14T15:39:23.085Z" },
 ]
 
 [[package]]

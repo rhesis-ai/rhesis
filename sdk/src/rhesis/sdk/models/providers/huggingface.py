@@ -47,6 +47,7 @@ class HuggingFaceLLM(BaseLLM):
         gpu_only: bool = False,
         load_kwargs: Optional[dict] = None,
         custom_results_dir: Optional[str] = None,
+        model_path: Optional[str] = None,
     ):
         """
         Initialize the model with the given name and location.
@@ -58,11 +59,14 @@ class HuggingFaceLLM(BaseLLM):
             gpu_only: If True, restrict model to GPU only (no CPU/disk offloading).
              Will raise an error if model doesn't fit in available GPU memory.
             load_kwargs: Additional kwargs to pass to AutoModelForCausalLM.from_pretrained()
+            model_path: Optional local path to pre-downloaded model. If provided, loads from
+             this path instead of downloading from HuggingFace Hub.
         """
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
 
         self.model_name = model_name
+        self.model_path = model_path
         self.generate_kwargs = generate_kwargs
         self.gpu_only = gpu_only
         self.load_kwargs = load_kwargs or {}
@@ -87,6 +91,9 @@ class HuggingFaceLLM(BaseLLM):
     def load_model(self):
         """
         Load the model and tokenizer from the specified location.
+
+        If model_path is provided, loads from that local path.
+        Transformers auto-detects local paths. Otherwise, downloads from HuggingFace Hub.
 
         Returns
         -------
@@ -116,14 +123,35 @@ class HuggingFaceLLM(BaseLLM):
         else:
             device_map = "auto"
 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_name,
-            device_map=device_map,
-            **self.load_kwargs,
-        )
+        # Determine the source (local path or HuggingFace model ID)
+        model_source = self.model_path if self.model_path else self.model_name
 
+        if self.model_path:
+            print(f"Loading model from local path: {self.model_path}")
+        else:
+            print(f"Loading model from HuggingFace Hub: {self.model_name}")
+
+        # Configure kwargs based on whether we have a local path
+        # trust_remote_code is needed for model loading with custom architectures
+        # Note: We only pass trust_remote_code to the MODEL, not the tokenizer
+        # Passing it to tokenizer causes "dict has no attribute model_type" error
+        load_kwargs = {**self.load_kwargs}
+
+        if self.model_path:
+            # Local path - need trust_remote_code for custom model architectures
+            load_kwargs["trust_remote_code"] = True
+
+        # Load model and tokenizer using the SAME model_source
+        # Transformers auto-detects if model_source is a local path or Hub ID
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_source,
+            device_map=device_map,
+            **load_kwargs,
+        )
+        # Tokenizer loaded WITHOUT trust_remote_code to avoid config dict/object issues
+        # The tokenizer will still load correctly from local paths
         self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_name,
+            model_source,
         )
 
         # Get the device for input tensors
