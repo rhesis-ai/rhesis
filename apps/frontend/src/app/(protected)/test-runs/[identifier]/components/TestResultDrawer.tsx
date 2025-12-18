@@ -17,7 +17,7 @@ import TestDetailHistoryTab from './TestDetailHistoryTab';
 import TestDetailReviewsTab from './TestDetailReviewsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { findStatusByCategory } from '@/utils/testResultStatus';
+import { findStatusByCategory } from '@/utils/test-result-status';
 
 interface TestResultDrawerProps {
   open: boolean;

@@ -18,7 +18,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import StatusChip from '@/components/common/StatusChip';
-import { findStatusByCategory } from '@/utils/testResultStatus';
+import { findStatusByCategory } from '@/utils/test-result-status';
 
 interface ReviewJudgementDrawerProps {
   open: boolean;

@@ -20,7 +20,7 @@ import ConversationHistory from '@/components/common/ConversationHistory';
 import {
   getTestResultStatus,
   getTestResultLabel,
-} from '@/utils/testResultStatus';
+} from '@/utils/test-result-status';
 
 interface TestDetailOverviewTabProps {
   test: TestResultDetail;

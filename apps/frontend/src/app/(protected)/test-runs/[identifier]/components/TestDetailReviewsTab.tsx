@@ -30,7 +30,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
-import { findStatusByCategory } from '@/utils/testResultStatus';
+import { findStatusByCategory } from '@/utils/test-result-status';
 
 interface TestDetailReviewsTabProps {
   test: TestResultDetail;

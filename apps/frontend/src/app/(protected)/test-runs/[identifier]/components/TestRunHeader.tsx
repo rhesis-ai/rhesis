@@ -22,7 +22,7 @@ import Link from 'next/link';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
-import { getTestResultStatus } from '@/utils/testResultStatus';
+import { getTestResultStatus } from '@/utils/test-result-status';
 
 interface TestRunHeaderProps {
   testRun: TestRunDetail;

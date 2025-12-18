@@ -31,47 +31,21 @@ interface TestRunWithStats extends TestRunDetail {
   } | null;
 }
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
-import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
-import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import PersonIcon from '@mui/icons-material/Person';
 import { CategoryIcon } from '@/components/icons';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import Link from 'next/link';
+import {
+  getTestRunStatusColor,
+  getTestRunStatusIcon,
+} from '@/components/common/TestRunStatus';
 
 interface TestRunPerformanceProps {
   sessionToken: string;
   onLoadComplete?: () => void;
   limit?: number;
 }
-
-const getStatusColor = (
-  status?: string
-): 'success' | 'error' | 'warning' | 'info' | 'default' => {
-  if (!status) return 'default';
-  
-  const statusLower = status.toLowerCase();
-  if (statusLower === 'completed') return 'success';
-  if (statusLower === 'partial') return 'warning';
-  if (statusLower === 'failed') return 'error';
-  if (statusLower === 'progress') return 'info';
-  
-  return 'default';
-};
-
-const getStatusIcon = (status?: string) => {
-  if (!status) return <PlayArrowIcon fontSize="small" />;
-  
-  const statusLower = status.toLowerCase();
-  if (statusLower === 'completed') return <CheckCircleOutlineIcon fontSize="small" />;
-  if (statusLower === 'partial') return <WarningAmberOutlinedIcon fontSize="small" />;
-  if (statusLower === 'failed') return <CancelOutlinedIcon fontSize="small" />;
-  if (statusLower === 'progress') return <PlayCircleOutlineIcon fontSize="small" />;
-  
-  return <PlayArrowIcon fontSize="small" />;
-};
 
 const calculatePassRate = (testRun: TestRunWithStats): number => {
   // Use stats from API if available
@@ -252,8 +226,8 @@ export default function TestRunPerformance({
           testRuns.map(testRun => {
             // Get status from the test run
             const statusName = testRun.status?.name || 'Unknown';
-            const statusColor = getStatusColor(statusName);
-            const statusIcon = getStatusIcon(statusName);
+            const statusColor = getTestRunStatusColor(statusName);
+            const statusIcon = getTestRunStatusIcon(statusName);
 
             // Get pass rate
             const passRate = calculatePassRate(testRun);
