@@ -115,7 +115,7 @@ After updating, restart services:
 ### Obtain an API key
 
 1. Visit http://localhost:3000
-2. Navigate to your account settings
+2. Navigate to API Tokens
 3. Generate a new API key
 
 Your API key will be in the format `rh-XXXXXXXXXXXXXXXXXXXX`.
@@ -149,7 +149,7 @@ Set up your REST endpoint in the UI, or use the [Rhesis connector](https://docs.
 {`import os
 from rhesis.sdk.entities import Endpoint
 
-os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from app.rhesis.ai settings
+os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000 
 os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"  # optional
 
 # Option A: Retrieve endpoint by ID
@@ -172,7 +172,7 @@ Using the SDK, synthesizer, and then the push method:
 from rhesis.sdk.entities import TestSet
 from rhesis.sdk.synthesizers import PromptSynthesizer
 
-os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from app.rhesis.ai settings
+os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000
 os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"  # optional
 
 # Generate custom test scenarios
@@ -195,7 +195,7 @@ Retrieve endpoint by name or ID, start a test run on the test set and endpoint:
 from rhesis.sdk.entities import Endpoint, TestSet
 from rhesis.sdk.entities.test_configuration import TestConfiguration
 
-os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from app.rhesis.ai settings
+os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000
 os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"  # optional
 
 # Retrieve endpoint by ID
