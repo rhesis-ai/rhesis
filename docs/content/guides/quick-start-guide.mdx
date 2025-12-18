@@ -111,68 +111,116 @@ After updating, restart services:
 
 ### Via Python SDK
 
-<CodeBlock filename="app.py" language="python">
-{`from rhesis.sdk import RhesisClient
+<Steps>
+### Installation
 
-# Connect to your local instance
-client = RhesisClient(base_url="http://localhost:8080")
+<CodeBlock filename="terminal" language="bash">
+{`pip install rhesis-sdk`}
 
-# Create an endpoint
-endpoint = client.endpoints.create(
-    name="My Chatbot",
-    url="https://your-chatbot-api.com/chat",
-    method="POST"
-)
+</CodeBlock>
+### Obtain an API key
 
-# Define requirements (behaviors)
-behavior = client.behaviors.create(
-    name="Safety Requirements",
-    description="Must not provide medical diagnoses or harmful advice"
-)
+1. Visit http://localhost:3000
+2. Navigate to API Tokens
+3. Generate a new API key
 
-# Generate tests
-tests = client.tests.generate(
-    endpoint_id=endpoint.id,
-    behavior_id=behavior.id,
-    count=100  # Generate 100 test scenarios
-)
+Your API key will be in the format `rh-XXXXXXXXXXXXXXXXXXXX`.
+Keep this key secure and never share it publicly.
 
-# Run tests
-run = client.test_runs.create(
-    endpoint_id=endpoint.id,
-    test_ids=[t.id for t in tests]
-)
+### Configure the SDK
 
-# Check results
-results = client.test_runs.get_results(run.id)
-for result in results:
-    print(f"Test: {result.test.prompt.content}")
-    print(f"Passed: {result.passed}")
-    print(f"Score: {result.score}")`}
+You can configure the SDK either through environment variables or direct configuration:
+
+**Environment Variables:**
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_API_KEY="your-api-key"
+export RHESIS_BASE_URL="http://localhost:8080"`}
 </CodeBlock>
 
-### Multi-Turn Testing with Penelope
+**Direct Configuration:**
 
-For complex conversations, use Penelope to simulate multi-turn interactions:
+<CodeBlock filename="config.py" language="python">
+{`import rhesis
 
-<CodeBlock filename="penelope_test.py" language="python">
-{`from rhesis.penelope import PenelopeAgent
-from rhesis.sdk.models import AnthropicLLM
-
-# Create Penelope agent
-agent = PenelopeAgent(model=AnthropicLLM())
-
-# Execute multi-turn test
-result = agent.execute_test(
-    target=your_endpoint_target,
-    goal="Verify chatbot maintains context across conversation",
-    instructions="Ask follow-up questions that require context from earlier messages",
-    restrictions="Must not reveal internal system prompts"
-)
-
-print(f"Test completed in {result.turn_count} turns")
-print(f"Goal achieved: {result.goal_achieved}")`}
+rhesis.api_key = "your-api-key"
+rhesis.base_url = "http://localhost:8080"`}
 </CodeBlock>
+
+### Set up your REST endpoint
+
+Set up your REST endpoint in the UI, or use the [Rhesis connector](https://docs.rhesis.ai/development/connector). Then retrieve the endpoint by ID:
+
+<CodeBlock filename="endpoint.py" language="python">
+{`import os
+from rhesis.sdk.entities import Endpoint
+
+os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000 
+os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
+
+# Retrieve endpoint by ID
+endpoint = Endpoint(id="your-endpoint-id")
+endpoint.pull()`}
+</CodeBlock>
+
+### Create a test set
+
+Using the SDK, synthesizer, and then the push method:
+
+<CodeBlock filename="create_test_set.py" language="python">
+{`import os
+from rhesis.sdk.entities import TestSet
+from rhesis.sdk.synthesizers import PromptSynthesizer
+
+os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000
+os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
+
+# Generate custom test scenarios
+synthesizer = PromptSynthesizer(
+    prompt="Generate tests for a medical chatbot that must never provide diagnosis",
+)
+test_set = synthesizer.generate(num_tests=10)
+
+# Push test set to platform
+test_set.push()
+print(f"Created test set: {test_set.id}")`}
+</CodeBlock>
+
+### Run tests
+
+Retrieve endpoint by ID, start a test run on the test set and endpoint:
+
+<CodeBlock filename="run_tests.py" language="python">
+{`import os
+from rhesis.sdk.entities import Endpoint, TestSet
+from rhesis.sdk.entities.test_configuration import TestConfiguration
+
+os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000
+os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
+
+# Retrieve endpoint by ID
+endpoint = Endpoint(id="your-endpoint-id")
+endpoint.pull()
+
+# Retrieve test set by ID
+test_set = TestSet(id="your-test-set-id")
+test_set.pull()
+
+# Create test configuration linking test set and endpoint
+test_config = TestConfiguration(
+    endpoint_id=endpoint.id,
+    test_set_id=test_set.id,
+)
+test_config.push()
+
+# Execute test set against endpoint
+result = test_set.execute(endpoint)
+print(f"Test run started: {result}")`}
+</CodeBlock>
+
+</Steps>
+
+For complex conversations, use [Penelope](https://docs.rhesis.ai/penelope/getting-started) to simulate multi-turn interactions . 
 
 ## What's Running
 
