@@ -233,4 +233,3 @@ export function hasExecutionError(test: TestResultDetail): boolean {
   const metrics = test.test_metrics?.metrics || {};
   return Object.keys(metrics).length === 0;
 }
-

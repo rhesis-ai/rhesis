@@ -55,4 +55,3 @@ export function getTestRunStatusIcon(
 
   return <PlayArrowIcon fontSize={size} />;
 }
-
