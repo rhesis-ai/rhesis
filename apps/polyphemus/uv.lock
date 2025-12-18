@@ -4871,7 +4871,7 @@ wheels = [
 
 [[package]]
 name = "polyphemus"
-version = "0.2.2"
+version = "0.2.3"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -6049,7 +6049,7 @@ wheels = [
 
 [[package]]
 name = "rhesis-backend"
-version = "0.5.3"
+version = "0.5.4"
 source = { editable = "../backend" }
 dependencies = [
     { name = "alembic" },
@@ -6225,7 +6225,7 @@ langgraph = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.5.1"
+version = "0.5.2"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "deepeval" },

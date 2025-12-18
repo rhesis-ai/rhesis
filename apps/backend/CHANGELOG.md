@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2025-12-18
+
+### Added
+- Added a new Polyphemus provider with schema support. This allows users to connect to and interact with Polyphemus data sources, leveraging schema information for improved data handling and validation. (#1046)
+
+
 ## [0.5.3] - 2025-12-11
 
 ### Added

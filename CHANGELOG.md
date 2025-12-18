@@ -13,6 +13,47 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.5.4] - 2025-12-18
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.4**
+- **Frontend 0.5.4**
+- **SDK 0.5.2**
+- **Polyphemus 0.2.3**
+
+### Summary of Changes
+
+**Backend v0.5.4:**
+- Added a new Polyphemus provider.
+- Polyphemus provider now supports schema definitions.
+
+
+**Frontend v0.5.4:**
+- Added new Polyphemus provider with schema support.
+- Documentation improvements including guides and SDK metrics.
+- Dependency updates for Next.js and Nodemailer.
+
+
+**SDK v0.5.2:**
+- Added a new Polyphemus provider with schema support.
+- Improved MCP (likely referring to a component within the SDK) error handling and usability.
+- Enhanced metric creation with support for categories and threshold operators.
+- Improved generation prompts using research-backed techniques.
+
+
+**Polyphemus v0.2.3:**
+Initial release or no significant changes.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.5.3] - 2025-12-11
 
 ### Platform Release
