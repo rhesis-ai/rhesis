@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-12-18
+
+### Added
+- Added support for specifying custom HTTP headers when fetching data sources. This allows for authentication and other advanced use cases.
+
+### Changed
+- Improved error handling when a data source is unavailable. Polyphemus now provides more informative error messages.
+- Refactored the data processing pipeline for improved performance and scalability.
+
+### Fixed
+- Fixed an issue where Polyphemus would occasionally fail to parse certain date formats.
+- Resolved a bug that caused incorrect data aggregation when dealing with timezones.
+
+
 ## [0.2.2] - 2025-12-11
 
 ### Fixed

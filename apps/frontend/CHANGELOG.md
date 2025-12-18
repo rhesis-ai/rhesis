@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2025-12-18
+
+### Added
+
+- Added a new "Polyphemus" provider with schema support, enabling integration with Polyphemus data sources.
+
+### Changed
+
+- Updated documentation with comprehensive guides and improved SDK metrics documentation.
+
+### Fixed
+
+- Updated `next` dependency from 16.0.7 to 16.0.10.
+- Updated `nodemailer` dependency from 6.10.1 to 7.0.11.
+
 ## [0.5.3] - 2025-12-11
 
 ### Added

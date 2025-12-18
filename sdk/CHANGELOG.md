@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2025-12-18
+
+### Added
+- Added support for categories and threshold operators for metrics.
+- Introduced a new Polyphemus provider with schema support.
+
+### Changed
+- Improved generation prompts with research-backed Chain-of-Thought (CoT) and a balanced testing framework.
+- Enhanced SDK test configuration and result reporting.
+- Improved MCP (Managed Configuration Platform) error handling and usability.
+
+### Fixed
+- Fixed metric creation to support both SDK and frontend approaches with proper field handling.
+- Hotfix for MCP compatibility issues with `npx` and `bunx`.
+
+
 ## [0.5.1] - 2025-12-01
 
 ### Added
