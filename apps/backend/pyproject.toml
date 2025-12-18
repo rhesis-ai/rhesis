@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-backend"
-version = "0.5.3"
+version = "0.5.4"
 description = "Rhesis backend package"
 readme = "README.md"
 requires-python = ">=3.10"
