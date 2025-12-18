@@ -112,6 +112,12 @@ After updating, restart services:
 ### Via Python SDK
 
 <Steps>
+### Installation
+
+<CodeBlock filename="terminal" language="bash">
+{`pip install rhesis-sdk`}
+
+</CodeBlock>
 ### Obtain an API key
 
 1. Visit http://localhost:3000
@@ -138,28 +144,22 @@ export RHESIS_BASE_URL="http://localhost:8080"`}
 {`import rhesis
 
 rhesis.api_key = "your-api-key"
-rhesis.base_url = "http://localhost:8080"  # optional`}
+rhesis.base_url = "http://localhost:8080"`}
 </CodeBlock>
 
 ### Set up your REST endpoint
 
-Set up your REST endpoint in the UI, or use the [Rhesis connector](https://docs.rhesis.ai/development/connector). Then retrieve the endpoint by ID or name:
+Set up your REST endpoint in the UI, or use the [Rhesis connector](https://docs.rhesis.ai/development/connector). Then retrieve the endpoint by ID:
 
 <CodeBlock filename="endpoint.py" language="python">
 {`import os
 from rhesis.sdk.entities import Endpoint
 
 os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000 
-os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"  # optional
+os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
 
-# Option A: Retrieve endpoint by ID
+# Retrieve endpoint by ID
 endpoint = Endpoint(id="your-endpoint-id")
-endpoint.pull()
-
-# Option B: Retrieve endpoint by name
-all_endpoints = Endpoint().all()
-endpoint_data = next(e for e in all_endpoints if e.get("name") == "My Chatbot")
-endpoint = Endpoint(id=endpoint_data["id"])
 endpoint.pull()`}
 </CodeBlock>
 
@@ -173,7 +173,7 @@ from rhesis.sdk.entities import TestSet
 from rhesis.sdk.synthesizers import PromptSynthesizer
 
 os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000
-os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"  # optional
+os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
 
 # Generate custom test scenarios
 synthesizer = PromptSynthesizer(
@@ -188,7 +188,7 @@ print(f"Created test set: {test_set.id}")`}
 
 ### Run tests
 
-Retrieve endpoint by name or ID, start a test run on the test set and endpoint:
+Retrieve endpoint by ID, start a test run on the test set and endpoint:
 
 <CodeBlock filename="run_tests.py" language="python">
 {`import os
@@ -196,7 +196,7 @@ from rhesis.sdk.entities import Endpoint, TestSet
 from rhesis.sdk.entities.test_configuration import TestConfiguration
 
 os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000
-os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"  # optional
+os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
 
 # Retrieve endpoint by ID
 endpoint = Endpoint(id="your-endpoint-id")
