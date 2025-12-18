@@ -81,14 +81,14 @@ function getPriority(url) {
 
 export default async function sitemap() {
   const baseUrl = 'https://docs.rhesis.ai'
-  
+
   // Try multiple possible content directory locations
   const possibleContentDirs = [
     path.join(__dirname, '../../content'), // Local development
-    path.join(process.cwd(), 'content'),   // Docker/production
+    path.join(process.cwd(), 'content'), // Docker/production
     path.join(__dirname, '../../../content'), // Alternative structure
   ]
-  
+
   let contentDir = null
   for (const dir of possibleContentDirs) {
     try {
@@ -100,7 +100,7 @@ export default async function sitemap() {
       // Continue to next option
     }
   }
-  
+
   if (!contentDir) {
     console.warn('Content directory not found, generating empty sitemap')
     return [
