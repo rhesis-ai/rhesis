@@ -3,7 +3,7 @@ Rhesis SDK API Reference
 
 This section provides detailed API documentation for the Rhesis SDK.
 
-.. automodule:: rhesis
+.. automodule:: rhesis.sdk
    :members:
    :undoc-members:
    :show-inheritance:
@@ -14,7 +14,7 @@ Core Components
 Client
 ~~~~~~
 
-.. autoclass:: rhesis.client.Client
+.. autoclass:: rhesis.sdk.client.Client
    :members:
    :undoc-members:
    :show-inheritance:
@@ -23,7 +23,7 @@ Client
 Configuration
 ~~~~~~~~~~~~
 
-.. automodule:: rhesis.config
+.. automodule:: rhesis.sdk.config
    :members:
    :undoc-members:
    :show-inheritance:
@@ -31,7 +31,7 @@ Configuration
 Command Line Interface
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: rhesis.cli
+.. automodule:: rhesis.sdk.cli
    :members:
    :undoc-members:
    :show-inheritance:
@@ -39,7 +39,7 @@ Command Line Interface
 Utilities
 ~~~~~~~~~
 
-.. automodule:: rhesis.utils
+.. automodule:: rhesis.sdk.utils
    :members:
    :undoc-members:
    :show-inheritance:
@@ -54,12 +54,7 @@ Module Structure
    rhesis.services
    rhesis.synthesizers
 
-.. py:class:: rhesis.client.Client
+.. py:class:: rhesis.sdk.client.Client
    :noindex:
 
    The main client for interacting with the Rhesis API.
-
-.. py:class:: rhesis.services.llm.Client
-   :noindex:
-
-   A client for interacting with language models.
