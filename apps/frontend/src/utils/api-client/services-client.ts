@@ -276,11 +276,14 @@ export class ServicesClient extends BaseApiClient {
 
   /**
    * Extract full content from an MCP item as markdown
-   * @param id - MCP item ID
+   * @param options - Either { url: string } or { id: string } (or both), plus toolId
    * @param toolId - ID of the configured tool integration
    * @returns Extracted content as markdown
    */
-  async extractMCP(id: string, toolId: string): Promise<MCPExtractResponse> {
+  async extractMCP(
+    options: { url?: string; id?: string },
+    toolId: string
+  ): Promise<MCPExtractResponse> {
     return this.fetch<MCPExtractResponse>(
       `${API_ENDPOINTS.services}/mcp/extract`,
       {
@@ -289,7 +292,7 @@ export class ServicesClient extends BaseApiClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id,
+          ...options,
           tool_id: toolId,
         }),
       }

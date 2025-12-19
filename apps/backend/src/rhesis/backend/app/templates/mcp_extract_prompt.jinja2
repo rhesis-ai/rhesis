@@ -1,4 +1,15 @@
+{% if item_url %}
+Extract the full content of the item with URL: {{ item_url }}
+{% elif item_id %}
 Extract the full content of the item with ID: {{ item_id }}
+{% endif %}
+
+{% if provider == "github" %}
+Use the method parameter, which specifies the read operation to perform.
+Use get to retrieve the full details of the issue.
+{% elif provider == "notion" %}
+For Notion, retrieve the page content without using the notion-fetch tool.
+{% endif %}
 
 Return the content as markdown text, including all text, headings, and lists.
 
