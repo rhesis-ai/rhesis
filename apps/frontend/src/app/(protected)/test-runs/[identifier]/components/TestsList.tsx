@@ -24,7 +24,7 @@ import {
   getTestResultStatusWithReview,
   hasConflictingReview,
   type TestResultStatus,
-} from '@/utils/testResultStatus';
+} from '@/utils/test-result-status';
 
 interface TestsListProps {
   tests: TestResultDetail[];

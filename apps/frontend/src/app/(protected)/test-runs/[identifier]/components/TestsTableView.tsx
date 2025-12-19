@@ -31,7 +31,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer from './TestResultDrawer';
 import ReviewJudgementDrawer, { ReviewData } from './ReviewJudgementDrawer';
-import { findStatusByCategory } from '@/utils/testResultStatus';
+import { findStatusByCategory } from '@/utils/test-result-status';
 
 interface TestsTableViewProps {
   tests: TestResultDetail[];

@@ -31,39 +31,21 @@ interface TestRunWithStats extends TestRunDetail {
   } | null;
 }
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import PersonIcon from '@mui/icons-material/Person';
 import { CategoryIcon } from '@/components/icons';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import Link from 'next/link';
+import {
+  getTestRunStatusColor,
+  getTestRunStatusIcon,
+} from '@/components/common/TestRunStatus';
 
 interface TestRunPerformanceProps {
   sessionToken: string;
   onLoadComplete?: () => void;
   limit?: number;
 }
-
-const getStatusColor = (
-  status?: string,
-  taskState?: string
-): 'success' | 'error' | 'warning' | 'info' | 'default' => {
-  if (status?.toLowerCase().includes('completed')) return 'success';
-  if (status?.toLowerCase().includes('failed')) return 'error';
-  if (taskState === 'SUCCESS') return 'success';
-  if (taskState === 'FAILURE') return 'error';
-  if (taskState === 'PROGRESS') return 'info';
-  if (taskState === 'PENDING') return 'warning';
-  return 'default';
-};
-
-const getStatusIcon = (status?: string, taskState?: string) => {
-  const color = getStatusColor(status, taskState);
-  if (color === 'success') return <CheckCircleIcon fontSize="small" />;
-  if (color === 'error') return <ErrorIcon fontSize="small" />;
-  return <PlayArrowIcon fontSize="small" />;
-};
 
 const calculatePassRate = (testRun: TestRunWithStats): number => {
   // Use stats from API if available
@@ -244,9 +226,8 @@ export default function TestRunPerformance({
           testRuns.map(testRun => {
             // Get status from the test run
             const statusName = testRun.status?.name || 'Unknown';
-            const taskState = testRun.attributes?.task_state;
-            const statusColor = getStatusColor(statusName, taskState);
-            const statusIcon = getStatusIcon(statusName, taskState);
+            const statusColor = getTestRunStatusColor(statusName);
+            const statusIcon = getTestRunStatusIcon(statusName);
 
             // Get pass rate
             const passRate = calculatePassRate(testRun);
@@ -259,6 +240,9 @@ export default function TestRunPerformance({
             const testSetName = testSet?.name || 'Unknown Test Set';
             const testSetId = testSet?.id;
             const testSetType = testSet?.test_set_type?.type_value;
+            // Get total number of tests in the test set (not executed tests)
+            const totalTestsInSet =
+              testSet?.attributes?.metadata?.total_tests ?? null;
 
             // Get timing information
             const startedAt = (() => {
@@ -301,7 +285,8 @@ export default function TestRunPerformance({
             })();
 
             // Get test count and pass/fail counts from stats
-            const totalTests = testRun.stats?.total || 0;
+            // Use total tests in test set (not executed tests) for display
+            const totalTests = totalTestsInSet ?? testRun.stats?.total ?? 0;
             const passedTests = testRun.stats?.passed || 0;
             const failedTests = testRun.stats?.failed || 0;
 
