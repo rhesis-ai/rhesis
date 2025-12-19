@@ -1,6 +1,6 @@
 """Pydantic schemas for MCP Agent structured outputs."""
 
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -11,10 +11,10 @@ class ToolCall(BaseModel):
     model_config = {"extra": "forbid"}
 
     tool_name: str = Field(description="Name of the MCP tool to call")
-    arguments: str = Field(
+    arguments: Union[str, Dict[str, Any]] = Field(
         default="{}",
-        description="Arguments for the tool as a JSON string. "
-        'Example: \'{"page_id": "123", "query": "search term"}\'',
+        description="Arguments for the tool as a JSON string or dict. "
+        'Example: \'{"page_id": "123", "query": "search term"}\' or {"page_id": "123"}',
     )
 
     @field_validator("arguments", mode="after")
@@ -29,7 +29,9 @@ class ToolCall(BaseModel):
             except json.JSONDecodeError:
                 # If it's not valid JSON, return empty dict
                 return {}
-        return v if v is not None else {}
+        if isinstance(v, dict):
+            return v
+        return {} if v is None else {}
 
 
 class AgentAction(BaseModel):

@@ -4,7 +4,7 @@ from .extractor import DocumentExtractor
 from .mcp import (
     MCPAgent,
     MCPClient,
-    MCPClientManager,
+    MCPClientFactory,
     ToolExecutor,
 )
 
@@ -12,6 +12,6 @@ __all__ = [
     "DocumentExtractor",
     "MCPAgent",
     "MCPClient",
-    "MCPClientManager",
+    "MCPClientFactory",
     "ToolExecutor",
 ]

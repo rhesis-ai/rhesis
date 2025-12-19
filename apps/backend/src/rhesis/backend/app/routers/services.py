@@ -48,8 +48,8 @@ from rhesis.backend.app.services.mcp_service import (
     extract_mcp,
     handle_mcp_exception,
     query_mcp,
+    run_mcp_authentication_test,
     search_mcp,
-    test_mcp_authentication,
 )
 from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
@@ -723,7 +723,7 @@ async def test_mcp_connection(
     """
     try:
         organization_id, user_id = tenant_context
-        result = await test_mcp_authentication(
+        result = await run_mcp_authentication_test(
             db=db,
             user=current_user,
             organization_id=organization_id,

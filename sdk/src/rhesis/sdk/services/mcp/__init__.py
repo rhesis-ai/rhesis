@@ -1,7 +1,7 @@
 """MCP (Model Context Protocol) client and agent for autonomous tool usage."""
 
 from rhesis.sdk.services.mcp.agent import MCPAgent
-from rhesis.sdk.services.mcp.client import MCPClient, MCPClientManager
+from rhesis.sdk.services.mcp.client import MCPClient, MCPClientFactory
 from rhesis.sdk.services.mcp.exceptions import (
     MCPApplicationError,
     MCPConfigurationError,
@@ -23,7 +23,7 @@ __all__ = [
     "MCPAgent",
     # Client
     "MCPClient",
-    "MCPClientManager",
+    "MCPClientFactory",
     "ToolExecutor",
     # Exceptions
     "MCPError",
