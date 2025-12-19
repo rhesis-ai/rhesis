@@ -216,7 +216,7 @@ class MCPClientFactory:
         Raises:
             ValueError: If neither config_path nor config_dict is provided.
         """
-        if not config_path and not config_dict:
+        if config_path is None and config_dict is None:
             raise ValueError(
                 "Either 'config_path' or 'config_dict' must be provided. "
                 "Cannot default to any config location."
@@ -232,7 +232,7 @@ class MCPClientFactory:
             Full MCP configuration with mcpServers structure
         """
         # If config_dict is provided, use it directly
-        if self.config_dict:
+        if self.config_dict is not None:
             return self.config_dict
 
         # Load from file (config_path is guaranteed to be set by __init__)

@@ -104,7 +104,13 @@ class MCPAgent:
         iteration = 0
 
         try:
-            await self.mcp_client.connect()
+            try:
+                await self.mcp_client.connect()
+            except ConnectionError as e:
+                # Convert ConnectionError to MCPConnectionError
+                raise MCPConnectionError(
+                    f"Failed to connect to MCP server: {str(e)}", original_error=e
+                )
             logger.info("[MCPAgent] Connected to MCP server")
 
             if self.verbose:
@@ -135,14 +141,28 @@ class MCPAgent:
                         print(f"\n✓ MCP Agent finished after {iteration} iteration(s)")
 
                     if step.action == "finish" and step.tool_results:
-                        final_answer = step.tool_results[0].content
-                        return AgentResult(
-                            final_answer=final_answer,
-                            execution_history=history,
-                            iterations_used=len(history),
-                            max_iterations_reached=False,
-                            success=True,
-                        )
+                        tool_result = step.tool_results[0]
+                        # Check if this is an error result
+                        if tool_result.success:
+                            final_answer = tool_result.content
+                            return AgentResult(
+                                final_answer=final_answer,
+                                execution_history=history,
+                                iterations_used=len(history),
+                                max_iterations_reached=False,
+                                success=True,
+                            )
+                        else:
+                            # Error occurred during execution
+                            error_msg = tool_result.error or "Unknown error"
+                            return AgentResult(
+                                final_answer="",
+                                execution_history=history,
+                                iterations_used=len(history),
+                                max_iterations_reached=False,
+                                success=False,
+                                error=error_msg,
+                            )
 
             # Max iterations reached
             if self.verbose:
