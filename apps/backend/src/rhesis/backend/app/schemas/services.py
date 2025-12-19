@@ -242,10 +242,22 @@ class SearchMCPRequest(BaseModel):
 
 
 class ExtractMCPRequest(BaseModel):
-    """Request to extract MCP item content."""
+    """Request to extract MCP item content.
 
-    id: str
+    Either 'id' or 'url' (or both) must be provided.
+    The agent will use whichever is more appropriate for the provider.
+    """
+
+    id: Optional[str] = None
+    url: Optional[str] = None
     tool_id: str
+
+    @model_validator(mode="after")
+    def validate_id_or_url(self):
+        """Ensure at least one of id or url is provided."""
+        if not self.id and not self.url:
+            raise ValueError("Either 'id' or 'url' must be provided")
+        return self
 
 
 class QueryMCPRequest(BaseModel):

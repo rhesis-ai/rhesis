@@ -83,11 +83,9 @@ def handle_mcp_exception(e: Exception, operation: str) -> HTTPException:
     )
 
 
-def _get_mcp_client_by_tool_id(
-    db: Session, tool_id: str, organization_id: str, user_id: str = None
-):
+def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_id: str = None):
     """
-    Get MCP client from database configuration by tool ID.
+    Get MCP client and provider configuration from database by tool ID.
 
     Args:
         db: Database session
@@ -140,7 +138,7 @@ def _get_mcp_client_by_tool_id(
         )
 
     client = factory.create_client(f"{provider}Api")
-    return client
+    return client, provider
 
 
 def _get_mcp_client_from_params(
@@ -220,7 +218,7 @@ async def search_mcp(
 
     Returns:
         List of dicts, each containing:
-        - id: Item identifier (required for extraction)
+        - id: Item identifier
         - url: Direct link to the item
         - title: Human-readable title
 
@@ -240,7 +238,7 @@ async def search_mcp(
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
-    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
+    client, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
 
     search_prompt = jinja_env.get_template("mcp_search_prompt.jinja2").render()
     agent = MCPAgent(
@@ -267,7 +265,13 @@ async def search_mcp(
 
 
 async def extract_mcp(
-    id: str, tool_id: str, db: Session, user: User, organization_id: str, user_id: str = None
+    item_id: Optional[str] = None,
+    item_url: Optional[str] = None,
+    tool_id: str = None,
+    db: Session = None,
+    user: User = None,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> str:
     """
     Extract full content from an MCP item as markdown.
@@ -277,7 +281,8 @@ async def extract_mcp(
     including text, headings, lists, and nested blocks.
 
     Args:
-        id: Item identifier (typically obtained from search_mcp results)
+        item_id: Item identifier (optional, use if URL is not available)
+        item_url: Item URL (optional, preferred if available)
         tool_id: ID of the configured tool instance
         db: Database session
         user: Current user (for retrieving default generation model)
@@ -287,7 +292,7 @@ async def extract_mcp(
         Full item content formatted as markdown string
 
     Raises:
-        ValueError: If extraction fails or item not found
+        ValueError: If extraction fails, item not found, or neither id nor url provided
 
     Example:
         >>> content = await extract_mcp(
@@ -299,12 +304,17 @@ async def extract_mcp(
         ... )
         >>> print(content[:100])  # First 100 chars
     """
+    if not item_id and not item_url:
+        raise ValueError("Either 'item_id' or 'item_url' must be provided")
+
     model = get_user_generation_model(db, user)
 
-    # Load MCP client from database tool configuration
-    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
+    # Load MCP client and provider from database tool configuration
+    client, provider = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
 
-    extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(item_id=id)
+    extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(
+        item_id=item_id, item_url=item_url, provider=provider
+    )
     agent = MCPAgent(
         model=model,
         mcp_client=client,
@@ -313,7 +323,9 @@ async def extract_mcp(
         verbose=False,
     )
 
-    result = await agent.run_async(f"Extract content from item {id}")
+    # Use URL if available, otherwise use ID for the prompt
+    item_reference = item_url if item_url else item_id
+    result = await agent.run_async(f"Extract content from item {item_reference}")
 
     # Parse response - agent returns content as text
     # (Fatal errors raise exceptions before reaching here)
@@ -361,7 +373,7 @@ async def query_mcp(
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
-    client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
+    client, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
 
     if not system_prompt:
         system_prompt = jinja_env.get_template("mcp_default_query_prompt.jinja2").render()
@@ -418,7 +430,7 @@ async def run_mcp_authentication_test(
 
     # Load MCP client from either tool_id or parameters
     if tool_id is not None:
-        client = _get_mcp_client_by_tool_id(db, tool_id, organization_id, user_id)
+        client, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
     else:
         client = _get_mcp_client_from_params(
             provider_type_id=provider_type_id,

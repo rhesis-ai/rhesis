@@ -52,12 +52,12 @@ export function MCPProviderSelectionDialog({
     );
   }
 
-  // Custom order: Notion first, then custom, then Atlassian and GitHub (coming soon)
+  // Custom order: Notion first, then custom, then GitHub, then Atlassian
   const providerOrder: Record<string, number> = {
     notion: 1,
-    custom: 2,
-    atlassian: 3,
-    github: 4,
+    github: 2,
+    custom: 3,
+    atlassian: 4,
   };
 
   const sortedProviders = [...providers].sort((a, b) => {
@@ -76,9 +76,10 @@ export function MCPProviderSelectionDialog({
               provider.type_value
             );
             const isCustom = provider.type_value === 'custom';
-            // Only enable Notion and custom providers
+            // Enable Notion, custom, and GitHub providers
             const isEnabled =
               provider.type_value === 'notion' ||
+              provider.type_value === 'github' ||
               provider.type_value === 'custom';
 
             // Customize provider names and descriptions

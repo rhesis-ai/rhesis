@@ -175,8 +175,11 @@ export default function MCPImportDialog({
       }
 
       const importPromises = selectedItems.map(async item => {
-        // Extract content
-        const result = await servicesClient.extractMCP(item.id, tool.id);
+        // Extract content - prefer URL if available, otherwise use ID
+        const result = await servicesClient.extractMCP(
+          item.url ? { url: item.url } : { id: item.id },
+          tool.id
+        );
 
         // Save as source
         await sourcesClient.createSourceFromContent(

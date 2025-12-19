@@ -546,7 +546,7 @@ async def search_mcp_server(
 
     Returns:
         List of items, each containing:
-        - id: Item identifier (use this for extraction)
+        - id: Item identifier
         - url: Direct link to view the item
         - title: Human-readable item title
 
@@ -584,7 +584,7 @@ async def extract_mcp_item(
     including text, headings, lists, and nested blocks.
 
     Args:
-        request: ExtractMCPRequest with item id and server_name
+        request: ExtractMCPRequest with either item id or url (or both) and tool_id
 
     Returns:
         ExtractMCPResponse containing markdown-formatted content
@@ -595,19 +595,25 @@ async def extract_mcp_item(
     Example:
         POST /mcp/extract
         {
-            "id": "page-id-from-search",
-            "server_name": "notionApi"
+            "url": "https://notion.so/page-id-from-search",
+            "tool_id": "tool-uuid-123"
+        }
+        OR
+        {
+            "id": "page-id-123",
+            "tool_id": "tool-uuid-123"
         }
     """
     try:
         organization_id, user_id = tenant_context
         content = await extract_mcp(
-            request.id,
-            request.tool_id,
-            db,
-            current_user,
-            organization_id,
-            user_id,
+            item_id=request.id,
+            item_url=request.url,
+            tool_id=request.tool_id,
+            db=db,
+            user=current_user,
+            organization_id=organization_id,
+            user_id=user_id,
         )
         return {"content": content}
     except Exception as e:
