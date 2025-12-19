@@ -13,7 +13,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.logging import logger
-from rhesis.sdk.services.mcp import MCPAgent, MCPClientManager
+from rhesis.sdk.services.mcp import MCPAgent, MCPClientFactory
 from rhesis.sdk.services.mcp.exceptions import (
     MCPApplicationError,
     MCPConfigurationError,
@@ -127,19 +127,19 @@ def _get_mcp_client_by_tool_id(
         if not tool.tool_metadata:
             raise MCPConfigurationError("Custom provider tools require tool_metadata configuration")
 
-        manager = MCPClientManager.from_tool_config(
+        factory = MCPClientFactory.from_tool_config(
             tool_name=f"{provider}Api",
             tool_config=tool.tool_metadata,
             credentials=credentials_dict,
         )
     else:
         # Standard provider: SDK constructs config from YAML templates
-        manager = MCPClientManager.from_provider(
+        factory = MCPClientFactory.from_provider(
             provider=provider,
             credentials=credentials_dict,
         )
 
-    client = manager.create_client(f"{provider}Api")
+    client = factory.create_client(f"{provider}Api")
     return client
 
 
@@ -185,19 +185,19 @@ def _get_mcp_client_from_params(
         if not tool_metadata:
             raise ValueError("Custom provider requires tool_metadata configuration")
 
-        manager = MCPClientManager.from_tool_config(
+        factory = MCPClientFactory.from_tool_config(
             tool_name=f"{provider}Api",
             tool_config=tool_metadata,
             credentials=credentials,
         )
     else:
         # Standard provider: SDK constructs config from YAML templates
-        manager = MCPClientManager.from_provider(
+        factory = MCPClientFactory.from_provider(
             provider=provider,
             credentials=credentials,
         )
 
-    client = manager.create_client(f"{provider}Api")
+    client = factory.create_client(f"{provider}Api")
     return client
 
 
@@ -380,7 +380,7 @@ async def query_mcp(
     return result.model_dump()
 
 
-async def test_mcp_authentication(
+async def run_mcp_authentication_test(
     db: Session,
     user: User,
     organization_id: str,
