@@ -514,22 +514,26 @@ class TestExtractMCP:
     """Test extract_mcp function"""
 
     @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_client_by_tool_id")
+    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
-    async def test_extract_success(
-        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class
+    async def test_extract_success_with_url(
+        self, mock_jinja_env, mock_get_model, mock_get_tool_config, mock_agent_class
     ):
-        """Test successfully extract content and return markdown string"""
+        """Test successfully extract content using URL and return markdown string"""
         # Setup
-        item_id = "page-123"
+        item_url = "https://notion.so/page-123"
         tool_id = "test-tool-id"
         org_id = "test-org-id"
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
         mock_get_model.return_value = Mock()
-        mock_get_client.return_value = Mock()
+        mock_client = Mock()
+        mock_get_tool_config.return_value = (
+            mock_client,
+            "notion",
+        )  # Returns (client, provider) tuple
 
         mock_template = Mock()
         mock_template.render.return_value = "Extract prompt"
@@ -542,19 +546,84 @@ class TestExtractMCP:
         mock_agent_class.return_value = mock_agent
 
         # Execute
-        result = await extract_mcp(item_id, tool_id, db, user, org_id)
+        result = await extract_mcp(
+            item_url=item_url, tool_id=tool_id, db=db, user=user, organization_id=org_id
+        )
 
         # Assert
         assert result == "# Extracted Content\n\nThis is the content."
-        mock_template.render.assert_called_once_with(item_id=item_id)
+        mock_template.render.assert_called_once_with(
+            item_id=None, item_url=item_url, provider="notion"
+        )
         mock_agent_class.assert_called_once_with(
             model=mock_get_model.return_value,
-            mcp_client=mock_get_client.return_value,
+            mcp_client=mock_client,
+            system_prompt="Extract prompt",
+            max_iterations=15,
+            verbose=False,
+        )
+        mock_agent.run_async.assert_called_once_with(f"Extract content from item {item_url}")
+
+    async def test_extract_success_with_id(
+        self, mock_jinja_env, mock_get_model, mock_get_tool_config, mock_agent_class
+    ):
+        """Test successfully extract content using ID and return markdown string"""
+        # Setup
+        item_id = "page-123"
+        tool_id = "test-tool-id"
+        org_id = "test-org-id"
+        db = Mock(spec=Session)
+        user = Mock(spec=User)
+
+        mock_get_model.return_value = Mock()
+        mock_client = Mock()
+        mock_get_tool_config.return_value = (
+            mock_client,
+            "notion",
+        )  # Returns (client, provider) tuple
+
+        mock_template = Mock()
+        mock_template.render.return_value = "Extract prompt"
+        mock_jinja_env.get_template.return_value = mock_template
+
+        mock_agent = Mock()
+        mock_result = Mock()
+        mock_result.final_answer = "# Extracted Content\n\nThis is the content."
+        mock_agent.run_async = AsyncMock(return_value=mock_result)
+        mock_agent_class.return_value = mock_agent
+
+        # Execute
+        result = await extract_mcp(
+            item_id=item_id, tool_id=tool_id, db=db, user=user, organization_id=org_id
+        )
+
+        # Assert
+        assert result == "# Extracted Content\n\nThis is the content."
+        mock_template.render.assert_called_once_with(
+            item_id=item_id, item_url=None, provider="notion"
+        )
+        mock_agent_class.assert_called_once_with(
+            model=mock_get_model.return_value,
+            mcp_client=mock_client,
             system_prompt="Extract prompt",
             max_iterations=15,
             verbose=False,
         )
         mock_agent.run_async.assert_called_once_with(f"Extract content from item {item_id}")
+
+    async def test_extract_fails_without_id_or_url(
+        self, mock_jinja_env, mock_get_model, mock_get_tool_config, mock_agent_class
+    ):
+        """Test that extract_mcp raises ValueError when neither id nor url is provided"""
+        # Setup
+        tool_id = "test-tool-id"
+        org_id = "test-org-id"
+        db = Mock(spec=Session)
+        user = Mock(spec=User)
+
+        # Execute & Assert
+        with pytest.raises(ValueError, match="Either 'item_id' or 'item_url' must be provided"):
+            await extract_mcp(tool_id=tool_id, db=db, user=user, organization_id=org_id)
 
 
 @pytest.mark.unit
