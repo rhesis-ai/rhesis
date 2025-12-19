@@ -5,7 +5,7 @@ import {
   getTestResultLabelWithReview,
   hasConflictingReview,
   hasExecutionError,
-} from '../testResultStatus';
+} from '../test-result-status';
 import {
   TestResultDetail,
   MetricResult,

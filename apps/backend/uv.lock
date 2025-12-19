@@ -5286,6 +5286,8 @@ dependencies = [
 requires-dist = [
     { name = "accelerate", marker = "extra == 'all'", specifier = ">=1.2.0" },
     { name = "accelerate", marker = "extra == 'huggingface'", specifier = ">=1.2.0" },
+    { name = "bitsandbytes", marker = "extra == 'all'", specifier = ">=0.45.0" },
+    { name = "bitsandbytes", marker = "extra == 'huggingface'", specifier = ">=0.45.0" },
     { name = "deepeval", specifier = "==3.7.0" },
     { name = "deepteam", specifier = ">=0.2.5" },
     { name = "ipykernel", specifier = ">=7.1.0" },
@@ -5306,8 +5308,8 @@ requires-dist = [
     { name = "torch", marker = "extra == 'all'", specifier = ">=2.8.0" },
     { name = "torch", marker = "extra == 'huggingface'", specifier = ">=2.8.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
-    { name = "transformers", marker = "extra == 'all'", specifier = ">=4.56.0" },
-    { name = "transformers", marker = "extra == 'huggingface'", specifier = ">=4.56.0" },
+    { name = "transformers", marker = "extra == 'all'", specifier = "==4.57.1" },
+    { name = "transformers", marker = "extra == 'huggingface'", specifier = "==4.57.1" },
     { name = "websockets", specifier = ">=12.0" },
 ]
 provides-extras = ["huggingface", "all"]

@@ -22,7 +22,7 @@ import {
   GoalEvaluation,
 } from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
-import { getProjectIconComponent } from '@/utils/projectIcons';
+import { getProjectIconComponent } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
 
 interface ConversationHistoryProps {
