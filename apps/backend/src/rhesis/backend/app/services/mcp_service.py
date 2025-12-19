@@ -380,7 +380,7 @@ async def query_mcp(
     return result.model_dump()
 
 
-async def test_mcp_authentication(
+async def run_mcp_authentication_test(
     db: Session,
     user: User,
     organization_id: str,
