@@ -6,7 +6,7 @@ This module contains the service classes used throughout the Rhesis SDK.
 LLM Service
 ----------
 
-.. automodule:: rhesis.services.llm
+.. automodule:: rhesis.sdk.services
    :members:
    :undoc-members:
    :show-inheritance:
