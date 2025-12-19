@@ -1,0 +1,7 @@
+# Sphinx build outputs
+build/
+_build/
+
+# Auto-generated changelog files
+source/changelog.rst
+source/changelog/
