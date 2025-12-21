@@ -328,3 +328,78 @@ class TestTraceDataFactory:
 
         assert len(data["span_id"]) == 16
         assert all(c in "0123456789abcdef" for c in data["span_id"])
+
+
+@pytest.mark.integration
+class TestTraceJSONSerialization:
+    """Test that trace ingestion properly handles JSON serialization."""
+
+    def test_ingest_span_with_datetime_fields(self, authenticated_client: TestClient, db_project):
+        """Test that datetime fields are properly handled in trace ingestion."""
+        from datetime import datetime, timezone
+
+        # Create span data with explicit datetime objects
+        now = datetime.now(timezone.utc)
+        span_data = {
+            "trace_id": "a" * 32,
+            "span_id": "b" * 16,
+            "project_id": str(db_project.id),
+            "environment": "development",
+            "span_name": "function.test",
+            "span_kind": "INTERNAL",
+            "start_time": now.isoformat(),
+            "end_time": now.isoformat(),
+            "status_code": "OK",
+            "attributes": {},
+            "events": [],
+            "links": [],
+            "resource": {},
+        }
+
+        trace_batch = {"spans": [span_data]}
+
+        # This should not raise JSON serialization errors
+        response = authenticated_client.post("/telemetry/traces", json=trace_batch)
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["status"] == "received"
+        assert data["span_count"] == 1
+
+    def test_ingest_span_with_events_containing_datetime(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """Test that span events with datetime timestamps are properly handled."""
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        span_data = {
+            "trace_id": "c" * 32,
+            "span_id": "d" * 16,
+            "project_id": str(db_project.id),
+            "environment": "development",
+            "span_name": "ai.llm.invoke",
+            "span_kind": "INTERNAL",
+            "start_time": now.isoformat(),
+            "end_time": now.isoformat(),
+            "status_code": "OK",
+            "attributes": {"ai.operation.type": "llm.invoke"},
+            "events": [
+                {
+                    "name": "ai.prompt",
+                    "timestamp": now.isoformat(),
+                    "attributes": {"text": "test prompt"},
+                }
+            ],
+            "links": [],
+            "resource": {},
+        }
+
+        trace_batch = {"spans": [span_data]}
+
+        # This should not raise JSON serialization errors
+        response = authenticated_client.post("/telemetry/traces", json=trace_batch)
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["status"] == "received"
