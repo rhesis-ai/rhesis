@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from rhesis.sdk.telemetry.schemas import (
+    FORBIDDEN_SPAN_DOMAINS,
     AILLMAttributes,
     AIOperationType,
     AIToolAttributes,
@@ -175,12 +176,8 @@ class TestOTELSpan:
     def test_span_name_validation_rejects_framework_concepts(self):
         """Test span name rejects framework concepts."""
         now = datetime.now(timezone.utc)
-        forbidden_names = [
-            "ai.agent.run",
-            "ai.chain.execute",
-            "ai.workflow.process",
-            "ai.pipeline.run",
-        ]
+        # Generate test cases from the constant to ensure they stay in sync
+        forbidden_names = [f"ai.{domain}.run" for domain in FORBIDDEN_SPAN_DOMAINS]
         for name in forbidden_names:
             with pytest.raises(ValidationError, match="cannot use framework concept"):
                 OTELSpan(
