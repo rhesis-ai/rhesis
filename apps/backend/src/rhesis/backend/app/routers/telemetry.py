@@ -6,8 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context
+from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
     TraceResponse,
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 @router.post("/traces", response_model=TraceResponse)
 async def ingest_trace(
     trace_batch: OTELTraceBatch,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
 ) -> TraceResponse:
     """
