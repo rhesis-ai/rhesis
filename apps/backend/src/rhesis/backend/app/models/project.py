@@ -29,3 +29,4 @@ class Project(Base, ActivityTrackableMixin, TagsMixin):
     organization = relationship("Organization", back_populates="projects")
     endpoints = relationship("Endpoint", back_populates="project")
     status = relationship("Status", back_populates="projects")
+    traces = relationship("Trace", back_populates="project", cascade="all, delete-orphan")
