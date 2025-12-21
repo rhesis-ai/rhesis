@@ -5,6 +5,7 @@ This code implements the CRUD operations for the models in the application.
 import json
 import uuid
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
@@ -15,7 +16,7 @@ from rhesis.backend.app import models, schemas
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
-from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
+from rhesis.backend.app.schemas.telemetry import OTELSpanCreate, StatusCode
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
@@ -3265,7 +3266,7 @@ def query_traces(
     project_id: str,
     environment: Optional[str] = None,
     span_name: Optional[str] = None,
-    status_code: Optional[str] = None,
+    status_code: Optional[Union[str, "StatusCode"]] = None,
     start_time_after: Optional[datetime] = None,
     start_time_before: Optional[datetime] = None,
     limit: int = 100,
@@ -3279,7 +3280,7 @@ def query_traces(
         project_id: Project ID (required)
         environment: Filter by environment (optional)
         span_name: Filter by span name (optional)
-        status_code: Filter by status code (optional)
+        status_code: Filter by status code (StatusCode enum or string)
         start_time_after: Filter by start time >= (optional)
         start_time_before: Filter by start time <= (optional)
         limit: Maximum results to return
@@ -3297,7 +3298,9 @@ def query_traces(
         query = query.filter(models.Trace.span_name == span_name)
 
     if status_code:
-        query = query.filter(models.Trace.status_code == status_code)
+        # Convert enum to value if needed
+        status_value = status_code.value if isinstance(status_code, Enum) else status_code
+        query = query.filter(models.Trace.status_code == status_value)
 
     if start_time_after:
         query = query.filter(models.Trace.start_time >= start_time_after)
