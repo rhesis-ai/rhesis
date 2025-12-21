@@ -8,13 +8,14 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import and_, desc, func, text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
+from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
@@ -3135,3 +3136,259 @@ def get_tasks_with_comment_counts(
         task.total_comments = comment_count_map.get(str(task.id), 0)
 
     return tasks
+
+
+# ============================================================================
+# Trace CRUD Operations (OpenTelemetry Traces)
+# ============================================================================
+
+
+def create_trace_spans(
+    db: Session,
+    spans: List[OTELSpanCreate],
+    organization_id: str,
+) -> List[models.Trace]:
+    """
+    Create multiple trace spans in the database.
+
+    Args:
+        db: Database session
+        spans: List of span schemas to create
+        organization_id: Organization ID for multi-tenancy
+
+    Returns:
+        List of created Trace models
+
+    Raises:
+        Exception: If database operation fails
+    """
+    trace_models = []
+
+    for span in spans:
+        # Calculate duration
+        duration_ms = (span.end_time - span.start_time).total_seconds() * 1000
+
+        trace_model = models.Trace(
+            trace_id=span.trace_id,
+            span_id=span.span_id,
+            parent_span_id=span.parent_span_id,
+            project_id=span.project_id,
+            organization_id=organization_id,
+            environment=span.environment,
+            span_name=span.span_name,
+            span_kind=span.span_kind.value,
+            start_time=span.start_time,
+            end_time=span.end_time,
+            duration_ms=duration_ms,
+            status_code=span.status_code.value,
+            status_message=span.status_message,
+            attributes=span.attributes,
+            events=[event.model_dump(mode="json") for event in span.events],
+            links=[link.model_dump(mode="json") for link in span.links],
+            resource=span.resource,
+        )
+
+        db.add(trace_model)
+        trace_models.append(trace_model)
+
+    # Bulk insert with single commit
+    try:
+        db.commit()
+        for trace_model in trace_models:
+            db.refresh(trace_model)
+        return trace_models
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to create trace spans: {e}")
+        raise
+
+
+def get_trace_by_id(
+    db: Session,
+    trace_id: str,
+    project_id: str,
+) -> List[models.Trace]:
+    """
+    Get all spans for a trace ID.
+
+    Args:
+        db: Database session
+        trace_id: OpenTelemetry trace ID
+        project_id: Project ID for access control
+
+    Returns:
+        List of Trace models ordered by start_time
+    """
+    return (
+        db.query(models.Trace)
+        .filter(
+            and_(
+                models.Trace.trace_id == trace_id,
+                models.Trace.project_id == project_id,
+            )
+        )
+        .order_by(models.Trace.start_time)
+        .all()
+    )
+
+
+def get_span_by_id(
+    db: Session,
+    span_id: str,
+    project_id: str,
+) -> Optional[models.Trace]:
+    """
+    Get a single span by span ID.
+
+    Args:
+        db: Database session
+        span_id: OpenTelemetry span ID
+        project_id: Project ID for access control
+
+    Returns:
+        Trace model or None if not found
+    """
+    return (
+        db.query(models.Trace)
+        .filter(
+            and_(
+                models.Trace.span_id == span_id,
+                models.Trace.project_id == project_id,
+            )
+        )
+        .first()
+    )
+
+
+def query_traces(
+    db: Session,
+    project_id: str,
+    environment: Optional[str] = None,
+    span_name: Optional[str] = None,
+    status_code: Optional[str] = None,
+    start_time_after: Optional[datetime] = None,
+    start_time_before: Optional[datetime] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> List[models.Trace]:
+    """
+    Query traces with filters.
+
+    Args:
+        db: Database session
+        project_id: Project ID (required)
+        environment: Filter by environment (optional)
+        span_name: Filter by span name (optional)
+        status_code: Filter by status code (optional)
+        start_time_after: Filter by start time >= (optional)
+        start_time_before: Filter by start time <= (optional)
+        limit: Maximum results to return
+        offset: Pagination offset
+
+    Returns:
+        List of Trace models matching filters
+    """
+    query = db.query(models.Trace).filter(models.Trace.project_id == project_id)
+
+    if environment:
+        query = query.filter(models.Trace.environment == environment)
+
+    if span_name:
+        query = query.filter(models.Trace.span_name == span_name)
+
+    if status_code:
+        query = query.filter(models.Trace.status_code == status_code)
+
+    if start_time_after:
+        query = query.filter(models.Trace.start_time >= start_time_after)
+
+    if start_time_before:
+        query = query.filter(models.Trace.start_time <= start_time_before)
+
+    return query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
+
+
+def get_unprocessed_traces(
+    db: Session,
+    limit: int = 100,
+) -> List[models.Trace]:
+    """
+    Get traces that haven't been processed yet.
+
+    Used by background workers to find traces needing enrichment.
+
+    Args:
+        db: Database session
+        limit: Maximum traces to return
+
+    Returns:
+        List of unprocessed Trace models
+    """
+    return (
+        db.query(models.Trace)
+        .filter(models.Trace.processed_at.is_(None))
+        .order_by(models.Trace.created_at)
+        .limit(limit)
+        .all()
+    )
+
+
+def mark_trace_processed(
+    db: Session,
+    trace_id: str,
+    enriched_data: dict,
+) -> int:
+    """
+    Mark all spans in a trace as processed.
+
+    Args:
+        db: Database session
+        trace_id: OpenTelemetry trace ID
+        enriched_data: Enriched attributes to store
+
+    Returns:
+        Number of spans updated
+    """
+    result = (
+        db.query(models.Trace)
+        .filter(models.Trace.trace_id == trace_id)
+        .update(
+            {
+                "processed_at": datetime.utcnow(),
+                "enriched_data": enriched_data,
+                "updated_at": datetime.utcnow(),
+            }
+        )
+    )
+
+    db.commit()
+    return result
+
+
+def count_traces(
+    db: Session,
+    project_id: str,
+    start_time_after: Optional[datetime] = None,
+    start_time_before: Optional[datetime] = None,
+) -> int:
+    """
+    Count traces matching filters.
+
+    Args:
+        db: Database session
+        project_id: Project ID
+        start_time_after: Filter by start time >= (optional)
+        start_time_before: Filter by start time <= (optional)
+
+    Returns:
+        Count of matching traces
+    """
+    query = db.query(func.count(models.Trace.id)).filter(models.Trace.project_id == project_id)
+
+    if start_time_after:
+        query = query.filter(models.Trace.start_time >= start_time_after)
+
+    if start_time_before:
+        query = query.filter(models.Trace.start_time <= start_time_before)
+
+    return query.scalar()
