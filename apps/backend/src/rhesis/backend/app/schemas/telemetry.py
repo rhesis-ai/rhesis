@@ -1,5 +1,6 @@
 """Pydantic schemas for OpenTelemetry traces."""
 
+import re
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -27,14 +28,26 @@ class StatusCode(str, Enum):
 
 
 class AIOperationType(str, Enum):
-    """AI-specific operation types."""
+    """
+    AI-specific operation types for span names.
 
-    LLM_INVOKE = "llm.invoke"
-    TOOL_INVOKE = "tool.invoke"
-    RETRIEVAL = "retrieval"
-    EMBEDDING_GENERATE = "embedding.generate"
-    AGENT_RUN = "agent.run"
-    CHAIN_RUN = "chain.run"
+    Following semantic convention: ai.<domain>.<action>
+
+    These represent primitive operations, NOT framework concepts.
+    Avoid: agents, chains, workflows (these are compositions of primitives)
+    """
+
+    LLM_INVOKE = "ai.llm.invoke"
+    TOOL_INVOKE = "ai.tool.invoke"
+    RETRIEVAL = "ai.retrieval"
+    EMBEDDING_GENERATE = "ai.embedding.generate"
+
+    # Note: Agents and chains are compositions, not operations.
+    # An agent executing a task creates multiple primitive spans:
+    # - ai.llm.invoke for LLM calls
+    # - ai.tool.invoke for tool usage
+    # - ai.retrieval for knowledge retrieval
+    # The agent concept is captured in span attributes, not span names.
 
 
 # Base models
@@ -115,7 +128,14 @@ class OTELSpanCreate(BaseModel):
     )
 
     # Span metadata
-    span_name: str = Field(..., description="Span name (e.g., 'ai.llm.invoke')")
+    span_name: str = Field(
+        ...,
+        description=(
+            "Span name following semantic convention: ai.<domain>.<action>\n"
+            "Examples: 'ai.llm.invoke', 'ai.tool.invoke', 'ai.retrieval', 'ai.embedding.generate'\n"
+            "Do NOT use framework concepts like 'agent' or 'chain' - use primitive operations only."
+        ),
+    )
     span_kind: SpanKind = Field(SpanKind.INTERNAL, description="Span kind")
 
     # Timing
@@ -149,6 +169,39 @@ class OTELSpanCreate(BaseModel):
         if len(v) != 16 or not all(c in "0123456789abcdef" for c in v.lower()):
             raise ValueError("span_id must be 16-character hex string")
         return v.lower()
+
+    @field_validator("span_name")
+    @classmethod
+    def validate_span_name(cls, v: str) -> str:
+        """
+        Validate span name follows semantic convention: ai.<domain>.<action>
+
+        Examples of valid names:
+        - ai.llm.invoke
+        - ai.tool.invoke
+        - ai.retrieval
+        - ai.embedding.generate
+
+        Framework concepts like 'agent' or 'chain' are NOT allowed as span names.
+        """
+        # Pattern: ai.<domain>.<action> or ai.<domain>
+        pattern = r"^ai\.[a-z]+(\.[a-z]+)?$"
+        if not re.match(pattern, v):
+            raise ValueError(
+                f"span_name must follow pattern 'ai.<domain>.<action>' (got: {v}). "
+                "Examples: 'ai.llm.invoke', 'ai.tool.invoke', 'ai.retrieval'"
+            )
+
+        # Explicitly reject framework concepts
+        forbidden_domains = ["agent", "chain", "workflow", "pipeline"]
+        parts = v.split(".")
+        if len(parts) >= 2 and parts[1] in forbidden_domains:
+            raise ValueError(
+                f"span_name cannot use framework concept '{parts[1]}'. "
+                "Use primitive operations: llm, tool, retrieval, embedding"
+            )
+
+        return v
 
     @field_validator("end_time")
     @classmethod

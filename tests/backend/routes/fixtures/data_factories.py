@@ -2240,7 +2240,12 @@ class TraceDataFactory(BaseDataFactory):
             "project_id": project_id or str(fake.uuid4()),  # Use actual UUID
             "environment": fake.random_element(["development", "staging", "production"]),
             "span_name": fake.random_element(
-                ["ai.llm.invoke", "ai.tool.invoke", "ai.agent.run", "ai.retrieval"]
+                [
+                    "ai.llm.invoke",
+                    "ai.tool.invoke",
+                    "ai.retrieval",
+                    "ai.embedding.generate",
+                ]
             ),
             "span_kind": SpanKind.CLIENT.value,
             "start_time": now.isoformat(),
