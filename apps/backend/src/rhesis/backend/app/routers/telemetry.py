@@ -9,8 +9,11 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
-    TraceResponse,
+    TraceIngestResponse,
 )
+
+# Legacy alias for backward compatibility
+TraceResponse = TraceIngestResponse
 
 router = APIRouter(
     prefix="/telemetry",
