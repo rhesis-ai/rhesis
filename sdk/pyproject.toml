@@ -67,11 +67,36 @@ huggingface = [
     "bitsandbytes>=0.45.0",
 ]
 
+# Framework integrations for auto-instrumentation
+langchain = [
+    "langchain>=0.1.0",
+    "langchain-core>=0.1.0",
+]
+
+langgraph = [
+    "langgraph>=0.0.26",
+]
+
+autogen = [
+    "pyautogen>=0.2.0",
+]
+
+all-integrations = [
+    "langchain>=0.1.0",
+    "langchain-core>=0.1.0",
+    "langgraph>=0.0.26",
+    "pyautogen>=0.2.0",
+]
+
 all = [
     "torch>=2.8.0",
     "transformers==4.57.1",
     "accelerate>=1.2.0",
     "bitsandbytes>=0.45.0",
+    "langchain>=0.1.0",
+    "langchain-core>=0.1.0",
+    "langgraph>=0.0.26",
+    "pyautogen>=0.2.0",
 ]
 
 [dependency-groups]
