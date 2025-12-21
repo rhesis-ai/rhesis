@@ -2,6 +2,9 @@
 
 from typing import Any, Dict
 
+# Import semantic layer constants from schemas (single source of truth)
+from rhesis.sdk.telemetry.schemas import FORBIDDEN_SPAN_DOMAINS
+
 
 class AIAttributes:
     """
@@ -17,6 +20,12 @@ class AIAttributes:
 
     # Operation
     OPERATION_TYPE = "ai.operation.type"
+
+    # Operation type values (not to be confused with span names)
+    OPERATION_LLM_INVOKE = "llm.invoke"
+    OPERATION_TOOL_INVOKE = "tool.invoke"
+    OPERATION_RETRIEVAL = "retrieval"
+    OPERATION_EMBEDDING_CREATE = "embedding.create"
 
     # Model
     MODEL_PROVIDER = "ai.model.provider"
@@ -48,6 +57,13 @@ class AIAttributes:
     ERROR_TYPE = "ai.error.type"
     ERROR_RETRYABLE = "ai.error.retryable"
 
+    # Event attribute keys (for span events)
+    PROMPT_ROLE = "ai.prompt.role"
+    PROMPT_CONTENT = "ai.prompt.content"
+    COMPLETION_CONTENT = "ai.completion.content"
+    TOOL_INPUT_CONTENT = "ai.tool.input"
+    TOOL_OUTPUT_CONTENT = "ai.tool.output"
+
 
 class AIEvents:
     """AI semantic convention event names."""
@@ -70,10 +86,10 @@ def create_llm_attributes(
     """
     Create standard attributes for LLM invocation.
 
-    Use with span name 'ai.llm.invoke'.
+    Use with span name AIOperationType.LLM_INVOKE.
 
     Example:
-        with tracer.start_as_current_span("ai.llm.invoke") as span:
+        with tracer.start_as_current_span(AIOperationType.LLM_INVOKE) as span:
             attrs = create_llm_attributes(provider="openai", model_name="gpt-4")
             span.set_attributes(attrs)
 
@@ -88,7 +104,7 @@ def create_llm_attributes(
         Dictionary of attributes following AI semantic conventions
     """
     attrs = {
-        AIAttributes.OPERATION_TYPE: "llm.invoke",
+        AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
         AIAttributes.MODEL_PROVIDER: provider,
         AIAttributes.MODEL_NAME: model_name,
     }
@@ -114,10 +130,10 @@ def create_tool_attributes(
     """
     Create standard attributes for tool invocation.
 
-    Use with span name 'ai.tool.invoke'.
+    Use with span name AIOperationType.TOOL_INVOKE.
 
     Example:
-        with tracer.start_as_current_span("ai.tool.invoke") as span:
+        with tracer.start_as_current_span(AIOperationType.TOOL_INVOKE) as span:
             attrs = create_tool_attributes(
                 tool_name="weather_api",
                 tool_type="http"
@@ -133,7 +149,7 @@ def create_tool_attributes(
         Dictionary of attributes following AI semantic conventions
     """
     attrs = {
-        AIAttributes.OPERATION_TYPE: "tool.invoke",
+        AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_TOOL_INVOKE,
         AIAttributes.TOOL_NAME: tool_name,
         AIAttributes.TOOL_TYPE: tool_type,
     }
@@ -173,9 +189,8 @@ def validate_span_name(span_name: str) -> bool:
         return False
 
     # Reject framework concepts
-    forbidden_domains = ["agent", "chain", "workflow", "pipeline"]
     parts = span_name.split(".")
-    if len(parts) >= 2 and parts[1] in forbidden_domains:
+    if len(parts) >= 2 and parts[1] in FORBIDDEN_SPAN_DOMAINS:
         return False
 
     return True

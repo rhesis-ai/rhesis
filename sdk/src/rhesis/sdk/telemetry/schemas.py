@@ -7,6 +7,12 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+# Semantic Layer Constants
+
+# Forbidden framework concepts (not primitive operations)
+# These should NOT appear as domains in span names (ai.<domain>.<action>)
+FORBIDDEN_SPAN_DOMAINS: List[str] = ["agent", "chain", "workflow", "pipeline"]
+
 
 class SpanKind(str, Enum):
     """OpenTelemetry span kinds."""
@@ -138,9 +144,8 @@ class OTELSpan(BaseModel):
             )
 
         # Reject framework concepts
-        forbidden_domains = ["agent", "chain", "workflow", "pipeline"]
         parts = v.split(".")
-        if len(parts) >= 2 and parts[1] in forbidden_domains:
+        if len(parts) >= 2 and parts[1] in FORBIDDEN_SPAN_DOMAINS:
             raise ValueError(
                 f"span_name cannot use framework concept '{parts[1]}'. "
                 "Use primitive operations: llm, tool, retrieval, embedding"

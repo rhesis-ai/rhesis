@@ -68,6 +68,11 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             }
         )
 
+        # Failure tracking to alert users of persistent issues
+        self._consecutive_failures = 0
+        self._total_exports = 0
+        self._failed_exports = 0
+
         logger.debug(f"OTLP exporter initialized: {self.endpoint}")
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
@@ -86,6 +91,8 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         """
         if not spans:
             return SpanExportResult.SUCCESS
+
+        self._total_exports += 1
 
         try:
             # Convert OTEL spans to SDK schema models
@@ -106,30 +113,96 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             response.raise_for_status()
 
             logger.debug(f"Successfully exported {len(spans)} span(s)")
+
+            # Reset failure counter on success
+            if self._consecutive_failures > 0:
+                logger.info(
+                    f"✅ Telemetry export recovered after {self._consecutive_failures} failures"
+                )
+            self._consecutive_failures = 0
+
             return SpanExportResult.SUCCESS
 
+        except requests.exceptions.ConnectionError as e:
+            self._failed_exports += 1
+            self._consecutive_failures += 1
+            logger.error(
+                f"❌ Failed to connect to backend at {self.endpoint}. "
+                f"Make sure the backend is running (docker compose up -d). Error: {e}"
+            )
+            self._log_persistent_failure_warning()
+            return SpanExportResult.FAILURE
+
         except requests.exceptions.Timeout:
-            logger.warning("Timeout exporting spans")
+            self._failed_exports += 1
+            self._consecutive_failures += 1
+            logger.error(
+                f"❌ Timeout exporting spans to {self.endpoint}. "
+                f"Backend might be overloaded or unreachable."
+            )
+            self._log_persistent_failure_warning()
             return SpanExportResult.FAILURE
 
         except requests.exceptions.HTTPError as e:
+            self._failed_exports += 1
+            self._consecutive_failures += 1
+
             # Log validation errors from backend
             if e.response.status_code == 422:
                 try:
                     error_detail = e.response.json()
                     logger.error(
-                        f"Backend rejected spans (validation error): {error_detail}. "
+                        f"❌ Backend rejected spans (validation error): {error_detail}. "
                         "Check span names follow pattern: ai.<domain>.<action>"
                     )
                 except Exception:
-                    logger.error(f"Backend validation error (422): {e}")
+                    logger.error(f"❌ Backend validation error (422): {e}")
+            elif e.response.status_code == 401:
+                logger.error(f"❌ Authentication failed. Check your RHESIS_API_KEY. Error: {e}")
+            elif e.response.status_code == 403:
+                logger.error(
+                    f"❌ Authorization failed. Check your API key has access to "
+                    f"project '{self.project_id}'. Error: {e}"
+                )
             else:
-                logger.error(f"HTTP error exporting spans: {e}")
+                logger.error(f"❌ HTTP error exporting spans: {e}")
+
+            self._log_persistent_failure_warning()
             return SpanExportResult.FAILURE
 
         except Exception as e:
-            logger.error(f"Unexpected error exporting spans: {e}", exc_info=True)
+            self._failed_exports += 1
+            self._consecutive_failures += 1
+            logger.error(
+                f"❌ Unexpected error exporting spans: {e}. This is a bug - please report it.",
+                exc_info=True,
+            )
+            self._log_persistent_failure_warning()
             return SpanExportResult.FAILURE
+
+    def _log_persistent_failure_warning(self) -> None:
+        """Log warning if exports are repeatedly failing."""
+        if self._consecutive_failures == 5:
+            success_rate = (
+                ((self._total_exports - self._failed_exports) / self._total_exports * 100)
+                if self._total_exports > 0
+                else 0
+            )
+            logger.warning(
+                f"⚠️  TELEMETRY ALERT: 5 consecutive export failures detected!\n"
+                f"   Endpoint: {self.endpoint}\n"
+                f"   Total exports: {self._total_exports}\n"
+                f"   Failed exports: {self._failed_exports}\n"
+                f"   Success rate: {success_rate:.1f}%\n"
+                f"   → Check backend logs: docker logs rhesis-backend-1 --tail 50\n"
+                f"   → Verify backend is running: docker compose ps\n"
+                f"   → Check API key and project ID are correct"
+            )
+        elif self._consecutive_failures % 10 == 0:
+            logger.warning(
+                f"⚠️  TELEMETRY ALERT: {self._consecutive_failures} consecutive failures! "
+                f"Traces are NOT being sent to backend."
+            )
 
     def _convert_spans(self, spans: Sequence[ReadableSpan]) -> OTELTraceBatch:
         """

@@ -10,11 +10,15 @@ from rhesis.sdk.telemetry.attributes import (
     validate_span_name,
 )
 
+# Auto-instrumentation
+from rhesis.sdk.telemetry.observer import auto_instrument, disable_auto_instrument
+
 # Infrastructure
 from rhesis.sdk.telemetry.provider import get_tracer_provider, shutdown_tracer_provider
 
 # Schemas (for backend to import)
 from rhesis.sdk.telemetry.schemas import (
+    FORBIDDEN_SPAN_DOMAINS,
     AILLMAttributes,
     AIOperationType,
     AIToolAttributes,
@@ -29,12 +33,16 @@ from rhesis.sdk.telemetry.schemas import (
 from rhesis.sdk.telemetry.tracer import Tracer
 
 __all__ = [
+    # Auto-instrumentation
+    "auto_instrument",
+    "disable_auto_instrument",
     # Primary API
     "Tracer",
     # Schemas
     "SpanKind",
     "StatusCode",
     "AIOperationType",
+    "FORBIDDEN_SPAN_DOMAINS",
     "OTELSpan",
     "OTELTraceBatch",
     "TraceIngestResponse",
