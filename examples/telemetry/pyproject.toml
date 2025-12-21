@@ -1,0 +1,24 @@
+[project]
+name = "rhesis-telemetry-examples"
+version = "0.1.0"
+description = "Telemetry examples for Rhesis SDK"
+requires-python = ">=3.10"
+dependencies = [
+    "rhesis-sdk",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+langchain = [
+    "langchain>=1.0.0",
+    "langchain-core>=1.0.0",
+    "langchain-google-genai>=2.0.0",
+]
+fastapi = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+]
+
+[tool.uv.sources]
+rhesis-sdk = { path = "../../sdk", editable = true }
+
