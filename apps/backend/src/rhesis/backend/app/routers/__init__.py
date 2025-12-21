@@ -26,6 +26,7 @@ from .source import router as source_router
 from .status import router as status_router
 from .tag import router as tag_router
 from .task_management import router as task_management_router
+from .telemetry import router as telemetry_router
 from .test import router as test_router
 from .test_configuration import router as test_configuration_router
 from .test_context import router as test_context_router
@@ -87,6 +88,7 @@ routers = sorted(
         behavior_router,
         comment_router,
         connector_router,
+        telemetry_router,
         response_pattern_router,
         test_set_router,
         test_configuration_router,
