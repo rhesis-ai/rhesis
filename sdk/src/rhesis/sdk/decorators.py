@@ -26,6 +26,7 @@ def collaborate(
     name: str | None = None,
     request_mapping: dict | None = None,
     response_mapping: dict | None = None,
+    span_name: str | None = None,
     **metadata,
 ) -> Callable:
     """
@@ -37,6 +38,9 @@ def collaborate(
 
     Args:
         name: Optional function name for registration (defaults to function.__name__)
+        span_name: Optional semantic span name (e.g., 'ai.llm.invoke', 'ai.tool.invoke')
+            Defaults to 'function.<name>' if not provided.
+            This allows power users to specify AI operation types for better observability.
         request_mapping: Manual input mappings (Rhesis standard field → function param)
             Maps incoming API request fields to your function's parameters.
             Standard Rhesis REQUEST fields: input, session_id
@@ -143,7 +147,7 @@ def collaborate(
             # Delegate tracing to connector manager
             if _default_client._connector_manager:
                 return _default_client._connector_manager.trace_execution(
-                    func_name, func, args, kwargs
+                    func_name, func, args, kwargs, span_name
                 )
             # Fallback: just execute function without tracing
             return func(*args, **kwargs)
