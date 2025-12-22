@@ -3,7 +3,7 @@
 Demo script to showcase enhanced OpenTelemetry tracing in the chatbot.
 
 This script demonstrates:
-1. The @collaborate decorator creating a parent span for the entire chat operation
+1. The @endpoint decorator creating a parent span for the entire chat operation
 2. Explicit child spans for each step:
    - Loading system prompts
    - Building conversation context
@@ -20,7 +20,7 @@ import logging
 
 from dotenv import load_dotenv
 
-from rhesis.sdk import collaborate
+from rhesis.sdk import endpoint
 
 # Configure logging
 logging.basicConfig(
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-@collaborate(
+@endpoint(
     name="chatbot_demo",
     description="Demo chatbot with enhanced tracing",
     span_name="demo.chatbot_interaction",  # Custom span name
@@ -41,7 +41,7 @@ def demo_chat_with_tracing(question: str, use_case: str = "insurance") -> dict:
     """
     Demonstrate enhanced tracing with the chatbot.
 
-    This function is wrapped with @collaborate, which will create a parent span.
+    This function is wrapped with @endpoint, which will create a parent span.
     All the explicit spans created within will be children of this parent span.
     """
     from endpoint import generate_context, stream_assistant_response
@@ -75,7 +75,7 @@ def main():
     print("=" * 80)
     print()
     print("This demo will:")
-    print("  1. Create a parent span via @collaborate decorator")
+    print("  1. Create a parent span via @endpoint decorator")
     print("  2. Generate context fragments (with LLM span)")
     print("  3. Build conversation context (with explicit spans)")
     print("  4. Invoke LLM for response (with ai.llm.invoke span)")

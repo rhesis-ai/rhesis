@@ -34,7 +34,7 @@ This chatbot includes comprehensive OpenTelemetry tracing to provide visibility 
 Each chat interaction creates a detailed trace with nested spans:
 
 ```
-chat (parent from @collaborate)
+chat (parent from @endpoint)
 ├── function.load_system_prompt
 ├── function.generate_context
 │   ├── function.build_context_prompt

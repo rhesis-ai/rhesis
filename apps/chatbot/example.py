@@ -6,7 +6,7 @@ from typing import Generator, List
 
 from dotenv import load_dotenv
 
-from rhesis.sdk import RhesisClient, collaborate
+from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.models.factory import get_model
 
 # Configure logging
@@ -260,7 +260,7 @@ def get_assistant_response(
 # These functions use standard parameter names that should auto-map with high confidence
 
 
-@collaborate(name="test_standard_naming", description="Test function with standard parameter names")
+@endpoint(name="test_standard_naming", description="Test function with standard parameter names")
 def test_standard_naming(
     input: str,
     session_id: str = None,
@@ -282,7 +282,7 @@ def test_standard_naming(
     }
 
 
-@collaborate(name="test_partial_standard", description="Test with some standard naming")
+@endpoint(name="test_partial_standard", description="Test with some standard naming")
 def test_partial_standard(input: str, session_id: str = None) -> dict:
     """Test auto-mapping with partial standard naming.
 
@@ -295,7 +295,7 @@ def test_partial_standard(input: str, session_id: str = None) -> dict:
     }
 
 
-@collaborate(name="test_input_only", description="Test with only input parameter")
+@endpoint(name="test_input_only", description="Test with only input parameter")
 def test_input_only(input: str) -> dict:
     """Test auto-mapping with only input parameter.
 
@@ -311,7 +311,7 @@ def test_input_only(input: str) -> dict:
 # These test variations of standard patterns
 
 
-@collaborate(name="test_input_variations", description="Test input field variations")
+@endpoint(name="test_input_variations", description="Test input field variations")
 def test_input_variations(message: str, conversation_id: str = None) -> dict:
     """Test auto-mapping with pattern variations.
 
@@ -326,7 +326,7 @@ def test_input_variations(message: str, conversation_id: str = None) -> dict:
     }
 
 
-@collaborate(name="test_compound_patterns", description="Test compound field names")
+@endpoint(name="test_compound_patterns", description="Test compound field names")
 def test_compound_patterns(
     user_message: str, conv_id: str = None, context_docs: List[str] = None
 ) -> dict:
@@ -344,7 +344,7 @@ def test_compound_patterns(
     }
 
 
-@collaborate(name="test_suffix_patterns", description="Test _id suffix patterns")
+@endpoint(name="test_suffix_patterns", description="Test _id suffix patterns")
 def test_suffix_patterns(query: str, session_id: str = None, thread_id: str = None) -> dict:
     """Test auto-mapping with _id suffixes.
 
@@ -362,7 +362,7 @@ def test_suffix_patterns(query: str, session_id: str = None, thread_id: str = No
 # These functions use non-standard naming that should trigger LLM fallback
 
 
-@collaborate(
+@endpoint(
     name="test_custom_naming_no_hints",
     description="Test with completely custom parameter names (no mapping hints)",
 )
@@ -380,7 +380,7 @@ def test_custom_naming_no_hints(xyz: str, abc: str = None, qwerty: dict = None) 
     }
 
 
-@collaborate(
+@endpoint(
     name="test_domain_specific_naming",
     description="Test with domain-specific parameter names for insurance queries",
 )
@@ -401,7 +401,7 @@ def test_domain_specific_naming(
     }
 
 
-@collaborate(
+@endpoint(
     name="test_abbreviated_names",
     description="Test with abbreviated parameter names",
 )
@@ -418,12 +418,12 @@ def test_abbreviated_names(q: str, sid: str = None, ctx: List[str] = None) -> di
 
 
 # =============================================================================
-# MANUAL MAPPING TEST FUNCTIONS (CUSTOM @collaborate ANNOTATIONS)
+# MANUAL MAPPING TEST FUNCTIONS (CUSTOM @endpoint ANNOTATIONS)
 # =============================================================================
-# These functions provide explicit mappings via the @collaborate decorator
+# These functions provide explicit mappings via the @endpoint decorator
 
 
-@collaborate(
+@endpoint(
     name="test_manual_request_mapping",
     description="Test with manual request mapping annotation",
     request_mapping={
@@ -451,7 +451,7 @@ def test_manual_request_mapping(
     }
 
 
-@collaborate(
+@endpoint(
     name="test_manual_response_mapping",
     description="Test with manual response mapping annotation",
     response_mapping={
@@ -475,7 +475,7 @@ def test_manual_response_mapping(input: str, session_id: str = None) -> dict:
     }
 
 
-@collaborate(
+@endpoint(
     name="test_full_manual_mapping",
     description="Test with both request and response manual mappings",
     request_mapping={
@@ -518,7 +518,7 @@ def test_full_manual_mapping(
 # These test different output structures for response mapping
 
 
-@collaborate(name="test_nested_output", description="Test with deeply nested output structure")
+@endpoint(name="test_nested_output", description="Test with deeply nested output structure")
 def test_nested_output(input: str) -> dict:
     """Test response mapping with nested output.
 
@@ -530,7 +530,7 @@ def test_nested_output(input: str) -> dict:
     }
 
 
-@collaborate(name="test_list_output", description="Test with list in output")
+@endpoint(name="test_list_output", description="Test with list in output")
 def test_list_output(input: str) -> dict:
     """Test response mapping with list outputs."""
     return {
@@ -542,7 +542,7 @@ def test_list_output(input: str) -> dict:
     }
 
 
-@collaborate(name="test_mixed_output_types", description="Test with various output data types")
+@endpoint(name="test_mixed_output_types", description="Test with various output data types")
 def test_mixed_output_types(input: str) -> dict:
     """Test response mapping with mixed data types."""
     return {
@@ -560,7 +560,7 @@ def test_mixed_output_types(input: str) -> dict:
 # =============================================================================
 
 
-@collaborate(
+@endpoint(
     name="test_custom_field_passthrough",
     description="Test custom fields passed through request mapping",
     request_mapping={
@@ -612,7 +612,7 @@ def test_custom_field_passthrough(
 # =============================================================================
 
 
-@collaborate(name="multiply_numbers", description="Multiply two numbers")
+@endpoint(name="multiply_numbers", description="Multiply two numbers")
 def multiply_numbers(a: int, b: int, c: int) -> dict:
     """Simple multiplication test - should trigger LLM mapping."""
     return {
@@ -623,7 +623,7 @@ def multiply_numbers(a: int, b: int, c: int) -> dict:
     }
 
 
-@collaborate(
+@endpoint(
     name="stream_assistant_response", description="Stream assistant responses for insurance queries"
 )
 def stream_assistant_response(
@@ -631,7 +631,7 @@ def stream_assistant_response(
 ) -> Generator[str, None, None]:
     """Stream the assistant's response with optional conversation history.
 
-    This function is decorated with @collaborate to enable remote testing
+    This function is decorated with @endpoint to enable remote testing
     from the Rhesis platform.
 
     Args:

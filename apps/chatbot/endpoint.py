@@ -373,7 +373,7 @@ def stream_assistant_response(
 ) -> Generator[str, None, None]:
     """Stream the assistant's response with optional conversation history.
 
-    This function is decorated with @collaborate to enable remote testing
+    This function is decorated with @endpoint to enable remote testing
     from the Rhesis platform.
 
     Args:
