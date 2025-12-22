@@ -141,7 +141,7 @@ def chat_endpoint(input: str, session_id: str = None) -> dict:
         context["weather"] = weather
 
     # Step 3: The actual LLM call
-    # When using @collaborate, Rhesis handles the LLM invocation
+    # When using @endpoint, Rhesis handles the LLM invocation
     # The input is automatically sent to Gemini (default provider)
     # and the response is returned
     #
@@ -175,7 +175,7 @@ def internal_processor(data: str) -> dict:
     """
     An internal function that's remotely testable and traced.
 
-    Same as @collaborate() - observe is True by default.
+    Same as @endpoint() - observe is True by default.
     """
     print(f"⚙️  Processing data: {data[:50]}...")
 
@@ -190,7 +190,7 @@ def internal_processor(data: str) -> dict:
 
 
 # Example 6: Function without any decorators (baseline)
-# No @observe, no @collaborate - just a regular function
+# No @observe, no @endpoint - just a regular function
 def lightweight_endpoint(value: int) -> int:
     """
     A regular function without any decorators.
