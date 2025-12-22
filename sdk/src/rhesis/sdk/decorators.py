@@ -1,4 +1,4 @@
-"""Decorators for collaborative testing and observability."""
+"""Decorators for endpoint registration and observability."""
 
 from collections.abc import Callable
 from functools import wraps
@@ -34,7 +34,7 @@ def observe(
     Observe function execution with OpenTelemetry tracing.
 
     Use this for functions that need observability but NOT remote testing.
-    For functions that need both, use @collaborate (which includes tracing).
+    For functions that need both, use @endpoint (which includes tracing by default).
 
     Args:
         name: Display name for the operation (defaults to function name)
@@ -105,7 +105,7 @@ def observe(
     return decorator
 
 
-def collaborate(
+def endpoint(
     name: str | None = None,
     request_mapping: dict | None = None,
     response_mapping: dict | None = None,
@@ -114,11 +114,12 @@ def collaborate(
     **metadata,
 ) -> Callable:
     """
-    Decorator for collaborative testing and observability.
+    Decorator to register functions as Rhesis endpoints with observability.
 
-    This decorator enables two features:
-    1. TRACING (Default On): Traces all normal executions and sends to backend
-    2. TESTING (On-Demand): Enables remote triggering from Rhesis platform
+    This decorator registers functions as remotely callable Rhesis endpoints.
+    It enables two features:
+    1. OBSERVABILITY (Default On): Traces all executions with OpenTelemetry
+    2. REMOTE TESTING: Enables remote triggering from Rhesis platform
 
     Args:
         name: Optional function name for registration (defaults to function.__name__)
@@ -154,14 +155,14 @@ def collaborate(
 
     Examples:
         # Example 1: Auto-mapping (zero config - recommended)
-        @collaborate()
+        @endpoint()
         def chat(input: str, session_id: str = None):
             # REQUEST: input, session_id auto-detected
             # RESPONSE: output, session_id auto-extracted
             return {"output": "...", "session_id": session_id}
 
         # Example 2: Manual mapping with custom naming
-        @collaborate(
+        @endpoint(
             request_mapping={
                 "user_query": "{{ input }}",      # Standard field
                 "conv_id": "{{ session_id }}",    # Standard field
@@ -177,7 +178,7 @@ def collaborate(
             return {"result": {"text": "..."}, "conv_id": conv_id, "sources": [...]}
 
         # Example 3: Custom fields with manual mapping
-        @collaborate(
+        @endpoint(
             request_mapping={
                 "question": "{{ input }}",
                 "policy_id": "{{ policy_number }}",  # Custom field from request
@@ -193,7 +194,7 @@ def collaborate(
             return {"answer": "...", "stats": {"premium": tier == "gold"}}
 
         # Example 4: Opt-out of tracing (rare use case)
-        @collaborate(observe=False)
+        @endpoint(observe=False)
         def simple_function(x: int) -> int:
             # Registered for remote testing but NOT traced
             return x * 2
@@ -219,7 +220,7 @@ def collaborate(
         if _default_client is None:
             raise RuntimeError(
                 "RhesisClient not initialized. Create a RhesisClient instance "
-                "before using @collaborate decorator."
+                "before using @endpoint decorator."
             )
 
         func_name = name or func.__name__
@@ -247,3 +248,7 @@ def collaborate(
         return wrapper
 
     return decorator
+
+
+# Backwards compatibility alias
+collaborate = endpoint

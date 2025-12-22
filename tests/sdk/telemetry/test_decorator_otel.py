@@ -1,22 +1,20 @@
-"""End-to-end tests for @collaborate with OTEL integration."""
+"""End-to-end tests for @endpoint with OTEL integration."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rhesis.sdk import RhesisClient
-from rhesis.sdk.decorators import collaborate
+from rhesis.sdk.decorators import endpoint
 
 
 @patch("rhesis.sdk.connector.manager.asyncio.create_task")
-class TestCollaborateWithOTEL:
-    """End-to-end tests for @collaborate decorator with OpenTelemetry."""
+class TestEndpointWithOTEL:
+    """End-to-end tests for @endpoint decorator with OpenTelemetry."""
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_collaborate_uses_telemetry_default_span_name(
-        self, mock_get_provider, mock_create_task
-    ):
-        """Test @collaborate uses telemetry with default span name."""
+    def test_endpoint_uses_telemetry_default_span_name(self, mock_get_provider, mock_create_task):
+        """Test @endpoint uses telemetry with default span name."""
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -33,8 +31,8 @@ class TestCollaborateWithOTEL:
             environment="development",
         )
 
-        # Define function with @collaborate
-        @collaborate()
+        # Define function with @endpoint
+        @endpoint()
         def process_data(x: int, y: int) -> int:
             return x + y
 
@@ -48,8 +46,8 @@ class TestCollaborateWithOTEL:
         assert call_args[1]["name"] == "function.process_data"
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_collaborate_with_custom_span_name(self, mock_get_provider, mock_create_task):
-        """Test @collaborate with custom span name."""
+    def test_endpoint_with_custom_span_name(self, mock_get_provider, mock_create_task):
+        """Test @endpoint with custom span name."""
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -67,7 +65,7 @@ class TestCollaborateWithOTEL:
         )
 
         # Define function with custom span name
-        @collaborate(span_name="ai.llm.invoke")
+        @endpoint(span_name="ai.llm.invoke")
         def call_llm(prompt: str) -> str:
             return f"response to {prompt}"
 
@@ -80,8 +78,8 @@ class TestCollaborateWithOTEL:
         assert call_args[1]["name"] == "ai.llm.invoke"
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_collaborate_with_tool_span_name(self, mock_get_provider, mock_create_task):
-        """Test @collaborate with tool operation span name."""
+    def test_endpoint_with_tool_span_name(self, mock_get_provider, mock_create_task):
+        """Test @endpoint with tool operation span name."""
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -99,7 +97,7 @@ class TestCollaborateWithOTEL:
         )
 
         # Define tool function
-        @collaborate(span_name="ai.tool.invoke")
+        @endpoint(span_name="ai.tool.invoke")
         def weather_api(city: str) -> dict:
             return {"city": city, "temp": 72}
 
@@ -111,8 +109,8 @@ class TestCollaborateWithOTEL:
         assert call_args[1]["name"] == "ai.tool.invoke"
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_collaborate_records_function_attributes(self, mock_get_provider, mock_create_task):
-        """Test @collaborate records function metadata as span attributes."""
+    def test_endpoint_records_function_attributes(self, mock_get_provider, mock_create_task):
+        """Test @endpoint records function metadata as span attributes."""
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -129,7 +127,7 @@ class TestCollaborateWithOTEL:
             environment="development",
         )
 
-        @collaborate()
+        @endpoint()
         def test_func(a: int, b: int = 5) -> int:
             return a + b
 
@@ -143,8 +141,8 @@ class TestCollaborateWithOTEL:
 
     @pytest.mark.skip(reason="Class-level mock prevents testing no-client scenario")
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_collaborate_without_client(self, mock_get_provider, mock_create_task):
-        """Test @collaborate falls back when client not initialized."""
+    def test_endpoint_without_client(self, mock_get_provider, mock_create_task):
+        """Test @endpoint falls back when client not initialized."""
         # Don't create a client - decorator should handle gracefully
 
         def test_func():
@@ -153,13 +151,13 @@ class TestCollaborateWithOTEL:
         # Applying decorator without client should raise RuntimeError
         with pytest.raises(RuntimeError, match="RhesisClient not initialized"):
 
-            @collaborate()
+            @endpoint()
             def decorated_func():
                 return "result"
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_collaborate_preserves_function_metadata(self, mock_get_provider, mock_create_task):
-        """Test @collaborate preserves function name and docstring."""
+    def test_endpoint_preserves_function_metadata(self, mock_get_provider, mock_create_task):
+        """Test @endpoint preserves function name and docstring."""
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -176,7 +174,7 @@ class TestCollaborateWithOTEL:
             environment="development",
         )
 
-        @collaborate()
+        @endpoint()
         def my_function(x: int) -> int:
             """This is my function."""
             return x * 2
@@ -186,8 +184,8 @@ class TestCollaborateWithOTEL:
         assert my_function.__doc__ == "This is my function."
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_collaborate_with_generator_function(self, mock_get_provider, mock_create_task):
-        """Test @collaborate with generator functions."""
+    def test_endpoint_with_generator_function(self, mock_get_provider, mock_create_task):
+        """Test @endpoint with generator functions."""
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -204,7 +202,7 @@ class TestCollaborateWithOTEL:
             environment="development",
         )
 
-        @collaborate()
+        @endpoint()
         def stream_tokens():
             for i in range(3):
                 yield f"token_{i}"
@@ -217,8 +215,8 @@ class TestCollaborateWithOTEL:
         mock_span.set_attribute.assert_any_call("function.output_chunks", 3)
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_collaborate_with_observe_false(self, mock_get_provider, mock_create_task):
-        """Test @collaborate(observe=False) skips tracing."""
+    def test_endpoint_with_observe_false(self, mock_get_provider, mock_create_task):
+        """Test @endpoint(observe=False) skips tracing."""
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -236,7 +234,7 @@ class TestCollaborateWithOTEL:
         )
 
         # Define function with observe=False
-        @collaborate(observe=False)
+        @endpoint(observe=False)
         def no_trace_function(x: int) -> int:
             return x * 2
 
@@ -248,8 +246,8 @@ class TestCollaborateWithOTEL:
         mock_tracer.start_as_current_span.assert_not_called()
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_collaborate_with_observe_true_explicit(self, mock_get_provider, mock_create_task):
-        """Test @collaborate(observe=True) creates spans."""
+    def test_endpoint_with_observe_true_explicit(self, mock_get_provider, mock_create_task):
+        """Test @endpoint(observe=True) creates spans."""
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -267,7 +265,7 @@ class TestCollaborateWithOTEL:
         )
 
         # Define function with explicit observe=True
-        @collaborate(observe=True)
+        @endpoint(observe=True)
         def trace_function(x: int) -> int:
             return x * 2
 
@@ -279,8 +277,8 @@ class TestCollaborateWithOTEL:
         mock_tracer.start_as_current_span.assert_called_once()
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_collaborate_observe_default_is_true(self, mock_get_provider, mock_create_task):
-        """Test @collaborate() traces by default (backwards compatible)."""
+    def test_endpoint_observe_default_is_true(self, mock_get_provider, mock_create_task):
+        """Test @endpoint() traces by default (backwards compatible)."""
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -298,7 +296,7 @@ class TestCollaborateWithOTEL:
         )
 
         # Define function without observe parameter
-        @collaborate()
+        @endpoint()
         def default_trace_function(x: int) -> int:
             return x * 2
 
