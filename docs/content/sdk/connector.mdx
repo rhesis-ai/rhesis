@@ -5,7 +5,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 Register Python functions as testable endpoints in Rhesis using the SDK connector. This code-first approach automatically creates and manages endpoints, providing an alternative to [manual endpoint configuration](/platform/endpoints).
 
 <Callout type="info">
-  **How it works**: Decorate functions with `@collaborate` and they automatically become endpoints
+  **How it works**: Decorate functions with `@endpoint` and they automatically become endpoints
   in Rhesis. The SDK connects via WebSocket, registers function metadata, and keeps endpoints in
   sync with your code.
 </Callout>
@@ -29,9 +29,9 @@ client = RhesisClient(
 ### Decorate Functions
 
 <CodeBlock filename="app.py" language="python">
-{`from rhesis.sdk import collaborate
+{`from rhesis.sdk import endpoint
 
-@collaborate()
+@endpoint()
 def chat(input: str, session_id: str = None) -> dict:
     """Handle chat messages."""
     return {
@@ -62,7 +62,7 @@ Watch this video to see how the Rhesis SDK connector integrates an LLM applicati
 </div>
 
 **What You'll Learn:**
-- Integrating an LLM app with the `@collaborate` decorator
+- Integrating an LLM app with the `@endpoint` decorator
 - Automatic session management in action
 - Single-turn and multi-turn testing made easy
 
@@ -98,7 +98,7 @@ client = RhesisClient(
 Use standard field names for automatic detection:
 
 <CodeBlock filename="auto_mapping.py" language="python">
-{`@collaborate()
+{`@endpoint()
 def chat(input: str, session_id: str = None) -> dict:
     """Standard names auto-detect."""
     return {
@@ -117,7 +117,7 @@ def chat(input: str, session_id: str = None) -> dict:
 For custom parameter names or complex structures, provide explicit mappings:
 
 <CodeBlock filename="manual_mapping.py" language="python">
-{`@collaborate(
+{`@endpoint(
     request_mapping={
         "user_query": "{{ input }}",
         "conv_id": "{{ session_id }}",
@@ -151,7 +151,7 @@ def chat(user_query: str, conv_id: str = None) -> dict:
 For conditional logic or fallback values, use Jinja2 templates with `jsonpath()`:
 
 <CodeBlock filename="advanced_mapping.py" language="python">
-{`@collaborate(
+{`@endpoint(
     response_mapping={
         "output": "{{ jsonpath('$.text_response') or jsonpath('$.result.content') }}",
         "conversation_id": "$.conv_id",
@@ -176,12 +176,12 @@ client = RhesisClient(
     environment="development",
 )
 
-@collaborate()
+@endpoint()
 def handle_chat(input: str, session_id: str = None) -> dict:
     """Process chat messages."""
     return {"output": generate_response(input), "session_id": session_id}
 
-@collaborate()
+@endpoint()
 def search_documents(input: str, context: list = None) -> dict:
     """Search documents."""
     results = perform_search(input, context or [])
@@ -192,7 +192,7 @@ def search_documents(input: str, context: list = None) -> dict:
 ### Custom Fields
 
 <CodeBlock filename="custom_fields.py" language="python">
-{`@collaborate(
+{`@endpoint(
     request_mapping={
         "question": "{{ input }}",
         "policy_id": "{{ policy_number }}",
@@ -234,7 +234,7 @@ Registered endpoints appear in the Rhesis dashboard:
 **Functions not appearing**:
 
 - Verify `RhesisClient` initialized with `api_key`, `project_id`, and `environment`
-- Check functions use `@collaborate()` decorator
+- Check functions use `@endpoint()` decorator
 - Check logs for "Connector initialized" and "Sent registration" messages
 
 **Connection issues**:
@@ -251,8 +251,8 @@ Registered endpoints appear in the Rhesis dashboard:
 
 **Common errors**:
 
-- `"RhesisClient not initialized"`: Create `RhesisClient` instance before using `@collaborate`
-- `"@collaborate requires project_id"`: Provide `project_id` or set `RHESIS_PROJECT_ID` env var
+- `"RhesisClient not initialized"`: Create `RhesisClient` instance before using `@endpoint`
+- `"@endpoint requires project_id"`: Provide `project_id` or set `RHESIS_PROJECT_ID` env var
 - `"Functions not appearing as Active"`: Restart app to trigger re-registration
 
 ---
