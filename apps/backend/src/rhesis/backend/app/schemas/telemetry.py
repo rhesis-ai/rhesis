@@ -87,3 +87,79 @@ class OTELSpanDB(BaseModel):
 
 # Legacy alias (deprecated - use TraceIngestResponse)
 TraceResponse = TraceIngestResponse
+
+
+# Query response schemas
+class TraceSummary(BaseModel):
+    """Summary of a trace for list view."""
+
+    trace_id: str
+    project_id: str
+    environment: str
+    start_time: datetime
+    duration_ms: float
+    span_count: int
+    root_operation: str
+    status_code: str
+    total_tokens: Optional[int] = None
+    total_cost_usd: Optional[float] = None
+    has_errors: bool
+
+    class Config:
+        from_attributes = True
+
+
+class TraceListResponse(BaseModel):
+    """Response for list traces endpoint."""
+
+    traces: List[TraceSummary]
+    total: int = Field(..., description="Total traces matching filters")
+    limit: int = Field(..., description="Results per page")
+    offset: int = Field(..., description="Pagination offset")
+
+
+class SpanNode(BaseModel):
+    """Span node in trace tree."""
+
+    span_id: str
+    span_name: str
+    span_kind: str
+    start_time: datetime
+    end_time: datetime
+    duration_ms: float
+    status_code: str
+    status_message: Optional[str]
+    attributes: Dict[str, Any]
+    events: List[Dict[str, Any]]
+    children: List["SpanNode"] = Field(default_factory=list)
+
+
+class TraceDetailResponse(BaseModel):
+    """Detailed trace with full span tree."""
+
+    trace_id: str
+    project_id: str
+    environment: str
+    start_time: datetime
+    end_time: datetime
+    duration_ms: float
+    span_count: int
+    error_count: int
+    total_tokens: int
+    total_cost_usd: float
+    root_spans: List[SpanNode]
+
+
+class TraceMetricsResponse(BaseModel):
+    """Aggregated metrics for traces."""
+
+    total_traces: int
+    total_spans: int
+    total_tokens: int
+    total_cost_usd: float
+    error_rate: float
+    avg_duration_ms: float
+    p50_duration_ms: float
+    p95_duration_ms: float
+    p99_duration_ms: float
+    operation_breakdown: Dict[str, int]  # operation_type -> count
