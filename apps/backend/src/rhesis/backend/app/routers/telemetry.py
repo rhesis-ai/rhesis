@@ -12,7 +12,7 @@ from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
     TraceIngestResponse,
 )
-from rhesis.backend.app.services.telemetry.enricher import TraceEnricher
+from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
 
 # Legacy alias for backward compatibility
 TraceResponse = TraceIngestResponse
@@ -23,87 +23,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 logger = logging.getLogger(__name__)
-
-
-def _check_workers_available() -> bool:
-    """
-    Check if Celery workers are available to process telemetry tasks.
-
-    Returns:
-        True if workers are available, False otherwise
-    """
-    try:
-        from rhesis.backend.worker import app as celery_app
-
-        # Use inspect to check for active workers
-        inspect = celery_app.control.inspect()
-
-        # Set a short timeout to avoid blocking
-        active_workers = inspect.active()
-
-        if not active_workers:
-            return False
-
-        # Check if any worker is consuming from telemetry queue
-        stats = inspect.stats()
-        if not stats:
-            return False
-
-        # If we have active workers and can get stats, workers are available
-        return True
-
-    except Exception as e:
-        logger.debug(f"Worker availability check failed: {e}")
-        return False
-
-
-def enqueue_enrichment(trace_id: str, project_id: str, db: Session) -> bool:
-    """
-    Try to enqueue async enrichment. Fall back to sync if workers unavailable.
-
-    This function implements a robust fallback strategy:
-    1. Check if workers are available
-    2. If yes, try async enrichment (optimal for production)
-    3. If no workers or async fails, fall back to sync (development-friendly)
-
-    Args:
-        trace_id: Trace ID to enrich
-        project_id: Project ID for access control
-        db: Database session (for sync fallback)
-
-    Returns:
-        True if async task was enqueued, False if sync fallback was used
-    """
-    # Check if workers are available first
-    if _check_workers_available():
-        try:
-            from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
-
-            # Try to enqueue async task
-            result = enrich_trace_async.delay(trace_id, project_id)
-            logger.debug(f"Enqueued async enrichment for trace {trace_id} (task: {result.id})")
-            return True
-
-        except Exception as e:
-            logger.warning(
-                f"Async enrichment failed for trace {trace_id}, using sync fallback: {e}"
-            )
-    else:
-        logger.info(f"No Celery workers available, using sync enrichment for trace {trace_id}")
-
-    # Fall back to synchronous enrichment
-    try:
-        enricher = TraceEnricher(db)
-        enriched_data = enricher.enrich_trace(trace_id, project_id)
-        if enriched_data:
-            logger.info(f"Completed sync enrichment for trace {trace_id}")
-        else:
-            logger.warning(f"Sync enrichment returned no data for trace {trace_id}")
-        return False
-    except Exception as sync_error:
-        # Log but don't fail the ingestion
-        logger.error(f"Sync enrichment failed for trace {trace_id}: {sync_error}", exc_info=True)
-        return False
 
 
 @router.post("/traces", response_model=TraceResponse)
@@ -171,14 +90,10 @@ async def ingest_trace(
 
         # Enrich all unique traces (async preferred, sync fallback)
         unique_traces: Set[str] = {span.trace_id for span in stored_spans}
-        async_count = 0
-        sync_count = 0
 
-        for tid in unique_traces:
-            if enqueue_enrichment(tid, project_id, db):
-                async_count += 1
-            else:
-                sync_count += 1
+        # Use enrichment service for business logic
+        enrichment_service = EnrichmentService(db)
+        async_count, sync_count = enrichment_service.enrich_traces(unique_traces, project_id)
 
         logger.info(
             f"Ingested {len(stored_spans)} spans from {len(unique_traces)} traces "
