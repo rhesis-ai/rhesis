@@ -20,6 +20,7 @@ class EntityType(Enum):
     TASK = "Task"
     PROJECT = "Project"
     SOURCE = "Source"
+    TRACE = "Trace"
 
     @classmethod
     def get_value(cls, entity_type):

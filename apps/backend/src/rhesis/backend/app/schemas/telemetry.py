@@ -19,6 +19,9 @@ from rhesis.sdk.telemetry.schemas import (
     TraceIngestResponse,
 )
 
+from .comment import Comment
+from .tag import TagRead
+
 # Re-export SDK schemas for backward compatibility
 __all__ = [
     "SpanKind",
@@ -33,6 +36,11 @@ __all__ = [
     "TraceIngestResponse",
     "OTELSpanResponse",
     "OTELSpanDB",
+    "TraceSummary",
+    "TraceListResponse",
+    "SpanNode",
+    "TraceDetailResponse",
+    "TraceMetricsResponse",
 ]
 
 # Alias for consistency with existing backend code
@@ -65,6 +73,14 @@ class OTELSpanResponse(BaseModel):
     enriched_data: Dict[str, Any]
     created_at: datetime
     updated_at: datetime
+
+    # Tags and comments
+    tags: Optional[List[TagRead]] = Field(
+        default_factory=list, description="Tags associated with this trace"
+    )
+    comments: Optional[List[Comment]] = Field(
+        default_factory=list, description="Comments associated with this trace"
+    )
 
     class Config:
         from_attributes = True
@@ -105,6 +121,14 @@ class TraceSummary(BaseModel):
     total_cost_usd: Optional[float] = None
     has_errors: bool
 
+    # Tags and comments count for summary view
+    tags_count: Optional[int] = Field(
+        default=0, description="Number of tags associated with this trace"
+    )
+    comments_count: Optional[int] = Field(
+        default=0, description="Number of comments associated with this trace"
+    )
+
     class Config:
         from_attributes = True
 
@@ -132,6 +156,14 @@ class SpanNode(BaseModel):
     attributes: Dict[str, Any]
     events: List[Dict[str, Any]]
     children: List["SpanNode"] = Field(default_factory=list)
+
+    # Tags and comments
+    tags: Optional[List[TagRead]] = Field(
+        default_factory=list, description="Tags associated with this span"
+    )
+    comments: Optional[List[Comment]] = Field(
+        default_factory=list, description="Comments associated with this span"
+    )
 
 
 class TraceDetailResponse(BaseModel):
