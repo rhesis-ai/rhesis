@@ -39,7 +39,8 @@ class AIOperationType(str, Enum):
     These represent atomic operations, NOT framework concepts.
     Following semantic convention: ai.<domain>.<action>
 
-    Valid: llm, tool, retrieval, embedding (primitive operations)
+    Valid: llm, tool, retrieval, embedding, rerank, evaluation, guardrail, transform
+    (primitive operations)
     Invalid: agent, chain, workflow, pipeline (framework concepts)
     """
 
@@ -47,6 +48,10 @@ class AIOperationType(str, Enum):
     TOOL_INVOKE = "ai.tool.invoke"
     RETRIEVAL = "ai.retrieval"
     EMBEDDING_GENERATE = "ai.embedding.generate"
+    RERANK = "ai.rerank"
+    EVALUATION = "ai.evaluation"
+    GUARDRAIL = "ai.guardrail"
+    TRANSFORM = "ai.transform"
 
 
 class SpanEvent(BaseModel):

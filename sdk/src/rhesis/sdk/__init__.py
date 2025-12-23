@@ -3,7 +3,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 from rhesis.sdk.client import Client as RhesisClient
 from rhesis.sdk.config import api_key, base_url
-from rhesis.sdk.decorators import collaborate, endpoint, observe
+from rhesis.sdk.decorators import ObserverBuilder, collaborate, create_observer, endpoint, observe
 from rhesis.sdk.enums import TestType
 
 try:
@@ -21,4 +21,6 @@ __all__ = [
     "endpoint",
     "collaborate",  # Backwards compatibility
     "observe",
+    "create_observer",
+    "ObserverBuilder",
 ]

@@ -26,6 +26,10 @@ class AIAttributes:
     OPERATION_TOOL_INVOKE = "tool.invoke"
     OPERATION_RETRIEVAL = "retrieval"
     OPERATION_EMBEDDING_CREATE = "embedding.create"
+    OPERATION_RERANK = "rerank"
+    OPERATION_EVALUATION = "evaluation"
+    OPERATION_GUARDRAIL = "guardrail"
+    OPERATION_TRANSFORM = "transform"
 
     # Model
     MODEL_PROVIDER = "ai.model.provider"
@@ -52,6 +56,27 @@ class AIAttributes:
     # Embedding
     EMBEDDING_VECTOR_SIZE = "ai.embedding.vector.size"
     EMBEDDING_MODEL = "ai.embedding.model"
+
+    # Rerank
+    RERANK_MODEL = "ai.rerank.model"
+    RERANK_TOP_N = "ai.rerank.top_n"
+    RERANK_QUERY_TYPE = "ai.rerank.query.type"
+
+    # Evaluation
+    EVALUATION_METRIC = "ai.evaluation.metric"
+    EVALUATION_EVALUATOR = "ai.evaluation.evaluator"
+    EVALUATION_SCORE = "ai.evaluation.score"
+
+    # Guardrail
+    GUARDRAIL_TYPE = "ai.guardrail.type"
+    GUARDRAIL_PROVIDER = "ai.guardrail.provider"
+    GUARDRAIL_RESULT = "ai.guardrail.result"
+
+    # Transform
+    TRANSFORM_TYPE = "ai.transform.type"
+    TRANSFORM_OPERATION = "ai.transform.operation"
+    TRANSFORM_INPUT_SIZE = "ai.transform.input.size"
+    TRANSFORM_OUTPUT_SIZE = "ai.transform.output.size"
 
     # Error
     ERROR_TYPE = "ai.error.type"

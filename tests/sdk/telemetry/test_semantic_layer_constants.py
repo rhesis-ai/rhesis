@@ -23,6 +23,22 @@ class TestAIOperationTypeConstants:
         """Test EMBEDDING_GENERATE constant value."""
         assert AIOperationType.EMBEDDING_GENERATE == "ai.embedding.generate"
 
+    def test_rerank_constant(self):
+        """Test RERANK constant value."""
+        assert AIOperationType.RERANK == "ai.rerank"
+
+    def test_evaluation_constant(self):
+        """Test EVALUATION constant value."""
+        assert AIOperationType.EVALUATION == "ai.evaluation"
+
+    def test_guardrail_constant(self):
+        """Test GUARDRAIL constant value."""
+        assert AIOperationType.GUARDRAIL == "ai.guardrail"
+
+    def test_transform_constant(self):
+        """Test TRANSFORM constant value."""
+        assert AIOperationType.TRANSFORM == "ai.transform"
+
     def test_all_constants_follow_pattern(self):
         """Test all AIOperationType constants follow ai.<domain>.<action> pattern."""
         import re

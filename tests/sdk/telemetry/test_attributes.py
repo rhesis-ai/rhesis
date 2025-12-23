@@ -24,6 +24,16 @@ class TestAIAttributes:
         assert AIAttributes.TOOL_NAME == "ai.tool.name"
         assert AIAttributes.TOOL_TYPE == "ai.tool.type"
 
+        # New attributes for additional operation types
+        assert AIAttributes.RERANK_MODEL == "ai.rerank.model"
+        assert AIAttributes.RERANK_TOP_N == "ai.rerank.top_n"
+        assert AIAttributes.EVALUATION_METRIC == "ai.evaluation.metric"
+        assert AIAttributes.EVALUATION_EVALUATOR == "ai.evaluation.evaluator"
+        assert AIAttributes.GUARDRAIL_TYPE == "ai.guardrail.type"
+        assert AIAttributes.GUARDRAIL_PROVIDER == "ai.guardrail.provider"
+        assert AIAttributes.TRANSFORM_TYPE == "ai.transform.type"
+        assert AIAttributes.TRANSFORM_OPERATION == "ai.transform.operation"
+
 
 class TestAIEvents:
     """Tests for AIEvents class."""

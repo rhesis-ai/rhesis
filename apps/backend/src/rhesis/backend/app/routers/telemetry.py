@@ -424,4 +424,4 @@ async def get_metrics(
         p95_duration_ms=round(p95_duration, 2),
         p99_duration_ms=round(p99_duration, 2),
         operation_breakdown=operation_breakdown,
-    )
+        )
