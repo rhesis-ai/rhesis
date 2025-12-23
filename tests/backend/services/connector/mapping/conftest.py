@@ -98,7 +98,7 @@ def mock_endpoint_with_existing_mappings():
 
 @pytest.fixture
 def sdk_metadata_with_manual_mappings() -> Dict[str, Any]:
-    """SDK metadata with manual mappings from @collaborate decorator."""
+    """SDK metadata with manual mappings from @endpoint decorator."""
     return {
         "description": "Chat function with manual mappings",
         "request_mapping": {

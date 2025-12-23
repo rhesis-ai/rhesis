@@ -413,7 +413,7 @@ start_worker() {
     # Run in foreground - using uv run handles the virtual environment automatically
     # Using --logfile parameter to write logs directly
     # Using --pool=solo to avoid forking issues on macOS with ML libraries (DeepEval/PyTorch)
-    exec uv run celery -A rhesis.backend.worker worker --loglevel=DEBUG -Q celery,execution --pool=solo --logfile="$LOG_FILE"
+    exec uv run celery -A rhesis.backend.worker worker --loglevel=DEBUG --queues=celery,execution,telemetry --pool=solo --logfile="$LOG_FILE"
 }
 
 # Function to run frontend tests

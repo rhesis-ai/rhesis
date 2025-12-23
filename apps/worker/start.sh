@@ -263,10 +263,10 @@ echo "Worker context identifier: $CELERY_WORKER_NAME"
 # Solo pool processes one task at a time per worker, eliminating these issues.
 # To maintain throughput, scale horizontally by running more worker containers.
 # See: https://github.com/rhesis-ai/rhesis/pull/728
-CELERY_CMD="celery -A rhesis.backend.worker.app worker --queues=celery,execution --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-1} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500} --pool=solo --optimization=fair ${CELERY_WORKER_OPTS}"
+CELERY_CMD="celery -A rhesis.backend.worker.app worker --queues=celery,execution,telemetry --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-1} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500} --pool=solo --optimization=fair ${CELERY_WORKER_OPTS}"
 
 echo "Command: $CELERY_CMD"
-echo "Queues: celery,execution"
+echo "Queues: celery,execution,telemetry"
 echo "Pool: solo (sequential processing to avoid race conditions)"
 echo "Log level: ${CELERY_WORKER_LOGLEVEL}"
 echo "Prefetch multiplier: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-1}"

@@ -1,6 +1,7 @@
 """Telemetry router for trace ingestion and queries."""
 
 import logging
+from typing import Set
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
     TraceIngestResponse,
 )
+from rhesis.backend.app.services.telemetry.enricher import TraceEnricher
 
 # Legacy alias for backward compatibility
 TraceResponse = TraceIngestResponse
@@ -21,6 +23,46 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 logger = logging.getLogger(__name__)
+
+
+def enqueue_enrichment(trace_id: str, project_id: str, db: Session) -> bool:
+    """
+    Try to enqueue async enrichment. Fall back to sync if workers unavailable.
+
+    Args:
+        trace_id: Trace ID to enrich
+        project_id: Project ID for access control
+        db: Database session (for sync fallback)
+
+    Returns:
+        True if async task was enqueued, False if sync fallback was used
+    """
+    try:
+        from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
+
+        # Try to enqueue async task
+        result = enrich_trace_async.delay(trace_id, project_id)
+        logger.debug(f"Enqueued async enrichment for trace {trace_id} (task: {result.id})")
+        return True
+
+    except Exception as e:
+        # Worker not available (development mode, Redis down, etc.)
+        logger.warning(
+            f"Async enrichment unavailable for trace {trace_id}, using sync fallback: {e}"
+        )
+
+        # Fall back to synchronous enrichment
+        try:
+            enricher = TraceEnricher(db)
+            enricher.enrich_trace(trace_id, project_id)
+            logger.info(f"Completed sync enrichment for trace {trace_id}")
+            return False
+        except Exception as sync_error:
+            # Log but don't fail the ingestion
+            logger.error(
+                f"Sync enrichment failed for trace {trace_id}: {sync_error}", exc_info=True
+            )
+            return False
 
 
 @router.post("/traces", response_model=TraceResponse)
@@ -86,9 +128,21 @@ async def ingest_trace(
 
         logger.debug(f"✅ Stored {len(stored_spans)} spans for trace {trace_id}")
 
-        # TODO (WP5): Enqueue background processing
-        # from rhesis.backend.tasks.telemetry import process_trace_async
-        # process_trace_async.delay(trace_id=trace_id, project_id=project_id)
+        # Enrich all unique traces (async preferred, sync fallback)
+        unique_traces: Set[str] = {span.trace_id for span in stored_spans}
+        async_count = 0
+        sync_count = 0
+
+        for tid in unique_traces:
+            if enqueue_enrichment(tid, project_id, db):
+                async_count += 1
+            else:
+                sync_count += 1
+
+        logger.info(
+            f"Ingested {len(stored_spans)} spans from {len(unique_traces)} traces "
+            f"(async: {async_count}, sync: {sync_count})"
+        )
 
         return TraceResponse(
             status="received",

@@ -45,4 +45,3 @@ _autogen_integration = AutoGenIntegration()
 def get_integration() -> AutoGenIntegration:
     """Get the singleton AutoGen integration instance."""
     return _autogen_integration
-

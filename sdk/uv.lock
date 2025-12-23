@@ -4304,6 +4304,8 @@ langchain = [
     { name = "langchain-core" },
 ]
 langgraph = [
+    { name = "langchain" },
+    { name = "langchain-core" },
     { name = "langgraph" },
 ]
 
@@ -4343,9 +4345,11 @@ requires-dist = [
     { name = "langchain", marker = "extra == 'all'", specifier = ">=0.1.0" },
     { name = "langchain", marker = "extra == 'all-integrations'", specifier = ">=0.1.0" },
     { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.1.0" },
+    { name = "langchain", marker = "extra == 'langgraph'", specifier = ">=0.1.0" },
     { name = "langchain-core", marker = "extra == 'all'", specifier = ">=0.1.0" },
     { name = "langchain-core", marker = "extra == 'all-integrations'", specifier = ">=0.1.0" },
     { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=0.1.0" },
+    { name = "langchain-core", marker = "extra == 'langgraph'", specifier = ">=0.1.0" },
     { name = "langchain-google-genai", specifier = ">=2.1.12" },
     { name = "langgraph", marker = "extra == 'all'", specifier = ">=0.0.26" },
     { name = "langgraph", marker = "extra == 'all-integrations'", specifier = ">=0.0.26" },

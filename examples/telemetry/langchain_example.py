@@ -28,7 +28,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from rhesis.sdk import RhesisClient
 from rhesis.sdk.telemetry import auto_instrument
-from rhesis.sdk.telemetry.integrations import langchain as lc_integration
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent / ".env"
@@ -46,12 +45,7 @@ client = RhesisClient(
 # This automatically traces all LangChain operations without code changes!
 print("\n🔧 Enabling LangChain auto-instrumentation...")
 instrumented_frameworks = auto_instrument()
-print(f"✅ Auto-instrumented frameworks: {instrumented_frameworks}")
-
-# Get the LangChain callback for explicit use
-# In LangChain 1.0+, you need to pass callbacks explicitly to operations
-callback = lc_integration.callback()
-print(f"   Callback created: {type(callback).__name__}\n")
+print(f"✅ Auto-instrumented frameworks: {instrumented_frameworks}\n")
 
 # Initialize Gemini via LangChain
 llm = ChatGoogleGenerativeAI(
@@ -59,10 +53,6 @@ llm = ChatGoogleGenerativeAI(
     temperature=0.7,
     google_api_key=os.getenv("GOOGLE_API_KEY"),
 )
-
-# Configure LangChain to use our callback globally
-# This is the config dict that should be passed to all LangChain operations
-langchain_config = {"callbacks": [callback]}
 
 
 # Example 1: Simple LLM call (automatically traced)
@@ -80,8 +70,8 @@ def example_simple_llm_call():
     prompt = "Explain quantum computing in one sentence."
     print(f"Prompt: {prompt}")
 
-    # This LLM call is automatically traced via the callback!
-    response = llm.invoke(prompt, config=langchain_config)
+    # This LLM call is automatically traced!
+    response = llm.invoke(prompt)
 
     print(f"Response: {response.content}\n")
     return response.content
@@ -109,10 +99,7 @@ def example_prompt_template():
     chain = prompt | llm
 
     # Invoke chain - automatically traced!
-    result = chain.invoke(
-        {"topic": "Machine Learning", "style": "simple and beginner-friendly"},
-        config=langchain_config,
-    )
+    result = chain.invoke({"topic": "Machine Learning", "style": "simple and beginner-friendly"})
 
     print(f"Result: {result.content[:200]}...\n")
     return result.content
@@ -171,9 +158,7 @@ def example_multi_step_chain():
         ]
     )
     analysis_chain = analysis_prompt | llm
-    analysis = analysis_chain.invoke(
-        {"question": "How does photosynthesis work?"}, config=langchain_config
-    )
+    analysis = analysis_chain.invoke({"question": "How does photosynthesis work?"})
     print(f"  Analysis: {analysis.content[:100]}...")
 
     # Step 2: Generate response
@@ -185,7 +170,7 @@ def example_multi_step_chain():
         ]
     )
     response_chain = response_prompt | llm
-    final_response = response_chain.invoke({"analysis": analysis.content}, config=langchain_config)
+    final_response = response_chain.invoke({"analysis": analysis.content})
     print(f"  Response: {final_response.content[:100]}...\n")
 
     return final_response.content
@@ -205,7 +190,7 @@ def example_streaming():
 
     # Streaming is automatically traced!
     full_response = []
-    for chunk in llm.stream(prompt, config=langchain_config):
+    for chunk in llm.stream(prompt):
         content = chunk.content
         print(content, end="", flush=True)
         full_response.append(content)

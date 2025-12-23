@@ -4312,9 +4312,11 @@ requires-dist = [
     { name = "langchain", marker = "extra == 'all'", specifier = ">=0.1.0" },
     { name = "langchain", marker = "extra == 'all-integrations'", specifier = ">=0.1.0" },
     { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.1.0" },
+    { name = "langchain", marker = "extra == 'langgraph'", specifier = ">=0.1.0" },
     { name = "langchain-core", marker = "extra == 'all'", specifier = ">=0.1.0" },
     { name = "langchain-core", marker = "extra == 'all-integrations'", specifier = ">=0.1.0" },
     { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=0.1.0" },
+    { name = "langchain-core", marker = "extra == 'langgraph'", specifier = ">=0.1.0" },
     { name = "langchain-google-genai", specifier = ">=2.1.12" },
     { name = "langgraph", marker = "extra == 'all'", specifier = ">=0.0.26" },
     { name = "langgraph", marker = "extra == 'all-integrations'", specifier = ">=0.0.26" },
@@ -4384,18 +4386,26 @@ langchain = [
     { name = "langchain-core" },
     { name = "langchain-google-genai" },
 ]
+langgraph = [
+    { name = "langchain" },
+    { name = "langchain-core" },
+    { name = "langgraph" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", marker = "extra == 'fastapi'", specifier = ">=0.104.0" },
     { name = "langchain", marker = "extra == 'langchain'", specifier = ">=1.0.0" },
+    { name = "langchain", marker = "extra == 'langgraph'", specifier = ">=0.1.0" },
     { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=1.0.0" },
+    { name = "langchain-core", marker = "extra == 'langgraph'", specifier = ">=0.1.0" },
     { name = "langchain-google-genai", marker = "extra == 'langchain'", specifier = ">=2.0.0" },
+    { name = "langgraph", marker = "extra == 'langgraph'", specifier = ">=0.0.26" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "rhesis-sdk", editable = "../../sdk" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'fastapi'", specifier = ">=0.24.0" },
 ]
-provides-extras = ["langchain", "fastapi"]
+provides-extras = ["langchain", "fastapi", "langgraph"]
 
 [[package]]
 name = "rich"

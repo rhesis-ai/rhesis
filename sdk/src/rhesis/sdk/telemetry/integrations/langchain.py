@@ -9,6 +9,11 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
 from rhesis.sdk.telemetry.integrations.base import BaseIntegration
 from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.sdk.telemetry.utils import (
+    extract_token_usage,
+    identify_provider_from_class_name,
+    identify_provider_from_model_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -99,33 +104,112 @@ class LangChainIntegration(BaseIntegration):
                     return
 
                 try:
-                    # Extract token usage
+                    logger.info(f"🔍 LangChain on_llm_end called for run_id={run_id}")
+                    logger.debug(
+                        f"Response type: {type(response).__name__}, "
+                        f"Has llm_output: {hasattr(response, 'llm_output')}, "
+                        f"Has generations: {hasattr(response, 'generations')}"
+                    )
+
+                    # ============================================================================
+                    # TOKEN EXTRACTION - PROVIDER-AGNOSTIC APPROACH
+                    # ============================================================================
+                    # Token extraction logic is in utils/token_extraction.py
+                    # This allows it to be reused by other framework integrations
+                    # (LlamaIndex, Haystack, direct API calls, etc.)
+                    input_tokens = 0
+                    output_tokens = 0
+                    total_tokens = 0
+
+                    # Strategy 1: Check response.llm_output.token_usage
                     if hasattr(response, "llm_output") and response.llm_output:
                         token_usage = response.llm_output.get("token_usage", {})
                         if token_usage:
-                            span.set_attribute(
-                                AIAttributes.LLM_TOKENS_INPUT, token_usage.get("prompt_tokens", 0)
-                            )
-                            span.set_attribute(
-                                AIAttributes.LLM_TOKENS_OUTPUT,
-                                token_usage.get("completion_tokens", 0),
-                            )
-                            span.set_attribute(
-                                AIAttributes.LLM_TOKENS_TOTAL, token_usage.get("total_tokens", 0)
+                            input_tokens, output_tokens, total_tokens = extract_token_usage(
+                                token_usage
                             )
 
-                    # Extract completion
+                    # Extract completion and check for tokens in generation_info
                     if hasattr(response, "generations") and response.generations:
                         first_gen = response.generations[0][0]
+
+                        # Extract completion text
                         if hasattr(first_gen, "text"):
                             span.add_event(
                                 name=AIEvents.COMPLETION,
                                 attributes={AIAttributes.COMPLETION_CONTENT: first_gen.text[:1000]},
                             )
-                        if hasattr(first_gen, "generation_info"):
-                            finish_reason = first_gen.generation_info.get("finish_reason")
+                        elif hasattr(first_gen, "message") and hasattr(
+                            first_gen.message, "content"
+                        ):
+                            # Some providers use message.content instead of text
+                            span.add_event(
+                                name=AIEvents.COMPLETION,
+                                attributes={
+                                    AIAttributes.COMPLETION_CONTENT: str(first_gen.message.content)[
+                                        :1000
+                                    ]
+                                },
+                            )
+
+                        # Strategy 2: Check message.usage_metadata
+                        if (
+                            not total_tokens
+                            and hasattr(first_gen, "message")
+                            and hasattr(first_gen.message, "usage_metadata")
+                        ):
+                            usage_metadata = first_gen.message.usage_metadata
+                            if usage_metadata:
+                                input_tokens, output_tokens, total_tokens = extract_token_usage(
+                                    usage_metadata
+                                )
+
+                        # Strategy 3: Check generation_info (fallback)
+                        if hasattr(first_gen, "generation_info") and first_gen.generation_info:
+                            gen_info = first_gen.generation_info
+
+                            # Extract finish reason (metadata, not token usage)
+                            finish_reason = gen_info.get("finish_reason")
                             if finish_reason:
                                 span.set_attribute(AIAttributes.LLM_FINISH_REASON, finish_reason)
+
+                            # If we haven't found tokens yet, check generation_info
+                            if not total_tokens:
+                                # Try usage_metadata nested object
+                                usage_metadata = gen_info.get("usage_metadata", {})
+                                if usage_metadata:
+                                    (
+                                        input_tokens,
+                                        output_tokens,
+                                        total_tokens,
+                                    ) = extract_token_usage(usage_metadata)
+
+                                # Try token_usage nested object (alternative structure)
+                                if not total_tokens:
+                                    token_usage = gen_info.get("token_usage", {})
+                                    if token_usage:
+                                        (
+                                            input_tokens,
+                                            output_tokens,
+                                            total_tokens,
+                                        ) = extract_token_usage(token_usage)
+
+                    # Set token attributes if we found any
+                    if total_tokens > 0 or input_tokens > 0 or output_tokens > 0:
+                        logger.debug(
+                            f"Setting token attributes: input={input_tokens}, "
+                            f"output={output_tokens}, total={total_tokens}"
+                        )
+                        span.set_attribute(AIAttributes.LLM_TOKENS_INPUT, input_tokens)
+                        span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, output_tokens)
+                        span.set_attribute(
+                            AIAttributes.LLM_TOKENS_TOTAL,
+                            total_tokens or (input_tokens + output_tokens),
+                        )
+                    else:
+                        # Log when tokens aren't found
+                        resp_type = type(response).__name__
+                        logger.debug(f"No token usage for LLM response (type: {resp_type})")
 
                     span.set_status(Status(StatusCode.OK))
                 finally:
@@ -239,11 +323,13 @@ class LangChainIntegration(BaseIntegration):
                 Extract provider from model info using multiple strategies.
 
                 Strategy priority:
-                1. Check module path (most reliable - langchain_openai, langchain_anthropic, etc.)
-                2. Check model class name (fallback)
-                3. Check invocation kwargs for provider hints
+                1. Check module path (LangChain-specific, most reliable)
+                2. Use shared utilities for class/model name matching
+                3. Check invocation kwargs
+
+                Universal provider identification logic is in utils/provider_detection.py
                 """
-                # Strategy 1: Check module path (most reliable)
+                # Strategy 1: Check module path (LangChain-specific, most reliable)
                 module_path = ""
                 if "id" in serialized and isinstance(serialized["id"], list):
                     # Format: ["langchain", "chat_models", "openai", "ChatOpenAI"]
@@ -251,7 +337,7 @@ class LangChainIntegration(BaseIntegration):
                 elif "kwargs" in serialized and "_type" in serialized["kwargs"]:
                     module_path = serialized["kwargs"]["_type"].lower()
 
-                # Map module paths to providers
+                # Map module paths to providers (LangChain-specific patterns)
                 if "openai" in module_path or "langchain_openai" in module_path:
                     return "openai"
                 elif "anthropic" in module_path or "langchain_anthropic" in module_path:
@@ -273,30 +359,18 @@ class LangChainIntegration(BaseIntegration):
                 elif "mistral" in module_path or "langchain_mistralai" in module_path:
                     return "mistralai"
 
-                # Strategy 2: Fallback to class name matching
-                model_name = serialized.get("name", "").lower()
-                if "gpt" in model_name or "openai" in model_name:
-                    return "openai"
-                elif "claude" in model_name or "anthropic" in model_name:
-                    return "anthropic"
-                elif "gemini" in model_name or "bard" in model_name or "google" in model_name:
-                    return "google"
-                elif "llama" in model_name:
-                    return "meta"
-                elif "cohere" in model_name:
-                    return "cohere"
-                elif "mistral" in model_name:
-                    return "mistralai"
+                # Strategy 2: Use shared utility for class name matching
+                class_name = serialized.get("name", "")
+                if class_name:
+                    provider = identify_provider_from_class_name(class_name)
+                    if provider:
+                        return provider
 
-                # Strategy 3: Check kwargs for model parameter hints
+                # Strategy 3: Use shared utility for model parameter hints
                 if "model" in kwargs:
-                    model_param = str(kwargs["model"]).lower()
-                    if "gpt" in model_param:
-                        return "openai"
-                    elif "claude" in model_param:
-                        return "anthropic"
-                    elif "gemini" in model_param:
-                        return "google"
+                    provider = identify_provider_from_model_name(str(kwargs["model"]))
+                    if provider:
+                        return provider
 
                 return "unknown"
 

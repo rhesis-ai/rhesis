@@ -22,7 +22,7 @@ class MappingSource(str, Enum):
     a 4-tier priority system where higher priority sources override lower ones.
 
     Priority order (highest to lowest):
-    1. SDK_MANUAL - Explicit mappings from developer via @collaborate decorator (100% reliable)
+    1. SDK_MANUAL - Explicit mappings from developer via @endpoint decorator (100% reliable)
     2. SDK_HYBRID - Hybrid: developer manual + auto-generated (high reliability)
     3. PREVIOUSLY_SAVED - Previously saved mappings, preserved to avoid overwriting manual edits
     4. AUTO_MAPPED - Heuristic-based pattern matching (reliable for standard names)
@@ -31,7 +31,7 @@ class MappingSource(str, Enum):
 
     SDK_MANUAL = "sdk_manual"
     """
-    Developer explicitly specified both request and response mappings via @collaborate decorator.
+    Developer explicitly specified both request and response mappings via @endpoint decorator.
     """
 
     SDK_HYBRID = "sdk_hybrid"
@@ -113,7 +113,7 @@ class MappingService:
         Generate mappings with 4-tier priority system.
 
         Priority:
-        1. SDK manual mappings (from @collaborate decorator)
+        1. SDK manual mappings (from @endpoint decorator)
         2. Existing DB mappings (preserve manual edits)
         3. Auto-mapping (heuristic-based)
         4. LLM fallback (when auto-mapping confidence < 0.7)
@@ -131,7 +131,7 @@ class MappingService:
         """
         function_name = function_data.get("name", "unknown")
 
-        # Priority 1: SDK manual mappings from @collaborate decorator
+        # Priority 1: SDK manual mappings from @endpoint decorator
         sdk_request = sdk_metadata.get("request_mapping")
         sdk_response = sdk_metadata.get("response_mapping")
 
@@ -171,7 +171,7 @@ class MappingService:
                 confidence=1.0,
                 should_update=True,
                 reasoning=(
-                    "Explicit mappings from @collaborate decorator"
+                    "Explicit mappings from @endpoint decorator"
                     + (
                         " with auto-generated components"
                         if source == MappingSource.SDK_HYBRID
