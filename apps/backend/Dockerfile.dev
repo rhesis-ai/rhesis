@@ -27,19 +27,25 @@ ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_NO_MANAGED_PYTHON=1
 
-# Copy only the dependency files for backend and install backend dependencies
+# Copy only the dependency files for backend, sdk, and penelope and install all dependencies
 COPY apps/backend/uv.lock apps/backend/pyproject.toml apps/backend/README.md ./
-RUN uv remove rhesis-sdk --frozen && uv remove rhesis-penelope --frozen && uv sync --no-install-project
+COPY sdk/uv.lock sdk/pyproject.toml sdk/
+COPY penelope/uv.lock penelope/pyproject.toml penelope/
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv remove rhesis-sdk --frozen && \
+    uv remove rhesis-penelope --frozen && \
+    cd penelope && uv remove rhesis-sdk --frozen && cd .. && \
+    uv add ./sdk --frozen --editable --no-workspace && \
+    uv add ./penelope --frozen --editable --no-workspace && \
+    uv sync --no-install-project --no-install-local
 
 # Install the project
 COPY sdk /app/sdk/
 COPY penelope /app/penelope/
 COPY apps/backend/src /app/src/
-RUN uv add ./sdk --frozen && uv add ./penelope --frozen && cd penelope && uv remove rhesis-sdk --frozen
 
-# # Install dependencies
+# Install the project (backend, sdk, and penelope)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=apps/backend/src,target=src \
     uv sync
 
 
