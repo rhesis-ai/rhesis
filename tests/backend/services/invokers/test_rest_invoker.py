@@ -38,7 +38,9 @@ class TestRestEndpointInvoker:
         }
 
         with patch("requests.post", return_value=mock_response):
-            result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+            result = await invoker.invoke(
+                mock_db, sample_endpoint_rest, sample_input_data, test_execution_context=None
+            )
 
         assert result["output"] == "Paris is the capital of France."
         assert result["tokens"] == 42

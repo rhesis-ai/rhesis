@@ -3169,6 +3169,24 @@ def create_trace_spans(
         # Calculate duration
         duration_ms = (span.end_time - span.start_time).total_seconds() * 1000
 
+        # Extract test execution context from span attributes
+        test_run_id = span.attributes.get("rhesis.test.run_id")
+        test_result_id = span.attributes.get("rhesis.test.result_id")
+        test_id = span.attributes.get("rhesis.test.id")
+
+        # Convert to UUID if present, otherwise None
+        from uuid import UUID
+        try:
+            test_run_id_uuid = UUID(test_run_id) if test_run_id else None
+            test_result_id_uuid = UUID(test_result_id) if test_result_id else None
+            test_id_uuid = UUID(test_id) if test_id else None
+        except (ValueError, TypeError):
+            # Invalid UUID format - log warning and set to None
+            logger.warning(f"Invalid UUID in test context: run={test_run_id}, result={test_result_id}, test={test_id}")
+            test_run_id_uuid = None
+            test_result_id_uuid = None
+            test_id_uuid = None
+
         trace_model = models.Trace(
             trace_id=span.trace_id,
             span_id=span.span_id,
@@ -3187,6 +3205,10 @@ def create_trace_spans(
             events=[event.model_dump(mode="json") for event in span.events],
             links=[link.model_dump(mode="json") for link in span.links],
             resource=span.resource,
+            # Test execution context
+            test_run_id=test_run_id_uuid,
+            test_result_id=test_result_id_uuid,
+            test_id=test_id_uuid,
         )
 
         db.add(trace_model)
@@ -3269,6 +3291,9 @@ def query_traces(
     status_code: Optional[Union[str, "StatusCode"]] = None,
     start_time_after: Optional[datetime] = None,
     start_time_before: Optional[datetime] = None,
+    test_run_id: Optional[str] = None,
+    test_result_id: Optional[str] = None,
+    test_id: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
 ) -> List[models.Trace]:
@@ -3283,12 +3308,17 @@ def query_traces(
         status_code: Filter by status code (StatusCode enum or string)
         start_time_after: Filter by start time >= (optional)
         start_time_before: Filter by start time <= (optional)
+        test_run_id: Filter by test run ID (optional)
+        test_result_id: Filter by test result ID (optional)
+        test_id: Filter by test ID (optional)
         limit: Maximum results to return
         offset: Pagination offset
 
     Returns:
         List of Trace models matching filters
     """
+    from uuid import UUID
+    
     query = db.query(models.Trace).filter(models.Trace.project_id == project_id)
 
     if environment:
@@ -3307,6 +3337,16 @@ def query_traces(
 
     if start_time_before:
         query = query.filter(models.Trace.start_time <= start_time_before)
+
+    # Test execution filters
+    if test_run_id:
+        query = query.filter(models.Trace.test_run_id == UUID(test_run_id))
+    
+    if test_result_id:
+        query = query.filter(models.Trace.test_result_id == UUID(test_result_id))
+    
+    if test_id:
+        query = query.filter(models.Trace.test_id == UUID(test_id))
 
     return query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
 
@@ -3373,6 +3413,9 @@ def count_traces(
     project_id: str,
     start_time_after: Optional[datetime] = None,
     start_time_before: Optional[datetime] = None,
+    test_run_id: Optional[str] = None,
+    test_result_id: Optional[str] = None,
+    test_id: Optional[str] = None,
 ) -> int:
     """
     Count traces matching filters.
@@ -3382,10 +3425,15 @@ def count_traces(
         project_id: Project ID
         start_time_after: Filter by start time >= (optional)
         start_time_before: Filter by start time <= (optional)
+        test_run_id: Filter by test run ID (optional)
+        test_result_id: Filter by test result ID (optional)
+        test_id: Filter by test ID (optional)
 
     Returns:
         Count of matching traces
     """
+    from uuid import UUID
+    
     query = db.query(func.count(models.Trace.id)).filter(models.Trace.project_id == project_id)
 
     if start_time_after:
@@ -3393,5 +3441,15 @@ def count_traces(
 
     if start_time_before:
         query = query.filter(models.Trace.start_time <= start_time_before)
+
+    # Test execution filters
+    if test_run_id:
+        query = query.filter(models.Trace.test_run_id == UUID(test_run_id))
+    
+    if test_result_id:
+        query = query.filter(models.Trace.test_result_id == UUID(test_result_id))
+    
+    if test_id:
+        query = query.filter(models.Trace.test_id == UUID(test_id))
 
     return query.scalar()

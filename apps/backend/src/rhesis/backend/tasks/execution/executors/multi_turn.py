@@ -82,6 +82,13 @@ class MultiTurnTestExecutor(BaseTestExecutor):
             # Retrieve test data - validation ensures goal exists in test_configuration
             test, _, _ = get_test_and_prompt(db, test_id, organization_id)
 
+            # Create test execution context for trace linking
+            test_execution_context = {
+                "test_run_id": test_run_id,
+                "test_id": test_id,
+                "test_configuration_id": test_config_id,
+            }
+
             # Run core execution (shared with in-place service)
             runner = MultiTurnRunner()
             execution_time, penelope_trace, metrics_results = await runner.run(
@@ -91,6 +98,7 @@ class MultiTurnTestExecutor(BaseTestExecutor):
                 organization_id=organization_id,
                 user_id=user_id,
                 model=model,
+                test_execution_context=test_execution_context,
             )
 
             # Store result

@@ -74,6 +74,7 @@ class BackendEndpointTarget(Target):
         endpoint_id: str,
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,
+        test_execution_context: Optional[dict[str, str]] = None,
     ):
         """
         Initialize the backend endpoint target.
@@ -83,6 +84,7 @@ class BackendEndpointTarget(Target):
             endpoint_id: UUID string of the endpoint to target
             organization_id: Optional organization ID for security filtering
             user_id: Optional user ID for context injection
+            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
 
         Raises:
             ValueError: If endpoint is not found or configuration is invalid
@@ -91,6 +93,7 @@ class BackendEndpointTarget(Target):
         self.endpoint_id = endpoint_id
         self.organization_id = organization_id
         self.user_id = user_id
+        self.test_execution_context = test_execution_context
         self.endpoint_service = get_endpoint_service()
 
         # Load and cache endpoint metadata
@@ -236,6 +239,7 @@ class BackendEndpointTarget(Target):
                     input_data=input_data,
                     organization_id=self.organization_id,
                     user_id=self.user_id,
+                    test_execution_context=self.test_execution_context,
                 )
             )
 

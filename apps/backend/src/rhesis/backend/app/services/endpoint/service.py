@@ -3,7 +3,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -50,6 +50,7 @@ class EndpointService:
         input_data: Dict[str, Any],
         organization_id: str = None,
         user_id: str = None,
+        test_execution_context: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """
         Invoke an endpoint with the given input data.
@@ -61,6 +62,8 @@ class EndpointService:
             organization_id: Organization ID for security filtering (CRITICAL)
             user_id: User ID for context injection (CRITICAL - injected into
                 headers, not from user input)
+            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
+                                   for linking traces to test executions
 
         Returns:
             Dict containing the mapped response from the endpoint
@@ -84,8 +87,27 @@ class EndpointService:
             if user_id:
                 enriched_input_data["user_id"] = user_id
 
-            # Invoke the endpoint
-            result = await invoker.invoke(db, endpoint, enriched_input_data)
+            # Check if invoker needs manual tracing (REST/WebSocket)
+            if not invoker.automatic_tracing and test_execution_context:
+                # Import here to avoid circular imports
+                from rhesis.backend.app.services.invokers.manual_tracing import (
+                    create_manual_invocation_trace,
+                )
+
+                # Wrap invocation with manual trace creation
+                async with create_manual_invocation_trace(
+                    db, endpoint, test_execution_context, organization_id
+                ) as trace_ctx:
+                    result = await invoker.invoke(
+                        db, endpoint, enriched_input_data, test_execution_context
+                    )
+                    trace_ctx["result"] = result
+            else:
+                # SDK invoker or no test context - invoke directly
+                result = await invoker.invoke(
+                    db, endpoint, enriched_input_data, test_execution_context
+                )
+
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")
             return result
         except ValueError as e:

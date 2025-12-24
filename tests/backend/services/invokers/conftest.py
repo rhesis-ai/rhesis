@@ -88,13 +88,44 @@ def sample_endpoint_conversation():
         url="https://api.example.com/chat",
         auth_type=EndpointAuthType.BEARER_TOKEN.value,
         auth_token="test-token",
-        request_mapping='{"message": "{{ input }}", "conversation_id": {{ conversation_id | tojson }}}',
+        request_mapping=(
+            '{"message": "{{ input }}", "conversation_id": {{ conversation_id | tojson }}}'
+        ),
         response_mapping={
             "output": "$.message",
             "conversation_id": "$.conversation_id",
             "context": "$.context",
         },
     )
+
+
+@pytest.fixture
+def sample_endpoint_sdk():
+    """Sample SDK endpoint configuration."""
+    endpoint = Endpoint(
+        id="test-sdk-endpoint",
+        name="Test SDK Endpoint",
+        connection_type=EndpointConnectionType.SDK.value,
+        url="",  # Empty for SDK endpoints
+        environment="development",
+        request_mapping='{"input": "{{ input }}"}',
+        response_mapping={
+            "output": "$.output",
+            "status": "$.status",
+        },
+        endpoint_metadata={
+            "sdk_connection": {
+                "project_id": "test-project-id",
+                "environment": "development",
+                "function_name": "test_function",
+            }
+        },
+    )
+    # Set project_id as a Mock UUID for testing
+    from uuid import UUID
+
+    endpoint.project_id = UUID("00000000-0000-0000-0000-000000000001")
+    return endpoint
 
 
 @pytest.fixture

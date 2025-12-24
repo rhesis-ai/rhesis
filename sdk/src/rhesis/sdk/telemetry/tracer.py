@@ -84,6 +84,9 @@ class Tracer:
         Returns:
             Function result (or wrapped generator)
         """
+        # Extract test execution context if present (from backend test executor)
+        test_context = kwargs.pop("_rhesis_test_context", None)
+        
         # Determine span name
         final_span_name = span_name or f"function.{function_name}"
 
@@ -96,6 +99,14 @@ class Tracer:
             span.set_attribute("function.name", function_name)
             span.set_attribute("function.args_count", len(args))
             span.set_attribute("function.kwargs_count", len(kwargs))
+
+            # Inject test execution context as span attributes if present
+            if test_context:
+                span.set_attribute("rhesis.test.run_id", test_context.get("test_run_id"))
+                span.set_attribute("rhesis.test.result_id", test_context.get("test_result_id"))
+                span.set_attribute("rhesis.test.id", test_context.get("test_id"))
+                span.set_attribute("rhesis.test.configuration_id", test_context.get("test_configuration_id"))
+                logger.debug(f"Injected test execution context into span: {test_context}")
 
             try:
                 # Execute function

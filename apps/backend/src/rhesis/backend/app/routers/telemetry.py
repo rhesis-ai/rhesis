@@ -127,6 +127,9 @@ async def list_traces(
     status_code: Optional[str] = Query(None, description="Status code filter (OK, ERROR)"),
     start_time_after: Optional[datetime] = Query(None, description="Start time >= (ISO 8601)"),
     start_time_before: Optional[datetime] = Query(None, description="Start time <= (ISO 8601)"),
+    test_run_id: Optional[str] = Query(None, description="Filter by test run ID"),
+    test_result_id: Optional[str] = Query(None, description="Filter by test result ID"),
+    test_id: Optional[str] = Query(None, description="Filter by test ID"),
     limit: int = Query(100, ge=1, le=1000, description="Results per page"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_tenant_db_session),
@@ -143,6 +146,9 @@ async def list_traces(
     - `status_code`: Filter by status (OK, ERROR)
     - `start_time_after`: Filter by start time >= timestamp
     - `start_time_before`: Filter by start time <= timestamp
+    - `test_run_id`: Filter by test run ID (for test execution traces)
+    - `test_result_id`: Filter by test result ID (for test execution traces)
+    - `test_id`: Filter by test ID (for test execution traces)
 
     **Pagination**:
     - `limit`: Number of results per page (default: 100, max: 1000)
@@ -166,6 +172,9 @@ async def list_traces(
         status_code=status_code,
         start_time_after=start_time_after,
         start_time_before=start_time_before,
+        test_run_id=test_run_id,
+        test_result_id=test_result_id,
+        test_id=test_id,
         limit=limit,
         offset=offset,
     )
@@ -184,9 +193,11 @@ async def list_traces(
         # Calculate summary fields
         has_errors = trace.status_code == "ERROR"
         total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
-        total_cost = 0.0
+        total_cost_usd = 0.0
+        total_cost_eur = 0.0
         if trace.enriched_data and "costs" in trace.enriched_data:
-            total_cost = trace.enriched_data["costs"].get("total_cost_usd", 0.0)
+            total_cost_usd = trace.enriched_data["costs"].get("total_cost_usd", 0.0)
+            total_cost_eur = trace.enriched_data["costs"].get("total_cost_eur", 0.0)
 
         summary = TraceSummary(
             trace_id=trace.trace_id,
@@ -197,8 +208,12 @@ async def list_traces(
             span_count=1,  # This is per span, would need aggregation for true trace count
             root_operation=trace.span_name,
             status_code=trace.status_code,
+            test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
+            test_result_id=str(trace.test_result_id) if trace.test_result_id else None,
+            test_id=str(trace.test_id) if trace.test_id else None,
             total_tokens=total_tokens if total_tokens > 0 else None,
-            total_cost_usd=total_cost if total_cost > 0 else None,
+            total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
+            total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
             has_errors=has_errors,
         )
         summaries.append(summary)
@@ -424,4 +439,4 @@ async def get_metrics(
         p95_duration_ms=round(p95_duration, 2),
         p99_duration_ms=round(p99_duration, 2),
         operation_breakdown=operation_breakdown,
-        )
+    )

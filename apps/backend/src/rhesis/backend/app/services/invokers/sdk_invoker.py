@@ -3,7 +3,7 @@
 import asyncio
 import os
 import uuid
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -17,6 +17,9 @@ from .common.schemas import ErrorResponse
 
 class SdkEndpointInvoker(BaseEndpointInvoker):
     """Invoker for SDK-connected endpoints via WebSocket."""
+
+    # SDK endpoints automatically generate traces via instrumentation
+    automatic_tracing: bool = True
 
     def __init__(self):
         """Initialize SDK invoker."""
@@ -301,7 +304,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             logger.info(f"Extracted {conversation_field}: {conversation_id}")
 
     async def invoke(
-        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
+        self,
+        db: Session,
+        endpoint: Endpoint,
+        input_data: Dict[str, Any],
+        test_execution_context: Optional[Dict[str, str]] = None,
     ) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Invoke SDK function through WebSocket connection.
@@ -310,6 +317,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             db: Database session
             endpoint: The SDK endpoint to invoke
             input_data: Standardized input data (input, session_id, context, metadata, tool_calls)
+            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
+                                   for linking traces to test executions
 
         Returns:
             Standardized response dict with output and metadata, or ErrorResponse for errors
@@ -325,6 +334,13 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Step 3: Prepare function kwargs
             _, conversation_field = self._prepare_conversation_context(endpoint, input_data)
             function_kwargs = self._prepare_function_kwargs(endpoint, input_data, function_name)
+
+            # Step 3.5: Add test execution context to kwargs if provided
+            if test_execution_context:
+                function_kwargs["_rhesis_test_context"] = test_execution_context
+                logger.debug(
+                    f"Added test execution context to SDK payload: {test_execution_context}"
+                )
 
             logger.info(
                 f"Invoking SDK function: {function_name} "

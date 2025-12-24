@@ -80,6 +80,7 @@ class SingleTurnRunner(BaseRunner):
         prompt_content: str = "",
         expected_response: str = "",
         evaluate_metrics: bool = True,
+        test_execution_context: Optional[Dict[str, str]] = None,
     ) -> Tuple[float, Dict[str, Any], Dict[str, Any]]:
         """
         Execute single-turn test.
@@ -94,6 +95,7 @@ class SingleTurnRunner(BaseRunner):
             user_id: User ID
             model: Optional model override for metric evaluation
             evaluate_metrics: Whether to evaluate metrics
+            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
 
         Returns:
             Tuple of (execution_time_ms, processed_result, metrics_results)
@@ -108,7 +110,7 @@ class SingleTurnRunner(BaseRunner):
             metric_configs = prepare_metric_configs(metrics, test_id, scope=MetricScope.SINGLE_TURN)
             logger.debug(f"Prepared {len(metric_configs)} metrics for test {test_id}")
 
-        # Execute endpoint
+        # Execute endpoint with test execution context
         endpoint_service = get_endpoint_service()
         result = await endpoint_service.invoke_endpoint(
             db=db,
@@ -116,6 +118,7 @@ class SingleTurnRunner(BaseRunner):
             input_data={"input": prompt_content},
             organization_id=organization_id,
             user_id=user_id,
+            test_execution_context=test_execution_context,
         )
 
         # Calculate execution time
@@ -165,6 +168,7 @@ class MultiTurnRunner(BaseRunner):
         organization_id: str,
         user_id: Optional[str] = None,
         model: Optional[Any] = None,
+        test_execution_context: Optional[Dict[str, str]] = None,
     ) -> Tuple[float, Dict[str, Any], Dict[str, Any]]:
         """
         Execute multi-turn test with Penelope.
@@ -176,6 +180,7 @@ class MultiTurnRunner(BaseRunner):
             organization_id: Organization ID
             user_id: User ID
             model: Optional model override for Penelope
+            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
 
         Returns:
             Tuple of (execution_time_ms, penelope_trace, metrics_results)
@@ -199,12 +204,13 @@ class MultiTurnRunner(BaseRunner):
         agent = PenelopeAgent(model=model) if model else PenelopeAgent()
         logger.debug("[MultiTurnRunner] Initialized Penelope")
 
-        # Create backend target
+        # Create backend target with test execution context
         target = BackendEndpointTarget(
             db=db,
             endpoint_id=endpoint_id,
             organization_id=organization_id,
             user_id=user_id,
+            test_execution_context=test_execution_context,
         )
 
         # Execute test

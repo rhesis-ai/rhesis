@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import requests
 from fastapi import HTTPException
@@ -24,6 +24,9 @@ from .common.schemas import ErrorResponse
 class RestEndpointInvoker(BaseEndpointInvoker):
     """REST endpoint invoker with support for different auth types."""
 
+    # REST endpoints do not automatically generate traces
+    automatic_tracing: bool = False
+
     def __init__(self):
         super().__init__()
         self.request_handlers = {
@@ -36,9 +39,22 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         self.response_mapper = ResponseMapper()
 
     async def invoke(
-        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
+        self, 
+        db: Session, 
+        endpoint: Endpoint, 
+        input_data: Dict[str, Any],
+        test_execution_context: Optional[Dict[str, str]] = None
     ) -> Union[Dict[str, Any], ErrorResponse]:
-        """Invoke the REST endpoint with proper authentication."""
+        """
+        Invoke the REST endpoint with proper authentication.
+        
+        Args:
+            db: Database session
+            endpoint: The endpoint to invoke
+            input_data: Input data
+            test_execution_context: Optional test context (not used by REST invoker,
+                                   handled by executor's manual tracing wrapper)
+        """
         try:
             # Prepare request components
             method, headers, request_body, url, conversation_id = self._prepare_request(

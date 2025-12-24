@@ -119,7 +119,19 @@ class TraceSummary(BaseModel):
     status_code: str
     total_tokens: Optional[int] = None
     total_cost_usd: Optional[float] = None
+    total_cost_eur: Optional[float] = None
     has_errors: bool
+
+    # Test execution context (optional - only present for test execution traces)
+    test_run_id: Optional[str] = Field(
+        default=None, description="Test run ID if this trace is from a test execution"
+    )
+    test_result_id: Optional[str] = Field(
+        default=None, description="Test result ID if this trace is from a test execution"
+    )
+    test_id: Optional[str] = Field(
+        default=None, description="Test ID if this trace is from a test execution"
+    )
 
     # Tags and comments count for summary view
     tags_count: Optional[int] = Field(

@@ -39,6 +39,11 @@ class Trace(Base, TagsMixin, CommentsMixin):
     organization_id = Column(GUID(), nullable=False, index=True)
     environment = Column(String(50), nullable=False, index=True)
 
+    # Test execution context (nullable - only set for test execution traces)
+    test_run_id = Column(GUID(), ForeignKey("test_run.id", ondelete="SET NULL"), nullable=True, index=True)
+    test_result_id = Column(GUID(), ForeignKey("test_result.id", ondelete="SET NULL"), nullable=True, index=True)
+    test_id = Column(GUID(), ForeignKey("test.id", ondelete="SET NULL"), nullable=True, index=True)
+
     # Span metadata
     span_name = Column(String(255), nullable=False, index=True)
     span_kind = Column(String(20), nullable=False)
@@ -64,6 +69,9 @@ class Trace(Base, TagsMixin, CommentsMixin):
 
     # Relationships
     project = relationship("Project", back_populates="traces")
+    test_run = relationship("TestRun", foreign_keys=[test_run_id], backref="traces")
+    test_result = relationship("TestResult", foreign_keys=[test_result_id], backref="traces")
+    test = relationship("Test", foreign_keys=[test_id], backref="traces")
 
     # Composite indexes
     __table_args__ = (
@@ -73,6 +81,9 @@ class Trace(Base, TagsMixin, CommentsMixin):
         Index("idx_trace_environment_time", "environment", start_time.desc()),
         Index("idx_trace_status_time", "status_code", start_time.desc()),
         Index("idx_trace_org_time", "organization_id", start_time.desc()),
+        Index("idx_trace_test_run", "test_run_id", start_time.desc()),
+        Index("idx_trace_test_result", "test_result_id"),
+        Index("idx_trace_test", "test_id"),
         Index(
             "idx_trace_unprocessed",
             "created_at",
