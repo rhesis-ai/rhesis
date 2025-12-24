@@ -54,6 +54,8 @@ class TestExecutor:
 
         try:
             # Execute function (sync or async)
+            # Note: If inputs contains _rhesis_test_context, decorated functions
+            # (@observe or @endpoint) will extract and handle it automatically
             if asyncio.iscoroutinefunction(func):
                 result = await func(**inputs)
             else:
