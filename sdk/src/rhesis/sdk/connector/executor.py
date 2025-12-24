@@ -53,9 +53,14 @@ class TestExecutor:
         start_time = time.time()
 
         try:
+            # Extract and remove test execution context from inputs
+            # This is injected by backend during test execution but should not
+            # be passed to the function. Used for trace linking by tracing layer.
+            test_context = inputs.pop("_rhesis_test_context", None)
+            if test_context:
+                logger.debug(f"Test execution context for {function_name}: {test_context}")
+
             # Execute function (sync or async)
-            # Note: If inputs contains _rhesis_test_context, decorated functions
-            # (@observe or @endpoint) will extract and handle it automatically
             if asyncio.iscoroutinefunction(func):
                 result = await func(**inputs)
             else:
