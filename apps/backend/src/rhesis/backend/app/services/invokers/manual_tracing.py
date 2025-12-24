@@ -67,7 +67,7 @@ def create_endpoint_attributes(
     attrs = {
         EndpointAttributes.ENDPOINT_ID: str(endpoint.id),
         EndpointAttributes.ENDPOINT_NAME: endpoint.name,
-        EndpointAttributes.ENDPOINT_TYPE: endpoint.endpoint_type,
+        EndpointAttributes.ENDPOINT_TYPE: endpoint.connection_type,
         EndpointAttributes.ENDPOINT_URL: endpoint.url,
         # Test context
         EndpointAttributes.TEST_RUN_ID: test_execution_context.get("test_run_id"),
@@ -101,7 +101,8 @@ async def create_manual_invocation_trace(
     Args:
         db: Database session
         endpoint: Endpoint model
-        test_execution_context: Dict with test_run_id, test_result_id, test_id, test_configuration_id
+        test_execution_context: Dict with test_run_id, test_result_id, test_id,
+            test_configuration_id
         organization_id: Organization ID
 
     Yields:
@@ -155,7 +156,7 @@ async def create_manual_invocation_trace(
             parent_span_id=None,
             project_id=str(endpoint.project_id),
             environment=endpoint.environment or "development",
-            span_name=f"function.endpoint_{endpoint.endpoint_type}_invoke",
+            span_name=f"function.endpoint_{endpoint.connection_type}_invoke",
             span_kind=SpanKind.CLIENT,  # Calling external service
             start_time=start_time,
             end_time=end_time,
