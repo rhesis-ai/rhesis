@@ -27,10 +27,14 @@ class SDKRpcClient:
         """
         try:
             redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
+            logger.info(f"🔌 Initializing RPC client with Redis URL: {redis_url}")
             self._redis = await redis.from_url(redis_url, decode_responses=True)
-            logger.debug(f"RPC client connected to Redis: {redis_url}")
+            logger.info("✅ RPC client connected to Redis successfully")
+            # Test the connection
+            await self._redis.ping()
+            logger.info("✅ Redis PING successful")
         except Exception as e:
-            logger.error(f"Failed to connect to Redis for SDK RPC: {e}")
+            logger.error(f"❌ Failed to connect to Redis for SDK RPC: {e}", exc_info=True)
             raise RuntimeError(f"Redis connection failed: {e}")
 
     async def close(self):
@@ -50,19 +54,17 @@ class SDKRpcClient:
             True if SDK client is connected, False otherwise
         """
         if not self._redis:
-            logger.warning("🔴 RPC client Redis connection not initialized")
+            logger.error("RPC client Redis connection not initialized")
             return False
 
         try:
             # Normalize environment to lowercase for consistent key lookup
             environment = environment.lower()
             key = f"ws:connection:{project_id}:{environment}"
-            logger.debug(f"RPC client checking connection with key: {key}")
             exists = await self._redis.exists(key)
-            logger.debug(f"Connection exists: {exists > 0}")
             return exists > 0
         except Exception as e:
-            logger.error(f"Error checking SDK connection status: {e}")
+            logger.error(f"Exception checking SDK connection status: {e}")
             return False
 
     async def send_and_await_result(
@@ -93,7 +95,7 @@ class SDKRpcClient:
             - {"error": "send_failed", "details": str}
         """
         if not self._redis:
-            logger.error("❌ Redis not initialized for RPC call")
+            logger.error("Redis not initialized for RPC call")
             return {"error": "send_failed", "details": "Redis not initialized"}
 
         # Subscribe to response channel first
@@ -114,7 +116,7 @@ class SDKRpcClient:
             }
 
             await self._redis.publish("ws:rpc:requests", json.dumps(request))
-            logger.debug(f"Published RPC request: {test_run_id}")
+            logger.debug(f"Published RPC request {test_run_id} ({function_name})")
 
             # Wait for response with timeout
             async def _wait_for_response():
@@ -122,13 +124,30 @@ class SDKRpcClient:
                 async for message in pubsub.listen():
                     if message["type"] == "message":
                         result = json.loads(message["data"])
-                        await pubsub.unsubscribe(response_channel)
-                        return result
+
+                        # Check if this is a valid SDK response (has 'status' field)
+                        # or an error from a backend worker without connection
+                        if "status" in result:
+                            # Valid SDK response (success or error)
+                            await pubsub.unsubscribe(response_channel)
+                            return result
+                        elif "error" in result and result["error"] == "send_failed":
+                            # Error from backend worker that doesn't have connection
+                            # This can happen in multi-worker setup - wait for actual response
+                            logger.debug(
+                                f"Ignoring intermediate error from worker without connection: "
+                                f"{result.get('details')}"
+                            )
+                            continue
+                        else:
+                            # Unknown response format - log and return
+                            logger.warning(f"Unexpected response format: {result}")
+                            await pubsub.unsubscribe(response_channel)
+                            return result
 
             try:
                 # Use wait_for for Python 3.10 compatibility
                 result = await asyncio.wait_for(_wait_for_response(), timeout=timeout)
-                logger.debug(f"Received RPC response: {test_run_id}")
                 return result
             except asyncio.TimeoutError:
                 logger.error(f"RPC request timed out after {timeout}s: {test_run_id}")
@@ -136,7 +155,7 @@ class SDKRpcClient:
                 return {"error": "timeout"}
 
         except Exception as e:
-            logger.error(f"Error during RPC call: {e}", exc_info=True)
+            logger.error(f"Error during RPC call for {test_run_id}: {e}")
             return {"error": "send_failed", "details": str(e)}
         finally:
             await pubsub.close()

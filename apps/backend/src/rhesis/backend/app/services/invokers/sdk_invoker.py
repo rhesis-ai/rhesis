@@ -149,9 +149,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         try:
             rpc_client = SDKRpcClient()
             await rpc_client.initialize()
-            logger.info("✅ RPC client initialized successfully")
         except RuntimeError as e:
-            logger.error(f"❌ Failed to initialize RPC client: {e}")
+            logger.error(f"Failed to initialize RPC client: {e}")
             return self._create_error_response(
                 error_type="sdk_rpc_unavailable",
                 output_message=(
@@ -162,7 +161,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             )
 
         try:
-            # Check connection via RPC client
+            # Check connection via RPC client (checks Redis)
             is_connected = await rpc_client.is_connected(project_id, environment)
 
             if not is_connected:
@@ -361,7 +360,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # If result is already an ErrorResponse, return it directly
             if isinstance(result, ErrorResponse):
                 return result
-            
+
             error_response = self._check_result_errors(result, function_name)
             if error_response:
                 return error_response
