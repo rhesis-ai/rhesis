@@ -158,7 +158,7 @@ async def create_invocation_trace(
             parent_span_id=None,
             project_id=str(endpoint.project_id),
             environment=endpoint.environment or "development",
-            span_name=f"function.endpoint_{endpoint.connection_type}_invoke",
+            span_name=f"function.endpoint_{endpoint.connection_type.lower()}_invoke",
             span_kind=SpanKind.CLIENT,  # Calling external service
             start_time=start_time,
             end_time=end_time,

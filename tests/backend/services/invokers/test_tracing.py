@@ -171,7 +171,7 @@ async def test_create_invocation_trace_success():
         assert span.status_code == StatusCode.OK
         assert span.project_id == str(endpoint.project_id)
         assert span.environment == "development"
-        assert span.span_name == f"function.endpoint_{endpoint.connection_type}_invoke"
+        assert span.span_name == f"function.endpoint_{endpoint.connection_type.lower()}_invoke"
 
         # Verify test context in attributes
         assert span.attributes[EndpointAttributes.TEST_RUN_ID] == test_context["test_run_id"]
