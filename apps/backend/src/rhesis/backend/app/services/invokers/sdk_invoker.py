@@ -130,7 +130,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         test_run_id: str,
         function_name: str,
         function_kwargs: Dict[str, Any],
-    ) -> Dict[str, Any]:
+    ) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Execute SDK function via RPC (Redis pub/sub).
 
@@ -142,10 +142,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             function_kwargs: Function arguments
 
         Returns:
-            Result dictionary from SDK
-
-        Raises:
-            Returns ErrorResponse via _create_error_response if RPC unavailable or not connected
+            Result dictionary from SDK, or ErrorResponse if RPC unavailable or not connected
         """
         from rhesis.backend.app.services.connector.rpc_client import SDKRpcClient
 
@@ -361,6 +358,10 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 )
 
             # Step 5: Check for execution errors
+            # If result is already an ErrorResponse, return it directly
+            if isinstance(result, ErrorResponse):
+                return result
+            
             error_response = self._check_result_errors(result, function_name)
             if error_response:
                 return error_response
