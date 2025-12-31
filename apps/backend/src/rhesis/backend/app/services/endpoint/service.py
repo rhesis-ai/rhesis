@@ -87,8 +87,8 @@ class EndpointService:
             if user_id:
                 enriched_input_data["user_id"] = user_id
 
-            # Check if invoker needs tracing (REST/WebSocket)
-            if not invoker.automatic_tracing and test_execution_context:
+            # Check if invoker needs explicit tracing (REST/WebSocket)
+            if not invoker.automatic_tracing:
                 # Import here to avoid circular imports
                 from rhesis.backend.app.services.invokers.tracing import (
                     create_invocation_trace,
@@ -96,14 +96,14 @@ class EndpointService:
 
                 # Wrap invocation with trace creation
                 async with create_invocation_trace(
-                    db, endpoint, test_execution_context, organization_id
+                    db, endpoint, organization_id, test_execution_context
                 ) as trace_ctx:
                     result = await invoker.invoke(
                         db, endpoint, enriched_input_data, test_execution_context
                     )
                     trace_ctx["result"] = result
             else:
-                # SDK invoker or no test context - invoke directly
+                # SDK invoker - handles tracing internally
                 result = await invoker.invoke(
                     db, endpoint, enriched_input_data, test_execution_context
                 )

@@ -4,7 +4,7 @@ import logging
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
@@ -53,14 +53,14 @@ def generate_span_id() -> str:
 
 
 def create_endpoint_attributes(
-    endpoint: Endpoint, test_execution_context: Dict[str, str], **kwargs
+    endpoint: Endpoint, test_execution_context: Optional[Dict[str, str]] = None, **kwargs
 ) -> Dict[str, Any]:
     """
     Create standard attributes for endpoint invocations.
 
     Args:
         endpoint: Endpoint model
-        test_execution_context: Test execution IDs (test_run_id, test_result_id, etc.)
+        test_execution_context: Optional test execution IDs (test_run_id, test_result_id, etc.)
         **kwargs: Additional attributes (e.g., request_size, response_data)
 
     Returns:
@@ -71,14 +71,16 @@ def create_endpoint_attributes(
         EndpointAttributes.ENDPOINT_NAME: endpoint.name,
         EndpointAttributes.ENDPOINT_TYPE: endpoint.connection_type,
         EndpointAttributes.ENDPOINT_URL: endpoint.url,
-        # Test context
-        EndpointAttributes.TEST_RUN_ID: test_execution_context.get("test_run_id"),
-        EndpointAttributes.TEST_RESULT_ID: test_execution_context.get("test_result_id"),
-        EndpointAttributes.TEST_ID: test_execution_context.get("test_id"),
-        EndpointAttributes.TEST_CONFIGURATION_ID: test_execution_context.get(
-            "test_configuration_id"
-        ),
     }
+
+    # Add test context attributes if available
+    if test_execution_context:
+        attrs[EndpointAttributes.TEST_RUN_ID] = test_execution_context.get("test_run_id")
+        attrs[EndpointAttributes.TEST_RESULT_ID] = test_execution_context.get("test_result_id")
+        attrs[EndpointAttributes.TEST_ID] = test_execution_context.get("test_id")
+        attrs[EndpointAttributes.TEST_CONFIGURATION_ID] = test_execution_context.get(
+            "test_configuration_id"
+        )
 
     # Add method for REST endpoints
     if hasattr(endpoint, "method") and endpoint.method:
@@ -91,27 +93,30 @@ def create_endpoint_attributes(
 
 @asynccontextmanager
 async def create_invocation_trace(
-    db: Session, endpoint: Endpoint, test_execution_context: Dict[str, str], organization_id: str
+    db: Session,
+    endpoint: Endpoint,
+    organization_id: str,
+    test_execution_context: Optional[Dict[str, str]] = None,
 ):
     """
     Create a trace span for REST/WebSocket invocations.
 
     Uses OTELSpan class and semantic conventions from SDK.
     This creates an invocation trace that captures the endpoint call
-    with timing, status, and test execution context.
+    with timing, status, and optional test execution context.
 
     Args:
         db: Database session
         endpoint: Endpoint model
-        test_execution_context: Dict with test_run_id, test_result_id, test_id,
-            test_configuration_id
         organization_id: Organization ID
+        test_execution_context: Optional dict with test_run_id, test_result_id, test_id,
+            test_configuration_id (only present during test execution)
 
     Yields:
         Dict that executor can update with result data
 
     Example:
-        async with create_invocation_trace(db, endpoint, context, org_id) as trace_ctx:
+        async with create_invocation_trace(db, endpoint, org_id, context) as trace_ctx:
             result = await invoker.invoke(...)
             trace_ctx["result"] = result
     """

@@ -147,7 +147,7 @@ async def test_create_invocation_trace_success():
 
         mock_service.create_and_enrich_spans.side_effect = capture_span
 
-        async with create_invocation_trace(db_mock, endpoint, test_context, org_id) as trace_ctx:
+        async with create_invocation_trace(db_mock, endpoint, org_id, test_context) as trace_ctx:
             # Simulate successful invocation
             trace_ctx["result"] = {
                 "status": "success",
@@ -220,7 +220,7 @@ async def test_create_invocation_trace_error():
         mock_service.create_and_enrich_spans.side_effect = capture_span
 
         try:
-            async with create_invocation_trace(db_mock, endpoint, test_context, org_id) as _:
+            async with create_invocation_trace(db_mock, endpoint, org_id, test_context) as _:
                 # Simulate error during invocation
                 raise ValueError("Test error")
         except ValueError:
@@ -233,6 +233,62 @@ async def test_create_invocation_trace_error():
 
         assert span.status_code == StatusCode.ERROR
         assert "Test error" in span.status_message
+
+
+@pytest.mark.asyncio
+async def test_create_invocation_trace_without_test_context():
+    """Test invocation trace creation without test execution context."""
+    db_mock = MagicMock()
+    endpoint = MagicMock(spec=Endpoint)
+    endpoint.id = uuid4()
+    endpoint.name = "production-endpoint"
+    endpoint.connection_type = "rest"
+    endpoint.url = "https://api.example.com"
+    endpoint.project_id = uuid4()
+    endpoint.environment = "production"
+
+    org_id = str(uuid4())
+
+    with patch(
+        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+    ) as mock_service_class:
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+
+        captured_span = None
+
+        def capture_span(spans, organization_id, project_id):
+            nonlocal captured_span
+            captured_span = spans[0]
+            return [captured_span], 0, 1
+
+        mock_service.create_and_enrich_spans.side_effect = capture_span
+
+        # Call without test context (simulates production invocation)
+        async with create_invocation_trace(db_mock, endpoint, org_id) as trace_ctx:
+            trace_ctx["result"] = {
+                "status": "success",
+                "output": "Production response",
+            }
+
+        # Verify span was created successfully
+        assert mock_service.create_and_enrich_spans.called
+        assert captured_span is not None
+        span = captured_span
+
+        # Verify basic span properties
+        assert span.span_kind == SpanKind.CLIENT
+        assert span.status_code == StatusCode.OK
+        assert span.project_id == str(endpoint.project_id)
+
+        # Verify endpoint attributes are present
+        assert span.attributes[EndpointAttributes.ENDPOINT_ID] == str(endpoint.id)
+        assert span.attributes[EndpointAttributes.ENDPOINT_NAME] == endpoint.name
+
+        # Verify test context attributes are NOT present (since not provided)
+        assert EndpointAttributes.TEST_RUN_ID not in span.attributes
+        assert EndpointAttributes.TEST_RESULT_ID not in span.attributes
+        assert EndpointAttributes.TEST_ID not in span.attributes
 
 
 @pytest.mark.asyncio
@@ -274,7 +330,7 @@ async def test_create_invocation_trace_output_truncation():
 
         mock_service.create_and_enrich_spans.side_effect = capture_span
 
-        async with create_invocation_trace(db_mock, endpoint, test_context, org_id) as trace_ctx:
+        async with create_invocation_trace(db_mock, endpoint, org_id, test_context) as trace_ctx:
             trace_ctx["result"] = {
                 "status": "success",
                 "output": large_output,
@@ -329,7 +385,7 @@ async def test_create_invocation_trace_span_name_format():
             mock_service.create_and_enrich_spans.side_effect = capture_span
 
             async with create_invocation_trace(
-                db_mock, endpoint, test_context, str(uuid4())
+                db_mock, endpoint, str(uuid4()), test_context
             ) as trace_ctx:
                 trace_ctx["result"] = {"status": "success"}
 
