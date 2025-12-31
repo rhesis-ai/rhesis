@@ -1,4 +1,4 @@
-"""Tests for manual trace creation utility."""
+"""Tests for invoker trace creation utility."""
 
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -6,10 +6,10 @@ from uuid import uuid4
 import pytest
 
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.app.services.invokers.manual_tracing import (
+from rhesis.backend.app.services.invokers.tracing import (
     EndpointAttributes,
     create_endpoint_attributes,
-    create_manual_invocation_trace,
+    create_invocation_trace,
     generate_span_id,
     generate_trace_id,
 )
@@ -107,8 +107,8 @@ def test_create_endpoint_attributes_with_extra_kwargs():
 
 
 @pytest.mark.asyncio
-async def test_create_manual_invocation_trace_success():
-    """Test manual trace creation for successful invocation."""
+async def test_create_invocation_trace_success():
+    """Test invocation trace creation for successful invocation."""
     # Setup mocks
     db_mock = MagicMock()
     endpoint = MagicMock(spec=Endpoint)
@@ -147,9 +147,7 @@ async def test_create_manual_invocation_trace_success():
 
         mock_service.create_and_enrich_spans.side_effect = capture_span
 
-        async with create_manual_invocation_trace(
-            db_mock, endpoint, test_context, org_id
-        ) as trace_ctx:
+        async with create_invocation_trace(db_mock, endpoint, test_context, org_id) as trace_ctx:
             # Simulate successful invocation
             trace_ctx["result"] = {
                 "status": "success",
@@ -186,8 +184,8 @@ async def test_create_manual_invocation_trace_success():
 
 
 @pytest.mark.asyncio
-async def test_create_manual_invocation_trace_error():
-    """Test manual trace creation for failed invocation."""
+async def test_create_invocation_trace_error():
+    """Test invocation trace creation for failed invocation."""
     db_mock = MagicMock()
     endpoint = MagicMock(spec=Endpoint)
     endpoint.id = uuid4()
@@ -222,7 +220,7 @@ async def test_create_manual_invocation_trace_error():
         mock_service.create_and_enrich_spans.side_effect = capture_span
 
         try:
-            async with create_manual_invocation_trace(db_mock, endpoint, test_context, org_id) as _:
+            async with create_invocation_trace(db_mock, endpoint, test_context, org_id) as _:
                 # Simulate error during invocation
                 raise ValueError("Test error")
         except ValueError:
@@ -238,7 +236,7 @@ async def test_create_manual_invocation_trace_error():
 
 
 @pytest.mark.asyncio
-async def test_create_manual_invocation_trace_output_truncation():
+async def test_create_invocation_trace_output_truncation():
     """Test that large outputs are truncated in trace attributes."""
     db_mock = MagicMock()
     endpoint = MagicMock(spec=Endpoint)
@@ -276,9 +274,7 @@ async def test_create_manual_invocation_trace_output_truncation():
 
         mock_service.create_and_enrich_spans.side_effect = capture_span
 
-        async with create_manual_invocation_trace(
-            db_mock, endpoint, test_context, org_id
-        ) as trace_ctx:
+        async with create_invocation_trace(db_mock, endpoint, test_context, org_id) as trace_ctx:
             trace_ctx["result"] = {
                 "status": "success",
                 "output": large_output,
@@ -297,7 +293,7 @@ async def test_create_manual_invocation_trace_output_truncation():
 
 
 @pytest.mark.asyncio
-async def test_create_manual_invocation_trace_span_name_format():
+async def test_create_invocation_trace_span_name_format():
     """Test span name follows semantic conventions."""
     db_mock = MagicMock()
 
@@ -332,7 +328,7 @@ async def test_create_manual_invocation_trace_span_name_format():
 
             mock_service.create_and_enrich_spans.side_effect = capture_span
 
-            async with create_manual_invocation_trace(
+            async with create_invocation_trace(
                 db_mock, endpoint, test_context, str(uuid4())
             ) as trace_ctx:
                 trace_ctx["result"] = {"status": "success"}

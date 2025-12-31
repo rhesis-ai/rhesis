@@ -87,15 +87,15 @@ class EndpointService:
             if user_id:
                 enriched_input_data["user_id"] = user_id
 
-            # Check if invoker needs manual tracing (REST/WebSocket)
+            # Check if invoker needs tracing (REST/WebSocket)
             if not invoker.automatic_tracing and test_execution_context:
                 # Import here to avoid circular imports
-                from rhesis.backend.app.services.invokers.manual_tracing import (
-                    create_manual_invocation_trace,
+                from rhesis.backend.app.services.invokers.tracing import (
+                    create_invocation_trace,
                 )
 
-                # Wrap invocation with manual trace creation
-                async with create_manual_invocation_trace(
+                # Wrap invocation with trace creation
+                async with create_invocation_trace(
                     db, endpoint, test_execution_context, organization_id
                 ) as trace_ctx:
                     result = await invoker.invoke(
@@ -201,7 +201,10 @@ class EndpointService:
         if auth_type_str != EndpointAuthType.BEARER_TOKEN.value:
             raise HTTPException(
                 status_code=400,
-                detail=f"Only BEARER_TOKEN authentication is supported for testing. Got: {auth_type_str}",
+                detail=(
+                    f"Only BEARER_TOKEN authentication is supported for testing. "
+                    f"Got: {auth_type_str}"
+                ),
             )
 
         logger.debug(f"Testing endpoint configuration: {test_config.url} ({connection_type_str})")

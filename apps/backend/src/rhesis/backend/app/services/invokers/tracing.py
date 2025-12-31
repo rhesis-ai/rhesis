@@ -1,4 +1,4 @@
-"""Manual trace creation for REST/WebSocket endpoint invocations."""
+"""Trace creation for REST/WebSocket endpoint invocations."""
 
 import logging
 import secrets
@@ -90,14 +90,14 @@ def create_endpoint_attributes(
 
 
 @asynccontextmanager
-async def create_manual_invocation_trace(
+async def create_invocation_trace(
     db: Session, endpoint: Endpoint, test_execution_context: Dict[str, str], organization_id: str
 ):
     """
-    Create a manual trace span for REST/WebSocket invocations.
+    Create a trace span for REST/WebSocket invocations.
 
     Uses OTELSpan class and semantic conventions from SDK.
-    This creates a simple invocation trace that captures the endpoint call
+    This creates an invocation trace that captures the endpoint call
     with timing, status, and test execution context.
 
     Args:
@@ -111,7 +111,7 @@ async def create_manual_invocation_trace(
         Dict that executor can update with result data
 
     Example:
-        async with create_manual_invocation_trace(db, endpoint, context, org_id) as trace_ctx:
+        async with create_invocation_trace(db, endpoint, context, org_id) as trace_ctx:
             result = await invoker.invoke(...)
             trace_ctx["result"] = result
     """
@@ -181,4 +181,4 @@ async def create_manual_invocation_trace(
         )
 
         if stored_spans:
-            logger.debug(f"Created and enriched manual trace {stored_spans[0].trace_id}")
+            logger.debug(f"Created and enriched invocation trace {stored_spans[0].trace_id}")
