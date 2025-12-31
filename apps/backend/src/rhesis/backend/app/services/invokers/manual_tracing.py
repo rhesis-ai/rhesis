@@ -1,5 +1,6 @@
 """Manual trace creation for REST/WebSocket endpoint invocations."""
 
+import logging
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -10,6 +11,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.sdk.telemetry.schemas import OTELSpan, SpanKind, StatusCode
+
+logger = logging.getLogger(__name__)
 
 
 class EndpointAttributes:
@@ -169,4 +172,14 @@ async def create_manual_invocation_trace(
         )
 
         # Store span in database
-        crud.create_trace_spans(db, [otel_span], organization_id)
+        stored_spans = crud.create_trace_spans(db, [otel_span], organization_id)
+
+        # Trigger enrichment for the trace (same as SDK traces)
+        if stored_spans:
+            from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
+
+            trace_id = stored_spans[0].trace_id
+            project_id = str(endpoint.project_id)
+            enrichment_service = EnrichmentService(db)
+            enrichment_service.enqueue_enrichment(trace_id, project_id)
+            logger.debug(f"Triggered enrichment for manual trace {trace_id}")
