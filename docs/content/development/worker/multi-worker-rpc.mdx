@@ -90,34 +90,37 @@ elif "error" in result and result["error"] == "send_failed":
 
 **Worker with connection (one worker):**
 <CodeBlock language="text" isTerminal={false}>
-{`🎯 RPC REQUEST RECEIVED [PID 1001]: invoke_abc - chat
-✅ [PID 1001] HAS LOCAL CONNECTION! Forwarding...
-✅ [PID 1001] Successfully forwarded RPC request`}
+{`INFO - Forwarding RPC request invoke_abc123 (chat) to SDK`}
 </CodeBlock>
 
 **Workers without connection (other workers):**
+
+These workers silently ignore the request (no logs at INFO level). With DEBUG logging enabled:
 <CodeBlock language="text" isTerminal={false}>
-{`🎯 RPC REQUEST RECEIVED [PID 1002]: invoke_abc - chat
-📊 [PID 1002] Redis check: exists=1, ttl=17s
-✅ [PID 1002] Connection exists on ANOTHER worker. Silently ignoring.`}
+{`DEBUG - Connection exists on another worker, ignoring invoke_abc123`}
 </CodeBlock>
 
 ### Problematic Patterns
 
 <Callout type="error">
 **Multiple workers forwarding (indicates a bug):**
+
+If you see multiple workers logging the same request forwarding:
 ```
-✅ [PID 1001] HAS LOCAL CONNECTION! Forwarding...
-✅ [PID 1002] HAS LOCAL CONNECTION! Forwarding...  ← WRONG!
+INFO - Forwarding RPC request invoke_abc123 (chat) to SDK  # Worker 1
+INFO - Forwarding RPC request invoke_abc123 (chat) to SDK  # Worker 2 ← WRONG!
 ```
+
+This indicates the `ConnectionLocation` logic is broken.
 </Callout>
 
 <Callout type="error">
 **False error when SDK is connected:**
 ```
-❌ [PID 1002] SDK disconnected for key. Publishing error response.
+ERROR - SDK disconnected for key, publishing error for invoke_abc123
 ```
-*While Worker 1001 successfully handles the request*
+
+This should NOT happen when another worker has the connection. If it does, the Redis check is failing.
 </Callout>
 
 ## Testing
@@ -125,12 +128,12 @@ elif "error" in result and result["error"] == "send_failed":
 To verify multi-worker behavior:
 
 1. **Start multiple workers**: `--workers 4`
-2. **Enable debug logging**: Set log level to DEBUG
+2. **Enable DEBUG logging**: Set log level to DEBUG to see coordination details
 3. **Execute test**: Trigger SDK function invocation
 4. **Verify logs**:
-   - Only ONE worker logs: `HAS LOCAL CONNECTION! Forwarding...`
-   - Other workers log: `Connection exists on ANOTHER worker. Silently ignoring`
-   - Only the worker with connection publishes response
+   - Only ONE worker logs (INFO): `Forwarding RPC request ... to SDK`
+   - Other workers (DEBUG): `Connection exists on another worker, ignoring ...`
+   - No spurious error messages about missing connections
 
 ## Key Implementation Files
 
