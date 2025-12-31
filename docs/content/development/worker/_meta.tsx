@@ -5,6 +5,9 @@ export default {
   architecture: {
     title: "Architecture",
   },
+  "multi-worker-rpc": {
+    title: "Multi-Worker RPC",
+  },
   "background-tasks": {
     title: "Background Tasks",
   },
