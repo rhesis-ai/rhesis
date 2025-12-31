@@ -4,11 +4,15 @@ Handles the coordination between async and sync enrichment strategies.
 """
 
 import logging
-from typing import Set
+from typing import TYPE_CHECKING, List, Set
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.telemetry.enricher import TraceEnricher
+
+if TYPE_CHECKING:
+    from rhesis.backend.app import models
+    from rhesis.sdk.telemetry.schemas import OTELSpanCreate
 
 logger = logging.getLogger(__name__)
 
@@ -121,3 +125,47 @@ class EnrichmentService:
                 sync_count += 1
 
         return async_count, sync_count
+
+    def create_and_enrich_spans(
+        self,
+        spans: List["OTELSpanCreate"],
+        organization_id: str,
+        project_id: str,
+    ) -> tuple[List["models.Trace"], int, int]:
+        """
+        Create trace spans and automatically trigger enrichment.
+
+        This helper consolidates the pattern of:
+        1. Creating spans in database
+        2. Extracting unique trace IDs
+        3. Triggering async/sync enrichment
+
+        Args:
+            spans: List of OTEL spans to create
+            organization_id: Organization ID for tenant isolation
+            project_id: Project ID for access control
+
+        Returns:
+            Tuple of (stored_spans, async_count, sync_count)
+        """
+        from rhesis.backend.app import crud
+
+        # Create spans in database
+        stored_spans = crud.create_trace_spans(self.db, spans, organization_id)
+
+        if not stored_spans:
+            logger.warning("No spans were stored")
+            return [], 0, 0
+
+        # Extract unique trace IDs
+        unique_traces: Set[str] = {span.trace_id for span in stored_spans}
+
+        # Trigger enrichment (async preferred, sync fallback)
+        async_count, sync_count = self.enrich_traces(unique_traces, project_id)
+
+        logger.debug(
+            f"Created {len(stored_spans)} spans from {len(unique_traces)} traces "
+            f"(async enrichment: {async_count}, sync: {sync_count})"
+        )
+
+        return stored_spans, async_count, sync_count

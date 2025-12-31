@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Set
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -83,25 +83,18 @@ async def ingest_trace(
         f"org={organization_id}"
     )
 
-    # Store spans in database
+    # Store spans and trigger enrichment
     try:
-        stored_spans = crud.create_trace_spans(
-            db=db,
+        enrichment_service = EnrichmentService(db)
+        stored_spans, async_count, sync_count = enrichment_service.create_and_enrich_spans(
             spans=trace_batch.spans,
             organization_id=organization_id,
+            project_id=project_id,
         )
 
-        logger.debug(f"✅ Stored {len(stored_spans)} spans for trace {trace_id}")
-
-        # Enrich all unique traces (async preferred, sync fallback)
-        unique_traces: Set[str] = {span.trace_id for span in stored_spans}
-
-        # Use enrichment service for business logic
-        enrichment_service = EnrichmentService(db)
-        async_count, sync_count = enrichment_service.enrich_traces(unique_traces, project_id)
-
+        unique_trace_count = len(set(s.trace_id for s in stored_spans))
         logger.info(
-            f"Ingested {len(stored_spans)} spans from {len(unique_traces)} traces "
+            f"Ingested {len(stored_spans)} spans from {unique_trace_count} traces "
             f"(async: {async_count}, sync: {sync_count})"
         )
 

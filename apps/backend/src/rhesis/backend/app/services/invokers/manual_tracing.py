@@ -8,7 +8,6 @@ from typing import Any, Dict
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.sdk.telemetry.schemas import OTELSpan, SpanKind, StatusCode
 
@@ -171,15 +170,15 @@ async def create_manual_invocation_trace(
             resource={},
         )
 
-        # Store span in database
-        stored_spans = crud.create_trace_spans(db, [otel_span], organization_id)
+        # Store span and trigger enrichment
+        from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
 
-        # Trigger enrichment for the trace (same as SDK traces)
+        enrichment_service = EnrichmentService(db)
+        stored_spans, _, _ = enrichment_service.create_and_enrich_spans(
+            spans=[otel_span],
+            organization_id=organization_id,
+            project_id=str(endpoint.project_id),
+        )
+
         if stored_spans:
-            from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
-
-            trace_id = stored_spans[0].trace_id
-            project_id = str(endpoint.project_id)
-            enrichment_service = EnrichmentService(db)
-            enrichment_service.enqueue_enrichment(trace_id, project_id)
-            logger.debug(f"Triggered enrichment for manual trace {trace_id}")
+            logger.debug(f"Created and enriched manual trace {stored_spans[0].trace_id}")

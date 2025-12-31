@@ -128,10 +128,25 @@ async def test_create_manual_invocation_trace_success():
 
     org_id = str(uuid4())
 
-    # Mock crud.create_trace_spans
+    # Mock EnrichmentService
     with patch(
-        "rhesis.backend.app.services.invokers.manual_tracing.crud.create_trace_spans"
-    ) as mock_create:
+        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+    ) as mock_service_class:
+        # Create a mock instance that will be returned
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+
+        # Store the span that gets created
+        captured_span = None
+
+        def capture_span(spans, organization_id, project_id):
+            nonlocal captured_span
+            captured_span = spans[0]
+            # Return (stored_spans, async_count, sync_count)
+            return [captured_span], 0, 1
+
+        mock_service.create_and_enrich_spans.side_effect = capture_span
+
         async with create_manual_invocation_trace(
             db_mock, endpoint, test_context, org_id
         ) as trace_ctx:
@@ -141,16 +156,17 @@ async def test_create_manual_invocation_trace_success():
                 "output": "Test response",
             }
 
-        # Verify crud.create_trace_spans was called
-        assert mock_create.called
-        call_args = mock_create.call_args
-        assert call_args[0][0] == db_mock
-        assert call_args[0][2] == org_id
+        # Verify EnrichmentService was instantiated and called
+        assert mock_service_class.called
+        assert mock_service.create_and_enrich_spans.called
+
+        call_args = mock_service.create_and_enrich_spans.call_args
+        assert call_args[1]["organization_id"] == org_id
+        assert call_args[1]["project_id"] == str(endpoint.project_id)
 
         # Verify OTELSpan was created
-        spans = call_args[0][1]
-        assert len(spans) == 1
-        span = spans[0]
+        assert captured_span is not None
+        span = captured_span
 
         # Verify span properties
         assert span.span_kind == SpanKind.CLIENT
@@ -191,8 +207,20 @@ async def test_create_manual_invocation_trace_error():
     org_id = str(uuid4())
 
     with patch(
-        "rhesis.backend.app.services.invokers.manual_tracing.crud.create_trace_spans"
-    ) as mock_create:
+        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+    ) as mock_service_class:
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+
+        captured_span = None
+
+        def capture_span(spans, organization_id, project_id):
+            nonlocal captured_span
+            captured_span = spans[0]
+            return [captured_span], 0, 1
+
+        mock_service.create_and_enrich_spans.side_effect = capture_span
+
         try:
             async with create_manual_invocation_trace(db_mock, endpoint, test_context, org_id) as _:
                 # Simulate error during invocation
@@ -201,9 +229,9 @@ async def test_create_manual_invocation_trace_error():
             pass
 
         # Verify span was created with error status
-        assert mock_create.called
-        spans = mock_create.call_args[0][1]
-        span = spans[0]
+        assert mock_service.create_and_enrich_spans.called
+        assert captured_span is not None
+        span = captured_span
 
         assert span.status_code == StatusCode.ERROR
         assert "Test error" in span.status_message
@@ -234,8 +262,20 @@ async def test_create_manual_invocation_trace_output_truncation():
     large_output = "x" * 2000
 
     with patch(
-        "rhesis.backend.app.services.invokers.manual_tracing.crud.create_trace_spans"
-    ) as mock_create:
+        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+    ) as mock_service_class:
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+
+        captured_span = None
+
+        def capture_span(spans, organization_id, project_id):
+            nonlocal captured_span
+            captured_span = spans[0]
+            return [captured_span], 0, 1
+
+        mock_service.create_and_enrich_spans.side_effect = capture_span
+
         async with create_manual_invocation_trace(
             db_mock, endpoint, test_context, org_id
         ) as trace_ctx:
@@ -244,8 +284,8 @@ async def test_create_manual_invocation_trace_output_truncation():
                 "output": large_output,
             }
 
-        spans = mock_create.call_args[0][1]
-        span = spans[0]
+        assert captured_span is not None
+        span = captured_span
 
         # Verify output was truncated to 1000 chars
         output_preview = span.attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW]
@@ -278,15 +318,27 @@ async def test_create_manual_invocation_trace_span_name_format():
         }
 
         with patch(
-            "rhesis.backend.app.services.invokers.manual_tracing.crud.create_trace_spans"
-        ) as mock_create:
+            "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+        ) as mock_service_class:
+            mock_service = MagicMock()
+            mock_service_class.return_value = mock_service
+
+            captured_span = None
+
+            def capture_span(spans, organization_id, project_id):
+                nonlocal captured_span
+                captured_span = spans[0]
+                return [captured_span], 0, 1
+
+            mock_service.create_and_enrich_spans.side_effect = capture_span
+
             async with create_manual_invocation_trace(
                 db_mock, endpoint, test_context, str(uuid4())
             ) as trace_ctx:
                 trace_ctx["result"] = {"status": "success"}
 
-            spans = mock_create.call_args[0][1]
-            span = spans[0]
+            assert captured_span is not None
+            span = captured_span
 
             # Verify span name follows function.* pattern
             expected_name = f"function.endpoint_{endpoint_type}_invoke"
