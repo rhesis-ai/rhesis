@@ -59,6 +59,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         self.api_key = api_key
         self.project_id = project_id
         self.environment = environment
+        self._timeout = timeout  # Store timeout for use in export method
 
         # Add authentication headers
         self._session.headers.update(
