@@ -8,7 +8,9 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.schemas.test_execution import TestExecutionContext
 from rhesis.sdk.telemetry.schemas import OTELSpan, SpanKind, StatusCode
 
 logger = logging.getLogger(__name__)
@@ -35,11 +37,11 @@ class EndpointAttributes:
     RESPONSE_HAS_OUTPUT = "endpoint.response.has_output"
     RESPONSE_OUTPUT_PREVIEW = "endpoint.response.output_preview"
 
-    # Test context (following rhesis.test.* convention)
-    TEST_RUN_ID = "rhesis.test.run_id"
-    TEST_RESULT_ID = "rhesis.test.result_id"
-    TEST_ID = "rhesis.test.id"
-    TEST_CONFIGURATION_ID = "rhesis.test.configuration_id"
+    # Test context - use constants from TestContextConstants.SpanAttributes
+    TEST_RUN_ID = TestContextConstants.SpanAttributes.TEST_RUN_ID
+    TEST_RESULT_ID = TestContextConstants.SpanAttributes.TEST_RESULT_ID
+    TEST_ID = TestContextConstants.SpanAttributes.TEST_ID
+    TEST_CONFIGURATION_ID = TestContextConstants.SpanAttributes.TEST_CONFIGURATION_ID
 
 
 def generate_trace_id() -> str:
@@ -75,12 +77,13 @@ def create_endpoint_attributes(
 
     # Add test context attributes if available
     if test_execution_context:
-        attrs[EndpointAttributes.TEST_RUN_ID] = test_execution_context.get("test_run_id")
-        attrs[EndpointAttributes.TEST_RESULT_ID] = test_execution_context.get("test_result_id")
-        attrs[EndpointAttributes.TEST_ID] = test_execution_context.get("test_id")
-        attrs[EndpointAttributes.TEST_CONFIGURATION_ID] = test_execution_context.get(
-            "test_configuration_id"
-        )
+        # Validate and ensure proper types
+        context = TestExecutionContext(**test_execution_context)
+        attrs[EndpointAttributes.TEST_RUN_ID] = str(context.test_run_id)
+        attrs[EndpointAttributes.TEST_ID] = str(context.test_id)
+        attrs[EndpointAttributes.TEST_CONFIGURATION_ID] = str(context.test_configuration_id)
+        if context.test_result_id:
+            attrs[EndpointAttributes.TEST_RESULT_ID] = str(context.test_result_id)
 
     # Add method for REST endpoints
     if hasattr(endpoint, "method") and endpoint.method:

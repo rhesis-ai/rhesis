@@ -8,7 +8,10 @@ from typing import Any, Optional
 
 from opentelemetry import trace
 
+from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
+from rhesis.sdk.telemetry.context import get_test_execution_context
 from rhesis.sdk.telemetry.provider import get_tracer_provider
+from rhesis.sdk.telemetry.schemas import TestExecutionContext
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +65,29 @@ class Tracer:
 
         self.tracer = provider.get_tracer("rhesis.sdk", _get_sdk_version())
 
+    def _set_test_context_attributes(self, span: trace.Span, context: TestExecutionContext) -> None:
+        """
+        Set test execution context as span attributes.
+
+        Uses OpenTelemetry semantic conventions with rhesis.test.* namespace.
+        All UUID values are converted to strings for span attributes.
+
+        Args:
+            span: OpenTelemetry span to annotate
+            context: Test execution context with UUID strings
+        """
+        attrs = TestContextConstants.SpanAttributes
+        fields = TestContextConstants.Fields
+
+        span.set_attribute(attrs.TEST_RUN_ID, context.get(fields.TEST_RUN_ID))
+        span.set_attribute(attrs.TEST_ID, context.get(fields.TEST_ID))
+        span.set_attribute(attrs.TEST_CONFIGURATION_ID, context.get(fields.TEST_CONFIGURATION_ID))
+
+        # test_result_id may be None during execution
+        result_id = context.get(fields.TEST_RESULT_ID)
+        if result_id:
+            span.set_attribute(attrs.TEST_RESULT_ID, result_id)
+
     def trace_execution(
         self,
         function_name: str,
@@ -84,9 +110,10 @@ class Tracer:
         Returns:
             Function result (or wrapped generator)
         """
-        # Extract test execution context if present (from backend test executor)
-        test_context = kwargs.pop("_rhesis_test_context", None)
-        
+        # Read test execution context from context variable (set by executor)
+        # NO LONGER extracted from kwargs - it's not there anymore
+        test_context = get_test_execution_context()
+
         # Determine span name
         final_span_name = span_name or f"function.{function_name}"
 
@@ -102,14 +129,14 @@ class Tracer:
 
             # Inject test execution context as span attributes if present
             if test_context:
-                span.set_attribute("rhesis.test.run_id", test_context.get("test_run_id"))
-                span.set_attribute("rhesis.test.result_id", test_context.get("test_result_id"))
-                span.set_attribute("rhesis.test.id", test_context.get("test_id"))
-                span.set_attribute("rhesis.test.configuration_id", test_context.get("test_configuration_id"))
-                logger.debug(f"Injected test execution context into span: {test_context}")
+                self._set_test_context_attributes(span, test_context)
+                logger.debug(
+                    f"Injected test context into span: "
+                    f"run={test_context.get(TestContextConstants.Fields.TEST_RUN_ID)}"
+                )
 
             try:
-                # Execute function
+                # Execute function (kwargs no longer has _rhesis_test_context)
                 result = func(*args, **kwargs)
 
                 # Handle generator functions

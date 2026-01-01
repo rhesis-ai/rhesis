@@ -8,7 +8,9 @@ from typing import Any, Dict, Optional, Union
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.schemas.test_execution import TestExecutionContext
 from rhesis.backend.logging import logger
 
 from .base import BaseEndpointInvoker
@@ -333,9 +335,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
             # Step 3.5: Add test execution context to kwargs if provided
             if test_execution_context:
-                function_kwargs["_rhesis_test_context"] = test_execution_context
+                # Validate structure and convert string UUIDs if needed
+                context = TestExecutionContext(**test_execution_context)
+                function_kwargs[TestContextConstants.CONTEXT_KEY] = context.model_dump(mode="json")
                 logger.debug(
-                    f"Added test execution context to SDK payload: {test_execution_context}"
+                    f"Injected test execution context: run={context.test_run_id}, test={context.test_id}"
                 )
 
             logger.info(

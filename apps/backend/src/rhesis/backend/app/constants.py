@@ -142,3 +142,25 @@ def categorize_test_result_status(status_name: str) -> str:
         return STATUS_CATEGORY_FAILED
     else:
         return STATUS_CATEGORY_ERROR
+
+
+# Test Execution Context Constants
+class TestExecutionContext:
+    """Constants for test execution context injection."""
+
+    # Key for context in function kwargs dict
+    CONTEXT_KEY = "_rhesis_test_context"
+
+    # Field names in context dict
+    class Fields:
+        TEST_RUN_ID = "test_run_id"
+        TEST_ID = "test_id"
+        TEST_RESULT_ID = "test_result_id"
+        TEST_CONFIGURATION_ID = "test_configuration_id"
+
+    # Span attribute names (OpenTelemetry semantic conventions)
+    class SpanAttributes:
+        TEST_RUN_ID = "rhesis.test.run_id"
+        TEST_ID = "rhesis.test.id"
+        TEST_RESULT_ID = "rhesis.test.result_id"
+        TEST_CONFIGURATION_ID = "rhesis.test.configuration_id"

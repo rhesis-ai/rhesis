@@ -7,6 +7,9 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
+from rhesis.sdk.telemetry.context import set_test_execution_context
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,37 +56,47 @@ class TestExecutor:
         start_time = time.time()
 
         try:
-            # Extract and remove test execution context from inputs
-            # This is injected by backend during test execution but should not
-            # be passed to the function. Used for trace linking by tracing layer.
-            test_context = inputs.pop("_rhesis_test_context", None)
+            # Extract test execution context (internal parameter, not for user function)
+            # Store in context variable so tracer can access it
+            test_context = inputs.pop(TestContextConstants.CONTEXT_KEY, None)
             if test_context:
-                logger.debug(f"Test execution context for {function_name}: {test_context}")
+                logger.debug(
+                    f"Test context for {function_name}: "
+                    f"run={test_context.get(TestContextConstants.Fields.TEST_RUN_ID)}"
+                )
+                set_test_execution_context(test_context)
 
-            # Execute function (sync or async)
-            if asyncio.iscoroutinefunction(func):
-                result = await func(**inputs)
-            else:
-                result = func(**inputs)
+            try:
+                # Execute function (sync or async) WITHOUT _rhesis_test_context
+                if asyncio.iscoroutinefunction(func):
+                    result = await func(**inputs)
+                else:
+                    result = func(**inputs)
 
-            # Handle generators (consume and collect output)
-            result = await self._consume_generator(result)
+                # Handle generators (consume and collect output)
+                result = await self._consume_generator(result)
 
-            # Serialize Pydantic models to dicts
-            result = self._serialize_result(result)
+                # Serialize Pydantic models to dicts
+                result = self._serialize_result(result)
 
-            duration_ms = (time.time() - start_time) * 1000
+                duration_ms = (time.time() - start_time) * 1000
 
-            return {
-                "status": "success",
-                "output": result,
-                "error": None,
-                "duration_ms": duration_ms,
-            }
+                return {
+                    "status": "success",
+                    "output": result,
+                    "error": None,
+                    "duration_ms": duration_ms,
+                }
+
+            finally:
+                # Clear context after execution
+                set_test_execution_context(None)
 
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(f"Error executing function {function_name}: {e}")
+            # Clear context on error too
+            set_test_execution_context(None)
 
             return {
                 "status": "error",

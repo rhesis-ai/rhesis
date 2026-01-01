@@ -8,6 +8,9 @@ from typing import TYPE_CHECKING, Optional
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
+from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
+from rhesis.sdk.telemetry.context import get_test_execution_context
+
 if TYPE_CHECKING:
     from rhesis.sdk.client import Client
 
@@ -97,8 +100,8 @@ class ObserveDecorator:
                             "    client = RhesisClient(api_key='...', project_id='...')\n"
                         )
 
-                    # Extract test execution context (injected by backend during test execution)
-                    test_context = kwargs.pop("_rhesis_test_context", None)
+                    # Test context is now in contextvars, NOT in kwargs
+                    test_context = get_test_execution_context()
 
                     tracer = trace.get_tracer(__name__)
 
@@ -112,17 +115,19 @@ class ObserveDecorator:
 
                         # Inject test execution context as span attributes if present
                         if test_context:
+                            attrs = TestContextConstants.SpanAttributes
+                            fields = TestContextConstants.Fields
                             span.set_attribute(
-                                "rhesis.test.run_id", test_context.get("test_run_id")
+                                attrs.TEST_RUN_ID, test_context.get(fields.TEST_RUN_ID)
                             )
+                            span.set_attribute(attrs.TEST_ID, test_context.get(fields.TEST_ID))
                             span.set_attribute(
-                                "rhesis.test.result_id", test_context.get("test_result_id")
+                                attrs.TEST_CONFIGURATION_ID,
+                                test_context.get(fields.TEST_CONFIGURATION_ID),
                             )
-                            span.set_attribute("rhesis.test.id", test_context.get("test_id"))
-                            span.set_attribute(
-                                "rhesis.test.configuration_id",
-                                test_context.get("test_configuration_id"),
-                            )
+                            result_id = test_context.get(fields.TEST_RESULT_ID)
+                            if result_id:
+                                span.set_attribute(attrs.TEST_RESULT_ID, result_id)
 
                         try:
                             result = await func(*args, **kwargs)
@@ -149,8 +154,8 @@ class ObserveDecorator:
                             "    client = RhesisClient(api_key='...', project_id='...')\n"
                         )
 
-                    # Extract test execution context (injected by backend during test execution)
-                    test_context = kwargs.pop("_rhesis_test_context", None)
+                    # Test context is now in contextvars, NOT in kwargs
+                    test_context = get_test_execution_context()
 
                     tracer = trace.get_tracer(__name__)
 
@@ -164,17 +169,19 @@ class ObserveDecorator:
 
                         # Inject test execution context as span attributes if present
                         if test_context:
+                            attrs = TestContextConstants.SpanAttributes
+                            fields = TestContextConstants.Fields
                             span.set_attribute(
-                                "rhesis.test.run_id", test_context.get("test_run_id")
+                                attrs.TEST_RUN_ID, test_context.get(fields.TEST_RUN_ID)
                             )
+                            span.set_attribute(attrs.TEST_ID, test_context.get(fields.TEST_ID))
                             span.set_attribute(
-                                "rhesis.test.result_id", test_context.get("test_result_id")
+                                attrs.TEST_CONFIGURATION_ID,
+                                test_context.get(fields.TEST_CONFIGURATION_ID),
                             )
-                            span.set_attribute("rhesis.test.id", test_context.get("test_id"))
-                            span.set_attribute(
-                                "rhesis.test.configuration_id",
-                                test_context.get("test_configuration_id"),
-                            )
+                            result_id = test_context.get(fields.TEST_RESULT_ID)
+                            if result_id:
+                                span.set_attribute(attrs.TEST_RESULT_ID, result_id)
 
                         try:
                             # Yield from the generator
@@ -208,8 +215,8 @@ class ObserveDecorator:
                             "    client = RhesisClient(api_key='...', project_id='...')\n"
                         )
 
-                    # Extract test execution context (injected by backend during test execution)
-                    test_context = kwargs.pop("_rhesis_test_context", None)
+                    # Test context is now in contextvars, NOT in kwargs
+                    test_context = get_test_execution_context()
 
                     tracer = trace.get_tracer(__name__)
 
@@ -223,17 +230,19 @@ class ObserveDecorator:
 
                         # Inject test execution context as span attributes if present
                         if test_context:
+                            attrs = TestContextConstants.SpanAttributes
+                            fields = TestContextConstants.Fields
                             span.set_attribute(
-                                "rhesis.test.run_id", test_context.get("test_run_id")
+                                attrs.TEST_RUN_ID, test_context.get(fields.TEST_RUN_ID)
                             )
+                            span.set_attribute(attrs.TEST_ID, test_context.get(fields.TEST_ID))
                             span.set_attribute(
-                                "rhesis.test.result_id", test_context.get("test_result_id")
+                                attrs.TEST_CONFIGURATION_ID,
+                                test_context.get(fields.TEST_CONFIGURATION_ID),
                             )
-                            span.set_attribute("rhesis.test.id", test_context.get("test_id"))
-                            span.set_attribute(
-                                "rhesis.test.configuration_id",
-                                test_context.get("test_configuration_id"),
-                            )
+                            result_id = test_context.get(fields.TEST_RESULT_ID)
+                            if result_id:
+                                span.set_attribute(attrs.TEST_RESULT_ID, result_id)
 
                         try:
                             result = func(*args, **kwargs)

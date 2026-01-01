@@ -3,9 +3,29 @@
 import re
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TypedDict
 
 from pydantic import BaseModel, Field, field_validator
+
+
+class TestExecutionContext(TypedDict, total=False):
+    """
+    Test execution context passed from backend to SDK.
+
+    This context is injected into function kwargs during test execution
+    and extracted by the tracing layer to link spans to test runs.
+
+    All IDs are UUID strings in the standard format:
+    '550e8400-e29b-41d4-a716-446655440000'
+
+    Note: Received as strings (serialized UUIDs) from backend.
+    """
+
+    test_run_id: str  # UUID string
+    test_id: str  # UUID string
+    test_configuration_id: str  # UUID string
+    test_result_id: Optional[str]  # UUID string or None
+
 
 # Semantic Layer Constants
 
