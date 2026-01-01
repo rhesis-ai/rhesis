@@ -102,7 +102,7 @@ class OTELSpan(BaseModel):
     parent_span_id: Optional[str] = Field(None, description="16-char hex parent span ID")
 
     # Rhesis context
-    project_id: str = Field(..., description="Rhesis project ID")
+    project_id: Optional[str] = Field(None, description="Rhesis project ID")
     environment: str = Field("development", description="Environment name")
 
     # Span metadata

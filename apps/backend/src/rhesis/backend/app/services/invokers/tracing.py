@@ -164,7 +164,7 @@ async def create_invocation_trace(
             trace_id=trace_id,
             span_id=span_id,
             parent_span_id=None,
-            project_id=str(endpoint.project_id),
+            project_id=str(endpoint.project_id) if endpoint.project_id else None,
             environment=endpoint.environment or "development",
             span_name=f"function.endpoint_{endpoint.connection_type.lower()}_invoke",
             span_kind=SpanKind.CLIENT,  # Calling external service
@@ -179,14 +179,20 @@ async def create_invocation_trace(
         )
 
         # Store span and trigger enrichment
-        from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
+        # Only create traces if endpoint has a project (database constraint)
+        if endpoint.project_id:
+            from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
 
-        enrichment_service = EnrichmentService(db)
-        stored_spans, _, _ = enrichment_service.create_and_enrich_spans(
-            spans=[otel_span],
-            organization_id=organization_id,
-            project_id=str(endpoint.project_id),
-        )
+            enrichment_service = EnrichmentService(db)
+            stored_spans, _, _ = enrichment_service.create_and_enrich_spans(
+                spans=[otel_span],
+                organization_id=organization_id,
+                project_id=str(endpoint.project_id),
+            )
 
-        if stored_spans:
-            logger.debug(f"Created and enriched invocation trace {stored_spans[0].trace_id}")
+            if stored_spans:
+                logger.debug(f"Created and enriched invocation trace {stored_spans[0].trace_id}")
+        else:
+            logger.debug(
+                f"Skipping trace creation for endpoint without project_id: {endpoint.name}"
+            )
