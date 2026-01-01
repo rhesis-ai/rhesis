@@ -50,3 +50,38 @@ def test_constants_are_strings():
     assert isinstance(TestExecutionContext.CONTEXT_KEY, str)
     assert isinstance(TestExecutionContext.Fields.TEST_RUN_ID, str)
     assert isinstance(TestExecutionContext.SpanAttributes.TEST_RUN_ID, str)
+
+
+def test_backend_and_sdk_constants_match():
+    """Test that backend and SDK constants are synchronized."""
+    # Import SDK constants for comparison
+    from rhesis.sdk.telemetry.constants import (
+        TestExecutionContext as SDKTestContext,
+    )
+
+    # Context key should match
+    assert TestExecutionContext.CONTEXT_KEY == SDKTestContext.CONTEXT_KEY
+
+    # Field names should match
+    assert TestExecutionContext.Fields.TEST_RUN_ID == SDKTestContext.Fields.TEST_RUN_ID
+    assert TestExecutionContext.Fields.TEST_ID == SDKTestContext.Fields.TEST_ID
+    assert TestExecutionContext.Fields.TEST_RESULT_ID == SDKTestContext.Fields.TEST_RESULT_ID
+    assert (
+        TestExecutionContext.Fields.TEST_CONFIGURATION_ID
+        == SDKTestContext.Fields.TEST_CONFIGURATION_ID
+    )
+
+    # Span attributes should match
+    assert (
+        TestExecutionContext.SpanAttributes.TEST_RUN_ID
+        == SDKTestContext.SpanAttributes.TEST_RUN_ID
+    )
+    assert TestExecutionContext.SpanAttributes.TEST_ID == SDKTestContext.SpanAttributes.TEST_ID
+    assert (
+        TestExecutionContext.SpanAttributes.TEST_RESULT_ID
+        == SDKTestContext.SpanAttributes.TEST_RESULT_ID
+    )
+    assert (
+        TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID
+        == SDKTestContext.SpanAttributes.TEST_CONFIGURATION_ID
+    )

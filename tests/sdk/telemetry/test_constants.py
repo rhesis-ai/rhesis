@@ -45,36 +45,3 @@ def test_test_execution_context_span_attribute_names():
     )
 
 
-def test_backend_and_sdk_constants_match():
-    """Test that backend and SDK constants are synchronized."""
-    # Import backend constants for comparison
-    from rhesis.backend.app.constants import (
-        TestExecutionContext as BackendTestContext,
-    )
-
-    # Context key should match
-    assert TestExecutionContext.CONTEXT_KEY == BackendTestContext.CONTEXT_KEY
-
-    # Field names should match
-    assert TestExecutionContext.Fields.TEST_RUN_ID == BackendTestContext.Fields.TEST_RUN_ID
-    assert TestExecutionContext.Fields.TEST_ID == BackendTestContext.Fields.TEST_ID
-    assert TestExecutionContext.Fields.TEST_RESULT_ID == BackendTestContext.Fields.TEST_RESULT_ID
-    assert (
-        TestExecutionContext.Fields.TEST_CONFIGURATION_ID
-        == BackendTestContext.Fields.TEST_CONFIGURATION_ID
-    )
-
-    # Span attributes should match
-    assert (
-        TestExecutionContext.SpanAttributes.TEST_RUN_ID
-        == BackendTestContext.SpanAttributes.TEST_RUN_ID
-    )
-    assert TestExecutionContext.SpanAttributes.TEST_ID == BackendTestContext.SpanAttributes.TEST_ID
-    assert (
-        TestExecutionContext.SpanAttributes.TEST_RESULT_ID
-        == BackendTestContext.SpanAttributes.TEST_RESULT_ID
-    )
-    assert (
-        TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID
-        == BackendTestContext.SpanAttributes.TEST_CONFIGURATION_ID
-    )
