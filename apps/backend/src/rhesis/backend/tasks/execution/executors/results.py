@@ -174,28 +174,44 @@ def create_test_result_record(
             user_id=user_id,
         )
         result_id = result.id if hasattr(result, "id") else None
-        logger.debug(f"Successfully created test result with ID: {result_id}")
+        logger.info(
+            f"[TEST_RESULT] Successfully created test result with ID: {result_id} "
+            f"for test_id={test_id}, test_run_id={test_run_id}, "
+            f"test_config_id={test_config_id}"
+        )
 
         # Link traces to this test result
         if result_id:
+            logger.info(
+                f"[TEST_RESULT] Attempting to link traces to test_result_id={result_id}"
+            )
             try:
                 updated_count = crud.update_traces_with_test_result_id(
-                    db,
+                    db=db,
                     test_run_id=test_run_id,
                     test_id=test_id,
                     test_configuration_id=test_config_id,
-                    test_result_id=result_id,
+                    test_result_id=str(result_id),
+                    organization_id=organization_id,
                 )
-                logger.info(f"Linked {updated_count} trace span(s) to test_result_id {result_id}")
+                logger.info(
+                    f"[TEST_RESULT] Trace linking complete: {updated_count} traces linked to test_result_id={result_id}"
+                )
             except Exception as trace_error:
                 # Don't fail test result creation if trace linking fails
                 logger.error(
-                    f"Failed to link traces to test result {result_id}: {trace_error}",
+                    f"[TEST_RESULT] Failed to link traces to test result {result_id}: {trace_error}",
                     exc_info=True,
                 )
+        else:
+            logger.warning(
+                f"[TEST_RESULT] No result_id returned from create_test_result, skipping trace linking"
+            )
 
         return result_id
 
     except Exception as e:
-        logger.error(f"Failed to create test result: {str(e)}")
+        logger.error(
+            f"[TEST_RESULT] Failed to create test result: {str(e)}", exc_info=True
+        )
         raise
