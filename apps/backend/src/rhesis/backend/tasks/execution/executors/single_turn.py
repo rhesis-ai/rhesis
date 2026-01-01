@@ -102,8 +102,8 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 test_execution_context=test_execution_context,
             )
 
-            # Persist to database
-            create_test_result_record(
+            # Persist to database and link traces
+            test_result_id = create_test_result_record(
                 db=db,
                 test=test,
                 test_config_id=test_config_id,
@@ -120,6 +120,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
             logger.debug(f"Test execution completed: {test_id}")
             return {
                 "test_id": test_id,
+                "test_result_id": str(test_result_id),
                 "execution_time": execution_time,
                 "metrics": metrics_results,
             }

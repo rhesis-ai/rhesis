@@ -101,8 +101,8 @@ class MultiTurnTestExecutor(BaseTestExecutor):
                 test_execution_context=test_execution_context,
             )
 
-            # Store result
-            create_test_result_record(
+            # Store result and link traces
+            test_result_id = create_test_result_record(
                 db=db,
                 test=test,
                 test_config_id=test_config_id,
@@ -118,6 +118,7 @@ class MultiTurnTestExecutor(BaseTestExecutor):
             # Return execution summary
             result_summary = {
                 "test_id": test_id,
+                "test_result_id": str(test_result_id),
                 "execution_time": execution_time,
                 "metrics": metrics_results,
             }

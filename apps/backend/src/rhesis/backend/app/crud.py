@@ -3176,13 +3176,17 @@ def create_trace_spans(
 
         # Convert to UUID if present, otherwise None
         from uuid import UUID
+
         try:
             test_run_id_uuid = UUID(test_run_id) if test_run_id else None
             test_result_id_uuid = UUID(test_result_id) if test_result_id else None
             test_id_uuid = UUID(test_id) if test_id else None
         except (ValueError, TypeError):
             # Invalid UUID format - log warning and set to None
-            logger.warning(f"Invalid UUID in test context: run={test_run_id}, result={test_result_id}, test={test_id}")
+            logger.warning(
+                f"Invalid UUID in test context: run={test_run_id}, "
+                f"result={test_result_id}, test={test_id}"
+            )
             test_run_id_uuid = None
             test_result_id_uuid = None
             test_id_uuid = None
@@ -3318,7 +3322,7 @@ def query_traces(
         List of Trace models matching filters
     """
     from uuid import UUID
-    
+
     query = db.query(models.Trace).filter(models.Trace.project_id == project_id)
 
     if environment:
@@ -3341,10 +3345,10 @@ def query_traces(
     # Test execution filters
     if test_run_id:
         query = query.filter(models.Trace.test_run_id == UUID(test_run_id))
-    
+
     if test_result_id:
         query = query.filter(models.Trace.test_result_id == UUID(test_result_id))
-    
+
     if test_id:
         query = query.filter(models.Trace.test_id == UUID(test_id))
 
@@ -3408,6 +3412,64 @@ def mark_trace_processed(
     return result
 
 
+def update_traces_with_test_result_id(
+    db: Session,
+    test_run_id: str,
+    test_id: str,
+    test_configuration_id: str,
+    test_result_id: str,
+    organization_id: str,
+) -> int:
+    """
+    Update test_result_id for all traces matching the test execution context.
+
+    This links traces to their test result record after the test completes.
+    Works for all trace sources:
+    - SDK automatic tracing (spans sent from client)
+    - REST/WebSocket manual tracing (spans created by backend)
+
+    Args:
+        db: Database session
+        test_run_id: Test run UUID string
+        test_id: Test UUID string
+        test_configuration_id: Test configuration UUID string
+        test_result_id: Test result UUID string to set
+        organization_id: Organization UUID string for multi-tenancy
+
+    Returns:
+        Number of spans updated
+    """
+    # Convert string UUIDs to UUID objects
+    test_run_uuid = uuid.UUID(test_run_id)
+    test_id_uuid = uuid.UUID(test_id)
+    test_config_uuid = uuid.UUID(test_configuration_id)
+    test_result_uuid = uuid.UUID(test_result_id)
+    org_uuid = uuid.UUID(organization_id)
+
+    result = (
+        db.query(models.Trace)
+        .filter(
+            models.Trace.test_run_id == test_run_uuid,
+            models.Trace.test_id == test_id_uuid,
+            models.Trace.organization_id == org_uuid,
+            # Also check attributes for test_configuration_id since it's stored there
+            models.Trace.attributes["rhesis.test.configuration_id"].astext == str(test_config_uuid),
+            # Only update if test_result_id is NULL (idempotent)
+            models.Trace.test_result_id.is_(None),
+        )
+        .update(
+            {
+                "test_result_id": test_result_uuid,
+                "updated_at": datetime.utcnow(),
+            },
+            synchronize_session=False,  # More efficient for bulk updates
+        )
+    )
+
+    db.commit()
+    return result
+
+
 def count_traces(
     db: Session,
     project_id: str,
@@ -3433,7 +3495,7 @@ def count_traces(
         Count of matching traces
     """
     from uuid import UUID
-    
+
     query = db.query(func.count(models.Trace.id)).filter(models.Trace.project_id == project_id)
 
     if start_time_after:
@@ -3445,10 +3507,10 @@ def count_traces(
     # Test execution filters
     if test_run_id:
         query = query.filter(models.Trace.test_run_id == UUID(test_run_id))
-    
+
     if test_result_id:
         query = query.filter(models.Trace.test_result_id == UUID(test_result_id))
-    
+
     if test_id:
         query = query.filter(models.Trace.test_id == UUID(test_id))
 

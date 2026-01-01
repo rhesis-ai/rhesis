@@ -127,8 +127,16 @@ def create_test_result_record(
     execution_time: float,
     metrics_results: Dict,
     processed_result: Dict,
-) -> None:
-    """Create and store test result record in database."""
+) -> UUID:
+    """
+    Create and store test result record in database.
+
+    After creating the test result, this function automatically links
+    any traces from the test execution to the new test result record.
+
+    Returns:
+        UUID of the created test result
+    """
     # Determine status based on metrics evaluation
     if not metrics_results or len(metrics_results) == 0:
         # No metrics to evaluate - mark as ERROR
@@ -165,8 +173,29 @@ def create_test_result_record(
             organization_id=organization_id,
             user_id=user_id,
         )
-        result_id = result.id if hasattr(result, "id") else "UNKNOWN"
+        result_id = result.id if hasattr(result, "id") else None
         logger.debug(f"Successfully created test result with ID: {result_id}")
+
+        # Link traces to this test result
+        if result_id:
+            try:
+                updated_count = crud.update_traces_with_test_result_id(
+                    db,
+                    test_run_id=test_run_id,
+                    test_id=test_id,
+                    test_configuration_id=test_config_id,
+                    test_result_id=result_id,
+                )
+                logger.info(f"Linked {updated_count} trace span(s) to test_result_id {result_id}")
+            except Exception as trace_error:
+                # Don't fail test result creation if trace linking fails
+                logger.error(
+                    f"Failed to link traces to test result {result_id}: {trace_error}",
+                    exc_info=True,
+                )
+
+        return result_id
+
     except Exception as e:
         logger.error(f"Failed to create test result: {str(e)}")
         raise
