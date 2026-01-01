@@ -13,6 +13,7 @@ from sqlalchemy import and_, desc, func, text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
+from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
@@ -3459,7 +3460,10 @@ def update_traces_with_test_result_id(
             models.Trace.test_run_id == test_run_uuid,
             models.Trace.test_id == test_id_uuid,
             models.Trace.organization_id == org_uuid,
-            models.Trace.attributes["rhesis.test.configuration_id"].astext == str(test_config_uuid),
+            models.Trace.attributes[
+                TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID
+            ].astext
+            == str(test_config_uuid),
             models.Trace.test_result_id.is_(None),
         )
         .all()
@@ -3484,7 +3488,8 @@ def update_traces_with_test_result_id(
         )
         if len(all_traces_for_run) > 0:
             logger.debug(
-                f"[TRACE_LINKING] Sample trace from run - test_id: {all_traces_for_run[0].test_id}, "
+                f"[TRACE_LINKING] Sample trace from run - "
+                f"test_id: {all_traces_for_run[0].test_id}, "
                 f"test_result_id: {all_traces_for_run[0].test_result_id}, "
                 f"attributes: {all_traces_for_run[0].attributes}"
             )
@@ -3496,7 +3501,10 @@ def update_traces_with_test_result_id(
             models.Trace.test_id == test_id_uuid,
             models.Trace.organization_id == org_uuid,
             # Also check attributes for test_configuration_id since it's stored there
-            models.Trace.attributes["rhesis.test.configuration_id"].astext == str(test_config_uuid),
+            models.Trace.attributes[
+                TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID
+            ].astext
+            == str(test_config_uuid),
             # Only update if test_result_id is NULL (idempotent)
             models.Trace.test_result_id.is_(None),
         )
