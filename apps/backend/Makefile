@@ -4,7 +4,7 @@ all: format_diff lint_diff type-check test docs
 
 
 ALL_FILES := .
-DIFF_FILES := $(shell git diff --relative=apps/backend --name-only --diff-filter=d main... | grep -E '\.py')
+DIFF_FILES := $(shell git diff --relative=apps/backend --name-only --diff-filter=d origin/main...HEAD | grep -E '\.py')
 
 
 lint:

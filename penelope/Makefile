@@ -3,7 +3,7 @@
 all: format_diff lint_diff type-check test
 
 ALL_FILES := .
-DIFF_FILES := $(shell git diff --relative=penelope --name-only --diff-filter=d main... 2>/dev/null | grep -E '\.py' || true)
+DIFF_FILES := $(shell git diff --relative=penelope --name-only --diff-filter=d origin/main...HEAD 2>/dev/null | grep -E '\.py' || true)
 
 lint:
 	uvx ruff check $(ALL_FILES)
