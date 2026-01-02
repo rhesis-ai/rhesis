@@ -31,7 +31,7 @@ class TestUpdateTracesWithTestResultId:
         """Create a test endpoint."""
         endpoint = models.Endpoint(
             name="Test Endpoint",
-            connection_type="rest",
+            connection_type="REST",
             url="https://api.example.com",
             endpoint_path="/test",
             project_id=test_project.id,

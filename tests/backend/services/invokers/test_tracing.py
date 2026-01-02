@@ -55,7 +55,7 @@ def test_create_endpoint_attributes():
     endpoint = MagicMock(spec=Endpoint)
     endpoint.id = uuid4()
     endpoint.name = "test-endpoint"
-    endpoint.connection_type = "rest"
+    endpoint.connection_type = "REST"
     endpoint.url = "https://api.example.com"
     endpoint.method = "POST"
 
@@ -71,7 +71,7 @@ def test_create_endpoint_attributes():
     # Verify endpoint attributes
     assert attrs[EndpointAttributes.ENDPOINT_ID] == str(endpoint.id)
     assert attrs[EndpointAttributes.ENDPOINT_NAME] == "test-endpoint"
-    assert attrs[EndpointAttributes.ENDPOINT_TYPE] == "rest"
+    assert attrs[EndpointAttributes.ENDPOINT_TYPE] == "REST"
     assert attrs[EndpointAttributes.ENDPOINT_URL] == "https://api.example.com"
     assert attrs[EndpointAttributes.ENDPOINT_METHOD] == "POST"
 
@@ -87,7 +87,7 @@ def test_create_endpoint_attributes_with_extra_kwargs():
     endpoint = MagicMock(spec=Endpoint)
     endpoint.id = uuid4()
     endpoint.name = "test-endpoint"
-    endpoint.connection_type = "rest"
+    endpoint.connection_type = "REST"
     endpoint.url = "https://api.example.com"
 
     test_context = {
@@ -114,7 +114,7 @@ async def test_create_invocation_trace_success():
     endpoint = MagicMock(spec=Endpoint)
     endpoint.id = uuid4()
     endpoint.name = "test-endpoint"
-    endpoint.connection_type = "rest"
+    endpoint.connection_type = "REST"
     endpoint.url = "https://api.example.com"
     endpoint.project_id = uuid4()
     endpoint.environment = "development"
@@ -190,7 +190,7 @@ async def test_create_invocation_trace_error():
     endpoint = MagicMock(spec=Endpoint)
     endpoint.id = uuid4()
     endpoint.name = "test-endpoint"
-    endpoint.connection_type = "rest"
+    endpoint.connection_type = "REST"
     endpoint.url = "https://api.example.com"
     endpoint.project_id = uuid4()
     endpoint.environment = "production"
@@ -242,7 +242,7 @@ async def test_create_invocation_trace_without_test_context():
     endpoint = MagicMock(spec=Endpoint)
     endpoint.id = uuid4()
     endpoint.name = "production-endpoint"
-    endpoint.connection_type = "rest"
+    endpoint.connection_type = "REST"
     endpoint.url = "https://api.example.com"
     endpoint.project_id = uuid4()
     endpoint.environment = "production"
@@ -298,7 +298,7 @@ async def test_create_invocation_trace_output_truncation():
     endpoint = MagicMock(spec=Endpoint)
     endpoint.id = uuid4()
     endpoint.name = "test-endpoint"
-    endpoint.connection_type = "rest"
+    endpoint.connection_type = "REST"
     endpoint.url = "https://api.example.com"
     endpoint.project_id = uuid4()
     endpoint.environment = "development"
