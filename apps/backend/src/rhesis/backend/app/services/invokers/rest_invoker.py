@@ -39,15 +39,15 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         self.response_mapper = ResponseMapper()
 
     async def invoke(
-        self, 
-        db: Session, 
-        endpoint: Endpoint, 
+        self,
+        db: Session,
+        endpoint: Endpoint,
         input_data: Dict[str, Any],
-        test_execution_context: Optional[Dict[str, str]] = None
+        test_execution_context: Optional[Dict[str, str]] = None,
     ) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Invoke the REST endpoint with proper authentication.
-        
+
         Args:
             db: Database session
             endpoint: The endpoint to invoke

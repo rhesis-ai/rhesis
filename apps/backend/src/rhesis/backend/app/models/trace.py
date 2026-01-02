@@ -40,8 +40,12 @@ class Trace(Base, TagsMixin, CommentsMixin):
     environment = Column(String(50), nullable=False, index=True)
 
     # Test execution context (nullable - only set for test execution traces)
-    test_run_id = Column(GUID(), ForeignKey("test_run.id", ondelete="SET NULL"), nullable=True, index=True)
-    test_result_id = Column(GUID(), ForeignKey("test_result.id", ondelete="SET NULL"), nullable=True, index=True)
+    test_run_id = Column(
+        GUID(), ForeignKey("test_run.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    test_result_id = Column(
+        GUID(), ForeignKey("test_result.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     test_id = Column(GUID(), ForeignKey("test.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Span metadata
