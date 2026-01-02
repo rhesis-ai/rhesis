@@ -205,6 +205,94 @@ class TestTraceListEndpoint:
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
+    def test_list_traces_pagination_total_with_filters(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """
+        Test that pagination total count respects filters.
+
+        This test verifies the fix for the issue where count_traces was missing
+        environment, span_name, and status_code filters, causing incorrect total
+        counts when those filters were applied.
+        """
+        # Create traces with different characteristics
+        # 3 development + 3 production traces
+        for i in range(3):
+            dev_span = TraceDataFactory.sample_data(project_id=str(db_project.id))
+            dev_span["environment"] = "development"
+            dev_span["span_name"] = "ai.llm.invoke"
+            dev_span["status_code"] = "OK"
+
+            prod_span = TraceDataFactory.sample_data(project_id=str(db_project.id))
+            prod_span["environment"] = "production"
+            prod_span["span_name"] = "ai.tool.invoke"
+            prod_span["status_code"] = "ERROR"
+
+            for span_data in [dev_span, prod_span]:
+                trace_batch = {"spans": [span_data]}
+                authenticated_client.post("/telemetry/traces", json=trace_batch)
+
+        # Test 1: Filter by environment only
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&environment=development&limit=2"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Total should only count development traces (3)
+        dev_count = data["total"]
+        assert dev_count >= 3
+        # Should only get development traces in results
+        for trace in data["traces"]:
+            assert trace["environment"] == "development"
+
+        # Test 2: Filter by span_name only
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&span_name=ai.llm.invoke&limit=2"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Total should only count LLM invocations (3)
+        llm_count = data["total"]
+        assert llm_count >= 3
+        for trace in data["traces"]:
+            assert trace["root_operation"] == "ai.llm.invoke"
+
+        # Test 3: Filter by status_code only
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&status_code=ERROR&limit=2"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Total should only count error traces (3)
+        error_count = data["total"]
+        assert error_count >= 3
+        for trace in data["traces"]:
+            assert trace["status_code"] == "ERROR"
+
+        # Test 4: Combine multiple filters
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}"
+            f"&environment=production&span_name=ai.tool.invoke&status_code=ERROR&limit=2"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Total should only count production tool invocations with errors (3)
+        combined_count = data["total"]
+        assert combined_count >= 3
+        for trace in data["traces"]:
+            assert trace["environment"] == "production"
+            assert trace["root_operation"] == "ai.tool.invoke"
+            assert trace["status_code"] == "ERROR"
+
+        # Verify counts are different (filters are working)
+        # Without filters, total would be 6+
+        # With filters, we should see exactly 3 each
+        assert combined_count < dev_count + error_count
+
     def test_list_traces_response_structure(self, authenticated_client: TestClient, db_project):
         """Test that trace list response has correct structure"""
         # Create a trace with enriched data

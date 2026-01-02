@@ -3529,6 +3529,9 @@ def update_traces_with_test_result_id(
 def count_traces(
     db: Session,
     project_id: str,
+    environment: Optional[str] = None,
+    span_name: Optional[str] = None,
+    status_code: Optional[Union[str, "StatusCode"]] = None,
     start_time_after: Optional[datetime] = None,
     start_time_before: Optional[datetime] = None,
     test_run_id: Optional[str] = None,
@@ -3541,6 +3544,9 @@ def count_traces(
     Args:
         db: Database session
         project_id: Project ID
+        environment: Filter by environment (optional)
+        span_name: Filter by span name (optional)
+        status_code: Filter by status code (StatusCode enum or string)
         start_time_after: Filter by start time >= (optional)
         start_time_before: Filter by start time <= (optional)
         test_run_id: Filter by test run ID (optional)
@@ -3553,6 +3559,17 @@ def count_traces(
     from uuid import UUID
 
     query = db.query(func.count(models.Trace.id)).filter(models.Trace.project_id == project_id)
+
+    if environment:
+        query = query.filter(models.Trace.environment == environment)
+
+    if span_name:
+        query = query.filter(models.Trace.span_name == span_name)
+
+    if status_code:
+        # Convert enum to value if needed
+        status_value = status_code.value if isinstance(status_code, Enum) else status_code
+        query = query.filter(models.Trace.status_code == status_value)
 
     if start_time_after:
         query = query.filter(models.Trace.start_time >= start_time_after)

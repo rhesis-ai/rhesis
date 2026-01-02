@@ -195,12 +195,18 @@ async def list_traces(
         offset=offset,
     )
 
-    # Get total count for pagination
+    # Get total count for pagination (with same filters as query)
     total = crud.count_traces(
         db=db,
         project_id=project_id,
+        environment=environment,
+        span_name=span_name,
+        status_code=status_code,
         start_time_after=start_time_after,
         start_time_before=start_time_before,
+        test_run_id=test_run_id,
+        test_result_id=test_result_id,
+        test_id=test_id,
     )
 
     # Convert to summaries
