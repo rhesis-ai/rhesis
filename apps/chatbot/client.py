@@ -6,7 +6,9 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
-from endpoint import generate_context, stream_assistant_response
+# Import endpoint module first to initialize RhesisClient
+# This ensures only ONE tracer provider exists (critical for proper trace nesting)
+import endpoint as endpoint_module
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from notifications import send_rate_limit_alert
@@ -347,13 +349,17 @@ def chat(
     Returns:
         ChatResponse with message, session_id, context, use_case
     """
-    # Generate context
-    context_fragments = generate_context(message, use_case=use_case)
+    # Create single ResponseGenerator instance to avoid duplicate instantiation
+    # This ensures proper trace nesting - all operations under one trace
+    response_generator = endpoint_module.get_response_generator(use_case)
 
-    # Get assistant response
+    # Generate context using the instance
+    context_fragments = response_generator.generate_context(message)
+
+    # Get assistant response using the same instance
     response_text = "".join(
-        stream_assistant_response(
-            message, use_case=use_case, conversation_history=conversation_history
+        response_generator.stream_assistant_response(
+            message, conversation_history=conversation_history
         )
     )
 
@@ -428,7 +434,7 @@ async def chat_endpoint(
         # Get conversation history before adding the new message
         conversation_history = sessions[session_id].messages.copy()
 
-        # Call the collaborative function
+        # Call the endpoint function
         result = chat(
             message=chat_request.message,
             session_id=session_id,

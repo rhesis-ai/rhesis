@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Initialize Rhesis Client for collaborative testing
+# Initialize Rhesis Client for remote endpoint testing
 rhesis_client = RhesisClient(
     api_key=os.getenv("RHESIS_API_KEY"),
     project_id=os.getenv("RHESIS_PROJECT_ID"),
@@ -53,7 +53,6 @@ class ResponseGenerator:
         self.use_case = use_case
         self.use_case_system_prompt = self._load_system_prompt()
 
-    @observe()
     def _load_system_prompt(self) -> str:
         """Load system prompt from the corresponding .md file in use_cases folder."""
         try:
@@ -312,7 +311,7 @@ def stream_assistant_response(
             [{"role": "user/assistant", "content": "..."}]
     """
     logger.info("=" * 80)
-    logger.info("🔵 COLLABORATIVE TEST EXECUTION STARTED")
+    logger.info("🔵 REMOTE TEST EXECUTION STARTED")
     logger.info(f"Prompt: {prompt}")
     logger.info(f"Use case: {use_case}")
     logger.info(f"Conversation history: {conversation_history}")
@@ -343,7 +342,7 @@ def stream_assistant_response(
         logger.info("=" * 80)
 
     except Exception as e:
-        logger.error(f"❌ Error during collaborative test execution: {e}")
+        logger.error(f"❌ Error during remote test execution: {e}")
         logger.error(f"Error type: {type(e).__name__}")
         import traceback
 
