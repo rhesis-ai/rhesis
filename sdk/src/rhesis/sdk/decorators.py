@@ -159,10 +159,17 @@ class ObserveDecorator:
 
                     tracer = trace.get_tracer(__name__)
 
-                    with tracer.start_as_current_span(
-                        name=final_span_name,
-                        kind=SpanKind.INTERNAL,
-                    ) as span:
+                    # Create span and keep context active during generator consumption
+                    span = tracer.start_span(name=final_span_name, kind=SpanKind.INTERNAL)
+
+                    # Import context module for explicit context management
+                    from opentelemetry import context as otel_context
+
+                    # Make this span the active span using OpenTelemetry's trace API
+                    # This ensures child spans created by @observe() see this as their parent
+                    token = otel_context.attach(trace.set_span_in_context(span))
+
+                    try:
                         span.set_attribute("function.name", func_name)
                         for key, value in attributes.items():
                             span.set_attribute(key, value)
@@ -183,21 +190,26 @@ class ObserveDecorator:
                             if result_id:
                                 span.set_attribute(attrs.TEST_RESULT_ID, result_id)
 
-                        try:
-                            # Yield from the generator
-                            generator = func(*args, **kwargs)
-                            chunk_count = 0
-                            for item in generator:
-                                chunk_count += 1
-                                yield item
+                        # Yield from the generator while keeping span context active
+                        generator = func(*args, **kwargs)
+                        chunk_count = 0
+                        for item in generator:
+                            chunk_count += 1
+                            yield item
 
-                            # Generator completed successfully
-                            span.set_attribute("generator.chunks", chunk_count)
-                            span.set_status(Status(StatusCode.OK))
-                        except Exception as e:
-                            span.set_status(Status(StatusCode.ERROR, str(e)))
-                            span.record_exception(e)
-                            raise
+                        # Generator completed successfully
+                        span.set_attribute("generator.chunks", chunk_count)
+                        span.set_status(Status(StatusCode.OK))
+
+                    except Exception as e:
+                        span.set_status(Status(StatusCode.ERROR, str(e)))
+                        span.record_exception(e)
+                        raise
+
+                    finally:
+                        # End span and detach context after generator is fully consumed
+                        span.end()
+                        otel_context.detach(token)
 
                 return generator_wrapper
 
@@ -922,18 +934,25 @@ def endpoint(
         if response_mapping:
             enriched_metadata["response_mapping"] = response_mapping
 
-        # Lazy connector initialization happens here
-        _default_client.register_collaborative_function(func_name, func, enriched_metadata)
-
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Conditionally trace based on observe parameter
-            if observe and _default_client._connector_manager:
+            # Skip tracing if observe=False
+            if not observe:
+                return func(*args, **kwargs)
+
+            # Trace using connector manager if available (remote test execution)
+            if _default_client._connector_manager:
                 return _default_client._connector_manager.trace_execution(
                     func_name, func, args, kwargs, span_name
                 )
-            # Execute without tracing if observe=False or no connector manager
-            return func(*args, **kwargs)
+
+            # Otherwise trace directly using client's tracer (direct HTTP calls)
+            # This ensures @endpoint functions are always traced, creating a root span
+            # for child @observe() decorated functions to nest under
+            return _default_client._tracer.trace_execution(func_name, func, args, kwargs, span_name)
+
+        # Register the WRAPPER (not the original func) so remote test execution uses traced version
+        _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
 
         return wrapper
 

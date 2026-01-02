@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConnectorManager:
-    """Manages WebSocket connection and function registry for collaborative testing."""
+    """Manages WebSocket connection and function registry for remote endpoint testing."""
 
     def __init__(
         self,

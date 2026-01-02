@@ -168,6 +168,9 @@ class Tracer:
         """
         Wrap a generator to capture output for tracing.
 
+        Ensures span context remains active during generator consumption
+        so nested @observe() decorated methods create child spans, not new traces.
+
         Args:
             span: Active OTEL span
             function_name: Name of the function
@@ -176,7 +179,14 @@ class Tracer:
         Yields:
             Items from the original generator
         """
+        from opentelemetry import context
+
         collected_output = []
+
+        # Attach span context so it remains active during generator consumption
+        # This ensures nested @observe() calls see this span as parent
+        # Using trace.set_span_in_context() is the correct OpenTelemetry API
+        token = context.attach(trace.set_span_in_context(span))
 
         try:
             for item in generator:
@@ -192,3 +202,7 @@ class Tracer:
             span.set_status(trace.Status(trace.StatusCode.ERROR, description=str(e)))
             span.record_exception(e)
             raise
+
+        finally:
+            # Detach context after generator is fully consumed
+            context.detach(token)

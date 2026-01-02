@@ -61,7 +61,7 @@ class Client:
                     module level variable or environment variable.
             base_url: Optional base URL. If not provided, will try to get it from
                      module level variable or environment variable.
-            project_id: Optional project ID for collaborative testing. If not provided,
+            project_id: Optional project ID for remote endpoint testing. If not provided,
                        will try to get from RHESIS_PROJECT_ID environment variable.
             environment: Optional environment name. If not provided, will try to get
                         from RHESIS_ENVIRONMENT environment variable (default: "development").
@@ -84,6 +84,9 @@ class Client:
         # Initialize OpenTelemetry tracer provider for @observe decorator
         # This must happen even if @collaborate is never used
         self._init_telemetry()
+
+        # Create tracer instance for direct tracing (when connector manager not active)
+        self._init_tracer()
 
         # Automatically register as default client (transparent)
         self._register_as_default()
@@ -187,6 +190,22 @@ class Client:
                 f"Check your API key, base URL, and backend connectivity."
             ) from e
 
+    def _init_tracer(self) -> None:
+        """
+        Initialize Tracer instance for direct tracing.
+
+        This allows @endpoint decorated functions to be traced even when
+        the connector manager is not active (e.g., direct HTTP calls).
+        """
+        from rhesis.sdk.telemetry import Tracer
+
+        self._tracer = Tracer(
+            api_key=self.api_key,
+            project_id=self.project_id or "unknown",
+            environment=self.environment,
+            base_url=self._base_url,
+        )
+
     def _register_as_default(self) -> None:
         """Register this client as the default for decorators."""
         # Import here to avoid circular dependency
@@ -213,12 +232,12 @@ class Client:
             self._connector_manager.initialize()
         return self._connector_manager
 
-    def register_collaborative_function(self, name: str, func, metadata: dict) -> None:
+    def register_endpoint(self, name: str, func, metadata: dict) -> None:
         """
-        Register a function for remote triggering.
+        Register a function as a remotely callable endpoint.
 
         Args:
-            name: Function name
+            name: Endpoint function name
             func: Function callable
             metadata: Additional metadata
         """
