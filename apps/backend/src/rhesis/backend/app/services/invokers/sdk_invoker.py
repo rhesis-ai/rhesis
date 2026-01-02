@@ -339,7 +339,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 context = TestExecutionContext(**test_execution_context)
                 function_kwargs[TestContextConstants.CONTEXT_KEY] = context.model_dump(mode="json")
                 logger.debug(
-                    f"Injected test execution context: run={context.test_run_id}, test={context.test_id}"
+                    f"Injected test execution context: "
+                    f"run={context.test_run_id}, test={context.test_id}"
                 )
 
             logger.info(

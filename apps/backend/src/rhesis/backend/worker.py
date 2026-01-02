@@ -1,3 +1,4 @@
+import logging
 import os
 
 from celery import Celery
@@ -105,8 +106,6 @@ app.conf.update(
 app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)
 
 # Configure logging to reduce verbosity
-import logging
-
 # Suppress verbose Celery task result logging
 logging.getLogger("celery.task").setLevel(logging.WARNING)
 logging.getLogger("celery.worker").setLevel(logging.WARNING)
