@@ -98,6 +98,29 @@ async def ingest_trace(
             f"(async: {async_count}, sync: {sync_count})"
         )
 
+        # Try to link traces if they belong to a test execution
+        if stored_spans:
+            from rhesis.backend.app.services.telemetry.linking_service import (
+                TraceLinkingService,
+            )
+
+            linking_service = TraceLinkingService(db)
+            try:
+                linked_count = linking_service.link_traces_for_incoming_batch(
+                    spans=stored_spans,
+                    organization_id=organization_id,
+                )
+                if linked_count > 0:
+                    logger.info(
+                        f"Linked {linked_count} traces to test result for trace_id={trace_id}"
+                    )
+            except Exception as link_error:
+                # Don't fail ingestion if linking fails
+                logger.warning(
+                    f"Failed to link traces for trace_id={trace_id}: {link_error}",
+                    exc_info=True,
+                )
+
         return TraceResponse(
             status="received",
             span_count=len(stored_spans),

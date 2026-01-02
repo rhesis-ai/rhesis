@@ -182,12 +182,14 @@ def create_test_result_record(
 
         # Link traces to this test result
         if result_id:
-            logger.info(
-                f"[TEST_RESULT] Attempting to link traces to test_result_id={result_id}"
-            )
+            logger.info(f"[TEST_RESULT] Attempting to link traces to test_result_id={result_id}")
             try:
-                updated_count = crud.update_traces_with_test_result_id(
-                    db=db,
+                from rhesis.backend.app.services.telemetry.linking_service import (
+                    TraceLinkingService,
+                )
+
+                linking_service = TraceLinkingService(db)
+                updated_count = linking_service.link_traces_for_test_result(
                     test_run_id=test_run_id,
                     test_id=test_id,
                     test_configuration_id=test_config_id,
@@ -195,23 +197,24 @@ def create_test_result_record(
                     organization_id=organization_id,
                 )
                 logger.info(
-                    f"[TEST_RESULT] Trace linking complete: {updated_count} traces linked to test_result_id={result_id}"
+                    f"[TEST_RESULT] Trace linking complete: {updated_count} traces "
+                    f"linked to test_result_id={result_id}"
                 )
             except Exception as trace_error:
                 # Don't fail test result creation if trace linking fails
                 logger.error(
-                    f"[TEST_RESULT] Failed to link traces to test result {result_id}: {trace_error}",
+                    f"[TEST_RESULT] Failed to link traces to test result "
+                    f"{result_id}: {trace_error}",
                     exc_info=True,
                 )
         else:
             logger.warning(
-                f"[TEST_RESULT] No result_id returned from create_test_result, skipping trace linking"
+                "[TEST_RESULT] No result_id returned from create_test_result, "
+                "skipping trace linking"
             )
 
         return result_id
 
     except Exception as e:
-        logger.error(
-            f"[TEST_RESULT] Failed to create test result: {str(e)}", exc_info=True
-        )
+        logger.error(f"[TEST_RESULT] Failed to create test result: {str(e)}", exc_info=True)
         raise
