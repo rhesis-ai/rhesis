@@ -393,15 +393,18 @@ class TestConvenienceDecorators:
         assert callable(async_generate)
 
     @patch("rhesis.sdk.decorators._default_client", MagicMock())
+    @patch("rhesis.sdk.decorators.trace.set_span_in_context")
     @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_convenience_decorators_support_generator_functions(self, mock_get_tracer):
+    def test_convenience_decorators_support_generator_functions(
+        self, mock_get_tracer, mock_set_span_in_context
+    ):
         """Test convenience decorators work with generator functions."""
         # Setup mock tracer
         mock_tracer = MagicMock()
         mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
+        mock_tracer.start_span.return_value = mock_span
         mock_get_tracer.return_value = mock_tracer
+        mock_set_span_in_context.return_value = mock_span
 
         # Define generator function with convenience decorator
         @observe.llm(provider="openai", model="gpt-4")
@@ -415,5 +418,5 @@ class TestConvenienceDecorators:
         assert len(results) == 3
         assert results[0] == "Chunk 0: Hello"
 
-        # Verify span creation
-        mock_tracer.start_as_current_span.assert_called_once()
+        # Verify span creation (generators use start_span, not start_as_current_span)
+        mock_tracer.start_span.assert_called_once()
