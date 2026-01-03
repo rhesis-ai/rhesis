@@ -34,20 +34,21 @@ class EnrichmentService:
         try:
             from rhesis.backend.worker import app as celery_app
 
-            # Use inspect to check for active workers with 1 second timeout
-            inspect = celery_app.control.inspect(timeout=1.0)
+            # Use ping with 3 second timeout - more reliable for solo pool workers
+            # Solo pool workers process tasks sequentially, so stats() may timeout
+            # while ping() is faster and gets prioritized
+            inspect = celery_app.control.inspect(timeout=3.0)
 
-            active_workers = inspect.active()
+            # Ping is faster and works better with solo pool
+            ping_result = inspect.ping()
 
-            if not active_workers:
+            if not ping_result:
                 return False
 
-            # Check if any worker is consuming from telemetry queue
-            stats = inspect.stats()
-            if not stats:
-                return False
-
-            # If we have active workers and can get stats, workers are available
+            # If we can ping workers, they're available
+            logger.debug(
+                f"Found {len(ping_result)} available worker(s): {list(ping_result.keys())}"
+            )
             return True
 
         except Exception as e:
