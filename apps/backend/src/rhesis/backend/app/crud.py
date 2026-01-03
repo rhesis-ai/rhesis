@@ -3322,8 +3322,24 @@ def query_traces(
 
     Returns:
         List of Trace models matching filters
+
+    Raises:
+        HTTPException: 400 if any UUID parameter is malformed
     """
     from uuid import UUID
+
+    from fastapi import HTTPException
+
+    def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
+        """Validate and convert UUID string, raising HTTPException if invalid."""
+        if not value:
+            return None
+        try:
+            return UUID(value)
+        except (ValueError, TypeError) as e:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
+            )
 
     query = db.query(models.Trace).filter(models.Trace.project_id == project_id)
 
@@ -3344,15 +3360,18 @@ def query_traces(
     if start_time_before:
         query = query.filter(models.Trace.start_time <= start_time_before)
 
-    # Test execution filters
-    if test_run_id:
-        query = query.filter(models.Trace.test_run_id == UUID(test_run_id))
+    # Test execution filters - validate UUIDs before using
+    test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")
+    if test_run_uuid:
+        query = query.filter(models.Trace.test_run_id == test_run_uuid)
 
-    if test_result_id:
-        query = query.filter(models.Trace.test_result_id == UUID(test_result_id))
+    test_result_uuid = validate_uuid_param(test_result_id, "test_result_id")
+    if test_result_uuid:
+        query = query.filter(models.Trace.test_result_id == test_result_uuid)
 
-    if test_id:
-        query = query.filter(models.Trace.test_id == UUID(test_id))
+    test_id_uuid = validate_uuid_param(test_id, "test_id")
+    if test_id_uuid:
+        query = query.filter(models.Trace.test_id == test_id_uuid)
 
     return query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
 
@@ -3556,8 +3575,24 @@ def count_traces(
 
     Returns:
         Count of matching traces
+
+    Raises:
+        HTTPException: 400 if any UUID parameter is malformed
     """
     from uuid import UUID
+
+    from fastapi import HTTPException
+
+    def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
+        """Validate and convert UUID string, raising HTTPException if invalid."""
+        if not value:
+            return None
+        try:
+            return UUID(value)
+        except (ValueError, TypeError) as e:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
+            )
 
     query = db.query(func.count(models.Trace.id)).filter(models.Trace.project_id == project_id)
 
@@ -3578,14 +3613,17 @@ def count_traces(
     if start_time_before:
         query = query.filter(models.Trace.start_time <= start_time_before)
 
-    # Test execution filters
-    if test_run_id:
-        query = query.filter(models.Trace.test_run_id == UUID(test_run_id))
+    # Test execution filters - validate UUIDs before using
+    test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")
+    if test_run_uuid:
+        query = query.filter(models.Trace.test_run_id == test_run_uuid)
 
-    if test_result_id:
-        query = query.filter(models.Trace.test_result_id == UUID(test_result_id))
+    test_result_uuid = validate_uuid_param(test_result_id, "test_result_id")
+    if test_result_uuid:
+        query = query.filter(models.Trace.test_result_id == test_result_uuid)
 
-    if test_id:
-        query = query.filter(models.Trace.test_id == UUID(test_id))
+    test_id_uuid = validate_uuid_param(test_id, "test_id")
+    if test_id_uuid:
+        query = query.filter(models.Trace.test_id == test_id_uuid)
 
     return query.scalar()
