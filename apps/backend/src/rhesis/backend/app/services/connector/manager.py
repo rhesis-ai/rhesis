@@ -194,12 +194,16 @@ class ConnectionManager:
 
     async def _heartbeat_loop(self, key: str) -> None:
         """
-        Periodically refresh the connection key in Redis to keep it alive.
+        Periodically refresh the connection and routing keys in Redis to keep them alive.
+
+        Refreshes both ws:connection:{key} and ws:routing:{key} to ensure the connection
+        remains active and routable for long-lived connections.
 
         Args:
             key: Connection key (project_id:environment)
         """
-        redis_key = f"ws:connection:{key}"
+        connection_key = f"ws:connection:{key}"
+        routing_key = f"ws:routing:{key}"
 
         try:
             while key in self._connections:
@@ -210,9 +214,11 @@ class ConnectionManager:
                 if key not in self._connections:
                     break
 
-                # Refresh the Redis key
+                # Refresh both Redis keys with same TTL
                 try:
-                    await redis_manager.client.setex(redis_key, 30, "active")
+                    await redis_manager.client.setex(connection_key, 30, "active")
+                    await redis_manager.client.setex(routing_key, 30, self.worker_id)
+                    logger.debug(f"Heartbeat refreshed for {key}")
                 except Exception as e:
                     logger.warning(f"Heartbeat failed for {key}: {e}")
                     # Continue trying - connection might still be valid
@@ -670,6 +676,9 @@ class ConnectionManager:
         """
         Register this worker as handler for a connection.
 
+        Sets initial TTL to 30s, which is then refreshed by _heartbeat_loop
+        every 10 seconds to keep the routing alive for long-lived connections.
+
         Args:
             connection_id: Connection key (project_id:environment)
         """
@@ -677,7 +686,7 @@ class ConnectionManager:
         try:
             await redis_manager.client.setex(
                 routing_key,
-                300,  # 5 minute TTL
+                30,  # 30s TTL, refreshed by heartbeat every 10s
                 self.worker_id,
             )
             logger.debug(f"Registered worker {self.worker_id} for connection {connection_id}")
