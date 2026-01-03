@@ -3176,21 +3176,22 @@ def create_trace_spans(
         test_id = span.attributes.get("rhesis.test.id")
 
         # Convert to UUID if present, otherwise None
+        # Handle each UUID independently to preserve valid values
         from uuid import UUID
 
-        try:
-            test_run_id_uuid = UUID(test_run_id) if test_run_id else None
-            test_result_id_uuid = UUID(test_result_id) if test_result_id else None
-            test_id_uuid = UUID(test_id) if test_id else None
-        except (ValueError, TypeError):
-            # Invalid UUID format - log warning and set to None
-            logger.warning(
-                f"Invalid UUID in test context: run={test_run_id}, "
-                f"result={test_result_id}, test={test_id}"
-            )
-            test_run_id_uuid = None
-            test_result_id_uuid = None
-            test_id_uuid = None
+        def safe_uuid_convert(value: str | None, field_name: str) -> UUID | None:
+            """Convert string to UUID, handling errors independently."""
+            if not value:
+                return None
+            try:
+                return UUID(value)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid UUID in test context {field_name}: {value}")
+                return None
+
+        test_run_id_uuid = safe_uuid_convert(test_run_id, "test_run_id")
+        test_result_id_uuid = safe_uuid_convert(test_result_id, "test_result_id")
+        test_id_uuid = safe_uuid_convert(test_id, "test_id")
 
         trace_model = models.Trace(
             trace_id=span.trace_id,
