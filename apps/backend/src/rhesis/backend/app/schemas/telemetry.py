@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # Import canonical schemas from SDK (source of truth)
 from rhesis.sdk.telemetry.schemas import (
@@ -82,12 +82,13 @@ class OTELSpanResponse(BaseModel):
         default_factory=list, description="Comments associated with this trace"
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OTELSpanDB(BaseModel):
     """Database model with persistence fields."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: str
     organization_id: str
@@ -96,9 +97,6 @@ class OTELSpanDB(BaseModel):
     created_at: datetime
     updated_at: datetime
     span_data: OTELSpan
-
-    class Config:
-        from_attributes = True
 
 
 # Legacy alias (deprecated - use TraceIngestResponse)
@@ -141,8 +139,7 @@ class TraceSummary(BaseModel):
         default=0, description="Number of comments associated with this trace"
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TraceListResponse(BaseModel):

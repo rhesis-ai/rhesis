@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, TypedDict
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class TestExecutionContext(TypedDict, total=False):
@@ -205,6 +205,8 @@ class TraceIngestResponse(BaseModel):
 class AILLMAttributes(BaseModel):
     """Type-safe LLM attributes."""
 
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
     operation_type: str = Field("llm.invoke", alias="ai.operation.type")
     model_provider: str = Field(..., alias="ai.model.provider")
     model_name: str = Field(..., alias="ai.model.name")
@@ -212,18 +214,12 @@ class AILLMAttributes(BaseModel):
     tokens_output: Optional[int] = Field(None, alias="ai.llm.tokens.output")
     tokens_total: Optional[int] = Field(None, alias="ai.llm.tokens.total")
 
-    class Config:
-        populate_by_name = True
-        extra = "allow"
-
 
 class AIToolAttributes(BaseModel):
     """Type-safe tool attributes."""
 
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
     operation_type: str = Field("tool.invoke", alias="ai.operation.type")
     tool_name: str = Field(..., alias="ai.tool.name")
     tool_type: str = Field(..., alias="ai.tool.type")
-
-    class Config:
-        populate_by_name = True
-        extra = "allow"

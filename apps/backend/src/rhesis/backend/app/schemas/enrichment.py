@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CostBreakdown(BaseModel):
@@ -69,10 +69,8 @@ class EnrichedTraceData(BaseModel):
     operation_types: Optional[List[str]] = Field(None, description="List of operation types")
     root_operation: Optional[str] = Field(None, description="Root span operation name")
 
-    class Config:
-        """Pydantic config."""
-
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "costs": {
                     "total_cost_usd": 0.006,
@@ -112,3 +110,4 @@ class EnrichedTraceData(BaseModel):
                 "root_operation": "ai.llm.invoke",
             }
         }
+    )
