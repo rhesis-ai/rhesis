@@ -678,24 +678,6 @@ class ConnectionManager:
         except Exception as e:
             logger.warning(f"Failed to unregister worker for connection {connection_id}: {e}")
 
-    async def _get_worker_for_connection(self, connection_id: str) -> Optional[str]:
-        """
-        Get which worker handles a connection.
-
-        Args:
-            connection_id: Connection key (project_id:environment)
-
-        Returns:
-            Worker ID if found, None otherwise
-        """
-        routing_key = f"ws:routing:{connection_id}"
-        try:
-            worker_id = await redis_manager.client.get(routing_key)
-            return worker_id.decode() if worker_id else None
-        except Exception as e:
-            logger.error(f"Failed to get worker for connection {connection_id}: {e}")
-            return None
-
     async def _handle_rpc_request(self, request: Dict[str, Any]) -> None:
         """
         Handle RPC request from worker.
