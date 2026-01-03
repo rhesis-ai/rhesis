@@ -232,6 +232,15 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         Returns:
             ErrorResponse if error found, None otherwise
         """
+        # Check if SDK is disconnected
+        if result.get("error") == "sdk_disconnected":
+            return self._create_error_response(
+                error_type="sdk_disconnected",
+                output_message="SDK is not connected",
+                message=result.get("details", "SDK connection not available"),
+                request_details=self._safe_request_details(locals(), "SDK"),
+            )
+
         # Check if request failed to send
         if result.get("error") == "send_failed":
             return self._create_error_response(
