@@ -9,7 +9,7 @@ from .mixins import OrganizationMixin
 
 class TestConfiguration(Base, OrganizationMixin):
     __tablename__ = "test_configuration"
-    endpoint_id = Column(GUID(), ForeignKey("endpoint.id"))
+    endpoint_id = Column(GUID(), ForeignKey("endpoint.id"), nullable=False)
     category_id = Column(GUID(), ForeignKey("category.id"))
     topic_id = Column(GUID(), ForeignKey("topic.id"))
     prompt_id = Column(GUID(), ForeignKey("prompt.id"))

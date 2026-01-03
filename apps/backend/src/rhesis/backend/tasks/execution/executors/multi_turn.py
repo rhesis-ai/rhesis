@@ -118,7 +118,7 @@ class MultiTurnTestExecutor(BaseTestExecutor):
             # Return execution summary
             result_summary = {
                 "test_id": test_id,
-                "test_result_id": str(test_result_id),
+                "test_result_id": str(test_result_id) if test_result_id else None,
                 "execution_time": execution_time,
                 "metrics": metrics_results,
             }

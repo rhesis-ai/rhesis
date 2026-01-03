@@ -127,7 +127,7 @@ def create_test_result_record(
     execution_time: float,
     metrics_results: Dict,
     processed_result: Dict,
-) -> UUID:
+) -> Optional[UUID]:
     """
     Create and store test result record in database.
 
@@ -135,7 +135,7 @@ def create_test_result_record(
     any traces from the test execution to the new test result record.
 
     Returns:
-        UUID of the created test result
+        UUID of the created test result, or None if creation failed
     """
     # Determine status based on metrics evaluation
     if not metrics_results or len(metrics_results) == 0:
@@ -173,7 +173,17 @@ def create_test_result_record(
             organization_id=organization_id,
             user_id=user_id,
         )
-        result_id = result.id if hasattr(result, "id") else None
+
+        # Validate that the result has a valid ID
+        if not result or not hasattr(result, "id") or result.id is None:
+            logger.error(
+                f"[TEST_RESULT] Failed to create test result: CRUD operation returned "
+                f"invalid result for test_id={test_id}, test_run_id={test_run_id}, "
+                f"test_config_id={test_config_id}"
+            )
+            return None
+
+        result_id = result.id
         logger.info(
             f"[TEST_RESULT] Successfully created test result with ID: {result_id} "
             f"for test_id={test_id}, test_run_id={test_run_id}, "
