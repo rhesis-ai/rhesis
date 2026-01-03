@@ -169,12 +169,11 @@ async def lifespan(app: FastAPI):
     with get_db() as db:
         initialize_local_environment(db)
 
-    # Pre-fetch exchange rate on startup (non-blocking)
-    from rhesis.backend.app.services.exchange_rate import get_exchange_rate_service
+    # Pre-fetch exchange rate on startup (non-blocking async)
+    from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate_async
 
     try:
-        exchange_service = get_exchange_rate_service()
-        rate = exchange_service.get_usd_to_eur_rate()
+        rate = await get_usd_to_eur_rate_async()
         logger.info(f"💱 Exchange rate initialized: 1 USD = {rate:.4f} EUR")
     except Exception as e:
         logger.warning(f"Failed to initialize exchange rate on startup: {e}")
