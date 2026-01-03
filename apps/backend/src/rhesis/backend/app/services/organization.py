@@ -401,7 +401,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             )
             .first()
         )
-        
+
         # If no projects exist yet, create a default one
         if not default_project:
             default_project_data = {
@@ -419,7 +419,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 user_id=user_id,
                 commit=False,
             )
-        
+
         for item in initial_data.get("endpoint", []):
             # Get project if specified, otherwise use default
             project = None
@@ -432,7 +432,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     )
                     .first()
                 )
-            
+
             # Fallback to default project if specified project not found
             if not project:
                 project = default_project

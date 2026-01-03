@@ -158,14 +158,6 @@ async def create_invocation_trace(
                 attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW] = output_preview
                 attributes[EndpointAttributes.RESPONSE_SIZE] = len(str(output))
 
-        # Validate project_id is present (required for trace creation)
-        if endpoint.project_id is None:
-            logger.error(
-                f"Cannot create trace for endpoint {endpoint.id} ({endpoint.name}): "
-                f"project_id is None. Endpoint must be associated with a project."
-            )
-            return
-
         # Create OTELSpan using SDK schema
         # Span name follows function.* pattern for generic functions
         otel_span = OTELSpan(

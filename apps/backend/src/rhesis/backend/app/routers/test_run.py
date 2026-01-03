@@ -468,7 +468,23 @@ async def get_test_run_traces(
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
 
-    # Get project_id from test run
+    # Get project_id from test run with proper null checks
+    if not db_test_run.test_configuration:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Test run {test_run_id} has no associated test configuration",
+        )
+    if not db_test_run.test_configuration.endpoint:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Test configuration for test run {test_run_id} has no associated endpoint",
+        )
+    if not db_test_run.test_configuration.endpoint.project_id:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Endpoint for test run {test_run_id} has no associated project",
+        )
+
     project_id = str(db_test_run.test_configuration.endpoint.project_id)
 
     # Query traces for this test run
