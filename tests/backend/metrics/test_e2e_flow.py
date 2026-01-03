@@ -16,7 +16,24 @@ class TestE2EFlow:
     """Test current end-to-end flow (baseline)."""
 
     @pytest.fixture
-    def test_endpoint(self, test_db, test_org_id, authenticated_user_id):
+    def test_project(self, test_db, test_org_id, authenticated_user_id):
+        """Create a test project for the endpoint."""
+        from uuid import UUID
+
+        from rhesis.backend.app import models
+
+        project = models.Project(
+            name="Test Project",
+            organization_id=UUID(test_org_id),
+            user_id=UUID(authenticated_user_id),
+        )
+        test_db.add(project)
+        test_db.commit()
+        test_db.refresh(project)
+        return project
+
+    @pytest.fixture
+    def test_endpoint(self, test_db, test_org_id, authenticated_user_id, test_project):
         """Create a test endpoint."""
         from rhesis.backend.app import models
 
@@ -27,6 +44,7 @@ class TestE2EFlow:
             method="POST",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
+            project_id=test_project.id,
         )
         test_db.add(endpoint)
         test_db.commit()
