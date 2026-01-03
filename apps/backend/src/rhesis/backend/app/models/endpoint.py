@@ -57,7 +57,7 @@ class Endpoint(Base, ActivityTrackableMixin, TagsMixin):
     organization = relationship("Organization", back_populates="endpoints")
 
     # Project relationship
-    project_id = Column(GUID(), ForeignKey("project.id"), nullable=True)
+    project_id = Column(GUID(), ForeignKey("project.id"), nullable=False)
     project = relationship("Project", back_populates="endpoints")
 
     # Test Configuration relationship
