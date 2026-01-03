@@ -129,11 +129,20 @@ class TestCrudOrganizationFiltering:
         )
 
         # Create a prompt in org1 using fixture data
-        from tests.backend.routes.fixtures.data_factories import PromptDataFactory
+        from tests.backend.routes.fixtures.data_factories import (
+            EndpointDataFactory,
+            PromptDataFactory,
+        )
 
         prompt_data = PromptDataFactory.minimal_data()
         prompt = crud.create_prompt(
             db=test_db, prompt=prompt_data, organization_id=str(org1.id), user_id=str(user1.id)
+        )
+
+        # Create an endpoint first (required for test configuration)
+        endpoint_data = EndpointDataFactory.minimal_data()
+        endpoint = crud.create_endpoint(
+            db=test_db, endpoint=endpoint_data, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
         # Create a test first (required for test result)
@@ -146,6 +155,7 @@ class TestCrudOrganizationFiltering:
         # Create a test configuration first (required for test result)
         test_config = models.TestConfiguration(
             id=uuid.uuid4(),
+            endpoint_id=endpoint.id,
             organization_id=org1.id,
             user_id=user1.id,
             prompt_id=prompt.id,  # Use the prompt we created earlier
@@ -198,11 +208,20 @@ class TestCrudOrganizationFiltering:
         )
 
         # Create a prompt in org1 using fixture data
-        from tests.backend.routes.fixtures.data_factories import PromptDataFactory
+        from tests.backend.routes.fixtures.data_factories import (
+            EndpointDataFactory,
+            PromptDataFactory,
+        )
 
         prompt_data = PromptDataFactory.minimal_data()
         prompt = crud.create_prompt(
             db=test_db, prompt=prompt_data, organization_id=str(org1.id), user_id=str(user1.id)
+        )
+
+        # Create an endpoint first (required for test configuration)
+        endpoint_data = EndpointDataFactory.minimal_data()
+        endpoint = crud.create_endpoint(
+            db=test_db, endpoint=endpoint_data, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
         # Create a test first (required for test run)
@@ -215,6 +234,7 @@ class TestCrudOrganizationFiltering:
         # Create a test configuration first (required for test run)
         test_config = models.TestConfiguration(
             id=uuid.uuid4(),
+            endpoint_id=endpoint.id,
             organization_id=org1.id,
             user_id=user1.id,
             prompt_id=prompt.id,  # Use the prompt we created earlier
@@ -496,7 +516,8 @@ class TestCrudOrganizationFiltering:
             t for t in tokens_org1 if t.name.startswith(f"Token in Org 1 {unique_id}")
         ]
         assert len(test_tokens_org1) == 1, (
-            f"Expected 1 token for org1, found {len(test_tokens_org1)}: {[t.name for t in tokens_org1]}"
+            f"Expected 1 token for org1, found {len(test_tokens_org1)}: "
+            f"{[t.name for t in tokens_org1]}"
         )
         assert test_tokens_org1[0].id == token1.id
         assert test_tokens_org1[0].organization_id == org1.id
@@ -510,7 +531,8 @@ class TestCrudOrganizationFiltering:
             t for t in tokens_org2 if t.name.startswith(f"Token in Org 2 {unique_id}")
         ]
         assert len(test_tokens_org2) == 1, (
-            f"Expected 1 token for org2, found {len(test_tokens_org2)}: {[t.name for t in tokens_org2]}"
+            f"Expected 1 token for org2, found {len(test_tokens_org2)}: "
+            f"{[t.name for t in tokens_org2]}"
         )
         assert test_tokens_org2[0].id == token2.id
         assert test_tokens_org2[0].organization_id == org2.id
@@ -539,8 +561,9 @@ class TestCrudParameterValidation:
         # This test ensures that all the security fixes we've implemented
         # continue to work and haven't regressed
 
-        org1_id = str(uuid.uuid4())
-        org2_id = str(uuid.uuid4())
+        # Test organization IDs for validation
+        _org1_id = str(uuid.uuid4())
+        _org2_id = str(uuid.uuid4())
 
         # List of CRUD functions that should implement organization filtering
         crud_functions = [
@@ -625,7 +648,8 @@ class TestTaskManagementSecuritySimplified:
         except Exception as e:
             pytest.fail(f"validate_task_organization_constraints raised an exception: {e}")
 
-        # Test cross-tenant scenario - user from organization2 trying to work with task from organization1
+        # Test cross-tenant scenario - user from organization2 trying to work with task
+        # from organization1
         # This should raise an exception
         with pytest.raises(ValueError, match="not in same organization"):
             validate_task_organization_constraints(test_db, task, user2)
