@@ -139,8 +139,19 @@ class TestCrudOrganizationFiltering:
             db=test_db, prompt=prompt_data, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
+        # Create a project first (required for endpoint.project_id FK)
+        project = models.Project(
+            name="Security Test Project",
+            organization_id=org1.id,
+            user_id=user1.id,
+        )
+        test_db.add(project)
+        test_db.commit()
+        test_db.refresh(project)
+
         # Create an endpoint first (required for test configuration)
         endpoint_data = EndpointDataFactory.minimal_data()
+        endpoint_data["project_id"] = str(project.id)
         endpoint = crud.create_endpoint(
             db=test_db, endpoint=endpoint_data, organization_id=str(org1.id), user_id=str(user1.id)
         )
@@ -218,8 +229,19 @@ class TestCrudOrganizationFiltering:
             db=test_db, prompt=prompt_data, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
+        # Create a project first (required for endpoint.project_id FK)
+        project = models.Project(
+            name="Security Test Project",
+            organization_id=org1.id,
+            user_id=user1.id,
+        )
+        test_db.add(project)
+        test_db.commit()
+        test_db.refresh(project)
+
         # Create an endpoint first (required for test configuration)
         endpoint_data = EndpointDataFactory.minimal_data()
+        endpoint_data["project_id"] = str(project.id)
         endpoint = crud.create_endpoint(
             db=test_db, endpoint=endpoint_data, organization_id=str(org1.id), user_id=str(user1.id)
         )
@@ -285,6 +307,16 @@ class TestCrudOrganizationFiltering:
             "Endpoint User 2",
         )
 
+        # Create a project in org1 first (required for endpoint.project_id FK)
+        project = models.Project(
+            name="Security Test Project",
+            organization_id=org1.id,
+            user_id=user1.id,
+        )
+        test_db.add(project)
+        test_db.commit()
+        test_db.refresh(project)
+
         # Create an endpoint in org1 using manual data
         from rhesis.backend.app.schemas.endpoint import EndpointCreate
 
@@ -295,6 +327,7 @@ class TestCrudOrganizationFiltering:
             url="https://api.security-test.com/v1/test",
             environment="development",
             config_source="manual",
+            project_id=project.id,
         )
         endpoint = crud.create_endpoint(
             db=test_db, endpoint=endpoint_data, organization_id=str(org1.id), user_id=str(user1.id)

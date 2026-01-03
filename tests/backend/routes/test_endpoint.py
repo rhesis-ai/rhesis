@@ -34,7 +34,7 @@ class EndpointTestMixin:
 
     def get_sample_data(self, db_project=None) -> Dict[str, Any]:
         """Return sample endpoint data for creation
-        
+
         Args:
             db_project: Optional project fixture. If provided, includes project_id.
         """
@@ -64,7 +64,7 @@ class EndpointTestMixin:
 
     def get_minimal_data(self, db_project=None) -> Dict[str, Any]:
         """Return minimal endpoint data for creation
-        
+
         Args:
             db_project: Optional project fixture. If provided, includes project_id.
         """
@@ -87,7 +87,7 @@ class EndpointTestMixin:
 
     def get_null_description_data(self, db_project=None) -> Dict[str, Any]:
         """Return endpoint data with explicit null description
-        
+
         Args:
             db_project: Optional project fixture. If provided, includes project_id.
         """
@@ -111,38 +111,25 @@ class TestEndpointStandardRoutes(EndpointTestMixin, BaseEntityRouteTests):
         """Auto-inject db_project into the test instance for use by helper methods"""
         self._db_project = db_project
 
+    def get_sample_data(self) -> Dict[str, Any]:
+        """Override to inject project_id from autouse fixture"""
+        return super().get_sample_data(getattr(self, "_db_project", None))
+
+    def get_minimal_data(self) -> Dict[str, Any]:
+        """Override to inject project_id from autouse fixture"""
+        return super().get_minimal_data(getattr(self, "_db_project", None))
+
+    def get_null_description_data(self) -> Dict[str, Any]:
+        """Override to inject project_id from autouse fixture"""
+        return super().get_null_description_data(getattr(self, "_db_project", None))
+
     def create_entity(self, client, data: Dict[str, Any] = None) -> Dict[str, Any]:
         """Override helper to inject project_id into endpoint creation"""
         if data is None:
-            data = self.get_sample_data(getattr(self, '_db_project', None))
+            data = self.get_sample_data()
         response = client.post(self.endpoints.create, json=data)
         assert response.status_code == status.HTTP_200_OK
         return response.json()
-
-    # Override base test methods to inject db_project fixture
-    def test_create_entity_success(self, authenticated_client, db_project):
-        """Test successful entity creation with project_id"""
-        sample_data = self.get_sample_data(db_project)
-        response = authenticated_client.post(self.endpoints.create, json=sample_data)
-        assert response.status_code == status.HTTP_200_OK
-
-    def test_create_entity_minimal_data(self, authenticated_client, db_project):
-        """Test entity creation with minimal required data including project_id"""
-        minimal_data = self.get_minimal_data(db_project)
-        response = authenticated_client.post(self.endpoints.create, json=minimal_data)
-        assert response.status_code == status.HTTP_200_OK
-
-    def test_entity_with_null_description(self, authenticated_client, db_project):
-        """Test endpoint creation with null description and required project_id"""
-        null_data = self.get_null_description_data(db_project)
-        response = authenticated_client.post(self.endpoints.create, json=null_data)
-        assert response.status_code == status.HTTP_200_OK
-
-    def test_create_entity_invalid_data(self, authenticated_client):
-        """Test entity creation with invalid data"""
-        invalid_data = self.get_invalid_data()
-        response = authenticated_client.post(self.endpoints.create, json=invalid_data)
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 # Endpoint-specific tests for invocation and schema functionality
@@ -346,7 +333,9 @@ class TestEndpointConfiguration(EndpointTestMixin, BaseEntityTests):
         assert data["auth"]["type"] == "oauth2"
         assert "client_id" in data["auth"]
 
-    def test_create_endpoint_with_complex_mappings(self, authenticated_client: TestClient, db_project):
+    def test_create_endpoint_with_complex_mappings(
+        self, authenticated_client: TestClient, db_project
+    ):
         """Test creating endpoint with complex request/response mappings"""
         mapping_endpoint_data = {
             "name": "Complex Mapping Endpoint",
