@@ -77,7 +77,7 @@ class SDKRpcClient:
         timeout: float = 30.0,
     ) -> Dict[str, Any]:
         """
-        Send RPC request to backend and await result.
+        Send RPC request to backend with direct worker routing and await result.
 
         Args:
             project_id: Project identifier
@@ -92,11 +92,32 @@ class SDKRpcClient:
             - {"status": "success", "output": {...}, "duration_ms": float}
             - {"status": "error", "error": str, "duration_ms": float}
             - {"error": "timeout"}
+            - {"error": "sdk_disconnected"}
             - {"error": "send_failed", "details": str}
         """
         if not self._redis:
             logger.error("Redis not initialized for RPC call")
             return {"error": "send_failed", "details": "Redis not initialized"}
+
+        # Normalize environment to lowercase for consistent key lookup
+        environment = environment.lower()
+        connection_id = f"{project_id}:{environment}"
+
+        # Check if any worker has the connection (for direct routing)
+        routing_key = f"ws:routing:{connection_id}"
+        try:
+            worker_id = await self._redis.get(routing_key)
+        except Exception as e:
+            logger.error(f"Failed to check worker routing for {connection_id}: {e}")
+            return {"error": "send_failed", "details": f"Failed to check routing: {e}"}
+
+        if not worker_id:
+            # No worker has connection - fail immediately instead of waiting for timeout
+            logger.error(f"SDK connection {connection_id} is not available (no worker registered)")
+            return {"error": "sdk_disconnected", "details": f"No connection for {connection_id}"}
+
+        # Route directly to the specific worker
+        worker_channel = f"ws:rpc:{worker_id}"
 
         # Subscribe to response channel first
         pubsub = self._redis.pubsub()
@@ -106,7 +127,7 @@ class SDKRpcClient:
             await pubsub.subscribe(response_channel)
             logger.debug(f"Subscribed to response channel: {response_channel}")
 
-            # Publish request
+            # Publish request to worker-specific channel
             request = {
                 "request_id": test_run_id,
                 "project_id": project_id,
@@ -115,8 +136,10 @@ class SDKRpcClient:
                 "inputs": inputs,
             }
 
-            await self._redis.publish("ws:rpc:requests", json.dumps(request))
-            logger.debug(f"Published RPC request {test_run_id} ({function_name})")
+            await self._redis.rpush(worker_channel, json.dumps(request))
+            logger.debug(
+                f"Routed RPC request {test_run_id} to worker {worker_id} ({function_name})"
+            )
 
             # Wait for response with timeout
             async def _wait_for_response():
@@ -125,20 +148,10 @@ class SDKRpcClient:
                     if message["type"] == "message":
                         result = json.loads(message["data"])
 
-                        # Check if this is a valid SDK response (has 'status' field)
-                        # or an error from a backend worker without connection
-                        if "status" in result:
-                            # Valid SDK response (success or error)
+                        # With direct routing, we expect a proper response
+                        if "status" in result or "error" in result:
                             await pubsub.unsubscribe(response_channel)
                             return result
-                        elif "error" in result and result["error"] == "send_failed":
-                            # Error from backend worker that doesn't have connection
-                            # This can happen in multi-worker setup - wait for actual response
-                            logger.debug(
-                                f"Ignoring intermediate error from worker without connection: "
-                                f"{result.get('details')}"
-                            )
-                            continue
                         else:
                             # Unknown response format - log and return
                             logger.warning(f"Unexpected response format: {result}")

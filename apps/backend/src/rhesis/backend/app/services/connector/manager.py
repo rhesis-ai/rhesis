@@ -3,8 +3,8 @@
 import asyncio
 import json
 import logging
+import os
 from collections import OrderedDict
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from fastapi import WebSocket
@@ -28,28 +28,14 @@ from rhesis.backend.app.services.connector.schemas import (
 logger = logging.getLogger(__name__)
 
 
-class ConnectionLocation(Enum):
-    """
-    Represents where a WebSocket connection exists in a multi-worker setup.
-
-    This enum makes the multi-worker coordination explicit:
-    - LOCAL: This worker has the WebSocket connection
-    - REMOTE: Another worker has the connection (verified via Redis)
-    - NONE: No worker has the connection (SDK is disconnected)
-    - UNKNOWN: Cannot determine (Redis unavailable - fail safe to avoid false errors)
-    """
-
-    LOCAL = "local"  # Connection exists in this worker's memory
-    REMOTE = "remote"  # Connection exists on another worker (in Redis but not local)
-    NONE = "none"  # Connection doesn't exist anywhere (not in Redis)
-    UNKNOWN = "unknown"  # Cannot verify (Redis error - assume remote to be safe)
-
-
 class ConnectionManager:
     """Manages WebSocket connections with SDK clients."""
 
     def __init__(self):
         """Initialize connection manager."""
+        # Get unique worker ID from environment (format: worker@hostname-pid)
+        self.worker_id = os.getenv("CELERY_WORKER_NAME", "worker@unknown")
+
         # Store active connections: {project_id:environment: WebSocket}
         self._connections: Dict[str, WebSocket] = {}
 
@@ -134,6 +120,9 @@ class ConnectionManager:
                 )
                 logger.debug(f"Stored connection in Redis: {redis_key}")
 
+                # Register this worker as handler for the connection (for direct routing)
+                await self._register_worker_for_connection(key)
+
                 # Start heartbeat task to keep Redis key alive
                 heartbeat_task = self._track_background_task(self._heartbeat_loop(key))
                 self._heartbeat_tasks[key] = heartbeat_task
@@ -167,6 +156,8 @@ class ConnectionManager:
         # Remove from Redis
         if redis_manager.is_available:
             try:
+                # Unregister worker routing
+                self._track_background_task(self._unregister_worker_for_connection(key))
                 # Create tracked task to delete from Redis (non-blocking)
                 self._track_background_task(self._remove_connection_from_redis(key))
             except Exception as e:
@@ -564,20 +555,18 @@ class ConnectionManager:
         """
         Background task to handle RPC requests from workers.
 
-        Subscribes to ws:rpc:requests channel and forwards requests to WebSocket connections.
+        Listens on worker-specific channel for direct routing.
         Uses tenacity for exponential backoff and retry limits to prevent infinite crash loops.
         """
         if not redis_manager.is_available:
             logger.warning("⚠️ Redis not available, RPC listener not started")
             return
 
+        worker_channel = f"ws:rpc:{self.worker_id}"
         logger.info(
-            "🎧 RPC LISTENER STARTED - Subscribing to 'ws:rpc:requests' channel "
-            "for worker SDK invocations"
+            f"🎧 RPC LISTENER STARTED - Listening on '{worker_channel}' channel "
+            f"for direct-routed SDK invocations"
         )
-
-        # Track pubsub instance to ensure cleanup
-        pubsub = None
 
         try:
             # Use tenacity for retry logic with exponential backoff
@@ -589,24 +578,31 @@ class ConnectionManager:
             ):
                 with attempt:
                     try:
-                        # Close previous pubsub if it exists (from failed attempt)
-                        if pubsub:
+                        while True:
                             try:
-                                await pubsub.close()
-                            except Exception:
-                                pass  # Ignore errors closing stale pubsub
+                                # Use BLPOP to wait for messages on worker-specific queue
+                                # timeout=1 means check every second (allows for graceful shutdown)
+                                result = await redis_manager.client.blpop(worker_channel, timeout=1)
 
-                        pubsub = redis_manager.client.pubsub()
-                        await pubsub.subscribe("ws:rpc:requests")
+                                if result:
+                                    # result is a tuple: (channel, message)
+                                    _, message = result
+                                    try:
+                                        request = json.loads(message)
+                                        await self._handle_rpc_request(request)
+                                    except Exception as e:
+                                        logger.error(
+                                            f"Error handling RPC request: {e}", exc_info=True
+                                        )
+                            except asyncio.CancelledError:
+                                logger.info("RPC listener cancelled, shutting down")
+                                raise
+                            except Exception as e:
+                                logger.error(f"Error in RPC listener loop: {e}", exc_info=True)
+                                # Continue listening despite errors
 
-                        async for message in pubsub.listen():
-                            if message["type"] == "message":
-                                try:
-                                    request = json.loads(message["data"])
-                                    await self._handle_rpc_request(request)
-                                except Exception as e:
-                                    logger.error(f"Error handling RPC request: {e}", exc_info=True)
-
+                    except asyncio.CancelledError:
+                        raise  # Re-raise cancellation
                     except Exception as e:
                         attempt_num = attempt.retry_state.attempt_number
                         logger.error(
@@ -624,55 +620,7 @@ class ConnectionManager:
             )
 
         finally:
-            # Always clean up pubsub connection
-            if pubsub:
-                try:
-                    await pubsub.close()
-                    logger.debug("RPC listener pubsub connection closed")
-                except Exception as e:
-                    logger.warning(f"Error closing RPC listener pubsub: {e}")
-
-    async def _check_connection_location(self, key: str) -> ConnectionLocation:
-        """
-        Determine where a WebSocket connection exists in a multi-worker deployment.
-
-        This is the CRITICAL method for multi-worker coordination. It determines
-        whether this worker should handle an RPC request or silently ignore it.
-
-        Args:
-            key: Connection key (project_id:environment)
-
-        Returns:
-            ConnectionLocation enum indicating where the connection is:
-            - LOCAL: Handle the request (forward to WebSocket)
-            - REMOTE: Ignore the request (another worker will handle it)
-            - NONE: Publish error (SDK is disconnected)
-            - UNKNOWN: Ignore the request (fail-safe when Redis unavailable)
-        """
-        # Fast path: Check local connections first
-        if key in self._connections:
-            return ConnectionLocation.LOCAL
-
-        # Connection not local - check if another worker has it via Redis
-        if not redis_manager.is_available:
-            # Redis unavailable - FAIL SAFE: assume another worker has it
-            logger.debug(f"Redis unavailable, assuming remote connection for {key}")
-            return ConnectionLocation.UNKNOWN
-
-        # Redis available - check if connection exists there
-        try:
-            redis_key = f"ws:connection:{key}"
-            exists_result = await redis_manager.client.exists(redis_key)
-
-            if exists_result > 0:
-                return ConnectionLocation.REMOTE
-            else:
-                return ConnectionLocation.NONE
-
-        except Exception as e:
-            # Redis check failed - FAIL SAFE: assume another worker has it
-            logger.warning(f"Redis check failed for {key}, assuming remote: {e}")
-            return ConnectionLocation.UNKNOWN
+            logger.debug("RPC listener shutdown complete")
 
     async def _publish_error_response(self, request_id: str, key: str, details: str) -> None:
         """
@@ -698,18 +646,62 @@ class ConnectionManager:
         except Exception as e:
             logger.error(f"Failed to publish error response: {e}")
 
+    async def _register_worker_for_connection(self, connection_id: str) -> None:
+        """
+        Register this worker as handler for a connection.
+
+        Args:
+            connection_id: Connection key (project_id:environment)
+        """
+        routing_key = f"ws:routing:{connection_id}"
+        try:
+            await redis_manager.client.setex(
+                routing_key,
+                300,  # 5 minute TTL
+                self.worker_id,
+            )
+            logger.debug(f"Registered worker {self.worker_id} for connection {connection_id}")
+        except Exception as e:
+            logger.error(f"Failed to register worker for connection {connection_id}: {e}")
+
+    async def _unregister_worker_for_connection(self, connection_id: str) -> None:
+        """
+        Remove worker registration for a connection.
+
+        Args:
+            connection_id: Connection key (project_id:environment)
+        """
+        routing_key = f"ws:routing:{connection_id}"
+        try:
+            await redis_manager.client.delete(routing_key)
+            logger.debug(f"Unregistered worker for connection {connection_id}")
+        except Exception as e:
+            logger.warning(f"Failed to unregister worker for connection {connection_id}: {e}")
+
+    async def _get_worker_for_connection(self, connection_id: str) -> Optional[str]:
+        """
+        Get which worker handles a connection.
+
+        Args:
+            connection_id: Connection key (project_id:environment)
+
+        Returns:
+            Worker ID if found, None otherwise
+        """
+        routing_key = f"ws:routing:{connection_id}"
+        try:
+            worker_id = await redis_manager.client.get(routing_key)
+            return worker_id.decode() if worker_id else None
+        except Exception as e:
+            logger.error(f"Failed to get worker for connection {connection_id}: {e}")
+            return None
+
     async def _handle_rpc_request(self, request: Dict[str, Any]) -> None:
         """
         Handle RPC request from worker.
 
-        MULTI-WORKER COORDINATION:
-        In a multi-worker deployment, ALL workers receive every RPC request.
-        Each worker must decide whether to:
-        1. Handle it (if it has the WebSocket connection)
-        2. Ignore it (if another worker has the connection)
-        3. Publish error (if no worker has the connection)
-
-        This decision is made explicit via ConnectionLocation enum.
+        With direct routing, this worker is guaranteed to have the connection.
+        If somehow the connection is missing, publish an error response.
 
         Args:
             request: RPC request with keys: request_id, project_id, environment,
@@ -724,31 +716,22 @@ class ConnectionManager:
 
         logger.debug(f"RPC request received: {request_id} - {function_name}")
 
-        # === STEP 1: Determine where the connection exists (multi-worker coordination) ===
+        # Direct routing guarantees we have the connection
         key = self.get_connection_key(project_id, environment)
-        location = await self._check_connection_location(key)
 
-        # === STEP 2: Handle based on connection location ===
-        if location == ConnectionLocation.LOCAL:
-            # This worker has the connection - forward to SDK
-            await self._forward_to_sdk(request_id, key, function_name, inputs)
-
-        elif location == ConnectionLocation.REMOTE:
-            # Another worker has the connection - silently ignore
-            logger.debug(f"Connection {key} exists on another worker, ignoring {request_id}")
-            # CRITICAL: Do NOT publish any response - the other worker will handle it
+        if key not in self._connections:
+            # This shouldn't happen with direct routing, but handle gracefully
+            logger.error(
+                f"Worker routing mismatch: received RPC for {key} but connection not found. "
+                f"Race condition between routing registration and connection state."
+            )
+            await self._publish_error_response(
+                request_id, key, f"Worker routing mismatch for {key}"
+            )
             return
 
-        elif location == ConnectionLocation.NONE:
-            # No worker has the connection - SDK is disconnected
-            logger.error(f"SDK disconnected for {key}, publishing error for {request_id}")
-            await self._publish_error_response(request_id, key, f"No connection for {key}")
-
-        elif location == ConnectionLocation.UNKNOWN:
-            # Cannot determine (Redis error) - fail safe by ignoring
-            logger.debug(f"Cannot verify connection for {key}, ignoring {request_id} (fail-safe)")
-            # CRITICAL: Do NOT publish error - we don't know if another worker has it
-            return
+        # Forward request to SDK
+        await self._forward_to_sdk(request_id, key, function_name, inputs)
 
     async def _forward_to_sdk(
         self, request_id: str, key: str, function_name: str, inputs: Dict[str, Any]

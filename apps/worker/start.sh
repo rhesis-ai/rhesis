@@ -249,7 +249,8 @@ echo "=== Celery Worker Startup ==="
 echo "Starting Celery worker with full output..."
 
 # Set worker context environment variable for RPC detection
-export CELERY_WORKER_NAME="worker@$(hostname)"
+# Using hostname-PID combination to ensure uniqueness across all workers
+export CELERY_WORKER_NAME="worker@$(hostname)-$$"
 echo "Worker context identifier: $CELERY_WORKER_NAME"
 
 # Build the complete command with memory optimizations
