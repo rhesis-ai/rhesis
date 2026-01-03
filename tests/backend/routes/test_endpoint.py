@@ -32,9 +32,13 @@ class EndpointTestMixin:
     entity_plural = "endpoints"
     endpoints = APIEndpoints.ENDPOINTS
 
-    def get_sample_data(self) -> Dict[str, Any]:
-        """Return sample endpoint data for creation"""
-        return {
+    def get_sample_data(self, db_project=None) -> Dict[str, Any]:
+        """Return sample endpoint data for creation
+        
+        Args:
+            db_project: Optional project fixture. If provided, includes project_id.
+        """
+        data = {
             "name": fake.word().title() + " Test Endpoint",
             "description": fake.text(max_nb_chars=100),
             "connection_type": "REST",
@@ -42,6 +46,9 @@ class EndpointTestMixin:
             "environment": "development",
             "config_source": "manual",
         }
+        if db_project:
+            data["project_id"] = str(db_project.id)
+        return data
 
     def get_sample_data_with_valid_fks(self, db_status=None, db_project=None) -> Dict[str, Any]:
         """Return sample endpoint data with valid foreign key references"""
@@ -55,13 +62,20 @@ class EndpointTestMixin:
 
         return data
 
-    def get_minimal_data(self) -> Dict[str, Any]:
-        """Return minimal endpoint data for creation"""
-        return {
+    def get_minimal_data(self, db_project=None) -> Dict[str, Any]:
+        """Return minimal endpoint data for creation
+        
+        Args:
+            db_project: Optional project fixture. If provided, includes project_id.
+        """
+        data = {
             "name": fake.word().title() + " Minimal Endpoint",
             "connection_type": "REST",
             "url": f"https://simple.{fake.domain_name()}/api",
         }
+        if db_project:
+            data["project_id"] = str(db_project.id)
+        return data
 
     def get_update_data(self) -> Dict[str, Any]:
         """Return endpoint update data"""
@@ -71,21 +85,64 @@ class EndpointTestMixin:
             "url": f"https://updated.{fake.domain_name()}/v2/api",
         }
 
-    def get_null_description_data(self) -> Dict[str, Any]:
-        """Return endpoint data with explicit null description"""
-        return {
+    def get_null_description_data(self, db_project=None) -> Dict[str, Any]:
+        """Return endpoint data with explicit null description
+        
+        Args:
+            db_project: Optional project fixture. If provided, includes project_id.
+        """
+        data = {
             "name": fake.word().title() + " Null Description Endpoint",
             "description": None,
             "connection_type": "REST",
             "url": f"https://api.{fake.domain_name()}/v1/null-test",
         }
+        if db_project:
+            data["project_id"] = str(db_project.id)
+        return data
 
 
 # Standard entity tests - gets ALL tests from base classes
 class TestEndpointStandardRoutes(EndpointTestMixin, BaseEntityRouteTests):
     """Complete standard endpoint route tests using base classes"""
 
-    pass
+    @pytest.fixture(autouse=True)
+    def _inject_project(self, db_project, request):
+        """Auto-inject db_project into the test instance for use by helper methods"""
+        self._db_project = db_project
+
+    def create_entity(self, client, data: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Override helper to inject project_id into endpoint creation"""
+        if data is None:
+            data = self.get_sample_data(getattr(self, '_db_project', None))
+        response = client.post(self.endpoints.create, json=data)
+        assert response.status_code == status.HTTP_200_OK
+        return response.json()
+
+    # Override base test methods to inject db_project fixture
+    def test_create_entity_success(self, authenticated_client, db_project):
+        """Test successful entity creation with project_id"""
+        sample_data = self.get_sample_data(db_project)
+        response = authenticated_client.post(self.endpoints.create, json=sample_data)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_create_entity_minimal_data(self, authenticated_client, db_project):
+        """Test entity creation with minimal required data including project_id"""
+        minimal_data = self.get_minimal_data(db_project)
+        response = authenticated_client.post(self.endpoints.create, json=minimal_data)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_entity_with_null_description(self, authenticated_client, db_project):
+        """Test endpoint creation with null description and required project_id"""
+        null_data = self.get_null_description_data(db_project)
+        response = authenticated_client.post(self.endpoints.create, json=null_data)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_create_entity_invalid_data(self, authenticated_client):
+        """Test entity creation with invalid data"""
+        invalid_data = self.get_invalid_data()
+        response = authenticated_client.post(self.endpoints.create, json=invalid_data)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 # Endpoint-specific tests for invocation and schema functionality
@@ -227,7 +284,7 @@ class TestEndpointSchema(EndpointTestMixin, BaseEntityTests):
 class TestEndpointConfiguration(EndpointTestMixin, BaseEntityTests):
     """Test endpoint configuration scenarios"""
 
-    def test_create_endpoint_with_openapi_spec(self, authenticated_client: TestClient):
+    def test_create_endpoint_with_openapi_spec(self, authenticated_client: TestClient, db_project):
         """Test creating endpoint with OpenAPI specification"""
         openapi_endpoint_data = {
             "name": "OpenAPI Endpoint",
@@ -237,6 +294,7 @@ class TestEndpointConfiguration(EndpointTestMixin, BaseEntityTests):
             "environment": "production",
             "config_source": "openapi",
             "openapi_spec_url": f"https://openapi.{fake.domain_name()}/openapi.json",
+            "project_id": str(db_project.id),
             "openapi_spec": {
                 "openapi": "3.0.0",
                 "info": {"title": "Test API", "version": "1.0.0"},
@@ -262,7 +320,7 @@ class TestEndpointConfiguration(EndpointTestMixin, BaseEntityTests):
         assert data["openapi_spec_url"] == openapi_endpoint_data["openapi_spec_url"]
         assert "openapi_spec" in data
 
-    def test_create_endpoint_with_oauth_auth(self, authenticated_client: TestClient):
+    def test_create_endpoint_with_oauth_auth(self, authenticated_client: TestClient, db_project):
         """Test creating endpoint with OAuth authentication"""
         oauth_endpoint_data = {
             "name": "OAuth Endpoint",
@@ -270,6 +328,7 @@ class TestEndpointConfiguration(EndpointTestMixin, BaseEntityTests):
             "connection_type": "REST",
             "url": f"https://oauth.{fake.domain_name()}/api/secure",
             "environment": "staging",
+            "project_id": str(db_project.id),
             "auth": {
                 "type": "oauth2",
                 "client_id": fake.uuid4(),
@@ -287,12 +346,13 @@ class TestEndpointConfiguration(EndpointTestMixin, BaseEntityTests):
         assert data["auth"]["type"] == "oauth2"
         assert "client_id" in data["auth"]
 
-    def test_create_endpoint_with_complex_mappings(self, authenticated_client: TestClient):
+    def test_create_endpoint_with_complex_mappings(self, authenticated_client: TestClient, db_project):
         """Test creating endpoint with complex request/response mappings"""
         mapping_endpoint_data = {
             "name": "Complex Mapping Endpoint",
             "connection_type": "REST",
             "url": f"https://complex.{fake.domain_name()}/transform",
+            "project_id": str(db_project.id),
             "input_mappings": {  # Correct field name from schema
                 "user_query": "$.input",
                 "context": {"session": "$.session_id", "timestamp": "$.metadata.timestamp"},
@@ -352,12 +412,13 @@ class TestEndpointSpecificEdgeCases(EndpointTestMixin, BaseEntityTests):
             status.HTTP_422_UNPROCESSABLE_ENTITY,
         ]
 
-    def test_create_endpoint_empty_name(self, authenticated_client: TestClient):
+    def test_create_endpoint_empty_name(self, authenticated_client: TestClient, db_project):
         """Test creating endpoint with empty name"""
         empty_name_endpoint_data = {
             "name": "",  # Empty name is actually allowed by the schema
             "connection_type": "REST",
             "url": f"https://test.{fake.domain_name()}/api",
+            "project_id": str(db_project.id),
         }
 
         response = authenticated_client.post(self.endpoints.create, json=empty_name_endpoint_data)
@@ -372,7 +433,7 @@ class TestEndpointSpecificEdgeCases(EndpointTestMixin, BaseEntityTests):
 class TestEndpointPerformance(EndpointTestMixin, BaseEntityTests):
     """Performance tests for endpoint operations"""
 
-    def test_bulk_endpoint_creation_performance(self, authenticated_client: TestClient):
+    def test_bulk_endpoint_creation_performance(self, authenticated_client: TestClient, db_project):
         """Test bulk creation of endpoints"""
         import time
 
@@ -386,6 +447,7 @@ class TestEndpointPerformance(EndpointTestMixin, BaseEntityTests):
                 "connection_type": "REST",
                 "url": f"https://perf-{i}.{fake.domain_name()}/api",
                 "environment": "development",
+                "project_id": str(db_project.id),
             }
 
             response = authenticated_client.post(self.endpoints.create, json=endpoint_data)
@@ -415,10 +477,10 @@ class TestEndpointHealthChecks(EndpointTestMixin, BaseEntityTests):
         data = response.json()
         assert isinstance(data, list)
 
-    def test_endpoint_crud_cycle_health(self, authenticated_client: TestClient):
+    def test_endpoint_crud_cycle_health(self, authenticated_client: TestClient, db_project):
         """✅ Test complete endpoint CRUD cycle"""
         # Create
-        endpoint_data = self.get_sample_data()
+        endpoint_data = self.get_sample_data(db_project)
         create_response = authenticated_client.post(self.endpoints.create, json=endpoint_data)
         assert create_response.status_code == status.HTTP_200_OK
         created = create_response.json()
