@@ -401,3 +401,41 @@ async def test_create_invocation_trace_span_name_format():
 
             pattern = r"^(function|ai)\.[a-z0-9_\.]+$"
             assert re.match(pattern, span.span_name)
+
+
+@pytest.mark.asyncio
+async def test_create_invocation_trace_with_none_project_id():
+    """Test that trace creation is skipped when endpoint has no project_id."""
+    db_mock = MagicMock()
+    endpoint = MagicMock(spec=Endpoint)
+    endpoint.id = uuid4()
+    endpoint.name = "test-endpoint-no-project"
+    endpoint.connection_type = "REST"
+    endpoint.url = "https://api.example.com"
+    endpoint.project_id = None  # No project assigned
+    endpoint.environment = "development"
+
+    test_context = {
+        "test_run_id": str(uuid4()),
+        "test_result_id": str(uuid4()),
+        "test_id": str(uuid4()),
+        "test_configuration_id": str(uuid4()),
+    }
+
+    org_id = str(uuid4())
+
+    with patch(
+        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+    ) as mock_service_class:
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+
+        # Execute trace creation with None project_id
+        async with create_invocation_trace(db_mock, endpoint, org_id, test_context) as trace_ctx:
+            trace_ctx["result"] = {
+                "status": "success",
+                "output": "Test response",
+            }
+
+        # Verify EnrichmentService was NOT called (trace creation skipped)
+        assert not mock_service.create_and_enrich_spans.called
