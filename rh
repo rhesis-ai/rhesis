@@ -413,6 +413,7 @@ start_worker() {
     # Run in foreground - using uv run handles the virtual environment automatically
     # Using --logfile parameter to write logs directly
     # Using --pool=solo to avoid forking issues on macOS with ML libraries (DeepEval/PyTorch)
+    # Using -E to enable events for worker discovery
     # Configuration matches apps/worker/start.sh for consistency
     exec uv run celery -A rhesis.backend.worker.app worker \
         --loglevel=DEBUG \
@@ -421,6 +422,7 @@ start_worker() {
         --prefetch-multiplier=1 \
         --max-tasks-per-child=500 \
         --optimization=fair \
+        -E \
         --logfile="$LOG_FILE"
 }
 

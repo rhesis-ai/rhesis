@@ -34,10 +34,9 @@ class EnrichmentService:
         try:
             from rhesis.backend.worker import app as celery_app
 
-            # Use inspect to check for active workers
-            inspect = celery_app.control.inspect()
+            # Use inspect to check for active workers with 1 second timeout
+            inspect = celery_app.control.inspect(timeout=1.0)
 
-            # Set a short timeout to avoid blocking
             active_workers = inspect.active()
 
             if not active_workers:
