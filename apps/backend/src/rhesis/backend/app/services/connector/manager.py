@@ -138,13 +138,32 @@ class ConnectionManager:
             environment: Environment name
         """
         key = self.get_connection_key(project_id, environment)
+        logger.info(f"Disconnected: {key}")
 
+        # Perform local cleanup (sync)
+        self._cleanup_local_connection(key)
+
+        # Schedule async Redis cleanup in background
+        if redis_manager.is_available:
+            try:
+                self._track_background_task(self._cleanup_redis_connection(key))
+            except Exception as e:
+                logger.warning(f"Failed to schedule Redis cleanup for {key}: {e}")
+
+    def _cleanup_local_connection(self, key: str) -> None:
+        """
+        Remove connection from local state (sync operations only).
+
+        Args:
+            key: Connection key
+        """
+        # Remove from connections dict
         if key in self._connections:
             del self._connections[key]
+
+        # Remove from registry
         if key in self._registries:
             del self._registries[key]
-
-        logger.info(f"Disconnected: {key}")
 
         # Cancel heartbeat task if exists
         if key in self._heartbeat_tasks:
@@ -153,19 +172,20 @@ class ConnectionManager:
                 heartbeat_task.cancel()
             del self._heartbeat_tasks[key]
 
-        # Remove from Redis
-        if redis_manager.is_available:
-            try:
-                # Unregister worker routing
-                self._track_background_task(self._unregister_worker_for_connection(key))
-                # Create tracked task to delete from Redis (non-blocking)
-                self._track_background_task(self._remove_connection_from_redis(key))
-            except Exception as e:
-                logger.warning(f"Failed to schedule Redis cleanup for {key}: {e}")
+    async def _cleanup_redis_connection(self, key: str) -> None:
+        """
+        Remove connection from Redis (async operations).
 
-    async def _remove_connection_from_redis(self, key: str) -> None:
-        """Remove connection from Redis (async helper)."""
+        Removes both routing key (ws:routing:{key}) and connection key (ws:connection:{key}).
+
+        Args:
+            key: Connection key
+        """
         try:
+            # Unregister worker routing to prevent RPC requests to this worker
+            await self._unregister_worker_for_connection(key)
+
+            # Remove connection key
             redis_key = f"ws:connection:{key}"
             await redis_manager.client.delete(redis_key)
             logger.debug(f"Removed connection from Redis: {redis_key}")
@@ -748,23 +768,22 @@ class ConnectionManager:
 
     async def _cleanup_stale_connection(self, key: str) -> None:
         """
-        Remove stale connection from local dict and Redis.
+        Remove stale connection from local state and Redis.
+
+        Called when a connection is detected as stale (e.g., send failed).
+        Uses shared cleanup logic to ensure consistency with normal disconnect.
 
         Args:
             key: Connection key
         """
-        if key in self._connections:
-            logger.warning(f"Removing stale WebSocket connection: {key}")
-            del self._connections[key]
+        logger.warning(f"Removing stale WebSocket connection: {key}")
 
-        # Also remove from Redis
+        # Perform local cleanup (sync)
+        self._cleanup_local_connection(key)
+
+        # Perform Redis cleanup (async)
         if redis_manager.is_available:
-            try:
-                redis_key = f"ws:connection:{key}"
-                await redis_manager.client.delete(redis_key)
-                logger.debug(f"Removed stale connection from Redis: {redis_key}")
-            except Exception as redis_err:
-                logger.warning(f"Failed to remove stale connection from Redis: {redis_err}")
+            await self._cleanup_redis_connection(key)
 
 
 # Global connection manager instance
