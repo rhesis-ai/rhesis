@@ -55,24 +55,31 @@ class EnrichmentService:
             logger.debug(f"Worker availability check failed: {e}")
             return False
 
-    def enqueue_enrichment(self, trace_id: str, project_id: str) -> bool:
+    def enqueue_enrichment(
+        self, trace_id: str, project_id: str, workers_available: bool | None = None
+    ) -> bool:
         """
         Try to enqueue async enrichment. Fall back to sync if workers unavailable.
 
         This function implements a robust fallback strategy:
-        1. Check if workers are available
+        1. Check if workers are available (or use cached result)
         2. If yes, try async enrichment (optimal for production)
         3. If no workers or async fails, fall back to sync (development-friendly)
 
         Args:
             trace_id: Trace ID to enrich
             project_id: Project ID for access control
+            workers_available: Optional cached worker availability check result.
+                             If None, will check on this call.
 
         Returns:
             True if async task was enqueued, False if sync fallback was used
         """
-        # Check if workers are available first
-        if self._check_workers_available():
+        # Check if workers are available (use cached result if provided)
+        if workers_available is None:
+            workers_available = self._check_workers_available()
+
+        if workers_available:
             try:
                 from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
 
@@ -118,8 +125,12 @@ class EnrichmentService:
         async_count = 0
         sync_count = 0
 
+        # Check worker availability once before the loop to avoid N×3 second timeout
+        # when workers are unavailable (prevents batch processing delays)
+        workers_available = self._check_workers_available()
+
         for trace_id in trace_ids:
-            if self.enqueue_enrichment(trace_id, project_id):
+            if self.enqueue_enrichment(trace_id, project_id, workers_available):
                 async_count += 1
             else:
                 sync_count += 1

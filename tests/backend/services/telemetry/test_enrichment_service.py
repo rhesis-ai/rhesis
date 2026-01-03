@@ -307,6 +307,41 @@ class TestEnrichmentService:
         )
         mock_logger.info.assert_any_call("Completed sync enrichment for trace trace1")
 
+    @patch("rhesis.backend.tasks.telemetry.enrich.enrich_trace_async")
+    @patch(
+        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available"
+    )
+    def test_enrich_traces_checks_workers_once(
+        self, mock_check_workers, mock_async_task, enrichment_service
+    ):
+        """
+        Test that worker availability is checked once per batch, not per trace.
+
+        This verifies the performance optimization that prevents N×3 second timeouts
+        when processing N traces without available workers.
+        """
+        # Mock workers available
+        mock_check_workers.return_value = True
+
+        # Mock successful async task
+        mock_result = Mock()
+        mock_result.id = "task-123"
+        mock_async_task.delay.return_value = mock_result
+
+        # Process 10 traces
+        trace_ids = {f"trace{i}" for i in range(10)}
+        project_id = "project-123"
+
+        async_count, sync_count = enrichment_service.enrich_traces(trace_ids, project_id)
+
+        # Verify results
+        assert async_count == 10
+        assert sync_count == 0
+
+        # CRITICAL: Worker check should only be called once, not 10 times
+        # This prevents 10×3=30 seconds of timeout delays when workers are unavailable
+        assert mock_check_workers.call_count == 1
+
 
 @pytest.mark.integration
 class TestEnrichmentServiceIntegration:
