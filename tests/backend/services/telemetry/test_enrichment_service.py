@@ -39,23 +39,23 @@ class TestEnrichmentService:
         """Test worker availability check when workers are available"""
         # Mock successful worker inspection
         mock_inspect = Mock()
-        mock_inspect.active.return_value = {"worker1": []}  # Non-empty dict
-        mock_inspect.stats.return_value = {"worker1": {"pool": {}}}  # Non-empty dict
+        mock_inspect.ping.return_value = {
+            "worker1": "pong"
+        }  # Non-empty dict means workers available
         mock_celery_app.control.inspect.return_value = mock_inspect
 
         result = enrichment_service._check_workers_available()
 
         assert result is True
-        mock_celery_app.control.inspect.assert_called_once()
-        mock_inspect.active.assert_called_once()
-        mock_inspect.stats.assert_called_once()
+        mock_celery_app.control.inspect.assert_called_once_with(timeout=3.0)
+        mock_inspect.ping.assert_called_once()
 
     @patch("rhesis.backend.worker.app")
     def test_check_workers_available_no_active_workers(self, mock_celery_app, enrichment_service):
         """Test worker availability check when no active workers"""
-        # Mock no active workers
+        # Mock no workers responding to ping
         mock_inspect = Mock()
-        mock_inspect.active.return_value = None
+        mock_inspect.ping.return_value = None
         mock_celery_app.control.inspect.return_value = mock_inspect
 
         result = enrichment_service._check_workers_available()
@@ -63,12 +63,11 @@ class TestEnrichmentService:
         assert result is False
 
     @patch("rhesis.backend.worker.app")
-    def test_check_workers_available_no_stats(self, mock_celery_app, enrichment_service):
-        """Test worker availability check when no worker stats"""
-        # Mock active workers but no stats
+    def test_check_workers_available_empty_response(self, mock_celery_app, enrichment_service):
+        """Test worker availability check when ping returns empty dict"""
+        # Mock empty response (no workers)
         mock_inspect = Mock()
-        mock_inspect.active.return_value = {"worker1": []}
-        mock_inspect.stats.return_value = None
+        mock_inspect.ping.return_value = {}
         mock_celery_app.control.inspect.return_value = mock_inspect
 
         result = enrichment_service._check_workers_available()
@@ -325,7 +324,7 @@ class TestEnrichmentServiceIntegration:
 
         # Mock no workers available
         mock_inspect = Mock()
-        mock_inspect.active.return_value = None
+        mock_inspect.ping.return_value = None
         mock_celery_app.control.inspect.return_value = mock_inspect
 
         result = service._check_workers_available()
