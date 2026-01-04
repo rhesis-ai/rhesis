@@ -5,9 +5,10 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app import crud, models
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
@@ -15,6 +16,7 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceIngestResponse,
     TraceListResponse,
     TraceMetricsResponse,
+    TraceSource,
     TraceSummary,
 )
 from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
@@ -137,7 +139,9 @@ async def ingest_trace(
 
 @router.get("/traces", response_model=TraceListResponse)
 async def list_traces(
-    project_id: str = Query(..., description="Project ID"),
+    project_id: Optional[str] = Query(
+        None, description="Project ID (optional - shows all projects if not specified)"
+    ),
     environment: Optional[str] = Query(None, description="Environment filter"),
     span_name: Optional[str] = Query(None, description="Span name filter (e.g., 'ai.llm.invoke')"),
     status_code: Optional[str] = Query(None, description="Status code filter (OK, ERROR)"),
@@ -146,6 +150,20 @@ async def list_traces(
     test_run_id: Optional[str] = Query(None, description="Filter by test run ID"),
     test_result_id: Optional[str] = Query(None, description="Filter by test result ID"),
     test_id: Optional[str] = Query(None, description="Filter by test ID"),
+    trace_source: TraceSource = Query(
+        TraceSource.ALL,
+        description=(
+            "Filter by trace source: 'all' (default), 'test' (test execution traces), "
+            "or 'operation' (normal app traces)"
+        ),
+    ),
+    root_spans_only: bool = Query(
+        True,
+        description=(
+            "Return only root spans (one per trace). "
+            "Set to false to return all spans."
+        ),
+    ),
     limit: int = Query(100, ge=1, le=1000, description="Results per page"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_tenant_db_session),
@@ -155,6 +173,15 @@ async def list_traces(
     List traces with filters and pagination.
 
     **Authentication**: Requires valid API key
+
+    **Trace Source Filter**:
+    - `all` (default): Returns all traces
+    - `test`: Returns only test execution traces (with test_run_id)
+    - `operation`: Returns only normal application traces (without test_run_id)
+
+    **Root Spans vs All Spans**:
+    - By default (root_spans_only=true), returns one entry per trace (root span only)
+    - Set root_spans_only=false to return all spans (useful for detailed analysis)
 
     **Filters**:
     - `environment`: Filter by environment (development, staging, production)
@@ -182,8 +209,10 @@ async def list_traces(
     # Query traces
     traces = crud.query_traces(
         db=db,
-        project_id=project_id,
         organization_id=organization_id,
+        project_id=project_id,
+        root_spans_only=root_spans_only,
+        trace_source=trace_source,
         environment=environment,
         span_name=span_name,
         status_code=status_code,
@@ -199,8 +228,10 @@ async def list_traces(
     # Get total count for pagination (with same filters as query)
     total = crud.count_traces(
         db=db,
-        project_id=project_id,
         organization_id=organization_id,
+        project_id=project_id,
+        root_spans_only=root_spans_only,
+        trace_source=trace_source,
         environment=environment,
         span_name=span_name,
         status_code=status_code,
@@ -223,18 +254,39 @@ async def list_traces(
             total_cost_usd = trace.enriched_data["costs"].get("total_cost_usd", 0.0)
             total_cost_eur = trace.enriched_data["costs"].get("total_cost_eur", 0.0)
 
+        # Calculate actual span count for this trace
+        span_count = (
+            db.query(func.count(models.Trace.id))
+            .filter(models.Trace.trace_id == trace.trace_id)
+            .scalar()
+        )
+
+        # Get endpoint information from eagerly loaded relationships
+        endpoint_id = None
+        endpoint_name = None
+        if (
+            trace.test_result
+            and trace.test_result.test_configuration
+            and trace.test_result.test_configuration.endpoint
+        ):
+            endpoint = trace.test_result.test_configuration.endpoint
+            endpoint_id = str(endpoint.id)
+            endpoint_name = endpoint.name
+
         summary = TraceSummary(
             trace_id=trace.trace_id,
             project_id=str(trace.project_id),  # Convert UUID to string
             environment=trace.environment,
             start_time=trace.start_time,
             duration_ms=trace.duration_ms or 0.0,
-            span_count=1,  # This is per span, would need aggregation for true trace count
+            span_count=span_count,  # Now reflects actual count
             root_operation=trace.span_name,
             status_code=trace.status_code,
             test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
             test_result_id=str(trace.test_result_id) if trace.test_result_id else None,
             test_id=str(trace.test_id) if trace.test_id else None,
+            endpoint_id=endpoint_id,
+            endpoint_name=endpoint_name,
             total_tokens=total_tokens if total_tokens > 0 else None,
             total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
             total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
@@ -386,8 +438,10 @@ async def get_metrics(
     # Query all matching spans
     spans = crud.query_traces(
         db=db,
-        project_id=project_id,
         organization_id=organization_id,
+        project_id=project_id,
+        root_spans_only=False,  # Metrics need all spans for accurate calculations
+        trace_source=TraceSource.ALL,  # Include all trace sources
         environment=environment,
         start_time_after=start_time_after,
         start_time_before=start_time_before,

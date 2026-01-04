@@ -17,7 +17,7 @@ from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
-from rhesis.backend.app.schemas.telemetry import OTELSpanCreate, StatusCode
+from rhesis.backend.app.schemas.telemetry import OTELSpanCreate, StatusCode, TraceSource
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
@@ -3251,10 +3251,10 @@ def get_trace_by_id(
         List of Trace models ordered by start_time
     """
     from uuid import UUID
-    
+
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
-    
+
     return (
         db.query(models.Trace)
         .filter(
@@ -3299,8 +3299,10 @@ def get_span_by_id(
 
 def query_traces(
     db: Session,
-    project_id: str,
     organization_id: str,
+    project_id: Optional[str] = None,
+    root_spans_only: bool = True,
+    trace_source: TraceSource = TraceSource.ALL,
     environment: Optional[str] = None,
     span_name: Optional[str] = None,
     status_code: Optional[Union[str, "StatusCode"]] = None,
@@ -3313,12 +3315,14 @@ def query_traces(
     offset: int = 0,
 ) -> List[models.Trace]:
     """
-    Query traces with filters.
+    Query traces with filters and eager load nested relationships.
 
     Args:
         db: Database session
-        project_id: Project ID (required)
         organization_id: Organization ID for multi-tenant security (required)
+        project_id: Project ID (optional - if not provided, shows all projects for organization)
+        root_spans_only: If True, returns only root spans (default). If False, returns all spans.
+        trace_source: Filter by trace source (all/test/operation)
         environment: Filter by environment (optional)
         span_name: Filter by span name (optional)
         status_code: Filter by status code (StatusCode enum or string)
@@ -3331,7 +3335,7 @@ def query_traces(
         offset: Pagination offset
 
     Returns:
-        List of Trace models matching filters
+        List of Trace models matching filters with eager loaded relationships
 
     Raises:
         HTTPException: 400 if any UUID parameter is malformed
@@ -3339,6 +3343,7 @@ def query_traces(
     from uuid import UUID
 
     from fastapi import HTTPException
+    from sqlalchemy.orm import joinedload
 
     def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
         """Validate and convert UUID string, raising HTTPException if invalid."""
@@ -3354,13 +3359,32 @@ def query_traces(
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
     
-    # Filter by BOTH project_id AND organization_id for multi-tenant security
-    query = db.query(models.Trace).filter(
-        and_(
-            models.Trace.project_id == project_id,
-            models.Trace.organization_id == org_uuid,
+    # Filter by organization_id for multi-tenant security (always required)
+    # Eager load nested relationships for endpoint information
+    query = (
+        db.query(models.Trace)
+        .filter(models.Trace.organization_id == org_uuid)
+        .options(
+            joinedload(models.Trace.test_result)
+            .joinedload(models.TestResult.test_configuration)
+            .joinedload(models.TestConfiguration.endpoint)
         )
     )
+    
+    # Conditionally filter for root spans only
+    if root_spans_only:
+        query = query.filter(models.Trace.parent_span_id.is_(None))
+    
+    # Filter by trace source
+    if trace_source == TraceSource.TEST:
+        query = query.filter(models.Trace.test_run_id.isnot(None))
+    elif trace_source == TraceSource.OPERATION:
+        query = query.filter(models.Trace.test_run_id.is_(None))
+    # If TraceSource.ALL, no additional filter needed
+    
+    # Add project_id filter only if specified
+    if project_id:
+        query = query.filter(models.Trace.project_id == project_id)
 
     if environment:
         query = query.filter(models.Trace.environment == environment)
@@ -3567,8 +3591,10 @@ def update_traces_with_test_result_id(
 
 def count_traces(
     db: Session,
-    project_id: str,
     organization_id: str,
+    project_id: Optional[str] = None,
+    root_spans_only: bool = True,
+    trace_source: TraceSource = TraceSource.ALL,
     environment: Optional[str] = None,
     span_name: Optional[str] = None,
     status_code: Optional[Union[str, "StatusCode"]] = None,
@@ -3583,8 +3609,10 @@ def count_traces(
 
     Args:
         db: Database session
-        project_id: Project ID
         organization_id: Organization ID for multi-tenant security (required)
+        project_id: Project ID (optional - if not provided, counts all projects for organization)
+        root_spans_only: If True, counts only root spans (default). If False, counts all spans.
+        trace_source: Filter by trace source (all/test/operation)
         environment: Filter by environment (optional)
         span_name: Filter by span name (optional)
         status_code: Filter by status code (StatusCode enum or string)
@@ -3618,13 +3646,22 @@ def count_traces(
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
     
-    # Filter by BOTH project_id AND organization_id for multi-tenant security
-    query = db.query(func.count(models.Trace.id)).filter(
-        and_(
-            models.Trace.project_id == project_id,
-            models.Trace.organization_id == org_uuid,
-        )
-    )
+    # Filter by organization_id for multi-tenant security (always required)
+    query = db.query(func.count(models.Trace.id)).filter(models.Trace.organization_id == org_uuid)
+    
+    # Conditionally filter for root spans only
+    if root_spans_only:
+        query = query.filter(models.Trace.parent_span_id.is_(None))
+    
+    # Filter by trace source
+    if trace_source == TraceSource.TEST:
+        query = query.filter(models.Trace.test_run_id.isnot(None))
+    elif trace_source == TraceSource.OPERATION:
+        query = query.filter(models.Trace.test_run_id.is_(None))
+    
+    # Add project_id filter only if specified
+    if project_id:
+        query = query.filter(models.Trace.project_id == project_id)
 
     if environment:
         query = query.filter(models.Trace.environment == environment)
