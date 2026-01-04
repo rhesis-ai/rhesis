@@ -1,6 +1,7 @@
 """Backend telemetry schemas - imports from SDK."""
 
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,6 +23,15 @@ from rhesis.sdk.telemetry.schemas import (
 from .comment import Comment
 from .tag import TagRead
 
+
+class TraceSource(str, Enum):
+    """Filter traces by their source/origin."""
+
+    ALL = "all"  # All traces
+    TEST = "test"  # Only test execution traces (with test_run_id)
+    OPERATION = "operation"  # Only normal operation traces (without test_run_id)
+
+
 # Re-export SDK schemas for backward compatibility
 __all__ = [
     "SpanKind",
@@ -41,6 +51,7 @@ __all__ = [
     "SpanNode",
     "TraceDetailResponse",
     "TraceMetricsResponse",
+    "TraceSource",
 ]
 
 # Alias for consistency with existing backend code
@@ -129,6 +140,14 @@ class TraceSummary(BaseModel):
     )
     test_id: Optional[str] = Field(
         default=None, description="Test ID if this trace is from a test execution"
+    )
+
+    # Endpoint information (optional - only present for test execution traces)
+    endpoint_id: Optional[str] = Field(
+        default=None, description="Endpoint ID if this trace is linked to an endpoint"
+    )
+    endpoint_name: Optional[str] = Field(
+        default=None, description="Endpoint name if this trace is linked to an endpoint"
     )
 
     # Tags and comments count for summary view

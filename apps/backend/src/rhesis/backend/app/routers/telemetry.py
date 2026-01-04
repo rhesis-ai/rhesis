@@ -159,10 +159,7 @@ async def list_traces(
     ),
     root_spans_only: bool = Query(
         True,
-        description=(
-            "Return only root spans (one per trace). "
-            "Set to false to return all spans."
-        ),
+        description=("Return only root spans (one per trace). Set to false to return all spans."),
     ),
     limit: int = Query(100, ge=1, le=1000, description="Results per page"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
@@ -202,11 +199,7 @@ async def list_traces(
     """
     organization_id, user_id = tenant_context
 
-    # Default time range: last 24 hours
-    if start_time_after is None and start_time_before is None:
-        start_time_after = datetime.utcnow() - timedelta(hours=24)
-
-    # Query traces
+    # Query traces (no default time filter - controlled by frontend)
     traces = crud.query_traces(
         db=db,
         organization_id=organization_id,
@@ -418,7 +411,7 @@ async def get_metrics(
     - Error rate
     - Operation type breakdown
 
-    **Time Range**: Defaults to last 24 hours if not specified
+    **Time Range**: Optional - if not specified, all traces will be included
 
     Args:
         project_id: Project ID
@@ -431,11 +424,7 @@ async def get_metrics(
     """
     organization_id, user_id = tenant_context
 
-    # Default time range: last 24 hours
-    if start_time_after is None and start_time_before is None:
-        start_time_after = datetime.utcnow() - timedelta(hours=24)
-
-    # Query all matching spans
+    # Query all matching spans (no default time filter - controlled by frontend)
     spans = crud.query_traces(
         db=db,
         organization_id=organization_id,

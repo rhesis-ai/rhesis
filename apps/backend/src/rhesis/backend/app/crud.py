@@ -3358,7 +3358,7 @@ def query_traces(
 
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
-    
+
     # Filter by organization_id for multi-tenant security (always required)
     # Eager load nested relationships for endpoint information
     query = (
@@ -3370,18 +3370,18 @@ def query_traces(
             .joinedload(models.TestConfiguration.endpoint)
         )
     )
-    
+
     # Conditionally filter for root spans only
     if root_spans_only:
         query = query.filter(models.Trace.parent_span_id.is_(None))
-    
+
     # Filter by trace source
     if trace_source == TraceSource.TEST:
         query = query.filter(models.Trace.test_run_id.isnot(None))
     elif trace_source == TraceSource.OPERATION:
         query = query.filter(models.Trace.test_run_id.is_(None))
     # If TraceSource.ALL, no additional filter needed
-    
+
     # Add project_id filter only if specified
     if project_id:
         query = query.filter(models.Trace.project_id == project_id)
@@ -3645,20 +3645,20 @@ def count_traces(
 
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
-    
+
     # Filter by organization_id for multi-tenant security (always required)
     query = db.query(func.count(models.Trace.id)).filter(models.Trace.organization_id == org_uuid)
-    
+
     # Conditionally filter for root spans only
     if root_spans_only:
         query = query.filter(models.Trace.parent_span_id.is_(None))
-    
+
     # Filter by trace source
     if trace_source == TraceSource.TEST:
         query = query.filter(models.Trace.test_run_id.isnot(None))
     elif trace_source == TraceSource.OPERATION:
         query = query.filter(models.Trace.test_run_id.is_(None))
-    
+
     # Add project_id filter only if specified
     if project_id:
         query = query.filter(models.Trace.project_id == project_id)

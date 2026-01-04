@@ -44,6 +44,10 @@ export interface TraceSummary {
   test_result_id?: string;
   test_id?: string;
 
+  // Endpoint information (optional)
+  endpoint_id?: string;
+  endpoint_name?: string;
+
   // Counts for UI
   tags_count?: number;
   comments_count?: number;
@@ -77,10 +81,15 @@ export interface TraceListResponse {
 }
 
 /**
+ * Trace source filter enum
+ */
+export type TraceSource = 'all' | 'test' | 'operation';
+
+/**
  * Query parameters for list endpoint
  */
 export interface TraceQueryParams {
-  project_id: string;
+  project_id?: string; // Optional - shows all projects if not specified
   environment?: string;
   span_name?: string;
   status_code?: string;
@@ -89,6 +98,8 @@ export interface TraceQueryParams {
   test_run_id?: string;
   test_result_id?: string;
   test_id?: string;
+  trace_source?: TraceSource; // Filter by trace source (all/test/operation)
+  root_spans_only?: boolean; // Return only root spans (defaults to true in backend)
   limit?: number;
   offset?: number;
 }

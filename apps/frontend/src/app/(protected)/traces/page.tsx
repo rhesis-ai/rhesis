@@ -1,55 +1,39 @@
-'use client';
+export const dynamic = 'force-dynamic';
 
-import * as React from 'react';
-import { useSession } from 'next-auth/react';
-import { PageContainer } from '@toolpad/core/PageContainer';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import TracesClient from './components/TracesClient';
+import { auth } from '@/auth';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import TracesClientWrapper from './components/TracesClientWrapper';
+import { Alert, Paper } from '@mui/material';
 
 /**
- * Traces page - view and analyze OpenTelemetry traces
- *
- * Client component that handles authentication and passes
- * session token to TracesClient component.
+ * Server component for the Traces page
+ * Fetches initial data and renders the client wrapper component
  */
-export default function TracesPage() {
-  const { data: session, status } = useSession();
+export default async function TracesPage() {
+  try {
+    const session = await auth();
 
-  // Handle loading state
-  if (status === 'loading') {
+    if (!session?.session_token) {
+      return (
+        <Paper sx={{ p: 3 }}>
+          <Alert severity="error">
+            Authentication required. Please sign in to view traces.
+          </Alert>
+        </Paper>
+      );
+    }
+
+    return <TracesClientWrapper sessionToken={session.session_token} />;
+  } catch (error) {
+    // Show error state instead of empty traces
     return (
-      <PageContainer
-        title="Traces"
-        breadcrumbs={[{ title: 'Traces', path: '/traces' }]}
-      >
-        <Box sx={{ p: 3 }}>
-          <Typography>Loading...</Typography>
-        </Box>
-      </PageContainer>
+      <Paper sx={{ p: 3 }}>
+        <Alert severity="error">
+          {error instanceof Error
+            ? error.message
+            : 'Failed to load traces. Please try again.'}
+        </Alert>
+      </Paper>
     );
   }
-
-  // Handle no session state
-  if (!session?.session_token) {
-    return (
-      <PageContainer
-        title="Traces"
-        breadcrumbs={[{ title: 'Traces', path: '/traces' }]}
-      >
-        <Box sx={{ p: 3 }}>
-          <Typography color="error">No session token available</Typography>
-        </Box>
-      </PageContainer>
-    );
-  }
-
-  return (
-    <PageContainer
-      title="Traces"
-      breadcrumbs={[{ title: 'Traces', path: '/traces' }]}
-    >
-      <TracesClient sessionToken={session.session_token} />
-    </PageContainer>
-  );
 }

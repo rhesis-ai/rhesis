@@ -333,6 +333,85 @@ class TestTraceListEndpoint:
             for field in optional_fields:
                 assert field in trace
 
+    def test_list_traces_root_spans_only_parameter(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """Test that root_spans_only parameter controls span filtering"""
+        # Create trace data with parent-child spans
+        spans_data = TraceDataFactory.batch_data(
+            count=3, same_trace=True, project_id=str(db_project.id)
+        )
+        trace_id = spans_data[0]["trace_id"]
+
+        # Ingest all spans
+        for span_data in spans_data:
+            trace_batch = {"spans": [span_data]}
+            authenticated_client.post("/telemetry/traces", json=trace_batch)
+
+        # Default behavior (root_spans_only=true) - should return only 1 trace
+        response = authenticated_client.get(f"/telemetry/traces?project_id={db_project.id}")
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Count how many traces have this trace_id
+        matching_traces = [t for t in data["traces"] if t["trace_id"] == trace_id]
+        assert len(matching_traces) == 1, "Default should return only root span"
+
+        # Request all spans (root_spans_only=false)
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&root_spans_only=false"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Should return all 3 spans
+        matching_spans = [t for t in data["traces"] if t["trace_id"] == trace_id]
+        assert len(matching_spans) == 3, "root_spans_only=false should return all spans"
+
+    def test_list_traces_trace_source_filter(self, authenticated_client: TestClient, db_project):
+        """Test that trace_source parameter filters test vs operation traces"""
+        # Create normal operation traces (without test_run_id)
+        op_span1 = TraceDataFactory.sample_data(project_id=str(db_project.id))
+        op_span1["environment"] = "production"
+        trace_batch = {"spans": [op_span1]}
+        authenticated_client.post("/telemetry/traces", json=trace_batch)
+
+        op_span2 = TraceDataFactory.sample_data(project_id=str(db_project.id))
+        op_span2["environment"] = "staging"
+        trace_batch = {"spans": [op_span2]}
+        authenticated_client.post("/telemetry/traces", json=trace_batch)
+
+        # Test 'all' filter (default) - should include both operation traces
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&trace_source=all"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        all_trace_ids = {t["trace_id"] for t in data["traces"]}
+        assert op_span1["trace_id"] in all_trace_ids
+        assert op_span2["trace_id"] in all_trace_ids
+
+        # Test 'operation' filter - should only include operation traces
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&trace_source=operation"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        op_trace_ids = {t["trace_id"] for t in data["traces"]}
+        assert op_span1["trace_id"] in op_trace_ids
+        assert op_span2["trace_id"] in op_trace_ids
+
+        # Test 'test' filter - should not include any operation traces
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&trace_source=test"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        test_trace_ids = {t["trace_id"] for t in data["traces"]}
+        # Should not include operation traces
+        assert op_span1["trace_id"] not in test_trace_ids
+        assert op_span2["trace_id"] not in test_trace_ids
+
 
 @pytest.mark.integration
 class TestTraceDetailEndpoint:
@@ -630,9 +709,32 @@ class TestQueryValidation:
     """Test input validation for query endpoints"""
 
     def test_list_traces_missing_project_id(self, authenticated_client: TestClient):
-        """Test that project_id is required for listing traces"""
+        """Test that project_id is optional for listing traces (shows all projects)"""
         response = authenticated_client.get("/telemetry/traces")
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_200_OK
+
+        # Should return valid response structure even with no project_id
+        data = response.json()
+        assert "traces" in data
+        assert "total" in data
+        assert "limit" in data
+        assert "offset" in data
+
+    def test_list_traces_all_projects(self, authenticated_client: TestClient):
+        """Test that omitting project_id returns valid response structure"""
+        # Query without project_id should work and return valid structure
+        response = authenticated_client.get("/telemetry/traces")
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.json()
+        # Should return valid structure even if no traces exist
+        assert "traces" in data
+        assert "total" in data
+        assert "limit" in data
+        assert "offset" in data
+        assert isinstance(data["traces"], list)
+        assert isinstance(data["total"], int)
+        assert data["total"] >= 0  # Can be 0 if no traces exist
 
     def test_get_metrics_missing_project_id(self, authenticated_client: TestClient):
         """Test that project_id is required for metrics"""
