@@ -3301,6 +3301,7 @@ def query_traces(
     db: Session,
     organization_id: str,
     project_id: Optional[str] = None,
+    endpoint_id: Optional[str] = None,
     root_spans_only: bool = True,
     trace_source: TraceSource = TraceSource.ALL,
     environment: Optional[str] = None,
@@ -3308,6 +3309,8 @@ def query_traces(
     status_code: Optional[Union[str, "StatusCode"]] = None,
     start_time_after: Optional[datetime] = None,
     start_time_before: Optional[datetime] = None,
+    duration_min_ms: Optional[float] = None,
+    duration_max_ms: Optional[float] = None,
     test_run_id: Optional[str] = None,
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
@@ -3321,6 +3324,7 @@ def query_traces(
         db: Database session
         organization_id: Organization ID for multi-tenant security (required)
         project_id: Project ID (optional - if not provided, shows all projects for organization)
+        endpoint_id: Endpoint ID (optional - filters traces by endpoint)
         root_spans_only: If True, returns only root spans (default). If False, returns all spans.
         trace_source: Filter by trace source (all/test/operation)
         environment: Filter by environment (optional)
@@ -3386,6 +3390,23 @@ def query_traces(
     if project_id:
         query = query.filter(models.Trace.project_id == project_id)
 
+    # Add endpoint_id filter - join through TestResult -> TestConfiguration -> Endpoint
+    if endpoint_id:
+        endpoint_uuid = validate_uuid_param(endpoint_id, "endpoint_id")
+        if endpoint_uuid:
+            query = (
+                query.join(models.TestResult, models.Trace.test_result_id == models.TestResult.id)
+                .join(
+                    models.TestConfiguration,
+                    models.TestResult.test_configuration_id == models.TestConfiguration.id,
+                )
+                .join(
+                    models.Endpoint,
+                    models.TestConfiguration.endpoint_id == models.Endpoint.id,
+                )
+                .filter(models.Endpoint.id == endpoint_uuid)
+            )
+
     if environment:
         query = query.filter(models.Trace.environment == environment)
 
@@ -3402,6 +3423,12 @@ def query_traces(
 
     if start_time_before:
         query = query.filter(models.Trace.start_time <= start_time_before)
+
+    if duration_min_ms is not None:
+        query = query.filter(models.Trace.duration_ms >= duration_min_ms)
+
+    if duration_max_ms is not None:
+        query = query.filter(models.Trace.duration_ms <= duration_max_ms)
 
     # Test execution filters - validate UUIDs before using
     test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")
@@ -3593,6 +3620,7 @@ def count_traces(
     db: Session,
     organization_id: str,
     project_id: Optional[str] = None,
+    endpoint_id: Optional[str] = None,
     root_spans_only: bool = True,
     trace_source: TraceSource = TraceSource.ALL,
     environment: Optional[str] = None,
@@ -3600,6 +3628,8 @@ def count_traces(
     status_code: Optional[Union[str, "StatusCode"]] = None,
     start_time_after: Optional[datetime] = None,
     start_time_before: Optional[datetime] = None,
+    duration_min_ms: Optional[float] = None,
+    duration_max_ms: Optional[float] = None,
     test_run_id: Optional[str] = None,
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
@@ -3611,6 +3641,7 @@ def count_traces(
         db: Database session
         organization_id: Organization ID for multi-tenant security (required)
         project_id: Project ID (optional - if not provided, counts all projects for organization)
+        endpoint_id: Endpoint ID (optional - filters traces by endpoint)
         root_spans_only: If True, counts only root spans (default). If False, counts all spans.
         trace_source: Filter by trace source (all/test/operation)
         environment: Filter by environment (optional)
@@ -3663,6 +3694,23 @@ def count_traces(
     if project_id:
         query = query.filter(models.Trace.project_id == project_id)
 
+    # Add endpoint_id filter - join through TestResult -> TestConfiguration -> Endpoint
+    if endpoint_id:
+        endpoint_uuid = validate_uuid_param(endpoint_id, "endpoint_id")
+        if endpoint_uuid:
+            query = (
+                query.join(models.TestResult, models.Trace.test_result_id == models.TestResult.id)
+                .join(
+                    models.TestConfiguration,
+                    models.TestResult.test_configuration_id == models.TestConfiguration.id,
+                )
+                .join(
+                    models.Endpoint,
+                    models.TestConfiguration.endpoint_id == models.Endpoint.id,
+                )
+                .filter(models.Endpoint.id == endpoint_uuid)
+            )
+
     if environment:
         query = query.filter(models.Trace.environment == environment)
 
@@ -3679,6 +3727,12 @@ def count_traces(
 
     if start_time_before:
         query = query.filter(models.Trace.start_time <= start_time_before)
+
+    if duration_min_ms is not None:
+        query = query.filter(models.Trace.duration_ms >= duration_min_ms)
+
+    if duration_max_ms is not None:
+        query = query.filter(models.Trace.duration_ms <= duration_max_ms)
 
     # Test execution filters - validate UUIDs before using
     test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")
