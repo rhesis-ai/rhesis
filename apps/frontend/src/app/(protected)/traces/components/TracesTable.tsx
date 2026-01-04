@@ -168,24 +168,6 @@ export default function TracesTable({
           );
         },
       },
-      {
-        field: 'test_run_id',
-        headerName: 'Test Run',
-        width: 100,
-        renderCell: params => {
-          const testRunId = params.value as string | undefined;
-          if (!testRunId) return null;
-
-          return (
-            <Link
-              href={`/test-runs/${testRunId}`}
-              onClick={e => e.stopPropagation()}
-            >
-              <Chip label="View" size="small" clickable />
-            </Link>
-          );
-        },
-      },
     ],
     []
   );

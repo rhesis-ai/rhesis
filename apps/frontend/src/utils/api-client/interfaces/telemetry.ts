@@ -95,9 +95,12 @@ export interface TraceQueryParams {
   status_code?: string;
   start_time_after?: string;
   start_time_before?: string;
+  duration_min_ms?: number; // Minimum duration in milliseconds
+  duration_max_ms?: number; // Maximum duration in milliseconds
   test_run_id?: string;
   test_result_id?: string;
   test_id?: string;
+  endpoint_id?: string; // Filter by endpoint ID
   trace_source?: TraceSource; // Filter by trace source (all/test/operation)
   root_spans_only?: boolean; // Return only root spans (defaults to true in backend)
   limit?: number;

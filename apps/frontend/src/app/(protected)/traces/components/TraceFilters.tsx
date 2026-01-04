@@ -28,8 +28,15 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import ScienceIcon from '@mui/icons-material/Science';
 import PublicIcon from '@mui/icons-material/Public';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import SpeedIcon from '@mui/icons-material/Speed';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import DataUsageIcon from '@mui/icons-material/DataUsage';
+import CloseIcon from '@mui/icons-material/Close';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import Chip from '@mui/material/Chip';
 import { TraceQueryParams } from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 
 interface TraceFiltersProps {
   filters: TraceQueryParams;
@@ -46,32 +53,58 @@ export default function TraceFilters({
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>(
     []
   );
+  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
 
   const handleFilterChange = (key: keyof TraceQueryParams, value: any) => {
     const newFilters = { ...filters, [key]: value, offset: 0 };
+    
+    // If project changes, clear endpoint_id if the selected endpoint doesn't belong to the new project
+    if (key === 'project_id' && filters.endpoint_id) {
+      const selectedEndpoint = endpoints.find(e => e.id === filters.endpoint_id);
+      // Clear endpoint if:
+      // 1. A new project is selected AND the endpoint doesn't belong to it
+      // 2. Switching to "All Projects" (value is undefined/empty) - keep the endpoint selected
+      if (value && selectedEndpoint && selectedEndpoint.project_id !== value) {
+        newFilters.endpoint_id = undefined;
+      }
+    }
+    
     onFiltersChange(newFilters);
   };
 
-  // Fetch projects on mount
+  // Fetch projects and endpoints on mount
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchData = async () => {
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
+        
+        // Fetch projects
         const projectsClient = clientFactory.getProjectsClient();
         const projectsResponse = await projectsClient.getProjects({ limit: 100 });
         const projectsData = Array.isArray(projectsResponse)
           ? projectsResponse
           : projectsResponse?.data || [];
         setProjects(projectsData);
+
+        // Fetch endpoints (all of them, we'll filter in the UI based on selected project)
+        const endpointsClient = clientFactory.getEndpointsClient();
+        const endpointsResponse = await endpointsClient.getEndpoints({ 
+          limit: 100,
+        });
+        const endpointsData = Array.isArray(endpointsResponse)
+          ? endpointsResponse
+          : endpointsResponse?.data || [];
+        setEndpoints(endpointsData);
       } catch (error) {
-        console.error('Failed to fetch projects:', error);
+        console.error('Failed to fetch filter data:', error);
         setProjects([]);
+        setEndpoints([]);
       }
     };
 
     if (sessionToken) {
-      fetchProjects();
+      fetchData();
     }
   }, [sessionToken]);
 
@@ -91,8 +124,34 @@ export default function TraceFilters({
     handleFilterChange('trace_source', source === 'all' ? undefined : source);
   };
 
-  const handleEnvironmentFilterChange = (environment: string) => {
-    handleFilterChange('environment', environment === 'all' ? undefined : environment);
+  const handleDurationFilterChange = (duration: string) => {
+    switch (duration) {
+      case 'normal':
+        // Normal: < 5 seconds
+        handleFilterChange('duration_min_ms', undefined);
+        handleFilterChange('duration_max_ms', 5000);
+        break;
+      case 'slow':
+        // Slow: >= 5 seconds
+        handleFilterChange('duration_min_ms', 5000);
+        handleFilterChange('duration_max_ms', undefined);
+        break;
+      case 'all':
+      default:
+        // Clear all duration filters
+        handleFilterChange('duration_min_ms', undefined);
+        handleFilterChange('duration_max_ms', undefined);
+        break;
+    }
+  };
+
+  const getActiveDurationFilter = (): string => {
+    if (!filters.duration_min_ms && !filters.duration_max_ms) return 'all';
+    
+    if (filters.duration_max_ms === 5000 && !filters.duration_min_ms) return 'normal';
+    if (filters.duration_min_ms === 5000 && !filters.duration_max_ms) return 'slow';
+    
+    return 'custom';
   };
 
   const handleTimeRangeFilterChange = (range: string) => {
@@ -162,9 +221,121 @@ export default function TraceFilters({
   const hasActiveFilters = activeFilterCount > 0;
   const open = Boolean(anchorEl);
 
+  // Get active filter labels for chips
+  const getActiveFilterChips = () => {
+    const chips: Array<{ key: string; label: string; value: any }> = [];
+    
+    // Project filter
+    if (filters.project_id) {
+      const project = projects.find(p => p.id === filters.project_id);
+      const projectLabel = project ? project.name : filters.project_id.slice(0, 8) + '...';
+      chips.push({ key: 'project_id', label: `Project: ${projectLabel}`, value: filters.project_id });
+    }
+    
+    // Endpoint filter
+    if (filters.endpoint_id) {
+      const endpoint = endpoints.find(e => e.id === filters.endpoint_id);
+      const endpointLabel = endpoint ? endpoint.name : filters.endpoint_id.slice(0, 8) + '...';
+      chips.push({ key: 'endpoint_id', label: `Endpoint: ${endpointLabel}`, value: filters.endpoint_id });
+    }
+    
+    // Environment filter
+    if (filters.environment) {
+      const envLabel = filters.environment.charAt(0).toUpperCase() + filters.environment.slice(1);
+      chips.push({ key: 'environment', label: `Environment: ${envLabel}`, value: filters.environment });
+    }
+    
+    // Operation search
+    if (filters.span_name) {
+      chips.push({ key: 'span_name', label: `Operation: ${filters.span_name}`, value: filters.span_name });
+    }
+    
+    // Time range filter
+    const activeTimeRange = getActiveTimeRange();
+    if (activeTimeRange !== 'all') {
+      const timeLabels: Record<string, string> = {
+        '24h': 'Last 24 Hours',
+        '7d': 'Last 7 Days',
+        '30d': 'Last 30 Days',
+        'custom': 'Custom Time Range'
+      };
+      chips.push({ 
+        key: 'start_time_after', 
+        label: `Time: ${timeLabels[activeTimeRange] || activeTimeRange}`, 
+        value: activeTimeRange 
+      });
+    }
+    
+    // Status filter
+    if (filters.status_code) {
+      chips.push({ key: 'status_code', label: `Status: ${filters.status_code}`, value: filters.status_code });
+    }
+    
+    // Trace source filter
+    if (filters.trace_source && filters.trace_source !== 'all') {
+      const sourceLabel = filters.trace_source === 'test' ? 'Tests' : 'App';
+      chips.push({ key: 'trace_source', label: `Source: ${sourceLabel}`, value: filters.trace_source });
+    }
+    
+    // Duration filter
+    const activeDuration = getActiveDurationFilter();
+    if (activeDuration === 'normal') {
+      chips.push({ key: 'duration', label: 'Duration: Normal (<5s)', value: 'normal' });
+    } else if (activeDuration === 'slow') {
+      chips.push({ key: 'duration', label: 'Duration: Slow (≥5s)', value: 'slow' });
+    } else if (activeDuration === 'custom') {
+      // For custom duration ranges, show the actual values
+      if (filters.duration_min_ms && filters.duration_max_ms) {
+        chips.push({ 
+          key: 'duration', 
+          label: `Duration: ${filters.duration_min_ms/1000}s-${filters.duration_max_ms/1000}s`, 
+          value: 'custom' 
+        });
+      } else if (filters.duration_min_ms) {
+        chips.push({ 
+          key: 'duration', 
+          label: `Duration: >${filters.duration_min_ms/1000}s`, 
+          value: 'custom' 
+        });
+      } else if (filters.duration_max_ms) {
+        chips.push({ 
+          key: 'duration', 
+          label: `Duration: <${filters.duration_max_ms/1000}s`, 
+          value: 'custom' 
+        });
+      }
+    }
+    
+    // Test-related filters
+    if (filters.test_run_id) {
+      chips.push({ key: 'test_run_id', label: `Test Run: ${filters.test_run_id.slice(0, 8)}...`, value: filters.test_run_id });
+    }
+    if (filters.test_result_id) {
+      chips.push({ key: 'test_result_id', label: `Test Result: ${filters.test_result_id.slice(0, 8)}...`, value: filters.test_result_id });
+    }
+    if (filters.test_id) {
+      chips.push({ key: 'test_id', label: `Test: ${filters.test_id.slice(0, 8)}...`, value: filters.test_id });
+    }
+    
+    // Time before filter
+    if (filters.start_time_before) {
+      const date = new Date(filters.start_time_before).toLocaleDateString();
+      chips.push({ key: 'start_time_before', label: `Before: ${date}`, value: filters.start_time_before });
+    }
+    
+    return chips;
+  };
+
+  const activeChips = getActiveFilterChips();
+
+  // Filter endpoints by selected project
+  const filteredEndpoints = filters.project_id
+    ? endpoints.filter(e => e.project_id === filters.project_id)
+    : endpoints;
+
   return (
     <>
-      <Stack spacing={1.5} sx={{ mb: 2 }}>
+      <Stack spacing={1.5} sx={{ mb: 1.5 }}>
         {/* Row 1: Context & Search */}
         <Box
           sx={{
@@ -176,7 +347,7 @@ export default function TraceFilters({
           }}
         >
           {/* Project Selector */}
-          <FormControl size="small" sx={{ minWidth: 180, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+          <FormControl size="small" sx={{ minWidth: 160, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
             <InputLabel>Project</InputLabel>
             <Select
               value={filters.project_id || ''}
@@ -189,6 +360,49 @@ export default function TraceFilters({
                   {project.name}
                 </MenuItem>
               )) || []}
+            </Select>
+          </FormControl>
+
+          {/* Endpoint Selector */}
+          <FormControl 
+            size="small" 
+            sx={{ minWidth: 180, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}
+            disabled={filteredEndpoints.length === 0}
+          >
+            <InputLabel>Endpoint</InputLabel>
+            <Select
+              value={filters.endpoint_id || ''}
+              onChange={e => handleFilterChange('endpoint_id', e.target.value || undefined)}
+              label="Endpoint"
+            >
+              <MenuItem value="">
+                {filters.project_id 
+                  ? filteredEndpoints.length === 0 
+                    ? 'No endpoints in project'
+                    : 'All Endpoints'
+                  : 'All Endpoints'
+                }
+              </MenuItem>
+              {filteredEndpoints.map(endpoint => (
+                <MenuItem key={endpoint.id} value={endpoint.id}>
+                  {endpoint.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Environment Selector */}
+          <FormControl size="small" sx={{ minWidth: 140, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+            <InputLabel>Environment</InputLabel>
+            <Select
+              value={filters.environment || ''}
+              onChange={e => handleFilterChange('environment', e.target.value || undefined)}
+              label="Environment"
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="development">Development</MenuItem>
+              <MenuItem value="staging">Staging</MenuItem>
+              <MenuItem value="production">Production</MenuItem>
             </Select>
           </FormControl>
 
@@ -211,7 +425,7 @@ export default function TraceFilters({
           />
         </Box>
 
-        {/* Row 2: Time, Status, Source & Environment */}
+        {/* Row 2: Filters & Actions */}
         <Box
           sx={{
             display: 'flex',
@@ -226,9 +440,9 @@ export default function TraceFilters({
             <Button
               onClick={() => handleTimeRangeFilterChange('all')}
               variant={getActiveTimeRange() === 'all' ? 'contained' : 'outlined'}
-              startIcon={<AccessTimeIcon fontSize="small" />}
+              startIcon={<ListIcon fontSize="small" />}
             >
-              All Time
+              All
             </Button>
             <Button
               onClick={() => handleTimeRangeFilterChange('24h')}
@@ -250,11 +464,14 @@ export default function TraceFilters({
             </Button>
           </ButtonGroup>
 
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+
           {/* Status Filter */}
           <ButtonGroup size="small" variant="outlined">
             <Button
               onClick={() => handleStatusFilterChange('all')}
               variant={!filters.status_code ? 'contained' : 'outlined'}
+              startIcon={<ListIcon fontSize="small" />}
             >
               All
             </Button>
@@ -292,11 +509,14 @@ export default function TraceFilters({
             </Button>
           </ButtonGroup>
 
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+
           {/* Trace Source Filter */}
           <ButtonGroup size="small" variant="outlined">
             <Button
               onClick={() => handleTraceSourceFilterChange('all')}
               variant={!filters.trace_source || filters.trace_source === 'all' ? 'contained' : 'outlined'}
+              startIcon={<ListIcon fontSize="small" />}
             >
               All
             </Button>
@@ -316,33 +536,35 @@ export default function TraceFilters({
             </Button>
           </ButtonGroup>
 
-          {/* Environment Filter */}
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+
+          {/* Duration Filter */}
           <ButtonGroup size="small" variant="outlined">
             <Button
-              onClick={() => handleEnvironmentFilterChange('all')}
-              variant={!filters.environment ? 'contained' : 'outlined'}
+              onClick={() => handleDurationFilterChange('all')}
+              variant={getActiveDurationFilter() === 'all' ? 'contained' : 'outlined'}
+              startIcon={<ListIcon fontSize="small" />}
             >
               All
             </Button>
             <Button
-              onClick={() => handleEnvironmentFilterChange('development')}
-              variant={filters.environment === 'development' ? 'contained' : 'outlined'}
+              onClick={() => handleDurationFilterChange('normal')}
+              variant={getActiveDurationFilter() === 'normal' ? 'contained' : 'outlined'}
+              startIcon={<SpeedIcon fontSize="small" />}
             >
-              Dev
+              Normal
             </Button>
             <Button
-              onClick={() => handleEnvironmentFilterChange('staging')}
-              variant={filters.environment === 'staging' ? 'contained' : 'outlined'}
+              onClick={() => handleDurationFilterChange('slow')}
+              variant={getActiveDurationFilter() === 'slow' ? 'contained' : 'outlined'}
+              startIcon={<HourglassEmptyIcon fontSize="small" />}
             >
-              Staging
-            </Button>
-            <Button
-              onClick={() => handleEnvironmentFilterChange('production')}
-              variant={filters.environment === 'production' ? 'contained' : 'outlined'}
-            >
-              Prod
+              Slow
             </Button>
           </ButtonGroup>
+
+          {/* Spacer */}
+          <Box sx={{ flex: 1, minWidth: { xs: 0, sm: 20 } }} />
 
           {/* Advanced Filters Button */}
           <Badge badgeContent={activeFilterCount} color="primary">
@@ -357,29 +579,42 @@ export default function TraceFilters({
           </Badge>
         </Box>
 
-        {/* Row 3: Actions */}
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: 2,
-            alignItems: { xs: 'stretch', sm: 'center' },
-            justifyContent: 'flex-end',
-          }}
-        >
-          {/* Clear All Button */}
-          {hasActiveFilters && (
-            <Button
-              size="small"
-              variant="outlined"
-              color="secondary"
-              startIcon={<ClearAllIcon />}
-              onClick={handleClearAllFilters}
-            >
-              Clear All
-            </Button>
-          )}
-        </Box>
+        {/* Row 3: Active Filter Chips */}
+        {activeChips.length > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 1,
+              alignItems: 'center',
+            }}
+          >
+            <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+              Active filters:
+            </Typography>
+            {activeChips.map((chip) => (
+              <Chip
+                key={chip.key}
+                label={chip.label}
+                size="small"
+                onDelete={() => {
+                  // Handle duration filter specially - clear both min and max
+                  if (chip.key === 'duration') {
+                    handleFilterChange('duration_min_ms', undefined);
+                    handleFilterChange('duration_max_ms', undefined);
+                  } else {
+                    handleFilterChange(chip.key as keyof TraceQueryParams, undefined);
+                  }
+                }}
+                deleteIcon={<CloseIcon />}
+                sx={{ 
+                  height: 24,
+                  '& .MuiChip-label': { px: 1.5, py: 0 },
+                }}
+              />
+            ))}
+          </Box>
+        )}
       </Stack>
 
       {/* Advanced Filter Popover */}
@@ -432,36 +667,48 @@ export default function TraceFilters({
         {/* Content */}
         <Box sx={{ p: 2.5, maxHeight: 520, overflow: 'auto' }}>
           <Stack spacing={3}>
-            {/* Time Range Filters */}
+            {/* Custom Time Range */}
             <Box>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
-                Time Range
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <AccessTimeIcon fontSize="small" color="action" />
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Custom Time Range
+                </Typography>
+              </Box>
               <Stack spacing={2}>
                 <TextField
                   fullWidth
                   size="small"
                   label="Start Time After"
                   type="datetime-local"
-                  value={filters.start_time_after || ''}
+                  value={
+                    filters.start_time_after 
+                      ? new Date(filters.start_time_after).toISOString().slice(0, 16)
+                      : ''
+                  }
                   onChange={e =>
                     handleFilterChange(
                       'start_time_after',
-                      e.target.value || undefined
+                      e.target.value ? new Date(e.target.value).toISOString() : undefined
                     )
                   }
                   InputLabelProps={{ shrink: true }}
+                  helperText="Override quick time filters above"
                 />
                 <TextField
                   fullWidth
                   size="small"
                   label="Start Time Before"
                   type="datetime-local"
-                  value={filters.start_time_before || ''}
+                  value={
+                    filters.start_time_before
+                      ? new Date(filters.start_time_before).toISOString().slice(0, 16)
+                      : ''
+                  }
                   onChange={e =>
                     handleFilterChange(
                       'start_time_before',
-                      e.target.value || undefined
+                      e.target.value ? new Date(e.target.value).toISOString() : undefined
                     )
                   }
                   InputLabelProps={{ shrink: true }}
@@ -471,21 +718,38 @@ export default function TraceFilters({
 
             <Divider />
 
-            {/* Test Association Filters */}
+            {/* Test Association */}
             <Box>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
-                Test Association
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <ScienceIcon fontSize="small" color="action" />
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Test Association
+                </Typography>
+              </Box>
               <Stack spacing={2}>
                 <TextField
                   fullWidth
                   size="small"
                   label="Test Run ID"
-                  placeholder="Filter by test run"
+                  placeholder="e.g., 123e4567-e89b-12d3"
                   value={filters.test_run_id || ''}
                   onChange={e =>
                     handleFilterChange(
                       'test_run_id',
+                      e.target.value || undefined
+                    )
+                  }
+                  helperText="Filter traces from a specific test run"
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Test Result ID"
+                  placeholder="e.g., 123e4567-e89b-12d3"
+                  value={filters.test_result_id || ''}
+                  onChange={e =>
+                    handleFilterChange(
+                      'test_result_id',
                       e.target.value || undefined
                     )
                   }
@@ -494,13 +758,29 @@ export default function TraceFilters({
                   fullWidth
                   size="small"
                   label="Test ID"
-                  placeholder="Filter by test"
+                  placeholder="e.g., 123e4567-e89b-12d3"
                   value={filters.test_id || ''}
                   onChange={e =>
                     handleFilterChange('test_id', e.target.value || undefined)
                   }
                 />
               </Stack>
+            </Box>
+
+            <Divider />
+
+            {/* Tips */}
+            <Box sx={{ 
+              p: 1.5, 
+              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
+              borderRadius: 1,
+            }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                💡 <strong>Pro tip:</strong> Use the search box to filter by operation name (e.g., "ai.llm.invoke")
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Use Test Run filter to analyze traces from specific test executions
+              </Typography>
             </Box>
           </Stack>
         </Box>
