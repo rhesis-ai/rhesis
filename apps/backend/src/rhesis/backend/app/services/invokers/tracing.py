@@ -142,6 +142,13 @@ async def create_invocation_trace(
         trace_context["error"] = e
         raise
     finally:
+        # Skip trace creation if endpoint has no project_id
+        if endpoint.project_id is None:
+            logger.debug(
+                f"Skipping trace creation for endpoint {endpoint.id} - no project_id assigned"
+            )
+            return
+
         end_time = datetime.now(timezone.utc)
         result = trace_context.get("result")
         error = trace_context.get("error")
