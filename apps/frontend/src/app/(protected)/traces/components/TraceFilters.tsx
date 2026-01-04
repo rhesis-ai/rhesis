@@ -46,9 +46,6 @@ export default function TraceFilters({
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>(
     []
   );
-  const [testRuns, setTestRuns] = useState<Array<{ id: string; name: string }>>(
-    []
-  );
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
 
   const handleFilterChange = (key: keyof TraceQueryParams, value: any) => {
@@ -56,46 +53,25 @@ export default function TraceFilters({
     onFiltersChange(newFilters);
   };
 
-  // Fetch projects and test runs on mount
+  // Fetch projects on mount
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchProjects = async () => {
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
-        
-        // Fetch projects
         const projectsClient = clientFactory.getProjectsClient();
         const projectsResponse = await projectsClient.getProjects({ limit: 100 });
         const projectsData = Array.isArray(projectsResponse)
           ? projectsResponse
           : projectsResponse?.data || [];
         setProjects(projectsData);
-
-        // Fetch test runs (recent ones only)
-        const testRunsClient = clientFactory.getTestRunsClient();
-        const testRunsResponse = await testRunsClient.getTestRuns({
-          limit: 50,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-        const testRunsRaw = Array.isArray(testRunsResponse)
-          ? testRunsResponse
-          : testRunsResponse?.data || [];
-        
-        // Map to our simpler format with fallback for name
-        const testRunsData = testRunsRaw.map(tr => ({
-          id: tr.id,
-          name: tr.name || `Test Run ${tr.id.slice(0, 8)}`,
-        }));
-        setTestRuns(testRunsData);
       } catch (error) {
-        console.error('Failed to fetch filter data:', error);
+        console.error('Failed to fetch projects:', error);
         setProjects([]);
-        setTestRuns([]);
       }
     };
 
     if (sessionToken) {
-      fetchData();
+      fetchProjects();
     }
   }, [sessionToken]);
 
@@ -172,11 +148,11 @@ export default function TraceFilters({
       value !== undefined &&
       value !== '' &&
       value !== 'all' &&
-      !['project_id', 'limit', 'offset', 'trace_source', 'status_code', 'start_time_after', 'test_run_id'].includes(key) ||
+      !['project_id', 'limit', 'offset', 'trace_source', 'status_code', 'start_time_after', 'environment'].includes(key) ||
       (key === 'trace_source' && value !== 'all' && value !== undefined) ||
       (key === 'status_code' && value !== undefined) ||
       (key === 'start_time_after' && value !== undefined) ||
-      (key === 'test_run_id' && value !== undefined)
+      (key === 'environment' && value !== undefined)
   ).length;
 
   const hasActiveFilters = activeFilterCount > 0;
@@ -185,97 +161,109 @@ export default function TraceFilters({
   return (
     <>
       <Stack spacing={2} sx={{ mb: 3 }}>
-        {/* Row 1: Primary Filters */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 2,
-          alignItems: { xs: 'stretch', sm: 'center' },
-          flexWrap: 'wrap',
-        }}
-      >
-        {/* Project Selector */}
-        <FormControl size="small" sx={{ minWidth: 180, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
-          <InputLabel>Project</InputLabel>
-          <Select
-            value={filters.project_id || ''}
-            onChange={e => handleFilterChange('project_id', e.target.value || undefined)}
-            label="Project"
-          >
-            <MenuItem value="">All Projects</MenuItem>
-            {projects?.map(project => (
-              <MenuItem key={project.id} value={project.id}>
-                {project.name}
-              </MenuItem>
-            )) || []}
-          </Select>
-        </FormControl>
-
-        {/* Search */}
-        <TextField
-          size="small"
-          placeholder="Search operations..."
-          value={filters.span_name || ''}
-          onChange={e =>
-            handleFilterChange('span_name', e.target.value || undefined)
-          }
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
+        {/* Row 1: Context & Search */}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 2,
+            alignItems: { xs: 'stretch', sm: 'center' },
+            flexWrap: 'wrap',
           }}
-          sx={{ minWidth: 200, flex: { xs: '1 1 100%', sm: '1 1 auto' } }}
-        />
+        >
+          {/* Project Selector */}
+          <FormControl size="small" sx={{ minWidth: 180, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+            <InputLabel>Project</InputLabel>
+            <Select
+              value={filters.project_id || ''}
+              onChange={e => handleFilterChange('project_id', e.target.value || undefined)}
+              label="Project"
+            >
+              <MenuItem value="">All Projects</MenuItem>
+              {projects?.map(project => (
+                <MenuItem key={project.id} value={project.id}>
+                  {project.name}
+                </MenuItem>
+              )) || []}
+            </Select>
+          </FormControl>
 
-        {/* Time Range Filter */}
-        <ButtonGroup size="small" variant="outlined" sx={{ flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
-          <Button
-            onClick={() => handleTimeRangeFilterChange('all')}
-            variant={getActiveTimeRange() === 'all' ? 'contained' : 'outlined'}
-            startIcon={<AccessTimeIcon fontSize="small" />}
-          >
-            All Time
-          </Button>
-          <Button
-            onClick={() => handleTimeRangeFilterChange('24h')}
-            variant={getActiveTimeRange() === '24h' ? 'contained' : 'outlined'}
-          >
-            24h
-          </Button>
-          <Button
-            onClick={() => handleTimeRangeFilterChange('7d')}
-            variant={getActiveTimeRange() === '7d' ? 'contained' : 'outlined'}
-          >
-            7d
-          </Button>
-          <Button
-            onClick={() => handleTimeRangeFilterChange('30d')}
-            variant={getActiveTimeRange() === '30d' ? 'contained' : 'outlined'}
-          >
-            30d
-          </Button>
-        </ButtonGroup>
-      </Box>
+          {/* Search */}
+          <TextField
+            size="small"
+            placeholder="Search operations..."
+            value={filters.span_name || ''}
+            onChange={e =>
+              handleFilterChange('span_name', e.target.value || undefined)
+            }
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 200, flex: { xs: '1 1 100%', sm: '1 1 auto' } }}
+          />
 
-      {/* Row 2: Quick Filters */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 2,
-          alignItems: { xs: 'stretch', sm: 'center' },
-          flexWrap: 'wrap',
-        }}
-      >
+          {/* Environment Selector */}
+          <FormControl size="small" sx={{ minWidth: 160, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+            <InputLabel>Environment</InputLabel>
+            <Select
+              value={filters.environment || ''}
+              onChange={e =>
+                handleFilterChange('environment', e.target.value || undefined)
+              }
+              label="Environment"
+            >
+              <MenuItem value="">All Environments</MenuItem>
+              <MenuItem value="development">Development</MenuItem>
+              <MenuItem value="staging">Staging</MenuItem>
+              <MenuItem value="production">Production</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
 
-        {/* Status Filter */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 'auto' }}>
-            Status:
-          </Typography>
+        {/* Row 2: Time & Status */}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 2,
+            alignItems: { xs: 'stretch', sm: 'center' },
+            flexWrap: 'wrap',
+          }}
+        >
+          {/* Time Range Filter */}
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => handleTimeRangeFilterChange('all')}
+              variant={getActiveTimeRange() === 'all' ? 'contained' : 'outlined'}
+              startIcon={<AccessTimeIcon fontSize="small" />}
+            >
+              All Time
+            </Button>
+            <Button
+              onClick={() => handleTimeRangeFilterChange('24h')}
+              variant={getActiveTimeRange() === '24h' ? 'contained' : 'outlined'}
+            >
+              24h
+            </Button>
+            <Button
+              onClick={() => handleTimeRangeFilterChange('7d')}
+              variant={getActiveTimeRange() === '7d' ? 'contained' : 'outlined'}
+            >
+              7d
+            </Button>
+            <Button
+              onClick={() => handleTimeRangeFilterChange('30d')}
+              variant={getActiveTimeRange() === '30d' ? 'contained' : 'outlined'}
+            >
+              30d
+            </Button>
+          </ButtonGroup>
+
+          {/* Status Filter */}
           <ButtonGroup size="small" variant="outlined">
             <Button
               onClick={() => handleStatusFilterChange('all')}
@@ -316,13 +304,8 @@ export default function TraceFilters({
               Error
             </Button>
           </ButtonGroup>
-        </Box>
 
-        {/* Trace Source Filter */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 'auto' }}>
-            Source:
-          </Typography>
+          {/* Trace Source Filter */}
           <ButtonGroup size="small" variant="outlined">
             <Button
               onClick={() => handleTraceSourceFilterChange('all')}
@@ -347,51 +330,42 @@ export default function TraceFilters({
           </ButtonGroup>
         </Box>
 
-        {/* Test Run Selector */}
-        <FormControl size="small" sx={{ minWidth: 180, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
-          <InputLabel>Test Run</InputLabel>
-          <Select
-            value={filters.test_run_id || ''}
-            onChange={e => handleFilterChange('test_run_id', e.target.value || undefined)}
-            label="Test Run"
-          >
-            <MenuItem value="">All Test Runs</MenuItem>
-            {testRuns?.map(testRun => (
-              <MenuItem key={testRun.id} value={testRun.id}>
-                {testRun.name}
-              </MenuItem>
-            )) || []}
-          </Select>
-        </FormControl>
+        {/* Row 3: Actions */}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 2,
+            alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'flex-end',
+          }}
+        >
+          {/* Advanced Filters Button */}
+          <Badge badgeContent={activeFilterCount} color="primary">
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<FilterListIcon />}
+              onClick={handleFilterClick}
+            >
+              More Filters
+            </Button>
+          </Badge>
 
-        <Box sx={{ flex: 1 }} />
-
-        {/* Advanced Filters Button */}
-        <Badge badgeContent={activeFilterCount} color="primary">
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<FilterListIcon />}
-            onClick={handleFilterClick}
-          >
-            More Filters
-          </Button>
-        </Badge>
-
-        {/* Clear All Button */}
-        {hasActiveFilters && (
-          <Button
-            size="small"
-            variant="outlined"
-            color="secondary"
-            startIcon={<ClearAllIcon />}
-            onClick={handleClearAllFilters}
-          >
-            Clear
-          </Button>
-        )}
-      </Box>
-    </Stack>
+          {/* Clear All Button */}
+          {hasActiveFilters && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="secondary"
+              startIcon={<ClearAllIcon />}
+              onClick={handleClearAllFilters}
+            >
+              Clear All
+            </Button>
+          )}
+        </Box>
+      </Stack>
 
       {/* Advanced Filter Popover */}
       <Popover
@@ -443,38 +417,6 @@ export default function TraceFilters({
         {/* Content */}
         <Box sx={{ p: 2.5, maxHeight: 520, overflow: 'auto' }}>
           <Stack spacing={3}>
-            {/* Environment Filter */}
-            <Box>
-              <Box
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
-              >
-                <TimelineIcon fontSize="small" color="action" />
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Environment
-                </Typography>
-              </Box>
-              <FormControl fullWidth size="small">
-                <InputLabel>Environment</InputLabel>
-                <Select
-                  value={filters.environment || ''}
-                  onChange={e =>
-                    handleFilterChange(
-                      'environment',
-                      e.target.value || undefined
-                    )
-                  }
-                  label="Environment"
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="development">Development</MenuItem>
-                  <MenuItem value="staging">Staging</MenuItem>
-                  <MenuItem value="production">Production</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-
-            <Divider />
-
             {/* Time Range Filters */}
             <Box>
               <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
