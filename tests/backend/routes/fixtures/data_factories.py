@@ -15,13 +15,19 @@ Usage:
     data = BehaviorDataFactory.sample_data(name_length=50, include_description=False)
 """
 
+import string
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from faker import Faker
 
 from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.schemas.telemetry import (
+    SpanKind,
+    StatusCode,
+)
 
 # Initialize Faker with consistent seed for reproducible tests
 fake = Faker()
@@ -1706,7 +1712,6 @@ class TokenDataFactory(BaseDataFactory):
     def _generate_test_token(cls) -> str:
         """Generate a test token value"""
         import secrets
-        import string
 
         # Generate a secure random token for testing
         # Use rhesis prefix to identify test tokens
@@ -2181,6 +2186,189 @@ class TagDataFactory(BaseDataFactory):
         return tags
 
 
+# Add TraceDataFactory before registry update
+@dataclass
+class TraceDataFactory(BaseDataFactory):
+    """Factory for generating OpenTelemetry trace span test data"""
+
+    @classmethod
+    def minimal_data(cls, project_id: Optional[str] = None) -> Dict[str, Any]:
+        """Generate minimal trace span data (only required fields)"""
+        now = datetime.now(timezone.utc)
+        return {
+            "trace_id": fake.hexify("^" * 32, upper=False),  # 32-char hex
+            "span_id": fake.hexify("^" * 16, upper=False),  # 16-char hex
+            "project_id": project_id or str(fake.uuid4()),  # Use actual UUID
+            "environment": "development",
+            "span_name": "ai.llm.invoke",
+            "span_kind": SpanKind.CLIENT.value,
+            "start_time": now.isoformat(),
+            "end_time": (now + timedelta(seconds=2)).isoformat(),
+            "status_code": StatusCode.OK.value,
+            "attributes": {},
+            "events": [],
+            "links": [],
+            "resource": {},
+        }
+
+    @classmethod
+    def sample_data(
+        cls,
+        with_parent: bool = False,
+        with_events: bool = True,
+        with_error: bool = False,
+        duration_seconds: float = 2.5,
+        project_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate sample trace span data
+
+        Args:
+            with_parent: Include parent_span_id
+            with_events: Include span events (prompts, completions)
+            with_error: Make this an error span
+            duration_seconds: Duration of the span in seconds
+            project_id: Project ID (UUID string), generates one if not provided
+        """
+        now = datetime.now(timezone.utc)
+        trace_id = fake.hexify("^" * 32, upper=False)
+        span_id = fake.hexify("^" * 16, upper=False)
+
+        data = {
+            "trace_id": trace_id,
+            "span_id": span_id,
+            "project_id": project_id or str(fake.uuid4()),  # Use actual UUID
+            "environment": fake.random_element(["development", "staging", "production"]),
+            "span_name": fake.random_element(
+                [
+                    "ai.llm.invoke",
+                    "ai.tool.invoke",
+                    "ai.retrieval",
+                    "ai.embedding.generate",
+                ]
+            ),
+            "span_kind": SpanKind.CLIENT.value,
+            "start_time": now.isoformat(),
+            "end_time": (now + timedelta(seconds=duration_seconds)).isoformat(),
+            "status_code": (StatusCode.ERROR if with_error else StatusCode.OK).value,
+            "status_message": "LLM API error" if with_error else None,
+            "attributes": {
+                "ai.operation.type": "llm.invoke",
+                "ai.model.provider": "openai",
+                "ai.model.name": "gpt-4",
+                "ai.llm.tokens.input": fake.random_int(50, 500),
+                "ai.llm.tokens.output": fake.random_int(50, 300),
+                "ai.llm.tokens.total": fake.random_int(100, 800),
+            },
+            "resource": {
+                "service.name": fake.slug(),
+                "service.version": fake.numerify("#.#.#"),
+                "deployment.environment": "production",
+            },
+        }
+
+        if with_parent:
+            data["parent_span_id"] = fake.hexify("^" * 16, upper=False)
+
+        if with_events:
+            data["events"] = [
+                {
+                    "name": "ai.prompt",
+                    "timestamp": (now + timedelta(milliseconds=100)).isoformat(),
+                    "attributes": {
+                        "ai.prompt.role": "user",
+                        "ai.prompt.content": fake.sentence(nb_words=10),
+                    },
+                },
+                {
+                    "name": "ai.completion",
+                    "timestamp": (now + timedelta(seconds=duration_seconds - 0.1)).isoformat(),
+                    "attributes": {
+                        "ai.completion.content": fake.text(max_nb_chars=200),
+                    },
+                },
+            ]
+        else:
+            data["events"] = []
+
+        data["links"] = []
+
+        return data
+
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate data suitable for trace updates (not applicable for immutable traces)"""
+        # Traces are typically immutable, but we can update enriched_data
+        return {
+            "enriched_data": {
+                "total_cost_usd": float(
+                    fake.pydecimal(left_digits=1, right_digits=4, positive=True)
+                ),
+                "is_anomaly": fake.boolean(chance_of_getting_true=20),
+            }
+        }
+
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """
+        Generate edge case data for boundary testing
+
+        Args:
+            case_type: Type of edge case:
+                - 'long_trace': Many spans
+                - 'large_attributes': Large attribute payloads
+                - 'nested_spans': Deep nesting
+                - 'minimal': Absolute minimum fields
+        """
+        if case_type == "minimal":
+            return cls.minimal_data()
+        elif case_type == "large_attributes":
+            data = cls.sample_data()
+            data["attributes"]["large_context"] = fake.text(max_nb_chars=5000)
+            return data
+        elif case_type == "nested_spans":
+            # Return a parent span that can have children
+            data = cls.sample_data(with_parent=False)
+            return data
+        else:
+            return cls.sample_data()
+
+    @classmethod
+    def batch_data(
+        cls, count: int = 5, same_trace: bool = True, project_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate a batch of trace spans
+
+        Args:
+            count: Number of spans to generate
+            same_trace: Whether all spans belong to the same trace
+            project_id: Project ID (UUID string), generates one if not provided
+
+        Returns:
+            List of span dictionaries
+        """
+        if same_trace:
+            # All spans share the same trace_id and project_id
+            trace_id = fake.hexify("^" * 32, upper=False)
+            proj_id = project_id or str(fake.uuid4())
+
+            spans = []
+            for i in range(count):
+                span = cls.sample_data(project_id=proj_id)
+                span["trace_id"] = trace_id
+                span["project_id"] = proj_id
+                if i > 0:
+                    # Make subsequent spans children of first span
+                    span["parent_span_id"] = spans[0]["span_id"]
+                spans.append(span)
+
+            return spans
+        else:
+            # Each span has its own trace_id
+            return [cls.sample_data(project_id=project_id) for _ in range(count)]
+
+
 # Update factory registry with new factories
 FACTORY_REGISTRY.update(
     {
@@ -2194,6 +2382,7 @@ FACTORY_REGISTRY.update(
         "test": TestDataFactory,
         "token": TokenDataFactory,
         "topic": TopicDataFactory,
+        "trace": TraceDataFactory,
         "type_lookup": TypeLookupDataFactory,
         "use_case": UseCaseDataFactory,
     }
@@ -2221,6 +2410,7 @@ __all__ = [
     "TestDataFactory",
     "TokenDataFactory",
     "TopicDataFactory",
+    "TraceDataFactory",
     "TypeLookupDataFactory",
     "UseCaseDataFactory",
     "FACTORY_REGISTRY",

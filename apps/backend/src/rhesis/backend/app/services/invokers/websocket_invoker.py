@@ -17,6 +17,9 @@ from .common.schemas import ErrorResponse
 class WebSocketEndpointInvoker(BaseEndpointInvoker):
     """WebSocket endpoint invoker with support for different auth types."""
 
+    # WebSocket endpoints do not automatically generate traces
+    automatic_tracing: bool = False
+
     def __init__(self):
         super().__init__()
 
@@ -87,9 +90,22 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         return normalized
 
     async def invoke(
-        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
+        self,
+        db: Session,
+        endpoint: Endpoint,
+        input_data: Dict[str, Any],
+        test_execution_context: Optional[Dict[str, str]] = None,
     ) -> Union[Dict[str, Any], ErrorResponse]:
-        """Invoke the WebSocket endpoint with proper authentication."""
+        """
+        Invoke the WebSocket endpoint with proper authentication.
+
+        Args:
+            db: Database session
+            endpoint: The endpoint to invoke
+            input_data: Input data
+            test_execution_context: Optional test context (not used by WebSocket invoker,
+                                   handled by executor's manual tracing wrapper)
+        """
         start_time = time.time()
 
         try:

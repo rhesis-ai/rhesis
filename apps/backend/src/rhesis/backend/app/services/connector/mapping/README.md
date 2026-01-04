@@ -58,7 +58,7 @@ The mapping system uses a cascading priority approach:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  1. SDK Manual Mappings (from @collaborate)        │ ← Highest Priority
+│  1. SDK Manual Mappings (from @endpoint)        │ ← Highest Priority
 │     Developer explicitly defines mappings           │
 ├─────────────────────────────────────────────────────┤
 │  2. Existing DB Mappings (preserved on reconnect)  │
@@ -74,12 +74,12 @@ The mapping system uses a cascading priority approach:
 
 ### Priority 1: SDK Manual Mappings
 
-Developer provides explicit mappings in the `@collaborate` decorator:
+Developer provides explicit mappings in the `@endpoint` decorator:
 
 ```python
 from rhesis.sdk import collaborate
 
-@collaborate(
+@endpoint(
     request_mapping={
         "user_query": "{{ input }}",
         "conv_id": "{{ session_id }}",
@@ -197,7 +197,7 @@ For functions with standard naming, no configuration needed:
 ```python
 from rhesis.sdk import collaborate
 
-@collaborate()  # That's it!
+@endpoint()  # That's it!
 def chat(input: str, session_id: str = None):
     return {"output": f"Echo: {input}", "session_id": session_id}
 ```
@@ -209,7 +209,7 @@ def chat(input: str, session_id: str = None):
 Mix auto-mapping with custom hints:
 
 ```python
-@collaborate(
+@endpoint(
     # Only override what's different, rest is auto-mapped
     request_mapping={
         "user_query": "{{ input }}",  # Custom parameter name
@@ -224,7 +224,7 @@ def chat(user_query: str, session_id: str = None):
 Complete control for complex scenarios:
 
 ```python
-@collaborate(
+@endpoint(
     request_mapping={
         "q": "{{ input }}",
         "thread": "{{ session_id }}",

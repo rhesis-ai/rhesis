@@ -1,0 +1,180 @@
+import { CodeBlock } from '@/components/CodeBlock'
+import { Callout } from 'nextra-theme-docs'
+
+# Multi-Worker RPC Coordination
+
+When running multiple backend workers (e.g., `--workers 4`), ALL workers receive every RPC request via the Redis `ws:rpc:requests` channel. However, only ONE worker has the actual WebSocket connection to the SDK.
+
+## The Problem
+
+Without proper coordination:
+- Multiple workers attempt to handle the same request
+- Workers without connections publish spurious error responses
+- Race conditions cause "No connection" errors even when SDK is connected
+
+## Implementation
+
+### Connection Location Enum
+
+The system uses an explicit enum to represent connection state:
+
+<CodeBlock language="python" filename="manager.py" isTerminal={false}>
+{`class ConnectionLocation(Enum):
+    LOCAL = "local"      # This worker has the WebSocket
+    REMOTE = "remote"    # Another worker has it (verified in Redis)
+    NONE = "none"        # No worker has it (SDK disconnected)
+    UNKNOWN = "unknown"  # Can't determine (Redis error - fail safe)`}
+</CodeBlock>
+
+### Decision Flow
+
+Each worker follows this explicit flow when receiving an RPC request:
+
+<CodeBlock language="python" filename="manager.py" isTerminal={false}>
+{`# STEP 1: Determine where the connection exists
+location = await self._check_connection_location(key, pid)
+
+# STEP 2: Handle based on location
+if location == ConnectionLocation.LOCAL:
+    # This worker has the connection - forward to SDK
+    await self._forward_to_sdk(request_id, key, function_name, inputs, pid)
+    
+elif location == ConnectionLocation.REMOTE:
+    # Another worker has it - silently ignore
+    # CRITICAL: Do NOT publish any response
+    return
+    
+elif location == ConnectionLocation.NONE:
+    # No worker has it - publish error (SDK disconnected)
+    await self._publish_error_response(request_id, key, details, pid)
+    
+elif location == ConnectionLocation.UNKNOWN:
+    # Can't verify - silently ignore (fail-safe)
+    # CRITICAL: Do NOT publish error
+    return`}
+</CodeBlock>
+
+### Fail-Safe Design
+
+<Callout type="warning">
+When in doubt, assume another worker has the connection. Only publish errors when Redis explicitly confirms `exists=0`.
+</Callout>
+
+This prevents false "No connection" errors due to:
+- Temporary Redis unavailability
+- Redis synchronization delays
+- Network issues between workers and Redis
+
+### Client Resilience
+
+The RPC client ignores spurious `send_failed` errors and waits for actual SDK responses:
+
+<CodeBlock language="python" filename="rpc_client.py" isTerminal={false}>
+{`if "status" in result:
+    # Valid SDK response (success or error) - return it
+    return result
+elif "error" in result and result["error"] == "send_failed":
+    # Error from backend worker without connection - ignore
+    # Continue waiting for actual SDK response
+    continue`}
+</CodeBlock>
+
+**Why this works:**
+- SDK responses always have `status` field (`success` or `error`)
+- Backend worker errors only have `error` field
+- Client waits for the valid SDK response, ignoring intermediate errors
+
+## Monitoring
+
+### Expected Log Patterns
+
+**Worker with connection (one worker):**
+<CodeBlock language="text" isTerminal={false}>
+{`INFO - Forwarding RPC request invoke_abc123 (chat) to SDK`}
+</CodeBlock>
+
+**Workers without connection (other workers):**
+
+These workers silently ignore the request (no logs at INFO level). With DEBUG logging enabled:
+<CodeBlock language="text" isTerminal={false}>
+{`DEBUG - Connection exists on another worker, ignoring invoke_abc123`}
+</CodeBlock>
+
+### Problematic Patterns
+
+<Callout type="error">
+**Multiple workers forwarding (indicates a bug):**
+
+If you see multiple workers logging the same request forwarding:
+```
+INFO - Forwarding RPC request invoke_abc123 (chat) to SDK  # Worker 1
+INFO - Forwarding RPC request invoke_abc123 (chat) to SDK  # Worker 2 ← WRONG!
+```
+
+This indicates the `ConnectionLocation` logic is broken.
+</Callout>
+
+<Callout type="error">
+**False error when SDK is connected:**
+```
+ERROR - SDK disconnected for key, publishing error for invoke_abc123
+```
+
+This should NOT happen when another worker has the connection. If it does, the Redis check is failing.
+</Callout>
+
+## Testing
+
+To verify multi-worker behavior:
+
+1. **Start multiple workers**: `--workers 4`
+2. **Enable DEBUG logging**: Set log level to DEBUG to see coordination details
+3. **Execute test**: Trigger SDK function invocation
+4. **Verify logs**:
+   - Only ONE worker logs (INFO): `Forwarding RPC request ... to SDK`
+   - Other workers (DEBUG): `Connection exists on another worker, ignoring ...`
+   - No spurious error messages about missing connections
+
+## Key Implementation Files
+
+- **`manager.py`**: Connection location checking, RPC handling, worker coordination
+- **`rpc_client.py`**: Client-side response filtering, resilience to spurious errors
+- **`redis_client.py`**: Redis pub/sub for inter-worker communication
+
+## Architecture Diagram
+
+<CodeBlock language="text" isTerminal={false}>
+{`┌────────────────┐
+│ Celery Worker  │
+│                │
+│ Publishes RPC  │
+│ request to:    │
+│ ws:rpc:requests│
+└────────┬───────┘
+         │
+         ▼
+┌────────────────┐
+│  Redis Pub/Sub │
+└────┬─────┬─────┘
+     │     │
+┌────▼─┐ ┌─▼────┐
+│Worker│ │Worker│
+│1 PID │ │2 PID │
+│ 1001 │ │ 1002 │
+└──┬───┘ └──┬───┘
+   │        │
+Check    Check
+Location Location
+   │        │
+   ▼        ▼
+ LOCAL   REMOTE
+   │        │
+Forward  Ignore
+to SDK  (silent)
+   │
+   ▼
+┌───────┐
+│  SDK  │
+└───────┘`}
+</CodeBlock>
+

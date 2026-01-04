@@ -281,7 +281,9 @@ class TestEndpointServiceIntegration:
             result = await service.invoke_endpoint(mock_db, "endpoint123", input_data)
 
             assert result == {"status": "success", "data": "response"}
-            mock_invoker.invoke.assert_called_once_with(mock_db, mock_endpoint, input_data)
+            mock_invoker.invoke.assert_called_once_with(
+                mock_db, mock_endpoint, input_data, None
+            )
 
     @pytest.mark.asyncio
     async def test_error_handling_chain(self):

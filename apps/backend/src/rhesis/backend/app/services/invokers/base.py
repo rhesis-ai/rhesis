@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,10 @@ from .templating import ResponseMapper, TemplateRenderer
 class BaseEndpointInvoker(ABC):
     """Base class for endpoint invokers with shared functionality."""
 
+    # Indicates whether this invoker automatically generates traces
+    # SDK invokers set this to True, REST/WebSocket set to False
+    automatic_tracing: bool = False
+
     def __init__(self):
         self.template_renderer = TemplateRenderer()
         self.response_mapper = ResponseMapper()
@@ -26,7 +30,11 @@ class BaseEndpointInvoker(ABC):
 
     @abstractmethod
     async def invoke(
-        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
+        self,
+        db: Session,
+        endpoint: Endpoint,
+        input_data: Dict[str, Any],
+        test_execution_context: Optional[Dict[str, str]] = None,
     ) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Invoke the endpoint with the given input data.
@@ -35,6 +43,8 @@ class BaseEndpointInvoker(ABC):
             db: Database session
             endpoint: The endpoint to invoke
             input_data: Input data to be mapped to the endpoint's request template
+            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
+                                   for linking traces to test executions
 
         Returns:
             Dict containing the mapped response from the endpoint, or ErrorResponse for errors

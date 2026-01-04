@@ -2,12 +2,16 @@
 
 from datetime import datetime, timedelta
 from unittest.mock import Mock
+from uuid import UUID
 
 import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointAuthType, EndpointConnectionType
+
+# Default test project ID for fixtures
+TEST_PROJECT_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 
 @pytest.fixture
@@ -33,6 +37,7 @@ def sample_endpoint_rest():
             "output": "$.response.text",
             "tokens": "$.usage.total_tokens",
         },
+        project_id=TEST_PROJECT_ID,
     )
 
 
@@ -51,6 +56,7 @@ def sample_endpoint_websocket():
             "output": "$.message",
             "conversation_id": "$.conversation_id",
         },
+        project_id=TEST_PROJECT_ID,
     )
 
 
@@ -70,6 +76,7 @@ def sample_endpoint_oauth():
         audience="https://api.example.com",
         request_mapping='{"query": "{{ input }}"}',
         response_mapping={"output": "$.result"},
+        project_id=TEST_PROJECT_ID,
     )
     # Set cached token
     endpoint.last_token = "cached-access-token"
@@ -88,12 +95,40 @@ def sample_endpoint_conversation():
         url="https://api.example.com/chat",
         auth_type=EndpointAuthType.BEARER_TOKEN.value,
         auth_token="test-token",
-        request_mapping='{"message": "{{ input }}", "conversation_id": {{ conversation_id | tojson }}}',
+        request_mapping=(
+            '{"message": "{{ input }}", "conversation_id": {{ conversation_id | tojson }}}'
+        ),
         response_mapping={
             "output": "$.message",
             "conversation_id": "$.conversation_id",
             "context": "$.context",
         },
+        project_id=TEST_PROJECT_ID,
+    )
+
+
+@pytest.fixture
+def sample_endpoint_sdk():
+    """Sample SDK endpoint configuration."""
+    return Endpoint(
+        id="test-sdk-endpoint",
+        name="Test SDK Endpoint",
+        connection_type=EndpointConnectionType.SDK.value,
+        url="",  # Empty for SDK endpoints
+        environment="development",
+        request_mapping='{"input": "{{ input }}"}',
+        response_mapping={
+            "output": "$.output",
+            "status": "$.status",
+        },
+        endpoint_metadata={
+            "sdk_connection": {
+                "project_id": "test-project-id",
+                "environment": "development",
+                "function_name": "test_function",
+            }
+        },
+        project_id=TEST_PROJECT_ID,
     )
 
 

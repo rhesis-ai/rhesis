@@ -18,6 +18,64 @@ Rosalind is a pre-configured insurance expert chatbot powered by Google's Gemini
 - **Session Management**: Maintains conversation context across multiple messages
 - **Automatic Garbage Collection**: Automatically cleans up stale sessions to prevent memory issues
 - **Health Monitoring**: Built-in health check endpoint for service monitoring
+- **Full Observability**: Enhanced OpenTelemetry tracing with nested spans for debugging and performance analysis
+
+## Observability & Tracing
+
+This chatbot includes comprehensive OpenTelemetry tracing to provide visibility into:
+- LLM invocation timing and token usage
+- Context generation strategies
+- Response parsing methods
+- Conversation building steps
+- Error tracking with full stack traces
+
+### Trace Hierarchy
+
+Each chat interaction creates a detailed trace with nested spans:
+
+```
+chat (parent from @endpoint)
+├── function.load_system_prompt
+├── function.generate_context
+│   ├── function.build_context_prompt
+│   ├── ai.llm.invoke (context generation)
+│   └── function.parse_context
+│       └── function.parse_context_strategies
+│           ├── function.parse_direct_json
+│           ├── function.parse_regex_json
+│           ├── function.parse_array
+│           └── function.extract_text_fragments
+└── function.stream_response
+    ├── function.build_conversation_context
+    ├── ai.llm.invoke (main response)
+    └── function.process_response
+```
+
+**Note**: All explicit spans follow strict naming conventions:
+- `function.<name>` for application logic
+- `ai.<domain>.<action>` for AI operations (LLM, tools, embeddings)
+
+### Running the Demo
+
+To see enhanced tracing in action:
+
+```bash
+# Set up Rhesis SDK environment variables
+export RHESIS_API_KEY="your-api-key"
+export RHESIS_PROJECT_ID="your-project-id"
+export RHESIS_ENVIRONMENT="development"
+
+# Run the tracing demo
+uv run python demo_tracing.py
+```
+
+The demo will show you the complete span hierarchy and export traces to your Rhesis dashboard.
+
+### Learn More
+
+For detailed information about the SDK integration and how to use explicit spans in your own applications:
+- **SDK Usage Guide**: `../../playground/telemetry/SDK_USAGE_GUIDE.md`
+- **Implementation Example**: Review `endpoint.py` for real-world span creation patterns
 
 ## Quick Start
 

@@ -1,3 +1,4 @@
+import logging
 import os
 
 from celery import Celery
@@ -49,6 +50,7 @@ app.conf.update(
     task_routes={
         "rhesis.backend.tasks.execution.*": {"queue": "execution"},
         "rhesis.backend.tasks.metrics.*": {"queue": "metrics"},
+        "rhesis.backend.tasks.telemetry.*": {"queue": "telemetry"},
     },
     # Worker settings
     worker_prefetch_multiplier=1,
@@ -96,6 +98,7 @@ app.conf.update(
         "rhesis.backend.tasks.test_set",
         "rhesis.backend.tasks.execution.results",
         "rhesis.backend.tasks.execution.test",
+        "rhesis.backend.tasks.telemetry.enrich",
     ],
 )
 
@@ -103,8 +106,6 @@ app.conf.update(
 app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)
 
 # Configure logging to reduce verbosity
-import logging
-
 # Suppress verbose Celery task result logging
 logging.getLogger("celery.task").setLevel(logging.WARNING)
 logging.getLogger("celery.worker").setLevel(logging.WARNING)

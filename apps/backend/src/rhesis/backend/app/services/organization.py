@@ -393,8 +393,35 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
 
         # Process endpoints
         print("Processing endpoints...")
+        # Ensure there's a default project for endpoints without a specified project
+        default_project = (
+            db.query(models.Project)
+            .filter(
+                models.Project.organization_id == uuid.UUID(organization_id),
+            )
+            .first()
+        )
+
+        # If no projects exist yet, create a default one
+        if not default_project:
+            default_project_data = {
+                "name": "Default Project",
+                "description": "Default project for endpoints",
+                "is_active": True,
+                "user_id": user_id,
+                "owner_id": user_id,
+            }
+            default_project = get_or_create_entity(
+                db=db,
+                model=models.Project,
+                entity_data=default_project_data,
+                organization_id=organization_id,
+                user_id=user_id,
+                commit=False,
+            )
+
         for item in initial_data.get("endpoint", []):
-            # Get project if specified
+            # Get project if specified, otherwise use default
             project = None
             if item.get("project"):
                 project = (
@@ -405,6 +432,10 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     )
                     .first()
                 )
+
+            # Fallback to default project if specified project not found
+            if not project:
+                project = default_project
 
             # Get status if specified
             status = None
@@ -492,9 +523,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             if item.get("auth_type") and auth_token_loaded:
                 endpoint_data["auth_type"] = item["auth_type"]
 
-            # Add optional relationships
-            if project:
-                endpoint_data["project_id"] = project.id
+            # Add required and optional relationships
+            # project_id is now required (non-nullable FK)
+            endpoint_data["project_id"] = project.id
             if status:
                 endpoint_data["status_id"] = status.id
 
@@ -1164,6 +1195,7 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
                         entities_to_delete.add(entity)
 
         # Sort entities for deletion
+        # Endpoints must be deleted before Projects due to FK constraint
         deletion_order = {
             "Prompt": 0,
             "Test": 1,
@@ -1172,6 +1204,7 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
             "Category": 2,
             "Metric": 2,
             "TestSet": 3,
+            "Endpoint": 3,  # Delete endpoints before projects
             "Project": 4,
         }
         sorted_entities = sorted(

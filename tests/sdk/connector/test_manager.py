@@ -6,6 +6,7 @@ import pytest
 
 from rhesis.sdk.connector.manager import ConnectorManager
 from rhesis.sdk.connector.types import MessageType
+from rhesis.sdk.telemetry import Tracer
 
 
 @pytest.fixture
@@ -14,7 +15,7 @@ def manager():
     return ConnectorManager(
         api_key="test-api-key",
         project_id="test-project",
-        environment="test",
+        environment="development",
         base_url="http://localhost:8080",
     )
 
@@ -33,7 +34,7 @@ def test_manager_initialization(manager):
     """Test manager initializes with correct configuration."""
     assert manager.api_key == "test-api-key"
     assert manager.project_id == "test-project"
-    assert manager.environment == "test"
+    assert manager.environment == "development"
     assert manager.base_url == "http://localhost:8080"
     assert not manager._initialized
     assert manager._connection is None
@@ -44,6 +45,11 @@ def test_manager_has_components(manager):
     assert hasattr(manager, "_registry")
     assert hasattr(manager, "_executor")
     assert hasattr(manager, "_tracer")
+
+
+def test_manager_uses_telemetry_tracer(manager):
+    """Test manager uses Tracer from telemetry module."""
+    assert isinstance(manager._tracer, Tracer)
 
 
 @patch("rhesis.sdk.connector.manager.WebSocketConnection")
@@ -120,7 +126,7 @@ def test_websocket_url_https_to_wss():
     manager = ConnectorManager(
         api_key="key",
         project_id="project",
-        environment="test",
+        environment="development",
         base_url="https://api.example.com",
     )
 
@@ -133,7 +139,7 @@ def test_websocket_url_strips_trailing_slash():
     manager = ConnectorManager(
         api_key="key",
         project_id="project",
-        environment="test",
+        environment="development",
         base_url="http://localhost:8080/",
     )
 
@@ -239,7 +245,7 @@ async def test_send_registration(manager, sample_function):
     call_args = manager._connection.send.call_args[0][0]
     assert call_args["type"] == MessageType.REGISTER
     assert call_args["project_id"] == "test-project"
-    assert call_args["environment"] == "test"
+    assert call_args["environment"] == "development"
     assert len(call_args["functions"]) == 1
     assert call_args["functions"][0]["name"] == "sample_func"
 
@@ -271,7 +277,20 @@ def test_trace_execution_delegates_to_tracer(manager, sample_function):
         result = manager.trace_execution("func", sample_function, (1,), {"y": 2})
 
         assert result == 42
-        mock_trace.assert_called_once_with("func", sample_function, (1,), {"y": 2})
+        mock_trace.assert_called_once_with("func", sample_function, (1,), {"y": 2}, None)
+
+
+def test_trace_execution_with_span_name(manager, sample_function):
+    """Test that trace_execution passes span_name to tracer."""
+    with patch.object(manager._tracer, "trace_execution") as mock_trace:
+        mock_trace.return_value = 42
+
+        result = manager.trace_execution(
+            "func", sample_function, (1,), {"y": 2}, span_name="ai.llm.invoke"
+        )
+
+        assert result == 42
+        mock_trace.assert_called_once_with("func", sample_function, (1,), {"y": 2}, "ai.llm.invoke")
 
 
 @pytest.mark.asyncio

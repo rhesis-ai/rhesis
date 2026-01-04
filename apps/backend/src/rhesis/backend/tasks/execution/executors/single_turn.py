@@ -79,6 +79,14 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 db, test_id, organization_id
             )
 
+            # Create test execution context for trace linking
+            # Note: test_result_id will be None initially, created after execution
+            test_execution_context = {
+                "test_run_id": test_run_id,
+                "test_id": test_id,
+                "test_configuration_id": test_config_id,
+            }
+
             # Run core execution (shared with in-place service)
             runner = SingleTurnRunner()
             execution_time, processed_result, metrics_results = await runner.run(
@@ -91,10 +99,11 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 prompt_content=prompt_content,
                 expected_response=expected_response,
                 evaluate_metrics=True,
+                test_execution_context=test_execution_context,
             )
 
-            # Persist to database
-            create_test_result_record(
+            # Persist to database and link traces
+            test_result_id = create_test_result_record(
                 db=db,
                 test=test,
                 test_config_id=test_config_id,
@@ -111,6 +120,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
             logger.debug(f"Test execution completed: {test_id}")
             return {
                 "test_id": test_id,
+                "test_result_id": str(test_result_id) if test_result_id else None,
                 "execution_time": execution_time,
                 "metrics": metrics_results,
             }

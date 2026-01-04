@@ -13,14 +13,14 @@ from rhesis.sdk.connector.schemas import (
     RegisterMessage,
     TestResultMessage,
 )
-from rhesis.sdk.connector.tracer import Tracer
 from rhesis.sdk.connector.types import MessageType
+from rhesis.sdk.telemetry import Tracer
 
 logger = logging.getLogger(__name__)
 
 
 class ConnectorManager:
-    """Manages WebSocket connection and function registry for collaborative testing."""
+    """Manages WebSocket connection and function registry for remote endpoint testing."""
 
     def __init__(
         self,
@@ -288,6 +288,7 @@ class ConnectorManager:
         func: Callable,
         args: tuple,
         kwargs: dict,
+        span_name: str | None = None,
     ) -> Any:
         """
         Trace function execution and send telemetry to backend.
@@ -299,8 +300,9 @@ class ConnectorManager:
             func: The function to execute
             args: Positional arguments
             kwargs: Keyword arguments
+            span_name: Optional custom span name (e.g., 'ai.llm.invoke')
 
         Returns:
             Function result (or wrapped generator)
         """
-        return self._tracer.trace_execution(function_name, func, args, kwargs)
+        return self._tracer.trace_execution(function_name, func, args, kwargs, span_name)

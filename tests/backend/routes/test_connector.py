@@ -206,7 +206,7 @@ class TestConnectorHTTPEndpoints:
             assert data["environment"] == "development"  # Default environment
 
     def test_receive_trace_success(self, authenticated_client: TestClient):
-        """Test receiving execution trace"""
+        """Test receiving execution trace (legacy endpoint for connector traces)"""
         trace_data = {
             "project_id": "test-project",
             "environment": "development",
@@ -226,7 +226,7 @@ class TestConnectorHTTPEndpoints:
         assert data["status"] == "received"
 
     def test_receive_trace_with_error(self, authenticated_client: TestClient):
-        """Test receiving execution trace with error"""
+        """Test receiving execution trace with error (legacy endpoint)"""
         trace_data = {
             "project_id": "test-project",
             "environment": "development",
@@ -246,7 +246,7 @@ class TestConnectorHTTPEndpoints:
         assert data["status"] == "received"
 
     def test_receive_trace_with_long_output(self, authenticated_client: TestClient):
-        """Test receiving execution trace with long output"""
+        """Test receiving execution trace with long output (legacy endpoint)"""
         trace_data = {
             "project_id": "test-project",
             "environment": "development",
@@ -358,7 +358,7 @@ class TestConnectorEdgeCases:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     def test_trace_with_invalid_data(self, authenticated_client: TestClient):
-        """Test trace endpoint with invalid data"""
+        """Test legacy connector trace endpoint with invalid data"""
         response = authenticated_client.post(
             "/connector/trace",
             json={

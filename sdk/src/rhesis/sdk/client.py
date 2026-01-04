@@ -61,7 +61,7 @@ class Client:
                     module level variable or environment variable.
             base_url: Optional base URL. If not provided, will try to get it from
                      module level variable or environment variable.
-            project_id: Optional project ID for collaborative testing. If not provided,
+            project_id: Optional project ID for remote endpoint testing. If not provided,
                        will try to get from RHESIS_PROJECT_ID environment variable.
             environment: Optional environment name. If not provided, will try to get
                         from RHESIS_ENVIRONMENT environment variable (default: "development").
@@ -80,6 +80,13 @@ class Client:
 
         # New: Lazy connector (not initialized yet)
         self._connector_manager = None
+
+        # Initialize OpenTelemetry tracer provider for @observe decorator
+        # This must happen even if @collaborate is never used
+        self._init_telemetry()
+
+        # Create tracer instance for direct tracing (when connector manager not active)
+        self._init_tracer()
 
         # Automatically register as default client (transparent)
         self._register_as_default()
@@ -128,6 +135,77 @@ class Client:
         response.raise_for_status()
         return response.json()
 
+    def _init_telemetry(self) -> None:
+        """
+        Initialize OpenTelemetry tracer provider.
+
+        Raises:
+            RuntimeError: If telemetry initialization fails
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            from rhesis.sdk.telemetry.provider import get_tracer_provider
+
+            # Initialize OTEL provider with current client config
+            provider = get_tracer_provider(
+                service_name="rhesis-sdk",
+                api_key=self.api_key,
+                base_url=self._base_url,
+                project_id=self.project_id or "unknown",
+                environment=self.environment,
+            )
+
+            # Verify provider was initialized correctly
+            if provider is None:
+                raise RuntimeError("TracerProvider initialization returned None")
+
+            # Log successful initialization
+            logger.info(
+                f"✅ Telemetry initialized successfully\n"
+                f"   Project: {self.project_id or 'unknown'}\n"
+                f"   Environment: {self.environment}\n"
+                f"   Endpoint: {self._base_url}/telemetry/traces\n"
+                f"   Note: Traces are batched and exported every 5 seconds"
+            )
+
+        except ImportError as e:
+            logger.error(f"❌ Failed to import telemetry modules: {e}")
+            raise RuntimeError(
+                f"Telemetry initialization failed: Missing dependencies. "
+                f"Make sure opentelemetry-sdk is installed. Error: {e}"
+            ) from e
+
+        except Exception as e:
+            logger.error(
+                f"❌ Failed to initialize telemetry: {e}\n"
+                f"   API Key: {'SET' if self.api_key else 'NOT SET'}\n"
+                f"   Base URL: {self._base_url}\n"
+                f"   Project ID: {self.project_id or 'NOT SET'}"
+            )
+            raise RuntimeError(
+                f"Telemetry initialization failed: {e}. "
+                f"Check your API key, base URL, and backend connectivity."
+            ) from e
+
+    def _init_tracer(self) -> None:
+        """
+        Initialize Tracer instance for direct tracing.
+
+        This allows @endpoint decorated functions to be traced even when
+        the connector manager is not active (e.g., direct HTTP calls).
+        """
+        from rhesis.sdk.telemetry import Tracer
+
+        self._tracer = Tracer(
+            api_key=self.api_key,
+            project_id=self.project_id or "unknown",
+            environment=self.environment,
+            base_url=self._base_url,
+        )
+
     def _register_as_default(self) -> None:
         """Register this client as the default for decorators."""
         # Import here to avoid circular dependency
@@ -154,12 +232,12 @@ class Client:
             self._connector_manager.initialize()
         return self._connector_manager
 
-    def register_collaborative_function(self, name: str, func, metadata: dict) -> None:
+    def register_endpoint(self, name: str, func, metadata: dict) -> None:
         """
-        Register a function for remote triggering.
+        Register a function as a remotely callable endpoint.
 
         Args:
-            name: Function name
+            name: Endpoint function name
             func: Function callable
             metadata: Additional metadata
         """
