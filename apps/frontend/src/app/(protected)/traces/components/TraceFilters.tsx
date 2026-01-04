@@ -164,7 +164,7 @@ export default function TraceFilters({
 
   return (
     <>
-      <Stack spacing={2} sx={{ mb: 3 }}>
+      <Stack spacing={1.5} sx={{ mb: 2 }}>
         {/* Row 1: Context & Search */}
         <Box
           sx={{
