@@ -412,6 +412,205 @@ class TestTraceListEndpoint:
         assert op_span1["trace_id"] not in test_trace_ids
         assert op_span2["trace_id"] not in test_trace_ids
 
+    def test_list_traces_filter_by_endpoint(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        db_project,
+        authenticated_user_id,
+        test_organization,
+    ):
+        """Test filtering traces by endpoint_id"""
+        from datetime import timezone
+        from uuid import uuid4
+
+        from rhesis.backend.app import crud, models
+        from rhesis.backend.app.constants import TestExecutionContext
+        from rhesis.backend.app.schemas.telemetry import OTELSpanCreate, SpanKind, StatusCode
+
+        # Create two different endpoints directly
+        endpoint1 = models.Endpoint(
+            name="Endpoint Alpha",
+            description="First test endpoint",
+            connection_type="rest",
+            url="https://api.alpha.com",
+            environment="production",
+            project_id=db_project.id,
+            organization_id=test_organization.id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(endpoint1)
+
+        endpoint2 = models.Endpoint(
+            name="Endpoint Beta",
+            description="Second test endpoint",
+            connection_type="rest",
+            url="https://api.beta.com",
+            environment="production",
+            project_id=db_project.id,
+            organization_id=test_organization.id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(endpoint2)
+        test_db.commit()
+        test_db.refresh(endpoint1)
+        test_db.refresh(endpoint2)
+
+        # Create test and test run directly
+        test_entity = models.Test(
+            name="Endpoint Filter Test",
+            organization_id=test_organization.id,
+            user_id=authenticated_user_id,
+            project_id=db_project.id,
+        )
+        test_db.add(test_entity)
+        test_db.commit()
+        test_db.refresh(test_entity)
+
+        test_run = models.TestRun(
+            test_id=test_entity.id,
+            project_id=db_project.id,
+            organization_id=test_organization.id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(test_run)
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        # Create test configurations for each endpoint
+        test_config1 = models.TestConfiguration(
+            name="Config Alpha",
+            endpoint_id=endpoint1.id,
+            test_id=test_entity.id,
+            organization_id=test_organization.id,
+        )
+        test_db.add(test_config1)
+
+        test_config2 = models.TestConfiguration(
+            name="Config Beta",
+            endpoint_id=endpoint2.id,
+            test_id=test_entity.id,
+            organization_id=test_organization.id,
+        )
+        test_db.add(test_config2)
+        test_db.commit()
+        test_db.refresh(test_config1)
+        test_db.refresh(test_config2)
+
+        # Create test results for each configuration
+        test_result1 = models.TestResult(
+            test_run_id=test_run.id,
+            test_id=test_entity.id,
+            test_configuration_id=test_config1.id,
+            status="passed",
+            organization_id=test_organization.id,
+        )
+        test_db.add(test_result1)
+
+        test_result2 = models.TestResult(
+            test_run_id=test_run.id,
+            test_id=test_entity.id,
+            test_configuration_id=test_config2.id,
+            status="passed",
+            organization_id=test_organization.id,
+        )
+        test_db.add(test_result2)
+        test_db.commit()
+        test_db.refresh(test_result1)
+        test_db.refresh(test_result2)
+
+        # Create traces for endpoint 1
+        trace_id_1a = uuid4().hex
+        trace_id_1b = uuid4().hex
+        for trace_id in [trace_id_1a, trace_id_1b]:
+            span = OTELSpanCreate(
+                trace_id=trace_id,
+                span_id=uuid4().hex[:16],
+                project_id=str(db_project.id),
+                environment="production",
+                span_name="ai.llm.invoke",
+                span_kind=SpanKind.INTERNAL,
+                start_time=datetime.now(timezone.utc),
+                end_time=datetime.now(timezone.utc),
+                status_code=StatusCode.OK,
+                attributes={
+                    TestExecutionContext.SpanAttributes.TEST_RUN_ID: str(test_run.id),
+                    TestExecutionContext.SpanAttributes.TEST_ID: str(test_entity.id),
+                    TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID: str(test_config1.id),
+                },
+            )
+            stored_spans = crud.create_trace_spans(test_db, [span], str(test_organization.id))
+            # Link trace to test result
+            stored_spans[0].test_result_id = test_result1.id
+            test_db.commit()
+
+        # Create traces for endpoint 2
+        trace_id_2a = uuid4().hex
+        trace_id_2b = uuid4().hex
+        for trace_id in [trace_id_2a, trace_id_2b]:
+            span = OTELSpanCreate(
+                trace_id=trace_id,
+                span_id=uuid4().hex[:16],
+                project_id=str(db_project.id),
+                environment="production",
+                span_name="ai.llm.invoke",
+                span_kind=SpanKind.INTERNAL,
+                start_time=datetime.now(timezone.utc),
+                end_time=datetime.now(timezone.utc),
+                status_code=StatusCode.OK,
+                attributes={
+                    TestExecutionContext.SpanAttributes.TEST_RUN_ID: str(test_run.id),
+                    TestExecutionContext.SpanAttributes.TEST_ID: str(test_entity.id),
+                    TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID: str(test_config2.id),
+                },
+            )
+            stored_spans = crud.create_trace_spans(test_db, [span], str(test_organization.id))
+            # Link trace to test result
+            stored_spans[0].test_result_id = test_result2.id
+            test_db.commit()
+
+        # Test filtering by endpoint 1
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&endpoint_id={endpoint1.id}"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        endpoint1_trace_ids = {t["trace_id"] for t in data["traces"]}
+
+        # Should include traces for endpoint 1
+        assert trace_id_1a in endpoint1_trace_ids
+        assert trace_id_1b in endpoint1_trace_ids
+        # Should NOT include traces for endpoint 2
+        assert trace_id_2a not in endpoint1_trace_ids
+        assert trace_id_2b not in endpoint1_trace_ids
+
+        # Test filtering by endpoint 2
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&endpoint_id={endpoint2.id}"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        endpoint2_trace_ids = {t["trace_id"] for t in data["traces"]}
+
+        # Should include traces for endpoint 2
+        assert trace_id_2a in endpoint2_trace_ids
+        assert trace_id_2b in endpoint2_trace_ids
+        # Should NOT include traces for endpoint 1
+        assert trace_id_1a not in endpoint2_trace_ids
+        assert trace_id_1b not in endpoint2_trace_ids
+
+        # Test without endpoint filter - should include all traces
+        response = authenticated_client.get(f"/telemetry/traces?project_id={db_project.id}")
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        all_trace_ids = {t["trace_id"] for t in data["traces"]}
+
+        # Should include all traces
+        assert trace_id_1a in all_trace_ids
+        assert trace_id_1b in all_trace_ids
+        assert trace_id_2a in all_trace_ids
+        assert trace_id_2b in all_trace_ids
+
 
 @pytest.mark.integration
 class TestTraceDetailEndpoint:
