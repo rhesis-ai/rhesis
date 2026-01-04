@@ -406,8 +406,12 @@ start_worker() {
     # Set up trap to handle Ctrl+C gracefully
     trap "echo -e '\n${YELLOW}🛑 Shutting down worker...${NC}'; exit" INT TERM
 
-    # Set CELERY_WORKER_NAME environment variable (using hostname-PID for uniqueness)
-    export CELERY_WORKER_NAME="worker@$(hostname)-$$"
+    # Set CELERY_WORKER_NAME environment variable (using hostname-UUID for uniqueness)
+    # Generate unique worker ID using hostname + UUID
+    # Format: worker@hostname-uuid (e.g., worker@server1-a1b2c3d4)
+    # UUID ensures no collisions even with rapid worker restarts
+    WORKER_UUID=$(python3 -c "import uuid; print(str(uuid.uuid4())[:8])")
+    export CELERY_WORKER_NAME="worker@$(hostname)-${WORKER_UUID}"
     echo -e "${GREEN}✅ CELERY_WORKER_NAME set to: ${CELERY_WORKER_NAME}${NC}"
 
     # Run in foreground - using uv run handles the virtual environment automatically

@@ -3,7 +3,6 @@
 import asyncio
 import json
 import logging
-import os
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
@@ -33,8 +32,16 @@ class ConnectionManager:
 
     def __init__(self):
         """Initialize connection manager."""
-        # Get unique worker ID from environment (format: worker@hostname-pid)
-        self.worker_id = os.getenv("CELERY_WORKER_NAME", "worker@unknown")
+        # Generate unique worker ID using hostname + UUID
+        # Format: backend@hostname-uuid (e.g., backend@server1-a1b2c3d4)
+        # UUID ensures true uniqueness even with rapid process restarts
+        # Note: We don't use CELERY_WORKER_NAME as it's only set for Celery workers,
+        # not backend processes. Backend and Celery are separate process types.
+        import socket
+        import uuid
+
+        short_uuid = str(uuid.uuid4())[:8]  # First 8 chars sufficient for uniqueness
+        self.worker_id = f"backend@{socket.gethostname()}-{short_uuid}"
 
         # Store active connections: {project_id:environment: WebSocket}
         self._connections: Dict[str, WebSocket] = {}

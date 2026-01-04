@@ -249,8 +249,11 @@ echo "=== Celery Worker Startup ==="
 echo "Starting Celery worker with full output..."
 
 # Set worker context environment variable for RPC detection
-# Using hostname-PID combination to ensure uniqueness across all workers
-export CELERY_WORKER_NAME="worker@$(hostname)-$$"
+# Generate unique worker ID using hostname + UUID
+# Format: worker@hostname-uuid (e.g., worker@server1-a1b2c3d4)
+# UUID ensures no collisions even with rapid worker restarts
+WORKER_UUID=$(python3 -c "import uuid; print(str(uuid.uuid4())[:8])")
+export CELERY_WORKER_NAME="worker@$(hostname)-${WORKER_UUID}"
 echo "Worker context identifier: $CELERY_WORKER_NAME"
 
 # Build the complete command with memory optimizations
