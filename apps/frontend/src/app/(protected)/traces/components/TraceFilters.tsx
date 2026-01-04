@@ -91,6 +91,10 @@ export default function TraceFilters({
     handleFilterChange('trace_source', source === 'all' ? undefined : source);
   };
 
+  const handleEnvironmentFilterChange = (environment: string) => {
+    handleFilterChange('environment', environment === 'all' ? undefined : environment);
+  };
+
   const handleTimeRangeFilterChange = (range: string) => {
     const now = new Date();
     let start_time_after: string | undefined = undefined;
@@ -206,22 +210,33 @@ export default function TraceFilters({
             sx={{ minWidth: 200, flex: { xs: '1 1 100%', sm: '1 1 auto' } }}
           />
 
-          {/* Environment Selector */}
-          <FormControl size="small" sx={{ minWidth: 160, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
-            <InputLabel>Environment</InputLabel>
-            <Select
-              value={filters.environment || ''}
-              onChange={e =>
-                handleFilterChange('environment', e.target.value || undefined)
-              }
-              label="Environment"
+          {/* Environment Filter */}
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => handleEnvironmentFilterChange('all')}
+              variant={!filters.environment ? 'contained' : 'outlined'}
             >
-              <MenuItem value="">All Environments</MenuItem>
-              <MenuItem value="development">Development</MenuItem>
-              <MenuItem value="staging">Staging</MenuItem>
-              <MenuItem value="production">Production</MenuItem>
-            </Select>
-          </FormControl>
+              All
+            </Button>
+            <Button
+              onClick={() => handleEnvironmentFilterChange('development')}
+              variant={filters.environment === 'development' ? 'contained' : 'outlined'}
+            >
+              Dev
+            </Button>
+            <Button
+              onClick={() => handleEnvironmentFilterChange('staging')}
+              variant={filters.environment === 'staging' ? 'contained' : 'outlined'}
+            >
+              Staging
+            </Button>
+            <Button
+              onClick={() => handleEnvironmentFilterChange('production')}
+              variant={filters.environment === 'production' ? 'contained' : 'outlined'}
+            >
+              Prod
+            </Button>
+          </ButtonGroup>
         </Box>
 
         {/* Row 2: Time & Status */}
