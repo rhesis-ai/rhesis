@@ -501,13 +501,13 @@ class TestTraceEnricher:
         )
 
         # Mock get_trace_by_id to return span with cached data
-        mocker.patch(
+        mock_get_trace = mocker.patch(
             "rhesis.backend.app.services.telemetry.enricher.get_trace_by_id",
             return_value=[mock_span],
         )
 
         enricher = TraceEnricher(mock_db)
-        result = enricher.enrich_trace("trace123", "project123")
+        result = enricher.enrich_trace("trace123", "project123", "org123")
 
         # Should return EnrichedTraceData model (converted from cached dict)
         from rhesis.backend.app.schemas.enrichment import EnrichedTraceData
@@ -516,6 +516,11 @@ class TestTraceEnricher:
         assert result.costs is not None
         assert result.metrics is not None
         assert result.metrics.span_count == 1
+
+        # Verify organization_id was passed to get_trace_by_id
+        mock_get_trace.assert_called_once_with(
+            mock_db, trace_id="trace123", project_id="project123", organization_id="org123"
+        )
 
     def test_enrich_trace_calculates_when_no_cache(self, mocker):
         """Test enrichment calculates data when no cache exists."""
@@ -539,7 +544,7 @@ class TestTraceEnricher:
         )
 
         # Mock get_trace_by_id
-        mocker.patch(
+        mock_get_trace = mocker.patch(
             "rhesis.backend.app.services.telemetry.enricher.get_trace_by_id",
             return_value=[mock_span],
         )
@@ -550,7 +555,7 @@ class TestTraceEnricher:
         )
 
         enricher = TraceEnricher(mock_db)
-        result = enricher.enrich_trace("trace123", "project123")
+        result = enricher.enrich_trace("trace123", "project123", "org123")
 
         # Should calculate enrichment (returns EnrichedTraceData model)
         assert result.costs is not None
@@ -560,19 +565,29 @@ class TestTraceEnricher:
         # Should cache the result (as dict in database)
         mock_mark.assert_called_once()
 
+        # Verify organization_id was passed to get_trace_by_id
+        mock_get_trace.assert_called_once_with(
+            mock_db, trace_id="trace123", project_id="project123", organization_id="org123"
+        )
+
     def test_enrich_trace_no_spans(self, mocker):
         """Test enrichment returns None when no spans found."""
         mock_db = Mock()
 
         # Mock get_trace_by_id to return empty list
-        mocker.patch(
+        mock_get_trace = mocker.patch(
             "rhesis.backend.app.services.telemetry.enricher.get_trace_by_id", return_value=[]
         )
 
         enricher = TraceEnricher(mock_db)
-        result = enricher.enrich_trace("trace123", "project123")
+        result = enricher.enrich_trace("trace123", "project123", "org123")
 
         assert result is None
+
+        # Verify organization_id was passed to get_trace_by_id
+        mock_get_trace.assert_called_once_with(
+            mock_db, trace_id="trace123", project_id="project123", organization_id="org123"
+        )
 
     def test_calculate_enrichment_combines_all_data(self, mocker):
         """Test that _calculate_enrichment combines costs, anomalies, and metadata."""

@@ -3236,6 +3236,7 @@ def get_trace_by_id(
     db: Session,
     trace_id: str,
     project_id: str,
+    organization_id: str,
 ) -> List[models.Trace]:
     """
     Get all spans for a trace ID.
@@ -3244,16 +3245,23 @@ def get_trace_by_id(
         db: Database session
         trace_id: OpenTelemetry trace ID
         project_id: Project ID for access control
+        organization_id: Organization ID for multi-tenant security
 
     Returns:
         List of Trace models ordered by start_time
     """
+    from uuid import UUID
+    
+    # Convert organization_id to UUID
+    org_uuid = UUID(organization_id)
+    
     return (
         db.query(models.Trace)
         .filter(
             and_(
                 models.Trace.trace_id == trace_id,
                 models.Trace.project_id == project_id,
+                models.Trace.organization_id == org_uuid,
             )
         )
         .order_by(models.Trace.start_time)
@@ -3292,6 +3300,7 @@ def get_span_by_id(
 def query_traces(
     db: Session,
     project_id: str,
+    organization_id: str,
     environment: Optional[str] = None,
     span_name: Optional[str] = None,
     status_code: Optional[Union[str, "StatusCode"]] = None,
@@ -3309,6 +3318,7 @@ def query_traces(
     Args:
         db: Database session
         project_id: Project ID (required)
+        organization_id: Organization ID for multi-tenant security (required)
         environment: Filter by environment (optional)
         span_name: Filter by span name (optional)
         status_code: Filter by status code (StatusCode enum or string)
@@ -3336,12 +3346,21 @@ def query_traces(
             return None
         try:
             return UUID(value)
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError):
             raise HTTPException(
                 status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
             )
 
-    query = db.query(models.Trace).filter(models.Trace.project_id == project_id)
+    # Convert organization_id to UUID
+    org_uuid = UUID(organization_id)
+    
+    # Filter by BOTH project_id AND organization_id for multi-tenant security
+    query = db.query(models.Trace).filter(
+        and_(
+            models.Trace.project_id == project_id,
+            models.Trace.organization_id == org_uuid,
+        )
+    )
 
     if environment:
         query = query.filter(models.Trace.environment == environment)
@@ -3549,6 +3568,7 @@ def update_traces_with_test_result_id(
 def count_traces(
     db: Session,
     project_id: str,
+    organization_id: str,
     environment: Optional[str] = None,
     span_name: Optional[str] = None,
     status_code: Optional[Union[str, "StatusCode"]] = None,
@@ -3564,6 +3584,7 @@ def count_traces(
     Args:
         db: Database session
         project_id: Project ID
+        organization_id: Organization ID for multi-tenant security (required)
         environment: Filter by environment (optional)
         span_name: Filter by span name (optional)
         status_code: Filter by status code (StatusCode enum or string)
@@ -3589,12 +3610,21 @@ def count_traces(
             return None
         try:
             return UUID(value)
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError):
             raise HTTPException(
                 status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
             )
 
-    query = db.query(func.count(models.Trace.id)).filter(models.Trace.project_id == project_id)
+    # Convert organization_id to UUID
+    org_uuid = UUID(organization_id)
+    
+    # Filter by BOTH project_id AND organization_id for multi-tenant security
+    query = db.query(func.count(models.Trace.id)).filter(
+        and_(
+            models.Trace.project_id == project_id,
+            models.Trace.organization_id == org_uuid,
+        )
+    )
 
     if environment:
         query = query.filter(models.Trace.environment == environment)

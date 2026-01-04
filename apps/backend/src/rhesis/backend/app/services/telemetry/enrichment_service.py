@@ -56,7 +56,11 @@ class EnrichmentService:
             return False
 
     def enqueue_enrichment(
-        self, trace_id: str, project_id: str, workers_available: bool | None = None
+        self,
+        trace_id: str,
+        project_id: str,
+        organization_id: str,
+        workers_available: bool | None = None,
     ) -> bool:
         """
         Try to enqueue async enrichment. Fall back to sync if workers unavailable.
@@ -69,6 +73,7 @@ class EnrichmentService:
         Args:
             trace_id: Trace ID to enrich
             project_id: Project ID for access control
+            organization_id: Organization ID for multi-tenant security
             workers_available: Optional cached worker availability check result.
                              If None, will check on this call.
 
@@ -84,7 +89,7 @@ class EnrichmentService:
                 from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
 
                 # Try to enqueue async task
-                result = enrich_trace_async.delay(trace_id, project_id)
+                result = enrich_trace_async.delay(trace_id, project_id, organization_id)
                 logger.debug(f"Enqueued async enrichment for trace {trace_id} (task: {result.id})")
                 return True
 
@@ -98,7 +103,7 @@ class EnrichmentService:
         # Fall back to synchronous enrichment
         try:
             enricher = TraceEnricher(self.db)
-            enriched_data = enricher.enrich_trace(trace_id, project_id)
+            enriched_data = enricher.enrich_trace(trace_id, project_id, organization_id)
             if enriched_data:
                 logger.info(f"Completed sync enrichment for trace {trace_id}")
             else:
@@ -111,13 +116,16 @@ class EnrichmentService:
             )
             return False
 
-    def enrich_traces(self, trace_ids: Set[str], project_id: str) -> tuple[int, int]:
+    def enrich_traces(
+        self, trace_ids: Set[str], project_id: str, organization_id: str
+    ) -> tuple[int, int]:
         """
         Enrich multiple traces using async/sync fallback strategy.
 
         Args:
             trace_ids: Set of trace IDs to enrich
             project_id: Project ID for access control
+            organization_id: Organization ID for multi-tenant security
 
         Returns:
             Tuple of (async_count, sync_count)
@@ -130,7 +138,7 @@ class EnrichmentService:
         workers_available = self._check_workers_available()
 
         for trace_id in trace_ids:
-            if self.enqueue_enrichment(trace_id, project_id, workers_available):
+            if self.enqueue_enrichment(trace_id, project_id, organization_id, workers_available):
                 async_count += 1
             else:
                 sync_count += 1
@@ -172,7 +180,7 @@ class EnrichmentService:
         unique_traces: Set[str] = {span.trace_id for span in stored_spans}
 
         # Trigger enrichment (async preferred, sync fallback)
-        async_count, sync_count = self.enrich_traces(unique_traces, project_id)
+        async_count, sync_count = self.enrich_traces(unique_traces, project_id, organization_id)
 
         logger.debug(
             f"Created {len(stored_spans)} spans from {len(unique_traces)} traces "

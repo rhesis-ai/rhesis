@@ -183,6 +183,7 @@ async def list_traces(
     traces = crud.query_traces(
         db=db,
         project_id=project_id,
+        organization_id=organization_id,
         environment=environment,
         span_name=span_name,
         status_code=status_code,
@@ -199,6 +200,7 @@ async def list_traces(
     total = crud.count_traces(
         db=db,
         project_id=project_id,
+        organization_id=organization_id,
         environment=environment,
         span_name=span_name,
         status_code=status_code,
@@ -284,6 +286,7 @@ async def get_trace(
         db=db,
         trace_id=trace_id,
         project_id=project_id,
+        organization_id=organization_id,
     )
 
     if not spans:
@@ -384,6 +387,7 @@ async def get_metrics(
     spans = crud.query_traces(
         db=db,
         project_id=project_id,
+        organization_id=organization_id,
         environment=environment,
         start_time_after=start_time_after,
         start_time_before=start_time_before,
