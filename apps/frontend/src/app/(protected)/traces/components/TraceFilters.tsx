@@ -46,6 +46,9 @@ export default function TraceFilters({
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>(
     []
   );
+  const [testRuns, setTestRuns] = useState<Array<{ id: string; name: string }>>(
+    []
+  );
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
 
   const handleFilterChange = (key: keyof TraceQueryParams, value: any) => {
@@ -53,37 +56,48 @@ export default function TraceFilters({
     onFiltersChange(newFilters);
   };
 
-  // Fetch projects on mount
+  // Fetch projects and test runs on mount
   useEffect(() => {
-    const fetchProjects = async () => {
-      console.log('Fetching projects...');
+    const fetchData = async () => {
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
-        const client = clientFactory.getProjectsClient();
-        const response = await client.getProjects({ limit: 100 });
-
-        console.log('Projects API response:', response);
-
-        // Handle both array and paginated response formats (like other components)
-        const projectsData = Array.isArray(response)
-          ? response
-          : response?.data || [];
-
-        console.log('Processed projects data:', projectsData);
+        
+        // Fetch projects
+        const projectsClient = clientFactory.getProjectsClient();
+        const projectsResponse = await projectsClient.getProjects({ limit: 100 });
+        const projectsData = Array.isArray(projectsResponse)
+          ? projectsResponse
+          : projectsResponse?.data || [];
         setProjects(projectsData);
 
-        // Don't auto-select project - let users see all traces initially
+        // Fetch test runs (recent ones only)
+        const testRunsClient = clientFactory.getTestRunsClient();
+        const testRunsResponse = await testRunsClient.getTestRuns({
+          limit: 50,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+        });
+        const testRunsRaw = Array.isArray(testRunsResponse)
+          ? testRunsResponse
+          : testRunsResponse?.data || [];
+        
+        // Map to our simpler format with fallback for name
+        const testRunsData = testRunsRaw.map(tr => ({
+          id: tr.id,
+          name: tr.name || `Test Run ${tr.id.slice(0, 8)}`,
+        }));
+        setTestRuns(testRunsData);
       } catch (error) {
-        console.error('Failed to fetch projects:', error);
-        // Set empty array on error to prevent crashes
+        console.error('Failed to fetch filter data:', error);
         setProjects([]);
+        setTestRuns([]);
       }
     };
 
     if (sessionToken) {
-      fetchProjects();
+      fetchData();
     }
-  }, [sessionToken]); // Remove filters.project_id to prevent infinite loop
+  }, [sessionToken]);
 
   const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -158,38 +172,31 @@ export default function TraceFilters({
       value !== undefined &&
       value !== '' &&
       value !== 'all' &&
-      !['project_id', 'limit', 'offset', 'trace_source', 'status_code', 'start_time_after'].includes(key) ||
+      !['project_id', 'limit', 'offset', 'trace_source', 'status_code', 'start_time_after', 'test_run_id'].includes(key) ||
       (key === 'trace_source' && value !== 'all' && value !== undefined) ||
       (key === 'status_code' && value !== undefined) ||
-      (key === 'start_time_after' && value !== undefined)
+      (key === 'start_time_after' && value !== undefined) ||
+      (key === 'test_run_id' && value !== undefined)
   ).length;
 
   const hasActiveFilters = activeFilterCount > 0;
   const open = Boolean(anchorEl);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
-        gap: 2,
-        mb: 3,
-        alignItems: { xs: 'stretch', md: 'center' },
-        justifyContent: 'space-between',
-      }}
-    >
-      {/* Left side: Project, Search and Status Filters */}
+    <>
+      <Stack spacing={2} sx={{ mb: 3 }}>
+        {/* Row 1: Primary Filters */}
       <Box
         sx={{
           display: 'flex',
           flexDirection: { xs: 'column', sm: 'row' },
           gap: 2,
-          flex: 1,
           alignItems: { xs: 'stretch', sm: 'center' },
+          flexWrap: 'wrap',
         }}
       >
         {/* Project Selector */}
-        <FormControl size="small" sx={{ minWidth: 200 }}>
+        <FormControl size="small" sx={{ minWidth: 180, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
           <InputLabel>Project</InputLabel>
           <Select
             value={filters.project_id || ''}
@@ -220,77 +227,11 @@ export default function TraceFilters({
               </InputAdornment>
             ),
           }}
-          sx={{ minWidth: { xs: '100%', sm: 250 } }}
+          sx={{ minWidth: 200, flex: { xs: '1 1 100%', sm: '1 1 auto' } }}
         />
 
-        {/* Status Filter Buttons */}
-        <ButtonGroup size="small" variant="outlined">
-          <Button
-            onClick={() => handleStatusFilterChange('all')}
-            variant={!filters.status_code ? 'contained' : 'outlined'}
-            startIcon={<ListIcon fontSize="small" />}
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => handleStatusFilterChange('OK')}
-            variant={filters.status_code === 'OK' ? 'contained' : 'outlined'}
-            startIcon={<CheckCircleOutlineIcon fontSize="small" />}
-            sx={{
-              ...(filters.status_code === 'OK' && {
-                backgroundColor: theme.palette.success.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.success.dark,
-                },
-              }),
-            }}
-          >
-            OK
-          </Button>
-          <Button
-            onClick={() => handleStatusFilterChange('ERROR')}
-            variant={filters.status_code === 'ERROR' ? 'contained' : 'outlined'}
-            startIcon={<ErrorOutlineIcon fontSize="small" />}
-            sx={{
-              ...(filters.status_code === 'ERROR' && {
-                backgroundColor: theme.palette.error.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.error.dark,
-                },
-              }),
-            }}
-          >
-            Error
-          </Button>
-        </ButtonGroup>
-
-        {/* Trace Source Filter Buttons */}
-        <ButtonGroup size="small" variant="outlined">
-          <Button
-            onClick={() => handleTraceSourceFilterChange('all')}
-            variant={!filters.trace_source || filters.trace_source === 'all' ? 'contained' : 'outlined'}
-            startIcon={<ListIcon fontSize="small" />}
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => handleTraceSourceFilterChange('test')}
-            variant={filters.trace_source === 'test' ? 'contained' : 'outlined'}
-            startIcon={<ScienceIcon fontSize="small" />}
-          >
-            Test Runs
-          </Button>
-          <Button
-            onClick={() => handleTraceSourceFilterChange('operation')}
-            variant={filters.trace_source === 'operation' ? 'contained' : 'outlined'}
-            startIcon={<PublicIcon fontSize="small" />}
-          >
-            Operation
-          </Button>
-        </ButtonGroup>
-
-        {/* Time Range Filter Buttons */}
-        <ButtonGroup size="small" variant="outlined">
+        {/* Time Range Filter */}
+        <ButtonGroup size="small" variant="outlined" sx={{ flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
           <Button
             onClick={() => handleTimeRangeFilterChange('all')}
             variant={getActiveTimeRange() === 'all' ? 'contained' : 'outlined'}
@@ -317,8 +258,115 @@ export default function TraceFilters({
             30d
           </Button>
         </ButtonGroup>
+      </Box>
 
-        {/* Advanced Filters */}
+      {/* Row 2: Quick Filters */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2,
+          alignItems: { xs: 'stretch', sm: 'center' },
+          flexWrap: 'wrap',
+        }}
+      >
+
+        {/* Status Filter */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 'auto' }}>
+            Status:
+          </Typography>
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => handleStatusFilterChange('all')}
+              variant={!filters.status_code ? 'contained' : 'outlined'}
+            >
+              All
+            </Button>
+            <Button
+              onClick={() => handleStatusFilterChange('OK')}
+              variant={filters.status_code === 'OK' ? 'contained' : 'outlined'}
+              startIcon={<CheckCircleOutlineIcon fontSize="small" />}
+              sx={{
+                ...(filters.status_code === 'OK' && {
+                  backgroundColor: theme.palette.success.main,
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: theme.palette.success.dark,
+                  },
+                }),
+              }}
+            >
+              OK
+            </Button>
+            <Button
+              onClick={() => handleStatusFilterChange('ERROR')}
+              variant={filters.status_code === 'ERROR' ? 'contained' : 'outlined'}
+              startIcon={<ErrorOutlineIcon fontSize="small" />}
+              sx={{
+                ...(filters.status_code === 'ERROR' && {
+                  backgroundColor: theme.palette.error.main,
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: theme.palette.error.dark,
+                  },
+                }),
+              }}
+            >
+              Error
+            </Button>
+          </ButtonGroup>
+        </Box>
+
+        {/* Trace Source Filter */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 'auto' }}>
+            Source:
+          </Typography>
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => handleTraceSourceFilterChange('all')}
+              variant={!filters.trace_source || filters.trace_source === 'all' ? 'contained' : 'outlined'}
+            >
+              All
+            </Button>
+            <Button
+              onClick={() => handleTraceSourceFilterChange('test')}
+              variant={filters.trace_source === 'test' ? 'contained' : 'outlined'}
+              startIcon={<ScienceIcon fontSize="small" />}
+            >
+              Tests
+            </Button>
+            <Button
+              onClick={() => handleTraceSourceFilterChange('operation')}
+              variant={filters.trace_source === 'operation' ? 'contained' : 'outlined'}
+              startIcon={<PublicIcon fontSize="small" />}
+            >
+              App
+            </Button>
+          </ButtonGroup>
+        </Box>
+
+        {/* Test Run Selector */}
+        <FormControl size="small" sx={{ minWidth: 180, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+          <InputLabel>Test Run</InputLabel>
+          <Select
+            value={filters.test_run_id || ''}
+            onChange={e => handleFilterChange('test_run_id', e.target.value || undefined)}
+            label="Test Run"
+          >
+            <MenuItem value="">All Test Runs</MenuItem>
+            {testRuns?.map(testRun => (
+              <MenuItem key={testRun.id} value={testRun.id}>
+                {testRun.name}
+              </MenuItem>
+            )) || []}
+          </Select>
+        </FormControl>
+
+        <Box sx={{ flex: 1 }} />
+
+        {/* Advanced Filters Button */}
         <Badge badgeContent={activeFilterCount} color="primary">
           <Button
             size="small"
@@ -326,10 +374,24 @@ export default function TraceFilters({
             startIcon={<FilterListIcon />}
             onClick={handleFilterClick}
           >
-            Filters
+            More Filters
           </Button>
         </Badge>
+
+        {/* Clear All Button */}
+        {hasActiveFilters && (
+          <Button
+            size="small"
+            variant="outlined"
+            color="secondary"
+            startIcon={<ClearAllIcon />}
+            onClick={handleClearAllFilters}
+          >
+            Clear
+          </Button>
+        )}
       </Box>
+    </Stack>
 
       {/* Advanced Filter Popover */}
       <Popover
@@ -486,6 +548,6 @@ export default function TraceFilters({
           </Stack>
         </Box>
       </Popover>
-    </Box>
+    </>
   );
 }
