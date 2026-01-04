@@ -209,37 +209,9 @@ export default function TraceFilters({
             }}
             sx={{ minWidth: 200, flex: { xs: '1 1 100%', sm: '1 1 auto' } }}
           />
-
-          {/* Environment Filter */}
-          <ButtonGroup size="small" variant="outlined">
-            <Button
-              onClick={() => handleEnvironmentFilterChange('all')}
-              variant={!filters.environment ? 'contained' : 'outlined'}
-            >
-              All
-            </Button>
-            <Button
-              onClick={() => handleEnvironmentFilterChange('development')}
-              variant={filters.environment === 'development' ? 'contained' : 'outlined'}
-            >
-              Dev
-            </Button>
-            <Button
-              onClick={() => handleEnvironmentFilterChange('staging')}
-              variant={filters.environment === 'staging' ? 'contained' : 'outlined'}
-            >
-              Staging
-            </Button>
-            <Button
-              onClick={() => handleEnvironmentFilterChange('production')}
-              variant={filters.environment === 'production' ? 'contained' : 'outlined'}
-            >
-              Prod
-            </Button>
-          </ButtonGroup>
         </Box>
 
-        {/* Row 2: Time & Status */}
+        {/* Row 2: Time, Status, Source & Environment */}
         <Box
           sx={{
             display: 'flex',
@@ -343,6 +315,46 @@ export default function TraceFilters({
               App
             </Button>
           </ButtonGroup>
+
+          {/* Environment Filter */}
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => handleEnvironmentFilterChange('all')}
+              variant={!filters.environment ? 'contained' : 'outlined'}
+            >
+              All
+            </Button>
+            <Button
+              onClick={() => handleEnvironmentFilterChange('development')}
+              variant={filters.environment === 'development' ? 'contained' : 'outlined'}
+            >
+              Dev
+            </Button>
+            <Button
+              onClick={() => handleEnvironmentFilterChange('staging')}
+              variant={filters.environment === 'staging' ? 'contained' : 'outlined'}
+            >
+              Staging
+            </Button>
+            <Button
+              onClick={() => handleEnvironmentFilterChange('production')}
+              variant={filters.environment === 'production' ? 'contained' : 'outlined'}
+            >
+              Prod
+            </Button>
+          </ButtonGroup>
+
+          {/* Advanced Filters Button */}
+          <Badge badgeContent={activeFilterCount} color="primary">
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<FilterListIcon />}
+              onClick={handleFilterClick}
+            >
+              More Filters
+            </Button>
+          </Badge>
         </Box>
 
         {/* Row 3: Actions */}
@@ -355,18 +367,6 @@ export default function TraceFilters({
             justifyContent: 'flex-end',
           }}
         >
-          {/* Advanced Filters Button */}
-          <Badge badgeContent={activeFilterCount} color="primary">
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<FilterListIcon />}
-              onClick={handleFilterClick}
-            >
-              More Filters
-            </Button>
-          </Badge>
-
           {/* Clear All Button */}
           {hasActiveFilters && (
             <Button
