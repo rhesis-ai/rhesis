@@ -71,13 +71,19 @@ export default function TracesTable({
           const endpointName = params.value as string | undefined;
           if (!endpointName) {
             return (
-              <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.disabled', fontStyle: 'italic' }}
+              >
                 —
               </Typography>
             );
           }
           return (
-            <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Typography
+              variant="body2"
+              sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
+            >
               {endpointName}
             </Typography>
           );
