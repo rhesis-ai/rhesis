@@ -39,6 +39,7 @@ class EntityType(str, Enum):
     ORGANIZATION = "Organization"
     MODEL = "Model"
     METRIC = "Metric"
+    TRACE = "Trace"
 
 
 class TagAssignment(Base):

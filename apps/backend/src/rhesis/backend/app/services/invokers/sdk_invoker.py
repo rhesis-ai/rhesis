@@ -3,12 +3,14 @@
 import asyncio
 import os
 import uuid
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.schemas.test_execution import TestExecutionContext
 from rhesis.backend.logging import logger
 
 from .base import BaseEndpointInvoker
@@ -17,6 +19,9 @@ from .common.schemas import ErrorResponse
 
 class SdkEndpointInvoker(BaseEndpointInvoker):
     """Invoker for SDK-connected endpoints via WebSocket."""
+
+    # SDK endpoints automatically generate traces via instrumentation
+    automatic_tracing: bool = True
 
     def __init__(self):
         """Initialize SDK invoker."""
@@ -127,7 +132,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         test_run_id: str,
         function_name: str,
         function_kwargs: Dict[str, Any],
-    ) -> Dict[str, Any]:
+    ) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Execute SDK function via RPC (Redis pub/sub).
 
@@ -139,19 +144,15 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             function_kwargs: Function arguments
 
         Returns:
-            Result dictionary from SDK
-
-        Raises:
-            Returns ErrorResponse via _create_error_response if RPC unavailable or not connected
+            Result dictionary from SDK, or ErrorResponse if RPC unavailable or not connected
         """
         from rhesis.backend.app.services.connector.rpc_client import SDKRpcClient
 
         try:
             rpc_client = SDKRpcClient()
             await rpc_client.initialize()
-            logger.info("✅ RPC client initialized successfully")
         except RuntimeError as e:
-            logger.error(f"❌ Failed to initialize RPC client: {e}")
+            logger.error(f"Failed to initialize RPC client: {e}")
             return self._create_error_response(
                 error_type="sdk_rpc_unavailable",
                 output_message=(
@@ -162,7 +163,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             )
 
         try:
-            # Check connection via RPC client
+            # Check connection via RPC client (checks Redis)
             is_connected = await rpc_client.is_connected(project_id, environment)
 
             if not is_connected:
@@ -231,6 +232,15 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         Returns:
             ErrorResponse if error found, None otherwise
         """
+        # Check if SDK is disconnected
+        if result.get("error") == "sdk_disconnected":
+            return self._create_error_response(
+                error_type="sdk_disconnected",
+                output_message="SDK is not connected",
+                message=result.get("details", "SDK connection not available"),
+                request_details=self._safe_request_details(locals(), "SDK"),
+            )
+
         # Check if request failed to send
         if result.get("error") == "send_failed":
             return self._create_error_response(
@@ -301,7 +311,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             logger.info(f"Extracted {conversation_field}: {conversation_id}")
 
     async def invoke(
-        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]
+        self,
+        db: Session,
+        endpoint: Endpoint,
+        input_data: Dict[str, Any],
+        test_execution_context: Optional[Dict[str, str]] = None,
     ) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Invoke SDK function through WebSocket connection.
@@ -310,6 +324,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             db: Database session
             endpoint: The SDK endpoint to invoke
             input_data: Standardized input data (input, session_id, context, metadata, tool_calls)
+            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
+                                   for linking traces to test executions
 
         Returns:
             Standardized response dict with output and metadata, or ErrorResponse for errors
@@ -325,6 +341,16 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Step 3: Prepare function kwargs
             _, conversation_field = self._prepare_conversation_context(endpoint, input_data)
             function_kwargs = self._prepare_function_kwargs(endpoint, input_data, function_name)
+
+            # Step 3.5: Add test execution context to kwargs if provided
+            if test_execution_context:
+                # Validate structure and convert string UUIDs if needed
+                context = TestExecutionContext(**test_execution_context)
+                function_kwargs[TestContextConstants.CONTEXT_KEY] = context.model_dump(mode="json")
+                logger.debug(
+                    f"Injected test execution context: "
+                    f"run={context.test_run_id}, test={context.test_id}"
+                )
 
             logger.info(
                 f"Invoking SDK function: {function_name} "
@@ -345,6 +371,10 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 )
 
             # Step 5: Check for execution errors
+            # If result is already an ErrorResponse, return it directly
+            if isinstance(result, ErrorResponse):
+                return result
+
             error_response = self._check_result_errors(result, function_name)
             if error_response:
                 return error_response

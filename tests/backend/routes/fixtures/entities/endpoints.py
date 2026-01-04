@@ -20,12 +20,16 @@ fake = Faker()
 
 
 @pytest.fixture
-def sample_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
+def sample_endpoint(authenticated_client: TestClient, db_project) -> Dict[str, Any]:
     """
     Create a sample endpoint for testing
 
     This fixture creates an endpoint that can be used for testing
     endpoint functionality and invocation.
+
+    Args:
+        authenticated_client: Authenticated test client
+        db_project: Project fixture for foreign key relationship
 
     Returns:
         Dict containing the created endpoint data including its ID
@@ -37,6 +41,7 @@ def sample_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
         "url": f"https://api.{fake.domain_name()}/v1/test",
         "environment": "development",  # Valid enum value
         "config_source": "manual",  # Valid enum value
+        "project_id": str(db_project.id),  # All endpoints must have a project
     }
 
     response = authenticated_client.post(APIEndpoints.ENDPOINTS.create, json=endpoint_data)
@@ -46,11 +51,15 @@ def sample_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
 
 
 @pytest.fixture
-def sample_endpoints(authenticated_client: TestClient) -> list[Dict[str, Any]]:
+def sample_endpoints(authenticated_client: TestClient, db_project) -> list[Dict[str, Any]]:
     """
     Create multiple sample endpoints for testing
 
     Useful for tests that need multiple endpoints or bulk operations.
+
+    Args:
+        authenticated_client: Authenticated test client
+        db_project: Project fixture for foreign key relationship
 
     Returns:
         List of created endpoint dictionaries
@@ -67,6 +76,7 @@ def sample_endpoints(authenticated_client: TestClient) -> list[Dict[str, Any]]:
             "url": f"https://api-{i}.{fake.domain_name()}/v1/endpoint{i}",
             "environment": environments[i % len(environments)],
             "config_source": "manual",
+            "project_id": str(db_project.id),  # All endpoints must have a project
         }
 
         response = authenticated_client.post(APIEndpoints.ENDPOINTS.create, json=endpoint_data)
@@ -77,12 +87,16 @@ def sample_endpoints(authenticated_client: TestClient) -> list[Dict[str, Any]]:
 
 
 @pytest.fixture
-def working_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
+def working_endpoint(authenticated_client: TestClient, db_project) -> Dict[str, Any]:
     """
     Create a working endpoint for integration testing
 
     This fixture creates an endpoint that's configured to work with
     mocked external services for realistic testing scenarios.
+
+    Args:
+        authenticated_client: Authenticated test client
+        db_project: Project fixture for foreign key relationship
 
     Returns:
         Dict containing the created working endpoint data
@@ -95,6 +109,7 @@ def working_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
         "environment": "development",
         "config_source": "manual",
         "method": "POST",
+        "project_id": str(db_project.id),  # All endpoints must have a project
         "request_headers": {"Content-Type": "application/json", "Accept": "application/json"},
         "request_mapping": {
             "query": "{{input}}",
@@ -111,12 +126,16 @@ def working_endpoint(authenticated_client: TestClient) -> Dict[str, Any]:
 
 
 @pytest.fixture
-def endpoint_with_complex_config(authenticated_client: TestClient) -> Dict[str, Any]:
+def endpoint_with_complex_config(authenticated_client: TestClient, db_project) -> Dict[str, Any]:
     """
     🔗⚙️ Create an endpoint with complex configuration for integration testing
 
     This fixture creates an endpoint with comprehensive configuration
     including auth, headers, mappings, and OpenAPI spec.
+
+    Args:
+        authenticated_client: Authenticated test client
+        db_project: Project fixture for foreign key relationship
 
     Returns:
         Dict containing the endpoint with full configuration
@@ -128,6 +147,7 @@ def endpoint_with_complex_config(authenticated_client: TestClient) -> Dict[str, 
         "url": f"https://complex-api.{fake.domain_name()}/v2/process",
         "environment": "staging",
         "config_source": "openapi",
+        "project_id": str(db_project.id),  # All endpoints must have a project
         "openapi_spec_url": f"https://complex-api.{fake.domain_name()}/openapi.json",
         "openapi_spec": {
             "openapi": "3.0.0",
@@ -188,7 +208,7 @@ def endpoint_with_complex_config(authenticated_client: TestClient) -> Dict[str, 
 
 
 @pytest.fixture
-def db_endpoint(test_db: Session, test_organization, db_user, db_status) -> Endpoint:
+def db_endpoint(test_db: Session, test_organization, db_user, db_status, db_project) -> Endpoint:
     """
     Create an endpoint in the test database
 
@@ -197,6 +217,7 @@ def db_endpoint(test_db: Session, test_organization, db_user, db_status) -> Endp
         test_organization: Organization fixture
         db_user: User fixture
         db_status: Status fixture
+        db_project: Project fixture (all endpoints must have a project)
 
     Returns:
         Endpoint: Real endpoint record in database
@@ -224,6 +245,7 @@ def db_endpoint(test_db: Session, test_organization, db_user, db_status) -> Endp
         organization_id=test_organization.id,
         user_id=db_user.id,
         status_id=db_status.id,
+        project_id=db_project.id,  # All endpoints must have a project
     )
 
     test_db.add(endpoint)
@@ -233,7 +255,7 @@ def db_endpoint(test_db: Session, test_organization, db_user, db_status) -> Endp
 
 
 @pytest.fixture
-def db_endpoint_minimal(test_db: Session, test_organization, db_user) -> Endpoint:
+def db_endpoint_minimal(test_db: Session, test_organization, db_user, db_project) -> Endpoint:
     """
     Create a minimal endpoint in the test database
 
@@ -243,6 +265,7 @@ def db_endpoint_minimal(test_db: Session, test_organization, db_user) -> Endpoin
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture
+        db_project: Project fixture (all endpoints must have a project)
 
     Returns:
         Endpoint: Minimal endpoint record in database
@@ -256,6 +279,7 @@ def db_endpoint_minimal(test_db: Session, test_organization, db_user) -> Endpoin
         url=endpoint_data["url"],
         organization_id=test_organization.id,
         user_id=db_user.id,
+        project_id=db_project.id,  # All endpoints must have a project
     )
 
     test_db.add(endpoint)
@@ -265,7 +289,9 @@ def db_endpoint_minimal(test_db: Session, test_organization, db_user) -> Endpoin
 
 
 @pytest.fixture
-def db_endpoint_rest(test_db: Session, test_organization, db_user, db_status) -> Endpoint:
+def db_endpoint_rest(
+    test_db: Session, test_organization, db_user, db_status, db_project
+) -> Endpoint:
     """
     Create a REST endpoint in the test database
 
@@ -276,6 +302,7 @@ def db_endpoint_rest(test_db: Session, test_organization, db_user, db_status) ->
         test_organization: Organization fixture
         db_user: User fixture
         db_status: Status fixture
+        db_project: Project fixture (all endpoints must have a project)
 
     Returns:
         Endpoint: REST endpoint record in database
@@ -292,6 +319,7 @@ def db_endpoint_rest(test_db: Session, test_organization, db_user, db_status) ->
         organization_id=test_organization.id,
         user_id=db_user.id,
         status_id=db_status.id,
+        project_id=db_project.id,  # All endpoints must have a project
     )
 
     test_db.add(endpoint)

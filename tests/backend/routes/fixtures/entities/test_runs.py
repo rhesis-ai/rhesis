@@ -7,15 +7,18 @@ Fixtures for creating test run entities and related relationships.
 import pytest
 from faker import Faker
 from sqlalchemy.orm import Session
-from rhesis.backend.app.models.test_run import TestRun
-from rhesis.backend.app.models.test_configuration import TestConfiguration
+
 from rhesis.backend.app.models.status import Status
+from rhesis.backend.app.models.test_configuration import TestConfiguration
+from rhesis.backend.app.models.test_run import TestRun
 
 fake = Faker()
 
 
 @pytest.fixture
-def db_test_configuration(test_db: Session, test_organization, db_user) -> TestConfiguration:
+def db_test_configuration(
+    test_db: Session, test_organization, db_user, db_endpoint
+) -> TestConfiguration:
     """
     🧪 Create a real test configuration entity in the test database
 
@@ -26,11 +29,13 @@ def db_test_configuration(test_db: Session, test_organization, db_user) -> TestC
         test_db: Database session fixture
         test_organization: Organization fixture
         db_user: User fixture for creator
+        db_endpoint: Endpoint fixture (required for test configuration)
 
     Returns:
         TestConfiguration: Real test configuration record with valid database ID
     """
     test_config = TestConfiguration(
+        endpoint_id=db_endpoint.id,
         user_id=db_user.id,
         organization_id=test_organization.id,
         attributes={"model": "gpt-3.5-turbo", "temperature": 0.7, "max_tokens": 1000},

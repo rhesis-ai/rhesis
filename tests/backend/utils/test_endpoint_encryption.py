@@ -16,12 +16,34 @@ class EndpointEncryptionDataFactory(BaseDataFactory):
     """Factory for generating endpoint test data for encryption tests"""
 
     @classmethod
-    def minimal_data(cls) -> dict:
-        return {"name": fake.company() + " API", "connection_type": "REST", "url": fake.url()}
+    def minimal_data(cls, test_db=None, test_organization=None, db_user=None) -> dict:
+        """Generate minimal endpoint data with required FKs"""
+        data = {"name": fake.company() + " API", "connection_type": "REST", "url": fake.url()}
+        
+        # Add required FK fields if fixtures provided
+        if test_db and test_organization and db_user:
+            # Create a project for the endpoint (required FK)
+            from rhesis.backend.app.models import Project
+            project = Project(
+                name=f"Encryption Test Project {fake.uuid4()}",
+                organization_id=test_organization.id,
+                user_id=db_user.id,
+            )
+            test_db.add(project)
+            test_db.commit()
+            test_db.refresh(project)
+            
+            data.update({
+                "project_id": project.id,
+                "organization_id": test_organization.id,
+                "user_id": db_user.id,
+            })
+        
+        return data
 
     @classmethod
-    def sample_data(cls) -> dict:
-        data = cls.minimal_data()
+    def sample_data(cls, test_db=None, test_organization=None, db_user=None) -> dict:
+        data = cls.minimal_data(test_db, test_organization, db_user)
         data.update(
             {
                 "auth_token": fake.sha256(),
@@ -59,10 +81,10 @@ def encryption_key():
 class TestEndpointEncryption:
     """Test encryption of Endpoint model authentication fields"""
 
-    def test_auth_token_encrypted_in_db(self, test_db, encryption_key):
+    def test_auth_token_encrypted_in_db(self, test_db, encryption_key, test_organization, db_user):
         """Test that auth_token is encrypted when stored in database"""
         # Create endpoint using factory
-        endpoint_data = EndpointEncryptionDataFactory.sample_data()
+        endpoint_data = EndpointEncryptionDataFactory.sample_data(test_db, test_organization, db_user)
         endpoint = Endpoint(**endpoint_data)
         test_db.add(endpoint)
         test_db.commit()
@@ -81,9 +103,9 @@ class TestEndpointEncryption:
         test_db.refresh(endpoint)
         assert endpoint.auth_token == endpoint_data["auth_token"]
 
-    def test_client_secret_encrypted_in_db(self, test_db, encryption_key):
+    def test_client_secret_encrypted_in_db(self, test_db, encryption_key, test_organization, db_user):
         """Test that client_secret is encrypted when stored"""
-        endpoint_data = EndpointEncryptionDataFactory.sample_data()
+        endpoint_data = EndpointEncryptionDataFactory.sample_data(test_db, test_organization, db_user)
         endpoint = Endpoint(**endpoint_data)
         test_db.add(endpoint)
         test_db.commit()
@@ -97,9 +119,9 @@ class TestEndpointEncryption:
         test_db.refresh(endpoint)
         assert endpoint.client_secret == endpoint_data["client_secret"]
 
-    def test_last_token_encrypted_in_db(self, test_db, encryption_key):
+    def test_last_token_encrypted_in_db(self, test_db, encryption_key, test_organization, db_user):
         """Test that last_token is encrypted when stored"""
-        endpoint_data = EndpointEncryptionDataFactory.sample_data()
+        endpoint_data = EndpointEncryptionDataFactory.sample_data(test_db, test_organization, db_user)
         endpoint = Endpoint(**endpoint_data)
         test_db.add(endpoint)
         test_db.commit()
@@ -112,9 +134,9 @@ class TestEndpointEncryption:
         test_db.refresh(endpoint)
         assert endpoint.last_token == endpoint_data["last_token"]
 
-    def test_none_values_handled(self, test_db, encryption_key):
+    def test_none_values_handled(self, test_db, encryption_key, test_organization, db_user):
         """Test that None values work correctly"""
-        endpoint_data = EndpointEncryptionDataFactory.minimal_data()
+        endpoint_data = EndpointEncryptionDataFactory.minimal_data(test_db, test_organization, db_user)
         endpoint = Endpoint(**endpoint_data)
         test_db.add(endpoint)
         test_db.commit()
@@ -124,9 +146,9 @@ class TestEndpointEncryption:
         assert endpoint.client_secret is None
         assert endpoint.last_token is None
 
-    def test_update_encrypted_field(self, test_db, encryption_key):
+    def test_update_encrypted_field(self, test_db, encryption_key, test_organization, db_user):
         """Test updating encrypted fields"""
-        endpoint_data = EndpointEncryptionDataFactory.sample_data()
+        endpoint_data = EndpointEncryptionDataFactory.sample_data(test_db, test_organization, db_user)
         endpoint = Endpoint(**endpoint_data)
         test_db.add(endpoint)
         test_db.commit()
@@ -145,9 +167,9 @@ class TestEndpointEncryption:
         test_db.refresh(endpoint)
         assert endpoint.auth_token == new_token
 
-    def test_client_id_not_encrypted(self, test_db, encryption_key):
+    def test_client_id_not_encrypted(self, test_db, encryption_key, test_organization, db_user):
         """Test that client_id is NOT encrypted (it's public)"""
-        endpoint_data = EndpointEncryptionDataFactory.sample_data()
+        endpoint_data = EndpointEncryptionDataFactory.sample_data(test_db, test_organization, db_user)
         endpoint = Endpoint(**endpoint_data)
         test_db.add(endpoint)
         test_db.commit()
@@ -159,9 +181,9 @@ class TestEndpointEncryption:
         assert result[0] == endpoint_data["client_id"]
         assert not is_encrypted(result[0])
 
-    def test_all_encrypted_fields_together(self, test_db, encryption_key):
+    def test_all_encrypted_fields_together(self, test_db, encryption_key, test_organization, db_user):
         """Test that all three encrypted fields work together"""
-        endpoint_data = EndpointEncryptionDataFactory.sample_data()
+        endpoint_data = EndpointEncryptionDataFactory.sample_data(test_db, test_organization, db_user)
         endpoint = Endpoint(**endpoint_data)
         test_db.add(endpoint)
         test_db.commit()
@@ -183,9 +205,9 @@ class TestEndpointEncryption:
         assert endpoint.client_secret == endpoint_data["client_secret"]
         assert endpoint.last_token == endpoint_data["last_token"]
 
-    def test_empty_string_handled(self, test_db, encryption_key):
+    def test_empty_string_handled(self, test_db, encryption_key, test_organization, db_user):
         """Test that empty strings are handled correctly"""
-        endpoint_data = EndpointEncryptionDataFactory.minimal_data()
+        endpoint_data = EndpointEncryptionDataFactory.minimal_data(test_db, test_organization, db_user)
         endpoint_data["auth_token"] = ""
         endpoint = Endpoint(**endpoint_data)
         test_db.add(endpoint)
@@ -194,9 +216,9 @@ class TestEndpointEncryption:
         test_db.refresh(endpoint)
         assert endpoint.auth_token == ""
 
-    def test_update_from_none_to_value(self, test_db, encryption_key):
+    def test_update_from_none_to_value(self, test_db, encryption_key, test_organization, db_user):
         """Test updating a field from None to a value"""
-        endpoint_data = EndpointEncryptionDataFactory.minimal_data()
+        endpoint_data = EndpointEncryptionDataFactory.minimal_data(test_db, test_organization, db_user)
         endpoint = Endpoint(**endpoint_data)
         test_db.add(endpoint)
         test_db.commit()
@@ -218,9 +240,9 @@ class TestEndpointEncryption:
         test_db.refresh(endpoint)
         assert endpoint.auth_token == new_token
 
-    def test_update_from_value_to_none(self, test_db, encryption_key):
+    def test_update_from_value_to_none(self, test_db, encryption_key, test_organization, db_user):
         """Test updating a field from a value to None"""
-        endpoint_data = EndpointEncryptionDataFactory.sample_data()
+        endpoint_data = EndpointEncryptionDataFactory.sample_data(test_db, test_organization, db_user)
         endpoint = Endpoint(**endpoint_data)
         test_db.add(endpoint)
         test_db.commit()

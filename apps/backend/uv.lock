@@ -5270,6 +5270,9 @@ dependencies = [
     { name = "litellm" },
     { name = "markitdown", extra = ["docx", "pdf", "pptx", "xlsx"] },
     { name = "mcp" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
     { name = "pandas" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -5293,11 +5296,28 @@ requires-dist = [
     { name = "ipykernel", specifier = ">=7.1.0" },
     { name = "ipython", specifier = ">=8.37.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "langchain", marker = "extra == 'all'", specifier = ">=0.1.0" },
+    { name = "langchain", marker = "extra == 'all-integrations'", specifier = ">=0.1.0" },
+    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.1.0" },
+    { name = "langchain", marker = "extra == 'langgraph'", specifier = ">=0.1.0" },
+    { name = "langchain-core", marker = "extra == 'all'", specifier = ">=0.1.0" },
+    { name = "langchain-core", marker = "extra == 'all-integrations'", specifier = ">=0.1.0" },
+    { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=0.1.0" },
+    { name = "langchain-core", marker = "extra == 'langgraph'", specifier = ">=0.1.0" },
     { name = "langchain-google-genai", specifier = ">=2.1.12" },
+    { name = "langgraph", marker = "extra == 'all'", specifier = ">=0.0.26" },
+    { name = "langgraph", marker = "extra == 'all-integrations'", specifier = ">=0.0.26" },
+    { name = "langgraph", marker = "extra == 'langgraph'", specifier = ">=0.0.26" },
     { name = "litellm", specifier = ">=1.76.0" },
     { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], specifier = ">=0.1.0" },
     { name = "mcp", specifier = ">=1.2.0" },
+    { name = "opentelemetry-api", specifier = ">=1.32.1" },
+    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.32.1" },
+    { name = "opentelemetry-sdk", specifier = ">=1.32.1" },
     { name = "pandas", specifier = ">=2.2.2" },
+    { name = "pyautogen", marker = "extra == 'all'", specifier = ">=0.2.0" },
+    { name = "pyautogen", marker = "extra == 'all-integrations'", specifier = ">=0.2.0" },
+    { name = "pyautogen", marker = "extra == 'autogen'", specifier = ">=0.2.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -5312,7 +5332,7 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'huggingface'", specifier = "==4.57.1" },
     { name = "websockets", specifier = ">=12.0" },
 ]
-provides-extras = ["huggingface", "all"]
+provides-extras = ["huggingface", "langchain", "langgraph", "autogen", "all-integrations", "all"]
 
 [package.metadata.requires-dev]
 dev = [

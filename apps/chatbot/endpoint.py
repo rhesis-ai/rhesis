@@ -6,7 +6,7 @@ from typing import Generator, List
 
 from dotenv import load_dotenv
 
-from rhesis.sdk import RhesisClient
+from rhesis.sdk import RhesisClient, observe
 from rhesis.sdk.models.factory import get_model
 
 # Configure logging
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Initialize Rhesis Client for collaborative testing
+# Initialize Rhesis Client for remote endpoint testing
 rhesis_client = RhesisClient(
     api_key=os.getenv("RHESIS_API_KEY"),
     project_id=os.getenv("RHESIS_PROJECT_ID"),
@@ -61,7 +61,8 @@ class ResponseGenerator:
             prompt_file = os.path.join(current_dir, "use_cases", f"{self.use_case}.md")
 
             with open(prompt_file, "r", encoding="utf-8") as file:
-                return file.read().strip()
+                content = file.read().strip()
+                return content
         except FileNotFoundError:
             logger.error(f"System prompt file not found: use_cases/{self.use_case}.md")
             # Fallback to a basic prompt
@@ -74,6 +75,49 @@ class ResponseGenerator:
         """Get a complete response from the assistant with optional conversation history."""
         return "".join(self.stream_assistant_response(prompt, conversation_history))
 
+    @observe()
+    def _build_conversation_prompt(
+        self, prompt: str, conversation_history: List[dict] = None
+    ) -> str:
+        """Build the full prompt with conversation history."""
+        full_prompt = self.use_case_system_prompt + "\n\n"
+
+        # Add conversation history if provided
+        if conversation_history:
+            for msg in conversation_history:
+                role = "User" if msg["role"] == "user" else "Assistant"
+                full_prompt += f"{role}: {msg['content']}\n\n"
+
+        # Add current prompt
+        full_prompt += f"User: {prompt}\n\nAssistant:"
+        return full_prompt
+
+    @observe.llm(
+        provider=DEFAULT_GENERATION_MODEL,
+        model=DEFAULT_MODEL_NAME,
+    )
+    def _invoke_llm(self, full_prompt: str) -> str:
+        """Invoke the LLM model to generate a response."""
+        # Vertex AI via LiteLLM has issues with streaming (CustomStreamWrapper)
+        # Use non-streaming response which works reliably
+        response = self.model.generate(full_prompt, stream=False)
+        return response
+
+    @observe()
+    def _extract_response_content(self, response) -> str:
+        """Extract text content from LLM response."""
+        if isinstance(response, str):
+            return response
+
+        # Try to extract content from response object
+        if hasattr(response, "choices") and len(response.choices) > 0:
+            content = response.choices[0].message.content
+            return content if content else ""
+
+        # Fallback to string conversion
+        return str(response) if response else ""
+
+    @observe()
     def stream_assistant_response(
         self, prompt: str, conversation_history: List[dict] = None
     ) -> Generator[str, None, None]:
@@ -86,34 +130,14 @@ class ResponseGenerator:
         """
         try:
             # Build the full prompt with conversation history
-            full_prompt = self.use_case_system_prompt + "\n\n"
+            full_prompt = self._build_conversation_prompt(prompt, conversation_history)
 
-            # Add conversation history if provided
-            if conversation_history:
-                for msg in conversation_history:
-                    role = "User" if msg["role"] == "user" else "Assistant"
-                    full_prompt += f"{role}: {msg['content']}\n\n"
+            # Invoke LLM
+            response = self._invoke_llm(full_prompt)
 
-            # Add current prompt
-            full_prompt += f"User: {prompt}\n\nAssistant:"
-
-            # Vertex AI via LiteLLM has issues with streaming (CustomStreamWrapper)
-            # Use non-streaming response which works reliably
-            response = self.model.generate(full_prompt, stream=False)
-
-            # Yield the complete response
-            if isinstance(response, str):
-                yield response
-            else:
-                # Try to extract content from response object
-                try:
-                    if hasattr(response, "choices") and len(response.choices) > 0:
-                        content = response.choices[0].message.content
-                        yield content if content else ""
-                    else:
-                        yield str(response) if response else ""
-                except Exception:
-                    yield str(response) if response else ""
+            # Extract and yield content
+            content = self._extract_response_content(response)
+            yield content
 
         except Exception as e:
             logger.error(f"Error in stream_assistant_response: {str(e)}")
@@ -122,48 +146,68 @@ class ResponseGenerator:
                 "due to an unexpected error."
             )
 
+    @observe()
+    def _build_context_prompt(self, prompt: str) -> str:
+        """Build the prompt for context generation."""
+        context_system_prompt = """
+            You are a helpful assistant that provides relevant context
+            fragments for user questions.
+            For the given user query, generate 3-5 short, relevant context
+            fragments that would be helpful for answering the question.
+            
+            IMPORTANT: You MUST respond with ONLY a valid JSON object that
+            has a "fragments" key containing an array of strings.
+            Example format:
+            {
+                "fragments": [
+                    "Context fragment 1",
+                    "Context fragment 2",
+                    "Context fragment 3"
+                ]
+            }
+            
+            Do not include any explanations, markdown formatting, or
+            additional text outside of the JSON object.
+            """
+
+        full_prompt = (
+            f"{context_system_prompt}\n\n"
+            f"Generate context fragments for this insurance question: {prompt}"
+        )
+        return full_prompt
+
+    @observe.llm(
+        provider=DEFAULT_GENERATION_MODEL,
+        model=DEFAULT_MODEL_NAME,
+        purpose="context_generation",
+    )
+    def _generate_context_fragments_llm(self, full_prompt: str) -> str:
+        """Invoke LLM to generate context fragments."""
+        response = self.model.generate(full_prompt)
+        return response
+
+    @observe()
     def generate_context(self, prompt: str) -> List[str]:
         """Generate context fragments for a prompt."""
         try:
-            # Create system prompt for context generation with JSON format
-            context_system_prompt = """
-                You are a helpful assistant that provides relevant context
-                fragments for user questions.
-                For the given user query, generate 3-5 short, relevant context
-                fragments that would be helpful for answering the question.
-                
-                IMPORTANT: You MUST respond with ONLY a valid JSON object that
-                has a "fragments" key containing an array of strings.
-                Example format:
-                {
-                    "fragments": [
-                        "Context fragment 1",
-                        "Context fragment 2",
-                        "Context fragment 3"
-                    ]
-                }
-                
-                Do not include any explanations, markdown formatting, or
-                additional text outside of the JSON object.
-                """
+            # Build prompt
+            full_prompt = self._build_context_prompt(prompt)
 
-            # Combine system prompt with user question
-            full_prompt = (
-                f"{context_system_prompt}\n\n"
-                f"Generate context fragments for this insurance question: {prompt}"
-            )
-
-            # Get response from SDK model
-            response = self.model.generate(full_prompt)
+            # Invoke LLM for context generation
+            response = self._generate_context_fragments_llm(full_prompt)
 
             # Parse the response
             response_text = response if isinstance(response, str) else str(response)
-            return self._parse_context_response(response_text, prompt)
+            fragments = self._parse_context_response(response_text, prompt)
+
+            return fragments
 
         except Exception as e:
             logger.error(f"Error in generate_context: {str(e)}")
-            return self._get_default_fragments(prompt)
+            default_fragments = self._get_default_fragments(prompt)
+            return default_fragments
 
+    @observe()
     def _parse_context_response(self, text: str, prompt: str) -> List[str]:
         """Parse the response text to extract context fragments."""
         # Try to parse the entire response as JSON
@@ -200,12 +244,11 @@ class ResponseGenerator:
 
         # If all structured parsing fails, extract text fragments
         fragments = self._extract_text_fragments(text)
+        if fragments:
+            return fragments[:5]
 
         # If we still have no fragments, create default ones based on the prompt
-        if not fragments:
-            return self._get_default_fragments(prompt)
-
-        return fragments[:5]  # Return up to 5 fragments
+        return self._get_default_fragments(prompt)
 
     def _extract_text_fragments(self, text: str) -> List[str]:
         """Extract text fragments from unstructured text."""
@@ -258,7 +301,7 @@ def stream_assistant_response(
 ) -> Generator[str, None, None]:
     """Stream the assistant's response with optional conversation history.
 
-    This function is decorated with @collaborate to enable remote testing
+    This function is decorated with @endpoint to enable remote testing
     from the Rhesis platform.
 
     Args:
@@ -268,7 +311,7 @@ def stream_assistant_response(
             [{"role": "user/assistant", "content": "..."}]
     """
     logger.info("=" * 80)
-    logger.info("🔵 COLLABORATIVE TEST EXECUTION STARTED")
+    logger.info("🔵 REMOTE TEST EXECUTION STARTED")
     logger.info(f"Prompt: {prompt}")
     logger.info(f"Use case: {use_case}")
     logger.info(f"Conversation history: {conversation_history}")
@@ -299,7 +342,7 @@ def stream_assistant_response(
         logger.info("=" * 80)
 
     except Exception as e:
-        logger.error(f"❌ Error during collaborative test execution: {e}")
+        logger.error(f"❌ Error during remote test execution: {e}")
         logger.error(f"Error type: {type(e).__name__}")
         import traceback
 

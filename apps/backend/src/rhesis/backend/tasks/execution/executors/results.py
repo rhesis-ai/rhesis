@@ -127,8 +127,16 @@ def create_test_result_record(
     execution_time: float,
     metrics_results: Dict,
     processed_result: Dict,
-) -> None:
-    """Create and store test result record in database."""
+) -> Optional[UUID]:
+    """
+    Create and store test result record in database.
+
+    After creating the test result, this function automatically links
+    any traces from the test execution to the new test result record.
+
+    Returns:
+        UUID of the created test result, or None if creation failed
+    """
     # Determine status based on metrics evaluation
     if not metrics_results or len(metrics_results) == 0:
         # No metrics to evaluate - mark as ERROR
@@ -165,8 +173,58 @@ def create_test_result_record(
             organization_id=organization_id,
             user_id=user_id,
         )
-        result_id = result.id if hasattr(result, "id") else "UNKNOWN"
-        logger.debug(f"Successfully created test result with ID: {result_id}")
+
+        # Validate that the result has a valid ID
+        if not result or not hasattr(result, "id") or result.id is None:
+            logger.error(
+                f"[TEST_RESULT] Failed to create test result: CRUD operation returned "
+                f"invalid result for test_id={test_id}, test_run_id={test_run_id}, "
+                f"test_config_id={test_config_id}"
+            )
+            return None
+
+        result_id = result.id
+        logger.info(
+            f"[TEST_RESULT] Successfully created test result with ID: {result_id} "
+            f"for test_id={test_id}, test_run_id={test_run_id}, "
+            f"test_config_id={test_config_id}"
+        )
+
+        # Link traces to this test result
+        if result_id:
+            logger.info(f"[TEST_RESULT] Attempting to link traces to test_result_id={result_id}")
+            try:
+                from rhesis.backend.app.services.telemetry.linking_service import (
+                    TraceLinkingService,
+                )
+
+                linking_service = TraceLinkingService(db)
+                updated_count = linking_service.link_traces_for_test_result(
+                    test_run_id=test_run_id,
+                    test_id=test_id,
+                    test_configuration_id=test_config_id,
+                    test_result_id=str(result_id),
+                    organization_id=organization_id,
+                )
+                logger.info(
+                    f"[TEST_RESULT] Trace linking complete: {updated_count} traces "
+                    f"linked to test_result_id={result_id}"
+                )
+            except Exception as trace_error:
+                # Don't fail test result creation if trace linking fails
+                logger.error(
+                    f"[TEST_RESULT] Failed to link traces to test result "
+                    f"{result_id}: {trace_error}",
+                    exc_info=True,
+                )
+        else:
+            logger.warning(
+                "[TEST_RESULT] No result_id returned from create_test_result, "
+                "skipping trace linking"
+            )
+
+        return result_id
+
     except Exception as e:
-        logger.error(f"Failed to create test result: {str(e)}")
+        logger.error(f"[TEST_RESULT] Failed to create test result: {str(e)}", exc_info=True)
         raise

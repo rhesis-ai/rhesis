@@ -13,6 +13,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.telemetry import TraceListResponse, TraceSummary
 from rhesis.backend.app.services.stats.test_run import get_test_run_stats
 from rhesis.backend.app.services.test_run import (
     get_test_results_for_test_run,
@@ -432,3 +433,109 @@ def download_test_run_results(
             status_code=500,
             detail=f"Failed to download test run results for {test_run_id}: {str(e)}",
         )
+
+
+@router.get("/{test_run_id}/traces", response_model=TraceListResponse)
+async def get_test_run_traces(
+    test_run_id: UUID,
+    limit: int = Query(100, ge=1, le=1000, description="Results per page"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> TraceListResponse:
+    """
+    Get all traces associated with a test run.
+
+    Returns traces from all test executions within this test run,
+    useful for debugging and analyzing test execution behavior.
+
+    **Authentication**: Requires valid user session or API key
+
+    **Pagination**:
+    - `limit`: Number of results per page (default: 100, max: 1000)
+    - `offset`: Number of results to skip (default: 0)
+
+    Returns:
+        Paginated list of trace summaries for this test run
+    """
+    organization_id, user_id = tenant_context
+
+    # Verify test run exists and user has access
+    db_test_run = crud.get_test_run(
+        db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
+    )
+    if db_test_run is None:
+        raise HTTPException(status_code=404, detail="Test run not found")
+
+    # Get project_id from test run with proper null checks
+    if not db_test_run.test_configuration:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Test run {test_run_id} has no associated test configuration",
+        )
+    if not db_test_run.test_configuration.endpoint:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Test configuration for test run {test_run_id} has no associated endpoint",
+        )
+    if not db_test_run.test_configuration.endpoint.project_id:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Endpoint for test run {test_run_id} has no associated project",
+        )
+
+    project_id = str(db_test_run.test_configuration.endpoint.project_id)
+
+    # Query traces for this test run
+    traces = crud.query_traces(
+        db=db,
+        project_id=project_id,
+        test_run_id=str(test_run_id),
+        limit=limit,
+        offset=offset,
+    )
+
+    # Get total count
+    total = crud.count_traces(
+        db=db,
+        project_id=project_id,
+        test_run_id=str(test_run_id),
+    )
+
+    # Convert to summaries
+    summaries = []
+    for trace in traces:
+        has_errors = trace.status_code == "ERROR"
+        total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
+        total_cost_usd = 0.0
+        total_cost_eur = 0.0
+        if trace.enriched_data and "costs" in trace.enriched_data:
+            total_cost_usd = trace.enriched_data["costs"].get("total_cost_usd", 0.0)
+            total_cost_eur = trace.enriched_data["costs"].get("total_cost_eur", 0.0)
+
+        summary = TraceSummary(
+            trace_id=trace.trace_id,
+            project_id=str(trace.project_id),
+            environment=trace.environment,
+            start_time=trace.start_time,
+            duration_ms=trace.duration_ms or 0.0,
+            span_count=1,
+            root_operation=trace.span_name,
+            status_code=trace.status_code,
+            has_errors=has_errors,
+            total_tokens=total_tokens if total_tokens > 0 else None,
+            total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
+            total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
+            test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
+            test_result_id=str(trace.test_result_id) if trace.test_result_id else None,
+            test_id=str(trace.test_id) if trace.test_id else None,
+        )
+        summaries.append(summary)
+
+    return TraceListResponse(
+        traces=summaries,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )

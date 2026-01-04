@@ -377,7 +377,7 @@ The worker startup script applies these configurations:
 <CodeBlock language="bash" filename="start-worker.sh" isTerminal={true}>
 {`# Start Celery worker with Redis-optimized settings
 celery -A rhesis.backend.worker.app worker \
-    --queues=celery,execution \
+    --queues=celery,execution,telemetry \
     --loglevel=\${CELERY_WORKER_LOGLEVEL:-INFO} \
     --concurrency=\${CELERY_WORKER_CONCURRENCY:-8} \
     --prefetch-multiplier=\${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} \

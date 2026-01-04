@@ -197,7 +197,7 @@ class TestTestSetExecution:
     """Test test set execution operations."""
 
     def test_execute_test_set_on_endpoint_success(
-        self, test_db: Session, authenticated_user_id, test_org_id
+        self, test_db: Session, authenticated_user_id, test_org_id, db_user, test_organization
     ):
         """Test successful test set execution on endpoint."""
         # Create test set
@@ -208,10 +208,23 @@ class TestTestSetExecution:
         test_db.add(test_set)
         test_db.commit()
 
+        # Create a project first (required for endpoint.project_id FK)
+        project = models.Project(
+            name="Test Set Project",
+            organization_id=test_organization.id,
+            user_id=db_user.id,
+        )
+        test_db.add(project)
+        test_db.commit()
+        test_db.refresh(project)
+
         # Create endpoint
         endpoint_data = create_endpoint_data()
         endpoint = models.Endpoint(
-            **endpoint_data, organization_id=test_org_id, user_id=authenticated_user_id
+            **endpoint_data,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            project_id=project.id,
         )
         test_db.add(endpoint)
         test_db.commit()

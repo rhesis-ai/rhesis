@@ -32,6 +32,17 @@ class ConnectionManager:
 
     def __init__(self):
         """Initialize connection manager."""
+        # Generate unique worker ID using hostname + UUID
+        # Format: backend@hostname-uuid (e.g., backend@server1-a1b2c3d4)
+        # UUID ensures true uniqueness even with rapid process restarts
+        # Note: We don't use CELERY_WORKER_NAME as it's only set for Celery workers,
+        # not backend processes. Backend and Celery are separate process types.
+        import socket
+        import uuid
+
+        short_uuid = str(uuid.uuid4())[:8]  # First 8 chars sufficient for uniqueness
+        self.worker_id = f"backend@{socket.gethostname()}-{short_uuid}"
+
         # Store active connections: {project_id:environment: WebSocket}
         self._connections: Dict[str, WebSocket] = {}
 
@@ -47,6 +58,9 @@ class ConnectionManager:
 
         # Track background tasks to prevent silent failures
         self._background_tasks: set = set()
+
+        # Track heartbeat tasks for each connection
+        self._heartbeat_tasks: Dict[str, asyncio.Task] = {}
 
     def get_connection_key(self, project_id: str, environment: str) -> str:
         """
@@ -101,16 +115,24 @@ class ConnectionManager:
         self._connections[key] = websocket
         logger.info(f"Connected: {key}")
 
-        # Store in Redis for worker visibility
+        # Store in Redis for worker visibility with short TTL and heartbeat
         if redis_manager.is_available:
             try:
                 redis_key = f"ws:connection:{key}"
+                # Use 30-second TTL - will be refreshed by heartbeat every 10 seconds
                 await redis_manager.client.setex(
                     redis_key,
-                    3600,  # 1 hour TTL
+                    30,  # 30 seconds TTL - heartbeat will refresh
                     "active",
                 )
-                logger.debug(f"Stored connection in Redis with key: {redis_key}")
+                logger.debug(f"Stored connection in Redis: {redis_key}")
+
+                # Register this worker as handler for the connection (for direct routing)
+                await self._register_worker_for_connection(key)
+
+                # Start heartbeat task to keep Redis key alive
+                heartbeat_task = self._track_background_task(self._heartbeat_loop(key))
+                self._heartbeat_tasks[key] = heartbeat_task
             except Exception as e:
                 logger.error(f"Failed to store connection in Redis for {key}: {e}")
 
@@ -123,28 +145,96 @@ class ConnectionManager:
             environment: Environment name
         """
         key = self.get_connection_key(project_id, environment)
-        if key in self._connections:
-            del self._connections[key]
-        if key in self._registries:
-            del self._registries[key]
         logger.info(f"Disconnected: {key}")
 
-        # Remove from Redis
+        # Perform local cleanup (sync)
+        self._cleanup_local_connection(key)
+
+        # Schedule async Redis cleanup in background
         if redis_manager.is_available:
             try:
-                # Create tracked task to delete from Redis (non-blocking)
-                self._track_background_task(self._remove_connection_from_redis(key))
+                self._track_background_task(self._cleanup_redis_connection(key))
             except Exception as e:
-                logger.warning(f"Failed to schedule Redis cleanup: {e}")
+                logger.warning(f"Failed to schedule Redis cleanup for {key}: {e}")
 
-    async def _remove_connection_from_redis(self, key: str) -> None:
-        """Remove connection from Redis (async helper)."""
+    def _cleanup_local_connection(self, key: str) -> None:
+        """
+        Remove connection from local state (sync operations only).
+
+        Args:
+            key: Connection key
+        """
+        # Remove from connections dict
+        if key in self._connections:
+            del self._connections[key]
+
+        # Remove from registry
+        if key in self._registries:
+            del self._registries[key]
+
+        # Cancel heartbeat task if exists
+        if key in self._heartbeat_tasks:
+            heartbeat_task = self._heartbeat_tasks[key]
+            if not heartbeat_task.done():
+                heartbeat_task.cancel()
+            del self._heartbeat_tasks[key]
+
+    async def _cleanup_redis_connection(self, key: str) -> None:
+        """
+        Remove connection from Redis (async operations).
+
+        Removes both routing key (ws:routing:{key}) and connection key (ws:connection:{key}).
+
+        Args:
+            key: Connection key
+        """
         try:
+            # Unregister worker routing to prevent RPC requests to this worker
+            await self._unregister_worker_for_connection(key)
+
+            # Remove connection key
             redis_key = f"ws:connection:{key}"
             await redis_manager.client.delete(redis_key)
-            logger.debug(f"Removed connection from Redis with key: {redis_key}")
+            logger.debug(f"Removed connection from Redis: {redis_key}")
         except Exception as e:
-            logger.warning(f"Failed to remove connection from Redis: {e}")
+            logger.warning(f"Failed to remove connection from Redis for {key}: {e}")
+
+    async def _heartbeat_loop(self, key: str) -> None:
+        """
+        Periodically refresh the connection and routing keys in Redis to keep them alive.
+
+        Refreshes both ws:connection:{key} and ws:routing:{key} to ensure the connection
+        remains active and routable for long-lived connections.
+
+        Args:
+            key: Connection key (project_id:environment)
+        """
+        connection_key = f"ws:connection:{key}"
+        routing_key = f"ws:routing:{key}"
+
+        try:
+            while key in self._connections:
+                # Wait 10 seconds between heartbeats (TTL is 30s, so plenty of margin)
+                await asyncio.sleep(10)
+
+                # Check if connection still exists
+                if key not in self._connections:
+                    break
+
+                # Refresh both Redis keys with same TTL
+                try:
+                    await redis_manager.client.setex(connection_key, 30, "active")
+                    await redis_manager.client.setex(routing_key, 30, self.worker_id)
+                    logger.debug(f"Heartbeat refreshed for {key}")
+                except Exception as e:
+                    logger.warning(f"Heartbeat failed for {key}: {e}")
+                    # Continue trying - connection might still be valid
+
+        except asyncio.CancelledError:
+            # Task was cancelled (normal during disconnect)
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in heartbeat loop for {key}: {e}")
 
     def register_functions(
         self, project_id: str, environment: str, functions: List[FunctionMetadata]
@@ -185,7 +275,9 @@ class ConnectionManager:
         key = self.get_connection_key(project_id, environment)
 
         if key not in self._connections:
-            logger.error(f"No connection for {key}")
+            # Don't log error here - this method is used for direct WebSocket calls only
+            # For RPC-based invocations, the connection may exist on another instance
+            logger.debug(f"No local WebSocket connection for {key} - may be on another instance")
             return False
 
         websocket = self._connections[key]
@@ -273,31 +365,41 @@ class ConnectionManager:
             logger.warning(f"Ignoring late result for cancelled test run: {test_run_id}")
             return
 
-        logger.debug(
-            f"Received test result from SDK: {test_run_id} "
+        logger.info(
+            f"📨 Received test result from SDK: {test_run_id} "
             f"(status: {result.get('status', 'unknown')})"
         )
 
         # Store result in memory for backend process
         self._test_results[test_run_id] = result
+        logger.info(f"💾 Stored result in memory for {test_run_id}")
 
         # Also publish to Redis for workers
         if redis_manager.is_available:
+            logger.info(f"📡 Redis available - publishing RPC response for {test_run_id}")
             try:
                 # Publish to response channel for RPC (tracked)
                 self._track_background_task(self._publish_rpc_response(test_run_id, result))
+                logger.info(f"✅ Scheduled RPC response publish task for {test_run_id}")
             except Exception as e:
-                logger.warning(f"Failed to publish RPC response: {e}")
+                logger.error(f"❌ Failed to schedule RPC response publish: {e}", exc_info=True)
+        else:
+            logger.warning(
+                f"⚠️  Redis NOT available - cannot publish RPC response for {test_run_id}"
+            )
 
     async def _publish_rpc_response(self, test_run_id: str, result: Dict[str, Any]) -> None:
         """Publish RPC response to Redis (async helper)."""
         try:
             channel = f"ws:rpc:response:{test_run_id}"
             json_payload = json.dumps(result)
+            logger.info(
+                f"📤 Publishing to channel: {channel} (payload size: {len(json_payload)} bytes)"
+            )
             await redis_manager.client.publish(channel, json_payload)
-            logger.debug(f"Published RPC response: {test_run_id}")
+            logger.info(f"✅ Successfully published RPC response: {test_run_id}")
         except Exception as e:
-            logger.error(f"Failed to publish RPC response: {e}", exc_info=True)
+            logger.error(f"❌ Failed to publish RPC response for {test_run_id}: {e}", exc_info=True)
 
     def get_test_result(self, test_run_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -401,9 +503,7 @@ class ConnectionManager:
             try:
                 redis_key = f"ws:connection:{key}"
                 exists = await redis_manager.client.exists(redis_key)
-                if exists > 0:
-                    logger.debug(f"Connection found in Redis (another backend instance): {key}")
-                    return True
+                return exists > 0
             except Exception as e:
                 logger.warning(f"Failed to check Redis for connection {key}: {e}")
 
@@ -488,20 +588,18 @@ class ConnectionManager:
         """
         Background task to handle RPC requests from workers.
 
-        Subscribes to ws:rpc:requests channel and forwards requests to WebSocket connections.
+        Listens on worker-specific channel for direct routing.
         Uses tenacity for exponential backoff and retry limits to prevent infinite crash loops.
         """
         if not redis_manager.is_available:
             logger.warning("⚠️ Redis not available, RPC listener not started")
             return
 
+        worker_channel = f"ws:rpc:{self.worker_id}"
         logger.info(
-            "🎧 RPC LISTENER STARTED - Subscribing to 'ws:rpc:requests' channel "
-            "for worker SDK invocations"
+            f"🎧 RPC LISTENER STARTED - Listening on '{worker_channel}' channel "
+            f"for direct-routed SDK invocations"
         )
-
-        # Track pubsub instance to ensure cleanup
-        pubsub = None
 
         try:
             # Use tenacity for retry logic with exponential backoff
@@ -513,24 +611,31 @@ class ConnectionManager:
             ):
                 with attempt:
                     try:
-                        # Close previous pubsub if it exists (from failed attempt)
-                        if pubsub:
+                        while True:
                             try:
-                                await pubsub.close()
-                            except Exception:
-                                pass  # Ignore errors closing stale pubsub
+                                # Use BLPOP to wait for messages on worker-specific queue
+                                # timeout=1 means check every second (allows for graceful shutdown)
+                                result = await redis_manager.client.blpop(worker_channel, timeout=1)
 
-                        pubsub = redis_manager.client.pubsub()
-                        await pubsub.subscribe("ws:rpc:requests")
+                                if result:
+                                    # result is a tuple: (channel, message)
+                                    _, message = result
+                                    try:
+                                        request = json.loads(message)
+                                        await self._handle_rpc_request(request)
+                                    except Exception as e:
+                                        logger.error(
+                                            f"Error handling RPC request: {e}", exc_info=True
+                                        )
+                            except asyncio.CancelledError:
+                                logger.info("RPC listener cancelled, shutting down")
+                                raise
+                            except Exception as e:
+                                logger.error(f"Error in RPC listener loop: {e}", exc_info=True)
+                                # Continue listening despite errors
 
-                        async for message in pubsub.listen():
-                            if message["type"] == "message":
-                                try:
-                                    request = json.loads(message["data"])
-                                    await self._handle_rpc_request(request)
-                                except Exception as e:
-                                    logger.error(f"Error handling RPC request: {e}", exc_info=True)
-
+                    except asyncio.CancelledError:
+                        raise  # Re-raise cancellation
                     except Exception as e:
                         attempt_num = attempt.retry_state.attempt_number
                         logger.error(
@@ -548,96 +653,153 @@ class ConnectionManager:
             )
 
         finally:
-            # Always clean up pubsub connection
-            if pubsub:
-                try:
-                    await pubsub.close()
-                    logger.debug("RPC listener pubsub connection closed")
-                except Exception as e:
-                    logger.warning(f"Error closing RPC listener pubsub: {e}")
+            logger.debug("RPC listener shutdown complete")
+
+    async def _publish_error_response(self, request_id: str, key: str, details: str) -> None:
+        """
+        Publish error response to RPC client.
+
+        Args:
+            request_id: RPC request ID
+            key: Connection key
+            details: Error details
+        """
+        if not redis_manager.is_available:
+            logger.error("Cannot publish error - Redis manager not available")
+            return
+
+        try:
+            error_response = {
+                "error": "send_failed",
+                "details": details,
+            }
+            response_channel = f"ws:rpc:response:{request_id}"
+            await redis_manager.client.publish(response_channel, json.dumps(error_response))
+            logger.debug(f"Published error response for {request_id}")
+        except Exception as e:
+            logger.error(f"Failed to publish error response: {e}")
+
+    async def _register_worker_for_connection(self, connection_id: str) -> None:
+        """
+        Register this worker as handler for a connection.
+
+        Sets initial TTL to 30s, which is then refreshed by _heartbeat_loop
+        every 10 seconds to keep the routing alive for long-lived connections.
+
+        Args:
+            connection_id: Connection key (project_id:environment)
+        """
+        routing_key = f"ws:routing:{connection_id}"
+        try:
+            await redis_manager.client.setex(
+                routing_key,
+                30,  # 30s TTL, refreshed by heartbeat every 10s
+                self.worker_id,
+            )
+            logger.debug(f"Registered worker {self.worker_id} for connection {connection_id}")
+        except Exception as e:
+            logger.error(f"Failed to register worker for connection {connection_id}: {e}")
+
+    async def _unregister_worker_for_connection(self, connection_id: str) -> None:
+        """
+        Remove worker registration for a connection.
+
+        Args:
+            connection_id: Connection key (project_id:environment)
+        """
+        routing_key = f"ws:routing:{connection_id}"
+        try:
+            await redis_manager.client.delete(routing_key)
+            logger.debug(f"Unregistered worker for connection {connection_id}")
+        except Exception as e:
+            logger.warning(f"Failed to unregister worker for connection {connection_id}: {e}")
 
     async def _handle_rpc_request(self, request: Dict[str, Any]) -> None:
         """
         Handle RPC request from worker.
 
+        With direct routing, this worker is guaranteed to have the connection.
+        If somehow the connection is missing, publish an error response.
+
         Args:
             request: RPC request with keys: request_id, project_id, environment,
                     function_name, inputs
         """
+        # Extract request parameters
         request_id = request.get("request_id")
         project_id = request.get("project_id")
         environment = request.get("environment")
         function_name = request.get("function_name")
         inputs = request.get("inputs", {})
 
-        logger.debug(
-            f"Received RPC request {request_id}: {function_name} ({project_id}:{environment})"
-        )
+        logger.debug(f"RPC request received: {request_id} - {function_name}")
 
-        # Look up WebSocket connection
+        # Direct routing guarantees we have the connection
         key = self.get_connection_key(project_id, environment)
-        logger.debug(f"Looking up WebSocket connection with key: {key}")
 
         if key not in self._connections:
-            # In multi-worker setup, check if connection exists in Redis
-            # If it does, another worker has it - silently ignore (that worker will handle it)
-            # If it doesn't, then truly no connection exists - publish error
-            redis_has_connection = False
-            if redis_manager.is_available:
-                try:
-                    redis_key = f"ws:connection:{key}"
-                    redis_has_connection = await redis_manager.client.exists(redis_key) > 0
-                    logger.debug(f"Redis connection check for {redis_key}: {redis_has_connection}")
-                except Exception as e:
-                    logger.warning(f"Could not check Redis for connection: {e}")
+            # This shouldn't happen with direct routing, but handle gracefully
+            logger.error(
+                f"Worker routing mismatch: received RPC for {key} but connection not found. "
+                f"Race condition between routing registration and connection state."
+            )
+            await self._publish_error_response(
+                request_id, key, f"Worker routing mismatch for {key}"
+            )
+            return
 
-            if redis_has_connection:
-                # Connection exists in Redis, meaning another worker has it
-                # Silently return - that worker will handle the request
-                logger.debug(
-                    f"Connection {key} not in this worker but exists in Redis - "
-                    f"another worker will handle it"
-                )
-                return
-            else:
-                # Connection truly doesn't exist anywhere
-                logger.error(
-                    f"No WebSocket connection found for {key} (checked both local worker and Redis)"
-                )
-                # Publish error response
-                if redis_manager.is_available:
-                    try:
-                        error_response = {
-                            "error": "send_failed",
-                            "details": f"No connection for {key}",
-                        }
-                        await redis_manager.client.publish(
-                            f"ws:rpc:response:{request_id}", json.dumps(error_response)
-                        )
-                    except Exception as e:
-                        logger.error(f"Failed to publish error response: {e}")
-                return
+        # Forward request to SDK
+        await self._forward_to_sdk(request_id, key, function_name, inputs)
 
-        # Forward to SDK via WebSocket
+    async def _forward_to_sdk(
+        self, request_id: str, key: str, function_name: str, inputs: Dict[str, Any]
+    ) -> None:
+        """
+        Forward RPC request to SDK via local WebSocket connection.
+
+        Args:
+            request_id: RPC request ID
+            key: Connection key
+            function_name: SDK function to invoke
+            inputs: Function inputs
+        """
         websocket = self._connections[key]
         message = ExecuteTestMessage(
             test_run_id=request_id, function_name=function_name, inputs=inputs
         )
 
         try:
+            logger.info(f"Forwarding RPC request {request_id} ({function_name}) to SDK")
             await websocket.send_json(message.model_dump())
-            logger.debug(f"Forwarded RPC request to WebSocket: {request_id}")
         except Exception as e:
-            logger.error(f"Error forwarding RPC request: {e}", exc_info=True)
+            logger.error(f"Error forwarding RPC request {request_id}: {e}")
+
+            # Connection is stale - clean it up
+            await self._cleanup_stale_connection(key)
+
             # Publish error response
-            if redis_manager.is_available:
-                try:
-                    error_response = {"error": "send_failed", "details": str(e)}
-                    await redis_manager.client.publish(
-                        f"ws:rpc:response:{request_id}", json.dumps(error_response)
-                    )
-                except Exception as pub_err:
-                    logger.error(f"Failed to publish error response: {pub_err}")
+            await self._publish_error_response(
+                request_id, key, f"Failed to forward to WebSocket: {str(e)}"
+            )
+
+    async def _cleanup_stale_connection(self, key: str) -> None:
+        """
+        Remove stale connection from local state and Redis.
+
+        Called when a connection is detected as stale (e.g., send failed).
+        Uses shared cleanup logic to ensure consistency with normal disconnect.
+
+        Args:
+            key: Connection key
+        """
+        logger.warning(f"Removing stale WebSocket connection: {key}")
+
+        # Perform local cleanup (sync)
+        self._cleanup_local_connection(key)
+
+        # Perform Redis cleanup (async)
+        if redis_manager.is_available:
+            await self._cleanup_redis_connection(key)
 
 
 # Global connection manager instance

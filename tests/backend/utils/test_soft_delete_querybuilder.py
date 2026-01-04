@@ -187,38 +187,44 @@ class TestQueryBuilderSoftDelete:
 
     def test_only_deleted_chains_with_sorting(self, test_db: Session, test_org_id):
         """Test that only_deleted() chains with sorting methods."""
-        # Create and delete multiple behaviors
+        # Create and delete multiple behaviors with unique names for identification
         import time
 
         deleted_behaviors = []
+        base_name = f"test_sorting_behavior_{int(time.time())}"
+        
         for i in range(3):
+            behavior_data = BehaviorDataFactory.sample_data()
+            behavior_data["name"] = f"{base_name}_{i}"
+            
             behavior = crud_utils.create_item(
                 test_db,
                 models.Behavior,
-                BehaviorDataFactory.sample_data(),
+                behavior_data,
                 organization_id=test_org_id,
             )
             crud_utils.delete_item(
                 test_db, models.Behavior, behavior.id, organization_id=test_org_id
             )
             deleted_behaviors.append(behavior)
-            time.sleep(0.01)  # Small delay to ensure different timestamps
+            time.sleep(0.02)  # Slightly larger delay to ensure different timestamps
 
-        # Query with sorting by deleted_at descending
+        # Query with sorting by deleted_at descending, filtering to only our test behaviors
         results = (
             QueryBuilder(test_db, models.Behavior)
             .with_organization_filter(test_org_id)
             .only_deleted()
+            .with_custom_filter(lambda q: q.filter(models.Behavior.name.like(f"{base_name}_%")))
             .with_sorting("deleted_at", "desc")
             .all()
         )
 
-        # Should have at least our 3 deleted behaviors
+        # Should have exactly our 3 deleted behaviors
         result_ids = [b.id for b in results]
-        assert len([b for b in deleted_behaviors if b.id in result_ids]) >= 3
+        assert len(results) == 3
+        assert all(b.id in result_ids for b in deleted_behaviors)
 
-        # Verify sorting (most recently deleted first)
-        # Convert both to timestamps for comparison to avoid timezone issues
+        # Verify sorting (most recently deleted first) - only check our created behaviors
         if len(results) >= 2:
             for i in range(len(results) - 1):
                 time1 = (
@@ -231,7 +237,7 @@ class TestQueryBuilderSoftDelete:
                     if hasattr(results[i + 1].deleted_at, "timestamp")
                     else results[i + 1].deleted_at
                 )
-                assert time1 >= time2
+                assert time1 >= time2, f"Sorting failed: {time1} should be >= {time2}"
 
     def test_filter_by_id_respects_soft_delete(self, test_db: Session, test_org_id):
         """Test that filter_by_id respects soft delete filtering."""

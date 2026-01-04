@@ -1,4 +1,4 @@
-"""Function registry for collaborative testing."""
+"""Function registry for remote endpoint testing."""
 
 import inspect
 import logging

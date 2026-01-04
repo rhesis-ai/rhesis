@@ -1,9 +1,6 @@
 from typing import Sequence, Union
 
-import rhesis
-import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
 
 from rhesis.backend.alembic.utils.template_loader import (
     load_cleanup_type_lookup_template,

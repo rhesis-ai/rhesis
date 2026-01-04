@@ -5,16 +5,19 @@ This code implements the CRUD operations for the models in the application.
 import json
 import uuid
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import and_, desc, func, text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
+from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
+from rhesis.backend.app.schemas.telemetry import OTELSpanCreate, StatusCode
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
@@ -3135,3 +3138,492 @@ def get_tasks_with_comment_counts(
         task.total_comments = comment_count_map.get(str(task.id), 0)
 
     return tasks
+
+
+# ============================================================================
+# Trace CRUD Operations (OpenTelemetry Traces)
+# ============================================================================
+
+
+def create_trace_spans(
+    db: Session,
+    spans: List[OTELSpanCreate],
+    organization_id: str,
+) -> List[models.Trace]:
+    """
+    Create multiple trace spans in the database.
+
+    Args:
+        db: Database session
+        spans: List of span schemas to create
+        organization_id: Organization ID for multi-tenancy
+
+    Returns:
+        List of created Trace models
+
+    Raises:
+        Exception: If database operation fails
+    """
+    trace_models = []
+
+    for span in spans:
+        # Calculate duration
+        duration_ms = (span.end_time - span.start_time).total_seconds() * 1000
+
+        # Extract test execution context from span attributes
+        test_run_id = span.attributes.get("rhesis.test.run_id")
+        test_result_id = span.attributes.get("rhesis.test.result_id")
+        test_id = span.attributes.get("rhesis.test.id")
+
+        # Convert to UUID if present, otherwise None
+        # Handle each UUID independently to preserve valid values
+        from uuid import UUID
+
+        def safe_uuid_convert(value: str | None, field_name: str) -> UUID | None:
+            """Convert string to UUID, handling errors independently."""
+            if not value:
+                return None
+            try:
+                return UUID(value)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid UUID in test context {field_name}: {value}")
+                return None
+
+        test_run_id_uuid = safe_uuid_convert(test_run_id, "test_run_id")
+        test_result_id_uuid = safe_uuid_convert(test_result_id, "test_result_id")
+        test_id_uuid = safe_uuid_convert(test_id, "test_id")
+
+        trace_model = models.Trace(
+            trace_id=span.trace_id,
+            span_id=span.span_id,
+            parent_span_id=span.parent_span_id,
+            project_id=span.project_id,
+            organization_id=organization_id,
+            environment=span.environment,
+            span_name=span.span_name,
+            span_kind=span.span_kind.value,
+            start_time=span.start_time,
+            end_time=span.end_time,
+            duration_ms=duration_ms,
+            status_code=span.status_code.value,
+            status_message=span.status_message,
+            attributes=span.attributes,
+            events=[event.model_dump(mode="json") for event in span.events],
+            links=[link.model_dump(mode="json") for link in span.links],
+            resource=span.resource,
+            # Test execution context
+            test_run_id=test_run_id_uuid,
+            test_result_id=test_result_id_uuid,
+            test_id=test_id_uuid,
+        )
+
+        db.add(trace_model)
+        trace_models.append(trace_model)
+
+    # Bulk insert with single commit
+    try:
+        db.commit()
+        for trace_model in trace_models:
+            db.refresh(trace_model)
+        return trace_models
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to create trace spans: {e}")
+        raise
+
+
+def get_trace_by_id(
+    db: Session,
+    trace_id: str,
+    project_id: str,
+) -> List[models.Trace]:
+    """
+    Get all spans for a trace ID.
+
+    Args:
+        db: Database session
+        trace_id: OpenTelemetry trace ID
+        project_id: Project ID for access control
+
+    Returns:
+        List of Trace models ordered by start_time
+    """
+    return (
+        db.query(models.Trace)
+        .filter(
+            and_(
+                models.Trace.trace_id == trace_id,
+                models.Trace.project_id == project_id,
+            )
+        )
+        .order_by(models.Trace.start_time)
+        .all()
+    )
+
+
+def get_span_by_id(
+    db: Session,
+    span_id: str,
+    project_id: str,
+) -> Optional[models.Trace]:
+    """
+    Get a single span by span ID.
+
+    Args:
+        db: Database session
+        span_id: OpenTelemetry span ID
+        project_id: Project ID for access control
+
+    Returns:
+        Trace model or None if not found
+    """
+    return (
+        db.query(models.Trace)
+        .filter(
+            and_(
+                models.Trace.span_id == span_id,
+                models.Trace.project_id == project_id,
+            )
+        )
+        .first()
+    )
+
+
+def query_traces(
+    db: Session,
+    project_id: str,
+    environment: Optional[str] = None,
+    span_name: Optional[str] = None,
+    status_code: Optional[Union[str, "StatusCode"]] = None,
+    start_time_after: Optional[datetime] = None,
+    start_time_before: Optional[datetime] = None,
+    test_run_id: Optional[str] = None,
+    test_result_id: Optional[str] = None,
+    test_id: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> List[models.Trace]:
+    """
+    Query traces with filters.
+
+    Args:
+        db: Database session
+        project_id: Project ID (required)
+        environment: Filter by environment (optional)
+        span_name: Filter by span name (optional)
+        status_code: Filter by status code (StatusCode enum or string)
+        start_time_after: Filter by start time >= (optional)
+        start_time_before: Filter by start time <= (optional)
+        test_run_id: Filter by test run ID (optional)
+        test_result_id: Filter by test result ID (optional)
+        test_id: Filter by test ID (optional)
+        limit: Maximum results to return
+        offset: Pagination offset
+
+    Returns:
+        List of Trace models matching filters
+
+    Raises:
+        HTTPException: 400 if any UUID parameter is malformed
+    """
+    from uuid import UUID
+
+    from fastapi import HTTPException
+
+    def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
+        """Validate and convert UUID string, raising HTTPException if invalid."""
+        if not value:
+            return None
+        try:
+            return UUID(value)
+        except (ValueError, TypeError) as e:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
+            )
+
+    query = db.query(models.Trace).filter(models.Trace.project_id == project_id)
+
+    if environment:
+        query = query.filter(models.Trace.environment == environment)
+
+    if span_name:
+        query = query.filter(models.Trace.span_name == span_name)
+
+    if status_code:
+        # Convert enum to value if needed
+        status_value = status_code.value if isinstance(status_code, Enum) else status_code
+        query = query.filter(models.Trace.status_code == status_value)
+
+    if start_time_after:
+        query = query.filter(models.Trace.start_time >= start_time_after)
+
+    if start_time_before:
+        query = query.filter(models.Trace.start_time <= start_time_before)
+
+    # Test execution filters - validate UUIDs before using
+    test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")
+    if test_run_uuid:
+        query = query.filter(models.Trace.test_run_id == test_run_uuid)
+
+    test_result_uuid = validate_uuid_param(test_result_id, "test_result_id")
+    if test_result_uuid:
+        query = query.filter(models.Trace.test_result_id == test_result_uuid)
+
+    test_id_uuid = validate_uuid_param(test_id, "test_id")
+    if test_id_uuid:
+        query = query.filter(models.Trace.test_id == test_id_uuid)
+
+    return query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
+
+
+def get_unprocessed_traces(
+    db: Session,
+    limit: int = 100,
+) -> List[models.Trace]:
+    """
+    Get traces that haven't been processed yet.
+
+    Used by background workers to find traces needing enrichment.
+
+    Args:
+        db: Database session
+        limit: Maximum traces to return
+
+    Returns:
+        List of unprocessed Trace models
+    """
+    return (
+        db.query(models.Trace)
+        .filter(models.Trace.processed_at.is_(None))
+        .order_by(models.Trace.created_at)
+        .limit(limit)
+        .all()
+    )
+
+
+def mark_trace_processed(
+    db: Session,
+    trace_id: str,
+    enriched_data: dict,
+) -> int:
+    """
+    Mark all spans in a trace as processed.
+
+    Args:
+        db: Database session
+        trace_id: OpenTelemetry trace ID
+        enriched_data: Enriched attributes to store
+
+    Returns:
+        Number of spans updated
+    """
+    result = (
+        db.query(models.Trace)
+        .filter(models.Trace.trace_id == trace_id)
+        .update(
+            {
+                "processed_at": datetime.utcnow(),
+                "enriched_data": enriched_data,
+                "updated_at": datetime.utcnow(),
+            }
+        )
+    )
+
+    db.commit()
+    return result
+
+
+def update_traces_with_test_result_id(
+    db: Session,
+    test_run_id: str,
+    test_id: str,
+    test_configuration_id: str,
+    test_result_id: str,
+    organization_id: str,
+) -> int:
+    """
+    Update test_result_id for all traces matching the test execution context.
+
+    This links traces to their test result record after the test completes.
+    Works for all trace sources:
+    - SDK automatic tracing (spans sent from client)
+    - REST/WebSocket manual tracing (spans created by backend)
+
+    Args:
+        db: Database session
+        test_run_id: Test run UUID string
+        test_id: Test UUID string
+        test_configuration_id: Test configuration UUID string
+        test_result_id: Test result UUID string to set
+        organization_id: Organization UUID string for multi-tenancy
+
+    Returns:
+        Number of spans updated
+    """
+    logger.info(
+        f"[TRACE_LINKING] Starting trace linking for test_result_id={test_result_id}, "
+        f"test_run_id={test_run_id}, test_id={test_id}, "
+        f"test_configuration_id={test_configuration_id}, organization_id={organization_id}"
+    )
+
+    # Convert string UUIDs to UUID objects
+    test_run_uuid = uuid.UUID(test_run_id)
+    test_id_uuid = uuid.UUID(test_id)
+    test_config_uuid = uuid.UUID(test_configuration_id)
+    test_result_uuid = uuid.UUID(test_result_id)
+    org_uuid = uuid.UUID(organization_id)
+
+    # First, count how many traces match our criteria
+    matching_traces = (
+        db.query(models.Trace)
+        .filter(
+            models.Trace.test_run_id == test_run_uuid,
+            models.Trace.test_id == test_id_uuid,
+            models.Trace.organization_id == org_uuid,
+            models.Trace.attributes[
+                TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID
+            ].astext
+            == str(test_config_uuid),
+            models.Trace.test_result_id.is_(None),
+        )
+        .all()
+    )
+
+    logger.debug(
+        f"[TRACE_LINKING] Found {len(matching_traces)} traces matching criteria "
+        f"(test_run_id={test_run_uuid}, test_id={test_id_uuid}, "
+        f"test_configuration_id={test_config_uuid}, organization_id={org_uuid})"
+    )
+
+    if len(matching_traces) > 0:
+        logger.debug(f"[TRACE_LINKING] Sample trace attributes: {matching_traces[0].attributes}")
+    else:
+        # Check if there are ANY traces for this test_run
+        all_traces_for_run = (
+            db.query(models.Trace).filter(models.Trace.test_run_id == test_run_uuid).all()
+        )
+        logger.warning(
+            f"[TRACE_LINKING] No matching traces found! "
+            f"Total traces for test_run_id={test_run_uuid}: {len(all_traces_for_run)}"
+        )
+        if len(all_traces_for_run) > 0:
+            logger.debug(
+                f"[TRACE_LINKING] Sample trace from run - "
+                f"test_id: {all_traces_for_run[0].test_id}, "
+                f"test_result_id: {all_traces_for_run[0].test_result_id}, "
+                f"attributes: {all_traces_for_run[0].attributes}"
+            )
+
+    result = (
+        db.query(models.Trace)
+        .filter(
+            models.Trace.test_run_id == test_run_uuid,
+            models.Trace.test_id == test_id_uuid,
+            models.Trace.organization_id == org_uuid,
+            # Also check attributes for test_configuration_id since it's stored there
+            models.Trace.attributes[
+                TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID
+            ].astext
+            == str(test_config_uuid),
+            # Only update if test_result_id is NULL (idempotent)
+            models.Trace.test_result_id.is_(None),
+        )
+        .update(
+            {
+                "test_result_id": test_result_uuid,
+                "updated_at": datetime.utcnow(),
+            },
+            synchronize_session=False,  # More efficient for bulk updates
+        )
+    )
+
+    # Flush to make changes visible within the current transaction
+    # The context manager (get_db_with_tenant_variables) handles the final commit
+    db.flush()
+
+    logger.info(f"[TRACE_LINKING] Updated {result} traces with test_result_id={test_result_id}")
+
+    return result
+
+
+def count_traces(
+    db: Session,
+    project_id: str,
+    environment: Optional[str] = None,
+    span_name: Optional[str] = None,
+    status_code: Optional[Union[str, "StatusCode"]] = None,
+    start_time_after: Optional[datetime] = None,
+    start_time_before: Optional[datetime] = None,
+    test_run_id: Optional[str] = None,
+    test_result_id: Optional[str] = None,
+    test_id: Optional[str] = None,
+) -> int:
+    """
+    Count traces matching filters.
+
+    Args:
+        db: Database session
+        project_id: Project ID
+        environment: Filter by environment (optional)
+        span_name: Filter by span name (optional)
+        status_code: Filter by status code (StatusCode enum or string)
+        start_time_after: Filter by start time >= (optional)
+        start_time_before: Filter by start time <= (optional)
+        test_run_id: Filter by test run ID (optional)
+        test_result_id: Filter by test result ID (optional)
+        test_id: Filter by test ID (optional)
+
+    Returns:
+        Count of matching traces
+
+    Raises:
+        HTTPException: 400 if any UUID parameter is malformed
+    """
+    from uuid import UUID
+
+    from fastapi import HTTPException
+
+    def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
+        """Validate and convert UUID string, raising HTTPException if invalid."""
+        if not value:
+            return None
+        try:
+            return UUID(value)
+        except (ValueError, TypeError) as e:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
+            )
+
+    query = db.query(func.count(models.Trace.id)).filter(models.Trace.project_id == project_id)
+
+    if environment:
+        query = query.filter(models.Trace.environment == environment)
+
+    if span_name:
+        query = query.filter(models.Trace.span_name == span_name)
+
+    if status_code:
+        # Convert enum to value if needed
+        status_value = status_code.value if isinstance(status_code, Enum) else status_code
+        query = query.filter(models.Trace.status_code == status_value)
+
+    if start_time_after:
+        query = query.filter(models.Trace.start_time >= start_time_after)
+
+    if start_time_before:
+        query = query.filter(models.Trace.start_time <= start_time_before)
+
+    # Test execution filters - validate UUIDs before using
+    test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")
+    if test_run_uuid:
+        query = query.filter(models.Trace.test_run_id == test_run_uuid)
+
+    test_result_uuid = validate_uuid_param(test_result_id, "test_result_id")
+    if test_result_uuid:
+        query = query.filter(models.Trace.test_result_id == test_result_uuid)
+
+    test_id_uuid = validate_uuid_param(test_id, "test_id")
+    if test_id_uuid:
+        query = query.filter(models.Trace.test_id == test_id_uuid)
+
+    return query.scalar()

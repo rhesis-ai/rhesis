@@ -10,7 +10,7 @@ The connector connects three main components: your target application (via the S
 
 ```mermaid
 graph LR
-    TargetApp["Target Application<br/><small>Python SDK<br/>@collaborate decorator</small>"]
+    TargetApp["Target Application<br/><small>Python SDK<br/>@endpoint decorator</small>"]
     Backend["Rhesis Backend<br/><small>ConnectionManager<br/>WebSocket</small>"]
     Workers["Workers<br/><small>Celery<br/>Test Execution</small>"]
     Redis["Redis<br/><small>Pub/Sub RPC<br/>Message Broker</small>"]
@@ -24,7 +24,7 @@ graph LR
 ```
 
 **Target Application (SDK)**:
-- Decorates functions with `@collaborate`
+- Decorates functions with `@endpoint`
 - Maintains WebSocket connection to backend
 - Executes functions when requested
 - Sends results back via WebSocket
@@ -88,7 +88,7 @@ asyncio.create_task(connection_manager._listen_for_rpc_requests())`}
 
 4-tier priority for request/response mapping:
 
-1. **SDK Manual**: Explicit mappings from `@collaborate` decorator
+1. **SDK Manual**: Explicit mappings from `@endpoint` decorator
 2. **Existing DB**: Preserved manual edits from UI
 3. **Auto-Mapping**: Pattern-based heuristics (confidence >= 0.7)
 4. **LLM Fallback**: GPT-4 generates mappings (confidence < 0.7)
@@ -208,7 +208,7 @@ stats = await sync_sdk_endpoints(
 **SDK** (`sdk/src/rhesis/sdk/`):
 - `connector/manager.py` - SDK connector manager
 - `connector/connection.py` - WebSocket connection
-- `decorators.py` - `@collaborate` decorator
+- `decorators.py` - `@endpoint` decorator
 
 ---
 

@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -2890,6 +2890,24 @@ wheels = [
 ]
 
 [[package]]
+name = "opentelemetry-exporter-otlp-proto-http"
+version = "1.38.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "googleapis-common-protos" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-common" },
+    { name = "opentelemetry-proto" },
+    { name = "opentelemetry-sdk" },
+    { name = "requests" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/81/0a/debcdfb029fbd1ccd1563f7c287b89a6f7bef3b2902ade56797bfd020854/opentelemetry_exporter_otlp_proto_http-1.38.0.tar.gz", hash = "sha256:f16bd44baf15cbe07633c5112ffc68229d0edbeac7b37610be0b2def4e21e90b", size = 17282, upload-time = "2025-10-16T08:35:54.422Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/77/154004c99fb9f291f74aa0822a2f5bbf565a72d8126b3a1b63ed8e5f83c7/opentelemetry_exporter_otlp_proto_http-1.38.0-py3-none-any.whl", hash = "sha256:84b937305edfc563f08ec69b9cb2298be8188371217e867c1854d77198d0825b", size = 19579, upload-time = "2025-10-16T08:35:36.269Z" },
+]
+
+[[package]]
 name = "opentelemetry-proto"
 version = "1.38.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4290,7 +4308,7 @@ requires-dist = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.5.1"
+version = "0.5.2"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "deepeval" },
@@ -4303,6 +4321,9 @@ dependencies = [
     { name = "litellm" },
     { name = "markitdown", extra = ["docx", "pdf", "pptx", "xlsx"] },
     { name = "mcp" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
     { name = "pandas" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -4319,16 +4340,35 @@ dependencies = [
 requires-dist = [
     { name = "accelerate", marker = "extra == 'all'", specifier = ">=1.2.0" },
     { name = "accelerate", marker = "extra == 'huggingface'", specifier = ">=1.2.0" },
+    { name = "bitsandbytes", marker = "extra == 'all'", specifier = ">=0.45.0" },
+    { name = "bitsandbytes", marker = "extra == 'huggingface'", specifier = ">=0.45.0" },
     { name = "deepeval", specifier = "==3.7.0" },
     { name = "deepteam", specifier = ">=0.2.5" },
     { name = "ipykernel", specifier = ">=7.1.0" },
     { name = "ipython", specifier = ">=8.37.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "langchain", marker = "extra == 'all'", specifier = ">=0.1.0" },
+    { name = "langchain", marker = "extra == 'all-integrations'", specifier = ">=0.1.0" },
+    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.1.0" },
+    { name = "langchain", marker = "extra == 'langgraph'", specifier = ">=0.1.0" },
+    { name = "langchain-core", marker = "extra == 'all'", specifier = ">=0.1.0" },
+    { name = "langchain-core", marker = "extra == 'all-integrations'", specifier = ">=0.1.0" },
+    { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=0.1.0" },
+    { name = "langchain-core", marker = "extra == 'langgraph'", specifier = ">=0.1.0" },
     { name = "langchain-google-genai", specifier = ">=2.1.12" },
+    { name = "langgraph", marker = "extra == 'all'", specifier = ">=0.0.26" },
+    { name = "langgraph", marker = "extra == 'all-integrations'", specifier = ">=0.0.26" },
+    { name = "langgraph", marker = "extra == 'langgraph'", specifier = ">=0.0.26" },
     { name = "litellm", specifier = ">=1.76.0" },
     { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], specifier = ">=0.1.0" },
     { name = "mcp", specifier = ">=1.2.0" },
+    { name = "opentelemetry-api", specifier = ">=1.32.1" },
+    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.32.1" },
+    { name = "opentelemetry-sdk", specifier = ">=1.32.1" },
     { name = "pandas", specifier = ">=2.2.2" },
+    { name = "pyautogen", marker = "extra == 'all'", specifier = ">=0.2.0" },
+    { name = "pyautogen", marker = "extra == 'all-integrations'", specifier = ">=0.2.0" },
+    { name = "pyautogen", marker = "extra == 'autogen'", specifier = ">=0.2.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -4339,11 +4379,11 @@ requires-dist = [
     { name = "torch", marker = "extra == 'all'", specifier = ">=2.8.0" },
     { name = "torch", marker = "extra == 'huggingface'", specifier = ">=2.8.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
-    { name = "transformers", marker = "extra == 'all'", specifier = ">=4.56.0" },
-    { name = "transformers", marker = "extra == 'huggingface'", specifier = ">=4.56.0" },
+    { name = "transformers", marker = "extra == 'all'", specifier = "==4.57.1" },
+    { name = "transformers", marker = "extra == 'huggingface'", specifier = "==4.57.1" },
     { name = "websockets", specifier = ">=12.0" },
 ]
-provides-extras = ["huggingface", "all"]
+provides-extras = ["huggingface", "langchain", "langgraph", "autogen", "all-integrations", "all"]
 
 [package.metadata.requires-dev]
 dev = [
