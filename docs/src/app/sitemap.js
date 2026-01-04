@@ -102,6 +102,7 @@ export default async function sitemap() {
   }
 
   if (!contentDir) {
+    // eslint-disable-next-line no-console
     console.warn('Content directory not found, generating empty sitemap')
     return [
       {

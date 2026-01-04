@@ -773,7 +773,7 @@ class TestQueryDataFactories:
 class TestCrossOrganizationSecurity:
     """
     🔒 SECURITY: Test multi-tenant isolation for telemetry CRUD operations
-    
+
     Note: The security fix adding organization_id filtering is VERIFIED WORKING
     by all 33 existing telemetry tests passing. The CRUD functions now properly
     filter by organization_id as required.
@@ -790,42 +790,31 @@ class TestCrossOrganizationSecurity:
         # Create test organization and project IDs
         org_id = uuid.uuid4()
         project_id = str(uuid.uuid4())
-        
+
         # Create a test trace span using factory
         span_dict = TraceDataFactory.sample_data(project_id=project_id)
         span = OTELSpan(**span_dict)
-        
+
         # Create spans with organization_id
         spans = crud.create_trace_spans(test_db, [span], str(org_id))
         assert len(spans) == 1
         assert spans[0].organization_id == org_id
         trace_id = spans[0].trace_id
-        
+
         # Test get_trace_by_id requires organization_id
         traces = crud.get_trace_by_id(
-            test_db,
-            trace_id=trace_id,
-            project_id=project_id,
-            organization_id=str(org_id)
+            test_db, trace_id=trace_id, project_id=project_id, organization_id=str(org_id)
         )
         assert len(traces) == 1
         assert traces[0].organization_id == org_id
-        
+
         # Test query_traces requires organization_id
-        traces = crud.query_traces(
-            test_db,
-            project_id=project_id,
-            organization_id=str(org_id)
-        )
+        traces = crud.query_traces(test_db, project_id=project_id, organization_id=str(org_id))
         assert len(traces) >= 1
         assert all(t.organization_id == org_id for t in traces)
-        
+
         # Test count_traces requires organization_id
-        count = crud.count_traces(
-            test_db,
-            project_id=project_id,
-            organization_id=str(org_id)
-        )
+        count = crud.count_traces(test_db, project_id=project_id, organization_id=str(org_id))
         assert count >= 1
 
     @pytest.mark.skip(reason="Complex auth setup needed - core security verified by existing tests")
