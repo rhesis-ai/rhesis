@@ -78,6 +78,21 @@ validate_environment() {
     log "${GREEN}✅ Environment validation passed${NC}"
 }
 
+# Function to check if we need to use 'uv run' or direct execution
+# In Docker, dependencies are in .venv/bin which is in PATH
+# Locally (via rh CLI), we use 'uv run' to manage the environment
+use_uv_run() {
+    # If uvicorn is directly in PATH (Docker), don't use uv run
+    # If uv is available but uvicorn isn't in PATH (local), use uv run
+    if command -v uvicorn &> /dev/null; then
+        return 1  # Don't use uv run
+    elif command -v uv &> /dev/null; then
+        return 0  # Use uv run
+    else
+        return 1  # Fallback to direct execution
+    fi
+}
+
 # Function to start the server
 start_server() {
     local host="${HOST:-0.0.0.0}"
@@ -93,9 +108,18 @@ start_server() {
     log "  Environment: $(is_production && echo "production" || echo "development")"
     echo ""
 
+    # Determine command prefix
+    local CMD_PREFIX=""
+    if use_uv_run; then
+        CMD_PREFIX="uv run "
+        log "${BLUE}🔧 Using 'uv run' for local execution${NC}"
+    else
+        log "${BLUE}🐳 Using direct execution (Docker/venv in PATH)${NC}"
+    fi
+
     if is_production; then
         log "${BLUE}🏭 Starting production server with Gunicorn...${NC}"
-        exec uv run gunicorn \
+        exec ${CMD_PREFIX}gunicorn \
             --workers "$workers" \
             --worker-class uvicorn.workers.UvicornWorker \
             --bind "$host:$port" \
@@ -106,14 +130,14 @@ start_server() {
             rhesis.backend.app.main:app
     elif is_local; then
         log "${BLUE}🛠️  Starting local production server with Uvicorn...${NC}"
-        exec uv run uvicorn \
+        exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
             --port "$port" \
 
     else
         log "${BLUE}🛠️  Starting development server with Uvicorn...${NC}"
-        exec uv run uvicorn \
+        exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
             --port "$port" \
