@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -65,6 +65,13 @@ export default function SpanDetailsPanel({
 
   // Determine if Test Result tab should be shown
   const showTestResultTab = trace?.test_result != null;
+
+  // Reset activeTab to 0 when Test Result tab becomes unavailable
+  useEffect(() => {
+    if (!showTestResultTab && activeTab === 1) {
+      setActiveTab(0);
+    }
+  }, [showTestResultTab, activeTab]);
 
   if (!span) {
     return (
