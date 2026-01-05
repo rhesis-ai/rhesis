@@ -68,6 +68,36 @@ export interface TraceDetailResponse {
   total_tokens: number;
   total_cost_usd: number;
   root_spans: SpanNode[];
+
+  // Related entities (optional - populated via relationships)
+  project?: {
+    id: string;
+    name: string;
+    description?: string;
+  };
+  endpoint?: {
+    id: string;
+    name: string;
+    description?: string;
+    url?: string;
+    environment?: string;
+  };
+  test_run?: {
+    id: string;
+    name?: string;
+    nano_id?: string;
+    status_id?: string;
+  };
+  test_result?: {
+    id: string;
+    test_id?: string;
+    test_run_id?: string;
+  };
+  test?: {
+    id: string;
+    nano_id?: string;
+    test_configuration?: Record<string, any>;
+  };
 }
 
 /**

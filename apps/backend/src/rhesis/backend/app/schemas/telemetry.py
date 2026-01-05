@@ -21,7 +21,12 @@ from rhesis.sdk.telemetry.schemas import (
 )
 
 from .comment import Comment
+from .endpoint import Endpoint
+from .project import Project
 from .tag import TagRead
+from .test import Test
+from .test_result import TestResult
+from .test_run import TestRun
 
 
 class TraceSource(str, Enum):
@@ -208,6 +213,24 @@ class TraceDetailResponse(BaseModel):
     total_tokens: int
     total_cost_usd: float
     root_spans: List[SpanNode]
+
+    # Related entities (optional - populated via relationships)
+    project: Optional[Project] = Field(default=None, description="Project this trace belongs to")
+    endpoint: Optional[Endpoint] = Field(
+        default=None,
+        description="Endpoint associated with this trace (if from test execution)",
+    )
+    test_run: Optional[TestRun] = Field(
+        default=None,
+        description="Test run this trace belongs to (if from test execution)",
+    )
+    test_result: Optional[TestResult] = Field(
+        default=None,
+        description="Test result this trace belongs to (if from test execution)",
+    )
+    test: Optional[Test] = Field(
+        default=None, description="Test configuration for this trace (if from test execution)"
+    )
 
 
 class TraceMetricsResponse(BaseModel):

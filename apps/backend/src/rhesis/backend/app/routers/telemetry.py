@@ -335,40 +335,36 @@ async def get_trace(
     """
     organization_id, user_id = tenant_context
 
-    # Fetch all spans for trace
+    # Fetch all spans for trace with eager loading of relationships
+    from sqlalchemy.orm import joinedload
+
     spans = crud.get_trace_by_id(
         db=db,
         trace_id=trace_id,
         project_id=project_id,
         organization_id=organization_id,
+        eager_load=["project", "test_run", "test_result", "test"],
     )
+
+    # Additional eager load for endpoint via test_result.test_configuration.endpoint
+    # This is done separately since it's a nested relationship
+    if spans and spans[0].test_result_id:
+        from rhesis.backend.app.models.test_configuration import TestConfiguration
+        from rhesis.backend.app.models.test_result import TestResult
+
+        db.query(TestResult).filter(TestResult.id == spans[0].test_result_id).options(
+            joinedload(TestResult.test_configuration).joinedload(TestConfiguration.endpoint)
+        ).first()
 
     if not spans:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Trace {trace_id} not found"
         )
 
-    # Build trace tree (simplified version - would need proper tree building service)
-    from rhesis.backend.app.schemas.telemetry import SpanNode
+    # Build proper span tree
+    from rhesis.backend.app.services.telemetry.tree_builder import build_span_tree
 
-    # Convert spans to span nodes (simplified - no tree structure yet)
-    root_spans = []
-    for span in spans:
-        if span.parent_span_id is None:  # Root spans only
-            span_node = SpanNode(
-                span_id=span.span_id,
-                span_name=span.span_name,
-                span_kind=span.span_kind,
-                start_time=span.start_time,
-                end_time=span.end_time,
-                duration_ms=span.duration_ms or 0.0,
-                status_code=span.status_code,
-                status_message=span.status_message,
-                attributes=span.attributes or {},
-                events=span.events or [],
-                children=[],  # TODO: Build proper tree structure
-            )
-            root_spans.append(span_node)
+    root_spans = build_span_tree(spans)
 
     # Calculate trace-level metrics
     total_duration = max(span.end_time for span in spans) - min(span.start_time for span in spans)
@@ -382,12 +378,52 @@ async def get_trace(
     if spans[0].enriched_data and "costs" in spans[0].enriched_data:
         total_cost = spans[0].enriched_data["costs"].get("total_cost_usd", 0.0)
 
+    # Build relationship objects from first span
+    from rhesis.backend.app.schemas.endpoint import Endpoint
+    from rhesis.backend.app.schemas.project import Project
+    from rhesis.backend.app.schemas.test import Test
+    from rhesis.backend.app.schemas.test_result import TestResult
+    from rhesis.backend.app.schemas.test_run import TestRun
+
+    first_span = spans[0]
+
+    # Project (always present)
+    project_obj = None
+    if first_span.project:
+        project_obj = Project.model_validate(first_span.project)
+
+    # Endpoint (if available via test_result.test_configuration.endpoint)
+    endpoint_obj = None
+    if (
+        first_span.test_result
+        and hasattr(first_span.test_result, "test_configuration")
+        and first_span.test_result.test_configuration
+        and hasattr(first_span.test_result.test_configuration, "endpoint")
+        and first_span.test_result.test_configuration.endpoint
+    ):
+        endpoint_obj = Endpoint.model_validate(first_span.test_result.test_configuration.endpoint)
+
+    # Test run (if from test execution)
+    test_run_obj = None
+    if first_span.test_run:
+        test_run_obj = TestRun.model_validate(first_span.test_run)
+
+    # Test result (if from test execution)
+    test_result_obj = None
+    if first_span.test_result:
+        test_result_obj = TestResult.model_validate(first_span.test_result)
+
+    # Test (if from test execution)
+    test_obj = None
+    if first_span.test:
+        test_obj = Test.model_validate(first_span.test)
+
     logger.info(f"Retrieved trace {trace_id} with {len(spans)} span(s)")
 
     return TraceDetailResponse(
-        trace_id=spans[0].trace_id,
-        project_id=str(spans[0].project_id),  # Convert UUID to string
-        environment=spans[0].environment,
+        trace_id=first_span.trace_id,
+        project_id=str(first_span.project_id),  # Convert UUID to string
+        environment=first_span.environment,
         start_time=min(span.start_time for span in spans),
         end_time=max(span.end_time for span in spans),
         duration_ms=total_duration.total_seconds() * 1000,
@@ -396,6 +432,12 @@ async def get_trace(
         total_tokens=total_tokens,
         total_cost_usd=total_cost,
         root_spans=root_spans,
+        # Add relationship objects
+        project=project_obj,
+        endpoint=endpoint_obj,
+        test_run=test_run_obj,
+        test_result=test_result_obj,
+        test=test_obj,
     )
 
 

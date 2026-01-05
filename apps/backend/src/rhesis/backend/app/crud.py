@@ -3237,36 +3237,42 @@ def get_trace_by_id(
     trace_id: str,
     project_id: str,
     organization_id: str,
+    eager_load: Optional[List[str]] = None,
 ) -> List[models.Trace]:
     """
-    Get all spans for a trace ID.
+    Get all spans for a trace ID with optional eager loading.
 
     Args:
         db: Database session
         trace_id: OpenTelemetry trace ID
         project_id: Project ID for access control
         organization_id: Organization ID for multi-tenant security
+        eager_load: Optional list of relationship names to eager load
 
     Returns:
         List of Trace models ordered by start_time
     """
     from uuid import UUID
 
+    from sqlalchemy.orm import joinedload
+
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
 
-    return (
-        db.query(models.Trace)
-        .filter(
+    query = db.query(models.Trace).filter(
             and_(
                 models.Trace.trace_id == trace_id,
                 models.Trace.project_id == project_id,
                 models.Trace.organization_id == org_uuid,
             )
         )
-        .order_by(models.Trace.start_time)
-        .all()
-    )
+
+    # Add eager loading if specified
+    if eager_load:
+        for relationship in eager_load:
+            query = query.options(joinedload(getattr(models.Trace, relationship)))
+
+    return query.order_by(models.Trace.start_time).all()
 
 
 def get_span_by_id(

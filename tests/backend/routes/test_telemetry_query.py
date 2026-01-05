@@ -456,40 +456,24 @@ class TestTraceListEndpoint:
         test_db.refresh(endpoint1)
         test_db.refresh(endpoint2)
 
-        # Create test and test run directly
+        # Create test entity
         test_entity = models.Test(
-            name="Endpoint Filter Test",
             organization_id=test_organization.id,
             user_id=authenticated_user_id,
-            project_id=db_project.id,
         )
         test_db.add(test_entity)
         test_db.commit()
         test_db.refresh(test_entity)
 
-        test_run = models.TestRun(
-            test_id=test_entity.id,
-            project_id=db_project.id,
-            organization_id=test_organization.id,
-            user_id=authenticated_user_id,
-        )
-        test_db.add(test_run)
-        test_db.commit()
-        test_db.refresh(test_run)
-
         # Create test configurations for each endpoint
         test_config1 = models.TestConfiguration(
-            name="Config Alpha",
             endpoint_id=endpoint1.id,
-            test_id=test_entity.id,
             organization_id=test_organization.id,
         )
         test_db.add(test_config1)
 
         test_config2 = models.TestConfiguration(
-            name="Config Beta",
             endpoint_id=endpoint2.id,
-            test_id=test_entity.id,
             organization_id=test_organization.id,
         )
         test_db.add(test_config2)
@@ -497,9 +481,27 @@ class TestTraceListEndpoint:
         test_db.refresh(test_config1)
         test_db.refresh(test_config2)
 
+        # Create test runs for each configuration
+        test_run1 = models.TestRun(
+            test_configuration_id=test_config1.id,
+            organization_id=test_organization.id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(test_run1)
+
+        test_run2 = models.TestRun(
+            test_configuration_id=test_config2.id,
+            organization_id=test_organization.id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(test_run2)
+        test_db.commit()
+        test_db.refresh(test_run1)
+        test_db.refresh(test_run2)
+
         # Create test results for each configuration
         test_result1 = models.TestResult(
-            test_run_id=test_run.id,
+            test_run_id=test_run1.id,
             test_id=test_entity.id,
             test_configuration_id=test_config1.id,
             status="passed",
@@ -508,7 +510,7 @@ class TestTraceListEndpoint:
         test_db.add(test_result1)
 
         test_result2 = models.TestResult(
-            test_run_id=test_run.id,
+            test_run_id=test_run2.id,
             test_id=test_entity.id,
             test_configuration_id=test_config2.id,
             status="passed",
@@ -534,7 +536,7 @@ class TestTraceListEndpoint:
                 end_time=datetime.now(timezone.utc),
                 status_code=StatusCode.OK,
                 attributes={
-                    TestExecutionContext.SpanAttributes.TEST_RUN_ID: str(test_run.id),
+                    TestExecutionContext.SpanAttributes.TEST_RUN_ID: str(test_run1.id),
                     TestExecutionContext.SpanAttributes.TEST_ID: str(test_entity.id),
                     TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID: str(test_config1.id),
                 },
@@ -559,7 +561,7 @@ class TestTraceListEndpoint:
                 end_time=datetime.now(timezone.utc),
                 status_code=StatusCode.OK,
                 attributes={
-                    TestExecutionContext.SpanAttributes.TEST_RUN_ID: str(test_run.id),
+                    TestExecutionContext.SpanAttributes.TEST_RUN_ID: str(test_run2.id),
                     TestExecutionContext.SpanAttributes.TEST_ID: str(test_entity.id),
                     TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID: str(test_config2.id),
                 },
