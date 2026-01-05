@@ -1110,9 +1110,12 @@ class TestCrossOrganizationSecurity:
         assert traces[0].organization_id == org_id
 
         # Test query_traces requires organization_id
-        traces = crud.query_traces(test_db, project_id=project_id, organization_id=str(org_id))
-        assert len(traces) >= 1
-        assert all(t.organization_id == org_id for t in traces)
+        traces_with_counts = crud.query_traces(
+            test_db, project_id=project_id, organization_id=str(org_id)
+        )
+        assert len(traces_with_counts) >= 1
+        # query_traces now returns tuples of (Trace, span_count)
+        assert all(trace.organization_id == org_id for trace, _ in traces_with_counts)
 
         # Test count_traces requires organization_id
         count = crud.count_traces(test_db, project_id=project_id, organization_id=str(org_id))
