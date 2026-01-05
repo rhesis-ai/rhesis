@@ -504,7 +504,6 @@ class TestTraceListEndpoint:
             test_run_id=test_run1.id,
             test_id=test_entity.id,
             test_configuration_id=test_config1.id,
-            status="passed",
             organization_id=test_organization.id,
         )
         test_db.add(test_result1)
@@ -513,7 +512,6 @@ class TestTraceListEndpoint:
             test_run_id=test_run2.id,
             test_id=test_entity.id,
             test_configuration_id=test_config2.id,
-            status="passed",
             organization_id=test_organization.id,
         )
         test_db.add(test_result2)
