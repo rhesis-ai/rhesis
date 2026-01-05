@@ -30,10 +30,10 @@ format_diff:
 	fi
 
 type-check:
-	PYTHONPATH=src mypy --install-types --non-interactive
-	PYTHONPATH=src mypy --package rhesis.penelope
+	PYTHONPATH=src uv run mypy --install-types --non-interactive
+	PYTHONPATH=src uv run mypy --package rhesis.penelope
 
 test:
-	pytest
+	uv run pytest
 
 

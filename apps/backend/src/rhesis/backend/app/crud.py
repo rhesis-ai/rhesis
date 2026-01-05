@@ -17,7 +17,7 @@ from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
-from rhesis.backend.app.schemas.telemetry import OTELSpanCreate, StatusCode
+from rhesis.backend.app.schemas.telemetry import OTELSpanCreate, StatusCode, TraceSource
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
@@ -3236,29 +3236,43 @@ def get_trace_by_id(
     db: Session,
     trace_id: str,
     project_id: str,
+    organization_id: str,
+    eager_load: Optional[List[str]] = None,
 ) -> List[models.Trace]:
     """
-    Get all spans for a trace ID.
+    Get all spans for a trace ID with optional eager loading.
 
     Args:
         db: Database session
         trace_id: OpenTelemetry trace ID
         project_id: Project ID for access control
+        organization_id: Organization ID for multi-tenant security
+        eager_load: Optional list of relationship names to eager load
 
     Returns:
         List of Trace models ordered by start_time
     """
-    return (
-        db.query(models.Trace)
-        .filter(
-            and_(
-                models.Trace.trace_id == trace_id,
-                models.Trace.project_id == project_id,
-            )
+    from uuid import UUID
+
+    from sqlalchemy.orm import joinedload
+
+    # Convert organization_id to UUID
+    org_uuid = UUID(organization_id)
+
+    query = db.query(models.Trace).filter(
+        and_(
+            models.Trace.trace_id == trace_id,
+            models.Trace.project_id == project_id,
+            models.Trace.organization_id == org_uuid,
         )
-        .order_by(models.Trace.start_time)
-        .all()
     )
+
+    # Add eager loading if specified
+    if eager_load:
+        for relationship in eager_load:
+            query = query.options(joinedload(getattr(models.Trace, relationship)))
+
+    return query.order_by(models.Trace.start_time).all()
 
 
 def get_span_by_id(
@@ -3291,24 +3305,34 @@ def get_span_by_id(
 
 def query_traces(
     db: Session,
-    project_id: str,
+    organization_id: str,
+    project_id: Optional[str] = None,
+    endpoint_id: Optional[str] = None,
+    root_spans_only: bool = True,
+    trace_source: TraceSource = TraceSource.ALL,
     environment: Optional[str] = None,
     span_name: Optional[str] = None,
     status_code: Optional[Union[str, "StatusCode"]] = None,
     start_time_after: Optional[datetime] = None,
     start_time_before: Optional[datetime] = None,
+    duration_min_ms: Optional[float] = None,
+    duration_max_ms: Optional[float] = None,
     test_run_id: Optional[str] = None,
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-) -> List[models.Trace]:
+) -> List[tuple[models.Trace, int]]:
     """
-    Query traces with filters.
+    Query traces with filters and eager load nested relationships.
 
     Args:
         db: Database session
-        project_id: Project ID (required)
+        organization_id: Organization ID for multi-tenant security (required)
+        project_id: Project ID (optional - if not provided, shows all projects for organization)
+        endpoint_id: Endpoint ID (optional - filters traces by endpoint)
+        root_spans_only: If True, returns only root spans (default). If False, returns all spans.
+        trace_source: Filter by trace source (all/test/operation)
         environment: Filter by environment (optional)
         span_name: Filter by span name (optional)
         status_code: Filter by status code (StatusCode enum or string)
@@ -3321,7 +3345,8 @@ def query_traces(
         offset: Pagination offset
 
     Returns:
-        List of Trace models matching filters
+        List of tuples (Trace model, span_count) matching filters with eager loaded relationships.
+        The span_count is calculated efficiently using a correlated subquery to avoid N+1 queries.
 
     Raises:
         HTTPException: 400 if any UUID parameter is malformed
@@ -3329,6 +3354,8 @@ def query_traces(
     from uuid import UUID
 
     from fastapi import HTTPException
+    from sqlalchemy import select
+    from sqlalchemy.orm import aliased, joinedload
 
     def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
         """Validate and convert UUID string, raising HTTPException if invalid."""
@@ -3336,12 +3363,68 @@ def query_traces(
             return None
         try:
             return UUID(value)
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError):
             raise HTTPException(
                 status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
             )
 
-    query = db.query(models.Trace).filter(models.Trace.project_id == project_id)
+    # Convert organization_id to UUID
+    org_uuid = UUID(organization_id)
+
+    # Create correlated subquery to count spans per trace_id
+    # This eliminates the N+1 query pattern by calculating span counts in a single query
+    # Use alias for inner table to properly correlate with outer query
+    InnerTrace = aliased(models.Trace)
+    span_count_subquery = (
+        select(func.count(InnerTrace.id))
+        .where(InnerTrace.trace_id == models.Trace.trace_id)
+        .scalar_subquery()
+    )
+
+    # Filter by organization_id for multi-tenant security (always required)
+    # Eager load nested relationships for endpoint information
+    # Query returns tuples of (Trace, span_count)
+    query = (
+        db.query(models.Trace, span_count_subquery)
+        .filter(models.Trace.organization_id == org_uuid)
+        .options(
+            joinedload(models.Trace.test_result)
+            .joinedload(models.TestResult.test_configuration)
+            .joinedload(models.TestConfiguration.endpoint)
+        )
+    )
+
+    # Conditionally filter for root spans only
+    if root_spans_only:
+        query = query.filter(models.Trace.parent_span_id.is_(None))
+
+    # Filter by trace source
+    if trace_source == TraceSource.TEST:
+        query = query.filter(models.Trace.test_run_id.isnot(None))
+    elif trace_source == TraceSource.OPERATION:
+        query = query.filter(models.Trace.test_run_id.is_(None))
+    # If TraceSource.ALL, no additional filter needed
+
+    # Add project_id filter only if specified
+    if project_id:
+        query = query.filter(models.Trace.project_id == project_id)
+
+    # Add endpoint_id filter - join through TestResult -> TestConfiguration -> Endpoint
+    if endpoint_id:
+        endpoint_uuid = validate_uuid_param(endpoint_id, "endpoint_id")
+        if endpoint_uuid:
+            query = (
+                query.join(models.TestResult, models.Trace.test_result_id == models.TestResult.id)
+                .join(
+                    models.TestConfiguration,
+                    models.TestResult.test_configuration_id == models.TestConfiguration.id,
+                )
+                .join(
+                    models.Endpoint,
+                    models.TestConfiguration.endpoint_id == models.Endpoint.id,
+                )
+                .filter(models.Endpoint.id == endpoint_uuid)
+            )
 
     if environment:
         query = query.filter(models.Trace.environment == environment)
@@ -3359,6 +3442,12 @@ def query_traces(
 
     if start_time_before:
         query = query.filter(models.Trace.start_time <= start_time_before)
+
+    if duration_min_ms is not None:
+        query = query.filter(models.Trace.duration_ms >= duration_min_ms)
+
+    if duration_max_ms is not None:
+        query = query.filter(models.Trace.duration_ms <= duration_max_ms)
 
     # Test execution filters - validate UUIDs before using
     test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")
@@ -3548,12 +3637,18 @@ def update_traces_with_test_result_id(
 
 def count_traces(
     db: Session,
-    project_id: str,
+    organization_id: str,
+    project_id: Optional[str] = None,
+    endpoint_id: Optional[str] = None,
+    root_spans_only: bool = True,
+    trace_source: TraceSource = TraceSource.ALL,
     environment: Optional[str] = None,
     span_name: Optional[str] = None,
     status_code: Optional[Union[str, "StatusCode"]] = None,
     start_time_after: Optional[datetime] = None,
     start_time_before: Optional[datetime] = None,
+    duration_min_ms: Optional[float] = None,
+    duration_max_ms: Optional[float] = None,
     test_run_id: Optional[str] = None,
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
@@ -3563,7 +3658,11 @@ def count_traces(
 
     Args:
         db: Database session
-        project_id: Project ID
+        organization_id: Organization ID for multi-tenant security (required)
+        project_id: Project ID (optional - if not provided, counts all projects for organization)
+        endpoint_id: Endpoint ID (optional - filters traces by endpoint)
+        root_spans_only: If True, counts only root spans (default). If False, counts all spans.
+        trace_source: Filter by trace source (all/test/operation)
         environment: Filter by environment (optional)
         span_name: Filter by span name (optional)
         status_code: Filter by status code (StatusCode enum or string)
@@ -3589,12 +3688,47 @@ def count_traces(
             return None
         try:
             return UUID(value)
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError):
             raise HTTPException(
                 status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
             )
 
-    query = db.query(func.count(models.Trace.id)).filter(models.Trace.project_id == project_id)
+    # Convert organization_id to UUID
+    org_uuid = UUID(organization_id)
+
+    # Filter by organization_id for multi-tenant security (always required)
+    query = db.query(func.count(models.Trace.id)).filter(models.Trace.organization_id == org_uuid)
+
+    # Conditionally filter for root spans only
+    if root_spans_only:
+        query = query.filter(models.Trace.parent_span_id.is_(None))
+
+    # Filter by trace source
+    if trace_source == TraceSource.TEST:
+        query = query.filter(models.Trace.test_run_id.isnot(None))
+    elif trace_source == TraceSource.OPERATION:
+        query = query.filter(models.Trace.test_run_id.is_(None))
+
+    # Add project_id filter only if specified
+    if project_id:
+        query = query.filter(models.Trace.project_id == project_id)
+
+    # Add endpoint_id filter - join through TestResult -> TestConfiguration -> Endpoint
+    if endpoint_id:
+        endpoint_uuid = validate_uuid_param(endpoint_id, "endpoint_id")
+        if endpoint_uuid:
+            query = (
+                query.join(models.TestResult, models.Trace.test_result_id == models.TestResult.id)
+                .join(
+                    models.TestConfiguration,
+                    models.TestResult.test_configuration_id == models.TestConfiguration.id,
+                )
+                .join(
+                    models.Endpoint,
+                    models.TestConfiguration.endpoint_id == models.Endpoint.id,
+                )
+                .filter(models.Endpoint.id == endpoint_uuid)
+            )
 
     if environment:
         query = query.filter(models.Trace.environment == environment)
@@ -3612,6 +3746,12 @@ def count_traces(
 
     if start_time_before:
         query = query.filter(models.Trace.start_time <= start_time_before)
+
+    if duration_min_ms is not None:
+        query = query.filter(models.Trace.duration_ms >= duration_min_ms)
+
+    if duration_max_ms is not None:
+        query = query.filter(models.Trace.duration_ms <= duration_max_ms)
 
     # Test execution filters - validate UUIDs before using
     test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")

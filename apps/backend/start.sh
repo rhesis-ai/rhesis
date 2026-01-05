@@ -95,7 +95,7 @@ start_server() {
 
     if is_production; then
         log "${BLUE}🏭 Starting production server with Gunicorn...${NC}"
-        exec gunicorn \
+        exec uv run gunicorn \
             --workers "$workers" \
             --worker-class uvicorn.workers.UvicornWorker \
             --bind "$host:$port" \
@@ -106,14 +106,14 @@ start_server() {
             rhesis.backend.app.main:app
     elif is_local; then
         log "${BLUE}🛠️  Starting local production server with Uvicorn...${NC}"
-        exec uvicorn \
+        exec uv run uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
             --port "$port" \
 
     else
         log "${BLUE}🛠️  Starting development server with Uvicorn...${NC}"
-        exec uvicorn \
+        exec uv run uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
             --port "$port" \

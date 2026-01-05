@@ -18,17 +18,24 @@ lint: format-check eslint
 	@echo ""
 	@echo "✅ All lint checks passed!"
 	@echo "  ✓ Code formatting"
-	@echo "  ✓ ESLint (errors only)"
+	@echo "  ✓ ESLint"
 	@echo ""
+	@echo "💡 Note: Docs has no build step - use 'make lint-fast' for same checks"
 
-# Fast lint (same as regular lint for docs since no build step)
-lint-fast: lint
-	@echo "💡 Note: Docs linting is already fast (no build step needed)"
+# Fast lint (same as regular lint for docs since no build/type-check step)
+lint-fast: format-check eslint
+	@echo ""
+	@echo "✅ Fast lint checks passed!"
+	@echo "  ✓ Code formatting"
+	@echo "  ✓ ESLint"
+	@echo ""
+	@echo "💡 Note: Docs linting is already fast (no type-check or build step needed)"
 
 # Auto-fix formatting issues
 format:
 	@echo "🔧 Auto-fixing code formatting..."
 	@npm run format
+	@echo "✅ Code formatting complete!"
 
 # Check formatting (fail on errors only)
 format-check:
@@ -38,7 +45,7 @@ format-check:
 # ESLint - errors only
 eslint:
 	@echo "🔍 Running ESLint..."
-	@npm run lint || (echo "❌ ESLint failed" && exit 1)
+	@npm run lint:errors || (echo "❌ ESLint failed" && exit 1)
 
 # Install dependencies
 install:

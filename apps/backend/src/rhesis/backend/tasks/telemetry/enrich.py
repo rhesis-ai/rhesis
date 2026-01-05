@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def enrich_trace_async(self, trace_id: str, project_id: str) -> dict:
+def enrich_trace_async(self, trace_id: str, project_id: str, organization_id: str) -> dict:
     """
     Enrich trace asynchronously in background.
 
@@ -22,6 +22,7 @@ def enrich_trace_async(self, trace_id: str, project_id: str) -> dict:
     Args:
         trace_id: Trace ID to enrich
         project_id: Project ID for access control
+        organization_id: Organization ID for multi-tenant security
 
     Returns:
         Enrichment result
@@ -33,7 +34,7 @@ def enrich_trace_async(self, trace_id: str, project_id: str) -> dict:
 
         # Use same enricher as sync path (code reuse!)
         enricher = TraceEnricher(db)
-        enriched_data = enricher.enrich_trace(trace_id, project_id)
+        enriched_data = enricher.enrich_trace(trace_id, project_id, organization_id)
 
         if enriched_data:
             # Get field names from Pydantic model

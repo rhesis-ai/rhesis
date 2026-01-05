@@ -29,6 +29,7 @@ import {
   DescriptionIcon,
   CodeIcon,
   FeedbackIcon,
+  TimelineIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -183,6 +184,12 @@ async function getNavigationItems(
       segment: 'test-runs',
       title: 'Test Runs',
       icon: <PlayArrowIcon />,
+    },
+    {
+      kind: 'page',
+      segment: 'traces',
+      title: 'Traces',
+      icon: <TimelineIcon />,
     },
     {
       kind: 'page',

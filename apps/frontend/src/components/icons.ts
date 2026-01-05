@@ -56,6 +56,7 @@ export { default as StarIcon } from '@mui/icons-material/StarOutlined';
 export { default as GitHubIcon } from '@mui/icons-material/GitHub';
 export { default as HttpIcon } from '@mui/icons-material/HttpOutlined';
 export { default as FeedbackIcon } from '@mui/icons-material/FeedbackOutlined';
+export { default as TimelineIcon } from '@mui/icons-material/TimelineOutlined';
 
 // Common UI icons
 export { default as PersonIcon } from '@mui/icons-material/PersonOutlined';
