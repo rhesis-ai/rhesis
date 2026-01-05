@@ -28,6 +28,7 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import ScienceIcon from '@mui/icons-material/Science';
 import PublicIcon from '@mui/icons-material/Public';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import SpeedIcon from '@mui/icons-material/Speed';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import DataUsageIcon from '@mui/icons-material/DataUsage';
@@ -917,15 +918,21 @@ export default function TraceFilters({
                   theme.palette.mode === 'dark'
                     ? 'rgba(255, 255, 255, 0.05)'
                     : 'rgba(0, 0, 0, 0.02)',
-                borderRadius: 1,
+                borderRadius: theme => theme.shape.borderRadius,
               }}
             >
               <Typography
                 variant="caption"
                 color="text.secondary"
-                sx={{ display: 'block', mb: 0.5 }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  mb: 0.5,
+                }}
               >
-                💡 <strong>Pro tip:</strong> Use the search box to filter by
+                <LightbulbIcon sx={{ fontSize: 14 }} />
+                <strong>Pro tip:</strong> Use the search box to filter by
                 operation name (e.g., "ai.llm.invoke")
               </Typography>
               <Typography variant="caption" color="text.secondary">

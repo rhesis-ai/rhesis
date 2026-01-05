@@ -374,15 +374,17 @@ export default function SpanDetailsPanel({
                         }}
                       >
                         <CardContent>
-                          <pre
-                            style={{
-                              fontSize: '0.75rem', // caption fontSize
+                          <Box
+                            component="pre"
+                            sx={{
+                              fontSize: theme =>
+                                theme.typography.caption.fontSize,
                               overflow: 'auto',
                               margin: 0,
                             }}
                           >
                             {JSON.stringify(event, null, 2)}
-                          </pre>
+                          </Box>
                         </CardContent>
                       </Card>
                     ))}

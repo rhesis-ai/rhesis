@@ -74,7 +74,7 @@ function SpanTreeNode({
           px: 1,
           ml: level * 2,
           cursor: 'pointer',
-          borderRadius: 1,
+          borderRadius: theme => theme.shape.borderRadius,
           backgroundColor: isSelected ? 'action.selected' : 'transparent',
           '&:hover': {
             backgroundColor: isSelected ? 'action.selected' : 'action.hover',
