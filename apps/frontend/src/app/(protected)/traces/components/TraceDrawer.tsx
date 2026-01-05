@@ -238,7 +238,6 @@ export default function TraceDrawer({
               size="small"
               variant="outlined"
               color="default"
-              sx={{ textTransform: 'capitalize' }}
             />
             {trace.error_count > 0 && (
               <Chip
@@ -272,13 +271,16 @@ export default function TraceDrawer({
             }}
           >
             {/* Tabs Header */}
-            <Box sx={{ 
-              borderBottom: 1, 
-              borderColor: 'divider', 
-              px: (theme) => theme.spacing(2), 
-              pt: (theme) => theme.spacing(2), 
-              mb: (theme) => theme.spacing(1) 
-            }}>
+            <Box
+              sx={{
+                borderBottom: 1,
+                borderColor: 'divider',
+                px: theme => theme.spacing(2),
+                pt: theme => theme.spacing(2),
+                pb: theme => theme.spacing(2),
+                mb: theme => theme.spacing(1),
+              }}
+            >
               <Tabs
                 value={0}
                 aria-label="span hierarchy tabs"
@@ -288,17 +290,24 @@ export default function TraceDrawer({
                   minHeight: 'auto',
                   '& .MuiTab-root': {
                     minHeight: 'auto',
-                    fontSize: (theme) => theme.typography.subtitle2.fontSize,
-                    fontWeight: (theme) => theme.typography.subtitle2.fontWeight,
+                    fontSize: theme => theme.typography.subtitle2.fontSize,
+                    fontWeight: theme => theme.typography.subtitle2.fontWeight,
                     textTransform: 'none',
-                    py: (theme) => theme.spacing(1.25),
+                    py: theme => theme.spacing(1.25),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'flex-start',
                     backgroundColor: 'transparent !important',
+                    color: theme => theme.palette.text.secondary,
+                    '& .MuiSvgIcon-root': {
+                      color: 'inherit',
+                    },
                     '&.Mui-selected': {
                       backgroundColor: 'transparent !important',
-                      color: 'text.primary',
+                      color: theme => theme.palette.text.primary,
+                      '& .MuiSvgIcon-root': {
+                        color: theme => theme.palette.text.primary,
+                      },
                     },
                     '&:hover': {
                       backgroundColor: 'transparent !important',
@@ -313,7 +322,7 @@ export default function TraceDrawer({
                 }}
               >
                 <Tab
-                  icon={<AccountTreeIcon fontSize="small" sx={{ color: 'text.primary' }} />}
+                  icon={<AccountTreeIcon fontSize="small" />}
                   iconPosition="start"
                   label="Tree View"
                   id="span-hierarchy-tab-0"
@@ -323,7 +332,9 @@ export default function TraceDrawer({
             </Box>
 
             {/* Tab Content */}
-            <Box sx={{ flex: 1, overflow: 'auto', p: (theme) => theme.spacing(2) }}>
+            <Box
+              sx={{ flex: 1, overflow: 'auto', p: theme => theme.spacing(2) }}
+            >
               <SpanTreeView
                 spans={trace.root_spans}
                 selectedSpan={selectedSpan}

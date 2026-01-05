@@ -68,7 +68,7 @@ export default function SpanDetailsPanel({
 
   if (!span) {
     return (
-      <Box sx={{ p: (theme) => theme.spacing(3) }}>
+      <Box sx={{ p: theme => theme.spacing(3) }}>
         <Typography color="text.secondary">
           Select a span to view details
         </Typography>
@@ -97,13 +97,16 @@ export default function SpanDetailsPanel({
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Tabs Header */}
-      <Box sx={{ 
-        borderBottom: 1, 
-        borderColor: 'divider', 
-        px: (theme) => theme.spacing(2), 
-        pt: (theme) => theme.spacing(2), 
-        mb: (theme) => theme.spacing(1) 
-      }}>
+      <Box
+        sx={{
+          borderBottom: 1,
+          borderColor: 'divider',
+          px: theme => theme.spacing(2),
+          pt: theme => theme.spacing(2),
+          pb: theme => theme.spacing(2),
+          mb: theme => theme.spacing(1),
+        }}
+      >
         <Tabs
           value={activeTab}
           onChange={(_, newValue) => setActiveTab(newValue)}
@@ -114,17 +117,24 @@ export default function SpanDetailsPanel({
             minHeight: 'auto',
             '& .MuiTab-root': {
               minHeight: 'auto',
-              fontSize: (theme) => theme.typography.subtitle2.fontSize,
-              fontWeight: (theme) => theme.typography.subtitle2.fontWeight,
+              fontSize: theme => theme.typography.subtitle2.fontSize,
+              fontWeight: theme => theme.typography.subtitle2.fontWeight,
               textTransform: 'none',
-              py: (theme) => theme.spacing(1.25),
+              py: theme => theme.spacing(1.25),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'flex-start',
               backgroundColor: 'transparent !important',
+              color: theme => theme.palette.text.secondary,
+              '& .MuiSvgIcon-root': {
+                color: 'inherit',
+              },
               '&.Mui-selected': {
                 backgroundColor: 'transparent !important',
-                color: 'text.primary',
+                color: theme => theme.palette.text.primary,
+                '& .MuiSvgIcon-root': {
+                  color: theme => theme.palette.text.primary,
+                },
               },
               '&:hover': {
                 backgroundColor: 'transparent !important',
@@ -139,7 +149,7 @@ export default function SpanDetailsPanel({
           }}
         >
           <Tab
-            icon={<InfoOutlinedIcon fontSize="small" sx={{ color: 'text.primary' }} />}
+            icon={<InfoOutlinedIcon fontSize="small" />}
             iconPosition="start"
             label="Span Details"
             id="span-detail-tab-0"
@@ -147,7 +157,7 @@ export default function SpanDetailsPanel({
           />
           {showTestResultTab && (
             <Tab
-              icon={<AssessmentOutlinedIcon fontSize="small" sx={{ color: 'text.primary' }} />}
+              icon={<AssessmentOutlinedIcon fontSize="small" />}
               iconPosition="start"
               label="Test Results"
               id="span-detail-tab-1"
@@ -161,14 +171,14 @@ export default function SpanDetailsPanel({
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {/* Span Details Tab */}
         <TabPanel value={activeTab} index={0}>
-          <Box sx={{ p: (theme) => theme.spacing(2) }}>
+          <Box sx={{ p: theme => theme.spacing(2) }}>
             {/* Overview Card */}
-            <Card 
-              variant="outlined" 
-              sx={{ 
-                mb: (theme) => theme.spacing(2),
-                backgroundColor: (theme) => theme.palette.primary.main + '08', // Very light primary color
-                borderColor: (theme) => theme.palette.primary.main + '20',
+            <Card
+              variant="outlined"
+              sx={{
+                mb: theme => theme.spacing(2),
+                backgroundColor: theme => theme.palette.primary.main + '08', // Very light primary color
+                borderColor: theme => theme.palette.primary.main + '20',
               }}
             >
               <CardContent>
@@ -193,9 +203,9 @@ export default function SpanDetailsPanel({
                     </Typography>
                     <Typography
                       variant="body2"
-                      sx={{ 
-                        fontFamily: 'monospace', 
-                        fontSize: (theme) => theme.typography.body2.fontSize 
+                      sx={{
+                        fontFamily: 'monospace',
+                        fontSize: theme => theme.typography.body2.fontSize,
                       }}
                     >
                       {span.span_id}
@@ -255,11 +265,11 @@ export default function SpanDetailsPanel({
 
             {/* LLM Attributes */}
             {Object.keys(llmAttributes).length > 0 && (
-              <Accordion 
+              <Accordion
                 defaultExpanded
                 sx={{
-                  backgroundColor: (theme) => theme.palette.info.main + '08', // Very light info color
-                  borderColor: (theme) => theme.palette.info.main + '20',
+                  backgroundColor: theme => theme.palette.info.main + '08', // Very light info color
+                  borderColor: theme => theme.palette.info.main + '20',
                   mb: 1,
                 }}
               >
@@ -276,11 +286,11 @@ export default function SpanDetailsPanel({
 
             {/* Function Attributes */}
             {Object.keys(functionAttributes).length > 0 && (
-              <Accordion 
+              <Accordion
                 defaultExpanded
                 sx={{
-                  backgroundColor: (theme) => theme.palette.success.main + '08', // Very light success color
-                  borderColor: (theme) => theme.palette.success.main + '20',
+                  backgroundColor: theme => theme.palette.success.main + '08', // Very light success color
+                  borderColor: theme => theme.palette.success.main + '20',
                   mb: 1,
                 }}
               >
@@ -298,11 +308,11 @@ export default function SpanDetailsPanel({
 
             {/* Test Attributes */}
             {Object.keys(testAttributes).length > 0 && (
-              <Accordion 
+              <Accordion
                 defaultExpanded
                 sx={{
-                  backgroundColor: (theme) => theme.palette.warning.main + '08', // Very light warning color
-                  borderColor: (theme) => theme.palette.warning.main + '20',
+                  backgroundColor: theme => theme.palette.warning.main + '08', // Very light warning color
+                  borderColor: theme => theme.palette.warning.main + '20',
                   mb: 1,
                 }}
               >
@@ -321,8 +331,8 @@ export default function SpanDetailsPanel({
             {Object.keys(otherAttributes).length > 0 && (
               <Accordion
                 sx={{
-                  backgroundColor: (theme) => theme.palette.grey[500] + '08', // Very light grey color
-                  borderColor: (theme) => theme.palette.grey[500] + '20',
+                  backgroundColor: theme => theme.palette.grey[500] + '08', // Very light grey color
+                  borderColor: theme => theme.palette.grey[500] + '20',
                   mb: 1,
                 }}
               >
@@ -341,8 +351,8 @@ export default function SpanDetailsPanel({
             {span.events && span.events.length > 0 && (
               <Accordion
                 sx={{
-                  backgroundColor: (theme) => theme.palette.secondary.main + '08', // Very light secondary color
-                  borderColor: (theme) => theme.palette.secondary.main + '20',
+                  backgroundColor: theme => theme.palette.secondary.main + '08', // Very light secondary color
+                  borderColor: theme => theme.palette.secondary.main + '20',
                   mb: 1,
                 }}
               >
@@ -354,12 +364,13 @@ export default function SpanDetailsPanel({
                 <AccordionDetails>
                   <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
                     {span.events.map((event, idx) => (
-                      <Card 
-                        key={idx} 
-                        variant="outlined" 
-                        sx={{ 
+                      <Card
+                        key={idx}
+                        variant="outlined"
+                        sx={{
                           mb: 1,
-                          backgroundColor: (theme) => theme.palette.background.paper,
+                          backgroundColor: theme =>
+                            theme.palette.background.paper,
                         }}
                       >
                         <CardContent>
@@ -402,7 +413,7 @@ function AttributesTable({ attributes }: { attributes: Record<string, any> }) {
             <TableCell
               sx={{
                 fontFamily: 'monospace',
-                fontSize: (theme) => theme.typography.body2.fontSize,
+                fontSize: theme => theme.typography.body2.fontSize,
                 width: '40%',
               }}
             >
@@ -411,7 +422,7 @@ function AttributesTable({ attributes }: { attributes: Record<string, any> }) {
             <TableCell
               sx={{
                 fontFamily: 'monospace',
-                fontSize: (theme) => theme.typography.body2.fontSize,
+                fontSize: theme => theme.typography.body2.fontSize,
                 wordBreak: 'break-word',
               }}
             >
