@@ -229,7 +229,8 @@ export default function SourcePreviewClientWrapper({
       // Handle 404 specifically (item not found)
       if (
         error?.status === 404 ||
-        error?.data?.detail?.includes('404') ||
+        (typeof error?.data?.detail === 'string' &&
+          error.data.detail.includes('404')) ||
         error?.message?.includes('404')
       ) {
         const linkUrl = metadata.url || 'the link';
