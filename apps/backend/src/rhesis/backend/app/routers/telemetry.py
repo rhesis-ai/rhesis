@@ -260,16 +260,16 @@ async def list_traces(
         # This eliminates the N+1 query pattern (previously executed a COUNT for each trace)
 
         # Get endpoint information from eagerly loaded relationships
-        endpoint_id = None
-        endpoint_name = None
+        trace_endpoint_id = None
+        trace_endpoint_name = None
         if (
             trace.test_result
             and trace.test_result.test_configuration
             and trace.test_result.test_configuration.endpoint
         ):
             endpoint = trace.test_result.test_configuration.endpoint
-            endpoint_id = str(endpoint.id)
-            endpoint_name = endpoint.name
+            trace_endpoint_id = str(endpoint.id)
+            trace_endpoint_name = endpoint.name
 
         summary = TraceSummary(
             trace_id=trace.trace_id,
@@ -283,8 +283,8 @@ async def list_traces(
             test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
             test_result_id=str(trace.test_result_id) if trace.test_result_id else None,
             test_id=str(trace.test_id) if trace.test_id else None,
-            endpoint_id=endpoint_id,
-            endpoint_name=endpoint_name,
+            endpoint_id=trace_endpoint_id,
+            endpoint_name=trace_endpoint_name,
             total_tokens=total_tokens if total_tokens > 0 else None,
             total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
             total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
@@ -348,9 +348,19 @@ async def get_trace(
         from rhesis.backend.app.models.test_configuration import TestConfiguration
         from rhesis.backend.app.models.test_result import TestResult
 
-        db.query(TestResult).filter(TestResult.id == spans[0].test_result_id).options(
-            joinedload(TestResult.test_configuration).joinedload(TestConfiguration.endpoint)
-        ).first()
+        # Fetch test_result with nested eager loading and explicitly update the relationship
+        test_result_with_endpoint = (
+            db.query(TestResult)
+            .filter(TestResult.id == spans[0].test_result_id)
+            .options(
+                joinedload(TestResult.test_configuration).joinedload(TestConfiguration.endpoint)
+            )
+            .first()
+        )
+
+        # Explicitly update the relationship instead of relying on identity map
+        if test_result_with_endpoint:
+            spans[0].test_result = test_result_with_endpoint
 
     if not spans:
         raise HTTPException(
