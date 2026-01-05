@@ -3260,12 +3260,12 @@ def get_trace_by_id(
     org_uuid = UUID(organization_id)
 
     query = db.query(models.Trace).filter(
-            and_(
-                models.Trace.trace_id == trace_id,
-                models.Trace.project_id == project_id,
-                models.Trace.organization_id == org_uuid,
-            )
+        and_(
+            models.Trace.trace_id == trace_id,
+            models.Trace.project_id == project_id,
+            models.Trace.organization_id == org_uuid,
         )
+    )
 
     # Add eager loading if specified
     if eager_load:
