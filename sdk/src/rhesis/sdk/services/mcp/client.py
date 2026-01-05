@@ -80,13 +80,12 @@ class MCPClient:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
             except httpx.HTTPStatusError as e:
-                if e.response.status_code == 401:
-                    error_msg = "Your authentication token may be invalid"
-                else:
-                    status = e.response.status_code
-                    reason = e.response.reason_phrase
-                    error_msg = f"{status} {reason}"
-                raise ConnectionError(error_msg) from e
+                # Only fail on auth errors (401, 403)
+                if e.response.status_code in (400, 401, 403):
+                    error_msg = f"{e.response.status_code} {e.response.reason_phrase}"
+                    raise ConnectionError(error_msg) from e
+                # For other status codes (like 405), let it through
+                # The actual MCP connection will handle it
             except httpx.RequestError as e:
                 raise ConnectionError(str(e)) from e
 
