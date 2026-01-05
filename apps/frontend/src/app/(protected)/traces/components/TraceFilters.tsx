@@ -130,24 +130,28 @@ export default function TraceFilters({
   };
 
   const handleDurationFilterChange = (duration: string) => {
+    let newFilters = { ...filters, offset: 0 };
+
     switch (duration) {
       case 'normal':
         // Normal: < 5 seconds
-        handleFilterChange('duration_min_ms', undefined);
-        handleFilterChange('duration_max_ms', 5000);
+        newFilters.duration_min_ms = undefined;
+        newFilters.duration_max_ms = 5000;
         break;
       case 'slow':
         // Slow: >= 5 seconds
-        handleFilterChange('duration_min_ms', 5000);
-        handleFilterChange('duration_max_ms', undefined);
+        newFilters.duration_min_ms = 5000;
+        newFilters.duration_max_ms = undefined;
         break;
       case 'all':
       default:
         // Clear all duration filters
-        handleFilterChange('duration_min_ms', undefined);
-        handleFilterChange('duration_max_ms', undefined);
+        newFilters.duration_min_ms = undefined;
+        newFilters.duration_max_ms = undefined;
         break;
     }
+
+    onFiltersChange(newFilters);
   };
 
   const getActiveDurationFilter = (): string => {
@@ -726,8 +730,13 @@ export default function TraceFilters({
                 onDelete={() => {
                   // Handle duration filter specially - clear both min and max
                   if (chip.key === 'duration') {
-                    handleFilterChange('duration_min_ms', undefined);
-                    handleFilterChange('duration_max_ms', undefined);
+                    const newFilters = {
+                      ...filters,
+                      duration_min_ms: undefined,
+                      duration_max_ms: undefined,
+                      offset: 0,
+                    };
+                    onFiltersChange(newFilters);
                   } else {
                     handleFilterChange(
                       chip.key as keyof TraceQueryParams,
