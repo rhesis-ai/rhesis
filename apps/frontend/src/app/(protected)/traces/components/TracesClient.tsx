@@ -5,6 +5,7 @@ import { Box, Typography, Alert } from '@mui/material';
 import TracesTable from './TracesTable';
 import TraceFilters from './TraceFilters';
 import TraceDrawer from './TraceDrawer';
+import { NoTracesFound } from './EmptyStates';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   TraceSummary,
@@ -102,17 +103,21 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
         sessionToken={sessionToken}
       />
 
-      <TracesTable
-        traces={traces}
-        loading={loading}
-        onRowClick={handleRowClick}
-        totalCount={totalCount}
-        page={Math.floor((filters.offset || 0) / (filters.limit || 50))}
-        pageSize={filters.limit || 50}
-        onPageChange={handlePageChange}
-        onPageSizeChange={handlePageSizeChange}
-        filters={filters}
-      />
+      {traces.length === 0 && !loading ? (
+        <NoTracesFound />
+      ) : (
+        <TracesTable
+          traces={traces}
+          loading={loading}
+          onRowClick={handleRowClick}
+          totalCount={totalCount}
+          page={Math.floor((filters.offset || 0) / (filters.limit || 50))}
+          pageSize={filters.limit || 50}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          filters={filters}
+        />
+      )}
 
       <TraceDrawer
         open={drawerOpen}

@@ -171,30 +171,6 @@ export default function TracesTable({
     onRowClick(params.row.trace_id, params.row.project_id);
   };
 
-  if (!traces || traces.length === 0) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          py: 8,
-          textAlign: 'center',
-        }}
-      >
-        <Typography variant="h6" color="text.secondary" gutterBottom>
-          No traces found
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {!filters.project_id
-            ? 'No traces available across all projects. Try adjusting your filters or check back later.'
-            : 'No traces found for the selected project. Try adjusting your filters or check back later.'}
-        </Typography>
-      </Box>
-    );
-  }
-
   return (
     <BaseDataGrid
       rows={traces}

@@ -56,6 +56,18 @@ export default function TraceDrawer({
     }
   }, [open, traceId, projectId]);
 
+  // Add keyboard shortcut for ESC key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && open) {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   const fetchTrace = async () => {
     if (!traceId || !projectId) return;
 
