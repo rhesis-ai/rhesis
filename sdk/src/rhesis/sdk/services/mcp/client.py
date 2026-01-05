@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
+import httpx
 import jinja2
 from mcp import ClientSession, StdioServerParameters  # type: ignore[import-untyped]
 from mcp.client.sse import sse_client  # type: ignore[import-untyped]
@@ -72,12 +73,31 @@ class MCPClient:
         await self.session.__aenter__()
         await self.session.initialize()
 
+    async def _validate_http_connection(self, url: str, headers: Dict[str, Any]) -> None:
+        """Validate HTTP connection before entering transport context manager."""
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 401:
+                    error_msg = "Your authentication token may be invalid"
+                else:
+                    status = e.response.status_code
+                    reason = e.response.reason_phrase
+                    error_msg = f"{status} {reason}"
+                raise ConnectionError(error_msg) from e
+            except httpx.RequestError as e:
+                raise ConnectionError(str(e)) from e
+
     async def _connect_http(self) -> None:
         """Connect via HTTP/StreamableHTTP transport."""
-        http_context = streamablehttp_client(
-            url=self.transport_params["url"],
-            headers=self.transport_params.get("headers", {}),
-        )
+        url = self.transport_params["url"]
+        headers = self.transport_params.get("headers", {})
+
+        await self._validate_http_connection(url, headers)
+
+        http_context = streamablehttp_client(url=url, headers=headers)
         read, write, get_session_id = await http_context.__aenter__()
         self._transport_context = http_context
 
@@ -87,10 +107,12 @@ class MCPClient:
 
     async def _connect_sse(self) -> None:
         """Connect via SSE transport."""
-        sse_context = sse_client(
-            url=self.transport_params["url"],
-            headers=self.transport_params.get("headers", {}),
-        )
+        url = self.transport_params["url"]
+        headers = self.transport_params.get("headers", {})
+
+        await self._validate_http_connection(url, headers)
+
+        sse_context = sse_client(url=url, headers=headers)
         read, write = await sse_context.__aenter__()
         self._transport_context = sse_context
 
