@@ -29,6 +29,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import InfoIcon from '@mui/icons-material/Info';
 import ArticleIcon from '@mui/icons-material/Article';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
 import {
   formatFileSize,
@@ -563,31 +564,57 @@ export default function SourcePreviewClientWrapper({
               {!isEditing && (
                 <>
                   {localSource.source_type?.type_value === 'Tool' ? (
-                    <Button
-                      startIcon={
-                        isUpdating ? (
-                          <CircularProgress size={16} />
-                        ) : (
-                          <RefreshIcon />
-                        )
-                      }
-                      onClick={handleUpdateFromMCP}
-                      variant="outlined"
-                      size="small"
-                      disabled={isUpdating}
-                      sx={{
-                        color: theme.palette.text.secondary,
-                        borderColor: theme.palette.divider,
-                        '&:hover': {
-                          borderColor: theme.palette.text.secondary,
-                        },
-                        '&:disabled': {
-                          opacity: 0.6,
-                        },
-                      }}
-                    >
-                      {isUpdating ? 'Updating...' : 'Update'}
-                    </Button>
+                    <>
+                      <Button
+                        startIcon={
+                          isUpdating ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            <RefreshIcon />
+                          )
+                        }
+                        onClick={handleUpdateFromMCP}
+                        variant="outlined"
+                        size="small"
+                        disabled={isUpdating}
+                        sx={{
+                          color: theme.palette.text.secondary,
+                          borderColor: theme.palette.divider,
+                          '&:hover': {
+                            borderColor: theme.palette.text.secondary,
+                          },
+                          '&:disabled': {
+                            opacity: 0.6,
+                          },
+                        }}
+                      >
+                        {isUpdating ? 'Updating...' : 'Update'}
+                      </Button>
+                      {localSource.source_metadata?.url &&
+                        localSource.source_metadata?.provider && (
+                          <Button
+                            startIcon={<OpenInNewIcon />}
+                            href={localSource.source_metadata.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            variant="outlined"
+                            size="small"
+                            sx={{
+                              color: theme.palette.text.secondary,
+                              borderColor: theme.palette.divider,
+                              '&:hover': {
+                                borderColor: theme.palette.text.secondary,
+                              },
+                            }}
+                          >
+                            View in{' '}
+                            {localSource.source_metadata.provider
+                              .charAt(0)
+                              .toUpperCase() +
+                              localSource.source_metadata.provider.slice(1)}
+                          </Button>
+                        )}
+                    </>
                   ) : (
                     <Button
                       startIcon={<DownloadIcon />}
