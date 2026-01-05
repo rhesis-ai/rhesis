@@ -102,8 +102,11 @@ class TestEnrichmentService:
 
         trace_ids = {"trace1", "trace2"}
         project_id = "project-123"
+        organization_id = "org-123"
 
-        async_count, sync_count = enrichment_service.enrich_traces(trace_ids, project_id)
+        async_count, sync_count = enrichment_service.enrich_traces(
+            trace_ids, project_id, organization_id
+        )
 
         assert async_count == 2
         assert sync_count == 0
@@ -127,8 +130,11 @@ class TestEnrichmentService:
 
         trace_ids = {"trace1", "trace2"}
         project_id = "project-123"
+        organization_id = "org-123"
 
-        async_count, sync_count = enrichment_service.enrich_traces(trace_ids, project_id)
+        async_count, sync_count = enrichment_service.enrich_traces(
+            trace_ids, project_id, organization_id
+        )
 
         assert async_count == 0
         assert sync_count == 2
@@ -156,12 +162,15 @@ class TestEnrichmentService:
 
         trace_ids = {"trace1"}
         project_id = "project-123"
+        organization_id = "org-123"
 
-        async_count, sync_count = enrichment_service.enrich_traces(trace_ids, project_id)
+        async_count, sync_count = enrichment_service.enrich_traces(
+            trace_ids, project_id, organization_id
+        )
 
         assert async_count == 0
         assert sync_count == 1
-        mock_enricher.enrich_trace.assert_called_once_with("trace1", project_id)
+        mock_enricher.enrich_trace.assert_called_once_with("trace1", project_id, organization_id)
 
     @patch(
         "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available"
@@ -181,8 +190,11 @@ class TestEnrichmentService:
 
         trace_ids = {"trace1"}
         project_id = "project-123"
+        organization_id = "org-123"
 
-        async_count, sync_count = enrichment_service.enrich_traces(trace_ids, project_id)
+        async_count, sync_count = enrichment_service.enrich_traces(
+            trace_ids, project_id, organization_id
+        )
 
         # Should still count as attempted sync enrichment
         assert async_count == 0
@@ -206,8 +218,11 @@ class TestEnrichmentService:
 
         trace_ids = {"trace1"}
         project_id = "project-123"
+        organization_id = "org-123"
 
-        async_count, sync_count = enrichment_service.enrich_traces(trace_ids, project_id)
+        async_count, sync_count = enrichment_service.enrich_traces(
+            trace_ids, project_id, organization_id
+        )
 
         assert async_count == 0
         assert sync_count == 1
@@ -216,8 +231,11 @@ class TestEnrichmentService:
         """Test enrichment with empty trace set"""
         trace_ids = set()
         project_id = "project-123"
+        organization_id = "org-123"
 
-        async_count, sync_count = enrichment_service.enrich_traces(trace_ids, project_id)
+        async_count, sync_count = enrichment_service.enrich_traces(
+            trace_ids, project_id, organization_id
+        )
 
         assert async_count == 0
         assert sync_count == 0
@@ -246,8 +264,11 @@ class TestEnrichmentService:
 
         trace_ids = {"trace1", "trace2"}
         project_id = "project-123"
+        organization_id = "org-123"
 
-        async_count, sync_count = enrichment_service.enrich_traces(trace_ids, project_id)
+        async_count, sync_count = enrichment_service.enrich_traces(
+            trace_ids, project_id, organization_id
+        )
 
         assert async_count == 1  # First trace succeeded async
         assert sync_count == 1  # Second trace fell back to sync
@@ -271,8 +292,9 @@ class TestEnrichmentService:
 
         trace_ids = {"trace1"}
         project_id = "project-123"
+        organization_id = "org-123"
 
-        enrichment_service.enrich_traces(trace_ids, project_id)
+        enrichment_service.enrich_traces(trace_ids, project_id, organization_id)
 
         # Check that debug logging occurred
         mock_logger.debug.assert_called_with(
@@ -298,8 +320,9 @@ class TestEnrichmentService:
 
         trace_ids = {"trace1"}
         project_id = "project-123"
+        organization_id = "org-123"
 
-        enrichment_service.enrich_traces(trace_ids, project_id)
+        enrichment_service.enrich_traces(trace_ids, project_id, organization_id)
 
         # Check that info logging occurred
         mock_logger.info.assert_any_call(
@@ -331,8 +354,11 @@ class TestEnrichmentService:
         # Process 10 traces
         trace_ids = {f"trace{i}" for i in range(10)}
         project_id = "project-123"
+        organization_id = "org-123"
 
-        async_count, sync_count = enrichment_service.enrich_traces(trace_ids, project_id)
+        async_count, sync_count = enrichment_service.enrich_traces(
+            trace_ids, project_id, organization_id
+        )
 
         # Verify results
         assert async_count == 10

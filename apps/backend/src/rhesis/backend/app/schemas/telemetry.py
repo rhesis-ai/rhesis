@@ -1,6 +1,7 @@
 """Backend telemetry schemas - imports from SDK."""
 
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -20,7 +21,21 @@ from rhesis.sdk.telemetry.schemas import (
 )
 
 from .comment import Comment
+from .endpoint import Endpoint
+from .project import Project
 from .tag import TagRead
+from .test import Test
+from .test_result import TestResult
+from .test_run import TestRun
+
+
+class TraceSource(str, Enum):
+    """Filter traces by their source/origin."""
+
+    ALL = "all"  # All traces
+    TEST = "test"  # Only test execution traces (with test_run_id)
+    OPERATION = "operation"  # Only normal operation traces (without test_run_id)
+
 
 # Re-export SDK schemas for backward compatibility
 __all__ = [
@@ -41,6 +56,7 @@ __all__ = [
     "SpanNode",
     "TraceDetailResponse",
     "TraceMetricsResponse",
+    "TraceSource",
 ]
 
 # Alias for consistency with existing backend code
@@ -131,6 +147,14 @@ class TraceSummary(BaseModel):
         default=None, description="Test ID if this trace is from a test execution"
     )
 
+    # Endpoint information (optional - only present for test execution traces)
+    endpoint_id: Optional[str] = Field(
+        default=None, description="Endpoint ID if this trace is linked to an endpoint"
+    )
+    endpoint_name: Optional[str] = Field(
+        default=None, description="Endpoint name if this trace is linked to an endpoint"
+    )
+
     # Tags and comments count for summary view
     tags_count: Optional[int] = Field(
         default=0, description="Number of tags associated with this trace"
@@ -189,6 +213,24 @@ class TraceDetailResponse(BaseModel):
     total_tokens: int
     total_cost_usd: float
     root_spans: List[SpanNode]
+
+    # Related entities (optional - populated via relationships)
+    project: Optional[Project] = Field(default=None, description="Project this trace belongs to")
+    endpoint: Optional[Endpoint] = Field(
+        default=None,
+        description="Endpoint associated with this trace (if from test execution)",
+    )
+    test_run: Optional[TestRun] = Field(
+        default=None,
+        description="Test run this trace belongs to (if from test execution)",
+    )
+    test_result: Optional[TestResult] = Field(
+        default=None,
+        description="Test result this trace belongs to (if from test execution)",
+    )
+    test: Optional[Test] = Field(
+        default=None, description="Test configuration for this trace (if from test execution)"
+    )
 
 
 class TraceMetricsResponse(BaseModel):

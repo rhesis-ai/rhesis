@@ -23,6 +23,7 @@ import { TasksClient } from './tasks-client';
 import { SourcesClient } from './sources-client';
 import { RecycleClient } from './recycle-client';
 import { ToolsClient } from './tools-client';
+import { TelemetryClient } from './telemetry-client';
 
 export class ApiClientFactory {
   private sessionToken: string;
@@ -34,6 +35,7 @@ export class ApiClientFactory {
   private sourcesClient: SourcesClient | null = null;
   private recycleClient: RecycleClient | null = null;
   private toolsClient: ToolsClient | null = null;
+  private telemetryClient: TelemetryClient | null = null;
 
   constructor(sessionToken: string) {
     this.sessionToken = sessionToken;
@@ -161,5 +163,12 @@ export class ApiClientFactory {
       this.toolsClient = new ToolsClient(this.sessionToken);
     }
     return this.toolsClient;
+  }
+
+  getTelemetryClient(): TelemetryClient {
+    if (!this.telemetryClient) {
+      this.telemetryClient = new TelemetryClient(this.sessionToken);
+    }
+    return this.telemetryClient;
   }
 }

@@ -39,6 +39,7 @@ export const API_ENDPOINTS = {
   tasks: '/tasks',
   sources: '/sources',
   tools: '/tools',
+  telemetry: '/telemetry',
 } as const;
 
 export const ENTITY_TYPES = {

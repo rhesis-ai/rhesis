@@ -28,7 +28,9 @@ class TraceEnricher:
         """
         self.db = db
 
-    def enrich_trace(self, trace_id: str, project_id: str) -> Optional[EnrichedTraceData]:
+    def enrich_trace(
+        self, trace_id: str, project_id: str, organization_id: str
+    ) -> Optional[EnrichedTraceData]:
         """
         Enrich a trace with costs, anomalies, and metadata.
 
@@ -42,12 +44,15 @@ class TraceEnricher:
         Args:
             trace_id: OpenTelemetry trace ID
             project_id: Project ID for access control
+            organization_id: Organization ID for multi-tenant security
 
         Returns:
             EnrichedTraceData Pydantic model
         """
         # Fetch all spans for this trace
-        spans = get_trace_by_id(self.db, trace_id=trace_id, project_id=project_id)
+        spans = get_trace_by_id(
+            self.db, trace_id=trace_id, project_id=project_id, organization_id=organization_id
+        )
 
         if not spans:
             logger.warning(f"No spans found for trace {trace_id}")

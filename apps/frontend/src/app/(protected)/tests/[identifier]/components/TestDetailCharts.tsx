@@ -28,6 +28,7 @@ import {
   Legend,
 } from 'recharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { formatDuration } from '@/utils/format-duration';
 import { IndividualTestStats } from '@/utils/api-client/interfaces/individual-test-stats';
 import BasePieChart from '@/components/common/BasePieChart';
 import BaseChartsGrid from '@/components/common/BaseChartsGrid';
@@ -87,13 +88,6 @@ function LastTestRunCard({
         sx={{ fontSize: 20, mr: 0.5, color: theme.palette.text.secondary }}
       />
     );
-  };
-
-  // Format execution time
-  const formatExecutionTime = (ms: number) => {
-    if (ms < 1000) return `${ms.toFixed(0)}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
-    return `${(ms / 60000).toFixed(2)}min`;
   };
 
   // Format date
@@ -262,7 +256,7 @@ function LastTestRunCard({
                   color="text.secondary"
                   sx={{ fontSize: theme.typography.caption.fontSize }}
                 >
-                  {formatExecutionTime(lastRunExecutionTime)}
+                  {formatDuration(lastRunExecutionTime)}
                 </Typography>
               </Box>
             )}
@@ -557,13 +551,6 @@ export default function TestDetailCharts({
     },
   ].filter(item => item.value > 0);
 
-  // Format execution time
-  const formatExecutionTime = (ms: number) => {
-    if (ms < 1000) return `${ms.toFixed(0)}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
-    return `${(ms / 60000).toFixed(2)}min`;
-  };
-
   return (
     <BaseChartsGrid>
       {/* Last Test Run Status */}
@@ -630,7 +617,7 @@ export default function TestDetailCharts({
           },
           {
             label: 'Total Time',
-            value: formatExecutionTime(
+            value: formatDuration(
               overall_summary.avg_execution_time_ms *
                 overall_summary.total_executions
             ),
@@ -638,14 +625,12 @@ export default function TestDetailCharts({
           {
             label: 'Min Time',
             value:
-              '~' +
-              formatExecutionTime(overall_summary.avg_execution_time_ms * 0.7),
+              '~' + formatDuration(overall_summary.avg_execution_time_ms * 0.7),
           },
           {
             label: 'Max Time',
             value:
-              '~' +
-              formatExecutionTime(overall_summary.avg_execution_time_ms * 1.3),
+              '~' + formatDuration(overall_summary.avg_execution_time_ms * 1.3),
           },
         ]}
       />

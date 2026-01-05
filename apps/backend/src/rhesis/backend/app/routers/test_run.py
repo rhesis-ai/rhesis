@@ -13,7 +13,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.telemetry import TraceListResponse, TraceSummary
+from rhesis.backend.app.schemas.telemetry import TraceListResponse, TraceSource, TraceSummary
 from rhesis.backend.app.services.stats.test_run import get_test_run_stats
 from rhesis.backend.app.services.test_run import (
     get_test_results_for_test_run,
@@ -490,7 +490,10 @@ async def get_test_run_traces(
     # Query traces for this test run
     traces = crud.query_traces(
         db=db,
+        organization_id=organization_id,
         project_id=project_id,
+        root_spans_only=True,
+        trace_source=TraceSource.TEST,  # Only test traces for this endpoint
         test_run_id=str(test_run_id),
         limit=limit,
         offset=offset,
@@ -499,13 +502,17 @@ async def get_test_run_traces(
     # Get total count
     total = crud.count_traces(
         db=db,
+        organization_id=organization_id,
         project_id=project_id,
+        root_spans_only=True,
+        trace_source=TraceSource.TEST,  # Match the query filter
         test_run_id=str(test_run_id),
     )
 
     # Convert to summaries
     summaries = []
-    for trace in traces:
+    # Unpack tuple: query_traces now returns (Trace, span_count) to avoid N+1 queries
+    for trace, span_count in traces:
         has_errors = trace.status_code == "ERROR"
         total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
         total_cost_usd = 0.0
@@ -520,7 +527,7 @@ async def get_test_run_traces(
             environment=trace.environment,
             start_time=trace.start_time,
             duration_ms=trace.duration_ms or 0.0,
-            span_count=1,
+            span_count=span_count,  # Use actual count from query (not hardcoded 1)
             root_operation=trace.span_name,
             status_code=trace.status_code,
             has_errors=has_errors,
