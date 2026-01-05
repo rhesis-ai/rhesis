@@ -348,9 +348,19 @@ async def get_trace(
         from rhesis.backend.app.models.test_configuration import TestConfiguration
         from rhesis.backend.app.models.test_result import TestResult
 
-        db.query(TestResult).filter(TestResult.id == spans[0].test_result_id).options(
-            joinedload(TestResult.test_configuration).joinedload(TestConfiguration.endpoint)
-        ).first()
+        # Fetch test_result with nested eager loading and explicitly update the relationship
+        test_result_with_endpoint = (
+            db.query(TestResult)
+            .filter(TestResult.id == spans[0].test_result_id)
+            .options(
+                joinedload(TestResult.test_configuration).joinedload(TestConfiguration.endpoint)
+            )
+            .first()
+        )
+
+        # Explicitly update the relationship instead of relying on identity map
+        if test_result_with_endpoint:
+            spans[0].test_result = test_result_with_endpoint
 
     if not spans:
         raise HTTPException(
