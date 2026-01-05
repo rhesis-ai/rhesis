@@ -29,7 +29,7 @@ function EmptyStateMessage({
         width: '100%',
         textAlign: 'center',
         p: 8,
-        borderRadius: 1,
+        borderRadius: theme => theme.shape.borderRadius * 0.25,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

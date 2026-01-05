@@ -241,7 +241,7 @@ export default function TestResultTab({
                         p: 1,
                         backgroundColor: theme =>
                           theme.palette.background.default,
-                        borderRadius: 1,
+                        borderRadius: theme => theme.shape.borderRadius * 0.25,
                         border: theme => `1px solid ${theme.palette.divider}`,
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
@@ -269,7 +269,7 @@ export default function TestResultTab({
                     mt: 0.5,
                     p: 1,
                     backgroundColor: theme => theme.palette.background.default,
-                    borderRadius: 1,
+                    borderRadius: theme => theme.shape.borderRadius * 0.25,
                     border: theme => `1px solid ${theme.palette.divider}`,
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
