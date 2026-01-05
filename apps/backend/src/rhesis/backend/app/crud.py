@@ -3374,10 +3374,16 @@ def query_traces(
     # Create correlated subquery to count spans per trace_id
     # This eliminates the N+1 query pattern by calculating span counts in a single query
     # Use alias for inner table to properly correlate with outer query
+    # Include organization_id filter for complete tenant isolation (defense-in-depth)
     InnerTrace = aliased(models.Trace)
     span_count_subquery = (
         select(func.count(InnerTrace.id))
-        .where(InnerTrace.trace_id == models.Trace.trace_id)
+        .where(
+            and_(
+                InnerTrace.trace_id == models.Trace.trace_id,
+                InnerTrace.organization_id == org_uuid,
+            )
+        )
         .scalar_subquery()
     )
 
