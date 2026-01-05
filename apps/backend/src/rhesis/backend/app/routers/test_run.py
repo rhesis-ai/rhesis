@@ -511,7 +511,8 @@ async def get_test_run_traces(
 
     # Convert to summaries
     summaries = []
-    for trace in traces:
+    # Unpack tuple: query_traces now returns (Trace, span_count) to avoid N+1 queries
+    for trace, span_count in traces:
         has_errors = trace.status_code == "ERROR"
         total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
         total_cost_usd = 0.0
@@ -526,7 +527,7 @@ async def get_test_run_traces(
             environment=trace.environment,
             start_time=trace.start_time,
             duration_ms=trace.duration_ms or 0.0,
-            span_count=1,
+            span_count=span_count,  # Use actual count from query (not hardcoded 1)
             root_operation=trace.span_name,
             status_code=trace.status_code,
             has_errors=has_errors,

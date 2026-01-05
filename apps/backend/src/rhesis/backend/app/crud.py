@@ -3322,7 +3322,7 @@ def query_traces(
     test_id: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-) -> List[models.Trace]:
+) -> List[tuple[models.Trace, int]]:
     """
     Query traces with filters and eager load nested relationships.
 
@@ -3345,7 +3345,8 @@ def query_traces(
         offset: Pagination offset
 
     Returns:
-        List of Trace models matching filters with eager loaded relationships
+        List of tuples (Trace model, span_count) matching filters with eager loaded relationships.
+        The span_count is calculated efficiently using a correlated subquery to avoid N+1 queries.
 
     Raises:
         HTTPException: 400 if any UUID parameter is malformed
@@ -3353,7 +3354,8 @@ def query_traces(
     from uuid import UUID
 
     from fastapi import HTTPException
-    from sqlalchemy.orm import joinedload
+    from sqlalchemy import select
+    from sqlalchemy.orm import aliased, joinedload
 
     def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
         """Validate and convert UUID string, raising HTTPException if invalid."""
@@ -3369,10 +3371,21 @@ def query_traces(
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
 
+    # Create correlated subquery to count spans per trace_id
+    # This eliminates the N+1 query pattern by calculating span counts in a single query
+    # Use alias for inner table to properly correlate with outer query
+    InnerTrace = aliased(models.Trace)
+    span_count_subquery = (
+        select(func.count(InnerTrace.id))
+        .where(InnerTrace.trace_id == models.Trace.trace_id)
+        .scalar_subquery()
+    )
+
     # Filter by organization_id for multi-tenant security (always required)
     # Eager load nested relationships for endpoint information
+    # Query returns tuples of (Trace, span_count)
     query = (
-        db.query(models.Trace)
+        db.query(models.Trace, span_count_subquery)
         .filter(models.Trace.organization_id == org_uuid)
         .options(
             joinedload(models.Trace.test_result)

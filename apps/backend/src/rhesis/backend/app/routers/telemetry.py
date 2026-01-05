@@ -5,10 +5,9 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
@@ -246,7 +245,8 @@ async def list_traces(
 
     # Convert to summaries
     summaries = []
-    for trace in traces:
+    # Unpack tuple: query_traces now returns (Trace, span_count) to avoid N+1 queries
+    for trace, span_count in traces:
         # Calculate summary fields
         has_errors = trace.status_code == "ERROR"
         total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
@@ -256,12 +256,8 @@ async def list_traces(
             total_cost_usd = trace.enriched_data["costs"].get("total_cost_usd", 0.0)
             total_cost_eur = trace.enriched_data["costs"].get("total_cost_eur", 0.0)
 
-        # Calculate actual span count for this trace
-        span_count = (
-            db.query(func.count(models.Trace.id))
-            .filter(models.Trace.trace_id == trace.trace_id)
-            .scalar()
-        )
+        # span_count is already calculated efficiently in the query using a correlated subquery
+        # This eliminates the N+1 query pattern (previously executed a COUNT for each trace)
 
         # Get endpoint information from eagerly loaded relationships
         endpoint_id = None
@@ -476,7 +472,7 @@ async def get_metrics(
     organization_id, user_id = tenant_context
 
     # Query all matching spans (no default time filter - controlled by frontend)
-    spans = crud.query_traces(
+    spans_with_counts = crud.query_traces(
         db=db,
         organization_id=organization_id,
         project_id=project_id,
@@ -488,6 +484,9 @@ async def get_metrics(
         limit=10000,  # Large limit for metrics calculation
         offset=0,
     )
+
+    # Extract just the Trace objects (discard span_count since metrics recalculate)
+    spans = [trace for trace, _ in spans_with_counts]
 
     if not spans:
         return TraceMetricsResponse(
