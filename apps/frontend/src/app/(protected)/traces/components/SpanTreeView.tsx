@@ -95,7 +95,8 @@ function SpanTreeNode({
         </Box>
 
         {/* Semantic Icon */}
-        <SpanIcon
+        <Box
+          component={SpanIcon}
           sx={{
             fontSize: theme => theme.spacing(2.25),
             color: theme => {
@@ -103,9 +104,9 @@ function SpanTreeNode({
               const parts = colorPath.split('.');
               if (parts.length === 2) {
                 const [category, shade] = parts;
-                return (theme.palette as any)[category]?.[shade] || colorPath;
+                return `${(theme.palette as any)[category]?.[shade] || colorPath} !important`;
               }
-              return colorPath;
+              return `${colorPath} !important`;
             },
             mr: 1,
             flexShrink: 0,
