@@ -119,26 +119,33 @@ export default function TestResultTab({
   const testLabel = getTestResultLabelWithReview(testResult);
 
   return (
-    <Box sx={{ p: (theme) => theme.spacing(2) }}>
+    <Box sx={{ p: theme => theme.spacing(2) }}>
       {/* Overview Card - Rounded */}
-      <Card 
-        variant="outlined" 
-        sx={{ 
-          mb: (theme) => theme.spacing(2),
-          backgroundColor: (theme) => theme.palette.success.main + '08',
-          borderColor: (theme) => theme.palette.success.main + '20',
+      <Card
+        variant="outlined"
+        sx={{
+          mb: theme => theme.spacing(2),
+          backgroundColor: theme => theme.palette.success.main + '08',
+          borderColor: theme => theme.palette.success.main + '20',
         }}
       >
         <CardContent>
           <Stack spacing={2}>
             {/* Status, Test Type, and Behavior - Side by Side */}
-            <Box sx={{ display: 'flex', gap: (theme) => theme.spacing(2) }}>
+            <Box sx={{ display: 'flex', gap: theme => theme.spacing(2) }}>
               {/* Test Status Cell */}
               <Box sx={{ flex: 1 }}>
                 <Typography variant="caption" color="text.secondary">
                   Test Status
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mt: 0.5,
+                  }}
+                >
                   <StatusChip
                     status={testStatus}
                     label={testLabel}
@@ -169,10 +176,16 @@ export default function TestResultTab({
                 </Typography>
                 <Box sx={{ mt: 0.5 }}>
                   <Chip
-                    label={testResult.test_output?.goal ? 'Multi-turn' : 'Single-turn'}
+                    label={
+                      testResult.test_output?.goal
+                        ? 'Multi-turn'
+                        : 'Single-turn'
+                    }
                     size="medium"
                     variant="outlined"
-                    color={testResult.test_output?.goal ? 'primary' : 'secondary'}
+                    color={
+                      testResult.test_output?.goal ? 'primary' : 'secondary'
+                    }
                   />
                 </Box>
               </Box>
@@ -191,7 +204,13 @@ export default function TestResultTab({
                       color="info"
                     />
                   ) : (
-                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: (theme) => theme.typography.body2.fontSize }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        fontSize: theme => theme.typography.body2.fontSize,
+                      }}
+                    >
                       No behavior
                     </Typography>
                   )}
@@ -201,12 +220,14 @@ export default function TestResultTab({
 
             {/* Test Content - Prompt for single-turn, Goal for multi-turn */}
             {(() => {
-              const goal = testResult.test_output?.goal || testResult.test_output?.test_configuration?.goal;
+              const goal =
+                testResult.test_output?.goal ||
+                testResult.test_output?.test_configuration?.goal;
               const prompt = testResult.test?.prompt?.content; // Access prompt from testResult.test relationship
-              
+
               const content = goal || prompt;
               const contentType = goal ? 'Test Goal' : 'Test Prompt';
-              
+
               if (content) {
                 return (
                   <Box>
@@ -218,9 +239,10 @@ export default function TestResultTab({
                       sx={{
                         mt: 0.5,
                         p: 1,
-                        backgroundColor: (theme) => theme.palette.background.default,
+                        backgroundColor: theme =>
+                          theme.palette.background.default,
                         borderRadius: 1,
-                        border: (theme) => `1px solid ${theme.palette.divider}`,
+                        border: theme => `1px solid ${theme.palette.divider}`,
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
                         maxHeight: 150,
@@ -246,13 +268,13 @@ export default function TestResultTab({
                   sx={{
                     mt: 0.5,
                     p: 1,
-                    backgroundColor: (theme) => theme.palette.background.default,
+                    backgroundColor: theme => theme.palette.background.default,
                     borderRadius: 1,
-                    border: (theme) => `1px solid ${theme.palette.divider}`,
+                    border: theme => `1px solid ${theme.palette.divider}`,
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
                     fontFamily: 'monospace',
-                    fontSize: (theme) => theme.typography.body2.fontSize,
+                    fontSize: theme => theme.typography.body2.fontSize,
                     maxHeight: 150,
                     overflow: 'auto',
                   }}
@@ -285,9 +307,17 @@ export default function TestResultTab({
                   )}
                   {testResult.test_output.goal_achieved !== undefined && (
                     <Chip
-                      label={testResult.test_output.goal_achieved ? 'Goal Achieved' : 'Goal Not Achieved'}
+                      label={
+                        testResult.test_output.goal_achieved
+                          ? 'Goal Achieved'
+                          : 'Goal Not Achieved'
+                      }
                       size="small"
-                      color={testResult.test_output.goal_achieved ? 'success' : 'error'}
+                      color={
+                        testResult.test_output.goal_achieved
+                          ? 'success'
+                          : 'error'
+                      }
                       variant="outlined"
                     />
                   )}
@@ -312,11 +342,11 @@ export default function TestResultTab({
 
       {/* Metrics Summary - Rectangular Accordion */}
       {testResult.test_metrics?.metrics && (
-        <Accordion 
+        <Accordion
           defaultExpanded
           sx={{
-            backgroundColor: (theme) => theme.palette.info.main + '08',
-            borderColor: (theme) => theme.palette.info.main + '20',
+            backgroundColor: theme => theme.palette.info.main + '08',
+            borderColor: theme => theme.palette.info.main + '20',
             mb: 1,
           }}
         >
@@ -334,7 +364,7 @@ export default function TestResultTab({
                       <TableCell
                         sx={{
                           fontFamily: 'monospace',
-                          fontSize: (theme) => theme.typography.body2.fontSize,
+                          fontSize: theme => theme.typography.body2.fontSize,
                           width: '60%',
                         }}
                       >
@@ -357,25 +387,22 @@ export default function TestResultTab({
         </Accordion>
       )}
 
-
       {/* Review Comments - Rectangular Accordion */}
       {testResult.last_review?.comments && (
         <Accordion
           sx={{
-            backgroundColor: (theme) => theme.palette.secondary.main + '08',
-            borderColor: (theme) => theme.palette.secondary.main + '20',
+            backgroundColor: theme => theme.palette.secondary.main + '08',
+            borderColor: theme => theme.palette.secondary.main + '20',
             mb: 1,
           }}
         >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="subtitle2">
-              Review Comments
-            </Typography>
+            <Typography variant="subtitle2">Review Comments</Typography>
           </AccordionSummary>
           <AccordionDetails>
-            <Card 
-              variant="outlined" 
-              sx={{ 
+            <Card
+              variant="outlined"
+              sx={{
                 backgroundColor: theme.palette.background.paper,
               }}
             >
@@ -394,7 +421,6 @@ export default function TestResultTab({
           </AccordionDetails>
         </Accordion>
       )}
-
     </Box>
   );
 }

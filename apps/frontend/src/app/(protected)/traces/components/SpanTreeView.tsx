@@ -95,8 +95,7 @@ function SpanTreeNode({
         </Box>
 
         {/* Semantic Icon */}
-        <Box
-          component={SpanIcon}
+        <SpanIcon
           sx={{
             fontSize: theme => theme.spacing(2.25),
             color: theme => {

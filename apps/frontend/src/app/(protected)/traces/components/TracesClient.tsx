@@ -25,7 +25,9 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
 
   // Drawer state
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null
+  );
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Filter state - default to last 24 hours
