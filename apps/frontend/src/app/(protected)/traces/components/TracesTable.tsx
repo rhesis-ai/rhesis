@@ -7,11 +7,12 @@ import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { Chip, Box, Typography, Tooltip } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
+import { formatDuration } from '@/utils/format-duration';
 
 interface TracesTableProps {
   traces: TraceSummary[];
   loading: boolean;
-  onRowClick: (traceId: string) => void;
+  onRowClick: (traceId: string, projectId: string) => void;
   totalCount: number;
   page: number;
   pageSize: number;
@@ -111,19 +112,7 @@ export default function TracesTable({
         align: 'right',
         renderCell: params => {
           const ms = params.value as number;
-          let formatted: string;
-
-          if (ms < 1) {
-            formatted = `${(ms * 1000).toFixed(0)}μs`;
-          } else if (ms < 1000) {
-            formatted = `${ms.toFixed(2)}ms`;
-          } else if (ms < 60000) {
-            formatted = `${(ms / 1000).toFixed(2)}s`;
-          } else {
-            formatted = `${(ms / 60000).toFixed(2)}min`;
-          }
-
-          return <Typography variant="body2">{formatted}</Typography>;
+          return <Typography variant="body2">{formatDuration(ms)}</Typography>;
         },
       },
       {
@@ -179,7 +168,7 @@ export default function TracesTable({
   );
 
   const handleRowClick = (params: any) => {
-    onRowClick(params.row.trace_id);
+    onRowClick(params.row.trace_id, params.row.project_id);
   };
 
   if (!traces || traces.length === 0) {

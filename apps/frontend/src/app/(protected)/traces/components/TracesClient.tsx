@@ -25,6 +25,7 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
 
   // Drawer state
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Filter state - default to last 24 hours
@@ -58,14 +59,16 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
     fetchTraces();
   }, [fetchTraces]);
 
-  const handleRowClick = (traceId: string) => {
+  const handleRowClick = (traceId: string, projectId: string) => {
     setSelectedTraceId(traceId);
+    setSelectedProjectId(projectId);
     setDrawerOpen(true);
   };
 
   const handleCloseDrawer = () => {
     setDrawerOpen(false);
     setSelectedTraceId(null);
+    setSelectedProjectId(null);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -113,7 +116,7 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
         open={drawerOpen}
         onClose={handleCloseDrawer}
         traceId={selectedTraceId}
-        projectId={filters.project_id || ''}
+        projectId={selectedProjectId || ''}
         sessionToken={sessionToken}
       />
     </>
