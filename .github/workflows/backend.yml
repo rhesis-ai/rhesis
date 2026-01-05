@@ -360,6 +360,36 @@ jobs:
         run: |
           echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
 
+      - name: Clean up old revisions
+        run: |
+          echo "🧹 Cleaning up old revisions to force new instances..."
+          
+          # List all revisions and delete those not receiving traffic (keep the latest serving one)
+          REVISIONS=$(gcloud run revisions list \
+            --service=${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --format="value(metadata.name)" \
+            --filter="status.conditions.status:True AND traffic:0" \
+            --limit=50 || echo "")
+          
+          if [ -n "$REVISIONS" ]; then
+            echo "Found old revisions to clean up:"
+            echo "$REVISIONS"
+            
+            for revision in $REVISIONS; do
+              echo "Deleting revision: $revision"
+              gcloud run revisions delete $revision \
+                --region=${{ env.REGION }} \
+                --project=${{ env.PROJECT_ID }} \
+                --quiet || echo "Failed to delete $revision (may be in use)"
+            done
+            
+            echo "✅ Cleaned up old revisions"
+          else
+            echo "No old revisions to clean up"
+          fi
+
       - name: Deploy to Cloud Run
         id: deploy
         run: |
@@ -387,6 +417,7 @@ jobs:
               --region=${{ env.REGION }} \
               --platform=managed \
               --allow-unauthenticated \
+              --port=8080 \
               --no-traffic \
               --revision-suffix=${{ env.COMMIT_SHA }} \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
@@ -461,6 +492,7 @@ jobs:
               --region=${{ env.REGION }} \
               --platform=managed \
               --allow-unauthenticated \
+              --port=8080 \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
@@ -645,7 +677,7 @@ jobs:
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
-            --port=8000 \
+            --port=8080 \
             --memory=2Gi \
             --cpu=2 \
             --concurrency=80 \
@@ -725,7 +757,7 @@ jobs:
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
-            --port=8000 \
+            --port=8080 \
             --memory=2Gi \
             --cpu=2 \
             --concurrency=80 \
