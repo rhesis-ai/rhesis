@@ -176,16 +176,19 @@ def isolate_telemetry_context():
 def disable_enrichment(monkeypatch):
     """
     Disable trace enrichment for all tests by default.
-    
+
     Enrichment is expensive and tested separately in test_enrichment.py.
     This fixture makes enrichment a no-op for tests that don't explicitly need it.
     """
+
     # Mock enqueue_enrichment to return False (indicating sync fallback was used)
     # but don't actually do any enrichment work
-    def mock_enqueue_enrichment(self, trace_id, project_id, organization_id, workers_available=None):
+    def mock_enqueue_enrichment(
+        self, trace_id, project_id, organization_id, workers_available=None
+    ):
         """Mock enqueue_enrichment to skip enrichment entirely."""
         return False  # Indicate we "used" sync fallback but actually do nothing
-    
+
     # Patch the method on EnrichmentService to skip enrichment
     monkeypatch.setattr(
         "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService.enqueue_enrichment",
