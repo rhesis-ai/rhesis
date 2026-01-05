@@ -99,6 +99,7 @@ jobs:
       environment: ${{ env.ENVIRONMENT }}
       commit_sha: ${{ steps.set_env.outputs.commit_sha }}
       is_preview: ${{ steps.set_env.outputs.is_preview }}
+      build_tag: ${{ steps.set_build_tag.outputs.build_tag }}
 
     steps:
       - uses: actions/checkout@v4
@@ -162,28 +163,41 @@ jobs:
           gcloud auth configure-docker
 
       - name: Build Container
+        id: set_build_tag
         run: |
           # Build without cache to ensure all migration files are always up-to-date
+          # Use commit SHA for all builds to avoid GCR/Cloud Run caching issues
+          COMMIT_SHA_FULL="${{ github.sha }}"
+          BUILD_TAG="${{ env.COMMIT_SHA }}-$(date +%s)"
+          
+          echo "Building image with unique tag: $BUILD_TAG"
+          echo "BUILD_TAG=$BUILD_TAG" >> $GITHUB_ENV
+          echo "build_tag=$BUILD_TAG" >> $GITHUB_OUTPUT
+          
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, tag with commit SHA
-            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/backend/Dockerfile .
-            echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
+            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:$BUILD_TAG -f apps/backend/Dockerfile .
+            docker tag ${{ env.IMAGE_NAME }}:$BUILD_TAG ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}
+            echo "Built preview image: ${{ env.IMAGE_NAME }}:$BUILD_TAG"
           else
-            # For regular deployments, use latest tag
-            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:latest -f apps/backend/Dockerfile .
-            echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
+            # For regular deployments, use unique tag + latest tag
+            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:$BUILD_TAG -f apps/backend/Dockerfile .
+            docker tag ${{ env.IMAGE_NAME }}:$BUILD_TAG ${{ env.IMAGE_NAME }}:latest
+            echo "Built regular image: ${{ env.IMAGE_NAME }}:$BUILD_TAG (tagged as latest)"
           fi
 
       - name: Push Container
         run: |
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
-            # For preview deployments, push commit SHA tagged image
+            # For preview deployments, push both unique and commit SHA tagged images
+            docker push ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }}
             docker push ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}
-            echo "Pushed preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
+            echo "Pushed preview images: ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }} and :${{ env.COMMIT_SHA }}"
           else
-            # For regular deployments, push latest tagged image
+            # For regular deployments, push both unique tag and latest
+            docker push ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }}
             docker push ${{ env.IMAGE_NAME }}:latest
-            echo "Pushed regular image: ${{ env.IMAGE_NAME }}:latest"
+            echo "Pushed regular images: ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }} and :latest"
           fi
 
   migrate:
@@ -198,6 +212,7 @@ jobs:
       ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
       COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
       IS_PREVIEW: ${{ needs.build.outputs.is_preview }}
+      BUILD_TAG: ${{ needs.build.outputs.build_tag }}
 
     steps:
       - name: Checkout repository
@@ -246,12 +261,8 @@ jobs:
         run: |
           echo "🗃️ Running database migrations..."
 
-          # Determine which image to use based on preview mode
-          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
-            IMAGE_TAG="${{ env.COMMIT_SHA }}"
-          else
-            IMAGE_TAG="latest"
-          fi
+          # Use the unique BUILD_TAG to ensure we get the freshly built image
+          IMAGE_TAG="${{ env.BUILD_TAG }}"
 
           echo "Using image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
 
@@ -312,6 +323,7 @@ jobs:
       ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
       COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
       IS_PREVIEW: ${{ needs.build.outputs.is_preview }}
+      BUILD_TAG: ${{ needs.build.outputs.build_tag }}
 
     outputs:
       backend_preview_url_encoded: ${{ steps.output_url.outputs.backend_preview_url_encoded }}
@@ -360,13 +372,43 @@ jobs:
         run: |
           echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
 
+      - name: Clean up old revisions
+        run: |
+          echo "🧹 Cleaning up old revisions to force new instances..."
+          
+          # List all revisions and delete those not receiving traffic (keep the latest serving one)
+          REVISIONS=$(gcloud run revisions list \
+            --service=${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --format="value(metadata.name)" \
+            --filter="status.conditions.status:True AND traffic:0" \
+            --limit=50 || echo "")
+          
+          if [ -n "$REVISIONS" ]; then
+            echo "Found old revisions to clean up:"
+            echo "$REVISIONS"
+            
+            for revision in $REVISIONS; do
+              echo "Deleting revision: $revision"
+              gcloud run revisions delete $revision \
+                --region=${{ env.REGION }} \
+                --project=${{ env.PROJECT_ID }} \
+                --quiet || echo "Failed to delete $revision (may be in use)"
+            done
+            
+            echo "✅ Cleaned up old revisions"
+          else
+            echo "No old revisions to clean up"
+          fi
+
       - name: Deploy to Cloud Run
         id: deploy
         run: |
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
-            # Preview deployment with commit SHA
-            IMAGE_TAG="${{ env.COMMIT_SHA }}"
-            echo "🚀 Deploying preview revision with commit SHA: $IMAGE_TAG"
+            # Preview deployment with unique build tag
+            IMAGE_TAG="${{ env.BUILD_TAG }}"
+            echo "🚀 Deploying preview revision with build tag: $IMAGE_TAG"
             echo "Image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
 
             # Generate the Cloud Run URL for this preview (or use override)
@@ -387,6 +429,7 @@ jobs:
               --region=${{ env.REGION }} \
               --platform=managed \
               --allow-unauthenticated \
+              --port=8080 \
               --no-traffic \
               --revision-suffix=${{ env.COMMIT_SHA }} \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
@@ -448,19 +491,21 @@ jobs:
 
             echo "✅ Preview revision deployed successfully"
           else
-            # Regular deployment with latest tag
+            # Regular deployment with unique build tag
+            IMAGE_TAG="${{ env.BUILD_TAG }}"
             echo "🚀 Deploying regular revision"
-            echo "Image: ${{ env.IMAGE_NAME }}:latest"
+            echo "Image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
             echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
 
             gcloud run deploy ${{ env.SERVICE_NAME }} \
-              --image=${{ env.IMAGE_NAME }}:latest \
+              --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
               --project=${{ env.PROJECT_ID }} \
               --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
               --vpc-egress=private-ranges-only \
               --region=${{ env.REGION }} \
               --platform=managed \
               --allow-unauthenticated \
+              --port=8080 \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
@@ -638,14 +683,14 @@ jobs:
           echo "Using revision suffix: $REVISION_SUFFIX"
 
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} \
+            --image=${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }} \
             --project=${{ env.PROJECT_ID }} \
             --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
-            --port=8000 \
+            --port=8080 \
             --memory=2Gi \
             --cpu=2 \
             --concurrency=80 \
@@ -718,14 +763,14 @@ jobs:
           echo "🚀 Deploying final revision: $FINAL_REVISION_SUFFIX"
 
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} \
+            --image=${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }} \
             --project=${{ env.PROJECT_ID }} \
             --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
-            --port=8000 \
+            --port=8080 \
             --memory=2Gi \
             --cpu=2 \
             --concurrency=80 \
