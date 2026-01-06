@@ -97,12 +97,11 @@ uv sync
 
 📚 **Full documentation is available at [docs.rhesis.ai/penelope](https://docs.rhesis.ai/penelope)**
 
-- [Installation Guide](https://docs.rhesis.ai/penelope/installation) - Detailed setup instructions
-- [Quick Start](https://docs.rhesis.ai/penelope/quick-start) - Get running in minutes
-- [Use Cases](https://docs.rhesis.ai/penelope/use-cases) - Real-world testing scenarios
+- [Getting Started](https://docs.rhesis.ai/penelope/getting-started) - Installation & quick start guide
+- [Examples & Use Cases](https://docs.rhesis.ai/penelope/examples) - Real-world testing scenarios
 - [Configuration](https://docs.rhesis.ai/penelope/configuration) - Advanced options
-- [Architecture](https://docs.rhesis.ai/penelope/architecture) - System design
-- [Custom Tools](https://docs.rhesis.ai/penelope/custom-tools) - Extend Penelope
+- [Execution Trace](https://docs.rhesis.ai/penelope/execution-trace) - Understanding test results
+- [Extending Penelope](https://docs.rhesis.ai/penelope/extending) - Custom tools & targets
 
 ## What Makes Penelope Unique?
 
