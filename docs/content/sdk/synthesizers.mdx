@@ -4,6 +4,10 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 Generate test sets for evaluating LLM applications. Synthesizers use LLMs to create diverse, targeted test cases based on prompts, configurations, or source documents.
 
+<Callout type="info">
+  All synthesizers accept a `model` parameter to customize the LLM used for generation. See [Models](./models) for available options and configuration.
+</Callout>
+
 ## Quick Start
 
 <CodeBlock filename="quick_start.py" language="python">
@@ -16,6 +20,18 @@ test_set = synthesizer.generate(num_tests=10)
 
 for test in test_set.tests:
     print(test.prompt.content)`}
+</CodeBlock>
+
+With a specified model:
+
+<CodeBlock filename="quick_start_gemini.py" language="python">
+{`from rhesis.sdk.synthesizers import PromptSynthesizer
+
+synthesizer = PromptSynthesizer(
+    prompt="Generate tests for a customer support chatbot that handles refund requests",
+    model="gemini/gemini-2.0-flash",
+)
+test_set = synthesizer.generate(num_tests=10)`}
 </CodeBlock>
 
 ## Available Synthesizers
@@ -114,28 +130,6 @@ synthesizer = PromptSynthesizer(
     sources=sources,
 )
 test_set = synthesizer.generate(num_tests=50)`}
-</CodeBlock>
-
-## Custom Models
-
-All synthesizers accept a `model` parameter.
-
-<CodeBlock filename="custom_model.py" language="python">
-{`from rhesis.sdk.synthesizers import PromptSynthesizer
-from rhesis.sdk.models import get_model
-
-# Using model string
-synthesizer = PromptSynthesizer(
-    prompt="Generate safety tests",
-    model="gemini/gemini-2.0-flash",
-)
-
-# Using model instance
-model = get_model("openai/gpt-4o")
-synthesizer = PromptSynthesizer(
-    prompt="Generate safety tests",
-    model=model,
-)`}
 </CodeBlock>
 
 ## Pushing Test Sets to Rhesis
