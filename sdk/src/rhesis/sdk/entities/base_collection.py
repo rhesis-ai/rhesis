@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generic, Optional, Type, TypeVar
+from typing import Any, Generic, Optional, Type, TypeVar
 
 from requests.exceptions import HTTPError
 
@@ -37,14 +37,31 @@ class BaseCollection(Generic[T]):
             method=Methods.GET,
             params=params,
         )
-        return response
 
-    @handle_http_errors
+        # Validate response using Pydantic - automatically filters fields not in the schema
+        validated_instances = [cls.entity_class.model_validate(item) for item in response]
+        return validated_instances
+
     @classmethod
-    def first(cls) -> Optional[Dict[str, Any]]:
-        """Retrieve the first record matching the query parameters."""
-        records = cls.all()
-        return records[0] if records else None
+    @handle_http_errors
+    def first(cls) -> Optional[T]:
+        """Retrieve the first record from the API.
+
+        Returns:
+            The first record, or None if no records found
+        """
+        client = Client()
+
+        response = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.GET,
+            params={"limit": 1},
+        )
+
+        if response and len(response) > 0:
+            # Validate response using Pydantic - automatically filters fields not in the schema
+            return cls.entity_class.model_validate(response[0])
+        return None
 
     @classmethod
     def pull(cls, id: Optional[str] = None, name: Optional[str] = None) -> T:
