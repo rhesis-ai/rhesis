@@ -216,7 +216,7 @@ jobs:
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:latest \
             --project=${{ env.PROJECT_ID }} \
-            --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
+            --vpc-connector=redis-connector${{ env.REGION == 'europe-west4' && '-eu-4' || '' }} \
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
