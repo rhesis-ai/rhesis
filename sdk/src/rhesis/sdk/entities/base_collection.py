@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generic, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 from requests.exceptions import HTTPError
 
@@ -37,14 +37,14 @@ class BaseCollection(Generic[T]):
         return records[0] if records else None
 
     @classmethod
-    def pull(cls, id: Optional[Union[str, int]] = None, name: Optional[str] = None) -> T:
+    def pull(cls, id: Optional[str] = None, name: Optional[str] = None) -> T:
         """Pull entity data from the platform by ID or name.
 
         Either 'id' or 'name' must be provided.
 
         Args:
-            id: The ID of the entity to pull (string or integer)
-            name: The name of the entity to pull
+            id: The ID of the entity to pull
+            name: The name of the entity to pull (case-insensitive)
 
         Returns:
             T: An instance of the entity class
@@ -61,13 +61,15 @@ class BaseCollection(Generic[T]):
             response = client.send_request(
                 endpoint=cls.endpoint,
                 method=Methods.GET,
-                url_params=str(id),
+                url_params=id,
             )
         else:
+            # name is guaranteed to be not None here due to the check above
+            assert name is not None
             response = client.send_request(
                 endpoint=cls.endpoint,
                 method=Methods.GET,
-                params={"$filter": f"name eq '{name}'"},
+                params={"$filter": f"tolower(name) eq '{name.lower()}'"},
             )
             if isinstance(response, list):
                 if len(response) == 0:
@@ -92,14 +94,14 @@ class BaseCollection(Generic[T]):
         return validated_instance
 
     @classmethod
-    def exists(cls, id: Union[str, int]) -> bool:
+    def exists(cls, id: str) -> bool:
         """Check if an entity exists."""
         client = Client()
         try:
             response = client.send_request(
                 endpoint=cls.endpoint,
                 method=Methods.GET,
-                url_params=str(id),
+                url_params=id,
             )
             return response is not None
         except HTTPError as e:
