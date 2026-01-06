@@ -19,13 +19,23 @@ class BaseCollection(Generic[T]):
     entity_class: Type[T]
 
     @classmethod
-    def all(cls) -> Optional[list[Any]]:
-        """Retrieve all records from the API for the given endpoint."""
+    def all(cls, filter: Optional[str] = None) -> Optional[list[Any]]:
+        """Retrieve all records from the API for the given endpoint.
+
+        Args:
+            filter: Optional OData filter string to filter results
+                   (e.g., "tolower(name) eq 'test'" or "status eq 'active'")
+
+        Returns:
+            List of records matching the filter, or all records if no filter is provided
+        """
         client = Client()
 
+        params = {"$filter": filter} if filter else None
         response = client.send_request(
             endpoint=cls.endpoint,
             method=Methods.GET,
+            params=params,
         )
         return response
 
