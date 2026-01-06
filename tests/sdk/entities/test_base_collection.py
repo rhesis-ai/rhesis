@@ -98,5 +98,5 @@ def test_pull_with_name(mock_request):
             "Content-Type": "application/json",
         },
         json=None,
-        params={"$filter": "name eq 'test-entity'"},
+        params={"$filter": "tolower(name) eq 'test-entity'"},
     )
