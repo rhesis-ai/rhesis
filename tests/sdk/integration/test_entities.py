@@ -241,6 +241,7 @@ def test_endpoint(db_cleanup):
         description="Test Endpoint Description",
         connection_type="REST",
         url="https://api.example.com/test",
+        project_id="12340000-0000-4000-8000-000000001234",
     )
 
     result = endpoint.push()
@@ -258,6 +259,7 @@ def test_endpoint_push_pull(db_cleanup):
         description="Test push pull endpoint description",
         connection_type="REST",
         url="https://api.example.com/push-pull",
+        project_id="12340000-0000-4000-8000-000000001234",
     )
     endpoint.push()
 
@@ -275,6 +277,7 @@ def test_endpoint_delete(db_cleanup):
         description="Test endpoint to delete description",
         connection_type="REST",
         url="https://api.example.com/delete",
+        project_id="12340000-0000-4000-8000-000000001234",
     )
 
     endpoint.push()
@@ -296,6 +299,7 @@ def test_test_run(db_cleanup):
         description="Test Endpoint Description",
         connection_type="REST",
         url="https://example.com/api",
+        project_id="12340000-0000-4000-8000-000000001234",
     )
     endpoint.push()
 
@@ -325,6 +329,7 @@ def test_test_run_push_pull(db_cleanup):
         description="Test Endpoint Description",
         connection_type="REST",
         url="https://example.com/api",
+        project_id="12340000-0000-4000-8000-000000001234",
     )
     endpoint.push()
 
@@ -354,6 +359,7 @@ def test_test_run_delete(db_cleanup):
         description="Test Endpoint Description",
         connection_type="REST",
         url="https://example.com/api",
+        project_id="12340000-0000-4000-8000-000000001234",
     )
     endpoint.push()
 

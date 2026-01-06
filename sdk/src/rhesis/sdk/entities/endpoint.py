@@ -1,9 +1,19 @@
+from enum import Enum
 from typing import Any, ClassVar, Dict, Optional
 
 from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 
 ENDPOINT = Endpoints.ENDPOINTS
+
+
+class ConnectionType(str, Enum):
+    """Connection type enum matching backend EndpointConnectionType."""
+
+    REST = "REST"
+    WEBSOCKET = "WebSocket"
+    GRPC = "GRPC"
+    SDK = "SDK"
 
 
 class Endpoint(BaseEntity):
@@ -32,8 +42,10 @@ class Endpoint(BaseEntity):
     endpoint: ClassVar[Endpoints] = ENDPOINT
     name: Optional[str] = None
     description: Optional[str] = None
-    connection_type: Optional[str] = None
+    # Required field - must be one of: "REST", "WebSocket", "GRPC", "SDK"
+    connection_type: Optional[ConnectionType] = None
     url: Optional[str] = None
+    project_id: Optional[str] = None
     id: Optional[str] = None
 
     @handle_http_errors

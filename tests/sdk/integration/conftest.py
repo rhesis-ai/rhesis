@@ -94,7 +94,7 @@ def setup_test_data() -> None:
         conn.autocommit = False
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Execute the SQL query
+        # Execute the SQL query to create organization, user, token, and project
         sql = """
         -- Create organization and user
         WITH new_org AS (
@@ -106,20 +106,33 @@ def setup_test_data() -> None:
             INSERT INTO "user" (email, organization_id)
             SELECT 'test@example.com', id FROM new_org
             RETURNING id, organization_id
+        ),
+        new_token AS (
+            INSERT INTO token (
+                token,
+                token_hash,
+                token_type,
+                user_id
+            )
+            SELECT
+                %(token_value)s,
+                %(token_hash)s,
+                'bearer',
+                new_user.id
+            FROM new_user
+            RETURNING user_id
         )
-        -- Create token
-        INSERT INTO token (
-            token,
-            token_hash,
-            token_type,
-            user_id
-        )
+        -- Create project with specific ID "1234"
+        INSERT INTO project (id, name, description, organization_id, user_id, owner_id)
         SELECT
-            %(token_value)s,
-            %(token_hash)s,
-            'bearer',
+            '12340000-0000-4000-8000-000000001234'::uuid,
+            'Test Project',
+            'Test project for integration tests',
+            new_user.organization_id,
+            new_user.id,
             new_user.id
-        FROM new_user;
+        FROM new_user
+        ON CONFLICT (id) DO NOTHING;
         """
 
         cur.execute(sql, {"token_value": TOKEN_VALUE, "token_hash": TOKEN_HASH})
@@ -136,6 +149,8 @@ def setup_test_data() -> None:
         print(f"{GREEN}════════════════════════════════════════════════{NC}")
         print(f"{CYAN}{TOKEN_VALUE}{NC}")
         print(f"{GREEN}════════════════════════════════════════════════{NC}")
+        print()
+        print(f"{GREEN}✅ Test project created with ID: 12340000-0000-0000-0000-000000001234{NC}")
         print()
 
         print(f"{GREEN}✅ Test data setup completed{NC}")
