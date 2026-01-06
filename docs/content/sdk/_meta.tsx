@@ -3,6 +3,7 @@ import type { MetaRecord } from "nextra";
 const meta: MetaRecord = {
   installation: "Installation & Setup",
   models: "Models",
+  synthesizers: "Synthesizers",
   metrics: "Metrics",
   connector: "Connector",
 };
