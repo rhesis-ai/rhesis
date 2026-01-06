@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generic, Optional, Type, TypeVar
+from typing import Any, Dict, Generic, Optional, Type, TypeVar, Union
 
 from requests.exceptions import HTTPError
 
@@ -37,27 +37,69 @@ class BaseCollection(Generic[T]):
         return records[0] if records else None
 
     @classmethod
-    def pull(cls, record_id: str) -> T:
-        """Pull entity data from the platform and return an instance of the entity class."""
+    def pull(cls, id: Optional[Union[str, int]] = None, name: Optional[str] = None) -> T:
+        """Pull entity data from the platform by ID or name.
+
+        Either 'id' or 'name' must be provided.
+
+        Args:
+            id: The ID of the entity to pull (string or integer)
+            name: The name of the entity to pull
+
+        Returns:
+            T: An instance of the entity class
+
+        Raises:
+            ValueError: If neither id nor name is provided, or if name matches multiple entities
+        """
+        if not id and not name:
+            raise ValueError("Either id or name must be provided")
+
         client = Client()
-        response = client.send_request(
-            endpoint=cls.endpoint,
-            method=Methods.GET,
-            url_params=record_id,
-        )
-        # Validate response using Pydantic - automatically filters fields not in schema
+
+        if id:
+            response = client.send_request(
+                endpoint=cls.endpoint,
+                method=Methods.GET,
+                url_params=str(id),
+            )
+        else:
+            response = client.send_request(
+                endpoint=cls.endpoint,
+                method=Methods.GET,
+                params={"$filter": f"name eq '{name}'"},
+            )
+            if isinstance(response, list):
+                if len(response) == 0:
+                    raise ValueError(f"No entity found with name '{name}'")
+                if len(response) > 1:
+                    # Extract IDs from the matching entities to help the user
+                    matching_ids = [item.get("id") for item in response if "id" in item]
+                    ids_message = (
+                        f" Matching entity IDs: {', '.join(map(str, matching_ids))}"
+                        if matching_ids
+                        else ""
+                    )
+                    raise ValueError(
+                        f"More than one entity found with name '{name}'. "
+                        f"Entity names must be unique. "
+                        f"Please use the entity id instead.{ids_message}"
+                    )
+                response = response[0]
+
+        # Validate response using Pydantic - automatically filters fields not in the schema
         validated_instance = cls.entity_class.model_validate(response)
         return validated_instance
 
     @classmethod
-    def exists(cls, record_id: str) -> bool:
+    def exists(cls, id: Union[str, int]) -> bool:
         """Check if an entity exists."""
         client = Client()
         try:
             response = client.send_request(
                 endpoint=cls.endpoint,
                 method=Methods.GET,
-                url_params=record_id,
+                url_params=str(id),
             )
             return response is not None
         except HTTPError as e:
