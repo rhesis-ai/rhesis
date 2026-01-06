@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientFactory
@@ -97,9 +98,15 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
         Tuple of (MCPClient, provider_name) ready to use
 
     Raises:
-        MCPConfigurationError: If tool not found, not an MCP integration, or invalid credentials
+        MCPConfigurationError: If tool not found, deleted, not an MCP integration,
+            or invalid credentials
     """
-    tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
+    try:
+        tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
+    except ItemDeletedException:
+        raise MCPConfigurationError(
+            f"Tool '{tool_id}' has been deleted. Please re-import the source."
+        )
 
     if not tool:
         raise MCPConfigurationError(

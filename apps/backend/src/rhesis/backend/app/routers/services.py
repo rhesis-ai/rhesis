@@ -53,6 +53,7 @@ from rhesis.backend.app.services.mcp_service import (
 )
 from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.extractor import DocumentExtractor
 
@@ -740,6 +741,16 @@ async def test_mcp_connection(
             user_id=user_id,
         )
         return result
+    except ItemDeletedException as e:
+        # Handle deleted tool specifically - return 404 with clear message
+        logger.warning(f"MCP tool has been deleted: {e}")
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "The MCP tool associated with this source has been deleted. "
+                "Please re-import the source."
+            ),
+        )
     except ValueError as e:
         logger.warning(f"Invalid request for MCP connection test: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))

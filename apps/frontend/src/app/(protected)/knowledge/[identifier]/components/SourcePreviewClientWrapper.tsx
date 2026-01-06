@@ -76,6 +76,7 @@ export default function SourcePreviewClientWrapper({
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isConnectionInvalid, setIsConnectionInvalid] = useState(false);
   const router = useRouter();
 
   // Refs for uncontrolled text fields
@@ -193,7 +194,7 @@ export default function SourcePreviewClientWrapper({
       const servicesClient = clientFactory.getServicesClient();
       const sourcesClient = clientFactory.getSourcesClient();
 
-      // Extract content from MCP
+      // Extract content from MCP (will fail with 404 if tool is deleted)
       const extractOptions: { url?: string; id?: string } = {};
       if (mcpUrl) {
         extractOptions.url = mcpUrl;
@@ -205,6 +206,9 @@ export default function SourcePreviewClientWrapper({
         extractOptions,
         mcpToolId
       );
+
+      // Connection is valid, reset invalid state
+      setIsConnectionInvalid(false);
 
       // Update source with new content
       await sourcesClient.updateSource(localSource.id, {
@@ -226,21 +230,23 @@ export default function SourcePreviewClientWrapper({
         autoHideDuration: 2000,
       });
     } catch (error: any) {
-      // Handle 404 specifically (item not found)
-      if (
-        error?.status === 404 ||
-        (typeof error?.data?.detail === 'string' &&
-          error.data.detail.includes('404')) ||
-        error?.message?.includes('404')
-      ) {
-        const linkUrl = metadata.url || 'the link';
-        notifications.show(
-          `The source link (${linkUrl}) no longer works. The item may have been deleted or moved.`,
-          {
-            severity: 'error',
-            autoHideDuration: 5000,
-          }
-        );
+      // Handle errors (404 for deleted tool, or other failures)
+      const is404Error = error?.status === 404;
+      const backendMessage = error?.data?.detail || '';
+      const isDeletedToolError =
+        is404Error && backendMessage.includes('has been deleted');
+
+      if (is404Error || isDeletedToolError) {
+        setIsConnectionInvalid(true);
+        // Show user-friendly message for deleted tools, keeping backend message for debugging
+        const userFriendlyMessage = isDeletedToolError
+          ? 'The MCP tool associated with this source is no longer available. Please re-import the source.'
+          : backendMessage ||
+            'The MCP tool associated with this source is no longer available. Please re-import the source.';
+        notifications.show(userFriendlyMessage, {
+          severity: 'error',
+          autoHideDuration: 5000,
+        });
       } else {
         // Handle other errors normally
         const errorMessage =
@@ -577,7 +583,7 @@ export default function SourcePreviewClientWrapper({
                         onClick={handleUpdateFromMCP}
                         variant="outlined"
                         size="small"
-                        disabled={isUpdating}
+                        disabled={isUpdating || isConnectionInvalid}
                         sx={{
                           color: theme.palette.text.secondary,
                           borderColor: theme.palette.divider,
