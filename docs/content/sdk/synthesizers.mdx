@@ -1,0 +1,172 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Synthesizers
+
+Generate test sets for evaluating LLM applications. Synthesizers use LLMs to create diverse, targeted test cases based on prompts, configurations, or source documents.
+
+## Quick Start
+
+<CodeBlock filename="quick_start.py" language="python">
+{`from rhesis.sdk.synthesizers import PromptSynthesizer
+
+synthesizer = PromptSynthesizer(
+    prompt="Generate tests for a customer support chatbot that handles refund requests"
+)
+test_set = synthesizer.generate(num_tests=10)
+
+for test in test_set.tests:
+    print(test.prompt.content)`}
+</CodeBlock>
+
+## Available Synthesizers
+
+### PromptSynthesizer
+
+The simplest option. Provide a prompt describing what to test. When no model is provided, the default Rhesis model is used.
+
+<CodeBlock filename="prompt_synthesizer.py" language="python">
+{`from rhesis.sdk.synthesizers import PromptSynthesizer
+
+synthesizer = PromptSynthesizer(
+    prompt="Generate adversarial tests for a medical advice chatbot",
+)
+test_set = synthesizer.generate(num_tests=20)`}
+</CodeBlock>
+
+### Synthesizer
+
+Full control over generation with behaviors, categories, and topics.
+
+<CodeBlock filename="synthesizer.py" language="python">
+{`from rhesis.sdk.synthesizers import Synthesizer
+
+synthesizer = Synthesizer(
+    prompt="Test an insurance claims assistant",
+    behaviors=["helpful", "refuses harmful requests", "admits uncertainty"],
+    categories=["auto claims", "home claims", "policy questions"],
+    topics=["coverage limits", "deductibles", "filing process"],
+)
+test_set = synthesizer.generate(num_tests=30)`}
+</CodeBlock>
+
+### ConfigSynthesizer
+
+Use a configuration object for reusable test generation settings.
+
+<CodeBlock filename="config_synthesizer.py" language="python">
+{`from rhesis.sdk.synthesizers import ConfigSynthesizer, GenerationConfig
+
+config = GenerationConfig(
+    generation_prompt="Test a legal document assistant",
+    behaviors=["accurate", "cites sources"],
+    categories=["contracts", "compliance"],
+    topics=["liability clauses", "termination terms"],
+    additional_context="The assistant serves corporate lawyers",
+)
+
+synthesizer = ConfigSynthesizer(config=config)
+test_set = synthesizer.generate(num_tests=15)`}
+</CodeBlock>
+
+### ContextSynthesizer
+
+Generate tests grounded in specific context provided at runtime.
+
+<CodeBlock filename="context_synthesizer.py" language="python">
+{`from rhesis.sdk.synthesizers import ContextSynthesizer
+
+synthesizer = ContextSynthesizer(
+    prompt="Generate questions a user might ask about this product"
+)
+
+product_description = """
+The XR-500 is a wireless noise-canceling headphone with 40-hour battery life,
+Bluetooth 5.2, and active noise cancellation with transparency mode.
+"""
+
+test_set = synthesizer.generate(num_tests=10, context=product_description)`}
+</CodeBlock>
+
+
+## Using Source Documents
+
+Synthesizers can extract content from documents to generate contextually relevant tests.
+
+<CodeBlock filename="with_sources.py" language="python">
+{`from rhesis.sdk.services.extractor import SourceSpecification, SourceType
+from rhesis.sdk.synthesizers import PromptSynthesizer
+
+sources = [
+    SourceSpecification(
+        type=SourceType.WEBSITE,
+        name="API Docs",
+        metadata={"url": "https://example.com/docs/api-reference"},
+    ),
+    SourceSpecification(
+        type=SourceType.DOCUMENT,
+        name="Knowledge Base",
+        metadata={"path": "./knowledge_base.pdf"},
+    ),
+]
+
+synthesizer = PromptSynthesizer(
+    prompt="Generate tests based on the provided documentation",
+    sources=sources,
+)
+test_set = synthesizer.generate(num_tests=50)`}
+</CodeBlock>
+
+## Custom Models
+
+All synthesizers accept a `model` parameter.
+
+<CodeBlock filename="custom_model.py" language="python">
+{`from rhesis.sdk.synthesizers import PromptSynthesizer
+from rhesis.sdk.models import get_model
+
+# Using model string
+synthesizer = PromptSynthesizer(
+    prompt="Generate safety tests",
+    model="gemini/gemini-2.0-flash",
+)
+
+# Using model instance
+model = get_model("openai/gpt-4o")
+synthesizer = PromptSynthesizer(
+    prompt="Generate safety tests",
+    model=model,
+)`}
+</CodeBlock>
+
+## Pushing Test Sets to Rhesis
+
+Push generated test sets to the Rhesis platform for analysis, tracking, and collaboration.
+
+**Requirements:** A Rhesis account and API key. Set your credentials via environment variables or configuration.
+
+Call `test_set.push()` to upload. Your test set will appear in **Testing** → **Test Sets**. 
+
+<CodeBlock filename="push_test_set.py" language="python">
+{`import os
+
+from rhesis.sdk.synthesizers import PromptSynthesizer
+
+os.environ["RHESIS_BASE_URL"] = "https://api.rhesis.ai"
+os.environ["RHESIS_API_KEY"] = "YOUR_API_KEY"
+
+synthesizer = PromptSynthesizer(
+    prompt="Generate safety tests",
+)
+test_set = synthesizer.generate(num_tests=10)
+
+test_set.push()
+`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next Steps** - Learn about [Models](./models) to configure LLMs for generation
+  - Use [Metrics](./metrics) to evaluate generated test results
+</Callout>
+
