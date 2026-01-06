@@ -249,10 +249,12 @@ export default function SourcePreviewClientWrapper({
         });
       } else {
         // Handle other errors normally
+        // Use error.data.detail (backend message) instead of error.message
+        // (which includes "API error: 503 -" prefix)
         const errorMessage =
-          error instanceof Error
-            ? error.message
-            : error?.data?.detail || 'Failed to update source from MCP';
+          error?.data?.detail ||
+          (error instanceof Error ? error.message : 'Failed to update source from MCP');
+
         notifications.show(errorMessage, {
           severity: 'error',
           autoHideDuration: 3000,
