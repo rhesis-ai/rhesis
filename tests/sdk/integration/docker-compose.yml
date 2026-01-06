@@ -10,10 +10,15 @@ x-database-config: &database-config
   SQLALCHEMY_DB_HOST: postgres
   DB_ENCRYPTION_KEY: Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=
 
+x-redis-config: &redis-config
+  REDIS_URL: redis://:rhesis-redis-pass@redis:6379/0
+  BROKER_URL: redis://:rhesis-redis-pass@redis:6379/0
+  CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@redis:6379/1
+
 x-backend-config: &backend-config
   JWT_SECRET_KEY: your-jwt-secret-key
   LOG_LEVEL: DEBUG
-
+ 
 services:
   # PostgreSQL Database
   postgres:
@@ -34,6 +39,23 @@ services:
       - rhesis-network
     env_file: []
 
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    container_name: rhesis-redis-test
+    command: redis-server --requirepass rhesis-redis-pass
+    ports:
+      - "10002:6379"
+    environment:
+      - REDIS_PASSWORD=rhesis-redis-pass
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "rhesis-redis-pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rhesis-network
+
   # Backend API
   backend:
     build:
@@ -41,11 +63,13 @@ services:
       dockerfile: apps/backend/Dockerfile.dev
     container_name: rhesis-backend-test
     environment:
-      <<: [*database-config, *backend-config]
+      <<: [*database-config, *redis-config, *backend-config]
     ports:
       - "10001:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - rhesis-network
