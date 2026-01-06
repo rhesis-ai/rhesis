@@ -306,6 +306,6 @@ playground/*
 # K8s files
 infrastructure/k8s/manifests/secrets/*
 infrastructure/k8s/manifests/configmaps/*
-# Exclude example files
+# Exclude example files dsfd
 !infrastructure/k8s/manifests/secrets/rhesis-secrets.yaml.example
 !infrastructure/k8s/manifests/configmaps/rhesis-config.yaml.example
