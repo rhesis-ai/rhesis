@@ -97,8 +97,13 @@ class ResponseGenerator:
         # Add conversation history if provided
         if conversation_history:
             for msg in conversation_history:
-                role = "User" if msg["role"] == "user" else "Assistant"
-                full_prompt += f"{role}: {msg['content']}\n\n"
+                if isinstance(msg, dict):
+                    role = "User" if msg.get("role") == "user" else "Assistant"
+                    content = msg.get("content", "")
+                    full_prompt += f"{role}: {content}\n\n"
+                elif isinstance(msg, str):
+                    # If it's a string, treat it as user message
+                    full_prompt += f"User: {msg}\n\n"
 
         # Add current prompt
         full_prompt += f"User: {prompt}\n\nAssistant:"
@@ -152,7 +157,7 @@ class ResponseGenerator:
             yield content
 
         except Exception as e:
-            logger.error(f"Error in stream_assistant_response: {str(e)}")
+            logger.error(f"Error in stream_assistant_response: {str(e)}", exc_info=True)
             yield (
                 "I apologize, but I couldn't process your request at this time "
                 "due to an unexpected error."
