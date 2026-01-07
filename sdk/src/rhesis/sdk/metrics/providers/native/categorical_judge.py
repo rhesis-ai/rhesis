@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import create_model
 
-from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
 from rhesis.sdk.metrics.providers.native.configs import CategoricalJudgeConfig
 from rhesis.sdk.models.base import BaseLLM
@@ -31,7 +31,11 @@ class CategoricalJudge(JudgeBase):
         model: Optional[Union[BaseLLM, str]] = None,
         requires_ground_truth: bool = True,
         requires_context: bool = False,
+        metric_scope: Optional[List[Union[str, "MetricScope"]]] = None,
     ):
+        # Set default metric_scope to both Single-Turn and Multi-Turn if not provided
+        if metric_scope is None:
+            metric_scope = [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN]
         """
         Initialize the categorical prompt metric.
 
@@ -49,7 +53,13 @@ class CategoricalJudge(JudgeBase):
                 Defaults to empty string.
             model (Optional[str], optional): The LLM model to use for evaluation.
                 If None, uses the default model. Defaults to None.
-            **kwargs: Additional keyword arguments passed to the base class
+            requires_ground_truth (bool, optional): Whether this metric requires ground truth
+                for evaluation. Defaults to True.
+            requires_context (bool, optional): Whether this metric requires context chunks
+                for evaluation. Defaults to False.
+            metric_scope (Optional[List[Union[str, MetricScope]]], optional): Scope(s) where
+                this metric applies. Can be ["Single-Turn"], ["Multi-Turn"], or both.
+                Defaults to both Single-Turn and Multi-Turn if not specified.
 
         Raises:
             ValueError: If categories has fewer than 2 items
@@ -70,6 +80,7 @@ class CategoricalJudge(JudgeBase):
             metric_type=METRIC_TYPE,
             requires_ground_truth=requires_ground_truth,
             requires_context=requires_context,
+            metric_scope=metric_scope,
             class_name=self.__class__.__name__,
         )
 

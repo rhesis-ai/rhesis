@@ -61,6 +61,9 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
                 If None, defaults to midpoint between min_score and max_score. Defaults to None.
             threshold_operator (Union[ThresholdOperator, str], optional): Operator for comparing
                 score to threshold. Can be a ThresholdOperator enum or string. Defaults to None.
+            metric_scope (Optional[List[Union[str, MetricScope]]], optional): Scope(s) where
+                this metric applies. Can be ["Single-Turn"], ["Multi-Turn"], or both.
+                Defaults to both Single-Turn and Multi-Turn if not specified.
             model (Optional[str], optional): The LLM model to use for evaluation.
                 If None, uses the default model. Defaults to None.
             **kwargs: Additional keyword arguments passed to the base class
@@ -70,6 +73,10 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
             ValueError: If threshold is outside the [min_score, max_score] range
             ValueError: If threshold_operator string is invalid
         """
+        # Set default metric_scope to both Single-Turn and Multi-Turn if not provided
+        if metric_scope is None:
+            metric_scope = [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN]
+
         self.config = NumericJudgeConfig(
             evaluation_prompt=evaluation_prompt,
             evaluation_steps=evaluation_steps,
