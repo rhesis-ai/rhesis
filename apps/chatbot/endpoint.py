@@ -491,10 +491,10 @@ def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
         "use_case": "{{ use_case | default('insurance') }}",
     },
     response_mapping={
-        "output": "{{ intent }}",
+        "output": "{{ result.intent }}",
         "metadata": {
-            "confidence": "{{ confidence }}",
-            "intent": "{{ intent }}",
+            "confidence": "{{ result.confidence }}",
+            "intent": "{{ result.intent }}",
         },
     },
 )
