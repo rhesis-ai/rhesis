@@ -487,15 +487,12 @@ def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
     name="recognize_intent",
     description="Classify user intent from a prompt",
     request_mapping={
-        "prompt": "{{ input }}",
+        "prompt": "{{ prompt }}",
         "use_case": "{{ use_case | default('insurance') }}",
     },
     response_mapping={
-        "output": "{{ result.intent }}",
-        "metadata": {
-            "confidence": "{{ result.confidence }}",
-            "intent": "{{ result.intent }}",
-        },
+        "output": "{{ intent }}",
+        "metadata": "{{ {'intent': intent, 'confidence': confidence} | tojson }}",
     },
 )
 def recognize_intent_endpoint(prompt: str, use_case: str = "insurance") -> dict:
