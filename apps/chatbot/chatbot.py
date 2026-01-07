@@ -2,11 +2,8 @@ import streamlit as st
 from endpoint import stream_assistant_response
 
 # Must be the first Streamlit command
-st.set_page_config(
-    page_title="Insurance Assistant",
-    page_icon="👩‍💼",
-    layout="centered"
-)
+st.set_page_config(page_title="Insurance Assistant", page_icon="👩‍💼", layout="centered")
+
 
 def display_welcome_message(container):
     container.markdown("###  Welcome to your Insurance Assistant!")
@@ -18,6 +15,7 @@ def display_welcome_message(container):
         - Insurance terminology
     """)
 
+
 def display_example_buttons(container):
     container.markdown("### Try asking:")
     # Container for example buttons to isolate their column layout
@@ -27,7 +25,9 @@ def display_example_buttons(container):
             if st.button("What business cover do I need?", key="btn1"):
                 st.session_state.prompt = "What insurance do I need for my business?"
             if st.button("What is term life insurance?", key="btn4"):
-                st.session_state.prompt = "What's the difference between term and whole life insurance?"
+                st.session_state.prompt = (
+                    "What's the difference between term and whole life insurance?"
+                )
         with col2:
             if st.button("How do I claim insurance?", key="btn2"):
                 st.session_state.prompt = "How do I file an insurance claim?"
@@ -38,6 +38,7 @@ def display_example_buttons(container):
                 st.session_state.prompt = "How much home insurance coverage do I need?"
             if st.button("What affects car insurance?", key="btn6"):
                 st.session_state.prompt = "What affects my car insurance rates?"
+
 
 def main():
     # Initialize session state variables
@@ -76,41 +77,43 @@ def main():
 
     # Chat input at the bottom
     user_input = st.chat_input("Ask me anything about insurance!")
-    
+
     # Handle both button clicks and direct input
     if user_input:
         st.session_state.prompt = user_input
-    
+
     # Process any new message (from input or button)
     if st.session_state.prompt:
         prompt = st.session_state.prompt
         st.session_state.prompt = None  # Clear the prompt after using it
-        
+
         # Display user message and add to history
         with st.chat_message("user", avatar="🧑"):
             st.write(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
-        
+
         # Get and display AI response, then add to history
         with st.chat_message("assistant", avatar="👩‍💼"):
             message_placeholder = st.empty()
             full_response = ""
-            
+
             # Show loading spinner before streaming starts
             with st.spinner("Thinking..."):
                 # Get first chunk to ensure connection is established
                 try:
                     # Pass conversation history (excluding the current user message we just added)
                     conversation_history = st.session_state.messages[:-1]
-                    stream = stream_assistant_response(prompt, conversation_history=conversation_history)
+                    stream = stream_assistant_response(
+                        prompt, conversation_history=conversation_history
+                    )
                     first_chunk = next(stream)
                     full_response = first_chunk
                 except StopIteration:
                     full_response = "I apologize, but I couldn't generate a response at this time."
-            
+
             # Display first chunk
             message_placeholder.markdown(full_response + "▌")
-            
+
             # Continue streaming remaining chunks
             try:
                 for chunk in stream:
@@ -118,12 +121,13 @@ def main():
                     message_placeholder.markdown(full_response + "▌")
             except:
                 pass
-            
+
             # Display final response without cursor
             message_placeholder.markdown(full_response)
-            
+
             # Add assistant message to history after streaming is complete
             st.session_state.messages.append({"role": "assistant", "content": full_response})
 
+
 if __name__ == "__main__":
-    main() 
+    main()
