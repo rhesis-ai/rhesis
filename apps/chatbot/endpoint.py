@@ -2,11 +2,12 @@ import json
 import logging
 import os
 import re
-from typing import Generator, List
+from typing import Generator, List, Literal
 
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 
-from rhesis.sdk import RhesisClient, observe
+from rhesis.sdk import RhesisClient, endpoint, observe
 from rhesis.sdk.models.factory import get_model
 
 # Configure logging
@@ -33,6 +34,17 @@ MAX_RETRY_DELAY = 10  # seconds
 # Model configuration - uses SDK providers approach
 DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "vertex_ai")
 DEFAULT_MODEL_NAME = os.getenv("DEFAULT_MODEL_NAME", "gemini-2.5-flash")
+
+
+class IntentClassification(BaseModel):
+    """Schema for intent classification result."""
+
+    intent: Literal["informational", "transactional", "support", "complaint"] = Field(
+        description="The classified intent category"
+    )
+    confidence: Literal["high", "medium", "low"] = Field(
+        description="Confidence level of the classification"
+    )
 
 
 def get_llm_model():
@@ -282,6 +294,120 @@ class ResponseGenerator:
             f"Common questions about {prompt}",
         ]
 
+    @observe()
+    def _build_intent_classification_prompt(self, prompt: str) -> str:
+        """Build the prompt for intent classification."""
+        classification_system_prompt = """
+You are an intent classification system. Your task is to classify user prompts
+into one of four categories.
+
+**Intent Categories:**
+
+1. **informational** - User is seeking information or knowledge
+   Examples:
+   - "How does homeowner's insurance work?"
+   - "What is comprehensive coverage?"
+   - "Can you explain deductibles?"
+
+2. **transactional** - User wants to perform an action or complete a transaction
+   Examples:
+   - "I want to file a claim"
+   - "Please update my policy"
+   - "Can you help me purchase additional coverage?"
+
+3. **support** - User needs help with a problem or technical issue
+   Examples:
+   - "I'm having trouble logging into my account"
+   - "I need help understanding my bill"
+   - "My claim status isn't showing correctly"
+
+4. **complaint** - User is expressing dissatisfaction or frustration
+   Examples:
+   - "My claim has been pending for too long"
+   - "I'm not satisfied with the service"
+   - "This process is too complicated"
+
+**Instructions:**
+- Analyze the user's prompt carefully
+- Choose the most appropriate category: informational, transactional, support, or complaint
+- Assess confidence: high (clear intent), medium (somewhat ambiguous), low (very ambiguous)
+"""
+
+        full_prompt = f"{classification_system_prompt}\n\nClassify this user prompt: {prompt}"
+        return full_prompt
+
+    @observe.llm(
+        provider=DEFAULT_GENERATION_MODEL,
+        model=DEFAULT_MODEL_NAME,
+        purpose="intent_classification",
+    )
+    def _classify_intent_llm(self, full_prompt: str) -> IntentClassification:
+        """Invoke LLM to classify intent with structured output."""
+        response = self.model.generate(full_prompt, schema=IntentClassification)
+        return response
+
+    @observe()
+    def recognize_intent(self, prompt: str) -> dict:
+        """Recognize intent from a user prompt.
+
+        Args:
+            prompt: User's message/prompt to classify
+
+        Returns:
+            Dict with intent and confidence
+        """
+        try:
+            # Build classification prompt
+            full_prompt = self._build_intent_classification_prompt(prompt)
+
+            # Invoke LLM for intent classification with Pydantic schema
+            intent_result = self._classify_intent_llm(full_prompt)
+
+            # Convert Pydantic model to dict
+            if isinstance(intent_result, IntentClassification):
+                return intent_result.model_dump()
+            elif isinstance(intent_result, dict):
+                return intent_result
+            else:
+                # Fallback parsing if structured output not supported
+                return self._parse_intent_fallback(str(intent_result))
+
+        except Exception as e:
+            logger.error(f"Error in recognize_intent: {str(e)}")
+            # Return default intent on error
+            return {"intent": "informational", "confidence": "low"}
+
+    @observe()
+    def _parse_intent_fallback(self, text: str) -> dict:
+        """Fallback parser for intent classification response."""
+        # Try to parse as JSON
+        try:
+            intent_data = json.loads(text)
+            if "intent" in intent_data:
+                return {
+                    "intent": intent_data.get("intent", "informational"),
+                    "confidence": intent_data.get("confidence", "low"),
+                }
+        except json.JSONDecodeError:
+            pass
+
+        # Try to extract JSON using regex
+        try:
+            json_match = re.search(r'(\{.*"intent"\s*:\s*"[^"]*".*\})', text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+                intent_data = json.loads(json_str)
+                return {
+                    "intent": intent_data.get("intent", "informational"),
+                    "confidence": intent_data.get("confidence", "low"),
+                }
+        except Exception:
+            pass
+
+        # If all parsing fails, return default
+        logger.warning(f"Failed to parse intent response: {text[:100]}")
+        return {"intent": "informational", "confidence": "low"}
+
 
 def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
     """Get a ResponseGenerator instance for the specified use case."""
@@ -355,3 +481,56 @@ def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
     """Generate context fragments for a prompt."""
     response_generator = get_response_generator(use_case)
     return response_generator.generate_context(prompt)
+
+
+@endpoint(
+    name="recognize_intent",
+    description="Classify user intent from a prompt",
+    request_mapping={
+        "prompt": "{{ input }}",
+        "use_case": "{{ use_case | default('insurance') }}",
+    },
+    response_mapping={
+        "output": "{{ intent }}",
+        "metadata": {
+            "confidence": "{{ confidence }}",
+            "intent": "{{ intent }}",
+        },
+    },
+)
+def recognize_intent_endpoint(prompt: str, use_case: str = "insurance") -> dict:
+    """
+    Standalone SDK endpoint for testing intent recognition.
+
+    Args:
+        prompt: User's message/prompt to classify
+        use_case: Use case for context (default: "insurance")
+
+    Returns:
+        Intent classification result with intent and confidence
+    """
+    logger.info("=" * 80)
+    logger.info("🔵 INTENT RECOGNITION ENDPOINT")
+    logger.info(f"Prompt: {prompt}")
+    logger.info(f"Use case: {use_case}")
+    logger.info("=" * 80)
+
+    try:
+        response_generator = get_response_generator(use_case)
+        logger.info("Response generator created successfully")
+
+        result = response_generator.recognize_intent(prompt)
+
+        logger.info(f"✅ Intent recognized: {result}")
+        logger.info("=" * 80)
+
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ Error during intent recognition: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.info("=" * 80)
+        raise
