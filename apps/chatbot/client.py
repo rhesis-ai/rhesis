@@ -331,6 +331,21 @@ class ChatResponse(BaseModel):
 @endpoint(
     name="chat",
     description="Chat with the insurance assistant",
+    request_mapping={
+        "message": "{{ input }}",
+        "session_id": "{{ session_id }}",
+        "use_case": "{{ use_case | default('insurance') }}",
+        "conversation_history": "{{ conversation_history | default([]) }}",
+    },
+    response_mapping={
+        "output": "{{ result.message }}",
+        "metadata": {
+            "session_id": "{{ result.session_id }}",
+            "use_case": "{{ result.use_case }}",
+            "intent": "{{ result.intent }}",
+            "context": "{{ result.context }}",
+        },
+    },
 )
 def chat(
     message: str,
