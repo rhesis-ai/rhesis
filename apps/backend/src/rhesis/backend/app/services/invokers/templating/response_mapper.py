@@ -92,7 +92,44 @@ class ResponseMapper:
         if "context" in result and result["context"] is not None:
             result["context"] = self._normalize_context_field(result["context"])
 
+        # Post-process metadata field: parse JSON string to object if needed
+        if "metadata" in result and result["metadata"] is not None:
+            result["metadata"] = self._parse_metadata_field(result["metadata"])
+
         return result
+
+    def _parse_metadata_field(self, metadata_value: Any) -> Any:
+        """
+        Parse metadata field to ensure it's an object.
+
+        If metadata is a string:
+        1. Try to parse as JSON object/dict
+        2. If that fails, wrap in a dict as {"value": <string>}
+
+        Args:
+            metadata_value: The metadata value to parse
+
+        Returns:
+            Parsed metadata value (preferably a dict)
+        """
+        if isinstance(metadata_value, str):
+            # Try to parse as JSON first
+            try:
+                parsed_metadata = json.loads(metadata_value)
+                logger.debug(f"Metadata parsed as JSON {type(parsed_metadata).__name__}")
+                return parsed_metadata
+            except (json.JSONDecodeError, TypeError):
+                # JSON parsing failed, wrap string in dict
+                logger.debug("Metadata is non-JSON string, wrapping in dict")
+                return {"value": metadata_value}
+        elif isinstance(metadata_value, dict):
+            # Already a dict, return as-is
+            logger.debug("Metadata is already a dict")
+            return metadata_value
+        else:
+            # Other types, return as-is (could be None, list, etc.)
+            logger.debug(f"Metadata is {type(metadata_value).__name__}, returning as-is")
+            return metadata_value
 
     def _normalize_context_field(self, context_value: Any) -> Any:
         """
