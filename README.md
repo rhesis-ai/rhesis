@@ -1,4 +1,4 @@
-# Rhesis: Open-Source Gen AI Testing ![Rhesis AI_Logo_RGB_Favicon](https://github.com/user-attachments/assets/ff43ca6a-ffde-4aff-9ff9-eec3897d0d02)
+# Rhesis: Open-Source LLM & Agentic Testing ![Rhesis AI_Logo_RGB_Favicon](https://github.com/user-attachments/assets/ff43ca6a-ffde-4aff-9ff9-eec3897d0d02)
 
 <p align="center">
   <a href="https://github.com/rhesis-ai/rhesis/blob/main/LICENSE">
@@ -27,7 +27,7 @@
   </a>
 </p>
 
-**Rhesis generates test inputs for LLM and agentic applications using AI, then evaluates the outputs to catch issues before production.**
+**Rhesis generates test inputs for LLM & agentic applications using AI, then evaluates the outputs to catch issues before production.**
 
 Instead of manually writing test cases for every edge case your chatbot, RAG system, or agentic application might encounter, describe what your app should and shouldn't do in plain language. Rhesis generates hundreds of test scenarios based on your requirements, runs them against your application, and shows you where it breaks.
 
