@@ -368,12 +368,15 @@ into one of four categories.
                 return intent_result.model_dump()
             elif isinstance(intent_result, dict):
                 return intent_result
+            elif isinstance(intent_result, str):
+                # If it's a string, try to parse as JSON
+                return self._parse_intent_fallback(intent_result)
             else:
                 # Fallback parsing if structured output not supported
                 return self._parse_intent_fallback(str(intent_result))
 
         except Exception as e:
-            logger.error(f"Error in recognize_intent: {str(e)}")
+            logger.error(f"Error in recognize_intent: {str(e)}", exc_info=True)
             # Return default intent on error
             return {"intent": "informational", "confidence": "low"}
 

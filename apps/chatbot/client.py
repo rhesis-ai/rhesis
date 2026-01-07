@@ -339,7 +339,8 @@ class ChatResponse(BaseModel):
     },
     response_mapping={
         "output": "{{ message }}",
-        "metadata": "{{ {'session_id': session_id, 'use_case': use_case, 'intent': intent, 'context': context} | tojson }}",
+        "context": "{{ context | tojson }}",
+        "metadata": "{{ {'session_id': session_id, 'use_case': use_case, 'intent': intent} | tojson }}",
     },
 )
 def chat(
