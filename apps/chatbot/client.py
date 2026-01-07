@@ -325,11 +325,23 @@ class ChatResponse(BaseModel):
     session_id: str
     context: List[str]
     use_case: str
+    intent: Optional[dict] = None
 
 
 @endpoint(
     name="chat",
     description="Chat with the insurance assistant",
+    request_mapping={
+        "message": "{{ input }}",
+        "session_id": "{{ session_id }}",
+        "use_case": "{{ use_case | default('insurance') }}",
+        "conversation_history": "{{ conversation_history | default([]) }}",
+    },
+    response_mapping={
+        "output": "{{ message }}",
+        "context": "{{ context | tojson }}",
+        "metadata": "{{ {'session_id': session_id, 'use_case': use_case, 'intent': intent} | tojson }}",
+    },
 )
 def chat(
     message: str,
@@ -347,7 +359,7 @@ def chat(
         conversation_history: Previous conversation messages
 
     Returns:
-        ChatResponse with message, session_id, context, use_case
+        ChatResponse with message, session_id, context, use_case, intent
     """
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
@@ -355,6 +367,9 @@ def chat(
 
     # Generate context using the instance
     context_fragments = response_generator.generate_context(message)
+
+    # Recognize intent from the current message
+    intent_result = response_generator.recognize_intent(message)
 
     # Get assistant response using the same instance
     response_text = "".join(
@@ -369,6 +384,7 @@ def chat(
         session_id=session_id or str(uuid.uuid4()),
         context=context_fragments,
         use_case=use_case,
+        intent=intent_result,
     )
 
 

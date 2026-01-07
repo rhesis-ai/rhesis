@@ -35,6 +35,7 @@ show_help() {
     echo -e "  ${GREEN}./rh backend start${NC}   - Start the backend server (local)"
     echo -e "  ${GREEN}./rh frontend start${NC}  - Start the frontend server (local)"
     echo -e "  ${GREEN}./rh frontend test${NC}   - Run frontend tests"
+    echo -e "  ${GREEN}./rh chatbot start${NC}   - Start the chatbot server (local)"
     echo -e "  ${GREEN}./rh docs start${NC}      - Start the documentation server (local)"
     echo -e "  ${GREEN}./rh worker start${NC}    - Start the Celery worker (local)"
     echo -e "  ${GREEN}./rh polyphemus start${NC} - Start the Polyphemus service (local)"
@@ -48,6 +49,7 @@ show_help() {
     echo -e "  ${BLUE}./rh backend start${NC}       # Start backend locally (without Docker)"
     echo -e "  ${BLUE}./rh frontend start${NC}      # Start frontend locally (without Docker)"
     echo -e "  ${BLUE}./rh frontend test${NC}       # Run frontend tests"
+    echo -e "  ${BLUE}./rh chatbot start${NC}       # Start chatbot locally (without Docker)"
     echo -e "  ${BLUE}./rh polyphemus start${NC}    # Start Polyphemus locally (without Docker)"
     echo ""
 }
@@ -290,6 +292,24 @@ start_frontend() {
     fi
 }
 
+# Function to start chatbot
+start_chatbot() {
+    echo -e "${GREEN}🤖 Starting Rhesis Chatbot...${NC}"
+    cd "$SCRIPT_DIR/apps/chatbot" || {
+        echo -e "${RED}❌ Error: Chatbot directory not found${NC}"
+        exit 1
+    }
+
+    echo -e "${GREEN}🚀 Starting Chatbot service...${NC}"
+    echo -e "${BLUE}🌐 Service will be available at: http://localhost:8000${NC}"
+    echo -e "${BLUE}📚 API docs will be available at: http://localhost:8000/docs${NC}"
+    echo -e "${YELLOW}💡 Press Ctrl+C to stop the service${NC}"
+    echo ""
+
+    # Run uvicorn with reload for development
+    exec uv run uvicorn client:app --host 0.0.0.0 --port 8000 --reload
+}
+
 # Function to start docs
 start_docs() {
     echo -e "${GREEN}📚 Starting Rhesis Documentation...${NC}"
@@ -497,6 +517,18 @@ case "$1" in
             *)
                 echo -e "${RED}❌ Unknown frontend command: $2${NC}"
                 echo -e "${YELLOW}Use: ./rh frontend start or ./rh frontend test${NC}"
+                exit 1
+                ;;
+        esac
+        ;;
+    "chatbot")
+        case "$2" in
+            "start")
+                start_chatbot
+                ;;
+            *)
+                echo -e "${RED}❌ Unknown chatbot command: $2${NC}"
+                echo -e "${YELLOW}Use: ./rh chatbot start${NC}"
                 exit 1
                 ;;
         esac

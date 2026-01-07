@@ -214,3 +214,63 @@ def test_categorical_judge_multiple_passing_categories():
     )
     assert config.passing_categories == ["Excellent", "Good"]
     assert len(config.passing_categories) == 2
+
+
+def test_categorical_judge_with_metric_scope():
+    """Test that CategoricalJudge accepts and stores metric_scope parameter"""
+    from rhesis.sdk.metrics.base import MetricScope
+
+    metric = CategoricalJudge(
+        name="Test Metric",
+        evaluation_prompt="Test prompt",
+        categories=["Pass", "Fail"],
+        passing_categories=["Pass"],
+        metric_scope=[MetricScope.SINGLE_TURN],
+    )
+    assert metric.metric_scope == [MetricScope.SINGLE_TURN]
+
+
+def test_categorical_judge_with_metric_scope_strings():
+    """Test that CategoricalJudge accepts metric_scope as strings"""
+    metric = CategoricalJudge(
+        name="Test Metric",
+        evaluation_prompt="Test prompt",
+        categories=["Pass", "Fail"],
+        passing_categories=["Pass"],
+        metric_scope=["Single-Turn", "Multi-Turn"],
+    )
+    # Strings should be converted to MetricScope enums in the config
+    from rhesis.sdk.metrics.base import MetricScope
+
+    assert len(metric.metric_scope) == 2
+    assert metric.metric_scope[0] == MetricScope.SINGLE_TURN
+    assert metric.metric_scope[1] == MetricScope.MULTI_TURN
+
+
+def test_categorical_judge_to_config_includes_metric_scope():
+    """Test that to_config() preserves metric_scope"""
+    from rhesis.sdk.metrics.base import MetricScope
+
+    metric = CategoricalJudge(
+        name="Test Metric",
+        evaluation_prompt="Test prompt",
+        categories=["Excellent", "Good", "Poor"],
+        passing_categories=["Excellent"],
+        metric_scope=[MetricScope.SINGLE_TURN],
+    )
+    config = metric.to_config()
+    assert config.metric_scope == [MetricScope.SINGLE_TURN]
+
+
+def test_categorical_judge_default_metric_scope():
+    """Test that CategoricalJudge defaults to both Single-Turn and Multi-Turn"""
+    from rhesis.sdk.metrics.base import MetricScope
+
+    metric = CategoricalJudge(
+        name="Test Metric",
+        evaluation_prompt="Test prompt",
+        categories=["Pass", "Fail"],
+        passing_categories=["Pass"],
+        # metric_scope not specified - should default to both
+    )
+    assert metric.metric_scope == [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN]
