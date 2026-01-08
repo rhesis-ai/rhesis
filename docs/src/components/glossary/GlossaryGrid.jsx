@@ -52,7 +52,7 @@ export const GlossaryGrid = ({
     marginRight: '0.5rem',
   }
 
-  const categoryChipStyles = (isSelected) => ({
+  const categoryChipStyles = isSelected => ({
     padding: '0.5rem 1rem',
     fontSize: '0.875rem',
     fontWeight: '500',
@@ -101,9 +101,7 @@ export const GlossaryGrid = ({
       <div style={emptyStateStyles}>
         <InfoIcon style={emptyStateIconStyles} />
         <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>No terms found</p>
-        <p style={{ fontSize: '0.875rem' }}>
-          Try adjusting your search or filter criteria
-        </p>
+        <p style={{ fontSize: '0.875rem' }}>Try adjusting your search or filter criteria</p>
       </div>
     )
   }
@@ -166,4 +164,3 @@ export const GlossaryGrid = ({
 }
 
 export default GlossaryGrid
-

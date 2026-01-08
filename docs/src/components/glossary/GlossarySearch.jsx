@@ -118,4 +118,3 @@ export const GlossarySearch = ({ searchTerm, onSearchChange }) => {
 }
 
 export default GlossarySearch
-

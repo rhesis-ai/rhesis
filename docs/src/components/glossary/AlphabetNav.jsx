@@ -72,7 +72,7 @@ export const AlphabetNav = ({ availableLetters = [], activeLetter, onLetterClick
   const handleLetterClick = letter => {
     if (availableLetters.includes(letter)) {
       onLetterClick(letter)
-      
+
       // Smooth scroll to the letter section
       const element = document.getElementById(`letter-${letter}`)
       if (element) {
@@ -113,4 +113,3 @@ export const AlphabetNav = ({ availableLetters = [], activeLetter, onLetterClick
 }
 
 export default AlphabetNav
-

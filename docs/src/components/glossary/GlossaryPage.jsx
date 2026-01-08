@@ -80,8 +80,8 @@ export const GlossaryPage = () => {
   return (
     <div className="glossary-page" style={{ marginTop: '1.5rem' }}>
       <p>
-        A comprehensive reference of terms and concepts used throughout the Rhesis platform.
-        Use the search bar or alphabet navigation to find specific terms.
+        A comprehensive reference of terms and concepts used throughout the Rhesis platform. Use the
+        search bar or alphabet navigation to find specific terms.
       </p>
 
       <div style={statsStyles}>
@@ -110,4 +110,3 @@ export const GlossaryPage = () => {
 }
 
 export default GlossaryPage
-

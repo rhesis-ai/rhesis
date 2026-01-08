@@ -100,10 +100,8 @@ export const GlossaryCard = ({ term, onTermClick }) => {
   return (
     <div style={cardStyles} id={term.id}>
       <div>
-        <h3 style={termTitleStyles}>
-          {term.term}
-        </h3>
-        
+        <h3 style={termTitleStyles}>{term.term}</h3>
+
         <div style={categoryBadgeStyles}>
           <LabelIcon style={{ fontSize: '14px' }} />
           {term.category}
@@ -112,7 +110,13 @@ export const GlossaryCard = ({ term, onTermClick }) => {
         <p style={definitionStyles}>{term.definition}</p>
 
         {term.aliases && term.aliases.length > 0 && (
-          <div style={{ fontSize: '0.85rem', color: 'var(--nextra-content-secondary)', marginBottom: '0.75rem' }}>
+          <div
+            style={{
+              fontSize: '0.85rem',
+              color: 'var(--nextra-content-secondary)',
+              marginBottom: '0.75rem',
+            }}
+          >
             <em>Also known as: {term.aliases.join(', ')}</em>
           </div>
         )}
@@ -137,9 +141,7 @@ export const GlossaryCard = ({ term, onTermClick }) => {
 
         {term.relatedTerms && term.relatedTerms.length > 0 && (
           <div>
-            <div style={sectionTitleStyles}>
-              Related Terms
-            </div>
+            <div style={sectionTitleStyles}>Related Terms</div>
             <div style={linkListStyles}>
               {term.relatedTerms.map(relatedId => (
                 <button
@@ -156,7 +158,10 @@ export const GlossaryCard = ({ term, onTermClick }) => {
                     e.currentTarget.style.backgroundColor = 'transparent'
                   }}
                 >
-                  {relatedId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                  {relatedId
+                    .split('-')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ')}
                 </button>
               ))}
             </div>
@@ -168,4 +173,3 @@ export const GlossaryCard = ({ term, onTermClick }) => {
 }
 
 export default GlossaryCard
-
