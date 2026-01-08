@@ -56,7 +56,7 @@ export default {
   "penelope": {
     display: "hidden",
   },
-  "judge-as-model": {
+  "llm-as-a-judge": {
     display: "hidden",
   },
   "evaluation-prompt": {
