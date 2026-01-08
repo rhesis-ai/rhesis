@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import LinkIcon from '@mui/icons-material/Link'
 import LabelIcon from '@mui/icons-material/Label'
+import glossaryData from '../../../content/glossary/glossary-terms.json'
 
 /**
  * GlossaryCard Component
@@ -16,6 +17,11 @@ import LabelIcon from '@mui/icons-material/Label'
  * @param {Function} props.onTermClick - Callback when a related term is clicked
  */
 export const GlossaryCard = ({ term, onTermClick }) => {
+  // Helper function to get the actual term name from the glossary data
+  const getTermNameById = id => {
+    const foundTerm = glossaryData.terms.find(t => t.id === id)
+    return foundTerm ? foundTerm.term : id.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+  }
   const cardStyles = {
     padding: '1.25rem',
     border: '1px solid var(--nextra-border)',
@@ -158,10 +164,7 @@ export const GlossaryCard = ({ term, onTermClick }) => {
                     e.currentTarget.style.backgroundColor = 'transparent'
                   }}
                 >
-                  {relatedId
-                    .split('-')
-                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                    .join(' ')}
+                  {getTermNameById(relatedId)}
                 </button>
               ))}
             </div>
