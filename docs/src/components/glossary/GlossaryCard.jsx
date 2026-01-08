@@ -51,13 +51,16 @@ export const GlossaryCard = ({ term }) => {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '0.25rem',
-    padding: '0.25rem 0.75rem',
+    padding: '0.375rem 0.875rem',
     fontSize: '0.75rem',
     fontWeight: '500',
     borderRadius: '12px',
-    backgroundColor: 'var(--nextra-primary-hue)',
-    color: 'white',
+    backgroundColor: 'transparent',
+    color: '#0ea5e9',
+    border: '1.5px solid #0ea5e9',
     marginBottom: '0.75rem',
+    textDecoration: 'none',
+    transition: 'all 0.2s',
   }
 
   const definitionStyles = {
@@ -123,10 +126,21 @@ export const GlossaryCard = ({ term }) => {
           </Link>
         </h3>
 
-        <div style={categoryBadgeStyles}>
+        <Link 
+          href={`/glossary?category=${encodeURIComponent(term.category)}`}
+          style={categoryBadgeStyles}
+          onMouseEnter={e => {
+            e.currentTarget.style.backgroundColor = '#0ea5e9'
+            e.currentTarget.style.color = '#ffffff'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.backgroundColor = 'transparent'
+            e.currentTarget.style.color = '#0ea5e9'
+          }}
+        >
           <LabelIcon style={{ fontSize: '14px' }} />
           {term.category}
-        </div>
+        </Link>
 
         <p style={definitionStyles}>{term.definition}</p>
 
