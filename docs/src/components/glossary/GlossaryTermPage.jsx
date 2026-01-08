@@ -43,7 +43,7 @@ export const GlossaryTermPage = ({ termId }) => {
   }
 
   const backLinkStyles = {
-    display: 'inline-flex',
+    display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
     color: '#0ea5e9',
@@ -51,10 +51,11 @@ export const GlossaryTermPage = ({ termId }) => {
     fontSize: '0.875rem',
     marginBottom: '1.5rem',
     transition: 'opacity 0.2s',
+    width: 'fit-content',
   }
 
   const categoryBadgeStyles = {
-    display: 'inline-flex',
+    display: 'flex',
     alignItems: 'center',
     gap: '0.25rem',
     padding: '0.375rem 0.875rem',
@@ -65,6 +66,9 @@ export const GlossaryTermPage = ({ termId }) => {
     color: '#0ea5e9',
     border: '1.5px solid #0ea5e9',
     marginBottom: '1.5rem',
+    width: 'fit-content',
+    textDecoration: 'none',
+    transition: 'all 0.2s',
   }
 
   const definitionStyles = {
@@ -138,10 +142,21 @@ export const GlossaryTermPage = ({ termId }) => {
         Back to Glossary
       </Link>
 
-      <div style={categoryBadgeStyles}>
+      <Link 
+        href={`/glossary?category=${encodeURIComponent(term.category)}`}
+        style={categoryBadgeStyles}
+        onMouseEnter={e => {
+          e.currentTarget.style.backgroundColor = '#0ea5e9'
+          e.currentTarget.style.color = '#ffffff'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.backgroundColor = 'transparent'
+          e.currentTarget.style.color = '#0ea5e9'
+        }}
+      >
         <LabelIcon style={{ fontSize: '14px' }} />
         {term.category}
-      </div>
+      </Link>
 
       <p style={definitionStyles}>{term.definition}</p>
 

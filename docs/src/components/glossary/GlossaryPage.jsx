@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import GlossarySearch from './GlossarySearch'
 import AlphabetNav from './AlphabetNav'
@@ -16,11 +17,20 @@ import glossaryData from '../../../content/glossary/glossary-terms.json'
  * @param {Object} props - Component props
  */
 export const GlossaryPage = () => {
+  const searchParams = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [activeLetter, setActiveLetter] = useState(null)
 
   const terms = glossaryData.terms || []
+
+  // Read category from URL parameters on mount
+  useEffect(() => {
+    const categoryParam = searchParams.get('category')
+    if (categoryParam) {
+      setSelectedCategory(categoryParam)
+    }
+  }, [searchParams])
 
   // Get unique categories
   const categories = useMemo(() => {
