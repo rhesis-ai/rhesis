@@ -10,6 +10,19 @@ import { InteractiveLink } from './InteractiveLink'
 import glossaryData from '../../../content/glossary/glossary-terms.json'
 
 /**
+ * Simple hash function to generate stable keys from content
+ */
+function simpleHash(str) {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = (hash << 5) - hash + char
+    hash = hash & hash // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36)
+}
+
+/**
  * Process markdown content to extract code blocks and render them with CodeBlock
  */
 async function renderMarkdownWithCodeBlocks(markdown) {
@@ -22,9 +35,11 @@ async function renderMarkdownWithCodeBlocks(markdown) {
   while ((match = codeBlockRegex.exec(markdown)) !== null) {
     // Add markdown before code block
     if (match.index > lastIndex) {
+      const content = markdown.slice(lastIndex, match.index)
       parts.push({
         type: 'markdown',
-        content: markdown.slice(lastIndex, match.index),
+        content,
+        key: `md-${simpleHash(content)}`,
       })
     }
 
@@ -35,6 +50,7 @@ async function renderMarkdownWithCodeBlocks(markdown) {
       type: 'code',
       language,
       code,
+      key: `code-${language}-${simpleHash(code)}`,
     })
 
     lastIndex = match.index + match[0].length
@@ -42,9 +58,11 @@ async function renderMarkdownWithCodeBlocks(markdown) {
 
   // Add remaining markdown
   if (lastIndex < markdown.length) {
+    const content = markdown.slice(lastIndex)
     parts.push({
       type: 'markdown',
-      content: markdown.slice(lastIndex),
+      content,
+      key: `md-${simpleHash(content)}`,
     })
   }
 
@@ -225,17 +243,17 @@ export const GlossaryTermPage = async ({ termId }) => {
         <div style={extendedContentStyles}>
           {await (async () => {
             const parts = await renderMarkdownWithCodeBlocks(term.extendedContent)
-            return parts.map((part, index) => {
+            return parts.map(part => {
               if (part.type === 'code') {
                 return (
-                  <CodeBlock key={index} language={part.language} filename={part.language}>
+                  <CodeBlock key={part.key} language={part.language} filename={part.language}>
                     {part.code}
                   </CodeBlock>
                 )
               }
               return (
                 <ReactMarkdown
-                  key={index}
+                  key={part.key}
                   remarkPlugins={[remarkGfm]}
                   components={{
                     h2: ({ node, ...props }) => (
