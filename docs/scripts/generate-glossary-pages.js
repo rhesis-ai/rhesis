@@ -71,8 +71,6 @@ export const metadata = {
   // Write the MDX file
   const mdxPath = path.join(termDir, 'index.mdx')
   fs.writeFileSync(mdxPath, mdxContent, 'utf8')
-  
-  console.log(`✓ Created ${term.id}/index.mdx`)
 })
 
 console.log(`\n✅ Successfully generated ${glossaryData.terms.length} glossary term pages!`)
