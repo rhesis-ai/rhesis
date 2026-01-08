@@ -202,3 +202,26 @@ export function generateDocumentationSchema(title, description, url, config = si
     inLanguage: config.language,
   }
 }
+
+/**
+ * Generates JSON-LD structured data for a glossary term
+ * @param {string} term - Term name
+ * @param {string} definition - Term definition
+ * @param {string} url - Term URL
+ * @param {object} config - Site configuration
+ * @returns {object} - JSON-LD structured data
+ */
+export function generateGlossaryTermSchema(term, definition, url, config = siteConfig) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'DefinedTerm',
+    name: term,
+    description: definition,
+    url: url,
+    inDefinedTermSet: {
+      '@type': 'DefinedTermSet',
+      name: 'Rhesis Platform Glossary',
+      url: `${config.siteUrl}/glossary`,
+    },
+  }
+}

@@ -1,0 +1,113 @@
+'use client'
+
+import React, { useState, useMemo } from 'react'
+import MenuBookIcon from '@mui/icons-material/MenuBook'
+import GlossarySearch from './GlossarySearch'
+import AlphabetNav from './AlphabetNav'
+import GlossaryGrid from './GlossaryGrid'
+import glossaryData from '../../../content/glossary/glossary-terms.json'
+
+/**
+ * GlossaryPage Component
+ *
+ * Main container component for the glossary feature.
+ * Manages search, filter state, and integrates all glossary sub-components.
+ *
+ * @param {Object} props - Component props
+ */
+export const GlossaryPage = () => {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [activeLetter, setActiveLetter] = useState(null)
+
+  const terms = glossaryData.terms || []
+
+  // Get unique categories
+  const categories = useMemo(() => {
+    const uniqueCategories = [...new Set(terms.map(term => term.category))]
+    return uniqueCategories.sort()
+  }, [terms])
+
+  // Filter terms based on search and category
+  const filteredTerms = useMemo(() => {
+    let filtered = terms
+
+    // Apply search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase()
+      filtered = filtered.filter(
+        term =>
+          term.term.toLowerCase().includes(searchLower) ||
+          term.definition.toLowerCase().includes(searchLower) ||
+          (term.aliases && term.aliases.some(alias => alias.toLowerCase().includes(searchLower)))
+      )
+    }
+
+    // Apply category filter
+    if (selectedCategory) {
+      filtered = filtered.filter(term => term.category === selectedCategory)
+    }
+
+    // Sort alphabetically
+    return filtered.sort((a, b) => a.term.localeCompare(b.term))
+  }, [terms, searchTerm, selectedCategory])
+
+  // Get available letters (letters that have terms)
+  const availableLetters = useMemo(() => {
+    const letters = new Set(filteredTerms.map(term => term.term.charAt(0).toUpperCase()))
+    return Array.from(letters).sort()
+  }, [filteredTerms])
+
+  // Handle related term click - scroll to term
+  const handleTermClick = termId => {
+    const element = document.getElementById(termId)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Briefly highlight the term
+      element.style.boxShadow = '0 0 0 3px var(--nextra-primary-hue)'
+      setTimeout(() => {
+        element.style.boxShadow = 'none'
+      }, 2000)
+    }
+  }
+
+  const statsStyles = {
+    fontSize: '0.875rem',
+    color: 'var(--nextra-content-secondary)',
+    marginBottom: '2rem',
+  }
+
+  return (
+    <div className="glossary-page" style={{ marginTop: '1.5rem' }}>
+      <p>
+        A comprehensive reference of terms and concepts used throughout the Rhesis platform.
+        Use the search bar or alphabet navigation to find specific terms.
+      </p>
+
+      <div style={statsStyles}>
+        Showing {filteredTerms.length} of {terms.length} terms
+        {selectedCategory && ` in ${selectedCategory}`}
+        {searchTerm && ` matching "${searchTerm}"`}
+      </div>
+
+      <GlossarySearch searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+
+      <AlphabetNav
+        availableLetters={availableLetters}
+        activeLetter={activeLetter}
+        onLetterClick={setActiveLetter}
+      />
+
+      <GlossaryGrid
+        terms={filteredTerms}
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        onTermClick={handleTermClick}
+      />
+    </div>
+  )
+}
+
+export default GlossaryPage
+

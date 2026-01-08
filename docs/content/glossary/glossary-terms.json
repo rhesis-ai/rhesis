@@ -1,0 +1,275 @@
+{
+  "terms": [
+    {
+      "id": "organization",
+      "term": "Organization",
+      "definition": "The top-level container that provides data isolation, manages team access through invitations, and ensures all members can access shared resources.",
+      "category": "Configuration",
+      "relatedTerms": ["project", "team"],
+      "docLinks": ["/platform/organizations"],
+      "aliases": ["org"]
+    },
+    {
+      "id": "project",
+      "term": "Project",
+      "definition": "A container that organizes testing work for different AI applications, with its own endpoints, tests, and results.",
+      "category": "Configuration",
+      "relatedTerms": ["organization", "endpoint", "test"],
+      "docLinks": ["/platform/projects"],
+      "aliases": []
+    },
+    {
+      "id": "endpoint",
+      "term": "Endpoint",
+      "definition": "A configuration that bridges Rhesis to your AI application's API, defining how to connect and communicate with your system.",
+      "category": "Configuration",
+      "relatedTerms": ["project", "test-set"],
+      "docLinks": ["/platform/endpoints"],
+      "aliases": ["API endpoint"]
+    },
+    {
+      "id": "test",
+      "term": "Test",
+      "definition": "An individual test case that represents a prompt or input sent to your AI application, including metadata about behavior and expected results.",
+      "category": "Testing",
+      "relatedTerms": ["test-set", "single-turn-test", "multi-turn-test"],
+      "docLinks": ["/platform/tests"],
+      "aliases": ["test case"]
+    },
+    {
+      "id": "single-turn-test",
+      "term": "Single-Turn Test",
+      "definition": "A test type that checks how the AI responds to a single prompt with no follow-up conversation.",
+      "category": "Testing",
+      "relatedTerms": ["test", "multi-turn-test"],
+      "docLinks": ["/platform/tests"],
+      "aliases": ["single turn"]
+    },
+    {
+      "id": "multi-turn-test",
+      "term": "Multi-Turn Test",
+      "definition": "Goal-based conversation tests that evaluate your AI system across multiple turns, powered by Penelope.",
+      "category": "Testing",
+      "relatedTerms": ["test", "single-turn-test", "penelope"],
+      "docLinks": ["/platform/tests"],
+      "aliases": ["multi turn", "conversational test"]
+    },
+    {
+      "id": "metric",
+      "term": "Metric",
+      "definition": "A quantifiable measurement that evaluates AI behavior using an LLM as a judge, returning pass/fail results with optional numeric scoring.",
+      "category": "Testing",
+      "relatedTerms": ["behavior", "evaluation-prompt"],
+      "docLinks": ["/platform/metrics"],
+      "aliases": ["evaluation metric"]
+    },
+    {
+      "id": "behavior",
+      "term": "Behavior",
+      "definition": "A formalized expectation that describes how your AI system should perform, such as response quality, safety, or accuracy.",
+      "category": "Testing",
+      "relatedTerms": ["metric", "test"],
+      "docLinks": ["/platform/behaviors"],
+      "aliases": []
+    },
+    {
+      "id": "test-set",
+      "term": "Test Set",
+      "definition": "A collection of tests that can be executed together against an endpoint, similar to test suites in traditional software development.",
+      "category": "Testing",
+      "relatedTerms": ["test", "test-run", "endpoint"],
+      "docLinks": ["/platform/test-sets"],
+      "aliases": ["test suite"]
+    },
+    {
+      "id": "test-run",
+      "term": "Test Run",
+      "definition": "A snapshot capturing the complete result of executing a test set against an endpoint, including individual test results, execution metadata, and pass/fail status.",
+      "category": "Results",
+      "relatedTerms": ["test-set", "endpoint", "test-result"],
+      "docLinks": ["/platform/test-runs"],
+      "aliases": ["test execution", "run"]
+    },
+    {
+      "id": "test-result",
+      "term": "Test Result",
+      "definition": "Aggregate analytics from multiple test runs that reveal trends and patterns in AI system quality over time.",
+      "category": "Results",
+      "relatedTerms": ["test-run", "metric"],
+      "docLinks": ["/platform/test-results"],
+      "aliases": ["results"]
+    },
+    {
+      "id": "knowledge",
+      "term": "Knowledge",
+      "definition": "Domain context and source materials used to generate context-aware test scenarios for your AI application.",
+      "category": "Configuration",
+      "relatedTerms": ["test", "mcp"],
+      "docLinks": ["/platform/knowledge"],
+      "aliases": ["knowledge base", "context"]
+    },
+    {
+      "id": "api-token",
+      "term": "API Token",
+      "definition": "Authentication credentials used to integrate Rhesis with your systems programmatically via the SDK or API.",
+      "category": "Development",
+      "relatedTerms": ["sdk"],
+      "docLinks": ["/platform/api-tokens"],
+      "aliases": ["token", "API key"]
+    },
+    {
+      "id": "model",
+      "term": "Model",
+      "definition": "An AI model configuration used for test generation, evaluation, or as a judge in metric assessments.",
+      "category": "Configuration",
+      "relatedTerms": ["metric", "endpoint"],
+      "docLinks": ["/platform/models"],
+      "aliases": ["AI model", "LLM"]
+    },
+    {
+      "id": "mcp",
+      "term": "MCP",
+      "definition": "Model Context Protocol - a standard for connecting to external knowledge sources and importing domain context.",
+      "category": "Development",
+      "relatedTerms": ["knowledge"],
+      "docLinks": ["/platform/mcp"],
+      "aliases": ["Model Context Protocol"]
+    },
+    {
+      "id": "task",
+      "term": "Task",
+      "definition": "A work item used to track testing activities, issues, or improvements within the platform.",
+      "category": "Results",
+      "relatedTerms": [],
+      "docLinks": ["/platform/tasks"],
+      "aliases": ["work item"]
+    },
+    {
+      "id": "category",
+      "term": "Category",
+      "definition": "A high-level classification for tests, such as Harmful or Harmless, used to organize and filter test cases.",
+      "category": "Testing",
+      "relatedTerms": ["test", "topic"],
+      "docLinks": ["/platform/tests"],
+      "aliases": []
+    },
+    {
+      "id": "topic",
+      "term": "Topic",
+      "definition": "A specific subject matter classification for tests, such as healthcare or financial advice, used for organization and analysis.",
+      "category": "Testing",
+      "relatedTerms": ["test", "category"],
+      "docLinks": ["/platform/tests"],
+      "aliases": []
+    },
+    {
+      "id": "penelope",
+      "term": "Penelope",
+      "definition": "An autonomous testing agent that powers multi-turn tests, adapting its strategy based on AI responses to evaluate conversational workflows.",
+      "category": "Testing",
+      "relatedTerms": ["multi-turn-test"],
+      "docLinks": ["/penelope"],
+      "aliases": []
+    },
+    {
+      "id": "judge-as-model",
+      "term": "Judge-as-Model",
+      "definition": "An approach where an LLM evaluates AI responses against defined criteria, providing automated quality assessment.",
+      "category": "Testing",
+      "relatedTerms": ["metric", "evaluation-prompt"],
+      "docLinks": ["/platform/metrics"],
+      "aliases": ["LLM judge", "AI judge"]
+    },
+    {
+      "id": "evaluation-prompt",
+      "term": "Evaluation Prompt",
+      "definition": "Instructions provided to the judge model specifying what to evaluate and the criteria to use when assessing AI responses.",
+      "category": "Testing",
+      "relatedTerms": ["metric", "judge-as-model"],
+      "docLinks": ["/platform/metrics"],
+      "aliases": []
+    },
+    {
+      "id": "score-configuration",
+      "term": "Score Configuration",
+      "definition": "Settings that define how metrics score responses, including numeric scales or categorical classifications.",
+      "category": "Testing",
+      "relatedTerms": ["metric", "numeric-scoring", "categorical-scoring"],
+      "docLinks": ["/platform/metrics"],
+      "aliases": ["scoring config"]
+    },
+    {
+      "id": "numeric-scoring",
+      "term": "Numeric Scoring",
+      "definition": "A metric scoring type that uses a numeric scale (e.g., 0-10) with a defined pass/fail threshold.",
+      "category": "Testing",
+      "relatedTerms": ["metric", "score-configuration"],
+      "docLinks": ["/platform/metrics"],
+      "aliases": ["numeric score"]
+    },
+    {
+      "id": "categorical-scoring",
+      "term": "Categorical Scoring",
+      "definition": "A metric scoring type that classifies responses into predefined categories such as Excellent, Good, Fair, or Poor.",
+      "category": "Testing",
+      "relatedTerms": ["metric", "score-configuration"],
+      "docLinks": ["/platform/metrics"],
+      "aliases": ["categorical score"]
+    },
+    {
+      "id": "pass-fail-threshold",
+      "term": "Pass/Fail Threshold",
+      "definition": "The minimum score required for a test to be considered passing, defined in the metric configuration.",
+      "category": "Testing",
+      "relatedTerms": ["metric", "numeric-scoring"],
+      "docLinks": ["/platform/metrics"],
+      "aliases": ["threshold", "passing score"]
+    },
+    {
+      "id": "test-generation",
+      "term": "Test Generation",
+      "definition": "The process of automatically creating test cases using AI, based on behaviors, knowledge, and requirements.",
+      "category": "Testing",
+      "relatedTerms": ["test", "knowledge", "behavior"],
+      "docLinks": ["/platform/tests-generation"],
+      "aliases": ["automated test generation"]
+    },
+    {
+      "id": "sdk",
+      "term": "SDK",
+      "definition": "Software Development Kit - A Python library that provides programmatic access to Rhesis platform features for integration into your workflows.",
+      "category": "Development",
+      "relatedTerms": ["api-token"],
+      "docLinks": ["/sdk"],
+      "aliases": ["Software Development Kit", "Python SDK"]
+    },
+    {
+      "id": "evaluation-steps",
+      "term": "Evaluation Steps",
+      "definition": "A breakdown of the evaluation process into clear steps that guide the LLM judge when producing a score and reasoning.",
+      "category": "Testing",
+      "relatedTerms": ["metric", "evaluation-prompt"],
+      "docLinks": ["/platform/metrics"],
+      "aliases": []
+    },
+    {
+      "id": "reasoning-instructions",
+      "term": "Reasoning Instructions",
+      "definition": "Guidance provided to the judge model explaining how to reason about the evaluation and weight different aspects.",
+      "category": "Testing",
+      "relatedTerms": ["metric", "evaluation-prompt"],
+      "docLinks": ["/platform/metrics"],
+      "aliases": []
+    },
+    {
+      "id": "metric-scope",
+      "term": "Metric Scope",
+      "definition": "The test types (single-turn or multi-turn) that a metric can evaluate, defined during metric configuration.",
+      "category": "Testing",
+      "relatedTerms": ["metric", "single-turn-test", "multi-turn-test"],
+      "docLinks": ["/platform/metrics"],
+      "aliases": ["scope"]
+    }
+  ]
+}
+
