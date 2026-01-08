@@ -22,7 +22,8 @@ export const GlossaryPage = () => {
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [activeLetter, setActiveLetter] = useState(null)
 
-  const terms = glossaryData.terms || []
+  // Memoize terms to prevent unnecessary re-renders
+  const terms = useMemo(() => glossaryData.terms || [], [])
 
   // Read category from URL parameters on mount
   useEffect(() => {
@@ -67,7 +68,6 @@ export const GlossaryPage = () => {
     const letters = new Set(filteredTerms.map(term => term.term.charAt(0).toUpperCase()))
     return Array.from(letters).sort()
   }, [filteredTerms])
-
 
   const statsStyles = {
     fontSize: '0.875rem',

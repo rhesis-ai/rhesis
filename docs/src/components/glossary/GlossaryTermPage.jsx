@@ -34,7 +34,12 @@ export const GlossaryTermPage = ({ termId }) => {
   // Helper to get term name from ID
   const getTermNameById = id => {
     const foundTerm = glossaryData.terms.find(t => t.id === id)
-    return foundTerm ? foundTerm.term : id.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+    return foundTerm
+      ? foundTerm.term
+      : id
+          .split('-')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ')
   }
 
   const containerStyles = {
@@ -132,17 +137,17 @@ export const GlossaryTermPage = ({ termId }) => {
 
   return (
     <div style={containerStyles}>
-      <Link 
-        href="/glossary" 
+      <Link
+        href="/glossary"
         style={backLinkStyles}
-        onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
-        onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+        onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+        onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
       >
         <ArrowBackIcon style={{ fontSize: '18px' }} />
         Back to Glossary
       </Link>
 
-      <Link 
+      <Link
         href={`/glossary?category=${encodeURIComponent(term.category)}`}
         style={categoryBadgeStyles}
         onMouseEnter={e => {
@@ -161,9 +166,7 @@ export const GlossaryTermPage = ({ termId }) => {
       <p style={definitionStyles}>{term.definition}</p>
 
       {term.aliases && term.aliases.length > 0 && (
-        <div style={aliasesStyles}>
-          Also known as: {term.aliases.join(', ')}
-        </div>
+        <div style={aliasesStyles}>Also known as: {term.aliases.join(', ')}</div>
       )}
 
       {term.docLinks && term.docLinks.length > 0 && (
@@ -173,13 +176,13 @@ export const GlossaryTermPage = ({ termId }) => {
             Documentation
           </h2>
           <div style={linkListStyles}>
-            {term.docLinks.map((link, index) => (
-              <Link 
-                key={index} 
-                href={link} 
+            {term.docLinks.map(link => (
+              <Link
+                key={link}
+                href={link}
                 style={docLinkStyles}
-                onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
-                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
               >
                 <LinkIcon style={{ fontSize: '16px' }} />
                 {link}
@@ -191,9 +194,7 @@ export const GlossaryTermPage = ({ termId }) => {
 
       {term.relatedTerms && term.relatedTerms.length > 0 && (
         <div>
-          <h2 style={sectionTitleStyles}>
-            Related Terms
-          </h2>
+          <h2 style={sectionTitleStyles}>Related Terms</h2>
           <div style={relatedTermsGridStyles}>
             {term.relatedTerms.map(relatedId => (
               <Link
@@ -222,4 +223,3 @@ export const GlossaryTermPage = ({ termId }) => {
 }
 
 export default GlossaryTermPage
-

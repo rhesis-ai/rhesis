@@ -19,7 +19,12 @@ export const GlossaryCard = ({ term }) => {
   // Helper function to get the actual term name from the glossary data
   const getTermNameById = id => {
     const foundTerm = glossaryData.terms.find(t => t.id === id)
-    return foundTerm ? foundTerm.term : id.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+    return foundTerm
+      ? foundTerm.term
+      : id
+          .split('-')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ')
   }
   const cardStyles = {
     padding: '1.25rem',
@@ -116,17 +121,17 @@ export const GlossaryCard = ({ term }) => {
     <div style={cardStyles} id={term.id}>
       <div>
         <h3 style={termTitleStyles}>
-          <Link 
-            href={`/glossary/${term.id}`} 
+          <Link
+            href={`/glossary/${term.id}`}
             style={termTitleLinkStyles}
-            onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
-            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
           >
             {term.term}
           </Link>
         </h3>
 
-        <Link 
+        <Link
           href={`/glossary?category=${encodeURIComponent(term.category)}`}
           style={categoryBadgeStyles}
           onMouseEnter={e => {
@@ -165,12 +170,8 @@ export const GlossaryCard = ({ term }) => {
               Documentation
             </div>
             <div style={linkListStyles}>
-              {term.docLinks.map((link, index) => (
-                <Link 
-                  key={index} 
-                  href={link} 
-                  style={linkStyles}
-                >
+              {term.docLinks.map(link => (
+                <Link key={link} href={link} style={linkStyles}>
                   {link}
                 </Link>
               ))}
