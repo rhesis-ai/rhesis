@@ -30,18 +30,21 @@ export const GlossaryCard = ({ term }) => {
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
-    textDecoration: 'none',
-    color: 'inherit',
   }
 
   const termTitleStyles = {
     fontSize: '1.25rem',
     fontWeight: '600',
     marginBottom: '0.5rem',
-    color: 'var(--nextra-primary-hue)',
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
+  }
+
+  const termTitleLinkStyles = {
+    color: 'var(--nextra-primary-hue)',
+    textDecoration: 'none',
+    transition: 'opacity 0.2s',
   }
 
   const categoryBadgeStyles = {
@@ -107,9 +110,18 @@ export const GlossaryCard = ({ term }) => {
   }
 
   return (
-    <Link href={`/glossary/${term.id}`} style={cardStyles} id={term.id}>
+    <div style={cardStyles} id={term.id}>
       <div>
-        <h3 style={termTitleStyles}>{term.term}</h3>
+        <h3 style={termTitleStyles}>
+          <Link 
+            href={`/glossary/${term.id}`} 
+            style={termTitleLinkStyles}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
+            {term.term}
+          </Link>
+        </h3>
 
         <div style={categoryBadgeStyles}>
           <LabelIcon style={{ fontSize: '14px' }} />
@@ -144,7 +156,6 @@ export const GlossaryCard = ({ term }) => {
                   key={index} 
                   href={link} 
                   style={linkStyles}
-                  onClick={e => e.stopPropagation()}
                 >
                   {link}
                 </Link>
@@ -162,7 +173,6 @@ export const GlossaryCard = ({ term }) => {
                   key={relatedId}
                   href={`/glossary/${relatedId}`}
                   style={relatedTermStyles}
-                  onClick={e => e.stopPropagation()}
                   onMouseEnter={e => {
                     e.currentTarget.style.backgroundColor = '#0ea5e9'
                     e.currentTarget.style.color = '#ffffff'
@@ -181,7 +191,7 @@ export const GlossaryCard = ({ term }) => {
           </div>
         )}
       </div>
-    </Link>
+    </div>
   )
 }
 
